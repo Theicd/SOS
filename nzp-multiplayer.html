@@ -22,52 +22,58 @@
       position: relative;
       height: 100%;
       overflow: auto;
-      background: #030a14 url('./icons/nzp-cover.png') center 22% / cover no-repeat;
+      background: #030a14 url('./icons/nzp-cover.png') center 20% / cover no-repeat;
     }
     .hero::before {
       content: '';
       position: absolute;
       inset: 0;
       pointer-events: none;
-      background: linear-gradient(90deg,
-        rgba(3,10,20,.12) 0%,
-        rgba(3,10,20,.38) 42%,
-        rgba(3,10,20,.88) 72%,
+      background: linear-gradient(180deg,
+        rgba(3,10,20,.22) 0%,
+        rgba(3,10,20,.08) 28%,
+        rgba(3,10,20,.55) 58%,
         rgba(3,10,20,.96) 100%);
     }
     .hero__inner {
       position: relative;
       z-index: 1;
       min-height: 100%;
-      width: min(520px, 100%);
-      margin-inline-start: auto;
+      width: min(1100px, calc(100% - 48px));
+      margin: 0 auto;
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      padding: 28px 22px 32px;
+      justify-content: flex-end;
+      padding: 40px 8px 36px;
     }
-    .copy { margin-bottom: 12px; }
+    .copy { margin-bottom: 18px; }
     .kicker {
       color: var(--sos-electric);
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 800;
-      letter-spacing: .14em;
+      letter-spacing: .16em;
       margin-bottom: 10px;
       text-shadow: 0 2px 12px #000;
     }
     h1 {
-      font-size: clamp(2rem, 4.4vw, 2.7rem);
-      line-height: 1.08;
+      font-size: clamp(2.4rem, 4.2vw, 3.5rem);
+      line-height: 1.05;
       margin-bottom: 12px;
       text-shadow: 0 4px 28px #000;
     }
     .plot {
       color: #e8f3fc;
-      font-size: 16px;
+      font-size: 17px;
       line-height: 1.55;
-      margin-bottom: 18px;
-      max-width: 42ch;
+      margin-bottom: 0;
+      max-width: 62ch;
       text-shadow: 0 2px 16px #000;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 18px;
+      align-items: stretch;
     }
     .status {
       color: var(--sos-electric);
@@ -76,15 +82,16 @@
       margin-bottom: 10px;
       min-height: 1.2em;
     }
-    .dock {
-      background: rgba(3, 10, 20, .72);
+    .dock,
+    .rooms-wrap {
+      background: rgba(3, 10, 20, .78);
       border: 1px solid var(--sos-border);
       border-radius: 16px;
-      padding: 14px;
+      padding: 18px;
     }
     input {
       width: 100%;
-      padding: 12px 14px;
+      padding: 13px 14px;
       border-radius: 10px;
       border: 1px solid var(--sos-border);
       background: rgba(6, 18, 32, .88);
@@ -92,12 +99,12 @@
       font-size: 1rem;
       margin-bottom: 10px;
     }
-    .row { display: flex; gap: 8px; margin-bottom: 4px; }
+    .row { display: flex; gap: 8px; margin-bottom: 0; }
     .row .btn { flex: 1; }
     .btn {
       border: 0;
       border-radius: 10px;
-      padding: 13px 16px;
+      padding: 14px 16px;
       font-size: 1rem;
       cursor: pointer;
       color: #031018;
@@ -110,12 +117,12 @@
       color: var(--sos-text);
       border: 1px solid var(--sos-border);
     }
-    .rooms-wrap { margin-top: 16px; }
+    .rooms-wrap { margin-top: 0; min-height: 148px; }
     .rooms-title {
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 800;
       color: #cfe8f8;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
     .rooms { display: flex; flex-direction: column; gap: 8px; }
     .rooms-empty {
@@ -174,9 +181,19 @@
         background: rgba(3, 10, 20, .58);
         border-radius: 14px;
         padding: 12px 12px 10px;
+        margin-bottom: 12px;
       }
       h1 { font-size: 1.85rem; }
       .plot { font-size: 15px; max-width: none; }
+      .board {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .dock,
+      .rooms-wrap {
+        padding: 14px;
+      }
     }
   </style>
 </head>
@@ -188,6 +205,7 @@
       <h1>Nazi Zombies: Portable</h1>
       <p class="plot">1945. חיילים נעולים בבונקר נאצי נטוש. המתים קמים, התחמושת אוזלת, ורק מי ששורד ביחד יוצא. עד 4 שחקנים באותה זירה — מחשב ומובייל.</p>
       </div>
+      <div class="board">
       <div class="dock">
         <div class="status" id="lobbyStatus">מתחבר...</div>
         <input id="roomNameInput" maxlength="24" placeholder="שם החדר (רק למארח)">
@@ -199,6 +217,7 @@
       <div class="rooms-wrap">
         <div class="rooms-title">חדרים פתוחים</div>
         <div class="rooms" id="roomsList"></div>
+      </div>
       </div>
       <p class="hint">אם מישהו נכנס ולא נולד במפה: המארח לוחץ ~ ומקליד restart</p>
     </div>
@@ -273,7 +292,7 @@
         Object.keys(params || {}).forEach((key) => {
           if (params[key]) url.searchParams.set(key, params[key]);
         });
-        url.searchParams.set('cb', '20260915nzp6');
+        url.searchParams.set('cb', '20260915nzp7');
         lobbyStage.hidden = true;
         gameStage.hidden = false;
         gameFrame.src = url.toString();

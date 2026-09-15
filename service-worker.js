@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v819'; // NZP freeze feed + leave confirm + slower stick
+  const CACHE_NAME = 'sos-cache-v820'; // NZP desktop lobby uses full width
   const PRECACHE_URLS = [
     './',
     './videos.html',
