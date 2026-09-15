@@ -183,6 +183,7 @@
     .game-frame { width: 100%; height: 100%; border: 0; display: block; }
 
     .hero__gap { display: none; }
+    .billboard { display: none; }
 
     @media (max-width: 768px) {
       .hero__blur {
@@ -211,18 +212,77 @@
       .board { margin-top: 0; gap: 12px; }
       .dock,
       .rooms-wrap { padding: 14px; }
+      .hero__body {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        min-height: 100%;
+      }
     }
 
     @media (min-width: 769px) {
-      .hero { overflow: hidden; }
+      .hero {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .hero__blur,
+      .hero__vignette { display: none; }
+      .billboard {
+        display: block;
+        position: relative;
+        flex: 0 0 34%;
+        min-height: 0;
+        background: #000;
+        overflow: hidden;
+      }
+      .billboard::after {
+        content: '';
+        position: absolute;
+        left: 0; right: 0; bottom: 0;
+        height: 42%;
+        z-index: 3;
+        pointer-events: none;
+        background: linear-gradient(to top, #030a14 0%, rgba(3,10,20,.35) 55%, transparent 100%);
+      }
+      .billboard__poster {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center 30%;
+        z-index: 2;
+        transition: opacity .7s ease;
+      }
+      .billboard__poster.is-off { opacity: 0; }
+      .billboard__video {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 177.78%;
+        height: 100%;
+        min-width: 100%;
+        min-height: 100%;
+        transform: translate(-50%, -50%);
+        border: 0;
+        pointer-events: none;
+      }
+      .hero__body {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        grid-template-columns: minmax(170px, 230px) minmax(0, 1fr);
+        gap: 22px;
+        padding: 10px 28px 16px;
+        overflow: hidden;
+        align-items: stretch;
+      }
       .hero__artwrap {
         display: flex;
-        position: absolute;
-        left: 4%;
-        top: 50%;
-        transform: translateY(-50%);
-        height: 86%;
-        z-index: 2;
+        height: 100%;
+        min-height: 0;
         align-items: center;
         justify-content: center;
         background: transparent;
@@ -231,21 +291,68 @@
         display: block;
         height: 100%;
         width: auto;
-        max-width: min(34vw, 420px);
+        max-width: 100%;
         object-fit: contain;
-        object-position: center center;
-        filter: drop-shadow(0 28px 50px rgba(0,0,0,.7));
+        object-position: center top;
+        filter: drop-shadow(0 16px 28px rgba(0,0,0,.55));
       }
       .hero__inner {
-        width: min(560px, 46%);
-        margin-right: 5%;
-        margin-left: auto;
+        min-width: 0;
+        min-height: 0;
+        height: 100%;
+        width: auto;
+        margin: 0;
         justify-content: flex-start;
-        padding: 48px 8px 48px 0;
+        padding: 4px 0 0;
+        overflow: hidden;
+      }
+      .titlecard {
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        backdrop-filter: none;
+        padding: 0 0 10px;
+      }
+      .kicker {
+        letter-spacing: .14em;
+        margin-bottom: 8px;
+        font-size: 11px;
+      }
+      h1 {
+        font-size: clamp(1.45rem, 1.9vw, 1.9rem);
+        line-height: 1.2;
+        margin-bottom: 8px;
+        max-width: none;
+      }
+      .plot {
+        font-size: 14px;
+        line-height: 1.45;
+        max-width: 46ch;
+      }
+      .board {
+        flex: 0 1 auto;
+        min-height: 0;
+        margin-top: 10px;
+        gap: 10px;
+      }
+      .dock,
+      .rooms-wrap {
+        padding: 12px 14px;
+      }
+      .rooms-wrap {
+        flex: 0 1 auto;
+        max-height: 28vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .rooms {
+        flex: 1;
+        min-height: 0;
         overflow: auto;
       }
-      .board { margin-top: 32px; max-width: none; }
-      .plot { font-size: 17px; }
+      input { padding: 10px 12px; margin-bottom: 8px; }
+      .btn { padding: 11px 14px; }
+      .hint { margin-top: 8px; font-size: 11px; }
     }
   </style>
 </head>
@@ -253,6 +360,14 @@
   <section class="stage hero" id="lobbyStage">
     <div class="hero__blur" aria-hidden="true"></div>
     <div class="hero__vignette"></div>
+    <div class="billboard" id="nzpBillboard">
+      <img class="billboard__poster" id="nzpTrailerPoster" src="./icons/nzp-hero.png" alt="">
+      <iframe class="billboard__video" id="nzpTrailer" title="NZ:P trailer" allow="autoplay; encrypted-media" tabindex="-1"></iframe>
+    </div>
+    <div class="hero__body">
+    <div class="hero__artwrap">
+      <img class="hero__art" src="./icons/nzp-cover.png" alt="">
+    </div>
     <div class="hero__inner">
       <div class="titlecard">
       <div class="kicker">SOS PLAY · קואופרטיב</div>
@@ -276,8 +391,6 @@
       </div>
       <p class="hint">אם מישהו נכנס ולא נולד במפה: המארח לוחץ ~ ומקליד restart</p>
     </div>
-    <div class="hero__artwrap">
-      <img class="hero__art" src="./icons/nzp-cover.png" alt="">
     </div>
   </section>
 
@@ -350,7 +463,7 @@
         Object.keys(params || {}).forEach((key) => {
           if (params[key]) url.searchParams.set(key, params[key]);
         });
-        url.searchParams.set('cb', '20260915nzp11');
+        url.searchParams.set('cb', '20260915nzp12');
         lobbyStage.hidden = true;
         gameStage.hidden = false;
         gameFrame.src = url.toString();
@@ -536,6 +649,17 @@
         else setTimeout(waitForNostrTools, 100);
       }
       waitForNostrTools();
+
+      (function startDesktopTrailer() {
+        if (!window.matchMedia('(min-width: 769px)').matches) return;
+        const frame = document.getElementById('nzpTrailer');
+        const poster = document.getElementById('nzpTrailerPoster');
+        if (!frame || !poster) return;
+        frame.src = 'https://www.youtube-nocookie.com/embed/sd4cPQwDcF4?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&playsinline=1&loop=1&playlist=sd4cPQwDcF4&iv_load_policy=3&disablekb=1&fs=0';
+        const hide = () => poster.classList.add('is-off');
+        frame.addEventListener('load', () => setTimeout(hide, 1400));
+        setTimeout(hide, 3500);
+      })();
     })();
   </script>
 </body>

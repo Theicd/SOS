@@ -9934,7 +9934,7 @@ function ensureNzpPanel() {
     const link = document.createElement('link');
     link.id = 'nzp-panel-css';
     link.rel = 'stylesheet';
-    link.href = './styles/nzp-panel.css?v=20260915nzp11';
+    link.href = './styles/nzp-panel.css?v=20260915nzp12';
     document.head.appendChild(link);
   }
   panel = document.createElement('div');
@@ -9949,7 +9949,7 @@ function ensureNzpPanel() {
       <span class="nzp-panel__title">NZ:P</span>
       <button type="button" class="nzp-panel__fs" id="nzpPanelFullscreen">מסך מלא</button>
     </div>
-    <iframe class="nzp-panel__frame" id="nzpPanelFrame" src="" allow="autoplay; fullscreen; gamepad; keyboard-map" allowfullscreen></iframe>
+    <iframe class="nzp-panel__frame" id="nzpPanelFrame" src="" allow="autoplay; fullscreen; gamepad; keyboard-map; encrypted-media" allowfullscreen></iframe>
   `;
   document.body.appendChild(panel);
   bindNzpPanelChrome();
@@ -10004,7 +10004,7 @@ function openNzpGame() {
   document.body.classList.add('nzp-open');
   document.documentElement.classList.add('nzp-open');
   freezeFeedForNzp();
-  frame.src = './nzp-multiplayer.html?v=20260915nzp11';
+  frame.src = './nzp-multiplayer.html?v=20260915nzp12';
   return true;
 }
 
