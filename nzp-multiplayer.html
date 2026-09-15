@@ -5,91 +5,130 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>SOS זומבים</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background: #0b0505;
-      color: #fff;
-      font-family: system-ui, sans-serif;
-      min-height: 100vh;
+    :root {
+      --sos-bg: #030a14;
+      --sos-electric: #00afff;
+      --sos-text: #f4f7fb;
+      --sos-muted: #8fa2b7;
+      --sos-border: rgba(0, 175, 255, 0.35);
     }
-    .lobby {
-      min-height: 100vh;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--sos-bg); color: var(--sos-text); font-family: system-ui, sans-serif; }
+    body { overflow: hidden; }
+    .stage { position: absolute; inset: 0; }
+    .stage[hidden] { display: none !important; }
+
+    .hero {
+      position: relative;
+      height: 100%;
+      overflow: auto;
+      background: #030a14 url('./icons/nzp-cover.png') center / cover no-repeat;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(3,10,20,.28) 0%, rgba(3,10,20,.55) 38%, rgba(3,10,20,.96) 100%);
+      pointer-events: none;
+    }
+    .hero__inner {
+      position: relative;
+      z-index: 1;
+      min-height: 100%;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 28px 22px 28px;
+      max-width: 720px;
     }
-    .box {
-      width: min(440px, 100%);
-      background: linear-gradient(180deg, #1a0c0c 0%, #120808 100%);
-      border: 2px solid #8b1e1e;
-      border-radius: 16px;
-      padding: 24px;
-      text-align: center;
+    .kicker {
+      color: var(--sos-electric);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      margin-bottom: 8px;
     }
-    h1 { color: #ff4d4d; font-size: 1.6rem; margin-bottom: 6px; }
-    .sub { opacity: .7; margin-bottom: 16px; font-size: .95rem; }
+    h1 { font-size: clamp(1.7rem, 4vw, 2.6rem); line-height: 1.1; margin-bottom: 10px; }
+    .plot {
+      color: var(--sos-muted);
+      font-size: 15px;
+      line-height: 1.55;
+      max-width: 52ch;
+      margin-bottom: 18px;
+    }
     .status {
-      background: rgba(0,0,0,.35);
+      background: rgba(6, 18, 32, .72);
+      border: 1px solid var(--sos-border);
       border-radius: 10px;
-      padding: 12px;
-      min-height: 48px;
-      margin-bottom: 14px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
       white-space: pre-line;
+      font-size: 14px;
     }
     input {
       width: 100%;
-      padding: 12px;
-      border-radius: 8px;
-      border: 1px solid #5c2222;
-      background: #1a1010;
-      color: #fff;
+      max-width: 360px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--sos-border);
+      background: rgba(3, 10, 20, .78);
+      color: var(--sos-text);
       font-size: 1rem;
-      margin-bottom: 12px;
-      text-align: center;
+      margin-bottom: 10px;
     }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
     .btn {
-      display: inline-block;
-      width: 100%;
-      padding: 12px 16px;
-      margin: 6px 0;
-      border: none;
-      border-radius: 8px;
-      font-size: 1.05rem;
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-size: 1rem;
       cursor: pointer;
-      color: #fff;
+      color: #031018;
+      background: linear-gradient(180deg, #4dd4ff, #00afff);
+      font-weight: 700;
     }
     .btn:disabled { opacity: .5; cursor: default; }
-    .btn-host { background: #b42318; }
-    .btn-solo { background: #2f4f4f; }
-    .rooms { margin-top: 14px; max-height: 240px; overflow-y: auto; }
-    .room {
-      background: rgba(180,35,24,.2);
-      border: 1px solid rgba(255,77,77,.35);
-      border-radius: 8px;
-      padding: 12px;
-      margin: 8px 0;
-      cursor: pointer;
-      text-align: right;
+    .btn-ghost {
+      background: rgba(0, 175, 255, .12);
+      color: var(--sos-text);
+      border: 1px solid var(--sos-border);
     }
-    .room:hover { background: rgba(180,35,24,.4); }
+    .rooms { display: flex; flex-direction: column; gap: 8px; max-width: 420px; }
+    .room {
+      background: rgba(6, 18, 32, .78);
+      border: 1px solid var(--sos-border);
+      border-radius: 10px;
+      padding: 12px;
+      cursor: pointer;
+    }
+    .room:hover { border-color: #4dd4ff; }
     .room.full { opacity: .45; cursor: default; }
-    .hint { margin-top: 12px; font-size: .8rem; opacity: .55; }
+    .hint { margin-top: 12px; font-size: 12px; color: var(--sos-muted); }
+
+    .play { background: #000; }
+    .game-frame { width: 100%; height: 100%; border: 0; display: block; }
   </style>
 </head>
 <body>
-  <div class="lobby">
-    <div class="box">
-      <h1>זומבים רשת</h1>
-      <p class="sub">עד 4 שחקנים. הראשון פותח חדר, השאר נכנסים.</p>
+  <section class="stage hero" id="lobbyStage">
+    <div class="hero__inner">
+      <div class="kicker">SOS PLAY · קואופרטיב</div>
+      <h1>Nazi Zombies: Portable</h1>
+      <p class="plot">1945. חיילים נעולים בבונקר נאצי נטוש. המתים קמים, התחמושת אוזלת, ורק מי ששורד ביחד יוצא. עד 4 שחקנים באותה זירה — מחשב ומובייל.</p>
       <div class="status" id="lobbyStatus">מתחבר...</div>
       <input id="roomNameInput" maxlength="24" placeholder="שם החדר (רק למארח)">
-      <button class="btn btn-host" id="btnHost">פתח חדר</button>
-      <button class="btn btn-solo" id="btnSolo">שחק לבד</button>
+      <div class="row">
+        <button class="btn" id="btnHost" type="button">פתח חדר</button>
+        <button class="btn btn-ghost" id="btnSolo" type="button">שחק לבד</button>
+      </div>
       <div class="rooms" id="roomsList"></div>
-      <p class="hint">אחרי כולם בפנים, אם מישהו לא נולד: המארח לוחץ ~ ומקליד restart</p>
+      <p class="hint">אם מישהו נכנס ולא נולד במפה: המארח לוחץ ~ ומקליד restart</p>
     </div>
-  </div>
+  </section>
+
+  <section class="stage play" id="gameStage" hidden>
+    <iframe class="game-frame" id="gameFrame" allow="autoplay; fullscreen; gamepad; keyboard-map" allowfullscreen></iframe>
+  </section>
 
   <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.min.js"></script>
   <script>
@@ -128,6 +167,9 @@
       const roomNameInput = document.getElementById('roomNameInput');
       const btnHost = document.getElementById('btnHost');
       const btnSolo = document.getElementById('btnSolo');
+      const lobbyStage = document.getElementById('lobbyStage');
+      const gameStage = document.getElementById('gameStage');
+      const gameFrame = document.getElementById('gameFrame');
 
       function getPlayerName() {
         return openerApp.profile?.name || openerApp.profile?.display_name || 'שחקן';
@@ -150,10 +192,12 @@
 
       function openGame(params) {
         const url = new URL(GAME_URL);
-        Object.keys(params).forEach((key) => {
+        Object.keys(params || {}).forEach((key) => {
           if (params[key]) url.searchParams.set(key, params[key]);
         });
-        window.open(url.toString(), 'nzpGameBoard', 'width=1280,height=800');
+        lobbyStage.hidden = true;
+        gameStage.hidden = false;
+        gameFrame.src = url.toString();
       }
 
       async function publishEvent(content) {
@@ -197,7 +241,7 @@
       function refreshRoomsList() {
         const rooms = Array.from(state.rooms.values()).filter((r) => now() - r.timestamp < CFG.ROOM_TTL);
         if (!rooms.length) {
-          roomsList.innerHTML = '<p style="opacity:.5">אין חדרים פתוחים</p>';
+          roomsList.innerHTML = '<p style="opacity:.6">אין חדרים פתוחים</p>';
           return;
         }
         roomsList.innerHTML = rooms.map((r) => {
@@ -245,7 +289,7 @@
         state.isHost = true;
         state.players = 1;
         btnHost.disabled = true;
-        lobbyStatus.textContent = `החדר "${state.roomName}" פתוח.\nאל תסגור חלון זה.`;
+        lobbyStatus.textContent = `החדר "${state.roomName}" פתוח.`;
         startHeartbeat();
         openGame({
           sos: 'host',

@@ -1,0 +1,84 @@
+/* פאנל זומבים – ממלא את עמודת הווידאו משמאל, התפריט מימין נשאר | HYPER CORE TECH */
+.nzp-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 3500;
+  display: none;
+  flex-direction: column;
+  background: #030a14;
+}
+
+.nzp-panel[hidden] {
+  display: none !important;
+}
+
+.nzp-panel:not([hidden]) {
+  display: flex !important;
+}
+
+.nzp-panel__bar {
+  flex-shrink: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  background: linear-gradient(180deg, #071422 0%, #030a14 100%);
+  border-bottom: 1px solid rgba(0, 175, 255, 0.28);
+}
+
+.nzp-panel__title {
+  color: #00afff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.nzp-panel__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.nzp-panel__btn {
+  min-width: 40px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(0, 175, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(0, 175, 255, 0.12);
+  color: #f4f7fb;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.nzp-panel__btn:hover {
+  background: rgba(0, 175, 255, 0.28);
+}
+
+.nzp-panel__frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  background: #030a14;
+}
+
+@media (min-width: 769px) {
+  .nzp-panel {
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: var(--videos-desktop-nav-width, 220px);
+    width: auto;
+    height: 100dvh;
+  }
+}
+
+@media (max-width: 768px) {
+  .nzp-panel {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: calc(56px + var(--safe-bottom, 0px));
+    z-index: 1990;
+  }
+}

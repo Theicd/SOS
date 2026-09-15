@@ -268,6 +268,9 @@
     if (closePublicProfilePanel()) closed = true;
     if (closeGamesPanel()) closed = true;
     try {
+      if (typeof App.closeNzpGame === 'function' && App.closeNzpGame()) closed = true;
+    } catch (_) {}
+    try {
       if (typeof App.closeLiveWatchHub === 'function' && App.isLiveWatchHubOpen && App.isLiveWatchHubOpen()) {
         App.closeLiveWatchHub();
         closed = true;
@@ -320,7 +323,7 @@
     try {
       if (typeof App.isLiveWatchHubOpen === 'function' && App.isLiveWatchHubOpen()) return true;
     } catch (_) {}
-    const ids = ['profilePanel', 'publicProfilePanel', 'gamesPanel', 'chatPanel', 'notificationsPanel'];
+    const ids = ['profilePanel', 'publicProfilePanel', 'gamesPanel', 'nzpPanel', 'chatPanel', 'notificationsPanel'];
     return ids.some((id) => isOverlayElementVisible(document.getElementById(id)));
   }
 

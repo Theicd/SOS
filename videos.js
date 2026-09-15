@@ -1232,7 +1232,7 @@ function areFeedOverlaysOpen() {
       return !!navCheck();
     }
   } catch (_) {}
-  const ids = ['profilePanel', 'publicProfilePanel', 'gamesPanel', 'chatPanel', 'notificationsPanel'];
+  const ids = ['profilePanel', 'publicProfilePanel', 'gamesPanel', 'nzpPanel', 'chatPanel', 'notificationsPanel'];
   if (document.body.classList.contains('videos-comments-open')) return true;
   if (document.querySelector('.videos-comments-overlay')) return true;
   return ids.some((id) => {
@@ -9151,6 +9151,17 @@ async function init() {
     });
   }
 
+  const nzpClose = document.getElementById('nzpPanelClose');
+  const nzpFs = document.getElementById('nzpPanelFullscreen');
+  if (nzpClose && nzpClose.dataset.bound !== '1') {
+    nzpClose.dataset.bound = '1';
+    nzpClose.addEventListener('click', () => closeNzpGame());
+  }
+  if (nzpFs && nzpFs.dataset.bound !== '1') {
+    nzpFs.dataset.bound = '1';
+    nzpFs.addEventListener('click', () => toggleNzpFullscreen());
+  }
+
 
 
 
@@ -9906,7 +9917,54 @@ function closeLiveTvFeed() {
   return exitLiveTvFeedMode();
 }
 
-function resolveGamesPanelUrl(href) {
+function openNzpGame() {
+  const panel = document.getElementById('nzpPanel');
+  const frame = document.getElementById('nzpPanelFrame');
+  if (!panel || !frame) {
+    window.location.href = './nzp-multiplayer.html';
+    return true;
+  }
+  closeGamesPanelKeepNzp();
+  frame.src = './nzp-multiplayer.html';
+  panel.hidden = false;
+  document.body.classList.add('nzp-open');
+  return true;
+}
+
+function closeNzpGame() {
+  const panel = document.getElementById('nzpPanel');
+  const frame = document.getElementById('nzpPanelFrame');
+  if (!panel || panel.hidden) return false;
+  panel.hidden = true;
+  if (frame) frame.src = '';
+  document.body.classList.remove('nzp-open');
+  if (document.fullscreenElement) {
+    try { document.exitFullscreen(); } catch (_) {}
+  }
+  return true;
+}
+
+function toggleNzpFullscreen() {
+  const panel = document.getElementById('nzpPanel');
+  if (!panel) return;
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+    return;
+  }
+  const target = panel.requestFullscreen ? panel : document.documentElement;
+  target.requestFullscreen?.().catch(() => {});
+}
+
+function closeGamesPanelKeepNzp() {
+  const gamesPanel = document.getElementById('gamesPanel');
+  const gamesFrame = document.getElementById('gamesPanelFrame');
+  if (gamesPanel && !gamesPanel.hidden) {
+    gamesPanel.hidden = true;
+    if (gamesFrame) gamesFrame.src = '';
+  }
+}
+
+function resolveGamesPanelUrl(href = './games.html') {
   const raw = String(href || './games.html').trim() || './games.html';
   try {
     const url = new URL(raw, window.location.href);
@@ -9935,7 +9993,7 @@ function openGamesPanel(href = './games.html') {
     return true;
   }
   if (hash === 'nzp') {
-    window.open('./nzp-multiplayer.html', 'nzpGame', 'width=1200,height=800');
+    openNzpGame();
     return true;
   }
   if (hash === 'trivia') {
@@ -9977,6 +10035,7 @@ function closeGamesPanel() {
     closed = true;
     console.log('[VIDEOS] Games panel closed');
   }
+  if (closeNzpGame()) closed = true;
   if (exitGamesFeedMode()) closed = true;
   if (exitLiveTvFeedMode()) closed = true;
   if (exitOwnPostsFeedMode()) closed = true;
@@ -10138,6 +10197,8 @@ function showTransientFeedHint(message) {
 // חשיפה גלובלית לפאנל משחקים + LIVE TV | HYPER CORE TECH
 window.closeGamesPanel = closeGamesPanel;
 window.openGamesPanel = openGamesPanel;
+window.openNzpGame = openNzpGame;
+window.closeNzpGame = closeNzpGame;
 window.exitGamesFeedMode = exitGamesFeedMode;
 window.enterGamesFeedMode = enterGamesFeedMode;
 window.openLiveTvFeed = openLiveTvFeed;
@@ -10158,6 +10219,8 @@ window.isOnVideosFeedPage = isOnVideosFeedPage;
   const AppRef = window.NostrApp || (window.NostrApp = {});
   AppRef.closeGamesPanel = closeGamesPanel;
   AppRef.openGamesPanel = openGamesPanel;
+  AppRef.openNzpGame = openNzpGame;
+  AppRef.closeNzpGame = closeNzpGame;
   AppRef.exitGamesFeedMode = exitGamesFeedMode;
   AppRef.enterGamesFeedMode = enterGamesFeedMode;
   AppRef.openLiveTvFeed = openLiveTvFeed;
@@ -10179,6 +10242,23 @@ window.isOnVideosFeedPage = isOnVideosFeedPage;
   AppRef.markP2pLiveEnded = markP2pLiveEnded;
   AppRef.showTransientFeedHint = showTransientFeedHint;
 }
+
+(function bindNzpPanelChrome() {
+  function bind() {
+    const nzpClose = document.getElementById('nzpPanelClose');
+    const nzpFs = document.getElementById('nzpPanelFullscreen');
+    if (nzpClose && nzpClose.dataset.bound !== '1') {
+      nzpClose.dataset.bound = '1';
+      nzpClose.addEventListener('click', () => closeNzpGame());
+    }
+    if (nzpFs && nzpFs.dataset.bound !== '1') {
+      nzpFs.dataset.bound = '1';
+      nzpFs.addEventListener('click', () => toggleNzpFullscreen());
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
 
 // חשיפה גלובלית לסגירת פאנל פרופיל ציבורי | HYPER CORE TECH
 window.closePublicProfilePanel = closePublicProfilePanel;
@@ -10249,7 +10329,7 @@ window.addEventListener('message', function handleOverlayMessage(event) {
     window.open('./doom-multiplayer.html', 'doomGame', 'width=1200,height=800');
   }
   if (data.type === 'openNzpGame') {
-    closeGamesPanel();
-    window.open('./nzp-multiplayer.html', 'nzpGame', 'width=1200,height=800');
+    closeGamesPanelKeepNzp();
+    openNzpGame();
   }
 });

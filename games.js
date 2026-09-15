@@ -405,7 +405,11 @@
       return;
     }
     if (kind === 'nzp') {
-      window.open('./nzp-multiplayer.html', 'nzpGame', 'width=1200,height=800');
+      if (typeof window.openNzpGame === 'function') {
+        window.openNzpGame();
+        return;
+      }
+      window.location.href = './nzp-multiplayer.html';
       return;
     }
     window.location.href = './videos.html#trivia';
