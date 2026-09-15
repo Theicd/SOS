@@ -6,16 +6,16 @@
   <title>SOS זומבים</title>
   <style>
     :root {
-      --sos-bg: #18191a;
-      --sos-card: #242526;
+      --sos-bg: #030a14;
       --sos-primary: #2d88ff;
       --sos-primary-hover: #1b5ecf;
-      --sos-text: #e4e6eb;
-      --sos-muted: #b0b3b8;
-      --sos-border: #3a3b3c;
+      --sos-text: #f4f7fb;
+      --sos-muted: #c5d0dc;
+      --glass: rgba(6, 14, 24, .42);
+      --glass-border: rgba(255, 255, 255, .16);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; background: var(--sos-bg); color: var(--sos-text); font-family: "Segoe UI", system-ui, sans-serif; }
+    html, body { height: 100%; background: #030a14; color: var(--sos-text); font-family: "Segoe UI", system-ui, sans-serif; }
     body { overflow: hidden; }
     .stage { position: absolute; inset: 0; }
     .stage[hidden] { display: none !important; }
@@ -24,22 +24,27 @@
       position: relative;
       height: 100%;
       overflow: auto;
-      background: var(--sos-bg);
+      background: #030a14;
+    }
+    .hero__blur {
+      position: absolute;
+      inset: -48px;
+      background: url('./icons/nzp-cover.png') center 18% / cover no-repeat;
+      filter: blur(34px) saturate(1.35) brightness(.42);
+      transform: scale(1.12);
+      z-index: 0;
+    }
+    .hero__vignette {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background:
+        linear-gradient(180deg, rgba(3,10,20,.55) 0%, rgba(3,10,20,.18) 28%, rgba(3,10,20,.28) 58%, rgba(3,10,20,.88) 100%),
+        radial-gradient(90% 80% at 50% 30%, rgba(90,0,0,.18), transparent 62%);
     }
     .hero__artwrap,
     .hero__art { display: none; }
-    .hero::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      z-index: 1;
-      background: linear-gradient(180deg,
-        rgba(24,25,26,.82) 0%,
-        rgba(24,25,26,.2) 32%,
-        rgba(24,25,26,.18) 52%,
-        rgba(24,25,26,.94) 100%);
-    }
     .hero__inner {
       position: relative;
       z-index: 2;
@@ -48,64 +53,80 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: calc(16px + env(safe-area-inset-top, 0px)) 16px 22px;
+      padding: calc(20px + env(safe-area-inset-top, 0px)) 18px 24px;
     }
-    .copy { margin-bottom: 16px; }
+    .titlecard {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 18px;
+      padding: 22px 22px 20px;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 18px 50px rgba(0,0,0,.35);
+    }
     .kicker {
-      color: var(--sos-muted);
+      color: #d7e4f0;
       font-size: 12px;
       font-weight: 700;
-      letter-spacing: .08em;
-      margin-bottom: 8px;
+      letter-spacing: .18em;
+      margin-bottom: 12px;
+      text-shadow: 0 2px 16px #000;
     }
     h1 {
-      font-size: clamp(1.8rem, 3.2vw, 2.6rem);
-      line-height: 1.15;
-      margin-bottom: 10px;
+      font-size: clamp(2.1rem, 4.2vw, 3.4rem);
+      line-height: 1.05;
+      margin-bottom: 14px;
       font-weight: 800;
+      letter-spacing: -0.03em;
+      text-shadow: 0 10px 40px rgba(0,0,0,.8);
     }
     .plot {
-      color: var(--sos-muted);
-      font-size: 15px;
-      line-height: 1.55;
-      max-width: 52ch;
+      color: #e8eef6;
+      font-size: 16px;
+      line-height: 1.65;
+      max-width: 46ch;
+      text-shadow: 0 4px 22px #000;
     }
     .board {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 16px;
       width: 100%;
+      margin-top: 28px;
     }
     .status {
-      color: var(--sos-muted);
+      color: #d7e4f0;
       font-size: 13px;
       font-weight: 600;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
       min-height: 1.2em;
     }
     .dock,
     .rooms-wrap {
-      background: var(--sos-card);
-      border: 1px solid var(--sos-border);
-      border-radius: 12px;
-      padding: 16px;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 18px;
+      padding: 20px;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 16px 40px rgba(0,0,0,.32);
     }
     input {
       width: 100%;
-      padding: 12px 14px;
-      border-radius: 8px;
-      border: 1px solid var(--sos-border);
-      background: #18191a;
+      padding: 14px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--glass-border);
+      background: rgba(3, 10, 20, .45);
       color: var(--sos-text);
       font-size: 1rem;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
-    .row { display: flex; gap: 8px; }
+    .row { display: flex; gap: 10px; }
     .row .btn { flex: 1; }
     .btn {
       border: 0;
-      border-radius: 8px;
-      padding: 12px 16px;
+      border-radius: 12px;
+      padding: 14px 16px;
       font-size: 15px;
       cursor: pointer;
       color: #fff;
@@ -117,38 +138,38 @@
     .btn-ghost {
       background: rgba(255,255,255,.1);
       color: #fff;
-      border: 1px solid rgba(255,255,255,.15);
+      border: 1px solid rgba(255,255,255,.18);
     }
     .btn-ghost:hover { background: rgba(255,255,255,.16); }
     .rooms-title {
       font-size: 14px;
       font-weight: 700;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
-    .rooms { display: flex; flex-direction: column; gap: 8px; }
+    .rooms { display: flex; flex-direction: column; gap: 10px; }
     .rooms-empty {
       color: var(--sos-muted);
       font-size: 14px;
-      padding: 4px 0;
+      padding: 6px 0;
     }
     .room {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      background: #18191a;
-      border: 1px solid var(--sos-border);
-      border-radius: 10px;
-      padding: 10px 10px 10px 12px;
+      gap: 12px;
+      background: rgba(3, 10, 20, .38);
+      border: 1px solid var(--glass-border);
+      border-radius: 14px;
+      padding: 12px 12px 12px 14px;
     }
     .room__copy { min-width: 0; }
     .room__name { font-weight: 700; font-size: 15px; }
-    .room__meta { color: var(--sos-muted); font-size: 12px; margin-top: 2px; }
+    .room__meta { color: var(--sos-muted); font-size: 12px; margin-top: 3px; }
     .room__join {
       flex-shrink: 0;
       border: 0;
-      border-radius: 8px;
-      padding: 8px 12px;
+      border-radius: 10px;
+      padding: 9px 14px;
       background: var(--sos-primary);
       color: #fff;
       font-weight: 700;
@@ -156,70 +177,53 @@
     }
     .room.full { opacity: .45; }
     .room.full .room__join { display: none; }
-    .hint { margin-top: 10px; font-size: 12px; color: var(--sos-muted); }
+    .hint { margin-top: 14px; font-size: 12px; color: var(--sos-muted); text-shadow: 0 2px 10px #000; }
 
     .play { background: #000; }
     .game-frame { width: 100%; height: 100%; border: 0; display: block; }
 
-    @media (max-width: 768px) {
-      .hero {
-        background: var(--sos-bg) url('./icons/nzp-cover.png') center center / cover no-repeat;
-      }
-      .copy {
-        background: rgba(24, 25, 26, .72);
-        border-radius: 12px;
-        padding: 12px;
-      }
-      h1 { font-size: 1.7rem; }
-      .plot { font-size: 14px; max-width: none; }
-    }
-
     @media (min-width: 769px) {
-      .hero {
-        display: flex;
-        flex-direction: row;
-        align-items: stretch;
-        overflow: hidden;
-        background: var(--sos-bg);
-      }
-      .hero::before { display: none; }
+      .hero { overflow: hidden; }
       .hero__artwrap {
         display: flex;
-        flex: 0 0 auto;
-        width: min(42vw, 560px);
-        align-self: stretch;
+        position: absolute;
+        left: 4%;
+        top: 50%;
+        transform: translateY(-50%);
+        height: 86%;
+        z-index: 2;
         align-items: center;
         justify-content: center;
-        background: #111213;
+        background: transparent;
       }
       .hero__art {
         display: block;
         height: 100%;
         width: auto;
-        max-width: 100%;
+        max-width: min(34vw, 420px);
         object-fit: contain;
         object-position: center center;
+        filter: drop-shadow(0 28px 50px rgba(0,0,0,.7));
       }
       .hero__inner {
-        flex: 1;
-        min-width: 0;
-        min-height: 0;
-        height: 100%;
+        width: min(560px, 46%);
+        margin-right: 5%;
+        margin-left: auto;
         justify-content: flex-start;
-        padding: 36px 40px 28px;
+        padding: 48px 8px 48px 0;
         overflow: auto;
-        background: var(--sos-bg);
       }
-      .copy { margin-bottom: 28px; }
-      .plot { max-width: 48ch; }
-      .board { max-width: 480px; }
+      .board { margin-top: 32px; max-width: none; }
+      .plot { font-size: 17px; }
     }
   </style>
 </head>
 <body>
   <section class="stage hero" id="lobbyStage">
+    <div class="hero__blur" aria-hidden="true"></div>
+    <div class="hero__vignette"></div>
     <div class="hero__inner">
-      <div class="copy">
+      <div class="titlecard">
       <div class="kicker">SOS PLAY · קואופרטיב</div>
       <h1>Nazi Zombies: Portable</h1>
       <p class="plot">1945. חיילים נעולים בבונקר נאצי נטוש. המתים קמים, התחמושת אוזלת, ורק מי ששורד ביחד יוצא. עד 4 שחקנים באותה זירה — מחשב ומובייל.</p>
@@ -314,7 +318,7 @@
         Object.keys(params || {}).forEach((key) => {
           if (params[key]) url.searchParams.set(key, params[key]);
         });
-        url.searchParams.set('cb', '20260915nzp9');
+        url.searchParams.set('cb', '20260915nzp10');
         lobbyStage.hidden = true;
         gameStage.hidden = false;
         gameFrame.src = url.toString();
