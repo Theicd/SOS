@@ -9151,16 +9151,7 @@ async function init() {
     });
   }
 
-  const nzpClose = document.getElementById('nzpPanelClose');
-  const nzpFs = document.getElementById('nzpPanelFullscreen');
-  if (nzpClose && nzpClose.dataset.bound !== '1') {
-    nzpClose.dataset.bound = '1';
-    nzpClose.addEventListener('click', () => closeNzpGame());
-  }
-  if (nzpFs && nzpFs.dataset.bound !== '1') {
-    nzpFs.dataset.bound = '1';
-    nzpFs.addEventListener('click', () => toggleNzpFullscreen());
-  }
+  bindNzpPanelChrome();
 
 
 
@@ -9931,7 +9922,7 @@ function ensureNzpPanel() {
     const link = document.createElement('link');
     link.id = 'nzp-panel-css';
     link.rel = 'stylesheet';
-    link.href = './styles/nzp-panel.css?v=20260915nzp3';
+    link.href = './styles/nzp-panel.css?v=20260915nzp4';
     document.head.appendChild(link);
   }
   panel = document.createElement('div');
@@ -9940,11 +9931,11 @@ function ensureNzpPanel() {
   panel.hidden = true;
   panel.innerHTML = `
     <div class="nzp-panel__bar">
+      <button type="button" class="nzp-panel__back" id="nzpPanelClose" aria-label="חזרה">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
       <span class="nzp-panel__title">NZ:P</span>
-      <div class="nzp-panel__actions">
-        <button type="button" class="nzp-panel__btn" id="nzpPanelFullscreen">מסך מלא</button>
-        <button type="button" class="nzp-panel__btn" id="nzpPanelClose">סגור</button>
-      </div>
+      <button type="button" class="nzp-panel__fs" id="nzpPanelFullscreen">מסך מלא</button>
     </div>
     <iframe class="nzp-panel__frame" id="nzpPanelFrame" src="" allow="autoplay; fullscreen; gamepad; keyboard-map" allowfullscreen></iframe>
   `;
@@ -9958,11 +9949,15 @@ function bindNzpPanelChrome() {
   const nzpFs = document.getElementById('nzpPanelFullscreen');
   if (nzpClose && nzpClose.dataset.bound !== '1') {
     nzpClose.dataset.bound = '1';
-    nzpClose.addEventListener('click', () => closeNzpGame());
+    nzpClose.addEventListener('click', () => handleNzpBack());
   }
   if (nzpFs && nzpFs.dataset.bound !== '1') {
     nzpFs.dataset.bound = '1';
     nzpFs.addEventListener('click', () => toggleNzpFullscreen());
+  }
+  if (document.documentElement.dataset.nzpFsBound !== '1') {
+    document.documentElement.dataset.nzpFsBound = '1';
+    document.addEventListener('fullscreenchange', syncNzpFsClass);
   }
 }
 
@@ -9971,10 +9966,11 @@ function openNzpGame() {
   const frame = document.getElementById('nzpPanelFrame');
   if (!panel || !frame) return false;
   closeGamesPanelKeepNzp();
+  panel.classList.remove('is-playing', 'is-fs');
   panel.hidden = false;
   panel.removeAttribute('hidden');
   document.body.classList.add('nzp-open');
-  frame.src = './nzp-multiplayer.html';
+  frame.src = './nzp-multiplayer.html?v=20260915nzp4';
   return true;
 }
 
@@ -9984,12 +9980,32 @@ function closeNzpGame() {
   if (!panel || panel.hidden) return false;
   panel.hidden = true;
   panel.setAttribute('hidden', '');
+  panel.classList.remove('is-playing', 'is-fs');
   if (frame) frame.src = '';
   document.body.classList.remove('nzp-open');
   if (document.fullscreenElement) {
     try { document.exitFullscreen(); } catch (_) {}
   }
   return true;
+}
+
+function handleNzpBack() {
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {});
+    return;
+  }
+  closeNzpGame();
+}
+
+function syncNzpFsClass() {
+  const panel = document.getElementById('nzpPanel');
+  if (!panel) return;
+  panel.classList.toggle('is-fs', !!document.fullscreenElement);
+}
+
+function markNzpPlaying() {
+  const panel = document.getElementById('nzpPanel');
+  if (panel) panel.classList.add('is-playing');
 }
 
 function toggleNzpFullscreen() {
@@ -10367,6 +10383,10 @@ window.addEventListener('message', function handleOverlayMessage(event) {
   if (data.type === 'openNzpGame') {
     closeGamesPanelKeepNzp();
     openNzpGame();
+    return;
+  }
+  if (data.type === 'nzp-playing') {
+    markNzpPlaying();
     return;
   }
   if (data.type === 'nzp-fullscreen') {

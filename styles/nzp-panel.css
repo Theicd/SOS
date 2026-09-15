@@ -6,6 +6,7 @@
   display: none;
   flex-direction: column;
   background: #030a14;
+  direction: rtl;
 }
 
 .nzp-panel[hidden] {
@@ -18,11 +19,12 @@
 
 .nzp-panel__bar {
   flex-shrink: 0;
-  height: 44px;
-  display: flex;
+  height: calc(44px + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 10px;
+  padding-inline: 8px;
   background: linear-gradient(180deg, #071422 0%, #030a14 100%);
   border-bottom: 1px solid rgba(0, 175, 255, 0.28);
 }
@@ -32,14 +34,29 @@
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.04em;
+  text-align: center;
 }
 
-.nzp-panel__actions {
+.nzp-panel__back {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
   display: flex;
-  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
-.nzp-panel__btn {
+.nzp-panel__back:active {
+  transform: scale(0.95);
+}
+
+.nzp-panel__fs {
   min-width: 40px;
   height: 32px;
   padding: 0 10px;
@@ -49,10 +66,17 @@
   color: #f4f7fb;
   cursor: pointer;
   font-size: 13px;
+  font-weight: 700;
 }
 
-.nzp-panel__btn:hover {
+.nzp-panel__fs:hover {
   background: rgba(0, 175, 255, 0.28);
+}
+
+.nzp-panel:not(.is-playing) .nzp-panel__fs,
+.nzp-panel.is-fs .nzp-panel__fs {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .nzp-panel__frame {
@@ -60,6 +84,34 @@
   width: 100%;
   border: 0;
   background: #030a14;
+}
+
+.nzp-panel.is-playing .nzp-panel__bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.28) 70%, transparent 100%);
+  border-bottom: 0;
+  pointer-events: none;
+}
+
+.nzp-panel.is-playing .nzp-panel__back,
+.nzp-panel.is-playing .nzp-panel__fs {
+  pointer-events: auto;
+}
+
+.nzp-panel.is-playing .nzp-panel__frame {
+  height: 100%;
+}
+
+.nzp-panel:fullscreen,
+.nzp-panel:-webkit-full-screen {
+  inset: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 @media (min-width: 769px) {
@@ -87,5 +139,10 @@
     right: 0;
     bottom: calc(56px + var(--safe-bottom, 0px));
     z-index: 1990;
+  }
+
+  .nzp-panel:fullscreen,
+  .nzp-panel:-webkit-full-screen {
+    bottom: 0 !important;
   }
 }

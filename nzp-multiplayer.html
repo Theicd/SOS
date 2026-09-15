@@ -22,42 +22,51 @@
       position: relative;
       height: 100%;
       overflow: auto;
-      background: #030a14 url('./icons/nzp-cover.png') center / cover no-repeat;
+      background: #030a14;
     }
     .hero::before {
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(180deg, rgba(3,10,20,.28) 0%, rgba(3,10,20,.55) 38%, rgba(3,10,20,.96) 100%);
+      background: #030a14 url('./icons/nzp-cover.png') center 18% / cover no-repeat;
+      filter: blur(10px) brightness(.28);
+      transform: scale(1.08);
       pointer-events: none;
     }
     .hero__inner {
       position: relative;
       z-index: 1;
       min-height: 100%;
+      width: 100%;
       display: flex;
       flex-direction: column;
-      justify-content: flex-end;
-      padding: 28px 22px 28px;
+      justify-content: flex-start;
+      padding: 16px 16px 28px;
       max-width: 720px;
+    }
+    .card {
+      background: rgba(3, 10, 20, .94);
+      border: 1px solid var(--sos-border);
+      border-radius: 16px;
+      padding: 16px 16px 14px;
+      margin-bottom: 14px;
+      box-shadow: 0 10px 32px rgba(0, 0, 0, .55);
     }
     .kicker {
       color: var(--sos-electric);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
-      letter-spacing: .14em;
+      letter-spacing: .12em;
       margin-bottom: 8px;
     }
-    h1 { font-size: clamp(1.7rem, 4vw, 2.6rem); line-height: 1.1; margin-bottom: 10px; }
+    h1 { font-size: 1.55rem; line-height: 1.15; margin-bottom: 8px; }
     .plot {
-      color: var(--sos-muted);
-      font-size: 15px;
-      line-height: 1.55;
-      max-width: 52ch;
-      margin-bottom: 18px;
+      color: #e8f3fc;
+      font-size: 16px;
+      line-height: 1.5;
     }
     .status {
-      background: rgba(6, 18, 32, .72);
+      background: rgba(6, 18, 32, .92);
       border: 1px solid var(--sos-border);
       border-radius: 10px;
       padding: 10px 12px;
@@ -67,11 +76,11 @@
     }
     input {
       width: 100%;
-      max-width: 360px;
+      max-width: 100%;
       padding: 12px 14px;
       border-radius: 10px;
       border: 1px solid var(--sos-border);
-      background: rgba(3, 10, 20, .78);
+      background: rgba(3, 10, 20, .9);
       color: var(--sos-text);
       font-size: 1rem;
       margin-bottom: 10px;
@@ -107,29 +116,20 @@
 
     .play { background: #000; }
     .game-frame { width: 100%; height: 100%; border: 0; display: block; }
-    .fs-btn {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      z-index: 80;
-      border: 1px solid rgba(0, 175, 255, .45);
-      border-radius: 10px;
-      padding: 8px 12px;
-      background: rgba(3, 10, 20, .82);
-      color: #f4f7fb;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
+    @media (min-width: 769px) {
+      .hero__inner { padding-top: 28px; }
+      h1 { font-size: 2.1rem; }
     }
   </style>
 </head>
 <body>
-  <button class="fs-btn" id="nzpFsBtn" type="button">מסך מלא</button>
   <section class="stage hero" id="lobbyStage">
     <div class="hero__inner">
-      <div class="kicker">SOS PLAY · קואופרטיב</div>
-      <h1>Nazi Zombies: Portable</h1>
-      <p class="plot">1945. חיילים נעולים בבונקר נאצי נטוש. המתים קמים, התחמושת אוזלת, ורק מי ששורד ביחד יוצא. עד 4 שחקנים באותה זירה — מחשב ומובייל.</p>
+      <div class="card">
+        <div class="kicker">SOS PLAY · קואופרטיב</div>
+        <h1>Nazi Zombies: Portable</h1>
+        <p class="plot">שורדים ביחד בבונקר מול זומבים. עד 4 שחקנים, מחשב ומובייל.</p>
+      </div>
       <div class="status" id="lobbyStatus">מתחבר...</div>
       <input id="roomNameInput" maxlength="24" placeholder="שם החדר (רק למארח)">
       <div class="row">
@@ -210,9 +210,11 @@
         Object.keys(params || {}).forEach((key) => {
           if (params[key]) url.searchParams.set(key, params[key]);
         });
+        url.searchParams.set('cb', '20260915nzp4');
         lobbyStage.hidden = true;
         gameStage.hidden = false;
         gameFrame.src = url.toString();
+        try { window.parent.postMessage({ type: 'nzp-playing' }, '*'); } catch (_) {}
       }
 
       async function publishEvent(content) {
@@ -379,16 +381,6 @@
 
       btnHost.addEventListener('click', hostRoom);
       btnSolo.addEventListener('click', startSolo);
-      document.getElementById('nzpFsBtn')?.addEventListener('click', () => {
-        try {
-          if (window.parent && window.parent !== window) {
-            window.parent.postMessage({ type: 'nzp-fullscreen' }, '*');
-            return;
-          }
-        } catch (_) {}
-        if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-        else document.documentElement.requestFullscreen?.().catch(() => {});
-      });
       roomNameInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') hostRoom();
       });
