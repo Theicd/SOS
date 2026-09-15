@@ -182,6 +182,37 @@
     .play { background: #000; }
     .game-frame { width: 100%; height: 100%; border: 0; display: block; }
 
+    .hero__gap { display: none; }
+
+    @media (max-width: 768px) {
+      .hero__blur {
+        filter: blur(7px) saturate(1.12) brightness(.78);
+        transform: scale(1.06);
+        background-position: center 22%;
+      }
+      .hero__vignette {
+        background: linear-gradient(180deg,
+          rgba(3,10,20,.48) 0%,
+          rgba(3,10,20,.08) 16%,
+          rgba(3,10,20,.04) 42%,
+          rgba(3,10,20,.62) 100%);
+      }
+      .titlecard {
+        padding: 14px 16px 12px;
+        background: rgba(6, 14, 24, .46);
+      }
+      h1 { font-size: 1.55rem; margin-bottom: 8px; overflow-wrap: break-word; }
+      .plot { font-size: 14px; line-height: 1.5; max-width: none; }
+      .hero__gap {
+        display: block;
+        flex: 1 1 22vh;
+        min-height: 18vh;
+      }
+      .board { margin-top: 0; gap: 12px; }
+      .dock,
+      .rooms-wrap { padding: 14px; }
+    }
+
     @media (min-width: 769px) {
       .hero { overflow: hidden; }
       .hero__artwrap {
@@ -228,6 +259,7 @@
       <h1>Nazi Zombies: Portable</h1>
       <p class="plot">1945. חיילים נעולים בבונקר נאצי נטוש. המתים קמים, התחמושת אוזלת, ורק מי ששורד ביחד יוצא. עד 4 שחקנים באותה זירה — מחשב ומובייל.</p>
       </div>
+      <div class="hero__gap" aria-hidden="true"></div>
       <div class="board">
       <div class="dock">
         <div class="status" id="lobbyStatus">מתחבר...</div>
@@ -318,7 +350,7 @@
         Object.keys(params || {}).forEach((key) => {
           if (params[key]) url.searchParams.set(key, params[key]);
         });
-        url.searchParams.set('cb', '20260915nzp10');
+        url.searchParams.set('cb', '20260915nzp11');
         lobbyStage.hidden = true;
         gameStage.hidden = false;
         gameFrame.src = url.toString();

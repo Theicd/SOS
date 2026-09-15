@@ -9934,7 +9934,7 @@ function ensureNzpPanel() {
     const link = document.createElement('link');
     link.id = 'nzp-panel-css';
     link.rel = 'stylesheet';
-    link.href = './styles/nzp-panel.css?v=20260915nzp10';
+    link.href = './styles/nzp-panel.css?v=20260915nzp11';
     document.head.appendChild(link);
   }
   panel = document.createElement('div');
@@ -10004,7 +10004,7 @@ function openNzpGame() {
   document.body.classList.add('nzp-open');
   document.documentElement.classList.add('nzp-open');
   freezeFeedForNzp();
-  frame.src = './nzp-multiplayer.html?v=20260915nzp10';
+  frame.src = './nzp-multiplayer.html?v=20260915nzp11';
   return true;
 }
 
