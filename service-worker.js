@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v814'; // Rec timer to the right of the shutter button
+  const CACHE_NAME = 'sos-cache-v815'; // Rec timer to the left of the shutter, more gap
   const PRECACHE_URLS = [
     './',
     './videos.html',

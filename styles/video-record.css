@@ -617,10 +617,11 @@ body.video-record-open .videos-feed iframe {
   cursor: pointer;
 }
 
-/* מד זמן — מימין לכפתור האדום, בלי לדחוף את התחתית | HYPER CORE TECH */
+/* מד זמן — משמאל לכפתור האדום, בלי לדחוף את התחתית | HYPER CORE TECH */
 .floating-timer {
   position: absolute;
-  left: calc(50% + 46px);
+  left: auto;
+  right: calc(50% + 58px);
   top: 50%;
   bottom: auto;
   transform: translateY(-50%);
@@ -877,7 +878,7 @@ body.video-record-open .videos-feed iframe {
   }
 
   .floating-timer {
-    left: calc(50% + 50px);
+    right: calc(50% + 64px);
     font-size: 28px;
     gap: 8px;
     padding: 4px 14px 4px 10px;
