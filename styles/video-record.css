@@ -72,15 +72,15 @@ body.video-record-open .videos-feed iframe {
 /* מנורת הקלטה — כמו במצלמת וידאו | HYPER CORE TECH */
 .vr-rec-lamp {
   position: absolute;
-  top: calc(18px + var(--safe-top, 0px));
+  top: calc(54px + var(--safe-top, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 6;
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: #ff1f1f;
-  box-shadow: 0 0 10px 3px rgba(255, 31, 31, 0.85);
+  box-shadow: 0 0 6px 2px rgba(255, 31, 31, 0.8);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -617,50 +617,45 @@ body.video-record-open .videos-feed iframe {
   cursor: pointer;
 }
 
-/* מד זמן — מתחת לכפתור האדום, לא בהדר | HYPER CORE TECH */
+/* מד זמן — מובייל: קטן ב־30% וצף, בלי לדחוף את התחתית | HYPER CORE TECH */
 .floating-timer {
-  position: relative;
-  top: auto;
-  left: auto;
-  right: auto;
+  position: absolute;
+  left: 50%;
+  bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
   z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   color: #fff;
   font-weight: 800;
-  font-size: 28px;
+  font-size: 20px;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
   letter-spacing: 0.02em;
-  padding: 0;
+  white-space: nowrap;
+  padding: 2px 8px 2px 6px;
   margin: 0;
   border: none;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.55);
   opacity: 0;
   visibility: hidden;
-  height: 0;
-  overflow: hidden;
   pointer-events: none;
 }
 
 .floating-timer.visible {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
   opacity: 1;
   visibility: visible;
-  height: auto;
-  overflow: visible;
-  padding: 4px 14px 4px 10px;
-  margin-top: -2px;
 }
 
-.floating-timer.visible::before {
+.floating-timer::before {
   content: '';
-  width: 12px;
-  height: 12px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #ff1f1f;
-  box-shadow: 0 0 8px 2px rgba(255, 31, 31, 0.9);
+  box-shadow: 0 0 6px 2px rgba(255, 31, 31, 0.9);
   animation: vrRecLamp 0.9s ease-in-out infinite;
   flex-shrink: 0;
 }
@@ -871,5 +866,34 @@ body.video-record-open .videos-feed iframe {
 
   .video-record-stage[hidden] {
     display: none !important;
+  }
+
+  .vr-rec-lamp {
+    top: calc(18px + var(--safe-top, 0px));
+    width: 14px;
+    height: 14px;
+    box-shadow: 0 0 10px 3px rgba(255, 31, 31, 0.85);
+  }
+
+  .floating-timer {
+    position: relative;
+    left: auto;
+    bottom: auto;
+    transform: none;
+    font-size: 28px;
+    gap: 8px;
+    padding: 4px 14px 4px 10px;
+    height: 0;
+    overflow: hidden;
+  }
+
+  .floating-timer.visible {
+    height: auto;
+    overflow: visible;
+  }
+
+  .floating-timer::before {
+    width: 12px;
+    height: 12px;
   }
 }
