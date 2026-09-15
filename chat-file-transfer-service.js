@@ -41,10 +41,13 @@
     if (!attachment) {
       return null;
     }
+    const wireType = typeof attachment.type === 'string' && attachment.type.indexOf(';') >= 0
+      ? attachment.type.split(';')[0].trim()
+      : attachment.type;
     const serialized = {
       name: attachment.name,
       size: attachment.size,
-      type: attachment.type,
+      type: wireType,
       dataUrl: attachment.dataUrl || '',
       url: attachment.url || '',
       duration: typeof attachment.duration === 'number' ? attachment.duration : undefined,

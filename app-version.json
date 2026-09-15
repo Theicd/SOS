@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.14-chatvid1",
-  "buildTime": "2026-09-14T14:36:00+03:00",
-  "notes": "Chat video sends original file. Feed/post compression unchanged."
+  "version": "2026.09.15-voice1",
+  "buildTime": "2026-09-15T23:55:00+03:00",
+  "notes": "Voice messages with codec MIME persist in chat after WebView resume."
 }
