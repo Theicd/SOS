@@ -662,10 +662,18 @@ function isIncomingCallFeedHoldActive() {
   return false;
 }
 
-// חלק שיחות (videos.js) – האם פאנל שיחות באמת פתוח (לא רק דגל ישן) | HYPER CORE TECH
+function isNzpFeedHoldActive() {
+  try {
+    if (document.body && document.body.classList.contains('nzp-open')) return true;
+  } catch (_) {}
+  return false;
+}
+
+// חלק עומס מכשיר (videos.js) – האם פאנל שיחות באמת פתוח (לא רק דגל ישן) | HYPER CORE TECH
 function isChatFeedWarmupActive() {
   if (isIncomingCallFeedHoldActive()) return true;
   if (isCameraOrComposeFeedHoldActive()) return true;
+  if (isNzpFeedHoldActive()) return true;
   try {
     const app = window.NostrApp || {};
     if (app.chatState && typeof app.chatState.isOpen === 'boolean') {
@@ -1156,6 +1164,10 @@ function handleHomeButtonAction() {
 
   const hadOverlay = areFeedOverlaysOpen();
   if (hadOverlay) {
+    if (isNzpFeedHoldActive()) {
+      requestCloseNzpGame(null);
+      return 'nzp-confirm';
+    }
     let fromChat = false;
     try {
       fromChat = !!(
@@ -9922,7 +9934,7 @@ function ensureNzpPanel() {
     const link = document.createElement('link');
     link.id = 'nzp-panel-css';
     link.rel = 'stylesheet';
-    link.href = './styles/nzp-panel.css?v=20260915nzp5';
+    link.href = './styles/nzp-panel.css?v=20260915nzp6';
     document.head.appendChild(link);
   }
   panel = document.createElement('div');
@@ -9947,6 +9959,7 @@ function ensureNzpPanel() {
 function bindNzpPanelChrome() {
   const nzpClose = document.getElementById('nzpPanelClose');
   const nzpFs = document.getElementById('nzpPanelFullscreen');
+  const panel = document.getElementById('nzpPanel');
   if (nzpClose && nzpClose.dataset.bound !== '1') {
     nzpClose.dataset.bound = '1';
     nzpClose.addEventListener('click', () => handleNzpBack());
@@ -9955,10 +9968,27 @@ function bindNzpPanelChrome() {
     nzpFs.dataset.bound = '1';
     nzpFs.addEventListener('click', () => toggleNzpFullscreen());
   }
+  if (panel && panel.dataset.touchLock !== '1') {
+    panel.dataset.touchLock = '1';
+    panel.addEventListener('touchmove', (event) => {
+      event.preventDefault();
+    }, { passive: false });
+  }
   if (document.documentElement.dataset.nzpFsBound !== '1') {
     document.documentElement.dataset.nzpFsBound = '1';
     document.addEventListener('fullscreenchange', syncNzpFsClass);
   }
+  bindLeaveNzpModal();
+}
+
+function freezeFeedForNzp() {
+  try { pauseAllFeedVideos({ muteFeed: true }); } catch (_) {}
+  try { setFeedWarmupPaused(true); } catch (_) {}
+}
+
+function unfreezeFeedForNzp() {
+  try { maybeResumeFeedAfterChat(); } catch (_) {}
+  try { resumeCenteredFeedVideo(); } catch (_) {}
 }
 
 function openNzpGame() {
@@ -9970,7 +10000,9 @@ function openNzpGame() {
   panel.hidden = false;
   panel.removeAttribute('hidden');
   document.body.classList.add('nzp-open');
-  frame.src = './nzp-multiplayer.html?v=20260915nzp5';
+  document.documentElement.classList.add('nzp-open');
+  freezeFeedForNzp();
+  frame.src = './nzp-multiplayer.html?v=20260915nzp6';
   return true;
 }
 
@@ -9983,10 +10015,90 @@ function closeNzpGame() {
   panel.classList.remove('is-playing', 'is-fs');
   if (frame) frame.src = '';
   document.body.classList.remove('nzp-open');
+  document.documentElement.classList.remove('nzp-open');
   if (document.fullscreenElement) {
     try { document.exitFullscreen(); } catch (_) {}
   }
+  hideLeaveNzpModal(false);
+  unfreezeFeedForNzp();
   return true;
+}
+
+let leaveNzpPendingItem = null;
+let leaveNzpDialogBusy = false;
+
+function bindLeaveNzpModal() {
+  const modal = document.getElementById('leaveNzpModal') || ensureLeaveNzpModal();
+  if (!modal || modal.dataset.bound === '1') return modal;
+  modal.dataset.bound = '1';
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) {
+      hideLeaveNzpModal(false);
+      return;
+    }
+    const btn = event.target.closest('[data-leave-nzp]');
+    if (!btn) return;
+    hideLeaveNzpModal(btn.getAttribute('data-leave-nzp') === 'leave');
+  });
+  return modal;
+}
+
+function ensureLeaveNzpModal() {
+  let modal = document.getElementById('leaveNzpModal');
+  if (modal) return modal;
+  modal = document.createElement('div');
+  modal.id = 'leaveNzpModal';
+  modal.className = 'leave-share-modal';
+  modal.setAttribute('aria-hidden', 'true');
+  modal.innerHTML = `
+    <div class="leave-share-modal__card" role="dialog" aria-modal="true" aria-labelledby="leaveNzpTitle">
+      <div class="leave-share-modal__icon" aria-hidden="true"><i class="fa-solid fa-gamepad"></i></div>
+      <h3 class="leave-share-modal__title" id="leaveNzpTitle">לצאת מהמשחק?</h3>
+      <p class="leave-share-modal__text">החדר ייסגר והמשחק ייעצר.</p>
+      <div class="leave-share-modal__actions">
+        <button type="button" class="leave-share-modal__btn leave-share-modal__btn--stay" data-leave-nzp="stay">המשך לשחק</button>
+        <button type="button" class="leave-share-modal__btn leave-share-modal__btn--leave" data-leave-nzp="leave">יציאה</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function hideLeaveNzpModal(confirmed) {
+  const modal = document.getElementById('leaveNzpModal');
+  if (modal) {
+    modal.classList.remove('is-visible');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+  leaveNzpDialogBusy = false;
+  const pending = leaveNzpPendingItem;
+  leaveNzpPendingItem = null;
+  if (!confirmed) return;
+  closeNzpGame();
+  if (pending && pending.getAttribute && pending.getAttribute('data-nav') === 'videos') return;
+  if (pending) {
+    window.setTimeout(() => {
+      try { pending.click(); } catch (_) {}
+    }, 40);
+  }
+}
+
+function requestCloseNzpGame(pendingItem) {
+  if (!isNzpFeedHoldActive()) {
+    closeNzpGame();
+    return;
+  }
+  if (leaveNzpDialogBusy) return;
+  leaveNzpPendingItem = pendingItem || null;
+  leaveNzpDialogBusy = true;
+  const modal = bindLeaveNzpModal();
+  if (!modal) {
+    closeNzpGame();
+    return;
+  }
+  modal.classList.add('is-visible');
+  modal.setAttribute('aria-hidden', 'false');
 }
 
 function handleNzpBack() {
@@ -9994,7 +10106,7 @@ function handleNzpBack() {
     document.exitFullscreen().catch(() => {});
     return;
   }
-  closeNzpGame();
+  requestCloseNzpGame(null);
 }
 
 function syncNzpFsClass() {
@@ -10263,6 +10375,7 @@ window.closeGamesPanel = closeGamesPanel;
 window.openGamesPanel = openGamesPanel;
 window.openNzpGame = openNzpGame;
 window.closeNzpGame = closeNzpGame;
+window.requestCloseNzpGame = requestCloseNzpGame;
 window.exitGamesFeedMode = exitGamesFeedMode;
 window.enterGamesFeedMode = enterGamesFeedMode;
 window.openLiveTvFeed = openLiveTvFeed;
@@ -10285,6 +10398,7 @@ window.isOnVideosFeedPage = isOnVideosFeedPage;
   AppRef.openGamesPanel = openGamesPanel;
   AppRef.openNzpGame = openNzpGame;
   AppRef.closeNzpGame = closeNzpGame;
+  AppRef.requestCloseNzpGame = requestCloseNzpGame;
   AppRef.exitGamesFeedMode = exitGamesFeedMode;
   AppRef.enterGamesFeedMode = enterGamesFeedMode;
   AppRef.openLiveTvFeed = openLiveTvFeed;

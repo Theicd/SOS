@@ -124,6 +124,20 @@
     } catch (_) {}
   }
 
+  // לחיצה על תפריט בזמן משחק זומבים — אישור ואז סגירה | HYPER CORE TECH
+  navRoot.addEventListener('click', (event) => {
+    const item = event.target.closest(
+      '.nav-item, [data-nav], #messagesToggle, #notificationsToggle, #moreOptionsToggle'
+    );
+    if (!item || !navRoot.contains(item)) return;
+    if (!document.body.classList.contains('nzp-open')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    if (typeof App.requestCloseNzpGame === 'function') App.requestCloseNzpGame(item);
+    else if (typeof window.requestCloseNzpGame === 'function') window.requestCloseNzpGame(item);
+  }, true);
+
   // לחיצה על תפריט הצד בזמן שיתוף — כרטיס אישור מעוצב ואז סגירה | HYPER CORE TECH
   navRoot.addEventListener('click', (event) => {
     const item = event.target.closest(

@@ -2,11 +2,13 @@
 .nzp-panel {
   position: fixed;
   inset: 0;
-  z-index: 3500;
+  z-index: 10000;
   display: none;
   flex-direction: column;
   background: #030a14;
   direction: rtl;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 .nzp-panel[hidden] {
@@ -84,6 +86,7 @@
   width: 100%;
   border: 0;
   background: #030a14;
+  touch-action: none;
 }
 
 .nzp-panel.is-playing .nzp-panel__bar {
@@ -114,6 +117,29 @@
   height: 100% !important;
 }
 
+body.nzp-open,
+html.nzp-open {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: none !important;
+}
+
+body.nzp-open .videos-feed,
+body.nzp-open .top-bar,
+body.nzp-open .top-bar__actions {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body.nzp-open .videos-feed video,
+body.nzp-open .videos-feed iframe {
+  visibility: hidden !important;
+}
+
+body.nzp-open .primary-nav {
+  pointer-events: none;
+}
+
 @media (min-width: 769px) {
   .nzp-panel:not([hidden]) {
     top: 0 !important;
@@ -122,13 +148,12 @@
     right: var(--videos-desktop-nav-width, 220px) !important;
     width: auto !important;
     height: 100dvh !important;
-    z-index: 3600 !important;
+    z-index: 10000 !important;
   }
 
-  body.nzp-open .videos-feed,
-  body.nzp-open .top-bar__actions {
-    visibility: hidden;
-    pointer-events: none;
+  body.nzp-open .primary-nav {
+    pointer-events: auto;
+    z-index: 10001;
   }
 }
 
@@ -137,12 +162,12 @@
     top: 0;
     left: 0;
     right: 0;
-    bottom: calc(56px + var(--safe-bottom, 0px));
-    z-index: 1990;
+    bottom: 0;
+    z-index: 10000;
   }
 
-  .nzp-panel:fullscreen,
-  .nzp-panel:-webkit-full-screen {
-    bottom: 0 !important;
+  body.nzp-open .primary-nav {
+    visibility: hidden !important;
+    pointer-events: none !important;
   }
 }
