@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.15-voice1",
-  "buildTime": "2026-09-15T23:55:00+03:00",
-  "notes": "Voice messages with codec MIME persist in chat after WebView resume."
+  "version": "2026.09.16-vidhud1",
+  "buildTime": "2026-09-16T00:57:00+03:00",
+  "notes": "Video call HUD above wait overlay so hangup stays visible"
 }

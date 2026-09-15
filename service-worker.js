@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v826'; // voice MIME codec normalize so closed-WebView voice persists
+  const CACHE_NAME = 'sos-cache-v827'; // video call HUD above wait overlay
   const PRECACHE_URLS = [
     './',
     './videos.html',
