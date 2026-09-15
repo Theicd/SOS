@@ -423,6 +423,29 @@
       });
     }
 
+    const doomLauncher = document.getElementById('videosDoomLauncher');
+    if (doomLauncher) {
+      doomLauncher.addEventListener('click', () => {
+        closeMenu();
+        window.open('./doom-multiplayer.html', 'doomGame', 'width=1200,height=800');
+      });
+    }
+    const nzpLauncher = document.getElementById('videosNzpLauncher');
+    if (nzpLauncher) {
+      nzpLauncher.addEventListener('click', () => {
+        closeMenu();
+        window.open('./nzp-multiplayer.html', 'nzpGame', 'width=1200,height=800');
+      });
+    }
+    const triviaLauncher = document.getElementById('videosTriviaLauncher');
+    if (triviaLauncher) {
+      triviaLauncher.addEventListener('click', () => {
+        closeMenu();
+        if (typeof App.openTriviaGame === 'function') App.openTriviaGame();
+        else if (typeof window.NostrApp?.openTriviaGame === 'function') window.NostrApp.openTriviaGame();
+      });
+    }
+
     // חלק תת-תפריט שונות (app.js) – מאזינים לכפתורים בתת-תפריט | HYPER CORE TECH
     const newsButton = document.getElementById('newsToggleTop');
     if (newsButton) {

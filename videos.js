@@ -8960,6 +8960,7 @@ function createSidebarFollowersSection() {
 
   gamesList.appendChild(makeGameItem('דף המשחקים', 'fa-solid fa-gamepad', 'games.html'));
   gamesList.appendChild(makeGameItem('משחק רשת דום', 'fa-solid fa-gun', 'games.html#doom'));
+  gamesList.appendChild(makeGameItem('משחק רשת זומבים', 'fa-solid fa-skull', 'games.html#nzp'));
   gamesList.appendChild(makeGameItem('משחק רשת טריוויה', 'fa-solid fa-dice', 'games.html#trivia'));
 
   // קו הפרדה אחרי מקטע משחקים
@@ -9933,6 +9934,10 @@ function openGamesPanel(href = './games.html') {
     window.open('./doom-multiplayer.html', 'doomGame', 'width=1200,height=800');
     return true;
   }
+  if (hash === 'nzp') {
+    window.open('./nzp-multiplayer.html', 'nzpGame', 'width=1200,height=800');
+    return true;
+  }
   if (hash === 'trivia') {
     if (typeof window.NostrApp?.openTriviaGame === 'function') {
       window.NostrApp.openTriviaGame();
@@ -10242,5 +10247,9 @@ window.addEventListener('message', function handleOverlayMessage(event) {
   if (data.type === 'openDoomGame') {
     closeGamesPanel();
     window.open('./doom-multiplayer.html', 'doomGame', 'width=1200,height=800');
+  }
+  if (data.type === 'openNzpGame') {
+    closeGamesPanel();
+    window.open('./nzp-multiplayer.html', 'nzpGame', 'width=1200,height=800');
   }
 });

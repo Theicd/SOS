@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>SOS זומבים</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0b0505;
+      color: #fff;
+      font-family: system-ui, sans-serif;
+      min-height: 100vh;
+    }
+    .lobby {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .box {
+      width: min(440px, 100%);
+      background: linear-gradient(180deg, #1a0c0c 0%, #120808 100%);
+      border: 2px solid #8b1e1e;
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+    }
+    h1 { color: #ff4d4d; font-size: 1.6rem; margin-bottom: 6px; }
+    .sub { opacity: .7; margin-bottom: 16px; font-size: .95rem; }
+    .status {
+      background: rgba(0,0,0,.35);
+      border-radius: 10px;
+      padding: 12px;
+      min-height: 48px;
+      margin-bottom: 14px;
+      white-space: pre-line;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #5c2222;
+      background: #1a1010;
+      color: #fff;
+      font-size: 1rem;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .btn {
+      display: inline-block;
+      width: 100%;
+      padding: 12px 16px;
+      margin: 6px 0;
+      border: none;
+      border-radius: 8px;
+      font-size: 1.05rem;
+      cursor: pointer;
+      color: #fff;
+    }
+    .btn:disabled { opacity: .5; cursor: default; }
+    .btn-host { background: #b42318; }
+    .btn-solo { background: #2f4f4f; }
+    .rooms { margin-top: 14px; max-height: 240px; overflow-y: auto; }
+    .room {
+      background: rgba(180,35,24,.2);
+      border: 1px solid rgba(255,77,77,.35);
+      border-radius: 8px;
+      padding: 12px;
+      margin: 8px 0;
+      cursor: pointer;
+      text-align: right;
+    }
+    .room:hover { background: rgba(180,35,24,.4); }
+    .room.full { opacity: .45; cursor: default; }
+    .hint { margin-top: 12px; font-size: .8rem; opacity: .55; }
+  </style>
+</head>
+<body>
+  <div class="lobby">
+    <div class="box">
+      <h1>זומבים רשת</h1>
+      <p class="sub">עד 4 שחקנים. הראשון פותח חדר, השאר נכנסים.</p>
+      <div class="status" id="lobbyStatus">מתחבר...</div>
+      <input id="roomNameInput" maxlength="24" placeholder="שם החדר (רק למארח)">
+      <button class="btn btn-host" id="btnHost">פתח חדר</button>
+      <button class="btn btn-solo" id="btnSolo">שחק לבד</button>
+      <div class="rooms" id="roomsList"></div>
+      <p class="hint">אחרי כולם בפנים, אם מישהו לא נולד: המארח לוחץ ~ ומקליד restart</p>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.min.js"></script>
+  <script>
+    (function () {
+      const GAME_URL = 'https://theicd.github.io/SOS010GAME01/web/index.html';
+      const CFG = {
+        TAG: 'sos_nzp_v1',
+        KIND_STATUS: 33211,
+        RELAYS: [
+          'wss://relay.damus.io',
+          'wss://nos.lol',
+          'wss://relay.snort.social',
+          'wss://relay.nostr.band'
+        ],
+        MAX_PLAYERS: 4,
+        ROOM_TTL: 50
+      };
+
+      const state = {
+        roomId: null,
+        roomName: '',
+        isHost: false,
+        rooms: new Map(),
+        processed: new Set(),
+        pool: null,
+        publicKey: null,
+        privateKey: null,
+        heartbeat: null,
+        players: 1
+      };
+
+      const openerApp = window.opener?.NostrApp || window.parent?.NostrApp || {};
+      const now = () => Math.floor(Date.now() / 1000);
+      const lobbyStatus = document.getElementById('lobbyStatus');
+      const roomsList = document.getElementById('roomsList');
+      const roomNameInput = document.getElementById('roomNameInput');
+      const btnHost = document.getElementById('btnHost');
+      const btnSolo = document.getElementById('btnSolo');
+
+      function getPlayerName() {
+        return openerApp.profile?.name || openerApp.profile?.display_name || 'שחקן';
+      }
+
+      function fteName() {
+        const ascii = String(getPlayerName()).replace(/[^\x20-\x7E]/g, '').replace(/["\\;]/g, '').trim();
+        return (ascii || 'Player').slice(0, 15);
+      }
+
+      function createIceId() {
+        return 'sos' + Math.random().toString(36).replace(/[^a-z0-9]/g, '').slice(2, 10);
+      }
+
+      function hexToBytes(hex) {
+        const bytes = new Uint8Array(hex.length / 2);
+        for (let i = 0; i < hex.length; i += 2) bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+        return bytes;
+      }
+
+      function openGame(params) {
+        const url = new URL(GAME_URL);
+        Object.keys(params).forEach((key) => {
+          if (params[key]) url.searchParams.set(key, params[key]);
+        });
+        window.open(url.toString(), 'nzpGameBoard', 'width=1280,height=800');
+      }
+
+      async function publishEvent(content) {
+        if (!state.pool || !state.publicKey) return;
+        const event = {
+          kind: CFG.KIND_STATUS,
+          pubkey: state.publicKey,
+          created_at: now(),
+          tags: [['t', CFG.TAG]],
+          content: JSON.stringify(content)
+        };
+        try {
+          let signed;
+          if (state.privateKey) signed = window.NostrTools.finalizeEvent(event, state.privateKey);
+          else if (typeof openerApp.signEvent === 'function') signed = await openerApp.signEvent(event);
+          else return;
+          state.pool.publish(CFG.RELAYS, signed);
+        } catch (err) {
+          console.warn('[NZP] publish', err);
+        }
+      }
+
+      function publishHost() {
+        publishEvent({
+          type: 'host',
+          room: state.roomId,
+          roomName: state.roomName,
+          name: getPlayerName(),
+          players: state.players,
+          max: CFG.MAX_PLAYERS,
+          timestamp: now()
+        });
+      }
+
+      function startHeartbeat() {
+        if (state.heartbeat) clearInterval(state.heartbeat);
+        publishHost();
+        state.heartbeat = setInterval(publishHost, 8000);
+      }
+
+      function refreshRoomsList() {
+        const rooms = Array.from(state.rooms.values()).filter((r) => now() - r.timestamp < CFG.ROOM_TTL);
+        if (!rooms.length) {
+          roomsList.innerHTML = '<p style="opacity:.5">אין חדרים פתוחים</p>';
+          return;
+        }
+        roomsList.innerHTML = rooms.map((r) => {
+          const full = r.players >= CFG.MAX_PLAYERS;
+          const count = Math.min(r.players || 1, CFG.MAX_PLAYERS);
+          return `<div class="room${full ? ' full' : ''}" data-room="${r.roomId}" data-name="${r.roomName}">
+            ${r.roomName} · ${count}/${CFG.MAX_PLAYERS} · ${r.hostName}${full ? ' · מלא' : ''}
+          </div>`;
+        }).join('');
+        roomsList.querySelectorAll('.room:not(.full)').forEach((item) => {
+          item.addEventListener('click', () => joinRoom(item.dataset.room, item.dataset.name));
+        });
+      }
+
+      function handleEvent(ev) {
+        if (state.processed.has(ev.id)) return;
+        state.processed.add(ev.id);
+        let data;
+        try { data = JSON.parse(ev.content); } catch (_) { return; }
+        if (!data || !data.room) return;
+
+        if (data.type === 'host') {
+          state.rooms.set(data.room, {
+            roomId: data.room,
+            roomName: data.roomName || data.room,
+            hostPubkey: ev.pubkey,
+            hostName: data.name || 'שחקן',
+            players: Number(data.players) || 1,
+            timestamp: data.timestamp || now()
+          });
+          refreshRoomsList();
+        }
+
+        if (data.type === 'join' && data.room === state.roomId && state.isHost) {
+          state.players = Math.min(CFG.MAX_PLAYERS, state.players + 1);
+          lobbyStatus.textContent = `${data.name || 'שחקן'} מצטרף ל-${state.roomName}\n${state.players}/${CFG.MAX_PLAYERS}`;
+          publishHost();
+        }
+      }
+
+      function hostRoom() {
+        const typed = String(roomNameInput.value || '').trim().slice(0, 24);
+        state.roomName = typed || ('חדר של ' + getPlayerName());
+        state.roomId = createIceId();
+        state.isHost = true;
+        state.players = 1;
+        btnHost.disabled = true;
+        lobbyStatus.textContent = `החדר "${state.roomName}" פתוח.\nאל תסגור חלון זה.`;
+        startHeartbeat();
+        openGame({
+          sos: 'host',
+          ice: state.roomId,
+          name: fteName(),
+          room: state.roomId
+        });
+      }
+
+      function joinRoom(roomId, roomName) {
+        state.roomId = roomId;
+        state.isHost = false;
+        lobbyStatus.textContent = `מצטרף ל-${roomName || roomId}...`;
+        publishEvent({
+          type: 'join',
+          room: roomId,
+          name: getPlayerName(),
+          timestamp: now()
+        });
+        openGame({
+          sos: 'join',
+          ice: roomId,
+          name: fteName()
+        });
+      }
+
+      function startSolo() {
+        openGame({});
+      }
+
+      function subscribe() {
+        if (!state.pool) return;
+        state.pool.subscribeMany(CFG.RELAYS, [{
+          kinds: [CFG.KIND_STATUS],
+          '#t': [CFG.TAG],
+          since: now() - 90
+        }], { onevent: handleEvent });
+      }
+
+      async function connectNostr() {
+        const storedPrivKey = localStorage.getItem('nostr_private_key');
+        const storedPubKey = localStorage.getItem('nostr_public_key');
+        if (storedPrivKey && storedPrivKey.length === 64) {
+          state.privateKey = hexToBytes(storedPrivKey);
+          try { state.publicKey = window.NostrTools.getPublicKey(state.privateKey); }
+          catch (_) { state.publicKey = storedPubKey; }
+        } else if (storedPubKey) {
+          state.publicKey = storedPubKey;
+        }
+        if (!state.publicKey && openerApp.publicKey) {
+          state.publicKey = openerApp.publicKey;
+          state.privateKey = openerApp.privateKey;
+        }
+        if (!state.publicKey) {
+          state.privateKey = window.NostrTools.generateSecretKey();
+          state.publicKey = window.NostrTools.getPublicKey(state.privateKey);
+        }
+        state.pool = new window.NostrTools.SimplePool();
+      }
+
+      async function init() {
+        await connectNostr();
+        if (state.pool && state.publicKey) {
+          subscribe();
+          lobbyStatus.textContent = 'מחובר. פתח חדר או היכנס לחדר פתוח.';
+        } else {
+          lobbyStatus.textContent = 'אין חיבור לרשת. אפשר לשחק לבד.';
+        }
+        refreshRoomsList();
+        setInterval(refreshRoomsList, 5000);
+      }
+
+      btnHost.addEventListener('click', hostRoom);
+      btnSolo.addEventListener('click', startSolo);
+      roomNameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') hostRoom();
+      });
+
+      function waitForNostrTools() {
+        if (window.NostrTools) init();
+        else setTimeout(waitForNostrTools, 100);
+      }
+      waitForNostrTools();
+    })();
+  </script>
+</body>
+</html>

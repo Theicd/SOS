@@ -391,12 +391,21 @@
   function launchNetworkGame(kind) {
     setMenuOpen(false);
     const isInIframe = window.parent !== window;
-    if (isInIframe) {
-      window.parent.postMessage({ type: kind === 'doom' ? 'openDoomGame' : 'openTriviaGame' }, '*');
+    const messageType = {
+      doom: 'openDoomGame',
+      trivia: 'openTriviaGame',
+      nzp: 'openNzpGame'
+    }[kind];
+    if (isInIframe && messageType) {
+      window.parent.postMessage({ type: messageType }, '*');
       return;
     }
     if (kind === 'doom') {
       window.open('./doom-multiplayer.html', 'doomGame', 'width=1200,height=800');
+      return;
+    }
+    if (kind === 'nzp') {
+      window.open('./nzp-multiplayer.html', 'nzpGame', 'width=1200,height=800');
       return;
     }
     window.location.href = './videos.html#trivia';
@@ -405,6 +414,7 @@
   function handleHashLaunch() {
     const hash = String(window.location.hash || '').replace('#', '').toLowerCase();
     if (hash === 'doom') launchNetworkGame('doom');
+    if (hash === 'nzp') launchNetworkGame('nzp');
     if (hash === 'trivia') launchNetworkGame('trivia');
   }
 
