@@ -9934,7 +9934,7 @@ function ensureNzpPanel() {
     const link = document.createElement('link');
     link.id = 'nzp-panel-css';
     link.rel = 'stylesheet';
-    link.href = './styles/nzp-panel.css?v=20260915nzp6';
+    link.href = './styles/nzp-panel.css?v=20260915nzp8';
     document.head.appendChild(link);
   }
   panel = document.createElement('div');
@@ -9971,6 +9971,8 @@ function bindNzpPanelChrome() {
   if (panel && panel.dataset.touchLock !== '1') {
     panel.dataset.touchLock = '1';
     panel.addEventListener('touchmove', (event) => {
+      const frame = document.getElementById('nzpPanelFrame');
+      if (frame && event.target === frame) return;
       event.preventDefault();
     }, { passive: false });
   }
@@ -10002,7 +10004,7 @@ function openNzpGame() {
   document.body.classList.add('nzp-open');
   document.documentElement.classList.add('nzp-open');
   freezeFeedForNzp();
-  frame.src = './nzp-multiplayer.html?v=20260915nzp7';
+  frame.src = './nzp-multiplayer.html?v=20260915nzp8';
   return true;
 }
 
