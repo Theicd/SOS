@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.15-camrec6",
-  "buildTime": "2026-09-15T04:22:00+03:00",
-  "notes": "Shrink the mobile recording timer by 30% and overlay it so it does not shift the camera layout"
+  "version": "2026.09.15-camrec7",
+  "buildTime": "2026-09-15T04:28:00+03:00",
+  "notes": "Place the recording timer to the right of the red shutter button"
 }

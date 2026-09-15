@@ -617,12 +617,13 @@ body.video-record-open .videos-feed iframe {
   cursor: pointer;
 }
 
-/* מד זמן — מובייל: קטן ב־30% וצף, בלי לדחוף את התחתית | HYPER CORE TECH */
+/* מד זמן — מימין לכפתור האדום, בלי לדחוף את התחתית | HYPER CORE TECH */
 .floating-timer {
   position: absolute;
-  left: 50%;
-  bottom: calc(52px + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
+  left: calc(50% + 46px);
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
   z-index: 6;
   display: inline-flex;
   align-items: center;
@@ -876,20 +877,10 @@ body.video-record-open .videos-feed iframe {
   }
 
   .floating-timer {
-    position: relative;
-    left: auto;
-    bottom: auto;
-    transform: none;
+    left: calc(50% + 50px);
     font-size: 28px;
     gap: 8px;
     padding: 4px 14px 4px 10px;
-    height: 0;
-    overflow: hidden;
-  }
-
-  .floating-timer.visible {
-    height: auto;
-    overflow: visible;
   }
 
   .floating-timer::before {
