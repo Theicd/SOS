@@ -9175,6 +9175,9 @@ async function init() {
   }, BOOT_SAFETY_TIMEOUT_MS);
 
   await waitForApp();
+  if (String(window.location.hash || '').replace('#', '').toLowerCase() === 'nzp') {
+    openNzpGame();
+  }
   const app = window.NostrApp || {};
   if (typeof app.buildCoreFeedFilters !== 'function') {
     app.buildCoreFeedFilters = buildVideoFeedFilters;
@@ -9917,17 +9920,61 @@ function closeLiveTvFeed() {
   return exitLiveTvFeedMode();
 }
 
-function openNzpGame() {
-  const panel = document.getElementById('nzpPanel');
-  const frame = document.getElementById('nzpPanelFrame');
-  if (!panel || !frame) {
-    window.location.href = './nzp-multiplayer.html';
-    return true;
+function ensureNzpPanel() {
+  let panel = document.getElementById('nzpPanel');
+  let frame = document.getElementById('nzpPanelFrame');
+  if (panel && frame) {
+    bindNzpPanelChrome();
+    return panel;
   }
+  if (!document.getElementById('nzp-panel-css')) {
+    const link = document.createElement('link');
+    link.id = 'nzp-panel-css';
+    link.rel = 'stylesheet';
+    link.href = './styles/nzp-panel.css?v=20260915nzp3';
+    document.head.appendChild(link);
+  }
+  panel = document.createElement('div');
+  panel.id = 'nzpPanel';
+  panel.className = 'nzp-panel';
+  panel.hidden = true;
+  panel.innerHTML = `
+    <div class="nzp-panel__bar">
+      <span class="nzp-panel__title">NZ:P</span>
+      <div class="nzp-panel__actions">
+        <button type="button" class="nzp-panel__btn" id="nzpPanelFullscreen">מסך מלא</button>
+        <button type="button" class="nzp-panel__btn" id="nzpPanelClose">סגור</button>
+      </div>
+    </div>
+    <iframe class="nzp-panel__frame" id="nzpPanelFrame" src="" allow="autoplay; fullscreen; gamepad; keyboard-map" allowfullscreen></iframe>
+  `;
+  document.body.appendChild(panel);
+  bindNzpPanelChrome();
+  return panel;
+}
+
+function bindNzpPanelChrome() {
+  const nzpClose = document.getElementById('nzpPanelClose');
+  const nzpFs = document.getElementById('nzpPanelFullscreen');
+  if (nzpClose && nzpClose.dataset.bound !== '1') {
+    nzpClose.dataset.bound = '1';
+    nzpClose.addEventListener('click', () => closeNzpGame());
+  }
+  if (nzpFs && nzpFs.dataset.bound !== '1') {
+    nzpFs.dataset.bound = '1';
+    nzpFs.addEventListener('click', () => toggleNzpFullscreen());
+  }
+}
+
+function openNzpGame() {
+  const panel = ensureNzpPanel();
+  const frame = document.getElementById('nzpPanelFrame');
+  if (!panel || !frame) return false;
   closeGamesPanelKeepNzp();
-  frame.src = './nzp-multiplayer.html';
   panel.hidden = false;
+  panel.removeAttribute('hidden');
   document.body.classList.add('nzp-open');
+  frame.src = './nzp-multiplayer.html';
   return true;
 }
 
@@ -9936,6 +9983,7 @@ function closeNzpGame() {
   const frame = document.getElementById('nzpPanelFrame');
   if (!panel || panel.hidden) return false;
   panel.hidden = true;
+  panel.setAttribute('hidden', '');
   if (frame) frame.src = '';
   document.body.classList.remove('nzp-open');
   if (document.fullscreenElement) {
@@ -10243,21 +10291,9 @@ window.isOnVideosFeedPage = isOnVideosFeedPage;
   AppRef.showTransientFeedHint = showTransientFeedHint;
 }
 
-(function bindNzpPanelChrome() {
-  function bind() {
-    const nzpClose = document.getElementById('nzpPanelClose');
-    const nzpFs = document.getElementById('nzpPanelFullscreen');
-    if (nzpClose && nzpClose.dataset.bound !== '1') {
-      nzpClose.dataset.bound = '1';
-      nzpClose.addEventListener('click', () => closeNzpGame());
-    }
-    if (nzpFs && nzpFs.dataset.bound !== '1') {
-      nzpFs.dataset.bound = '1';
-      nzpFs.addEventListener('click', () => toggleNzpFullscreen());
-    }
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
-  else bind();
+(function bindNzpPanelChromeBoot() {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindNzpPanelChrome);
+  else bindNzpPanelChrome();
 })();
 
 // חשיפה גלובלית לסגירת פאנל פרופיל ציבורי | HYPER CORE TECH
@@ -10331,5 +10367,10 @@ window.addEventListener('message', function handleOverlayMessage(event) {
   if (data.type === 'openNzpGame') {
     closeGamesPanelKeepNzp();
     openNzpGame();
+    return;
+  }
+  if (data.type === 'nzp-fullscreen') {
+    toggleNzpFullscreen();
+    return;
   }
 });

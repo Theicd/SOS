@@ -63,13 +63,20 @@
 }
 
 @media (min-width: 769px) {
-  .nzp-panel {
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: var(--videos-desktop-nav-width, 220px);
-    width: auto;
-    height: 100dvh;
+  .nzp-panel:not([hidden]) {
+    top: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    right: var(--videos-desktop-nav-width, 220px) !important;
+    width: auto !important;
+    height: 100dvh !important;
+    z-index: 3600 !important;
+  }
+
+  body.nzp-open .videos-feed,
+  body.nzp-open .top-bar__actions {
+    visibility: hidden;
+    pointer-events: none;
   }
 }
 

@@ -409,7 +409,7 @@
         window.openNzpGame();
         return;
       }
-      window.location.href = './nzp-multiplayer.html';
+      window.location.replace('./videos.html#nzp');
       return;
     }
     window.location.href = './videos.html#trivia';

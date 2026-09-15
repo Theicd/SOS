@@ -436,7 +436,6 @@
         closeMenu();
         if (typeof App.openNzpGame === 'function') App.openNzpGame();
         else if (typeof window.openNzpGame === 'function') window.openNzpGame();
-        else window.location.href = './nzp-multiplayer.html';
       });
     }
     const triviaLauncher = document.getElementById('videosTriviaLauncher');

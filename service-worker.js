@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v815'; // Rec timer to the left of the shutter, more gap
+  const CACHE_NAME = 'sos-cache-v816'; // NZP in-app left panel, no popup window
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -18,6 +18,9 @@
     './games.html',
     './games.js',
     './game-embed.js',
+    './nzp-multiplayer.html',
+    './styles/nzp-panel.css',
+    './icons/nzp-cover.png',
     './styles/games.css',
     './styles/videos.css',
     './styles/base.css',
@@ -79,7 +82,7 @@
       } catch (err) {
         console.warn('[SW] Precache failed:', err);
       }
-      // לא skipWaiting כאן — המשתמש לוחץ «עדכן» בכרטיסייה | HYPER CORE TECH
+      await self.skipWaiting();
     })());
   });
 
