@@ -5,7 +5,7 @@
   z-index: 10000;
   display: none;
   flex-direction: column;
-  background: #030a14;
+  background: #18191a;
   direction: rtl;
   overscroll-behavior: none;
 }
@@ -26,12 +26,12 @@
   grid-template-columns: 44px 1fr auto;
   align-items: center;
   padding-inline: 8px;
-  background: linear-gradient(180deg, #071422 0%, #030a14 100%);
-  border-bottom: 1px solid rgba(0, 175, 255, 0.28);
+  background: #18191a;
+  border-bottom: 1px solid #3a3b3c;
 }
 
 .nzp-panel__title {
-  color: #00afff;
+  color: #e4e6eb;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -61,17 +61,17 @@
   min-width: 40px;
   height: 32px;
   padding: 0 10px;
-  border: 1px solid rgba(0, 175, 255, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 8px;
-  background: rgba(0, 175, 255, 0.12);
-  color: #f4f7fb;
+  background: rgba(255, 255, 255, 0.1);
+  color: #e4e6eb;
   cursor: pointer;
   font-size: 13px;
   font-weight: 700;
 }
 
 .nzp-panel__fs:hover {
-  background: rgba(0, 175, 255, 0.28);
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .nzp-panel:not(.is-playing) .nzp-panel__fs,
@@ -84,7 +84,7 @@
   flex: 1;
   width: 100%;
   border: 0;
-  background: #030a14;
+  background: #18191a;
   touch-action: manipulation;
 }
 
