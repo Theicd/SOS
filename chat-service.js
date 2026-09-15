@@ -192,33 +192,130 @@
     return false;
   }
 
-  function verifyIncomingChatAttachment(raw) {
-    if (raw == null) return true;
-    if (typeof raw !== 'object' || Array.isArray(raw)) return false;
-    if (Object.keys(raw).length > 24) return false;
-    if (raw.name != null && (typeof raw.name !== 'string' || raw.name.length > MAX_ATTACH_NAME_CHARS)) return false;
-    if (raw.type != null && raw.type !== '') {
-      if (typeof raw.type !== 'string' || raw.type.length > MAX_ATTACH_MIME_CHARS) return false;
-      if (!/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i.test(raw.type)) return false;
-    }
-    if (raw.url != null && raw.url !== '' && (typeof raw.url !== 'string' || raw.url.length > MAX_ATTACH_URL_CHARS)) return false;
-    if (raw.dataUrl != null && raw.dataUrl !== '' && (typeof raw.dataUrl !== 'string' || raw.dataUrl.length > MAX_ATTACH_DATAURL_CHARS)) return false;
-    if (raw.magnetURI != null && raw.magnetURI !== '' && (typeof raw.magnetURI !== 'string' || raw.magnetURI.length > MAX_ATTACH_MAGNET_CHARS)) return false;
-    if (raw.infoHash != null && raw.infoHash !== '' && (typeof raw.infoHash !== 'string' || raw.infoHash.length > 64)) return false;
-    if (raw.fileId != null && raw.fileId !== '' && (typeof raw.fileId !== 'string' || raw.fileId.length > MAX_ATTACH_ID_CHARS)) return false;
-    if (raw.id != null && raw.id !== '' && (typeof raw.id !== 'string' || raw.id.length > MAX_ATTACH_ID_CHARS)) return false;
-    if (raw.isTorrent != null && typeof raw.isTorrent !== 'boolean') return false;
-    if (raw.size != null && (typeof raw.size !== 'number' || !Number.isFinite(raw.size) || raw.size < 0 || raw.size > MAX_ATTACH_FILE_SIZE)) return false;
-    if (raw.duration != null && (typeof raw.duration !== 'number' || !Number.isFinite(raw.duration) || raw.duration < 0 || raw.duration > MAX_ATTACH_DURATION_SEC)) return false;
-    if (raw.url && !isSafeIncomingChatResource(raw.url)) return false;
-    if (raw.dataUrl && !isSafeIncomingChatResource(raw.dataUrl)) return false;
-    if (raw.magnetURI && !isValidIncomingMagnetURI(raw.magnetURI)) return false;
-    if (raw.infoHash && !/^(?:[a-fA-F0-9]{40}|[a-zA-Z2-7]{32})$/.test(raw.infoHash)) return false;
-    if (raw.isTorrent === true && !(raw.magnetURI || raw.infoHash)) return false;
-    return true;
+  function canonicalChatMimeType(type) {
+    if (typeof type !== 'string' || !type) return '';
+    return type.split(';')[0].trim();
   }
 
-  function verifyIncomingChatRelayPayload(rawContent) {
+  function inferAudioMimeFromFileName(name) {
+    const n = String(name || '').toLowerCase();
+    if (n.endsWith('.ogg') || n.endsWith('.opus') || n.endsWith('.oga')) return 'audio/ogg';
+    if (n.endsWith('.m4a') || n.endsWith('.mp4') || n.endsWith('.m4b')) return 'audio/mp4';
+    if (n.endsWith('.mp3') || n.endsWith('.mpeg')) return 'audio/mpeg';
+    return 'audio/webm';
+  }
+
+  function looksLikeLegacyVoiceDescriptor(raw) {
+    const name = String(raw && raw.name || '').toLowerCase();
+    if (name.includes('voice') || name.includes('ptt') || name.includes('voicemessage')) return true;
+    return /\.(webm|ogg|oga|opus|m4a|mp3|aac)$/i.test(name);
+  }
+
+  function logAttachmentRejected(raw, reasonCode, eventId) {
+    const keys = raw && typeof raw === 'object' && !Array.isArray(raw) ? Object.keys(raw).slice(0, 24) : [];
+    const mime = raw && typeof raw.type === 'string' ? String(raw.type).slice(0, 80) : '';
+    console.warn(
+      '[SO-CALL SECURITY] ATTACHMENT_REJECTED' +
+        ' eventId=' + (eventId ? String(eventId).slice(0, 64) : '') +
+        ' attachmentType=' + canonicalChatMimeType(mime) +
+        ' mime=' + mime +
+        ' descriptorKeys=' + keys.join(',') +
+        ' reasonCode=' + String(reasonCode || 'INVALID_DESCRIPTOR'),
+    );
+  }
+
+  // Wire MIME is essence-only. MediaRecorder `audio/webm; codecs=opus` is normalized, not rejected. | HYPER CORE TECH
+  function normalizeIncomingChatAttachmentSchema(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+    if (typeof raw.type === 'string' && raw.type) {
+      const essence = canonicalChatMimeType(raw.type);
+      if (essence && essence !== raw.type) raw.type = essence;
+      const token = String(raw.type || '').toLowerCase();
+      if ((token === 'file' || token === 'application/octet-stream') && looksLikeLegacyVoiceDescriptor(raw)) {
+        raw.type = inferAudioMimeFromFileName(raw.name);
+      }
+    }
+  }
+
+  function inspectIncomingChatAttachment(raw) {
+    if (raw == null) return { ok: true };
+    if (typeof raw !== 'object' || Array.isArray(raw)) {
+      return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+    }
+    if (Object.keys(raw).length > 24) {
+      return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+    }
+    normalizeIncomingChatAttachmentSchema(raw);
+    if (raw.name != null && (typeof raw.name !== 'string' || raw.name.length > MAX_ATTACH_NAME_CHARS)) {
+      return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+    }
+    if (raw.type != null && raw.type !== '') {
+      if (typeof raw.type !== 'string' || raw.type.length > MAX_ATTACH_MIME_CHARS) {
+        return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+      }
+      const essence = canonicalChatMimeType(raw.type);
+      if (!essence) {
+        return { ok: false, reasonCode: 'MISSING_MIME' };
+      }
+      if (!/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/i.test(essence)) {
+        const token = essence.toLowerCase();
+        if (token === 'file' || token === 'application/octet-stream') {
+          return { ok: false, reasonCode: 'LEGACY_SCHEMA' };
+        }
+        return { ok: false, reasonCode: 'UNSUPPORTED_TYPE' };
+      }
+      if (essence !== raw.type) raw.type = essence;
+    }
+    if (raw.url != null && raw.url !== '' && (typeof raw.url !== 'string' || raw.url.length > MAX_ATTACH_URL_CHARS)) {
+      return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+    }
+    if (raw.dataUrl != null && raw.dataUrl !== '' && (typeof raw.dataUrl !== 'string' || raw.dataUrl.length > MAX_ATTACH_DATAURL_CHARS)) {
+      return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+    }
+    if (raw.magnetURI != null && raw.magnetURI !== '' && (typeof raw.magnetURI !== 'string' || raw.magnetURI.length > MAX_ATTACH_MAGNET_CHARS)) {
+      return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+    }
+    if (raw.infoHash != null && raw.infoHash !== '' && (typeof raw.infoHash !== 'string' || raw.infoHash.length > 64)) {
+      return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+    }
+    if (raw.fileId != null && raw.fileId !== '' && (typeof raw.fileId !== 'string' || raw.fileId.length > MAX_ATTACH_ID_CHARS)) {
+      return { ok: false, reasonCode: 'MISSING_FILE_ID' };
+    }
+    if (raw.id != null && raw.id !== '' && (typeof raw.id !== 'string' || raw.id.length > MAX_ATTACH_ID_CHARS)) {
+      return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+    }
+    if (raw.isTorrent != null && typeof raw.isTorrent !== 'boolean') {
+      return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+    }
+    if (raw.size != null && (typeof raw.size !== 'number' || !Number.isFinite(raw.size) || raw.size < 0 || raw.size > MAX_ATTACH_FILE_SIZE)) {
+      return { ok: false, reasonCode: 'INVALID_SIZE' };
+    }
+    if (raw.duration != null && (typeof raw.duration !== 'number' || !Number.isFinite(raw.duration) || raw.duration < 0 || raw.duration > MAX_ATTACH_DURATION_SEC)) {
+      return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+    }
+    if (raw.url && !isSafeIncomingChatResource(raw.url)) {
+      return { ok: false, reasonCode: 'MISSING_URL' };
+    }
+    if (raw.dataUrl && !isSafeIncomingChatResource(raw.dataUrl)) {
+      return { ok: false, reasonCode: 'MISSING_URL' };
+    }
+    if (raw.magnetURI && !isValidIncomingMagnetURI(raw.magnetURI)) {
+      return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+    }
+    if (raw.infoHash && !/^(?:[a-fA-F0-9]{40}|[a-zA-Z2-7]{32})$/.test(raw.infoHash)) {
+      return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+    }
+    if (raw.isTorrent === true && !(raw.magnetURI || raw.infoHash)) {
+      return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+    }
+    return { ok: true };
+  }
+
+  function verifyIncomingChatAttachment(raw) {
+    return inspectIncomingChatAttachment(raw).ok;
+  }
+
+  function verifyIncomingChatRelayPayload(rawContent, meta) {
     try {
       if (rawContent == null || rawContent === '') return true;
       if (typeof rawContent !== 'string') return false;
@@ -255,12 +352,15 @@
         return false;
       }
       if (parsed.a != null && (typeof parsed.a !== 'object' || Array.isArray(parsed.a))) {
-        console.warn('[SO-CALL SECURITY] rejected malformed chat attachment');
+        logAttachmentRejected(parsed.a, 'INVALID_DESCRIPTOR', meta && meta.eventId);
         return false;
       }
-      if (parsed.a != null && !verifyIncomingChatAttachment(parsed.a)) {
-        console.warn('[SO-CALL SECURITY] rejected malformed chat attachment');
-        return false;
+      if (parsed.a != null) {
+        const inspected = inspectIncomingChatAttachment(parsed.a);
+        if (!inspected.ok) {
+          logAttachmentRejected(parsed.a, inspected.reasonCode, meta && meta.eventId);
+          return false;
+        }
       }
       if (typeof parsed.magnetURI === 'string' && parsed.magnetURI && !isValidIncomingMagnetURI(parsed.magnetURI)) {
         console.warn('[SO-CALL SECURITY] rejected malformed torrent magnet');
@@ -610,7 +710,7 @@
     if (event.kind !== CHAT_KIND || !event.content) {
       return;
     }
-    if (!verifyIncomingChatRelayPayload(event.content)) {
+    if (!verifyIncomingChatRelayPayload(event.content, { eventId: event.id })) {
       return;
     }
     // חלק שמירה 90 יום (chat-service.js) – מתעלמים מהודעות ישנות מהריליי | HYPER CORE TECH
@@ -721,7 +821,9 @@
           };
 
     if (parsedPayload.attachment) {
-      if (!verifyIncomingChatAttachment(parsedPayload.attachment)) {
+      const inspected = inspectIncomingChatAttachment(parsedPayload.attachment);
+      if (!inspected.ok) {
+        logAttachmentRejected(parsedPayload.attachment, inspected.reasonCode, event.id);
         parsedPayload.attachment = null;
         parsedPayload.hasAttachment = false;
       } else if (parsedPayload.attachment.name) {
@@ -1487,6 +1589,7 @@
     drainPendingReadReceipts,
     verifyIncomingChatRelayPayload,
     verifyIncomingChatAttachment,
+    inspectIncomingChatAttachment,
     sanitizeIncomingChatFileName,
     isSafeIncomingChatResource,
     isValidIncomingMagnetURI,

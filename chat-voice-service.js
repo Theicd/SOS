@@ -93,10 +93,16 @@
     return 'webm';
   }
 
+  // Wire schema: type is MIME essence only (audio/webm). Recorder may still use codecs=opus. | HYPER CORE TECH
+  function canonicalVoiceMime(mimeType) {
+    if (typeof mimeType !== 'string' || !mimeType) return 'audio/webm';
+    return mimeType.split(';')[0].trim() || 'audio/webm';
+  }
+
   async function buildAttachmentFromBlob(blob, duration, mimeType){
     const ext = getFileExtension(mimeType || 'audio/webm');
     const fileName = `voice-message.${ext}`;
-    const finalMime = mimeType || 'audio/webm';
+    const finalMime = canonicalVoiceMime(mimeType || 'audio/webm');
     
     if(blob.size <= MAX_INLINE_BYTES){
       const dataUrl = await new Promise((res,rej)=>{

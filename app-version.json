@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.15-camrec8",
-  "buildTime": "2026-09-15T04:35:00+03:00",
-  "notes": "Place the recording timer to the left of the shutter with more gap"
+  "version": "2026.09.15-voice1",
+  "buildTime": "2026-09-15T23:55:00+03:00",
+  "notes": "Voice messages with codec MIME persist in chat after WebView resume."
 }
