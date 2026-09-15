@@ -13,7 +13,7 @@
       --sos-border: rgba(0, 175, 255, 0.35);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; background: var(--sos-bg); color: var(--sos-text); font-family: system-ui, sans-serif; }
+    html, body { height: 100%; background: var(--sos-bg); color: var(--sos-text); font-family: system-ui, "Segoe UI", sans-serif; }
     body { overflow: hidden; }
     .stage { position: absolute; inset: 0; }
     .stage[hidden] { display: none !important; }
@@ -22,121 +22,184 @@
       position: relative;
       height: 100%;
       overflow: auto;
-      background: #030a14;
+      background: #030a14 url('./icons/nzp-cover.png') center 22% / cover no-repeat;
     }
     .hero::before {
       content: '';
       position: absolute;
       inset: 0;
-      background: #030a14 url('./icons/nzp-cover.png') center 18% / cover no-repeat;
-      filter: blur(10px) brightness(.28);
-      transform: scale(1.08);
       pointer-events: none;
+      background: linear-gradient(90deg,
+        rgba(3,10,20,.12) 0%,
+        rgba(3,10,20,.38) 42%,
+        rgba(3,10,20,.88) 72%,
+        rgba(3,10,20,.96) 100%);
     }
     .hero__inner {
       position: relative;
       z-index: 1;
       min-height: 100%;
-      width: 100%;
+      width: min(520px, 100%);
+      margin-inline-start: auto;
       display: flex;
       flex-direction: column;
-      justify-content: flex-start;
-      padding: 16px 16px 28px;
-      max-width: 720px;
+      justify-content: center;
+      padding: 28px 22px 32px;
     }
-    .card {
-      background: rgba(3, 10, 20, .94);
-      border: 1px solid var(--sos-border);
-      border-radius: 16px;
-      padding: 16px 16px 14px;
-      margin-bottom: 14px;
-      box-shadow: 0 10px 32px rgba(0, 0, 0, .55);
-    }
+    .copy { margin-bottom: 12px; }
     .kicker {
       color: var(--sos-electric);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: .12em;
-      margin-bottom: 8px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .14em;
+      margin-bottom: 10px;
+      text-shadow: 0 2px 12px #000;
     }
-    h1 { font-size: 1.55rem; line-height: 1.15; margin-bottom: 8px; }
+    h1 {
+      font-size: clamp(2rem, 4.4vw, 2.7rem);
+      line-height: 1.08;
+      margin-bottom: 12px;
+      text-shadow: 0 4px 28px #000;
+    }
     .plot {
       color: #e8f3fc;
       font-size: 16px;
-      line-height: 1.5;
+      line-height: 1.55;
+      margin-bottom: 18px;
+      max-width: 42ch;
+      text-shadow: 0 2px 16px #000;
     }
     .status {
-      background: rgba(6, 18, 32, .92);
+      color: var(--sos-electric);
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      min-height: 1.2em;
+    }
+    .dock {
+      background: rgba(3, 10, 20, .72);
       border: 1px solid var(--sos-border);
-      border-radius: 10px;
-      padding: 10px 12px;
-      margin-bottom: 12px;
-      white-space: pre-line;
-      font-size: 14px;
+      border-radius: 16px;
+      padding: 14px;
     }
     input {
       width: 100%;
-      max-width: 100%;
       padding: 12px 14px;
       border-radius: 10px;
       border: 1px solid var(--sos-border);
-      background: rgba(3, 10, 20, .9);
+      background: rgba(6, 18, 32, .88);
       color: var(--sos-text);
       font-size: 1rem;
       margin-bottom: 10px;
     }
-    .row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .row { display: flex; gap: 8px; margin-bottom: 4px; }
+    .row .btn { flex: 1; }
     .btn {
       border: 0;
       border-radius: 10px;
-      padding: 12px 18px;
+      padding: 13px 16px;
       font-size: 1rem;
       cursor: pointer;
       color: #031018;
       background: linear-gradient(180deg, #4dd4ff, #00afff);
-      font-weight: 700;
+      font-weight: 800;
     }
     .btn:disabled { opacity: .5; cursor: default; }
     .btn-ghost {
-      background: rgba(0, 175, 255, .12);
+      background: rgba(0, 175, 255, .14);
       color: var(--sos-text);
       border: 1px solid var(--sos-border);
     }
-    .rooms { display: flex; flex-direction: column; gap: 8px; max-width: 420px; }
+    .rooms-wrap { margin-top: 16px; }
+    .rooms-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #cfe8f8;
+      margin-bottom: 8px;
+    }
+    .rooms { display: flex; flex-direction: column; gap: 8px; }
+    .rooms-empty {
+      color: var(--sos-muted);
+      font-size: 14px;
+      padding: 8px 2px;
+    }
     .room {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
       background: rgba(6, 18, 32, .78);
       border: 1px solid var(--sos-border);
-      border-radius: 10px;
-      padding: 12px;
+      border-radius: 12px;
+      padding: 10px 10px 10px 12px;
+    }
+    .room__copy { min-width: 0; }
+    .room__name { font-weight: 800; font-size: 15px; }
+    .room__meta { color: var(--sos-muted); font-size: 12px; margin-top: 2px; }
+    .room__join {
+      flex-shrink: 0;
+      border: 0;
+      border-radius: 9px;
+      padding: 8px 12px;
+      background: linear-gradient(180deg, #4dd4ff, #00afff);
+      color: #031018;
+      font-weight: 800;
       cursor: pointer;
     }
-    .room:hover { border-color: #4dd4ff; }
-    .room.full { opacity: .45; cursor: default; }
+    .room.full { opacity: .45; }
+    .room.full .room__join { display: none; }
     .hint { margin-top: 12px; font-size: 12px; color: var(--sos-muted); }
 
     .play { background: #000; }
     .game-frame { width: 100%; height: 100%; border: 0; display: block; }
-    @media (min-width: 769px) {
-      .hero__inner { padding-top: 28px; }
-      h1 { font-size: 2.1rem; }
+
+    @media (max-width: 768px) {
+      .hero {
+        background-position: center 12%;
+      }
+      .hero::before {
+        background: linear-gradient(180deg,
+          rgba(3,10,20,0) 0%,
+          rgba(3,10,20,.12) 32%,
+          rgba(3,10,20,.82) 58%,
+          rgba(3,10,20,.97) 100%);
+      }
+      .hero__inner {
+        width: 100%;
+        margin: 0;
+        justify-content: flex-end;
+        padding: 38vh 16px 22px;
+      }
+      .copy {
+        background: rgba(3, 10, 20, .58);
+        border-radius: 14px;
+        padding: 12px 12px 10px;
+      }
+      h1 { font-size: 1.85rem; }
+      .plot { font-size: 15px; max-width: none; }
     }
   </style>
 </head>
 <body>
   <section class="stage hero" id="lobbyStage">
     <div class="hero__inner">
-      <div class="card">
-        <div class="kicker">SOS PLAY · קואופרטיב</div>
-        <h1>Nazi Zombies: Portable</h1>
-        <p class="plot">שורדים ביחד בבונקר מול זומבים. עד 4 שחקנים, מחשב ומובייל.</p>
+      <div class="copy">
+      <div class="kicker">SOS PLAY · קואופרטיב</div>
+      <h1>Nazi Zombies: Portable</h1>
+      <p class="plot">1945. חיילים נעולים בבונקר נאצי נטוש. המתים קמים, התחמושת אוזלת, ורק מי ששורד ביחד יוצא. עד 4 שחקנים באותה זירה — מחשב ומובייל.</p>
       </div>
-      <div class="status" id="lobbyStatus">מתחבר...</div>
-      <input id="roomNameInput" maxlength="24" placeholder="שם החדר (רק למארח)">
-      <div class="row">
-        <button class="btn" id="btnHost" type="button">פתח חדר</button>
-        <button class="btn btn-ghost" id="btnSolo" type="button">שחק לבד</button>
+      <div class="dock">
+        <div class="status" id="lobbyStatus">מתחבר...</div>
+        <input id="roomNameInput" maxlength="24" placeholder="שם החדר (רק למארח)">
+        <div class="row">
+          <button class="btn" id="btnHost" type="button">פתח חדר</button>
+          <button class="btn btn-ghost" id="btnSolo" type="button">שחק לבד</button>
+        </div>
       </div>
-      <div class="rooms" id="roomsList"></div>
+      <div class="rooms-wrap">
+        <div class="rooms-title">חדרים פתוחים</div>
+        <div class="rooms" id="roomsList"></div>
+      </div>
       <p class="hint">אם מישהו נכנס ולא נולד במפה: המארח לוחץ ~ ומקליד restart</p>
     </div>
   </section>
@@ -210,7 +273,7 @@
         Object.keys(params || {}).forEach((key) => {
           if (params[key]) url.searchParams.set(key, params[key]);
         });
-        url.searchParams.set('cb', '20260915nzp4');
+        url.searchParams.set('cb', '20260915nzp5');
         lobbyStage.hidden = true;
         gameStage.hidden = false;
         gameFrame.src = url.toString();
@@ -258,18 +321,24 @@
       function refreshRoomsList() {
         const rooms = Array.from(state.rooms.values()).filter((r) => now() - r.timestamp < CFG.ROOM_TTL);
         if (!rooms.length) {
-          roomsList.innerHTML = '<p style="opacity:.6">אין חדרים פתוחים</p>';
+          roomsList.innerHTML = '<p class="rooms-empty">אין חדרים פתוחים כרגע</p>';
           return;
         }
         roomsList.innerHTML = rooms.map((r) => {
           const full = r.players >= CFG.MAX_PLAYERS;
           const count = Math.min(r.players || 1, CFG.MAX_PLAYERS);
+          const label = full ? 'מלא' : 'הצטרף';
           return `<div class="room${full ? ' full' : ''}" data-room="${r.roomId}" data-name="${r.roomName}">
-            ${r.roomName} · ${count}/${CFG.MAX_PLAYERS} · ${r.hostName}${full ? ' · מלא' : ''}
+            <div class="room__copy">
+              <div class="room__name">${r.roomName}</div>
+              <div class="room__meta">${count}/${CFG.MAX_PLAYERS} שחקנים · ${r.hostName}</div>
+            </div>
+            <button type="button" class="room__join" ${full ? 'disabled' : ''}>${label}</button>
           </div>`;
         }).join('');
         roomsList.querySelectorAll('.room:not(.full)').forEach((item) => {
-          item.addEventListener('click', () => joinRoom(item.dataset.room, item.dataset.name));
+          const join = () => joinRoom(item.dataset.room, item.dataset.name);
+          item.addEventListener('click', join);
         });
       }
 

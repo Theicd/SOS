@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v817'; // NZP lobby chrome + single fullscreen back arrow
+  const CACHE_NAME = 'sos-cache-v818'; // NZP Netflix lobby + Roblox-style look stick
   const PRECACHE_URLS = [
     './',
     './videos.html',
