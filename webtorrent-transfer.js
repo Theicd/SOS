@@ -597,6 +597,12 @@
     console.log('[TORRENT] 🔗 Adding torrent with trackers:', CONFIG.trackers);
 
     try {
+      if (typeof App.isValidIncomingMagnetURI === 'function' && !App.isValidIncomingMagnetURI(pending.magnetURI)) {
+        console.warn('[SECURITY/PARSE_REJECT] kind=magnet reason=invalid_magnet');
+        notifyProgress(transferId, { type: 'receive', status: 'error', error: 'invalid magnet' });
+        clearAutoStartedMagnet(pending.magnetURI, 'approveTransfer-bad-magnet');
+        return false;
+      }
       wt.add(pending.magnetURI, {
         announce: CONFIG.trackers
       }, (torrent) => {
@@ -1586,6 +1592,13 @@
     }, DL_CONNECT_TIMEOUT_MS);
 
     // הוספת הטורנט
+    if (typeof App.isValidIncomingMagnetURI === 'function' && !App.isValidIncomingMagnetURI(magnetURI)) {
+      console.warn('[SECURITY/PARSE_REJECT] kind=magnet reason=invalid_magnet');
+      clearTimeout(connectTimer);
+      clearAutoStartedMagnet(magnetURI, 'download-bad-magnet');
+      _showDownloadFailedBubble(magnetURI, fileName);
+      return;
+    }
     client.add(magnetURI, {
       announce: CONFIG.trackers,
       maxWebConns: CONFIG.maxConnections

@@ -10,6 +10,26 @@
   const MAX_IDS_PER_REQ = 200;
   const MAX_EVENTS_PER_RES = 50;
   const MIN_INV_INTERVAL_MS = 5000;
+  const inboundSyncBuckets = new Map();
+  const INBOUND_SYNC_WINDOW_MS = 5000;
+  const INBOUND_SYNC_MAX = 8;
+  const INBOUND_SYNC_PEER_CAP = 200;
+
+  function allowInboundSync(peer) {
+    const k = String(peer || '').toLowerCase() || '_';
+    const now = Date.now();
+    let row = inboundSyncBuckets.get(k);
+    if (!row || now - row.start >= INBOUND_SYNC_WINDOW_MS) {
+      row = { start: now, count: 0 };
+      inboundSyncBuckets.set(k, row);
+    }
+    row.count += 1;
+    if (inboundSyncBuckets.size > INBOUND_SYNC_PEER_CAP) {
+      const keys = [...inboundSyncBuckets.keys()];
+      for (let i = 0; i < Math.floor(keys.length / 2); i += 1) inboundSyncBuckets.delete(keys[i]);
+    }
+    return row.count <= INBOUND_SYNC_MAX;
+  }
 
   let db = null;
   let dbDisabled = false;
@@ -219,7 +239,8 @@
   }
 
   async function missingIds(database, ids) {
-    const unique = Array.from(new Set(ids)).slice(0, MAX_IDS_PER_REQ);
+    const capped = Array.isArray(ids) ? ids.slice(0, MAX_IDS_PER_REQ) : [];
+    const unique = Array.from(new Set(capped)).slice(0, MAX_IDS_PER_REQ);
     const store = database.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME);
 
     const checks = unique.map(
@@ -283,7 +304,12 @@
 
   async function handleInv(msg, senderPubkey, channel) {
     state.stats.invRecv++;
+    if (!allowInboundSync(senderPubkey)) {
+      console.warn('[SECURITY/RATE_DROP] type=p2p-event-inv peer=' + String(senderPubkey || '').slice(0, 8) + ' reason=sync_burst');
+      return true;
+    }
     if (!Array.isArray(msg.ids) || msg.ids.length === 0) return true;
+    msg.ids = msg.ids.slice(0, MAX_IDS_PER_REQ);
 
     const database = await openDB();
     if (!database) return true;
@@ -303,7 +329,12 @@
 
   async function handleReq(msg, senderPubkey, channel) {
     state.stats.reqRecv++;
+    if (!allowInboundSync(senderPubkey)) {
+      console.warn('[SECURITY/RATE_DROP] type=p2p-event-req peer=' + String(senderPubkey || '').slice(0, 8) + ' reason=sync_burst');
+      return true;
+    }
     if (!Array.isArray(msg.ids) || msg.ids.length === 0) return true;
+    msg.ids = msg.ids.slice(0, MAX_IDS_PER_REQ);
 
     const database = await openDB();
     if (!database) return true;
@@ -337,14 +368,19 @@
 
   async function handleRes(msg, senderPubkey) {
     state.stats.resRecv++;
+    if (!allowInboundSync(senderPubkey)) {
+      console.warn('[SECURITY/RATE_DROP] type=p2p-event-res peer=' + String(senderPubkey || '').slice(0, 8) + ' reason=sync_burst');
+      return true;
+    }
     if (!Array.isArray(msg.events) || msg.events.length === 0) return true;
+    const events = msg.events.slice(0, MAX_EVENTS_PER_RES);
 
     let stored = 0;
     const newPosts = [];
     const newLikes = [];
     const newComments = [];
     
-    for (const ev of msg.events) {
+    for (const ev of events) {
       if (await ingestEvent(ev, { source: 'p2p:' + senderPubkey.slice(0, 8) })) {
         stored++;
         // חלק P2P לייב (p2p-event-sync.js) – איסוף אירועים חדשים לעדכון הפיד | HYPER CORE TECH

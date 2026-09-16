@@ -213,13 +213,13 @@
     
     // קבלת הודעה כללית
     window.SOSBridge.onMessage = function(fromIp, message) {
-      console.log('📨 Message from:', fromIp, message);
+      console.log('📨 Message from:', fromIp, { type: message && message.type, keys: message && typeof message === 'object' ? Object.keys(message).slice(0, 8) : [] });
       handleP2PMessage(fromIp, message);
     };
     
     // הודעה גולמית
     window.SOSBridge.onRawMessage = function(fromIp, text) {
-      console.log('📝 Raw message from:', fromIp, text);
+      console.log('📝 Raw message from:', fromIp, { bytes: String(text || '').length });
     };
   }
   

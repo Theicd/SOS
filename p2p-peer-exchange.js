@@ -34,6 +34,7 @@
     MAX_FILES_TO_SHARE: 300,       // רשת מקומית: לא להסתפק ב-100 | HYPER CORE TECH
     FILES_PAGE_SIZE: 150,          // paging כדי לא לחנוק DC | HYPER CORE TECH
     MAX_PEERS_TO_SHARE: 20,        // מקסימום peers לשתף ברשימה
+    MAX_INVENTORY_PAGES: 8,        // תקרת paging נכנסת — מונע לולאת hasMore | HYPER CORE TECH
     CLEANUP_INTERVAL: 60 * 1000,   // ניקוי כל דקה
   };
 
@@ -347,7 +348,11 @@
 
   function handlePeerExchangeRequest(channel, senderPubkey, msg) {
     if (!channel || channel.readyState !== 'open') return;
-    const page = (msg && typeof msg.page === 'number') ? msg.page : 0;
+    const page = (msg && typeof msg.page === 'number' && Number.isFinite(msg.page)) ? msg.page : 0;
+    if (page < 0 || page > CONFIG.MAX_INVENTORY_PAGES) {
+      console.warn('[SECURITY/PARSE_REJECT] kind=dc type=peer-exchange-request reason=bad_page');
+      return;
+    }
     sendInventoryPage(channel, senderPubkey, page);
   }
 
@@ -359,18 +364,20 @@
     
     state.stats.exchangesReceived++;
     
-    // עדכון קבצים של ה-peer השולח
+    // עדכון קבצים של ה-peer השולח — receive-side caps (אותם מקסימומים כמו שליחה) | HYPER CORE TECH
     if (Array.isArray(files) && files.length > 0) {
-      registerPeer(senderPubkey, files, timestamp);
-      state.stats.filesLearned += files.length;
+      const cappedFiles = files.slice(0, CONFIG.MAX_FILES_TO_SHARE);
+      registerPeer(senderPubkey, cappedFiles, timestamp);
+      state.stats.filesLearned += cappedFiles.length;
     }
     
     // עדכון peers שלמדנו עליהם
     if (Array.isArray(knownPeers)) {
       const myPubkey = App.publicKey || App.getEffectiveKeys?.()?.publicKey;
+      const cappedPeers = knownPeers.slice(0, CONFIG.MAX_PEERS_TO_SHARE);
       
-      knownPeers.forEach(({ pubkey, lastSeen, fileCount }) => {
-        if (!pubkey) return;
+      cappedPeers.forEach(({ pubkey, lastSeen, fileCount }) => {
+        if (!pubkey || typeof pubkey !== 'string' || pubkey.length > 128) return;
         if (pubkey === myPubkey) return; // לא את עצמנו
         
         const existing = state.knownPeers.get(pubkey);
@@ -384,7 +391,7 @@
     try {
       console.log('[P2P-INVENTORY] RECEIVE', {
         peer: String(senderPubkey || '').slice(0, 8),
-        learned: Array.isArray(files) ? files.length : 0,
+        learned: Array.isArray(files) ? Math.min(files.length, CONFIG.MAX_FILES_TO_SHARE) : 0,
         totalLocations: state.fileLocations.size,
         page: typeof msg.page === 'number' ? msg.page : 0,
         total: msg.total,
@@ -398,8 +405,9 @@
       totalFileLocations: state.fileLocations.size,
     });
 
-    if (msg.hasMore && channel && channel.readyState === 'open') {
-      const nextPage = (typeof msg.page === 'number' ? msg.page : 0) + 1;
+    const page = typeof msg.page === 'number' && Number.isFinite(msg.page) ? msg.page : 0;
+    if (msg.hasMore && channel && channel.readyState === 'open' && page < CONFIG.MAX_INVENTORY_PAGES - 1) {
+      const nextPage = page + 1;
       try {
         channel.send(JSON.stringify({
           type: MESSAGE_TYPES.PEER_EXCHANGE_REQUEST,
@@ -483,16 +491,30 @@
    */
   function handleRelaySignal(msg, senderPubkey, senderChannel) {
     const { targetPubkey, signal, originalSender, timestamp, hops } = msg;
+
+    if (typeof targetPubkey !== 'string' || !targetPubkey || targetPubkey.length > 128) {
+      console.warn('[SECURITY/PARSE_REJECT] kind=dc type=relay-signal reason=bad_target');
+      return;
+    }
+    if (!Number.isFinite(Number(timestamp))) {
+      console.warn('[SECURITY/PARSE_REJECT] kind=dc type=relay-signal reason=bad_timestamp');
+      return;
+    }
+    const hopsNum = Number(hops);
+    if (!Number.isFinite(hopsNum) || hopsNum < 0) {
+      console.warn('[SECURITY/PARSE_REJECT] kind=dc type=relay-signal reason=bad_hops');
+      return;
+    }
     
     // בדיקת תוקף
-    if (Date.now() - timestamp > RELAY_CONFIG.SIGNAL_TTL) {
-      log('info', 'Relay Signal פג תוקף', { age: Date.now() - timestamp });
+    if (Date.now() - Number(timestamp) > RELAY_CONFIG.SIGNAL_TTL) {
+      log('info', 'Relay Signal פג תוקף', { age: Date.now() - Number(timestamp) });
       return;
     }
     
     // בדיקת מקסימום hops
-    if (hops >= RELAY_CONFIG.MAX_RELAY_HOPS) {
-      log('info', 'Relay Signal הגיע למקסימום hops', { hops });
+    if (hopsNum >= RELAY_CONFIG.MAX_RELAY_HOPS) {
+      log('info', 'Relay Signal הגיע למקסימום hops', { hops: hopsNum });
       return;
     }
     
@@ -500,10 +522,15 @@
     
     // האם ה-signal מיועד לי?
     if (targetPubkey === myPubkey) {
-      log('success', '📬 קיבלתי Relay Signal שמיועד לי', { from: originalSender.slice(0, 8) });
+      const senderHex = typeof originalSender === 'string' ? originalSender.toLowerCase() : '';
+      if (!/^[0-9a-f]{64}$/.test(senderHex)) {
+        console.warn('[SECURITY/PARSE_REJECT] kind=dc type=relay-signal reason=bad_originalSender');
+        return;
+      }
+      log('success', '📬 קיבלתי Relay Signal שמיועד לי', { from: senderHex.slice(0, 8) });
       // מעביר ל-handler הראשי של P2P
       if (App.handleRelayedSignal) {
-        App.handleRelayedSignal(signal, originalSender, senderChannel);
+        App.handleRelayedSignal(signal, senderHex, senderChannel);
       }
       return;
     }
@@ -554,17 +581,21 @@
    */
   function handleRelaySignalForward(msg, senderPubkey) {
     const { signal, originalTarget, timestamp } = msg;
-    
-    // בדיקת תוקף
-    if (Date.now() - timestamp > RELAY_CONFIG.SIGNAL_TTL) {
+    if (!Number.isFinite(Number(timestamp))) return;
+    if (Date.now() - Number(timestamp) > RELAY_CONFIG.SIGNAL_TTL) {
+      return;
+    }
+    const targetHex = typeof originalTarget === 'string' ? originalTarget.toLowerCase() : '';
+    if (!/^[0-9a-f]{64}$/.test(targetHex)) {
+      console.warn('[SECURITY/PARSE_REJECT] kind=dc type=relay-signal-forward reason=bad_originalTarget');
       return;
     }
     
-    log('success', '📨 קיבלתי תשובת Relay', { from: originalTarget?.slice(0, 8) });
+    log('success', '📨 קיבלתי תשובת Relay', { from: targetHex.slice(0, 8) });
     
     // מעביר ל-handler הראשי
     if (App.handleRelayedSignal) {
-      App.handleRelayedSignal(signal, originalTarget, null);
+      App.handleRelayedSignal(signal, targetHex, null);
     }
   }
   

@@ -18,6 +18,24 @@ class SosJsBridge(
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var cachedFcmToken: String = ""
 
+    private fun clampText(value: String?, max: Int, fallback: String = ""): String {
+        val raw = value?.trim().orEmpty()
+        if (raw.isEmpty()) return fallback
+        return if (raw.length <= max) raw else raw.take(max)
+    }
+
+    private fun isSafeHttpsOpenUrl(url: String?): Boolean {
+        val raw = url?.trim().orEmpty()
+        if (raw.isEmpty()) return true
+        return try {
+            val uri = android.net.Uri.parse(raw)
+            val host = uri.host?.lowercase().orEmpty()
+            uri.scheme == "https" && (host == "sos010.com" || host.endsWith(".sos010.com"))
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     init {
         refreshFcmToken()
     }
@@ -69,12 +87,14 @@ class SosJsBridge(
 
     @JavascriptInterface
     fun showNotification(title: String?, body: String?, openUrl: String?, tag: String?) {
+        val safeUrl = if (isSafeHttpsOpenUrl(openUrl)) openUrl else null
+        val safeTag = clampText(tag, 120).ifEmpty { null }
         NotificationHelper.showMessage(
             context.applicationContext,
-            title?.ifBlank { "SOS" } ?: "SOS",
-            body?.ifBlank { "יש לך עדכון חדש" } ?: "יש לך עדכון חדש",
-            openUrl,
-            tag,
+            clampText(title, 120, "SOS").ifBlank { "SOS" },
+            clampText(body, 500, "יש לך עדכון חדש").ifBlank { "יש לך עדכון חדש" },
+            safeUrl,
+            safeTag,
             eventId = null,
             peerKey = null
         )
@@ -90,14 +110,18 @@ class SosJsBridge(
         eventId: String?,
         peerKey: String?
     ) {
+        val safeUrl = if (isSafeHttpsOpenUrl(openUrl)) openUrl else null
+        val safePeer = SosSessionStore.normalizeHexPubkey(peerKey).ifEmpty { null }
+        val safeEvent = clampText(eventId, 128).ifEmpty { null }
+        val safeTag = clampText(tag, 120).ifEmpty { null }
         NotificationHelper.showMessage(
             context.applicationContext,
-            title?.ifBlank { "SOS" } ?: "SOS",
-            body?.ifBlank { "יש לך עדכון חדש" } ?: "יש לך עדכון חדש",
-            openUrl,
-            tag,
-            eventId = eventId,
-            peerKey = peerKey
+            clampText(title, 120, "SOS").ifBlank { "SOS" },
+            clampText(body, 500, "יש לך עדכון חדש").ifBlank { "יש לך עדכון חדש" },
+            safeUrl,
+            safeTag,
+            eventId = safeEvent,
+            peerKey = safePeer
         )
     }
 
@@ -166,7 +190,14 @@ class SosJsBridge(
     /** שמירת שם+תמונה של איש קשר להתראות רקע בסגנון וואטסאפ | HYPER CORE TECH */
     @JavascriptInterface
     fun cacheContact(pubkey: String?, name: String?, picture: String?) {
-        SosContactCache.put(context.applicationContext, pubkey, name, picture)
+        val pk = SosSessionStore.normalizeHexPubkey(pubkey)
+        if (pk.isEmpty()) return
+        SosContactCache.put(
+            context.applicationContext,
+            pk,
+            clampText(name, 120),
+            clampText(picture, 2048)
+        )
     }
 
     @JavascriptInterface
@@ -279,7 +310,12 @@ class SosJsBridge(
     /** שמירת offer שיחה נכנסת (JSON) לשחזור מסך ענה אחרי deep-link | HYPER CORE TECH */
     @JavascriptInterface
     fun cacheIncomingCallOffer(peer: String?, callType: String?, offerJson: String?) {
-        SosPendingCallStore.save(context.applicationContext, peer, callType, offerJson)
+        val pk = SosSessionStore.normalizeHexPubkey(peer)
+        if (pk.isEmpty()) return
+        val kind = clampText(callType, 32, "voice")
+        val json = offerJson?.trim().orEmpty()
+        if (json.isEmpty() || json.length > 65536) return
+        SosPendingCallStore.save(context.applicationContext, pk, kind, json)
     }
 
     @JavascriptInterface
@@ -417,12 +453,14 @@ class SosJsBridge(
     fun saveToDownloads(base64Data: String?, fileName: String?, mimeType: String?): String {
         val raw = base64Data?.trim().orEmpty()
         if (raw.isEmpty()) return "error:empty-data"
+        if (raw.length > 12_000_000) return "error:too-large"
         val name = sanitizeFileName(fileName)
         val mime = mimeType?.trim()?.ifBlank { null } ?: guessMime(name)
         return try {
             val payload = raw.substringAfter("base64,", raw)
             val bytes = android.util.Base64.decode(payload, android.util.Base64.DEFAULT)
             if (bytes.isEmpty()) return "error:empty-bytes"
+            if (bytes.size > 8_000_000) return "error:too-large"
             val saved = writeBytesToDownloads(bytes, name, mime)
             mainHandler.post {
                 android.widget.Toast.makeText(
@@ -467,7 +505,10 @@ class SosJsBridge(
             client.newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) throw IllegalStateException("HTTP ${resp.code}")
                 val body = resp.body ?: throw IllegalStateException("empty body")
+                val declared = body.contentLength()
+                if (declared > 50L * 1024L * 1024L) throw IllegalStateException("too-large")
                 val bytes = body.bytes()
+                if (bytes.size > 50 * 1024 * 1024) throw IllegalStateException("too-large")
                 val mime = mimeHint
                     ?: resp.header("Content-Type")?.substringBefore(';')?.trim()
                     ?: guessMime(name)
@@ -567,7 +608,8 @@ class SosJsBridge(
     @JavascriptInterface
     fun installApkUpdate(apkUrl: String?) {
         val url = apkUrl?.trim().orEmpty()
-        if (url.isEmpty()) return
+        if (url.isEmpty() || url.length > 2048) return
+        if (!(url.startsWith("https://"))) return
         val act = context as? MainActivity
         if (act == null) {
             android.util.Log.e("SosJsBridge", "installApkUpdate: context is not MainActivity")

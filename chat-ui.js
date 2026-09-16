@@ -5645,14 +5645,23 @@
           const safeFull = App.escapeHtml ? App.escapeHtml(fmt.full) : fmt.full;
           const safeDisplay = App.escapeHtml ? App.escapeHtml(fmt.display) : fmt.display;
           const extraAttrs = a.url ? 'target="_blank" rel="noopener noreferrer"' : '';
+          // Render-time URL gate — history/rehydrate may skip receive validator | HYPER CORE TECH
+          const safeSrc =
+            typeof App.isSafeIncomingChatResource === 'function' && !App.isSafeIncomingChatResource(src)
+              ? ''
+              : src;
+          const hrefAttr =
+            safeSrc && typeof App.escapeHtml === 'function' ? App.escapeHtml(safeSrc) : safeSrc;
           // חלק דיבאג מדיה (chat-ui.js) – fallback ללינק מצורף | HYPER CORE TECH
-          mediaDebugLog('attachment-render', { messageId: message.id, kind: 'link', name: fileName, mime: a?.type || '', src });
-          attachmentHtml = `
-            <a class="chat-message__attachment" href="${src}" ${extraAttrs} download="${fileName}" title="${safeFull}">
+          mediaDebugLog('attachment-render', { messageId: message.id, kind: 'link', name: fileName, mime: a?.type || '', src: safeSrc || '' });
+          attachmentHtml = hrefAttr
+            ? `
+            <a class="chat-message__attachment" href="${hrefAttr}" ${extraAttrs} download="${safeFull}" title="${safeFull}">
               <i class="fa-solid fa-paperclip"></i>
               <span data-full-name="${safeFull}">${safeDisplay}</span>
             </a>
-          `;
+          `
+            : `<div class="chat-file-bubble"><i class="fa-solid fa-paperclip"></i> ${safeDisplay}</div>`;
         }
       }
       

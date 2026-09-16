@@ -29,6 +29,51 @@
   const RESEND_COOLDOWN_MS = 15000; // לא לשלוח בקשות resend חוזרות שגורמות לקפיצות UI
   const FILE_RETAIN_MS = 3 * 60 * 1000; // שומר קובץ 3 דקות אחרי סיום לצורך resend
   const MAX_RESEND_ATTEMPTS = 2; // מקסימום ניסיונות resend
+  const MAX_INBOUND_RECEIVES_GLOBAL = 8;
+  const MAX_INBOUND_RECEIVES_PER_PEER = 3;
+  const MAX_PENDING_CHUNKS_PER_PEER = 64;
+  const MAX_CLAIMED_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB claim ceiling for DC offers
+  const MAX_TOTAL_CHUNKS = 40000; // ~2.5GB at 64KB
+  const resendAttemptCounts = new Map();
+
+  function countInboundReceives(peerKey) {
+    let globalN = 0;
+    let peerN = 0;
+    for (const t of activeTransfers.values()) {
+      if (!t || t.direction !== 'receive' || t.completed) continue;
+      globalN += 1;
+      if (peerKey && t.peerPubkey === peerKey) peerN += 1;
+    }
+    return { globalN, peerN };
+  }
+
+  function safeBlobContentType(raw) {
+    const essence = String(raw || '').split(';')[0].trim().toLowerCase();
+    if (!/^[a-z0-9.+-]+\/[a-z0-9.+-]+$/.test(essence)) return 'application/octet-stream';
+    if (essence === 'text/html' || essence === 'image/svg+xml' || /javascript|ecmascript/.test(essence)) {
+      return 'application/octet-stream';
+    }
+    if (/^(image|audio|video)\//.test(essence)) return essence;
+    if (
+      essence === 'application/pdf' ||
+      essence === 'text/plain' ||
+      essence === 'application/octet-stream' ||
+      essence === 'application/msword' ||
+      essence.startsWith('application/vnd.') ||
+      essence === 'application/zip' ||
+      essence === 'application/x-zip-compressed'
+    ) {
+      return essence;
+    }
+    return 'application/octet-stream';
+  }
+
+  function sanitizeOfferFileName(name) {
+    if (typeof App.sanitizeIncomingChatFileName === 'function') {
+      return App.sanitizeIncomingChatFileName(name || 'file');
+    }
+    return String(name || 'file').replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 180) || 'file';
+  }
 
   // חלק Toast שקט (chat-p2p-file.js) – סטטוס העברה רק בבועה, בלי התראות בראש המסך | HYPER CORE TECH
   function logFileTransport(peer, transport) {
@@ -1257,6 +1302,10 @@
       {
         // חלק index-based chunks (chat-p2p-file.js) — שומר chunk לפי index ולא push עיוור, מונע blob שבור | HYPER CORE TECH
         const chunkIndex = (typeof transfer.expectedChunk === 'number') ? transfer.expectedChunk : transfer.receivedChunks;
+        if (!Number.isInteger(chunkIndex) || chunkIndex < 0 || chunkIndex >= transfer.totalChunks) {
+          console.warn('[SECURITY/PARSE_REJECT] kind=dc type=chunk reason=bad_index fileId=' + String(fileId).slice(0, 12));
+          return;
+        }
         // הגנה נגד chunk כפול — עדיין שולח chunk-ack כדי שהשולח יוכל להמשיך
         if (transfer.chunks[chunkIndex]) {
           console.log('[CHAT/P2P] ⚠️ chunk כפול נדחה:', chunkIndex, 'fileId:', fileId);
@@ -1383,8 +1432,13 @@
       return;
     }
     if (!pendingChunks.has(peerKey)) pendingChunks.set(peerKey, []);
-    pendingChunks.get(peerKey).push(encryptedData);
-    console.log('[CHAT/P2P] 📦 Chunk buffered (ממתין ל-file-offer)', peerKey.slice(0,8), 'buffered:', pendingChunks.get(peerKey).length);
+    const buf = pendingChunks.get(peerKey);
+    if (buf.length >= MAX_PENDING_CHUNKS_PER_PEER) {
+      console.warn('[SECURITY/RATE_DROP] type=file-chunk peer=' + peerKey.slice(0, 8) + ' reason=pending_overflow');
+      return;
+    }
+    buf.push(encryptedData);
+    console.log('[CHAT/P2P] 📦 Chunk buffered (ממתין ל-file-offer)', peerKey.slice(0,8), 'buffered:', buf.length);
   }
 
   // חלק resend handler (chat-p2p-file.js) — שולח קובץ מחדש מ-cache כשהמקבל מבקש | HYPER CORE TECH
@@ -1402,6 +1456,13 @@
         const hasFrom = msg.fromChunk !== undefined && msg.fromChunk !== null && msg.type === 'file-resend-request';
         const fromChunk = hasFrom ? Math.max(0, parseInt(msg.fromChunk, 10) || 0) : null;
         if (hasFrom && fromChunk !== null && fromChunk < t.nextChunkToSend) {
+          const attempts = (resendAttemptCounts.get(fileId) || 0) + 1;
+          resendAttemptCounts.set(fileId, attempts);
+          if (attempts > MAX_RESEND_ATTEMPTS) {
+            console.warn('[SECURITY/RATE_DROP] type=file-resend peer=' + String(requesterPubkey || '').slice(0, 8) + ' reason=max_resend');
+            qaNote('resend-ignored-max-attempts', { fileId, attempts });
+            return;
+          }
           applySendRewind(t, fromChunk);
           t.dcWaitAttempts = 0;
           qaNote('resend-rewind', { fileId, fromChunk, generation: t.sendGeneration });
@@ -1431,7 +1492,17 @@
       }
       return;
     }
-    const fromChunk = Math.max(0, parseInt(msg.fromChunk) || 0);
+    const fromChunk = Math.max(0, parseInt(msg.fromChunk, 10) || 0);
+    if (!Number.isFinite(fromChunk) || fromChunk < 0) {
+      console.warn('[SECURITY/PARSE_REJECT] kind=dc type=file-resend-request reason=bad_fromChunk');
+      return;
+    }
+    const attempts = (resendAttemptCounts.get(fileId) || 0) + 1;
+    resendAttemptCounts.set(fileId, attempts);
+    if (attempts > MAX_RESEND_ATTEMPTS) {
+      console.warn('[SECURITY/RATE_DROP] type=file-resend peer=' + String(requesterPubkey || '').slice(0, 8) + ' reason=max_resend');
+      return;
+    }
     console.log('[CHAT/P2P] 🔄 מתחיל resend עבור:', fileId, 'fromChunk:', fromChunk);
     quietTransferLog('resend-start', fileId, 'fromChunk', fromChunk);
     // שליחה מחדש — שימוש חוזר באותו fileId ומפתח הצפנה, מתחיל מ-fromChunk
@@ -1499,7 +1570,33 @@
         console.warn('[CHAT/P2P] ⚠️ file-offer חסר fileId או keyStr');
         return;
       }
-      
+      if (typeof fileId !== 'string' || fileId.length > 256 || typeof keyStr !== 'string' || keyStr.length > 512) {
+        console.warn('[SECURITY/PARSE_REJECT] kind=dc type=file-offer reason=bad_ids');
+        return;
+      }
+      const sizeNum = Number(size);
+      const chunksNum = Number(totalChunks);
+      if (!Number.isFinite(sizeNum) || sizeNum < 0 || sizeNum > MAX_CLAIMED_FILE_SIZE) {
+        console.warn('[SECURITY/PARSE_REJECT] kind=dc type=file-offer reason=bad_size');
+        return;
+      }
+      if (totalChunks != null && (!Number.isFinite(chunksNum) || chunksNum < 1 || chunksNum > MAX_TOTAL_CHUNKS || !Number.isInteger(chunksNum))) {
+        console.warn('[SECURITY/PARSE_REJECT] kind=dc type=file-offer reason=bad_totalChunks');
+        return;
+      }
+      const { globalN, peerN } = countInboundReceives(senderKey);
+      if (globalN >= MAX_INBOUND_RECEIVES_GLOBAL || peerN >= MAX_INBOUND_RECEIVES_PER_PEER) {
+        console.warn('[SECURITY/RATE_DROP] type=file-offer peer=' + senderKey.slice(0, 8) + ' reason=inbound_cap');
+        return;
+      }
+
+      const safeName = sanitizeOfferFileName(name);
+      const safeMime = safeBlobContentType(mimeType);
+      if (mimeType != null && mimeType !== '' && typeof mimeType === 'string' && mimeType.length > 200) {
+        console.warn('[SECURITY/PARSE_REJECT] kind=dc type=file-offer reason=bad_mime');
+        return;
+      }
+
       if (activeTransfers.has(fileId)) {
         console.log('[CHAT/P2P] העברה כבר קיימת עבור fileId:', fileId);
         qaNote('offer-ignored-existing', { fileId });
@@ -1508,18 +1605,18 @@
 
       const transfer = {
         fileId,
-        name,
-        size,
-        mimeType,
+        name: safeName,
+        size: sizeNum,
+        mimeType: safeMime,
         key: null,
         keyStr,
         peerPubkey: senderKey,
         direction: 'receive',
-        totalChunks: totalChunks || Math.ceil(size / CHUNK_SIZE),
+        totalChunks: Number.isFinite(chunksNum) && chunksNum > 0 ? chunksNum : Math.ceil(sizeNum / CHUNK_SIZE) || 1,
         receivedChunks: 0,
         chunks: [],
         startTime: Date.now(),
-        caption: String(offerCaption || '').trim(),
+        caption: String(offerCaption || '').trim().slice(0, 2000),
         offerCreatedAt: typeof offerCreatedAt === 'number' && offerCreatedAt > 0
           ? offerCreatedAt
           : Math.floor(Date.now() / 1000),
@@ -1738,6 +1835,23 @@
       qaNote('receive-complete-skipped', { fileId });
       return;
     }
+    // completion gate — missing/extra chunks must not assemble | HYPER CORE TECH
+    if (
+      !Number.isFinite(transfer.totalChunks) ||
+      transfer.totalChunks < 1 ||
+      transfer.receivedChunks < transfer.totalChunks
+    ) {
+      console.warn('[SECURITY/PARSE_REJECT] kind=dc type=complete reason=incomplete_chunks');
+      return;
+    }
+    let filled = 0;
+    for (let i = 0; i < transfer.totalChunks; i += 1) {
+      if (transfer.chunks[i]) filled += 1;
+    }
+    if (filled < transfer.totalChunks) {
+      console.warn('[SECURITY/PARSE_REJECT] kind=dc type=complete reason=sparse_chunks');
+      return;
+    }
     transfer.completed = true;
     try {
       console.log('[CHAT/P2P] 🎉 מסיים קבלת קובץ', {
@@ -1749,8 +1863,27 @@
       // חלק דיבאג קבלה (chat-p2p-file.js) – רישום מטא אחרי הרכבת קובץ | HYPER CORE TECH
       mediaDebugLog('receive-finalize', { fileId, name: transfer.name, size: transfer.size, mimeType: transfer.mimeType });
       
-      // הרכבת כל הצ'אנקים ל-Blob
-      const blob = new Blob(transfer.chunks, { type: transfer.mimeType || 'application/octet-stream' });
+      // הרכבת כל הצ'אנקים ל-Blob — MIME clamped (never text/html) | HYPER CORE TECH
+      const safeType = safeBlobContentType(transfer.mimeType);
+      transfer.mimeType = safeType;
+      transfer.name = sanitizeOfferFileName(transfer.name);
+      const blob = new Blob(transfer.chunks.slice(0, transfer.totalChunks), { type: safeType });
+      if (Number.isFinite(transfer.size) && transfer.size > 0 && blob.size !== transfer.size) {
+        console.warn('[SECURITY/PARSE_REJECT] kind=dc type=complete reason=size_mismatch');
+        transfer.completed = false;
+        activeTransfers.delete(fileId);
+        notifyProgress({
+          fileId,
+          progress: 0,
+          status: 'failed',
+          direction: 'receive',
+          name: transfer.name,
+          size: transfer.size,
+          peerPubkey: transfer.peerPubkey,
+          error: 'size_mismatch',
+        });
+        return;
+      }
       
       // שמירה ל-cache יציב לפי fileId (שורד restart) | HYPER CORE TECH
       const cacheKey = `p2p-file-${fileId}`;

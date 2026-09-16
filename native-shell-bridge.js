@@ -222,7 +222,7 @@
         body: JSON.stringify({ action: 'register', pubkey: key, token }),
       });
       const data = await res.json().catch(() => ({}));
-      console.log('[NATIVE-SHELL] FCM register:', data);
+      console.log('[NATIVE-SHELL] FCM register:', { ok: !!data.ok, status: res.status });
       return { ok: !!data.ok, data };
     } catch (err) {
       console.warn('[NATIVE-SHELL] FCM register failed', err);

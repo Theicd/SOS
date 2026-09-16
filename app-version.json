@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.16-vidhud1",
-  "buildTime": "2026-09-16T00:57:00+03:00",
-  "notes": "Video call HUD above wait overlay so hangup stays visible"
+  "version": "2026.09.16-sec18",
+  "buildTime": "2026-09-16T03:25:00+03:00",
+  "notes": "Security packages A–C: XSS URL gates, P2P rate/parse bounds, file safety, log/capability privacy"
 }

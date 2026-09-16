@@ -112,7 +112,7 @@ object SosNativeFileTransfer {
             chunks = arrayOfNulls(total)
         )
         sendText(dc, JSONObject().put("type", "file-ready").put("fileId", fileId).toString())
-        Log.i(TAG, "file-offer ${peer.take(8)} $name chunks=$total → file-ready")
+        Log.i(TAG, "file-offer ${peer.take(8)} nameLen=${name.length} chunks=$total → file-ready")
     }
 
     private fun onBinary(context: Context, peer: String, encrypted: ByteArray, dc: DataChannel) {

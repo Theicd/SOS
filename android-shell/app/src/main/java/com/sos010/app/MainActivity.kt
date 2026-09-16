@@ -1318,7 +1318,7 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 val url = request?.url ?: return false
-                if (url.host?.endsWith("sos010.com") == true) return false
+                if (isAllowedAppHost(url.host)) return false
                 if (url.host == NATIVE_FILE_HOST) return true
                 return try {
                     startActivity(Intent(Intent.ACTION_VIEW, url))
@@ -1970,6 +1970,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun isAllowedAppHost(host: String?): Boolean {
+        if (host.isNullOrBlank()) return false
+        val h = host.lowercase()
+        return h == "sos010.com" || h.endsWith(".sos010.com")
+    }
+
+    private fun isAllowedApkUpdateHost(host: String?): Boolean {
+        if (host.isNullOrBlank()) return false
+        val h = host.lowercase()
+        return h == "sos010.com" ||
+            h.endsWith(".sos010.com") ||
+            h == "github.com" ||
+            h == "raw.githubusercontent.com" ||
+            h.endsWith(".github.com")
+    }
+
     private fun toast(msg: String) {
         try {
             Toast.makeText(applicationContext, msg, Toast.LENGTH_SHORT).show()
@@ -2077,12 +2093,26 @@ class MainActivity : AppCompatActivity() {
             toast("העדכון כבר בהורדה…")
             return
         }
+        val parsed = try {
+            Uri.parse(apkUrl.trim())
+        } catch (_: Exception) {
+            null
+        }
+        if (parsed == null || parsed.scheme != "https" || !isAllowedApkUpdateHost(parsed.host)) {
+            SosDebugLog.e("apk", "rejected update host")
+            toast("כתובת עדכון לא מורשית")
+            return
+        }
         apkUpdateInFlight = true
         toast("מוריד עדכון לאפליקציה…")
         Thread({
             try {
                 val resolvedUrl = normalizeApkDownloadUrl(apkUrl)
-                SosDebugLog.i("apk", "download start $resolvedUrl")
+                val resolved = Uri.parse(resolvedUrl)
+                if (resolved.scheme != "https" || !isAllowedApkUpdateHost(resolved.host)) {
+                    throw IllegalStateException("apk host not allowed")
+                }
+                SosDebugLog.i("apk", "download start host=${resolved.host}")
                 val client = okhttp3.OkHttpClient.Builder()
                     .followRedirects(true)
                     .followSslRedirects(true)
