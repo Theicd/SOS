@@ -306,6 +306,8 @@
       mime,
       mode: options.mode,
       attachmentId: options.attachmentId,
+      // Optional: private-chat secure server-blob may pass 1 MiB; default remains 64 KiB.
+      chunkPlaintextSize: options.chunkPlaintextSize,
       signal: options.signal,
       onProgress: (p) => reportSecureProgress(options.onProgress, 'encrypting', p.bytesProcessed, p.totalBytes),
     });

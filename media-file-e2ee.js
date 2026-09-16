@@ -17,7 +17,16 @@
   const KEY_BYTES = 32;
   const NONCE_BYTES = 12;
   const ATTACHMENT_ID_BYTES = 16;
-  const CHUNK_PLAINTEXT_SIZE = 64 * 1024; // reuse existing P2P 64 KiB pattern
+  /** Default chunk size (M2/M3/M4 descriptors). P2P DataChannel chunking is separate and UNCHANGED. */
+  const CHUNK_PLAINTEXT_SIZE = 64 * 1024;
+  /**
+   * Secure SERVER-BLOB only: larger authenticated chunks shrink descriptor metadata
+   * so E3B/NIP-44 can cover the full legacy private-chat Blossom range (~100 MiB UI cap).
+   * Does NOT change P2P/Torrent chunk sizes.
+   */
+  const SERVER_BLOB_CHUNK_PLAINTEXT_SIZE = 1 * 1024 * 1024;
+  /** Absolute ceiling for optional chunkPlaintextSize (memory-bounded AES-GCM slices). */
+  const MAX_CHUNK_PLAINTEXT_SIZE = SERVER_BLOB_CHUNK_PLAINTEXT_SIZE;
   const MAX_MESSAGE_ID_CHARS = 256;
   const MAX_FILENAME_CHARS = 1024;
   const MAX_MIME_CHARS = 200;
@@ -268,6 +277,24 @@
     if (signal && signal.aborted) mediaFail('MEDIA_E2EE_ABORTED', 'aborted');
   }
 
+  /**
+   * Resolve authenticated chunk plaintext size for encrypt/validate.
+   * Missing/legacy descriptors default to 64 KiB (backward compatible).
+   */
+  function resolveChunkPlaintextSize(value) {
+    if (value == null || value === '') return CHUNK_PLAINTEXT_SIZE;
+    const n = Number(value);
+    if (
+      !Number.isFinite(n) ||
+      !Number.isInteger(n) ||
+      n < 1024 ||
+      n > MAX_CHUNK_PLAINTEXT_SIZE
+    ) {
+      mediaFail('MEDIA_E2EE_BAD_DESCRIPTOR', 'invalid chunkPlaintextSize');
+    }
+    return n;
+  }
+
   function reportProgress(onProgress, processed, total) {
     if (typeof onProgress !== 'function') return;
     const safeTotal = typeof total === 'number' && total > 0 ? total : 0;
@@ -374,6 +401,8 @@
       ) {
         mediaFail('MEDIA_E2EE_BAD_DESCRIPTOR', 'chunkCount mismatch');
       }
+      // Optional field: absent ⇒ legacy 64 KiB (M3/M4). Present ⇒ authenticated server-blob size.
+      const chunkPlainSize = resolveChunkPlaintextSize(descriptor.chunkPlaintextSize);
       const seen = new Set();
       for (let i = 0; i < descriptor.chunks.length; i += 1) {
         const ch = descriptor.chunks[i];
@@ -384,11 +413,12 @@
         if (seen.has(ch.index)) mediaFail('MEDIA_E2EE_BAD_DESCRIPTOR', 'duplicate chunk index');
         seen.add(ch.index);
         base64UrlToBytes(ch.nonce, NONCE_BYTES, 'MEDIA_E2EE_BAD_NONCE');
+        // AES-GCM ciphertext = plaintext + 16-byte tag; allow small overhead margin.
         if (
           typeof ch.size !== 'number' ||
           !Number.isInteger(ch.size) ||
           ch.size < 16 ||
-          ch.size > CHUNK_PLAINTEXT_SIZE + 32
+          ch.size > chunkPlainSize + 32
         ) {
           mediaFail('MEDIA_E2EE_SIZE_MISMATCH', 'bad chunk size');
         }
@@ -437,9 +467,12 @@
       media.originalSize = plaintext.byteLength;
     }
 
+    const chunkPlainSize = resolveChunkPlaintextSize(
+      context.chunkPlaintextSize != null ? context.chunkPlaintextSize : CHUNK_PLAINTEXT_SIZE,
+    );
     const preferChunked =
       context.mode === 'chunked' ||
-      (context.mode !== 'single' && plaintext.byteLength > CHUNK_PLAINTEXT_SIZE);
+      (context.mode !== 'single' && plaintext.byteLength > chunkPlainSize);
 
     const rawKey =
       context._testKeyBytes instanceof Uint8Array
@@ -485,15 +518,15 @@
     }
 
     // Chunked mode: one file key, unique random nonce per chunk.
-    const chunkCount = Math.max(1, Math.ceil(plaintext.byteLength / CHUNK_PLAINTEXT_SIZE) || 1);
+    const chunkCount = Math.max(1, Math.ceil(plaintext.byteLength / chunkPlainSize) || 1);
     if (chunkCount > MAX_CHUNKS) mediaFail('MEDIA_E2EE_TOO_LARGE', 'too many chunks');
     const chunkEntries = [];
     const cipherParts = [];
     let totalCipher = 0;
     for (let i = 0; i < chunkCount; i += 1) {
       checkAbort(context.signal);
-      const start = i * CHUNK_PLAINTEXT_SIZE;
-      const end = Math.min(plaintext.byteLength, start + CHUNK_PLAINTEXT_SIZE);
+      const start = i * chunkPlainSize;
+      const end = Math.min(plaintext.byteLength, start + chunkPlainSize);
       const slice = plaintext.subarray(start, end);
       const nonce =
         Array.isArray(context._testChunkNonces) && context._testChunkNonces[i] instanceof Uint8Array
@@ -541,7 +574,7 @@
         sha256,
       },
       media,
-      chunkPlaintextSize: CHUNK_PLAINTEXT_SIZE,
+      chunkPlaintextSize: chunkPlainSize,
       chunkCount,
       chunks: chunkEntries,
     };
@@ -782,6 +815,8 @@
     KEY_BYTES,
     NONCE_BYTES,
     CHUNK_PLAINTEXT_SIZE,
+    SERVER_BLOB_CHUNK_PLAINTEXT_SIZE,
+    MAX_CHUNK_PLAINTEXT_SIZE,
     NIP44_V2_MAX_PLAINTEXT_BYTES,
     MAX_MEDIA_E2EE_BYTES,
     generateMediaEncryptionKey: generateMediaEncryptionKeyExport,
@@ -812,6 +847,8 @@
     classifyAttachmentForE2eeRoute: api.classifyAttachmentForE2eeRoute,
     MEDIA_E2EE_VERSION,
     NIP44_V2_MAX_PLAINTEXT_BYTES,
+    CHUNK_PLAINTEXT_SIZE: api.CHUNK_PLAINTEXT_SIZE,
+    SERVER_BLOB_CHUNK_PLAINTEXT_SIZE: api.SERVER_BLOB_CHUNK_PLAINTEXT_SIZE,
   });
 
   if (typeof module !== 'undefined' && module.exports) {

@@ -1,13 +1,12 @@
 /* ============================================================================
-   media-server-e2ee.js — M4 SERVER FALLBACK MEDIA E2EE GATE
+   media-server-e2ee.js — M4/M5 PRIVATE CHAT SERVER FALLBACK MEDIA E2EE
    HYPER CORE TECH / SOS
 
-   CRITICAL: This module does NOT select transport.
-   It only wraps Blossom/server storage when EXISTING routing already chose Blossom.
-
-   Gate OFF (default): call sites use legacy uploadToBlossom unchanged.
-   Gate ON: call sites that would upload to Blossom use encrypted Blossom APIs.
-   No plaintext Blossom when gate ON. Failures propagate to existing fallback controllers.
+   CRITICAL:
+   - Does NOT select transport (P2P / Torrent / inline unchanged).
+   - Encrypts ONLY private-chat Blossom fallback via uploadMediaForServerFallback.
+   - NEVER monkey-patches App.uploadToBlossom (public feed / mirror stay plaintext-capable).
+   - Monotonic: once mediaServerE2eeRequired observed true, never plaintext chat Blossom again.
    ============================================================================ */
 
 (function initMediaServerE2ee(global) {
@@ -16,28 +15,235 @@
   const App = global.NostrApp || (global.NostrApp = {});
   const root = global;
 
-  /**
-   * Server-storage encryption gate only.
-   * MUST NOT control P2P / Torrent / WebTorrent / inline / routing order.
-   * Default OFF / absent.
-   */
-  function isMediaServerE2eeRequired() {
+  const SEEN_REQUIRED_KEY = 'sos_media_server_e2ee_required_seen';
+  const QA_LOCAL_KEY = 'sos.mediaServerE2eeRequired';
+  const APP_VERSION_URL = './app-version.json';
+
+  const POLICY_STATES = Object.freeze({
+    NOT_REQUIRED: 'NOT_REQUIRED',
+    REQUIRED: 'REQUIRED',
+    POLICY_UNAVAILABLE: 'POLICY_UNAVAILABLE',
+  });
+
+  let mediaServerE2eeRequiredKnown = false;
+
+  function readSeenRequired() {
+    if (mediaServerE2eeRequiredKnown) return true;
+    try {
+      const raw = root.localStorage && root.localStorage.getItem(SEEN_REQUIRED_KEY);
+      if (raw === '1' || raw === 'true') {
+        mediaServerE2eeRequiredKnown = true;
+        return true;
+      }
+    } catch (_e) {}
+    return false;
+  }
+
+  function writeSeenRequired(required) {
+    if (!required) return readSeenRequired();
+    mediaServerE2eeRequiredKnown = true;
+    try {
+      if (root.localStorage) root.localStorage.setItem(SEEN_REQUIRED_KEY, '1');
+    } catch (_e) {}
+    return true;
+  }
+
+  /** @returns {boolean|null} */
+  function parseRemoteMediaServerE2eeRequired(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+    if (!Object.prototype.hasOwnProperty.call(data, 'mediaServerE2eeRequired')) return null;
+    const v = data.mediaServerE2eeRequired;
+    if (v === true || v === 1 || v === '1' || v === 'true') return true;
+    if (v === false || v === 0 || v === '0' || v === 'false') return false;
+    return null;
+  }
+
+  function readQaOverride() {
+    try {
+      if (typeof App.__qaMediaServerE2eeRequiredOverride === 'boolean') {
+        return App.__qaMediaServerE2eeRequiredOverride;
+      }
+    } catch (_e) {}
     try {
       if (root.__SOS_MEDIA_SERVER_E2EE_REQUIRED__ === true) return true;
       if (root.__SOS_MEDIA_SERVER_E2EE_REQUIRED__ === false) return false;
-    } catch (_e) {}
+    } catch (_e2) {}
     try {
       if (typeof localStorage !== 'undefined') {
-        const v = localStorage.getItem('sos.mediaServerE2eeRequired');
+        const v = localStorage.getItem(QA_LOCAL_KEY);
         if (v === '1' || v === 'true') return true;
         if (v === '0' || v === 'false') return false;
       }
-    } catch (_e2) {}
+    } catch (_e3) {}
+    return null;
+  }
+
+  /**
+   * Sync view of sticky+QA gate (does not refresh remote).
+   * Prefer resolveMediaServerE2eeDecision() before private-chat Blossom uploads.
+   */
+  function isMediaServerE2eeRequired() {
+    if (readSeenRequired()) return true;
+    const qa = readQaOverride();
+    if (qa === true) return true;
+    if (qa === false) return false;
     return false;
   }
 
   App.isMediaServerE2eeRequired = isMediaServerE2eeRequired;
   App.mediaServerE2eeRequired = isMediaServerE2eeRequired;
+
+  /**
+   * Production-ready monotonic policy for PRIVATE CHAT server fallback encryption only.
+   * Does NOT force Blossom / disable P2P / change transport order.
+   */
+  async function refreshMediaServerE2eePolicy(options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const seenBefore = readSeenRequired();
+
+    // QA override wins for feature-branch tests (still sticky when true).
+    const qa = readQaOverride();
+    if (qa === true) {
+      writeSeenRequired(true);
+      return {
+        state: POLICY_STATES.REQUIRED,
+        required: true,
+        fetchOk: true,
+        remoteValue: true,
+        source: 'qa-override',
+      };
+    }
+    if (qa === false && !seenBefore) {
+      return {
+        state: POLICY_STATES.NOT_REQUIRED,
+        required: false,
+        fetchOk: true,
+        remoteValue: false,
+        source: 'qa-override',
+      };
+    }
+    if (qa === false && seenBefore) {
+      // Stale/false after true: stay REQUIRED (no plaintext downgrade).
+      return {
+        state: POLICY_STATES.REQUIRED,
+        required: true,
+        fetchOk: true,
+        remoteValue: false,
+        source: 'sticky-after-true',
+      };
+    }
+
+    if (opts.skipFetch) {
+      if (seenBefore) {
+        return {
+          state: POLICY_STATES.REQUIRED,
+          required: true,
+          fetchOk: false,
+          remoteValue: null,
+          source: 'sticky',
+        };
+      }
+      return {
+        state: POLICY_STATES.NOT_REQUIRED,
+        required: false,
+        fetchOk: false,
+        remoteValue: null,
+        source: 'default-off',
+      };
+    }
+
+    let fetchOk = false;
+    let remoteValue = null;
+    try {
+      const fetchFn =
+        typeof opts.fetchImpl === 'function'
+          ? opts.fetchImpl
+          : typeof root.fetch === 'function'
+            ? root.fetch.bind(root)
+            : null;
+      if (!fetchFn) throw new Error('no-fetch');
+      const url = opts.url || APP_VERSION_URL;
+      const res = await fetchFn(url, {
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'omit',
+        signal: opts.signal,
+      });
+      if (!res || !res.ok) throw new Error('http-' + String(res && res.status));
+      const data = await res.json();
+      fetchOk = true;
+      remoteValue = parseRemoteMediaServerE2eeRequired(data);
+      if (remoteValue === true) writeSeenRequired(true);
+    } catch (_err) {
+      fetchOk = false;
+      remoteValue = null;
+    }
+
+    const required = readSeenRequired();
+    if (required) {
+      return {
+        state: POLICY_STATES.REQUIRED,
+        required: true,
+        fetchOk,
+        remoteValue,
+        source: fetchOk && remoteValue === true ? 'remote' : 'sticky',
+      };
+    }
+    if (fetchOk && remoteValue === false) {
+      return {
+        state: POLICY_STATES.NOT_REQUIRED,
+        required: false,
+        fetchOk: true,
+        remoteValue: false,
+        source: 'remote',
+      };
+    }
+    if (fetchOk && remoteValue === null) {
+      // Field absent: rollout-prep default OFF (not activated).
+      return {
+        state: POLICY_STATES.NOT_REQUIRED,
+        required: false,
+        fetchOk: true,
+        remoteValue: null,
+        source: 'absent',
+      };
+    }
+    // Fetch failed, never seen true → preserve prep default (not required).
+    return {
+      state: POLICY_STATES.POLICY_UNAVAILABLE,
+      required: false,
+      fetchOk: false,
+      remoteValue: null,
+      source: 'unavailable-default-off',
+    };
+  }
+
+  async function resolveMediaServerE2eeDecision(options) {
+    const policy = await refreshMediaServerE2eePolicy(options);
+    try {
+      console.log(
+        '[MEDIA/SERVER-E2EE] policy state=' +
+          policy.state +
+          ' required=' +
+          String(!!policy.required) +
+          ' fetchOk=' +
+          String(!!policy.fetchOk) +
+          ' remote=' +
+          (policy.remoteValue === null ? 'absent' : String(policy.remoteValue)),
+      );
+    } catch (_e) {}
+    return {
+      ok: true,
+      encrypt: policy.required === true,
+      required: policy.required === true,
+      state: policy.state,
+      policy,
+    };
+  }
+
+  App.refreshMediaServerE2eePolicy = refreshMediaServerE2eePolicy;
+  App.resolveMediaServerE2eeDecision = resolveMediaServerE2eeDecision;
+  App.MEDIA_SERVER_E2EE_POLICY_STATES = POLICY_STATES;
 
   function ensureLogicalMessageId(explicitId) {
     if (typeof explicitId === 'string' && explicitId.trim()) return explicitId.trim();
@@ -67,13 +273,8 @@
   App.isEncryptedMediaAttachment = isEncryptedMediaAttachment;
 
   /**
-   * Upload media for EXISTING Blossom fallback only.
-   * When gate OFF → legacy uploadToBlossom (plaintext bytes as today).
-   * When gate ON → encrypted Blossom; never silent plaintext downgrade.
-   *
-   * @returns {Promise<string|object>}
-   *   gate OFF: legacy URL string (same as uploadToBlossom)
-   *   gate ON: encrypted-media v2 descriptor (+ duration/clientMessageId helpers)
+   * PRIVATE CHAT server fallback upload only.
+   * Public feed / media-mirror MUST keep calling App.uploadToBlossom directly.
    */
   async function uploadMediaForServerFallback(blob, options) {
     const opts = options && typeof options === 'object' ? options : {};
@@ -83,7 +284,16 @@
       throw err;
     }
 
-    if (!isMediaServerE2eeRequired()) {
+    // Always resolve before private-chat Blossom (stale-tab cutover safety).
+    const decision = await resolveMediaServerE2eeDecision({
+      signal: opts.signal,
+      fetchImpl: opts.policyFetchImpl,
+      url: opts.policyUrl,
+      skipFetch: opts.skipPolicyFetch === true,
+    });
+    const mustEncrypt = decision.required === true;
+
+    if (!mustEncrypt) {
       if (typeof App.uploadToBlossom !== 'function') {
         throw new Error('uploadToBlossom unavailable');
       }
@@ -110,6 +320,11 @@
       throw err;
     }
 
+    const serverChunk =
+      typeof App.SERVER_BLOB_CHUNK_PLAINTEXT_SIZE === 'number'
+        ? App.SERVER_BLOB_CHUNK_PLAINTEXT_SIZE
+        : 1 * 1024 * 1024;
+
     const uploadOpts = {
       blob,
       messageId,
@@ -121,6 +336,8 @@
         (blob && blob.type) ||
         'application/octet-stream',
       filename: opts.fileName || opts.filename || undefined,
+      chunkPlaintextSize:
+        opts.chunkPlaintextSize != null ? opts.chunkPlaintextSize : serverChunk,
       signal: opts.signal,
       onProgress: opts.onProgress,
       fetchImpl: opts.fetchImpl,
@@ -129,7 +346,6 @@
       uploadOpts.attachmentId = opts.attachmentId;
     }
     if (opts.prepared) {
-      // Retry path: reuse prepared ciphertext (no re-encrypt).
       if (typeof App.uploadPreparedEncryptedMediaToBlossom !== 'function') {
         const err = new Error('MEDIA_SERVER_E2EE_API_UNAVAILABLE');
         err.code = 'MEDIA_SERVER_E2EE_API_UNAVAILABLE';
@@ -171,10 +387,6 @@
 
   App.uploadMediaForServerFallback = uploadMediaForServerFallback;
 
-  /**
-   * Resolve encrypted Blossom attachment to a local Blob / object URL for render.
-   * Legacy plaintext Blossom attachments are left unchanged.
-   */
   async function resolveServerMediaAttachment(attachment, context) {
     if (!attachment || typeof attachment !== 'object') return null;
     if (!isEncryptedMediaAttachment(attachment)) return null;
@@ -206,7 +418,6 @@
     } catch (_e) {}
     attachment._resolvedBlob = result.blob;
     attachment._localObjectUrl = objectUrl;
-    // Session render helpers (not persisted on wire as plaintext server URL).
     attachment.url = objectUrl;
     if (result.blob && result.blob.type) {
       attachment._plainMime = result.blob.type;
@@ -233,10 +444,6 @@
 
   App.resolveServerMediaAttachment = resolveServerMediaAttachment;
 
-  /**
-   * NIP-44 preflight for final E3B payload carrying encrypted Blossom descriptor.
-   * Does not change transport selection — only blocks oversized secure descriptors.
-   */
   function assertEncryptedBlossomFitsE3b(candidate) {
     if (typeof App.classifyAttachmentForE2eeRoute !== 'function') {
       return { ok: true, skipped: true };
@@ -253,7 +460,6 @@
 
   App.assertEncryptedBlossomFitsE3b = assertEncryptedBlossomFitsE3b;
 
-  /** Effective MIME for UI classification (encrypted v2 uses media.mime until hydrated). */
   function getAttachmentPlainMime(attachment) {
     if (!attachment || typeof attachment !== 'object') return '';
     if (typeof attachment._plainMime === 'string' && attachment._plainMime) {
