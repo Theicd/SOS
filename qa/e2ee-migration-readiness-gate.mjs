@@ -89,7 +89,7 @@ record('WebView online uses LOAD_DEFAULT', main.includes('LOAD_DEFAULT'));
 record('WebView cache-else-network only for emergency offline shell', main.includes('LOAD_CACHE_ELSE_NETWORK') && main.includes('offlineShellRequested'));
 
 record('app-version.json present', typeof appVer.version === 'string' && appVer.version.length > 0);
-record('minSecureChatEpoch activated =1', Number(appVer.minSecureChatEpoch) === 1);
+record('minSecureChatEpoch activated =2', Number(appVer.minSecureChatEpoch) === 2);
 record('e2eeSendRequired explicit true (E3B ACTIVE)', Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired') && appVer.e2eeSendRequired === true);
 record('apk-version 1.0.113 recorded', apkVer.version === '1.0.113');
 
@@ -108,7 +108,7 @@ record(
 
 console.log(results.join('\n'));
 console.log(`\nSummary: ${pass} passed, ${fail} failed`);
-console.log('STATUS_HINT: E3A3 gate PRESENT; E3B ACTIVE (e2eeSendRequired=true); minSecureChatEpoch=1');
+console.log('STATUS_HINT: E3A3 gate PRESENT; E3B ACTIVE (e2eeSendRequired=true); minSecureChatEpoch=2; mediaServerE2eeRequired=true');
 console.log('BACKGROUND_NATIVE_ENCRYPTED_1050: SAFE (generic notify + remote Web dual-read)');
 console.log('APK_1_0_113_E2EE_1050_COMPATIBLE: PARTIAL (bg notify OK; Web refresh still required for epoch bumps)');
 process.exit(fail ? 1 : 0);

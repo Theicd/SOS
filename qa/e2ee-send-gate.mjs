@@ -289,12 +289,12 @@ const pushSrc = read('push-trigger.js');
 const nativeWatcher = read('android-shell/app/src/main/java/com/sos010/app/SosRelayWatcher.kt');
 
 // --- Static cutover-ready assertions ---
-record('app-version media-server-e2ee-prep', String(appVer.version || '').includes('media-server-e2ee-prep'));
-record('minSecureChatEpoch=1', Number(appVer.minSecureChatEpoch) === 1);
+record('app-version media-server-e2ee1', String(appVer.version || '').includes('media-server-e2ee1'));
+record('minSecureChatEpoch=2', Number(appVer.minSecureChatEpoch) === 2);
 record('e2eeSendRequired explicit true (E3B ACTIVE)',
   Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired') && appVer.e2eeSendRequired === true);
-record('mediaServerE2eeRequired explicit false (Phase A)',
-  Object.prototype.hasOwnProperty.call(appVer, 'mediaServerE2eeRequired') && appVer.mediaServerE2eeRequired === false);
+record('mediaServerE2eeRequired explicit true (Phase B ACTIVE)',
+  Object.prototype.hasOwnProperty.call(appVer, 'mediaServerE2eeRequired') && appVer.mediaServerE2eeRequired === true);
 record('SW cache v834', /sos-cache-v834/.test(sw));
 record('chat-service resolves relay policy before publish',
   svc.includes('resolveRelayE2eeSendDecision') && svc.includes('encryptPrivateChatPayload'));

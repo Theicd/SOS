@@ -1,8 +1,8 @@
 {
-  "version": "2026.09.16-media-server-e2ee-prep",
-  "buildTime": "2026-09-16T17:20:00+03:00",
-  "notes": "E3B Relay private text ACTIVE. Private-chat Blossom/server fallback E2EE code staged (mediaServerE2eeRequired=false). Local secure chat capability epoch 2. Remote minSecureChatEpoch still 1 during prep. P2P/Torrent routing unchanged. Public feed Blossom unchanged.",
-  "minSecureChatEpoch": 1,
+  "version": "2026.09.16-media-server-e2ee1",
+  "buildTime": "2026-09-16T17:30:00+03:00",
+  "notes": "E3B Relay private text ACTIVE. Private-chat Blossom/server fallback E2EE ACTIVE. P2P/Torrent routing unchanged. Public feed Blossom unchanged. Secure chat epoch 2.",
+  "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
-  "mediaServerE2eeRequired": false
+  "mediaServerE2eeRequired": true
 }

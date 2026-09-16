@@ -332,8 +332,8 @@ function auditSourceClassification() {
   record('text P2P-first still in chat-service', /Message sent P2P, relay skipped/.test(chatSvc) && /DC_PREFER_WAIT_MS/.test(chatSvc));
   record('monotonic seen key defined', /sos_media_server_e2ee_required_seen/.test(mediaServer));
   record('resolveMediaServerE2eeDecision exported', /resolveMediaServerE2eeDecision/.test(mediaServer));
-  record('app-version.json does NOT set mediaServerE2eeRequired true', !/"mediaServerE2eeRequired"\s*:\s*true/.test(read('app-version.json')));
-  record('app-version.json stages mediaServerE2eeRequired=false', /"mediaServerE2eeRequired"\s*:\s*false/.test(read('app-version.json')));
+  record('app-version.json sets mediaServerE2eeRequired true (ACTIVE)', /"mediaServerE2eeRequired"\s*:\s*true/.test(read('app-version.json')));
+  record('app-version.json minSecureChatEpoch=2', /"minSecureChatEpoch"\s*:\s*2/.test(read('app-version.json')));
 }
 
 function runGoldenMatrix() {

@@ -68,10 +68,10 @@ orderOk(storage, 'storage.html');
 record('videos.html has nostr-tools before chat', videos.indexOf('nostr-tools') >= 0 && videos.indexOf('nostr-tools') < videos.indexOf('chat-e2ee.js'));
 record('index.html has nostr-tools before chat', indexHtml.indexOf('nostr-tools') >= 0 && indexHtml.indexOf('nostr-tools') < indexHtml.indexOf('chat-e2ee.js'));
 
-// Cutover active (R3): minSecureChatEpoch=1
-record('minSecureChatEpoch =1 in app-version.json',
+// Cutover active: minSecureChatEpoch=2
+record('minSecureChatEpoch =2 in app-version.json',
   Object.prototype.hasOwnProperty.call(appVer, 'minSecureChatEpoch') &&
-  Number(appVer.minSecureChatEpoch) === 1);
+  Number(appVer.minSecureChatEpoch) === 2);
 record('epoch module treats absent/0 as inactive', epoch.includes("hasOwnProperty.call(data, 'minSecureChatEpoch')") && epoch.includes('CUTOVER') || epoch.includes('cutover'));
 record('decideSecureChatGate READY when remoteMin=0', epoch.includes('decideSecureChatGate'));
 
@@ -116,11 +116,11 @@ record('safe diagnostic: getSecureChatGateState', epoch.includes('getSecureChatG
 record('safe diagnostic: SOS_SECURE_CHAT_EPOCH on App', e2ee.includes('SOS_SECURE_CHAT_EPOCH'));
 record('epoch logs omit message/keys', !/\$\{.*content/.test(epoch) && epoch.includes('[E2EE/EPOCH]'));
 
-// Version: media-server-e2ee-prep; minSecureChatEpoch=1; e2eeSendRequired explicit true; mediaServerE2eeRequired=false
-record('app-version media-server-e2ee-prep', String(appVer.version || '').includes('media-server-e2ee-prep'));
-record('mediaServerE2eeRequired explicit false (Phase A prep)',
-  Object.prototype.hasOwnProperty.call(appVer, 'mediaServerE2eeRequired') && appVer.mediaServerE2eeRequired === false);
-record('minSecureChatEpoch =1', Number(appVer.minSecureChatEpoch) === 1);
+// Version: media-server-e2ee1; minSecureChatEpoch=2; e2eeSendRequired explicit true; mediaServerE2eeRequired=true
+record('app-version media-server-e2ee1', String(appVer.version || '').includes('media-server-e2ee1'));
+record('mediaServerE2eeRequired explicit true (ACTIVE)',
+  Object.prototype.hasOwnProperty.call(appVer, 'mediaServerE2eeRequired') && appVer.mediaServerE2eeRequired === true);
+record('minSecureChatEpoch =2', Number(appVer.minSecureChatEpoch) === 2);
 
 console.log(results.join('\n'));
 console.log(`\nSummary: ${pass} passed, ${fail} failed`);

@@ -121,9 +121,9 @@ record('SW cache bumped for media-server E2EE prep', /sos-cache-v834/.test(sw));
 record('SW precaches chat-e2ee.js', sw.includes("'./chat-e2ee.js'"));
 record('SW precaches chat-secure-epoch.js', sw.includes("'./chat-secure-epoch.js'"));
 record('app-version.json still bypasses SW', sw.includes("app-version.json") && sw.includes('return'));
-record('minSecureChatEpoch activated =1 in app-version.json',
+record('minSecureChatEpoch activated =2 in app-version.json',
   Object.prototype.hasOwnProperty.call(appVer, 'minSecureChatEpoch') &&
-  Number(appVer.minSecureChatEpoch) === 1);
+  Number(appVer.minSecureChatEpoch) === 2);
 record('e2eeSendRequired explicit true (E3B ACTIVE)',
   Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired') && appVer.e2eeSendRequired === true);
 record('normal PWA Later toast still exists', pwa.includes('pwa-update-toast__later') && pwa.includes('UPDATE_LATER_KEY'));
@@ -294,5 +294,5 @@ record('secure blocker has no pwa-update-toast__later', !epochSrc.includes('pwa-
 console.log(results.join('\n'));
 console.log(`\nSummary: ${pass} passed, ${fail} failed`);
 console.log('LIVE_E2EE_SEND=true');
-console.log('secure cutover active=true (minSecureChatEpoch=1)');
+console.log('secure cutover active=true (minSecureChatEpoch=2)');
 process.exit(fail ? 1 : 0);
