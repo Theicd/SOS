@@ -408,9 +408,9 @@ async function runFeedVsChatSeparation() {
   const bodyText = Buffer.from(c.networkBodies[0] || []).toString('utf8');
   record('CHAT body no plaintext marker', !bodyText.includes('VOICE_SERVER_SECRET_91841'));
   record(
-    'CHAT Content-Type octet-stream',
+    'CHAT Content-Type opaque image/jpeg',
     (c.networkHeaders[0] && (c.networkHeaders[0]['Content-Type'] || c.networkHeaders[0]['content-type'])) ===
-      'application/octet-stream',
+      'image/jpeg',
   );
   record('CHAT uses 1MiB server chunk field', desc.chunkPlaintextSize === 1 * 1024 * 1024 || desc.enc?.mode === 'single');
 }

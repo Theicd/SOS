@@ -188,6 +188,24 @@ function createMockBlossom() {
     }
 
     if ((method === 'PUT' || method === 'POST') && u.includes('/upload')) {
+      // Realistic Blossom fleet: application/octet-stream → 415 Unsupported Media Type.
+      const ct = String(rec.contentType || '').toLowerCase();
+      if (ct === 'application/octet-stream' || ct === 'application/octet-stream;') {
+        return {
+          ok: false,
+          status: 415,
+          headers: { get: () => null },
+          async text() {
+            return 'Unsupported Media Type';
+          },
+          async json() {
+            return { error: 'unsupported-media-type' };
+          },
+          async arrayBuffer() {
+            return new ArrayBuffer(0);
+          },
+        };
+      }
       // Parse auth for x tag
       let auth = null;
       try {
@@ -384,10 +402,13 @@ async function run() {
   record('prepare/upload split present', blossomSrc.includes('prepareEncryptedMediaForBlossom') && blossomSrc.includes('uploadPreparedEncryptedMediaToBlossom'));
   record('secure download API present', blossomSrc.includes('downloadEncryptedMediaFromBlossom'));
   record('delete helper present', blossomSrc.includes('deleteEncryptedMediaFromBlossom'));
-  record('secure Content-Type octet-stream', blossomSrc.includes("SECURE_UPLOAD_CONTENT_TYPE = 'application/octet-stream'"));
+  record('secure Content-Type opaque jpeg', blossomSrc.includes("SECURE_WIRE_CONTENT_TYPE = 'image/jpeg'") && blossomSrc.includes("SECURE_WIRE_ENCODING = 'sos-opaque-jpeg-v1'"));
+  record('opaque jpeg wrap/unwrap present', blossomSrc.includes('wrapOpaqueJpegV1') && blossomSrc.includes('unwrapOpaqueJpegV1'));
   record('classifier LEGACY vs ENCRYPTED', blossomSrc.includes('ENCRYPTED_BLOSSOM_V2') && blossomSrc.includes('LEGACY_BLOSSOM'));
   record('M2 core still present', coreSrc.includes('encryptMediaBlob'));
   record('redirect error on secure fetch', blossomSrc.includes("redirect: 'error'"));
+  record('secure upload prefers /upload not /media first', blossomSrc.includes("SECURE_UPLOAD_PATHS = ['/upload'"));
+  record('legacy uploadToBlossom still before secure wire consts', blossomSrc.indexOf('async function uploadToBlossom') < blossomSrc.indexOf('SECURE_WIRE_CONTENT_TYPE'));
 
   const mock = createMockBlossom();
   const { App, alice, logs } = loadRuntime(mock.mockFetch);
@@ -424,26 +445,33 @@ async function run() {
 
   const uploadReq = mock2.requests.find((r) => r.method === 'PUT' || r.method === 'POST');
   record('upload request captured', !!uploadReq);
-  record('upload Content-Type application/octet-stream', uploadReq && uploadReq.contentType === 'application/octet-stream');
+  record('upload Content-Type opaque image/jpeg', uploadReq && uploadReq.contentType === 'image/jpeg');
+  record('resource.encoding sos-opaque-jpeg-v1', up.descriptor.resource.encoding === 'sos-opaque-jpeg-v1');
+  record('resource.wireSha256 present', /^[0-9a-f]{64}$/.test(String(up.descriptor.resource.wireSha256 || '')));
 
   const bodyStr = uploadReq ? Buffer.from(uploadReq.body).toString('utf8') : '';
   record('upload body NOT contain private marker', !bodyStr.includes(MARKER));
   record('upload body NOT contain original filename', !bodyStr.includes('private-photo-91841.jpg'));
   record('headers NOT contain original filename', !JSON.stringify(uploadReq.headers || {}).includes('private-photo-91841.jpg'));
-  record('headers NOT contain image/jpeg as Content-Type', uploadReq.contentType !== 'image/jpeg');
+  record('opaque transport MIME constant (not original-derived)', uploadReq.contentType === 'image/jpeg');
 
   const auth = parseAuthEvent(uploadReq.authHeader);
   const xTag = (auth.tags || []).find((t) => t[0] === 'x');
-  record('auth x-tag equals ciphertext sha256', xTag && xTag[1] === up.ciphertextSha256);
+  record('auth x-tag equals wire sha256', xTag && xTag[1] === up.wireSha256 && xTag[1] === up.descriptor.resource.wireSha256);
+  record('auth x-tag NOT raw ciphertext sha256', xTag && xTag[1] !== up.ciphertextSha256);
   record('auth event does NOT contain marker', !JSON.stringify(auth).includes(MARKER));
   record('auth event does NOT contain AES key', !JSON.stringify(auth).includes(up.descriptor.enc.key));
   record('auth event does NOT contain nonce', !JSON.stringify(auth).includes(up.descriptor.enc.nonce || ''));
 
-  // Ciphertext differs from plaintext + matches hash
-  const ctHash = await rt.App.hashMediaCiphertext(uploadReq.body);
-  record('body sha256 matches descriptor cipher.sha256', ctHash === up.descriptor.cipher.sha256);
-  record('ciphertext differs from plaintext', !bytesEqual(uploadReq.body, plain));
-  record('ciphertext size recorded', up.descriptor.cipher.size === uploadReq.body.length);
+  // Wire body = opaque container; cipher.sha256 is raw ciphertext after unwrap
+  const wireHash = await rt.App.hashMediaCiphertext(uploadReq.body);
+  record('body sha256 matches resource.wireSha256', wireHash === up.descriptor.resource.wireSha256);
+  record('wire body differs from plaintext', !bytesEqual(uploadReq.body, plain));
+  record('wire size recorded', up.descriptor.resource.wireSize === uploadReq.body.length);
+  const unwrapped = rt.App.__sosUnwrapOpaqueJpegV1(uploadReq.body);
+  const ctHash = await rt.App.hashMediaCiphertext(unwrapped);
+  record('unwrapped sha256 matches cipher.sha256', ctHash === up.descriptor.cipher.sha256);
+  record('cipher size is unwrapped length', up.descriptor.cipher.size === unwrapped.length);
 
   // Key/nonce absent from network
   const netDump = JSON.stringify(mock2.requests);
@@ -497,7 +525,7 @@ async function run() {
     });
     record('roundtrip size=' + n + ' mode=' + u.descriptor.enc.mode, bytesEqual(d.plaintext, data));
     const req = m.requests.find((x) => x.method === 'PUT' || x.method === 'POST');
-    record('size=' + n + ' upload octet-stream', req && req.contentType === 'application/octet-stream');
+    record('size=' + n + ' upload opaque image/jpeg', req && req.contentType === 'image/jpeg');
   }
 
   // 10MiB chunked if practical
@@ -525,8 +553,8 @@ async function run() {
     });
     record('10MiB chunked roundtrip', bytesEqual(d.plaintext, data) && u.descriptor.enc.mode === 'chunked');
     const req = m.requests.find((x) => x.method === 'PUT' || x.method === 'POST');
-    record('10MiB body is single concatenated ciphertext object', req && req.body.length === u.descriptor.cipher.size);
-    record('10MiB MIME not exposed on wire', req.contentType === 'application/octet-stream');
+    record('10MiB body is opaque wire object', req && req.body.length === u.descriptor.resource.wireSize);
+    record('10MiB MIME not exposed on wire', req.contentType === 'image/jpeg');
   }
 
   // Tamper / wrong context
@@ -744,7 +772,7 @@ async function run() {
       fetchImpl: m.mockFetch,
     });
     record('delete helper ok', del && del.ok === true);
-    record('delete uses ciphertext hash', del.ciphertextSha256 === u.ciphertextSha256);
+    record('delete uses wire object hash', del.ciphertextSha256 === u.wireSha256 || del.ciphertextSha256 === u.descriptor.resource.wireSha256);
   }
 
   // Legacy uploadToBlossom unchanged behavior smoke (still callable)
@@ -859,7 +887,7 @@ async function run() {
     });
     const req = m.requests.find((x) => x.method === 'PUT' || x.method === 'POST');
     record(label + ' roundtrip', bytesEqual(d.plaintext, data));
-    record(label + ' wire Content-Type octet-stream', req.contentType === 'application/octet-stream');
+    record(label + ' wire Content-Type opaque image/jpeg', req.contentType === 'image/jpeg');
     record(label + ' private mime restored', d.blob.type === mime);
   }
 

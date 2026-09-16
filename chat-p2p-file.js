@@ -2155,11 +2155,14 @@
               : '[url]',
         );
       } catch (uploadErr) {
-        // חלק שגיאות Blossom (chat-p2p-file.js) – הודעה מפורטת למשתמש עם סיבת כשל ושם קובץ | HYPER CORE TECH
-        // Gate ON: no plaintext Blossom retry here — existing controller may fall through to WebTorrent.
+        // Secure Blossom failure: never publish incomplete/malformed attachment.
+        // No plaintext Blossom retry — clear temp state, then existing WebTorrent fallback once.
         const reason = uploadErr?.message || 'שגיאה לא ידועה';
         console.warn('[CHAT/P2P] ⚠️ Blossom נכשל, מנסה WebTorrent...', reason);
         quietTransferLog('blossom-failed → torrent', transfer.fileId, reason);
+        if (typeof App.clearChatFileAttachment === 'function') {
+          App.clearChatFileAttachment(transfer.peerPubkey);
+        }
         await fallbackToTorrent(transfer, onProgress);
         return;
       }
@@ -2169,6 +2172,38 @@
         typeof blossomUploadResult === 'object' &&
         blossomUploadResult.type === 'encrypted-media';
       const resultUrl = typeof blossomUploadResult === 'string' ? blossomUploadResult : null;
+
+      if (isEncryptedDescriptor) {
+        try {
+          if (typeof App.validateEncryptedMediaDescriptor === 'function') {
+            App.validateEncryptedMediaDescriptor(blossomUploadResult);
+          }
+          if (
+            typeof App.isEncryptedBlossomDescriptor === 'function' &&
+            !App.isEncryptedBlossomDescriptor(blossomUploadResult)
+          ) {
+            throw new Error('MEDIA_E2EE_BAD_DESCRIPTOR');
+          }
+          if (
+            !blossomUploadResult.resource ||
+            blossomUploadResult.resource.transport !== 'blossom' ||
+            typeof blossomUploadResult.resource.url !== 'string' ||
+            !blossomUploadResult.resource.url
+          ) {
+            throw new Error('MEDIA_E2EE_BAD_DESCRIPTOR');
+          }
+        } catch (descErr) {
+          console.warn(
+            '[CHAT/P2P] ⚠️ encrypted Blossom descriptor invalid after upload — no publish',
+            descErr && descErr.message,
+          );
+          if (typeof App.clearChatFileAttachment === 'function') {
+            App.clearChatFileAttachment(transfer.peerPubkey);
+          }
+          await fallbackToTorrent(transfer, onProgress);
+          return;
+        }
+      }
 
       if (isEncryptedDescriptor || resultUrl) {
         console.log('[CHAT/P2P] ✅ Blossom upload הצליח', {
@@ -2187,15 +2222,12 @@
           encrypted: !!isEncryptedDescriptor,
           url: resultUrl || undefined,
         });
-        
-        // חלק fallback (chat-p2p-file.js) – שליחת הודעת צ'אט עם קישור Blossom | HYPER CORE TECH
-        // שולחים את ה-URL כהודעת צ'אט לצד השני
+
+        let publishOk = false;
         try {
           if (typeof App.publishChatMessage === 'function') {
-            // חלק Blossom UI (chat-p2p-file.js) – שליחת attachment עם URL כדי להציג preview ולא רק לינק | HYPER CORE TECH
             const resolvedMime = resolveMimeType(mime, fileName);
             const isVideoFlag = shouldForceVideoFlag(mime, fileName);
-            // חלק דיבאג attachment (chat-p2p-file.js) – לוג מטא של מצורף Blossom | HYPER CORE TECH
             mediaDebugLog('blossom-attachment', {
               fileId: transfer.fileId,
               name: fileName,
@@ -2235,7 +2267,7 @@
                 dataUrl: '',
                 fileId: transfer.fileId,
                 isVideo: isVideoFlag || undefined,
-                hidePreview: true, // אין שורת preview תחתונה בזמן פרסום אחרי Blossom
+                hidePreview: true,
                 caption: String(transfer.caption || (typeof App.getChatFileAttachment === 'function' && App.getChatFileAttachment(transfer.peerPubkey)?.caption) || '').trim() || undefined,
               };
             }
@@ -2247,6 +2279,7 @@
             const messageText = captionText || (isVisualMedia ? '' : `📎 ${fileName}`);
             const publishResult = await App.publishChatMessage(transfer.peerPubkey, messageText);
             if (publishResult?.ok) {
+              publishOk = true;
               console.log('[CHAT/P2P] 📨 הודעת צ\'אט עם attachment נשלחה', { peer: transfer.peerPubkey?.slice(0, 8), url: typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(resultUrl) : '[url]' });
               mediaDebugLog('blossom-message-sent', { fileId: transfer.fileId, peer: transfer.peerPubkey, messageId: publishResult.messageId || null });
             } else {
@@ -2258,38 +2291,59 @@
             }
           } else {
             console.warn('[CHAT/P2P] ⚠️ App.publishChatMessage לא זמין');
+            if (typeof App.clearChatFileAttachment === 'function') {
+              App.clearChatFileAttachment(transfer.peerPubkey);
+            }
           }
         } catch (msgErr) {
           console.error('[CHAT/P2P] ❌ כשלון בשליחת הודעת צ\'אט:', msgErr);
+          if (typeof App.clearChatFileAttachment === 'function') {
+            App.clearChatFileAttachment(transfer.peerPubkey);
+          }
         }
-        
-        // עדכון סטטוס סיום
-        const completePayload = {
-          fileId: transfer.fileId,
-          progress: 1,
-          status: 'complete-blossom',
-          direction: 'send',
-          name: transfer.file?.name,
-          size: transfer.file?.size,
-          mimeType: transfer.file?.type,
-          peerPubkey: transfer.peerPubkey,
-          blossomUrl: resultUrl
-        };
-        if (onProgress) onProgress(completePayload);
-        notifyProgress(completePayload);
-        
-        // חלק fallback (chat-p2p-file.js) – ניקוי ה-attachment מה-state לאחר העלאה מוצלחת | HYPER CORE TECH
+
+        // complete-blossom ONLY after ciphertext upload + valid descriptor + E3B publish success.
+        if (publishOk) {
+          const completePayload = {
+            fileId: transfer.fileId,
+            progress: 1,
+            status: 'complete-blossom',
+            direction: 'send',
+            name: transfer.file?.name,
+            size: transfer.file?.size,
+            mimeType: transfer.file?.type,
+            peerPubkey: transfer.peerPubkey,
+            blossomUrl: resultUrl
+          };
+          if (onProgress) onProgress(completePayload);
+          notifyProgress(completePayload);
+          if (typeof App.clearChatFileAttachment === 'function') {
+            App.clearChatFileAttachment(transfer.peerPubkey);
+            console.log('[CHAT/P2P] 🧹 Attachment נוקה מה-state');
+          }
+          activeTransfers.delete(transfer.fileId);
+          return;
+        }
+
+        // Upload appeared ok but publish failed — do not leave broken attachment; use existing torrent fallback.
         if (typeof App.clearChatFileAttachment === 'function') {
           App.clearChatFileAttachment(transfer.peerPubkey);
-          console.log('[CHAT/P2P] 🧹 Attachment נוקה מה-state');
         }
+        await fallbackToTorrent(transfer, onProgress);
+        return;
       }
-      
-      // הסרת ההעברה מהרשימה
-      activeTransfers.delete(transfer.fileId);
+
+      // No usable Blossom result — clear and use existing higher-level torrent fallback once.
+      if (typeof App.clearChatFileAttachment === 'function') {
+        App.clearChatFileAttachment(transfer.peerPubkey);
+      }
+      await fallbackToTorrent(transfer, onProgress);
       
     } catch (err) {
       console.error('[CHAT/P2P] ❌ Blossom fallback failed:', err);
+      if (typeof App.clearChatFileAttachment === 'function') {
+        App.clearChatFileAttachment(transfer.peerPubkey);
+      }
       notifyProgress({
         fileId: transfer.fileId,
         progress: 0,
