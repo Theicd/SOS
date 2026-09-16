@@ -1,5 +1,6 @@
 {
   "version": "2026.09.16-e2ee-read1",
   "buildTime": "2026-09-16T05:50:00+03:00",
-  "notes": "R1 Web: E2EE dual-read + secure-epoch gate infrastructure. minSecureChatEpoch omitted (= cutover inactive). Encrypted send OFF."
+  "notes": "R1 Web: E2EE dual-read + secure-epoch gate infrastructure. minSecureChatEpoch omitted (= cutover inactive). Encrypted send OFF.",
+  "minSecureChatEpoch": 1
 }
