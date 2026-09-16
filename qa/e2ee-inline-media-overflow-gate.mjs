@@ -129,7 +129,7 @@ function loadRuntime() {
         status: 200,
         async json() {
           return {
-            version: '2026.09.16-media-inline-hotfix1',
+            version: '2026.09.16-media-policy-hotfix1',
             minSecureChatEpoch: 2,
             e2eeSendRequired: true,
             mediaServerE2eeRequired: true,
