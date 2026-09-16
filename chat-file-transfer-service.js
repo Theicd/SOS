@@ -41,6 +41,25 @@
     if (!attachment) {
       return null;
     }
+    // M4: encrypted Blossom v2 descriptor — passthrough private fields (inside E3B only).
+    if (
+      attachment.type === 'encrypted-media' ||
+      (typeof App.isEncryptedBlossomDescriptor === 'function' && App.isEncryptedBlossomDescriptor(attachment))
+    ) {
+      const wire = {
+        v: attachment.v,
+        type: attachment.type,
+        attachmentId: attachment.attachmentId,
+        enc: attachment.enc,
+        cipher: attachment.cipher,
+        media: attachment.media,
+        resource: attachment.resource,
+      };
+      if (typeof attachment.duration === 'number') {
+        wire.duration = attachment.duration;
+      }
+      return wire;
+    }
     const wireType = typeof attachment.type === 'string' && attachment.type.indexOf(';') >= 0
       ? attachment.type.split(';')[0].trim()
       : attachment.type;

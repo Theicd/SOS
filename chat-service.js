@@ -269,6 +269,25 @@
     if (Object.keys(raw).length > 24) {
       return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
     }
+    // M4: encrypted Blossom v2 — accept via media validator; do not treat type as MIME.
+    if (
+      raw.type === 'encrypted-media' ||
+      (typeof App.isEncryptedBlossomDescriptor === 'function' && App.isEncryptedBlossomDescriptor(raw))
+    ) {
+      try {
+        if (typeof App.validateEncryptedMediaDescriptor === 'function') {
+          App.validateEncryptedMediaDescriptor(raw);
+        } else if (typeof App.isEncryptedBlossomDescriptor === 'function' && !App.isEncryptedBlossomDescriptor(raw)) {
+          return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+        }
+        if (raw.duration != null && (typeof raw.duration !== 'number' || !Number.isFinite(raw.duration) || raw.duration < 0 || raw.duration > MAX_ATTACH_DURATION_SEC)) {
+          return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+        }
+        return { ok: true, encryptedBlossom: true };
+      } catch (_valErr) {
+        return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+      }
+    }
     normalizeIncomingChatAttachmentSchema(raw);
     if (raw.name != null && (typeof raw.name !== 'string' || raw.name.length > MAX_ATTACH_NAME_CHARS)) {
       return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
@@ -623,10 +642,44 @@
         packedText = baseText;
         packedAttachment = serialization.attachment || null;
       }
+      const activeAtt =
+        typeof App.getChatFileAttachment === 'function'
+          ? App.getChatFileAttachment(peerNorm)
+          : serialization.attachment;
       const innerMessageId =
         (typeof options?.clientTempId === 'string' && options.clientTempId) ||
+        (activeAtt && typeof activeAtt.clientMessageId === 'string' && activeAtt.clientMessageId) ||
+        (activeAtt && typeof activeAtt.logicalMessageId === 'string' && activeAtt.logicalMessageId) ||
         ('cmsg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));
       const innerCreatedAt = Math.floor(Date.now() / 1000);
+      // M4: encrypted Blossom descriptor must fit NIP-44 before Relay publish.
+      if (
+        packedAttachment &&
+        packedAttachment.type === 'encrypted-media' &&
+        typeof App.assertEncryptedBlossomFitsE3b === 'function'
+      ) {
+        try {
+          App.assertEncryptedBlossomFitsE3b({
+            messageId: innerMessageId,
+            sender: App.publicKey,
+            recipient: peerNorm,
+            createdAt: innerCreatedAt,
+            text: packedText,
+            attachment: packedAttachment,
+          });
+        } catch (sizeErr) {
+          try {
+            console.warn(
+              '[E2EE/SEND] blocked reason=' +
+                String((sizeErr && sizeErr.code) || 'MEDIA_E2EE_DESCRIPTOR_TOO_LARGE'),
+            );
+          } catch (_e) {}
+          return {
+            ok: false,
+            error: (sizeErr && sizeErr.code) || 'MEDIA_E2EE_DESCRIPTOR_TOO_LARGE',
+          };
+        }
+      }
       let envelope;
       try {
         envelope = App.encryptPrivateChatPayload({
@@ -1240,6 +1293,45 @@
       } else if (parsedPayload.attachment.name) {
         parsedPayload.attachment.name = sanitizeIncomingChatFileName(parsedPayload.attachment.name);
       }
+    }
+
+    // M4: hydrate encrypted Blossom attachments for local render (does not change transport routing).
+    if (
+      parsedPayload.attachment &&
+      parsedPayload.attachment.type === 'encrypted-media' &&
+      typeof App.resolveServerMediaAttachment === 'function'
+    ) {
+      const encAtt = parsedPayload.attachment;
+      if (encAtt.media && typeof encAtt.media.filename === 'string' && !encAtt.name) {
+        encAtt.name = sanitizeIncomingChatFileName(encAtt.media.filename);
+      }
+      const aadMessageId = logicalMessageId || encAtt.clientMessageId || encAtt.logicalMessageId || null;
+      const aadSender = isSelfMessage ? currentUser : sender;
+      const aadRecipient = isSelfMessage ? recipient : currentUser;
+      const hydratePeer = peerPubkey;
+      Promise.resolve()
+        .then(() =>
+          App.resolveServerMediaAttachment(encAtt, {
+            messageId: aadMessageId,
+            sender: aadSender,
+            recipient: aadRecipient,
+          }),
+        )
+        .then(() => {
+          try {
+            if (typeof App.renderMessages === 'function') {
+              App.renderMessages(hydratePeer, { force: true });
+            }
+          } catch (_re) {}
+        })
+        .catch((hydrateErr) => {
+          try {
+            console.warn(
+              '[MEDIA/SERVER-E2EE] resolve failed code=' +
+                String((hydrateErr && hydrateErr.code) || 'RESOLVE_FAILED'),
+            );
+          } catch (_e) {}
+        });
     }
 
     // חלק Auto-download טורנט (chat-service.js) – גם הודעת attachment עם magnetURI מפעילה הורדה אוטומטית ללא לחיצה | HYPER CORE TECH

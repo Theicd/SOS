@@ -202,8 +202,11 @@
   
   function isImageAttachment(attachment) {
     if (!attachment) return false;
-    const mime = (attachment.type || '').toLowerCase();
-    const name = attachment.name || '';
+    const mime =
+      (typeof App.getAttachmentPlainMime === 'function'
+        ? App.getAttachmentPlainMime(attachment)
+        : (attachment.type || '')).toLowerCase();
+    const name = attachment.name || (attachment.media && attachment.media.filename) || '';
     const url = attachment.url || attachment.dataUrl || '';
     return IMAGE_TYPES.includes(mime) || IMAGE_EXTS.test(name) || IMAGE_EXTS.test(url);
   }
@@ -211,8 +214,11 @@
   // חלק זיהוי וידאו (chat-media-renderer.js) – משופר לא לזהות הודעות קוליות כווידאו | HYPER CORE TECH
   function isVideoAttachment(attachment) {
     if (!attachment) return false;
-    const mime = (attachment.type || '').toLowerCase();
-    const name = (attachment.name || '').toLowerCase();
+    const mime =
+      (typeof App.getAttachmentPlainMime === 'function'
+        ? App.getAttachmentPlainMime(attachment)
+        : (attachment.type || '')).toLowerCase();
+    const name = (attachment.name || (attachment.media && attachment.media.filename) || '').toLowerCase();
     const url = (attachment.url || attachment.dataUrl || '').toLowerCase();
     
     // חלק הדרה (chat-media-renderer.js) – הודעות קוליות לא נחשבות וידאו! | HYPER CORE TECH

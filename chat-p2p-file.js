@@ -2070,23 +2070,71 @@
       notifyProgress(uploadingPayload);
       
       // העלאה ל-Blossom - הפונקציה מחזירה URL ישירות (לא object)
+      // M4: when mediaServerE2eeRequired, upload ciphertext and publish encrypted-media v2 descriptor.
+      // Transport selection / fallback order UNCHANGED — only byte representation on Blossom changes.
       console.log('[CHAT/P2P] 📤 מתחיל העלאה ל-Blossom...');
-      let resultUrl;
+      let blossomUploadResult;
       try {
-        resultUrl = await App.uploadToBlossom(transfer.file);
-        console.log('[CHAT/P2P] 📤 תוצאת העלאה:', typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(resultUrl) : '[url]');
+        if (
+          typeof App.isMediaServerE2eeRequired === 'function' &&
+          App.isMediaServerE2eeRequired() &&
+          typeof App.uploadMediaForServerFallback === 'function'
+        ) {
+          const messageId =
+            typeof App.ensureLogicalMessageIdForMedia === 'function'
+              ? App.ensureLogicalMessageIdForMedia()
+              : ('cmsg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));
+          blossomUploadResult = await App.uploadMediaForServerFallback(transfer.file, {
+            messageId,
+            sender: App.publicKey,
+            recipient: transfer.peerPubkey,
+            mimeType: mime,
+            fileName,
+          });
+        } else {
+          blossomUploadResult = await App.uploadToBlossom(transfer.file);
+        }
+        console.log(
+          '[CHAT/P2P] 📤 תוצאת העלאה:',
+          blossomUploadResult && typeof blossomUploadResult === 'object'
+            ? 'encrypted-media'
+            : typeof App.diagSafeUrl === 'function'
+              ? App.diagSafeUrl(blossomUploadResult)
+              : '[url]',
+        );
       } catch (uploadErr) {
         // חלק שגיאות Blossom (chat-p2p-file.js) – הודעה מפורטת למשתמש עם סיבת כשל ושם קובץ | HYPER CORE TECH
+        // Gate ON: no plaintext Blossom retry here — existing controller may fall through to WebTorrent.
         const reason = uploadErr?.message || 'שגיאה לא ידועה';
         console.warn('[CHAT/P2P] ⚠️ Blossom נכשל, מנסה WebTorrent...', reason);
         quietTransferLog('blossom-failed → torrent', transfer.fileId, reason);
         await fallbackToTorrent(transfer, onProgress);
         return;
       }
-      
-      if (resultUrl && typeof resultUrl === 'string') {
-        console.log('[CHAT/P2P] ✅ Blossom upload הצליח', { url: typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(resultUrl) : '[url]' });
-        mediaDebugLog('blossom-upload-success', { fileId: transfer.fileId, name: fileName, size: fileSize, mime, url: resultUrl });
+
+      const isEncryptedDescriptor =
+        blossomUploadResult &&
+        typeof blossomUploadResult === 'object' &&
+        blossomUploadResult.type === 'encrypted-media';
+      const resultUrl = typeof blossomUploadResult === 'string' ? blossomUploadResult : null;
+
+      if (isEncryptedDescriptor || resultUrl) {
+        console.log('[CHAT/P2P] ✅ Blossom upload הצליח', {
+          encrypted: !!isEncryptedDescriptor,
+          url: resultUrl
+            ? typeof App.diagSafeUrl === 'function'
+              ? App.diagSafeUrl(resultUrl)
+              : '[url]'
+            : undefined,
+        });
+        mediaDebugLog('blossom-upload-success', {
+          fileId: transfer.fileId,
+          name: fileName,
+          size: fileSize,
+          mime,
+          encrypted: !!isEncryptedDescriptor,
+          url: resultUrl || undefined,
+        });
         
         // חלק fallback (chat-p2p-file.js) – שליחת הודעת צ'אט עם קישור Blossom | HYPER CORE TECH
         // שולחים את ה-URL כהודעת צ'אט לצד השני
@@ -2096,24 +2144,54 @@
             const resolvedMime = resolveMimeType(mime, fileName);
             const isVideoFlag = shouldForceVideoFlag(mime, fileName);
             // חלק דיבאג attachment (chat-p2p-file.js) – לוג מטא של מצורף Blossom | HYPER CORE TECH
-            mediaDebugLog('blossom-attachment', { fileId: transfer.fileId, name: fileName, size: fileSize, mime: resolvedMime || mime, isVideo: isVideoFlag || false, url: resultUrl });
-            const attachment = {
-              id: `blossom-${Date.now()}`,
+            mediaDebugLog('blossom-attachment', {
+              fileId: transfer.fileId,
               name: fileName,
               size: fileSize,
-              type: resolvedMime || mime || 'application/octet-stream',
-              url: resultUrl,
-              dataUrl: '',
-              fileId: transfer.fileId,
-              isVideo: isVideoFlag || undefined,
-              hidePreview: true, // אין שורת preview תחתונה בזמן פרסום אחרי Blossom
-              caption: String(transfer.caption || (typeof App.getChatFileAttachment === 'function' && App.getChatFileAttachment(transfer.peerPubkey)?.caption) || '').trim() || undefined,
-            };
+              mime: resolvedMime || mime,
+              isVideo: isVideoFlag || false,
+              encrypted: !!isEncryptedDescriptor,
+              url: resultUrl || undefined,
+            });
+            let attachment;
+            if (isEncryptedDescriptor) {
+              attachment = blossomUploadResult;
+              attachment.id = attachment.attachmentId || `blossom-${Date.now()}`;
+              attachment.name =
+                (attachment.media && attachment.media.filename) || fileName;
+              attachment.size =
+                (attachment.media && typeof attachment.media.originalSize === 'number'
+                  ? attachment.media.originalSize
+                  : fileSize);
+              attachment.fileId = transfer.fileId;
+              attachment.isVideo = isVideoFlag || undefined;
+              attachment.hidePreview = true;
+              attachment.caption =
+                String(
+                  transfer.caption ||
+                    (typeof App.getChatFileAttachment === 'function' &&
+                      App.getChatFileAttachment(transfer.peerPubkey)?.caption) ||
+                    '',
+                ).trim() || undefined;
+            } else {
+              attachment = {
+                id: `blossom-${Date.now()}`,
+                name: fileName,
+                size: fileSize,
+                type: resolvedMime || mime || 'application/octet-stream',
+                url: resultUrl,
+                dataUrl: '',
+                fileId: transfer.fileId,
+                isVideo: isVideoFlag || undefined,
+                hidePreview: true, // אין שורת preview תחתונה בזמן פרסום אחרי Blossom
+                caption: String(transfer.caption || (typeof App.getChatFileAttachment === 'function' && App.getChatFileAttachment(transfer.peerPubkey)?.caption) || '').trim() || undefined,
+              };
+            }
             if (typeof App.setChatFileAttachment === 'function') {
               App.setChatFileAttachment(transfer.peerPubkey, attachment);
             }
             const captionText = String(attachment.caption || '').trim();
-            const isVisualMedia = /^image\//i.test(attachment.type || '') || !!isVideoFlag;
+            const isVisualMedia = /^image\//i.test(resolvedMime || mime || '') || !!isVideoFlag;
             const messageText = captionText || (isVisualMedia ? '' : `📎 ${fileName}`);
             const publishResult = await App.publishChatMessage(transfer.peerPubkey, messageText);
             if (publishResult?.ok) {

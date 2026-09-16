@@ -305,6 +305,7 @@
       filename,
       mime,
       mode: options.mode,
+      attachmentId: options.attachmentId,
       signal: options.signal,
       onProgress: (p) => reportSecureProgress(options.onProgress, 'encrypting', p.bytesProcessed, p.totalBytes),
     });

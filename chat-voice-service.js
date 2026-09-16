@@ -110,15 +110,60 @@
       });
       return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl, url: '', duration };
     }
-    // העלאה ל-Blossom
+    // העלאה ל-Blossom (M4: when server-E2EE gate ON → ciphertext only; transport choice unchanged)
     try{
+      const uploadBlob = new Blob([blob], { type: finalMime });
+      const peer =
+        (typeof App.getActiveChatPeer === 'function' && App.getActiveChatPeer()) ||
+        (App.chatState && App.chatState.activeContact) ||
+        '';
+      if (typeof App.uploadMediaForServerFallback === 'function') {
+        const messageId =
+          typeof App.ensureLogicalMessageIdForMedia === 'function'
+            ? App.ensureLogicalMessageIdForMedia()
+            : ('cmsg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));
+        const uploaded = await App.uploadMediaForServerFallback(uploadBlob, {
+          messageId,
+          sender: App.publicKey,
+          recipient: peer,
+          mimeType: finalMime,
+          fileName,
+          duration,
+        });
+        if (uploaded && typeof uploaded === 'object' && uploaded.type === 'encrypted-media') {
+          uploaded.id = uploaded.attachmentId || ('audio-' + Date.now());
+          uploaded.name = (uploaded.media && uploaded.media.filename) || fileName;
+          uploaded.size =
+            (uploaded.media && typeof uploaded.media.originalSize === 'number'
+              ? uploaded.media.originalSize
+              : blob.size);
+          uploaded.duration = duration;
+          uploaded.isVoice = true;
+          uploaded.clientMessageId = messageId;
+          uploaded.logicalMessageId = messageId;
+          console.log('[VOICE] Uploaded encrypted Blossom descriptor');
+          return uploaded;
+        }
+        const url = uploaded;
+        console.log('[VOICE] Uploaded to Blossom:', typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]');
+        return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl: '', url, duration, clientMessageId: messageId, logicalMessageId: messageId };
+      }
       if(typeof App.uploadToBlossom !== 'function') throw new Error('blossom-missing');
       // חלק העלאה (chat-voice-service.js) – העלאה עם MIME type נכון | HYPER CORE TECH
-      const url = await App.uploadToBlossom(new Blob([blob], { type: finalMime }));
+      const url = await App.uploadToBlossom(uploadBlob);
       console.log('[VOICE] Uploaded to Blossom:', typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]');
       return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl: '', url, duration };
     }catch(err){
       console.error('[VOICE] Blossom upload failed:', err);
+      // When server E2EE gate is ON: never silent plaintext Blossom downgrade.
+      // Existing controller may still use oversized-inline emergency path below.
+      if (typeof App.isMediaServerE2eeRequired === 'function' && App.isMediaServerE2eeRequired()) {
+        if (blob.size <= MAX_INLINE_BYTES * 1.2){
+          const dataUrl = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result||'')); r.onerror=rej; r.readAsDataURL(blob); });
+          return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl, url: '', duration };
+        }
+        throw err;
+      }
       // Fallback: אם העלאה נכשלה נחזור ל-inline אם אפשר, אחרת נדווח שגיאה
       if (blob.size <= MAX_INLINE_BYTES * 1.2){
         const dataUrl = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result||'')); r.onerror=rej; r.readAsDataURL(blob); });
@@ -193,7 +238,13 @@
       seedVoiceForP2P(result.blob, result.mimeType).catch(() => null),
     ]);
 
-    if (!attachment || (!attachment.url && !attachment.dataUrl)) {
+    const hasEncryptedBlossom =
+      attachment &&
+      attachment.type === 'encrypted-media' &&
+      attachment.resource &&
+      attachment.resource.transport === 'blossom' &&
+      attachment.resource.url;
+    if (!attachment || (!attachment.url && !attachment.dataUrl && !hasEncryptedBlossom)) {
       throw new Error('voice-attachment-missing-src');
     }
 
