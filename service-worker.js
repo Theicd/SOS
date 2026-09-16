@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v836'; // Private-chat P2P→Blossom policy resolution hotfix
+  const CACHE_NAME = 'sos-cache-v837'; // NZP desktop store layout + trailer l6TG
   const PRECACHE_URLS = [
     './',
     './videos.html',
