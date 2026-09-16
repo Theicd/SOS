@@ -320,7 +320,7 @@ function auditSourceClassification() {
   const m2 = read('media-file-e2ee.js');
 
   record('PRIVATE_CHAT voice uses uploadMediaForServerFallback', /uploadMediaForServerFallback/.test(voice));
-  record('PRIVATE_CHAT p2p Blossom adapter gate-scoped', /isMediaServerE2eeRequired/.test(p2p) && /uploadMediaForServerFallback/.test(p2p));
+  record('PRIVATE_CHAT p2p Blossom adapter gate-scoped', /resolveMediaServerE2eeDecision/.test(p2p) && /uploadMediaForServerFallback/.test(p2p));
   record('PUBLIC_FEED compose uses App.uploadToBlossom', /uploadVideoToBlossom[\s\S]*uploadToBlossom\(blob\)/.test(compose));
   record('PUBLIC_FEED compose does not use uploadMediaForServerFallback', !/uploadMediaForServerFallback/.test(compose));
   record('MEDIA_MIRROR uses App.uploadToBlossom unchanged', /uploadToBlossom\(blob/.test(mirror) && !/uploadMediaForServerFallback/.test(mirror));

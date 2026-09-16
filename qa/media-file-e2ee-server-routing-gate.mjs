@@ -410,8 +410,8 @@ function assertRoutingFreezeFromSource() {
       !/if\s*\(\s*mediaE2eeRequired/.test(p2p + ui + voice),
   );
   record(
-    'p2p-file Blossom wrap is gate-scoped only',
-    /isMediaServerE2eeRequired\(\)/.test(p2p) && /uploadMediaForServerFallback/.test(p2p),
+    'p2p-file Blossom wrap resolves authoritative policy',
+    /resolveMediaServerE2eeDecision/.test(p2p) && /uploadMediaForServerFallback/.test(p2p),
   );
   record(
     'media-server-e2ee.js present',
