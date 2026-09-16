@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.16-media-server-e2ee1",
-  "buildTime": "2026-09-16T17:30:00+03:00",
-  "notes": "E3B Relay private text ACTIVE. Private-chat Blossom/server fallback E2EE ACTIVE. P2P/Torrent routing unchanged. Public feed Blossom unchanged. Secure chat epoch 2.",
+  "version": "2026.09.16-media-inline-hotfix1",
+  "buildTime": "2026-09-16T18:30:00+03:00",
+  "notes": "E3B private media inline overflow fixed. Oversized E3B-inline attachments use encrypted private-chat server fallback. P2P/Torrent routing unchanged. Public feed unchanged.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true
