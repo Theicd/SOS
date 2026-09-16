@@ -10004,7 +10004,7 @@ function openNzpGame() {
   document.body.classList.add('nzp-open');
   document.documentElement.classList.add('nzp-open');
   freezeFeedForNzp();
-  frame.src = './nzp-multiplayer.html?v=20260916nzp14';
+  frame.src = './nzp-multiplayer.html?v=20260916nzp15';
   return true;
 }
 

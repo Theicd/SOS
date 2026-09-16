@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v838'; // NZP map picker + auto-host without solo
+  const CACHE_NAME = 'sos-cache-v839'; // NZP dual-stick mobile controls
   const PRECACHE_URLS = [
     './',
     './videos.html',
