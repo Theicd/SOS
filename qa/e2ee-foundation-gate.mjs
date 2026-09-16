@@ -240,17 +240,16 @@ const storageHtml = read('storage.html');
 const e2eeSrc = read('chat-e2ee.js');
 
 record(
-  'live_path_no_encrypt_in_chat-service',
-  !chatServiceSrc.includes('encryptPrivateChatPayload'),
+  'live_path_encrypt_gated_by_isE2eeSendRequired',
+  chatServiceSrc.includes('isE2eeSendRequired') && chatServiceSrc.includes('encryptPrivateChatPayload'),
 );
 record(
   'live_path_no_encrypt_in_chat-file-transfer-service',
   !fileTransferSrc.includes('encryptPrivateChatPayload') && !fileTransferSrc.includes('sos-e2ee'),
 );
 record(
-  'LIVE_E2EE_SEND=false (encrypt not in publish path)',
-  !chatServiceSrc.includes('encryptPrivateChatPayload') &&
-    !/publishChatMessage[\s\S]{0,800}encryptPrivateChatPayload/.test(chatServiceSrc),
+  'LIVE_E2EE_SEND=false (activation ABSENT in app-version)',
+  !Object.prototype.hasOwnProperty.call(JSON.parse(read('app-version.json')), 'e2eeSendRequired'),
 );
 // E2 may load chat-e2ee.js for receive-only dual-read.
 record(
@@ -260,8 +259,8 @@ record(
 record('index.html does not load chat-e2ee-wrapper.js', !indexHtml.includes('chat-e2ee-wrapper.js'));
 record('storage.html does not load chat-e2ee-wrapper.js', !storageHtml.includes('chat-e2ee-wrapper.js'));
 record(
-  'E2EE encrypt engine not wired to send',
-  e2eeSrc.includes('E2EE_FAMILY') && !chatServiceSrc.includes('encryptPrivateChatPayload'),
+  'E2EE encrypt engine present; send gated',
+  e2eeSrc.includes('E2EE_FAMILY') && chatServiceSrc.includes('isE2eeSendRequired'),
 );
 record('chat-e2ee documents CLIENT_MESSAGE_ID != OUTER_NOSTR_EVENT_ID', e2eeSrc.includes('CLIENT_MESSAGE_ID != OUTER_NOSTR_EVENT_ID'));
 record('chat-e2ee documents no Signal-style PFS', e2eeSrc.includes('does NOT provide Signal-style'));

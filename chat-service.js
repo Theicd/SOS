@@ -538,6 +538,8 @@
       }
     }
     // חלק P2P DataChannel (chat-service.js) – ניסיון שליחה ישירה דרך DataChannel לפני relay | HYPER CORE TECH
+    // P2P_DC_TRANSPORT_SECURITY: WebRTC DTLS. E3B does not redesign DC schema; plaintext here
+    // is NOT relay plaintext. Kind 1050 relay content is encrypted when e2eeSendRequired.
     if (!forceRelay && App.dataChannel && typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(peerPubkey)) {
       const p2pId = 'p2p-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
       const p2pTs = Math.floor(Date.now() / 1000);
@@ -565,19 +567,102 @@
     }
     // fallback: שליחה רגילה דרך relay
 
-    const draft = buildChatDraft(peerPubkey, serialization.rawContent || '');
+    const peerNorm = String(peerPubkey || '').trim().toLowerCase().replace(/^0x/, '');
+    if (!/^[0-9a-f]{64}$/.test(peerNorm)) {
+      return { ok: false, error: 'invalid-recipient' };
+    }
+
+    // E3B: when e2eeSendRequired (monotonic), kind 1050 relay content MUST be sos-e2ee envelope.
+    // Fail closed — never plaintext fallback. No Push / no publish on encrypt failure.
+    const e2eeSendRequired =
+      typeof App.isE2eeSendRequired === 'function' ? App.isE2eeSendRequired() === true : false;
+    let wireContent = serialization.rawContent || '';
+    if (e2eeSendRequired) {
+      if (!App.privateKey || !App.publicKey) {
+        try { console.warn('[E2EE/SEND] blocked reason=e2ee-key-unavailable'); } catch (_e) {}
+        return { ok: false, error: 'e2ee-key-unavailable' };
+      }
+      if (typeof App.encryptPrivateChatPayload !== 'function') {
+        try { console.warn('[E2EE/SEND] blocked reason=e2ee-unavailable'); } catch (_e) {}
+        return { ok: false, error: 'e2ee-unavailable' };
+      }
+      let packedText = baseText;
+      let packedAttachment = null;
+      try {
+        const packed = JSON.parse(serialization.rawContent);
+        if (packed && typeof packed === 'object' && !Array.isArray(packed)) {
+          packedText = typeof packed.t === 'string' ? packed.t : baseText;
+          packedAttachment = packed.a != null ? packed.a : null;
+        }
+      } catch (_parseErr) {
+        packedText = baseText;
+        packedAttachment = serialization.attachment || null;
+      }
+      const innerMessageId =
+        (typeof options?.clientTempId === 'string' && options.clientTempId) ||
+        ('cmsg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));
+      const innerCreatedAt = Math.floor(Date.now() / 1000);
+      let envelope;
+      try {
+        envelope = App.encryptPrivateChatPayload({
+          senderPrivateKeyHex: App.privateKey,
+          senderPubkey: App.publicKey,
+          recipientPubkey: peerNorm,
+          payload: {
+            messageId: innerMessageId,
+            sender: App.publicKey,
+            recipient: peerNorm,
+            createdAt: innerCreatedAt,
+            text: packedText,
+            attachment: packedAttachment,
+          },
+        });
+      } catch (encErr) {
+        try {
+          console.warn(
+            '[E2EE/SEND] blocked reason=' +
+              String((encErr && encErr.code) || 'ENCRYPT_FAILURE'),
+          );
+        } catch (_e) {}
+        return { ok: false, error: 'e2ee-encrypt-failed' };
+      }
+      if (!envelope || envelope.family !== 'sos-e2ee' || typeof envelope.ct !== 'string' || !envelope.ct) {
+        try { console.warn('[E2EE/SEND] blocked reason=invalid-envelope'); } catch (_e) {}
+        return { ok: false, error: 'e2ee-encrypt-failed' };
+      }
+      try {
+        wireContent = JSON.stringify(envelope);
+      } catch (_serErr) {
+        try { console.warn('[E2EE/SEND] blocked reason=envelope-serialize-failed'); } catch (_e) {}
+        return { ok: false, error: 'e2ee-encrypt-failed' };
+      }
+      // Hard guard: never publish if inner plaintext leaked into outer content string.
+      if (
+        (packedText && wireContent.indexOf(packedText) !== -1 && packedText.length >= 8) ||
+        (packedAttachment &&
+          packedAttachment.name &&
+          String(packedAttachment.name).length >= 4 &&
+          wireContent.indexOf(String(packedAttachment.name)) !== -1)
+      ) {
+        try { console.warn('[E2EE/SEND] blocked reason=plaintext-leak-guard'); } catch (_e) {}
+        return { ok: false, error: 'e2ee-encrypt-failed' };
+      }
+    }
+
+    const draft = buildChatDraft(peerNorm, wireContent);
     const event = App.finalizeEvent(draft, App.privateKey);
 
     const outgoingMessage = {
       id: event.id,
       from: App.publicKey,
-      to: peerPubkey,
+      to: peerNorm,
       content: serialization.displayText || '',
       attachment: serialization.attachment || null,
       createdAt: event.created_at,
       direction: 'outgoing',
       // חלק סטטוס הודעות (chat-service.js) – סטטוס שליחה: sending -> sent | HYPER CORE TECH
       status: 'sending',
+      e2ee: e2eeSendRequired === true,
     };
 
     // חלק סטטוס הודעות (chat-service.js) – מוסיף/מחליף הודעה במצב "שולח" לפני הפרסום | HYPER CORE TECH
@@ -599,17 +684,18 @@
       if (typeof App.updateChatMessageStatus === 'function') {
         App.updateChatMessageStatus(event.id, 'sent');
       }
-      App.markChatConversationRead(peerPubkey);
+      App.markChatConversationRead(peerNorm);
       // חלק Push (chat-service.js) – שליחת Push לנמען כשההודעה נשלחה בהצלחה | HYPER CORE TECH
       if (typeof App.triggerOutgoingMessagePush === 'function') {
-        App.triggerOutgoingMessagePush(peerPubkey, { eventId: event.id, hasAttachment: !!attachmentReady });
+        App.triggerOutgoingMessagePush(peerNorm, { eventId: event.id, hasAttachment: !!attachmentReady });
       }
       if (typeof App.afterChatMessagePublished === 'function') {
-        App.afterChatMessagePublished(peerPubkey, outgoingMessage);
+        App.afterChatMessagePublished(peerNorm, outgoingMessage);
       }
-      return { ok: true, messageId: event.id };
+      return { ok: true, messageId: event.id, e2ee: e2eeSendRequired === true };
     } catch (err) {
       // חלק timeout (chat-service.js) – אם נגמר הזמן, נחשיב כהצלחה כי ההודעה כבר נשלחה ברקע | HYPER CORE TECH
+      // Timeout still uses the same (possibly encrypted) event — never plaintext retry.
       if (err?.message === 'publish-timeout') {
         console.warn('Chat publish timeout - assuming success');
         if (typeof App.updateChatMessageStatus === 'function') {
@@ -617,9 +703,9 @@
         }
         // שליחת Push גם במקרה של timeout
         if (typeof App.triggerOutgoingMessagePush === 'function') {
-          App.triggerOutgoingMessagePush(peerPubkey, { eventId: event.id, hasAttachment: !!attachmentReady });
+          App.triggerOutgoingMessagePush(peerNorm, { eventId: event.id, hasAttachment: !!attachmentReady });
         }
-        return { ok: true, messageId: event.id };
+        return { ok: true, messageId: event.id, e2ee: e2eeSendRequired === true };
       }
       console.error('Chat publish failed', err);
       // חלק סטטוס הודעות (chat-service.js) – עדכון סטטוס ל"נכשל" אם השליחה נכשלה | HYPER CORE TECH

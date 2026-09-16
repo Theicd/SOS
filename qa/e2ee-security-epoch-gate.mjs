@@ -111,16 +111,21 @@ record('publishChatMessage gated before serialize/publish', (() => {
   const iPub = svc.indexOf('pool.publish', iFn);
   return iFn >= 0 && iErr > iFn && iErr < iSer && iErr < iPub;
 })());
-record('LIVE_E2EE_SEND=false', !svc.includes('encryptPrivateChatPayload'));
+record('LIVE_E2EE_SEND=false (gated; e2eeSendRequired ABSENT)',
+  svc.includes('isE2eeSendRequired') &&
+  svc.includes('encryptPrivateChatPayload') &&
+  !Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired'));
 record('E2 dual-read still present', svc.includes('decryptPrivateChatPayload') && svc.includes('looksLikeIncomingE2eeContent'));
 
-record('SW cache bumped for Push Privacy', /sos-cache-v830/.test(sw));
+record('SW cache bumped for E3B prep', /sos-cache-v831/.test(sw));
 record('SW precaches chat-e2ee.js', sw.includes("'./chat-e2ee.js'"));
 record('SW precaches chat-secure-epoch.js', sw.includes("'./chat-secure-epoch.js'"));
 record('app-version.json still bypasses SW', sw.includes("app-version.json") && sw.includes('return'));
 record('minSecureChatEpoch activated =1 in app-version.json',
   Object.prototype.hasOwnProperty.call(appVer, 'minSecureChatEpoch') &&
   Number(appVer.minSecureChatEpoch) === 1);
+record('e2eeSendRequired ABSENT (not activated)',
+  !Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired'));
 record('normal PWA Later toast still exists', pwa.includes('pwa-update-toast__later') && pwa.includes('UPDATE_LATER_KEY'));
 record('prepareCleanReloadAfterUiUpdate exposed', pwa.includes('prepareCleanReloadAfterUiUpdate'));
 

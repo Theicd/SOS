@@ -301,7 +301,10 @@ const e2ee = read('chat-e2ee.js');
 record('E2 receive wires decryptPrivateChatPayload', svc.includes('decryptPrivateChatPayload') && svc.includes('looksLikeIncomingE2eeContent'));
 record('E2 fail-closed recognized envelope', svc.includes('Recognized sos-e2ee') || svc.includes('never legacy-fallback'));
 record('E2 pending key retry present', svc.includes('queuePendingE2eeEvent') && svc.includes('flushPendingE2eeEvents'));
-record('LIVE_E2EE_SEND=false', !svc.includes('encryptPrivateChatPayload') && !fts.includes('encryptPrivateChatPayload'));
+record('LIVE_E2EE_SEND=false (activation ABSENT; send gated)',
+  svc.includes('isE2eeSendRequired') &&
+  !Object.prototype.hasOwnProperty.call(JSON.parse(read('app-version.json')), 'e2eeSendRequired') &&
+  !fts.includes('encryptPrivateChatPayload'));
 record('videos.html loads chat-e2ee.js before chat-service', (() => {
   const a = videos.indexOf('chat-e2ee.js');
   const b = videos.indexOf('chat-service.js');

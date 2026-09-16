@@ -1,5 +1,5 @@
 ;(function initChatE2ee(root) {
-  // חלק E2EE (chat-e2ee.js) – מעטפת NIP-44; E2 מחבר receive בלבד (בלי send) | HYPER CORE TECH
+  // חלק E2EE (chat-e2ee.js) – מעטפת NIP-44; receive=dual-read; send=E3B כש-e2eeSendRequired | HYPER CORE TECH
   const App = root.NostrApp || (root.NostrApp = {});
   const NT = root.NostrTools;
 

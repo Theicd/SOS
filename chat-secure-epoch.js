@@ -10,6 +10,7 @@
   });
 
   const LAST_KNOWN_MIN_KEY = 'sos_secure_chat_min_epoch';
+  const E2EE_SEND_REQUIRED_KEY = 'sos_e2ee_send_required';
   const RELOAD_ATTEMPTS_KEY = 'sos_secure_epoch_reload_attempts';
   const CHANNEL_NAME = 'sos-secure-epoch';
   const APP_VERSION_URL = './app-version.json';
@@ -21,6 +22,8 @@
   let evaluatePromise = null;
   let blockerShown = false;
   let bc = null;
+  // In-memory mirror of monotonic E3B send-required floor (also persisted).
+  let e2eeSendRequiredKnown = false;
 
   function getLocalSecureChatEpoch() {
     if (typeof App.__qaSecureChatEpochOverride === 'number' && Number.isFinite(App.__qaSecureChatEpochOverride)) {
@@ -58,6 +61,58 @@
     const n = Number(data.minSecureChatEpoch);
     if (!Number.isFinite(n) || n < 0) return 0;
     return Math.floor(n);
+  }
+
+  /*
+   * E3B activation: remote app-version.json field e2eeSendRequired.
+   * Monotonic: once observed true, never silently allow legacy plaintext send
+   * because the field disappears, returns false, or fetch fails.
+   * Prep/default: ABSENT/false → legacy send allowed (when epoch READY).
+   */
+  function readE2eeSendRequiredKnown() {
+    if (e2eeSendRequiredKnown) return true;
+    try {
+      const raw = root.localStorage && root.localStorage.getItem(E2EE_SEND_REQUIRED_KEY);
+      if (raw === '1' || raw === 'true') {
+        e2eeSendRequiredKnown = true;
+        return true;
+      }
+    } catch (_err) { /* ignore */ }
+    return false;
+  }
+
+  function writeE2eeSendRequiredKnown(required) {
+    if (!required) return readE2eeSendRequiredKnown();
+    e2eeSendRequiredKnown = true;
+    try {
+      if (root.localStorage) root.localStorage.setItem(E2EE_SEND_REQUIRED_KEY, '1');
+    } catch (_err) { /* ignore quota */ }
+    return true;
+  }
+
+  /** @returns {boolean|null} true/false when field present; null when ABSENT/unknown */
+  function parseRemoteE2eeSendRequired(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+    if (!Object.prototype.hasOwnProperty.call(data, 'e2eeSendRequired')) return null;
+    const v = data.e2eeSendRequired;
+    if (v === true || v === 1 || v === '1' || v === 'true') return true;
+    if (v === false || v === 0 || v === '0' || v === 'false') return false;
+    return null;
+  }
+
+  function noteE2eeSendRequiredFromRemote(remoteValue, fetchOk) {
+    if (fetchOk && remoteValue === true) {
+      writeE2eeSendRequiredKnown(true);
+    }
+    // remote false / absent / fetch fail: never clear a prior true observation.
+    return readE2eeSendRequiredKnown();
+  }
+
+  function isE2eeSendRequired() {
+    if (typeof App.__qaE2eeSendRequiredOverride === 'boolean') {
+      return App.__qaE2eeSendRequiredOverride;
+    }
+    return readE2eeSendRequiredKnown();
   }
 
   /**
@@ -294,14 +349,17 @@
     const lastKnown = readLastKnownMinEpoch();
     let fetchOk = false;
     let remoteMin = 0;
+    let remoteE2eeSend = null;
     try {
       const data = await fetchAuthoritativeAppVersionJson();
       remoteMin = parseRemoteMinSecureChatEpoch(data);
+      remoteE2eeSend = parseRemoteE2eeSendRequired(data);
       fetchOk = true;
       writeLastKnownMinEpoch(remoteMin);
     } catch (_err) {
       fetchOk = false;
     }
+    noteE2eeSendRequiredFromRemote(remoteE2eeSend, fetchOk);
     const knownAfter = readLastKnownMinEpoch();
     const decision = decideSecureChatGate({
       localEpoch: local,
@@ -314,6 +372,13 @@
       writeLastKnownMinEpoch(decision.required);
     }
     applySecureChatGateDecision(decision, opts);
+    try {
+      console.log(
+        '[E2EE/SEND] required=' + (isE2eeSendRequired() ? 'true' : 'false') +
+          ' remote=' + (remoteE2eeSend === null ? 'absent' : String(remoteE2eeSend)) +
+          ' fetchOk=' + String(fetchOk)
+      );
+    } catch (_logErr) { /* ignore */ }
     return gateState === GATE_STATES.READY;
   }
 
@@ -373,13 +438,22 @@
     } catch (_err) { /* ignore */ }
   }
 
+  // Seed in-memory flag from storage on load.
+  readE2eeSendRequiredKnown();
+
   const api = {
     GATE_STATES,
     SOS_SECURE_EPOCH_CHANNEL: CHANNEL_NAME,
     MAX_SECURE_EPOCH_RELOAD_ATTEMPTS: MAX_RELOAD_ATTEMPTS,
     LAST_KNOWN_MIN_KEY,
+    E2EE_SEND_REQUIRED_KEY,
     getLocalSecureChatEpoch,
     parseRemoteMinSecureChatEpoch,
+    parseRemoteE2eeSendRequired,
+    noteE2eeSendRequiredFromRemote,
+    isE2eeSendRequired,
+    readE2eeSendRequiredKnown,
+    writeE2eeSendRequiredKnown,
     decideSecureChatGate,
     getSecureChatGateState,
     isSecureChatReady,
@@ -403,6 +477,8 @@
     evaluateSecureChatEpoch,
     decideSecureChatGate,
     parseRemoteMinSecureChatEpoch,
+    parseRemoteE2eeSendRequired,
+    isE2eeSendRequired,
     getLocalSecureChatEpoch,
     GATE_STATES_SECURE_CHAT: GATE_STATES,
   });
