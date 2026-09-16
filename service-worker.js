@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v828'; // security packages A–C (XSS/rate/file/privacy)
+  const CACHE_NAME = 'sos-cache-v829'; // E3A3: secure-epoch gate + chat-e2ee in precache set
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -11,6 +11,8 @@
     './app.js',
     './chat-ui.js',
     './chat-state.js',
+    './chat-e2ee.js',
+    './chat-secure-epoch.js',
     './chat-service.js',
     './android-bridge.js',
     './emergency-bridge.js',
