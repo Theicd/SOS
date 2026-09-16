@@ -2047,14 +2047,7 @@
         attachmentType: mime,
         size: fileSize
       });
-      
-      // בדיקה אם יש פונקציית העלאה ל-Blossom
-      if (typeof App.uploadToBlossom !== 'function') {
-        console.warn('[CHAT/P2P] ⚠️ App.uploadToBlossom לא זמין, מנסה WebTorrent');
-        await fallbackToTorrent(transfer, onProgress);
-        return;
-      }
-      
+
       // חלק fallback (chat-p2p-file.js) – עדכון progress לפני התחלת העלאה | HYPER CORE TECH
       const uploadingPayload = {
         fileId: transfer.fileId,
@@ -2070,16 +2063,66 @@
       notifyProgress(uploadingPayload);
       
       // העלאה ל-Blossom - הפונקציה מחזירה URL ישירות (לא object)
-      // M4: when mediaServerE2eeRequired, upload ciphertext and publish encrypted-media v2 descriptor.
-      // Transport selection / fallback order UNCHANGED — only byte representation on Blossom changes.
+      // Hotfix: await authoritative mediaServerE2ee policy BEFORE any private Blossom bytes.
+      // Sync isMediaServerE2eeRequired() alone can be false on fresh clients → plaintext bypass.
+      // Transport selection / fallback order UNCHANGED — only encryption of chosen Blossom path.
       console.log('[CHAT/P2P] 📤 מתחיל העלאה ל-Blossom...');
       let blossomUploadResult;
       try {
-        if (
+        let mustSecure = false;
+        let allowLegacyPlaintext = false;
+        let policyDecision = null;
+        if (typeof App.resolveMediaServerE2eeDecision === 'function') {
+          policyDecision = await App.resolveMediaServerE2eeDecision();
+          const interpreted =
+            typeof App.interpretPrivateChatBlossomPolicy === 'function'
+              ? App.interpretPrivateChatBlossomPolicy(policyDecision)
+              : null;
+          if (interpreted) {
+            mustSecure = interpreted.mode === 'SECURE';
+            allowLegacyPlaintext = interpreted.mode === 'LEGACY';
+          } else {
+            mustSecure = !!(policyDecision.required === true || policyDecision.encrypt === true);
+            const pol = policyDecision.policy || {};
+            allowLegacyPlaintext =
+              !mustSecure &&
+              pol.fetchOk === true &&
+              pol.remoteValue === false &&
+              policyDecision.state === 'NOT_REQUIRED';
+          }
+          try {
+            console.log('[CHAT/P2P] server-E2EE policy before Blossom', {
+              required: mustSecure,
+              state: policyDecision && policyDecision.state,
+              fetchOk: policyDecision && policyDecision.policy && policyDecision.policy.fetchOk,
+              remote:
+                policyDecision && policyDecision.policy
+                  ? policyDecision.policy.remoteValue === null
+                    ? 'absent'
+                    : policyDecision.policy.remoteValue
+                  : null,
+              allowLegacy: allowLegacyPlaintext,
+              mode: interpreted && interpreted.mode,
+            });
+          } catch (_logErr) {}
+        } else if (
           typeof App.isMediaServerE2eeRequired === 'function' &&
-          App.isMediaServerE2eeRequired() &&
-          typeof App.uploadMediaForServerFallback === 'function'
+          App.isMediaServerE2eeRequired()
         ) {
+          // Resolver missing but sticky/QA already REQUIRED — still encrypt.
+          mustSecure = true;
+        } else {
+          // No authoritative resolver and not sticky-required → fail closed (no plaintext).
+          mustSecure = false;
+          allowLegacyPlaintext = false;
+        }
+
+        if (mustSecure) {
+          if (typeof App.uploadMediaForServerFallback !== 'function') {
+            const err = new Error('MEDIA_SERVER_E2EE_FALLBACK_UNAVAILABLE');
+            err.code = 'MEDIA_SERVER_E2EE_FALLBACK_UNAVAILABLE';
+            throw err;
+          }
           const messageId =
             typeof App.ensureLogicalMessageIdForMedia === 'function'
               ? App.ensureLogicalMessageIdForMedia()
@@ -2091,8 +2134,17 @@
             mimeType: mime,
             fileName,
           });
-        } else {
+        } else if (allowLegacyPlaintext) {
+          if (typeof App.uploadToBlossom !== 'function') {
+            console.warn('[CHAT/P2P] ⚠️ App.uploadToBlossom לא זמין, מנסה WebTorrent');
+            await fallbackToTorrent(transfer, onProgress);
+            return;
+          }
           blossomUploadResult = await App.uploadToBlossom(transfer.file);
+        } else {
+          const err = new Error('MEDIA_SERVER_E2EE_POLICY_BLOCKED');
+          err.code = 'MEDIA_SERVER_E2EE_POLICY_BLOCKED';
+          throw err;
         }
         console.log(
           '[CHAT/P2P] 📤 תוצאת העלאה:',

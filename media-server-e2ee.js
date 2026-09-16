@@ -245,6 +245,49 @@
   App.resolveMediaServerE2eeDecision = resolveMediaServerE2eeDecision;
   App.MEDIA_SERVER_E2EE_POLICY_STATES = POLICY_STATES;
 
+  /**
+   * Interpret an already-resolved media-server E2EE decision for PRIVATE CHAT Blossom.
+   * SECURE | LEGACY (explicit false only) | BLOCK (uncertainty — never plaintext).
+   */
+  function interpretPrivateChatBlossomPolicy(decision) {
+    if (!decision || typeof decision !== 'object') {
+      return { mode: 'BLOCK', reason: 'missing-decision', mustSecure: false, allowLegacyPlaintext: false };
+    }
+    const mustSecure = decision.required === true || decision.encrypt === true;
+    if (mustSecure) {
+      return {
+        mode: 'SECURE',
+        reason: 'required',
+        mustSecure: true,
+        allowLegacyPlaintext: false,
+        decision,
+      };
+    }
+    const pol = decision.policy || {};
+    const allowLegacyPlaintext =
+      decision.state === POLICY_STATES.NOT_REQUIRED &&
+      pol.fetchOk === true &&
+      pol.remoteValue === false;
+    if (allowLegacyPlaintext) {
+      return {
+        mode: 'LEGACY',
+        reason: 'authoritative-not-required',
+        mustSecure: false,
+        allowLegacyPlaintext: true,
+        decision,
+      };
+    }
+    return {
+      mode: 'BLOCK',
+      reason: 'policy-unavailable-or-uncertain',
+      mustSecure: false,
+      allowLegacyPlaintext: false,
+      decision,
+    };
+  }
+
+  App.interpretPrivateChatBlossomPolicy = interpretPrivateChatBlossomPolicy;
+
   function ensureLogicalMessageId(explicitId) {
     if (typeof explicitId === 'string' && explicitId.trim()) return explicitId.trim();
     return (
@@ -294,6 +337,24 @@
     const mustEncrypt = decision.required === true;
 
     if (!mustEncrypt) {
+      // Fail closed unless policy authoritatively says NOT required (explicit false).
+      // POLICY_UNAVAILABLE / missing field / uncertainty → never plaintext private Blossom.
+      const interpreted = interpretPrivateChatBlossomPolicy(decision);
+      if (interpreted.mode !== 'LEGACY') {
+        const err = new Error('MEDIA_SERVER_E2EE_POLICY_BLOCKED');
+        err.code = 'MEDIA_SERVER_E2EE_POLICY_BLOCKED';
+        err.details = {
+          state: decision.state,
+          mode: interpreted.mode,
+          reason: interpreted.reason,
+          fetchOk: decision.policy && decision.policy.fetchOk,
+          remoteValue:
+            decision.policy && Object.prototype.hasOwnProperty.call(decision.policy, 'remoteValue')
+              ? decision.policy.remoteValue
+              : null,
+        };
+        throw err;
+      }
       if (typeof App.uploadToBlossom !== 'function') {
         throw new Error('uploadToBlossom unavailable');
       }
