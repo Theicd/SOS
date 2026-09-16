@@ -565,7 +565,24 @@
             const ts = getMessageCreatedAt(message);
             return !ts || ts >= cutoffTs;
           });
-          const messages = MAX_MESSAGES_PER_THREAD ? filtered.slice(-MAX_MESSAGES_PER_THREAD) : filtered;
+          const scrubbed = filtered.map((message) => {
+            if (!message || typeof message !== 'object' || !message.attachment) return message;
+            const att = message.attachment;
+            if (typeof App.inspectIncomingChatAttachment === 'function') {
+              const inspected = App.inspectIncomingChatAttachment(att);
+              if (!inspected || inspected.ok !== true) {
+                try {
+                  console.warn('[SECURITY/PARSE_REJECT] kind=history reason=bad_attachment');
+                } catch (_) {}
+                return { ...message, attachment: null };
+              }
+            }
+            if (att && typeof att.name === 'string' && typeof App.sanitizeIncomingChatFileName === 'function') {
+              att.name = App.sanitizeIncomingChatFileName(att.name);
+            }
+            return message;
+          });
+          const messages = MAX_MESSAGES_PER_THREAD ? scrubbed.slice(-MAX_MESSAGES_PER_THREAD) : scrubbed;
           chatState.conversations.set(entry.key, {
             peer,
             messages,

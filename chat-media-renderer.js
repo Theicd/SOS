@@ -378,7 +378,10 @@
 
   async function downloadChatMedia(url, filename) {
     const src = String(url || '').trim();
-    const name = String(filename || 'sos-file').trim() || 'sos-file';
+    const name =
+      typeof App.sanitizeIncomingChatFileName === 'function'
+        ? App.sanitizeIncomingChatFileName(filename || 'sos-file')
+        : String(filename || 'sos-file').replace(/[\u0000-\u001f\u007f]/g, '').trim() || 'sos-file';
     if (!src) return false;
 
     const suppressOutsideClose = () => {
@@ -1302,22 +1305,30 @@
   function renderVideoAttachment(attachment) {
     const srcRaw = attachment.url || attachment.dataUrl || '';
     const src = (srcRaw && typeof App.isSafeIncomingChatResource === 'function' && !App.isSafeIncomingChatResource(srcRaw)) ? '' : srcRaw;
-    const type = attachment.type || 'video/mp4';
+    const typeRaw = attachment.type || 'video/mp4';
+    const typeEssence = String(typeRaw).split(';')[0].trim() || 'video/mp4';
+    const type = /^video\//i.test(typeEssence) ? typeEssence : 'video/mp4';
     const name = attachment.name || 'וידאו';
     const safeName = App.escapeHtml ? App.escapeHtml(name) : name;
     const uid = 'vid-' + Math.random().toString(36).substr(2, 9);
     const containerId = 'vc-' + Math.random().toString(36).substr(2, 9);
     // blob מותר ב־HTML בהתחלה — זה ה־session URL של השולח/מקבל | HYPER CORE TECH
     const initialSrc = src || '';
+    const initialSrcAttr = escapeAttr(initialSrc);
     const knownPoster = (() => {
-      if (isUsablePosterDataUrl(attachment.posterDataUrl)) return attachment.posterDataUrl;
-      if (isUsablePosterDataUrl(attachment.poster)) return attachment.poster;
-      if (attachment.fileId && typeof App.getChatTransferPreviewPoster === 'function') {
+      let raw = '';
+      if (isUsablePosterDataUrl(attachment.posterDataUrl)) raw = attachment.posterDataUrl;
+      else if (isUsablePosterDataUrl(attachment.poster)) raw = attachment.poster;
+      else if (attachment.fileId && typeof App.getChatTransferPreviewPoster === 'function') {
         const fromTransfer = App.getChatTransferPreviewPoster(attachment.fileId);
-        if (isUsablePosterDataUrl(fromTransfer)) return fromTransfer;
+        if (isUsablePosterDataUrl(fromTransfer)) raw = fromTransfer;
       }
-      return '';
+      if (raw && typeof App.isSafeIncomingChatResource === 'function' && !App.isSafeIncomingChatResource(raw)) {
+        return '';
+      }
+      return raw;
     })();
+    const knownPosterAttr = escapeAttr(knownPoster);
     const androidPlaceholder = needsAndroidVideoPlaceholder();
     const usePendingBlack = androidPlaceholder && !knownPoster;
     // תמיד מוסתר עד ready+aspect — בלי פסים/קפיצות לעין | HYPER CORE TECH
@@ -1493,11 +1504,11 @@
       });
     }, 0);
 
-    const posterAttr = knownPoster
-      ? knownPoster
+    const posterAttr = knownPosterAttr
+      ? knownPosterAttr
       : (usePendingBlack ? CHAT_VIDEO_BLACK_POSTER : '');
-    const thumbHtml = knownPoster
-      ? `<img class="chat-message__video-thumb" alt="" src="${knownPoster}" decoding="async">`
+    const thumbHtml = knownPosterAttr
+      ? `<img class="chat-message__video-thumb" alt="" src="${knownPosterAttr}" decoding="async">`
       : `<img class="chat-message__video-thumb" alt="" hidden decoding="async">`;
 
     return `
@@ -1519,7 +1530,7 @@
           style="opacity:0;visibility:hidden;background:#000"
           aria-label="${safeName}"
         >
-          <source src="${initialSrc}" type="${type}">
+          <source src="${initialSrcAttr}" type="${escapeAttr(type)}">
         </video>
       </div>
     `;

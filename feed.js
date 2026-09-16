@@ -1427,10 +1427,31 @@
       }
       if (node.classList.contains('feed-post__avatar') || node.classList.contains('feed-comment__avatar')) {
         if (profile?.picture) {
-          const safePicture = profile.picture.replace(/"/g, '&quot;');
-          node.innerHTML = `<img src="${safePicture}" alt="${escapedName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'; var p=this.parentElement; if(p){ p.textContent='${escapedInitials}'; }">`;
+          const safePicture =
+            typeof App.safeProfilePictureUrl === 'function'
+              ? App.safeProfilePictureUrl(profile.picture)
+              : '';
+          if (safePicture) {
+            const img = document.createElement('img');
+            img.src = safePicture;
+            img.alt = displayName;
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            img.referrerPolicy = 'no-referrer';
+            img.addEventListener(
+              'error',
+              () => {
+                node.textContent = initials;
+              },
+              { once: true },
+            );
+            node.textContent = '';
+            node.appendChild(img);
+          } else {
+            node.textContent = initials;
+          }
         } else {
-          node.textContent = escapedInitials;
+          node.textContent = initials;
         }
       }
     });
@@ -1815,8 +1836,11 @@
     const actorName = App.escapeHtml(actorNameRaw);
     const initials = profile.initials || App.getInitials(actorNameRaw);
     const safeInitials = App.escapeHtml(initials);
-    const avatar = profile.picture
-      ? `<img src="${profile.picture}" alt="${actorName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onerror="this.parentElement && (this.parentElement.innerHTML='<span>${safeInitials}</span>');">`
+    const safePicture =
+      typeof App.safeProfilePictureUrl === 'function' ? App.safeProfilePictureUrl(profile.picture || '') : '';
+    const safePictureAttr = safePicture && typeof App.escapeHtml === 'function' ? App.escapeHtml(safePicture) : '';
+    const avatar = safePictureAttr
+      ? `<img src="${safePictureAttr}" alt="${actorName}" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-fb="${safeInitials}" onerror="var s=document.createElement('span');s.textContent=this.getAttribute('data-fb')||'';this.replaceWith(s);">`
       : `<span>${safeInitials}</span>`;
     let actionText;
     let safeSnippet = '';
@@ -3032,6 +3056,21 @@
       return '';
     }
 
+    const escapeAttr =
+      typeof App.escapeHtml === 'function' ? App.escapeHtml : (v) => String(v || '');
+    const safeImg =
+      typeof App.safeFeedMediaUrl === 'function'
+        ? (u) => App.safeFeedMediaUrl(u, 'img')
+        : () => '';
+    const safeVideo =
+      typeof App.safeFeedMediaUrl === 'function'
+        ? (u) => App.safeFeedMediaUrl(u, 'video')
+        : () => '';
+    const safeHref =
+      typeof App.safeFeedMediaUrl === 'function'
+        ? (u) => App.safeFeedMediaUrl(u, 'href')
+        : () => '';
+
     return links
       .map((link) => {
         if (!link) return '';
@@ -3047,42 +3086,49 @@
           `;
         }
 
-        if (link.startsWith('data:image') || /\.(png|jpe?g|gif|webp|avif)$/i.test(link.split('?')[0])) {
-          return `<div class="feed-media"><img src="${link}" alt="תמונה מצורפת" onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#666;\\'>התמונה נחסמה על ידי ad blocker</div>'"></div>`;
+        const imgUrl = safeImg(link);
+        if (imgUrl && (String(link).startsWith('data:image') || /\.(png|jpe?g|gif|webp|avif)$/i.test(String(link).split('?')[0]))) {
+          const src = escapeAttr(imgUrl);
+          return `<div class="feed-media"><img src="${src}" alt="תמונה מצורפת" onerror="this.parentElement.innerHTML='<div style=\\'padding:20px;text-align:center;color:#666;\\'>התמונה נחסמה על ידי ad blocker</div>'"></div>`;
         }
 
-        if (link.startsWith('data:video') || /\.(mp4|webm|ogg)$/i.test(link)) {
+        const videoUrl = safeVideo(link);
+        if (videoUrl && (String(link).startsWith('data:video') || /\.(mp4|webm|ogg)$/i.test(String(link)))) {
+          const src = escapeAttr(videoUrl);
           return `<div class="feed-media feed-media--video" data-video-container>
-            <video src="${link}" playsinline preload="metadata"></video>
+            <video src="${src}" playsinline preload="metadata"></video>
             <div class="feed-media__play-overlay" data-play-overlay>
               <i class="fa-solid fa-play"></i>
             </div>
           </div>`;
         }
 
-        if (/^https?:\/\//i.test(link)) {
-          if (link.match(/\.(mp4|webm|ogg)$/i)) {
+        const hrefUrl = safeHref(link);
+        if (hrefUrl) {
+          if (/\.(mp4|webm|ogg)$/i.test(String(link))) {
             // חלק mirror (פיד) – וידאו עם תמיכה ב-cache, mirrors ו-fallback
             const hash = hashMap.get(link) || '';
             const mirrors = mirrorsMap.get(link) || [];
-            const hashAttr = hash ? ` data-video-hash="${hash}"` : '';
-            const mirrorsAttr = mirrors.length > 0 ? ` data-video-mirrors="${mirrors.join(',')}"` : '';
-            return `<div class="feed-media feed-media--video" data-video-container data-video-url="${link}"${hashAttr}${mirrorsAttr}>
+            const hashAttr = hash ? ` data-video-hash="${escapeAttr(hash)}"` : '';
+            const mirrorsAttr = mirrors.length > 0 ? ` data-video-mirrors="${escapeAttr(mirrors.join(','))}"` : '';
+            const urlAttr = escapeAttr(hrefUrl);
+            return `<div class="feed-media feed-media--video" data-video-container data-video-url="${urlAttr}"${hashAttr}${mirrorsAttr}>
               <video playsinline preload="metadata"></video>
               <div class="feed-media__play-overlay" data-play-overlay>
                 <i class="fa-solid fa-play"></i>
               </div>
             </div>`;
           }
-          const pathWithoutQuery = link.split('?')[0];
+          const pathWithoutQuery = String(link).split('?')[0];
           if (pathWithoutQuery.match(/\.(png|jpe?g|gif|webp|avif)$/i)) {
-            return `<div class="feed-media"><img src="${link}" alt="תמונה מצורפת"></div>`;
+            const src = escapeAttr(hrefUrl);
+            return `<div class="feed-media"><img src="${src}" alt="תמונה מצורפת"></div>`;
           }
           // חלק פיד (feed.js) – קישורים חיצוניים ללא סיומת תמונה/וידאו מוצגים כקישור בלבד כדי למנוע שגיאות טעינה
-          let displayLabel = link;
+          let displayLabel = hrefUrl;
           try {
-            const parsed = new URL(link);
-            displayLabel = `${parsed.hostname}${parsed.pathname}` || link;
+            const parsed = new URL(hrefUrl);
+            displayLabel = `${parsed.hostname}${parsed.pathname}` || hrefUrl;
           } catch (err) {
             // חלק פיד (feed.js) – במקרה של קישור לא חוקי נשאיר את הכתובת המקורית בלי קריסה
             console.warn('External link formatting failed', err);
@@ -3091,7 +3137,7 @@
             displayLabel = `${displayLabel.slice(0, 57)}...`;
           }
           const safeLabel = typeof App.escapeHtml === 'function' ? App.escapeHtml(displayLabel) : displayLabel;
-          return `<div class="feed-media feed-media--link"><a href="${link}" target="_blank" rel="noopener noreferrer">${safeLabel}</a></div>`;
+          return `<div class="feed-media feed-media--link"><a href="${escapeAttr(hrefUrl)}" target="_blank" rel="noopener noreferrer">${safeLabel}</a></div>`;
         }
 
         return '';

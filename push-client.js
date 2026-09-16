@@ -36,7 +36,7 @@
         return data.publicKey;
       }
       
-      console.warn('[PUSH] השרת לא מוגדר כראוי:', data);
+      console.warn('[PUSH] השרת לא מוגדר כראוי:', { ok: !!data.ok, status: response.status });
       return null;
     } catch (err) {
       console.error('[PUSH] שגיאה בקבלת הגדרות מהשרת:', err);

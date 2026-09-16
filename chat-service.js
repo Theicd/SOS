@@ -115,6 +115,30 @@
   const MAX_ATTACH_ID_CHARS = 256;
   const MAX_ATTACH_DURATION_SEC = 172800;
   const MAX_ATTACH_FILE_SIZE = 50 * 1024 * 1024 * 1024;
+  const MAX_DELETE_E_TAGS = 64;
+  const CHAT_INGRESS_WINDOW_MS = 10000;
+  const CHAT_INGRESS_MAX_PER_PEER = 120;
+  const RECEIPT_INGRESS_WINDOW_MS = 10000;
+  const RECEIPT_INGRESS_MAX_PER_PEER = 40;
+  const INGRESS_PEER_BUCKET_CAP = 400;
+  const chatIngressBuckets = new Map();
+  const receiptIngressBuckets = new Map();
+
+  function allowIngressBucket(map, peer, windowMs, maxCount) {
+    const k = String(peer || '').toLowerCase() || '_';
+    const now = Date.now();
+    let row = map.get(k);
+    if (!row || now - row.start >= windowMs) {
+      row = { start: now, count: 0 };
+      map.set(k, row);
+    }
+    row.count += 1;
+    if (map.size > INGRESS_PEER_BUCKET_CAP) {
+      const keys = [...map.keys()];
+      for (let i = 0; i < Math.floor(keys.length / 2); i += 1) map.delete(keys[i]);
+    }
+    return row.count <= maxCount;
+  }
 
   function getChatRetentionFloorTs(nowSec = Math.floor(Date.now() / 1000)) {
     if (typeof App.getChatRetentionCutoffTs === 'function') {
@@ -731,6 +755,11 @@
     if (!peerPubkey) {
       return;
     }
+    // Stage 13 — per-peer ingress throttle after auth/recipient (normal chat stays far below) | HYPER CORE TECH
+    if (!allowIngressBucket(chatIngressBuckets, sender, CHAT_INGRESS_WINDOW_MS, CHAT_INGRESS_MAX_PER_PEER)) {
+      console.warn('[SECURITY/RATE_DROP] type=1050 peer=' + sender.slice(0, 8) + ' reason=chat_burst');
+      return;
+    }
 
     const conversationTarget = isSelfMessage ? recipient : currentUser;
     if (!conversationTarget) {
@@ -919,6 +948,12 @@
         return;
       }
       if (tag[0] === 'e' && typeof tag[1] === 'string') {
+        if (targets.length >= MAX_DELETE_E_TAGS) {
+          return;
+        }
+        if (tag[1].length > 128) {
+          return;
+        }
         targets.push(tag[1]);
       }
       if (tag[0] === 'p' && typeof tag[1] === 'string') {
@@ -927,6 +962,9 @@
     });
     if (!targets.length) {
       return;
+    }
+    if (Array.isArray(event.tags) && event.tags.filter((t) => Array.isArray(t) && t[0] === 'e').length > MAX_DELETE_E_TAGS) {
+      console.warn('[SECURITY/PARSE_REJECT] kind=5 reason=too_many_e_tags');
     }
     
     // חלק מחיקה דו-צדדית (chat-service.js) – קביעת הפיר הנכון לפי מי שלח את אירוע המחיקה | HYPER CORE TECH
@@ -1528,9 +1566,25 @@
     if (!sender || sender === self) return;
     if (recipient && recipient !== self) return;
     if (!lastReadAt) return;
+    if (!Number.isFinite(lastReadAt) || lastReadAt <= 0 || lastReadAt > Math.floor(Date.now() / 1000) + 86400) {
+      console.warn('[SECURITY/PARSE_REJECT] kind=1051 reason=bad_lastReadAt');
+      return;
+    }
+    if (receiptId && receiptId.length > 256) {
+      console.warn('[SECURITY/PARSE_REJECT] kind=1051 reason=bad_receiptId');
+      return;
+    }
+    if (!allowIngressBucket(receiptIngressBuckets, sender, RECEIPT_INGRESS_WINDOW_MS, RECEIPT_INGRESS_MAX_PER_PEER)) {
+      console.warn('[SECURITY/RATE_DROP] type=1051 peer=' + sender.slice(0, 8) + ' reason=receipt_burst');
+      return;
+    }
     const prevApplied = lastAppliedReadAt.get(sender) || 0;
     if (lastReadAt < prevApplied) return;
     lastAppliedReadAt.set(sender, lastReadAt);
+    if (lastAppliedReadAt.size > INGRESS_PEER_BUCKET_CAP) {
+      const keys = [...lastAppliedReadAt.keys()];
+      for (let i = 0; i < Math.floor(keys.length / 2); i += 1) lastAppliedReadAt.delete(keys[i]);
+    }
     
     const messages = typeof App.getChatMessages === 'function' ? App.getChatMessages(sender) : [];
     messages.forEach(msg => {

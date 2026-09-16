@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v800'; // voice MIME codec normalize so closed-WebView voice persists
+  const CACHE_NAME = 'sos-cache-v828'; // security packages A–C (XSS/rate/file/privacy)
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -18,6 +18,9 @@
     './games.html',
     './games.js',
     './game-embed.js',
+    './nzp-multiplayer.html',
+    './styles/nzp-panel.css',
+    './icons/nzp-cover.png',
     './styles/games.css',
     './styles/videos.css',
     './styles/base.css',
@@ -79,7 +82,7 @@
       } catch (err) {
         console.warn('[SW] Precache failed:', err);
       }
-      // לא skipWaiting כאן — המשתמש לוחץ «עדכן» בכרטיסייה | HYPER CORE TECH
+      await self.skipWaiting();
     })());
   });
 

@@ -96,13 +96,13 @@
     <!-- חלק עיצובים ללוגו ולצ'אט – זהים ל-storage/index | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/logo.css">
     <link rel="stylesheet" href="./styles/chat.css?v=20260824hist21">
-    <link rel="stylesheet" href="./styles/chat-whatsapp-theme.css?v=20260824hist21">
+    <link rel="stylesheet" href="./styles/chat-whatsapp-theme.css?v=20260915chatbg1">
     <link rel="stylesheet" href="./styles/chat-file-transfer.css?v=20260811fn1">
     <link rel="stylesheet" href="./styles/chat-send-preview.css?v=20260824pick7">
     <link rel="stylesheet" href="./chat-drag-drop.css?v=20260818dnd4">
     <link rel="stylesheet" href="./styles/chat-dialog.css">
-    <link rel="stylesheet" href="./styles/chat-voice-call.css?v=20260804e">
-    <link rel="stylesheet" href="./styles/chat-video-call.css?v=20260803p">
+    <link rel="stylesheet" href="./styles/chat-voice-call.css?v=20260915chatbg1">
+    <link rel="stylesheet" href="./styles/chat-video-call.css?v=20260916vidhud1">
     <!-- חלק שידור חי (videos.html) – עיצוב דיאלוג/כרטיס מהמודול הקיים | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/live-stream.css?v=20260831livechat1">
     <!-- חלק עיצוב צ'אט משופר (videos.html) – נגן אודיו/מדיה וקומפוזר בסגנון וואטסאפ | HYPER CORE TECH -->
@@ -112,6 +112,7 @@
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
     <link rel="stylesheet" href="./styles/videos.css?v=20260831ytfix1">
+    <link rel="stylesheet" href="./styles/nzp-panel.css?v=20260915nzp12">
     <!-- סייבר אחרי videos.css – כדי שינצח בדסקטופ ובמובייל | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/chat-desktop-sos-cyber.css?v=20260819meta2">
     <!-- חלק סיסמת שונות (videos.html) – עיצוב חלון סיסמה | HYPER CORE TECH -->
@@ -252,7 +253,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css?v=20260911camopt3">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20260915camrec8">
     <!-- חלק מצב אורח (videos.html) – עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css?v=20260830paste2">
     <!-- חלק PWA (videos.html) – עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -1699,60 +1700,6 @@
         }
       }
 
-      /* ===== טיימר צף במהלך הקלטה ===== */
-      .floating-timer {
-        position: absolute;
-        top: 20px;
-        right: 20px;
-        background: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-size: 14px;
-        font-weight: 600;
-        font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        z-index: 10;
-        opacity: 0;
-        transform: translateY(-10px);
-        transition: all 0.3s ease;
-        pointer-events: none;
-      }
-
-      .floating-timer.visible {
-        opacity: 1;
-        transform: translateY(0);
-      }
-
-      .floating-timer.pulse {
-        animation: floatingPulse 0.5s ease-out;
-      }
-
-      @keyframes floatingPulse {
-        0% {
-          transform: scale(1);
-          background: rgba(0, 0, 0, 0.8);
-        }
-        50% {
-          transform: scale(1.1);
-          background: rgba(244, 67, 54, 0.9);
-        }
-        100% {
-          transform: scale(1);
-          background: rgba(0, 0, 0, 0.8);
-        }
-      }
-
-      /* התאמה למובייל */
-      @media (max-width: 768px) {
-        .floating-timer {
-          top: 15px;
-          right: 15px;
-          padding: 6px 12px;
-          font-size: 12px;
-        }
-      }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.min.js" defer></script>
     
@@ -2178,7 +2125,7 @@
     <script src="./key-storage.js" defer></script>
     <script src="./config.js" defer></script>
     <script src="./key-utils.js" defer></script>
-    <script src="./utils.js?v=20260914logpriv2" defer></script>
+    <script src="./utils.js?v=20260916sec18" defer></script>
     <script src="./secure-channel.js" defer></script>
     <script src="./keys.js" defer></script>
     <script src="./profile.js?v=20260914logpriv2" defer></script>
@@ -2191,12 +2138,12 @@
     <!-- חלק דיבוג iOS (videos.html) – מודול דיבוג מעמיק לבעיות וידאו באייפון | HYPER CORE TECH -->
     <script src="./ios-video-debug.js" defer></script>
     <!-- חלק P2P (videos.html) – מערכת שיתוף וידאו P2P בין משתמשים | HYPER CORE TECH -->
-    <script src="./p2p-event-sync.js?v=20260906feed1" defer></script>
-    <script src="./p2p-video-sharing.js?v=20260914logpriv2" defer></script>
-    <script src="./p2p-peer-exchange.js?v=20260906p2p1" defer></script>
+    <script src="./p2p-event-sync.js?v=20260916sec18" defer></script>
+    <script src="./p2p-video-sharing.js?v=20260916sec18" defer></script>
+    <script src="./p2p-peer-exchange.js?v=20260916sec18" defer></script>
     <script src="./p2p-metadata-transfer.js" defer></script>
     <script src="./contract-dashboard-v2.js" defer></script>
-    <script src="./app.js?v=20260729g" defer></script>
+    <script src="./app.js?v=20260915nzp3" defer></script>
     <!-- חלק ניווט (videos.html) – הגדרת לשונית פעילה לוידאו וטעינת מודול הניווט | HYPER CORE TECH -->
     <script>
       (function(){
@@ -2206,8 +2153,8 @@
     </script>
     <script src="./live-stream.js?v=20260901fail3" defer></script>
     <script src="./live-stream-ui.js?v=20260901fail3" defer></script>
-    <script src="./navigation.js?v=20260830livefeed1" defer></script>
-    <script src="./feed.js?v=20260914logpriv2" defer></script>
+    <script src="./navigation.js?v=20260915nzp6" defer></script>
+    <script src="./feed.js?v=20260916sec18" defer></script>
     <script src="./follow-service.js" defer></script>
     <script src="./media.js" defer></script>
     <!-- חלק לוח גידול (videos.html) – טעינת ספריות הגרפים לדשבורד | HYPER CORE TECH -->
@@ -2215,7 +2162,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js" defer></script>
     <!-- chartjs-chart-financial הוסר - גורם ל-404 ולא נדרש לממשק הנוכחי -->
     <!-- חלק Blossom (videos.html) – לקוח העלאות כדי להימנע מ-fallback ל-void.cat | HYPER CORE TECH -->
-    <script src="./blossom.js?v=20260914logpriv2" defer></script>
+    <script src="./blossom.js?v=20260916sec18" defer></script>
     <!-- חלק FFmpeg (videos.html) – טעינת ספריית ffmpeg.wasm כמו ב-index.html | HYPER CORE TECH -->
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js" defer></script>
     <!-- חלק ערוץ חי HLS (videos.html) – hls.js + מודול ערוצים חיים | HYPER CORE TECH -->
@@ -2224,7 +2171,7 @@
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20260728s" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) – ממשק הקלטה עם טיימר | HYPER CORE TECH -->
-    <script src="./video-record.js?v=20260911camopt6" defer></script>
+    <script src="./video-record.js?v=20260915camrec3" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) – מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260911camopt1" defer></script>
     <script defer>
@@ -2243,7 +2190,7 @@
       })();
     </script>
     <!-- חלק קומפוזר (videos.html) – מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20260828back1" defer></script>
+    <script src="./compose.js?v=20260915camrec2" defer></script>
     <!-- חלק רקעים (videos.html) – מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
@@ -2261,14 +2208,14 @@
         }
       })();
     </script>
-    <script src="./videos.js?v=20260914feedpag1" defer></script>
+    <script src="./videos.js?v=20260915nzp12" defer></script>
     <!-- חלק מצב אורח (videos.html) – טעינת מודול התחברות/הרשמה לאורח | HYPER CORE TECH -->
     <script src="./auth.js" defer></script>
     <script src="./invite-service.js?v=20260723f" defer></script>
     <script src="./guest-auth.js?v=20260830paste1" defer></script>
     <!-- מודולי צ'אט (videos.html) – זהים לעמודים הראשיים | HYPER CORE TECH -->
-    <script src="./chat-state.js?v=20260905p1" defer></script>
-    <script src="./chat-service.js?v=20260915voice1" defer></script>
+    <script src="./chat-state.js?v=20260916sec18" defer></script>
+    <script src="./chat-service.js?v=20260916sec18" defer></script>
     <script src="./chat-file-transfer-state.js?v=3" defer></script>
     <script src="./chat-file-transfer-service.js?v=20260915voice1" defer></script>
     <script src="./chat-file-transfer-ui.js?v=20260914chatvid1" defer></script>
@@ -2277,23 +2224,23 @@
     <script src="./chat-voice-service.js?v=20260915voice1" defer></script>
     <script src="./chat-voice-ui.js?v=20260816voice1" defer></script>
     <script src="./chat-voice-call.js?v=20260914logpriv2" defer></script>
-    <script src="./chat-voice-call-ui.js?v=20260909headsup1" defer></script>
-    <script src="./chat-video-call.js?v=20260914logpriv2" defer></script>
-    <script src="./chat-video-call-ui.js?v=20260909headsup1" defer></script>
+    <script src="./chat-voice-call-ui.js?v=20260915vidans5" defer></script>
+    <script src="./chat-video-call.js?v=20260915vidans4" defer></script>
+    <script src="./chat-video-call-ui.js?v=20260915vidans5" defer></script>
     <!-- חלק צ'אט משופר (videos.html) – העברת קבצים P2P, נגן אודיו, מדיה inline, אופטימיזציות וקומפוזר משופר | HYPER CORE TECH -->
-    <script src="./chat-p2p-file.js?v=20260914p2pprep1" defer></script>
+    <script src="./chat-p2p-file.js?v=20260916sec18" defer></script>
     <script src="./chat-audio-player.js?v=20260914logpriv2" defer></script>
-    <script src="./chat-media-renderer.js?v=20260914logpriv2" defer></script>
+    <script src="./chat-media-renderer.js?v=20260916sec18" defer></script>
     <script src="./chat-ui-optimizations.js?v=20260807a" defer></script>
     <script src="./chat-composer-enhanced.js?v=20260816voice1" defer></script>
-    <script src="./chat-p2p-datachannel.js?v=20260913websec1" defer></script>
-    <script src="./chat-ui.js?v=20260914logpriv2" defer></script>
+    <script src="./chat-p2p-datachannel.js?v=20260916sec18" defer></script>
+    <script src="./chat-ui.js?v=20260916sec18" defer></script>
     <!-- רשת חירום מקומית (AndroidBridge) | HYPER CORE TECH -->
-    <script src="./android-bridge.js?v=20260905p0" defer></script>
+    <script src="./android-bridge.js?v=20260916sec18" defer></script>
     <script src="./emergency-bridge.js?v=20260905p1" defer></script>
     <script src="./emergency-wrapper.js?v=20260822em1" defer></script>
     <script src="./sos-back-nav.js?v=20260816back3" defer></script>
-    <script src="./chat-deeplink.js?v=20260804e" defer></script>
+    <script src="./chat-deeplink.js?v=20260915vidans5" defer></script>
     <!-- חלק לוגר פניות (videos.html) – מעקב כל פניות relay/blossom/cache/P2P | HYPER CORE TECH -->
     <script src="./chat-request-logger.js?v=20260914logpriv2" defer></script>
     <!-- חלק מוניטור (videos.html) – hooks בלבד, ה-UI בדף עצמאי transfer-monitor.html | HYPER CORE TECH -->
@@ -2301,9 +2248,9 @@
     <!-- חלק PWA (videos.html) – טעינת מודולי התקנה והתראות Push | HYPER CORE TECH -->
     <script src="./pwa-installer.js?v=20260915voice1" defer></script>
     <script src="./pwa-install-chooser.js?v=20260805a" defer></script>
-    <script src="./push-client.js?v=20260914logpriv2" defer></script>
-    <script src="./push-trigger.js?v=20260810p2pAlert1" defer></script>
-    <script src="./native-shell-bridge.js?v=20260906del1" defer></script>
+    <script src="./push-client.js?v=20260916sec18" defer></script>
+    <script src="./push-trigger.js?v=20260916sec18" defer></script>
+    <script src="./native-shell-bridge.js?v=20260916sec18" defer></script>
     <script src="./market-dashboard.js" defer></script>
     <script>
       // חלק לוח גידול (videos.html) – מבטיח שגלובליים מחוברים לאחר טעינת הדשבורד | HYPER CORE TECH
@@ -2440,6 +2387,10 @@
               <span style="font-size: 1.2rem;">🔫</span>
               <span>עוד משחק דום</span>
             </button>
+            <button type="button" class="top-bar__dropdown-item" id="videosNzpLauncher">
+              <span style="font-size: 1.2rem;">🧟</span>
+              <span>משחק זומבים</span>
+            </button>
             <!-- חלק משחק טריוויה (הועבר מהתחתית) | HYPER CORE TECH -->
             <button type="button" class="top-bar__dropdown-item" id="videosTriviaLauncher">
               <span style="font-size: 1.2rem;">🎲</span>
@@ -2502,6 +2453,17 @@
     <!-- כפתור הסגירה נמצא בתוך games.html עצמו ושולח postMessage לסגירה -->
     <div class="profile-panel" id="gamesPanel" hidden>
       <iframe id="gamesPanelFrame" src="" style="width:100%;height:100%;border:none;"></iframe>
+    </div>
+
+    <div class="nzp-panel" id="nzpPanel" hidden>
+      <div class="nzp-panel__bar">
+        <button type="button" class="nzp-panel__back" id="nzpPanelClose" aria-label="חזרה">
+          <i class="fa-solid fa-chevron-right"></i>
+        </button>
+        <span class="nzp-panel__title">NZ:P</span>
+        <button type="button" class="nzp-panel__fs" id="nzpPanelFullscreen">מסך מלא</button>
+      </div>
+      <iframe class="nzp-panel__frame" id="nzpPanelFrame" src="" allow="autoplay; fullscreen; gamepad; keyboard-map" allowfullscreen></iframe>
     </div>
 
     <!-- חלק תפריט תחתון (videos.html) – ניווט תחתון בסגנון דף ההודעות + תפריט צד דסקטופ בסגנון sos010.html | HYPER CORE TECH -->
@@ -2773,6 +2735,18 @@
       </div>
     </div>
 
+    <div class="leave-share-modal" id="leaveNzpModal" aria-hidden="true">
+      <div class="leave-share-modal__card" role="dialog" aria-modal="true" aria-labelledby="leaveNzpTitle">
+        <div class="leave-share-modal__icon" aria-hidden="true"><i class="fa-solid fa-gamepad"></i></div>
+        <h3 class="leave-share-modal__title" id="leaveNzpTitle">לצאת מהמשחק?</h3>
+        <p class="leave-share-modal__text">החדר ייסגר והמשחק ייעצר.</p>
+        <div class="leave-share-modal__actions">
+          <button type="button" class="leave-share-modal__btn leave-share-modal__btn--stay" data-leave-nzp="stay">המשך לשחק</button>
+          <button type="button" class="leave-share-modal__btn leave-share-modal__btn--leave" data-leave-nzp="leave">יציאה</button>
+        </div>
+      </div>
+    </div>
+
     <!-- חלק עיבוד פוסט (videos.html) – רמז מרכז בסגנון back/home + סטטוס בהדר | HYPER CORE TECH -->
     <div class="processing-norefresh-hint" id="processingNoRefreshHint" role="status" aria-live="polite">
       <span>לא לרענן את הדף עד סיום העלאת הפוסט</span>
@@ -2787,6 +2761,7 @@
         </div>
         <div class="vr-grid" id="videoRecordGrid" hidden></div>
         <div class="vr-countdown" id="videoRecordCountdown" hidden></div>
+        <div class="vr-rec-lamp" aria-hidden="true"></div>
         <!-- מצב דסקטופ בלי מצלמה – נשארים במסך, בלי לזרוק אחורה | HYPER CORE TECH -->
         <div class="vr-no-camera" id="videoRecordNoCamera" hidden>
           <img class="vr-no-camera__bg" id="videoRecordNoCameraBg" alt="">
@@ -2795,8 +2770,6 @@
             <span>אפשר לבחור קובץ מהגלריה למטה</span>
           </div>
         </div>
-        <div class="floating-timer" id="floatingTimer">00:00</div>
-
         <button type="button" class="vr-close" id="videoRecordCloseBtn" aria-label="חזרה" style="right:10px;left:auto;">
           <i class="fa-solid fa-chevron-right"></i>
         </button>
@@ -2846,6 +2819,7 @@
             <button type="button" class="record-button is-solid" id="recordButton" aria-label="צלם או הקלט">
               <div class="record-button-inner"></div>
             </button>
+            <div class="floating-timer" id="floatingTimer">0:00</div>
           </div>
 
           <div class="vr-footer-bar">
@@ -3505,7 +3479,7 @@
 
     <!-- חלק WebTorrent (videos.html) – ספריית WebTorrent והעברת קבצים גדולים P2P | HYPER CORE TECH -->
     <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
-    <script src="./webtorrent-transfer.js?v=20260914logpriv2"></script>
+    <script src="./webtorrent-transfer.js?v=20260916sec18"></script>
 
     <script>window.addEventListener('load',function(){var App=window.NostrApp||(window.NostrApp={});console.log('[VIDEOS] Page loaded, initializing notifications');setTimeout(function(){console.log('[VIDEOS] Initializing notifications system');try{App=window.NostrApp||(window.NostrApp={});if(typeof App.publicKey==='string'&&App.publicKey&&!App.notificationsRestored){console.log('[VIDEOS] Restoring notifications from localStorage for pubkey:',App.publicKey.slice(0,8));if(typeof App.restoreNotificationsFromStorage==='function'){App.restoreNotificationsFromStorage();App.notificationsRestored=true;console.log('[VIDEOS] Notifications restored, count:',App.notifications&&App.notifications.length||0);}else{console.warn('[VIDEOS] restoreNotificationsFromStorage not available');}}else{console.log('[VIDEOS] Skip restore - publicKey:',!!App.publicKey,'notificationsRestored:',!!App.notificationsRestored);}if(typeof App.setupNotificationUI==='function'){console.log('[VIDEOS] Calling setupNotificationUI');App.setupNotificationUI();console.log('[VIDEOS] setupNotificationUI completed');}else{console.warn('[VIDEOS] setupNotificationUI not available');}}catch(e){console.error('[VIDEOS] Notification setup error:',e);}},300);try{if(typeof window.openCompose!=='function'){window.openCompose=function(){var innerApp=window.NostrApp||{};if(typeof innerApp.openCompose==='function'){innerApp.openCompose();}else{console.warn('[VIDEOS] openCompose not available');}};}}catch(e){console.warn('[VIDEOS] Failed to bind openCompose fallback',e);}var attempts=0;function ensureChatReady(){if(App._videosChatBootstrapped){return;}if(!App.pool||!Array.isArray(App.relayUrls)||!App.relayUrls.length){if(attempts++<25){setTimeout(ensureChatReady,400);return;}}if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();App._videosChatBootstrapped=true;}if(typeof App.bootstrapChatConversation==='function'){App.bootstrapChatConversation();}}ensureChatReady();var triviaButton=document.getElementById('videosTriviaLauncher');if(triviaButton){triviaButton.addEventListener('click',function(){if(typeof window.NostrApp?.openTriviaGame==='function'){window.NostrApp.openTriviaGame();}else{console.warn('[VIDEOS] Trivia game not ready');}});}var doomButton=document.getElementById('videosDoomLauncher');if(doomButton){doomButton.addEventListener('click',function(){console.log('[VIDEOS] Doom Multiplayer button clicked');window.open('./doom-multiplayer.html','doomGame','width=1200,height=800');});}});</script>
       <script type="module" src="./loadnug/loadnug-controller.js?v=20260822a"></script>

@@ -18,8 +18,18 @@
     return typeof u === 'string' && u.includes('/net/') ? u.replace('/net/', '.net/') : u;
   }
 
+  function isSafeBlossomResultUrl(u){
+    if (typeof u !== 'string' || !u.trim()) return false;
+    try {
+      const parsed = new URL(fixUrl(u.trim()));
+      return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+    } catch {
+      return false;
+    }
+  }
+
   function isValidUrl(u){
-    try { new URL(fixUrl(u)); return true; } catch { return false; }
+    return isSafeBlossomResultUrl(u);
   }
 
   async function sha256Hex(blob){
@@ -148,6 +158,10 @@
               // תמיכה בפורמטים שונים של תשובה
               const resultUrl = data?.url || data?.data?.url || data?.nip94_event?.tags?.find(t => t[0] === 'url')?.[1];
               if(resultUrl){
+                if (!isSafeBlossomResultUrl(resultUrl)) {
+                  console.warn('[SECURITY/PARSE_REJECT] kind=blossom reason=bad_result_url');
+                  continue;
+                }
                 console.log('[BLOSSOM] Success! URL:', diagUrl(resultUrl));
                 return fixUrl(resultUrl);
               }

@@ -2,7 +2,7 @@
   const App = window.NostrApp || (window.NostrApp = {});
 
   App.escapeHtml = function escapeHtml(value = '') {
-    return value.replace(/[&<>"]'/g, (char) => {
+    return value.replace(/[&<>"']/g, (char) => {
       switch (char) {
         case '&':
           return '&amp;';
@@ -18,6 +18,83 @@
           return char;
       }
     });
+  };
+
+  // חלק אבטחת URL (utils.js) – אימות כתובות תמונת פרופיל/מדיה לפני src/href | HYPER CORE TECH
+  App.safeProfilePictureUrl = function safeProfilePictureUrl(url) {
+    if (url == null || typeof url !== 'string') return '';
+    const u = url.trim();
+    if (!u) return '';
+    const head = u.slice(0, 48).toLowerCase();
+    if (/^(javascript|vbscript|file|about):/.test(head)) return '';
+    if (/^data:text\/html/.test(head)) return '';
+    if (/^data:image\/svg/.test(head)) return '';
+    if (/^data:image\//i.test(u)) return u.length <= 400000 ? u : '';
+    if (/^blob:/i.test(u)) return u.slice(0, 4096);
+    if (/^https?:\/\//i.test(u)) {
+      try {
+        const parsed = new URL(u);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+        return u.slice(0, 4096);
+      } catch (_err) {
+        return '';
+      }
+    }
+    return '';
+  };
+
+  // kind: 'img' | 'video' | 'href' — allowlists לפי הקשר רינדור | HYPER CORE TECH
+  App.safeFeedMediaUrl = function safeFeedMediaUrl(url, kind) {
+    if (url == null || typeof url !== 'string') return '';
+    const u = url.trim();
+    if (!u) return '';
+    const mode = String(kind || 'href').toLowerCase();
+    const head = u.slice(0, 48).toLowerCase();
+    if (/^(javascript|vbscript|file|about):/.test(head)) return '';
+    if (/^data:text\/html/.test(head)) return '';
+    if (/^data:image\/svg/.test(head)) return '';
+
+    if (mode === 'img') {
+      if (/^data:image\/(png|jpe?g|gif|webp|avif)\b/i.test(u)) return u.length <= 400000 ? u : '';
+      if (/^blob:/i.test(u)) return u.slice(0, 4096);
+      if (/^https?:\/\//i.test(u)) {
+        try {
+          const parsed = new URL(u);
+          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+          return u.slice(0, 4096);
+        } catch (_err) {
+          return '';
+        }
+      }
+      return '';
+    }
+
+    if (mode === 'video') {
+      if (/^data:video\/(mp4|webm|ogg)\b/i.test(u)) return u.length <= 400000 ? u : '';
+      if (/^blob:/i.test(u)) return u.slice(0, 4096);
+      if (/^https?:\/\//i.test(u)) {
+        try {
+          const parsed = new URL(u);
+          if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+          return u.slice(0, 4096);
+        } catch (_err) {
+          return '';
+        }
+      }
+      return '';
+    }
+
+    // href — http(s) בלבד לקישורים לחיצים בפיד | HYPER CORE TECH
+    if (/^https?:\/\//i.test(u)) {
+      try {
+        const parsed = new URL(u);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+        return u.slice(0, 4096);
+      } catch (_err) {
+        return '';
+      }
+    }
+    return '';
   };
 
   // חלק פרופיל ציבורי (utils.js) – פתיחת פרופיל משתמש אחר כ-overlay ללא רענון הפיד | HYPER CORE TECH

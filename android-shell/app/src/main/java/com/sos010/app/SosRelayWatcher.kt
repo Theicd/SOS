@@ -198,7 +198,7 @@ class SosRelayWatcher(private val appContext: Context) {
             if (name.isEmpty() && picture.isEmpty()) return
             SosContactCache.put(appContext, author, name, picture)
             NotificationHelper.updatePeerProfile(appContext, author, name, picture)
-            Log.i(TAG, "profile cached ${author.take(8)} name=${name.take(24)}")
+            Log.i(TAG, "profile cached ${author.take(8)} nameLen=${name.length}")
         } catch (err: Exception) {
             Log.w(TAG, "profile parse fail: ${err.message}")
         }

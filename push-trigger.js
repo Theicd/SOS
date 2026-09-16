@@ -145,7 +145,7 @@
       });
       
       const data = await response.json();
-      console.log('[PUSH-TRIGGER] תגובת שרת:', data);
+      console.log('[PUSH-TRIGGER] תגובת שרת:', { ok: !!data.ok, sent: data.sent || 0, status: response.status });
       
       if (!response.ok) {
         pushServerAvailable = false;
