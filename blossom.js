@@ -1,17 +1,17 @@
 (function initBlossomClient(window){
   const App = window.NostrApp || (window.NostrApp = {});
 
-  // ׳—׳׳§ ׳”׳¢׳׳׳•׳× (blossom.js) ג€“ ׳׳§׳•׳— Blossom ׳§׳ ׳׳©׳§׳ ׳¢׳ ׳ ׳₪׳™׳׳•׳× ׳—׳ ׳•׳¨׳‘-׳©׳¨׳×׳™׳, ׳ ׳›׳×׳‘ ׳¢׳‘׳•׳¨ ׳₪׳¨׳•׳™׳§׳˜ SOS2
-  // ׳׳‘׳•׳¡׳¡ ׳¨׳¢׳™׳•׳ ׳™׳× ׳¢׳ yakbak/src/lib/blossom.ts ׳׳ ׳׳•׳×׳׳ JS ׳₪׳©׳•׳˜ ׳•׳׳׳ ׳×׳׳•׳× ׳—׳™׳¦׳•׳ ׳™׳×
+  // חלק העלאות (blossom.js) – לקוח Blossom קל משקל עם נפילות חן ורב-שרתים, נכתב עבור פרויקט SOS2
+  // מבוסס רעיונית על yakbak/src/lib/blossom.ts אך מותאם JS פשוט וללא תלות חיצונית
 
-  // ׳—׳׳§ ׳”׳¢׳׳׳•׳× (blossom.js) ג€“ ׳©׳¨׳×׳™ Blossom ׳¢׳ ׳×׳׳™׳›׳” ׳‘-CORS
-  // files.sovbit.host ׳™׳¨׳“ ׳׳¡׳•׳£ ג€” ERR_CERT_DATE_INVALID ׳©׳•׳‘׳¨ ׳׳•׳¨׳—׳™׳ | HYPER CORE TECH
+  // חלק העלאות (blossom.js) – שרתי Blossom עם תמיכה ב-CORS
+  // files.sovbit.host ירד לסוף — ERR_CERT_DATE_INVALID שובר אורחים | HYPER CORE TECH
   const DEFAULT_SERVERS = [
     { url: 'https://blossom.band', pubkey: 'npub1blossomserver' },
     { url: 'https://blossom.nostr.build', pubkey: 'npub1nostrbuild' },
     { url: 'https://nostr.build', pubkey: 'npub1nostrbuild' },
     { url: 'https://blossom.primal.net', pubkey: 'npub1primal' },
-    { url: 'https://files.sovbit.host' }, // SSL ׳©׳‘׳•׳¨ ׳›׳¨׳’׳¢ ג€” ׳¨׳§ fallback ׳׳—׳¨׳•׳
+    { url: 'https://files.sovbit.host' }, // SSL שבור כרגע — רק fallback אחרון
   ];
 
   function fixUrl(u){
@@ -38,7 +38,7 @@
     return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
   }
 
-  // ׳—׳׳§ ׳”׳¢׳׳׳•׳× (blossom.js) ג€“ ׳™׳¦׳™׳¨׳× ׳׳¨׳•׳¢ ׳”׳¨׳©׳׳” ׳‘׳¡׳™׳¡׳™ (NIP-24242) ׳‘׳׳׳¦׳¢׳•׳× ׳—׳•׳×׳ ׳§׳™׳™׳ ׳¢׳ ׳”׳׳₪׳׳™׳§׳¦׳™׳”
+  // חלק העלאות (blossom.js) – יצירת ארוע הרשאה בסיסי (NIP-24242) באמצעות חותם קיים על האפליקציה
   async function createAuthEvent(verb, content, sha256){
     if(!App.publicKey || typeof App.finalizeEvent !== 'function'){
       throw new Error('missing-signer');
@@ -68,7 +68,7 @@
     }
   }
 
-  // ׳—׳׳§ ׳”׳¢׳׳׳•׳× (blossom.js) ג€“ ׳ ׳™׳¡׳™׳•׳ ׳”׳¢׳׳׳” ׳׳›׳׳” ׳©׳¨׳×׳™׳ ׳¢׳“ ׳”׳¦׳׳—׳”
+  // חלק העלאות (blossom.js) – ניסיון העלאה לכמה שרתים עד הצלחה
   async function uploadToBlossom(blob){
     console.log('[BLOSSOM] uploadToBlossom called:', {
       blobType: blob?.type,
@@ -77,9 +77,9 @@
       isFile: blob instanceof File
     });
     
-    // ׳‘׳“׳™׳§׳× ׳×׳ ׳׳™׳ ׳׳•׳§׳“׳׳×
+    // בדיקת תנאים מוקדמת
     if (!App.publicKey) {
-      console.error('[BLOSSOM] ג ׳—׳¡׳¨ publicKey');
+      console.error('[BLOSSOM] ❌ חסר publicKey');
       throw new Error('missing-publicKey');
     }
     if (!App.privateKey) {
@@ -87,7 +87,7 @@
       throw new Error('missing-privateKey');
     }
     if (typeof App.finalizeEvent !== 'function') {
-      console.error('[BLOSSOM] ג ׳—׳¡׳¨ finalizeEvent');
+      console.error('[BLOSSOM] ❌ חסר finalizeEvent');
       throw new Error('missing-finalizeEvent');
     }
     
@@ -99,7 +99,7 @@
       hash = await sha256Hex(blob);
       console.log('[BLOSSOM] hash:', hash.slice(0, 16) + '...');
     } catch (hashErr) {
-      console.error('[BLOSSOM] ג ׳©׳’׳™׳׳” ׳‘׳—׳™׳©׳•׳‘ hash:', hashErr);
+      console.error('[BLOSSOM] ❌ שגיאה בחישוב hash:', hashErr);
       throw hashErr;
     }
     
@@ -108,7 +108,7 @@
       auth = await createAuthEvent('upload', 'Upload media file', hash);
       console.log('[BLOSSOM] auth event created');
     } catch (authErr) {
-      console.error('[BLOSSOM] ג ׳©׳’׳™׳׳” ׳‘׳™׳¦׳™׳¨׳× auth event:', authErr);
+      console.error('[BLOSSOM] ❌ שגיאה ביצירת auth event:', authErr);
       throw authErr;
     }
     
@@ -123,7 +123,7 @@
     });
 
     for(const s of servers){
-      // ׳ ׳¡׳” ׳ ׳×׳™׳‘׳™ ׳”׳¢׳׳׳” ׳©׳•׳ ׳™׳ ׳׳₪׳™ ׳¡׳•׳’ ׳”׳©׳¨׳×
+      // נסה נתיבי העלאה שונים לפי סוג השרת
       const uploadPaths = ['/upload', '/api/v1/upload', '/api/upload', '/media'];
       
       for(const path of uploadPaths){
@@ -131,7 +131,7 @@
           const url = new URL(path, s.url).toString();
           console.log('[BLOSSOM] Trying:', diagUrl(url));
           
-          // ׳ ׳™׳¡׳™׳•׳ ׳¢׳ PUT ׳•׳׳– POST
+          // ניסיון עם PUT ואז POST
           for (const method of ['PUT', 'POST']) {
             try {
               const res = await fetch(url, {
@@ -155,7 +155,7 @@
               const data = await res.json();
               console.log('[BLOSSOM] Response:', { ok: true, hasUrl: !!(data?.url || data?.data?.url) });
               
-              // ׳×׳׳™׳›׳” ׳‘׳₪׳•׳¨׳׳˜׳™׳ ׳©׳•׳ ׳™׳ ׳©׳ ׳×׳©׳•׳‘׳”
+              // תמיכה בפורמטים שונים של תשובה
               const resultUrl = data?.url || data?.data?.url || data?.nip94_event?.tags?.find(t => t[0] === 'url')?.[1];
               if(resultUrl){
                 if (!isSafeBlossomResultUrl(resultUrl)) {
@@ -180,7 +180,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // M3 ג€” Encrypted Blossom transport (ciphertext only). Legacy uploadToBlossom
+  // M3 — Encrypted Blossom transport (ciphertext only). Legacy uploadToBlossom
   // above remains plaintext-capable and is intentionally UNCHANGED.
   // Secure APIs require media-file-e2ee.js (M2) to be loaded.
   //
@@ -449,7 +449,7 @@
     });
 
     const ciphertextBytes = enc.ciphertext;
-    // Local Blob type is wire transport MIME only ג€” never original private MIME.
+    // Local Blob type is wire transport MIME only — never original private MIME.
     const encryptedBlob = new Blob([ciphertextBytes], { type: SECURE_WIRE_CONTENT_TYPE });
 
     const draft = Object.assign({}, enc.descriptor, {});
