@@ -556,7 +556,7 @@
         // P2P בלבד לא מגיע ל-RelayWatcher – Push/FCM להתראה כשהמקבל ב-APK ברקע | HYPER CORE TECH
         if (typeof App.triggerOutgoingMessagePush === 'function') {
           try {
-            App.triggerOutgoingMessagePush(peerPubkey, serialization?.rawContent, attachmentReady, p2pId);
+            App.triggerOutgoingMessagePush(peerPubkey, { eventId: p2pId, hasAttachment: !!attachmentReady });
           } catch (_pushErr) {}
         }
         console.log('[DC] ✅ Message sent P2P, relay skipped');
@@ -602,7 +602,7 @@
       App.markChatConversationRead(peerPubkey);
       // חלק Push (chat-service.js) – שליחת Push לנמען כשההודעה נשלחה בהצלחה | HYPER CORE TECH
       if (typeof App.triggerOutgoingMessagePush === 'function') {
-        App.triggerOutgoingMessagePush(peerPubkey, serialization?.rawContent, attachmentReady);
+        App.triggerOutgoingMessagePush(peerPubkey, { eventId: event.id, hasAttachment: !!attachmentReady });
       }
       if (typeof App.afterChatMessagePublished === 'function') {
         App.afterChatMessagePublished(peerPubkey, outgoingMessage);
@@ -617,7 +617,7 @@
         }
         // שליחת Push גם במקרה של timeout
         if (typeof App.triggerOutgoingMessagePush === 'function') {
-          App.triggerOutgoingMessagePush(peerPubkey, serialization?.rawContent, attachmentReady);
+          App.triggerOutgoingMessagePush(peerPubkey, { eventId: event.id, hasAttachment: !!attachmentReady });
         }
         return { ok: true, messageId: event.id };
       }

@@ -114,12 +114,13 @@ record('publishChatMessage gated before serialize/publish', (() => {
 record('LIVE_E2EE_SEND=false', !svc.includes('encryptPrivateChatPayload'));
 record('E2 dual-read still present', svc.includes('decryptPrivateChatPayload') && svc.includes('looksLikeIncomingE2eeContent'));
 
-record('SW cache bumped for E3A3', /sos-cache-v829/.test(sw));
+record('SW cache bumped for Push Privacy', /sos-cache-v830/.test(sw));
 record('SW precaches chat-e2ee.js', sw.includes("'./chat-e2ee.js'"));
 record('SW precaches chat-secure-epoch.js', sw.includes("'./chat-secure-epoch.js'"));
 record('app-version.json still bypasses SW', sw.includes("app-version.json") && sw.includes('return'));
-record('minSecureChatEpoch NOT activated in app-version.json',
-  !Object.prototype.hasOwnProperty.call(appVer, 'minSecureChatEpoch'));
+record('minSecureChatEpoch activated =1 in app-version.json',
+  Object.prototype.hasOwnProperty.call(appVer, 'minSecureChatEpoch') &&
+  Number(appVer.minSecureChatEpoch) === 1);
 record('normal PWA Later toast still exists', pwa.includes('pwa-update-toast__later') && pwa.includes('UPDATE_LATER_KEY'));
 record('prepareCleanReloadAfterUiUpdate exposed', pwa.includes('prepareCleanReloadAfterUiUpdate'));
 
@@ -288,5 +289,5 @@ record('secure blocker has no pwa-update-toast__later', !epochSrc.includes('pwa-
 console.log(results.join('\n'));
 console.log(`\nSummary: ${pass} passed, ${fail} failed`);
 console.log('LIVE_E2EE_SEND=false');
-console.log('secure cutover active=false (minSecureChatEpoch absent)');
+console.log('secure cutover active=true (minSecureChatEpoch=1)');
 process.exit(fail ? 1 : 0);

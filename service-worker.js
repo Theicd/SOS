@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v829'; // E3A3: secure-epoch gate + chat-e2ee in precache set
+  const CACHE_NAME = 'sos-cache-v830'; // Push Privacy: generic chat notifications; cache bump
   const PRECACHE_URLS = [
     './',
     './videos.html',

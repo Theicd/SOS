@@ -1080,7 +1080,10 @@
         console.warn('[CHAT/P2P] ⚠️ DataChannel not ready after 5 retries, fallback to Blossom');
         logFileTransport(peerKey, 'url-fallback');
         if (typeof App.triggerOutgoingMessagePush === 'function') {
-          App.triggerOutgoingMessagePush(peerKey, null, { type: 'file', name: transfer.file?.name, size: transfer.file?.size });
+          App.triggerOutgoingMessagePush(peerKey, {
+            eventId: transfer?.fileId || transfer?.id || '',
+            hasAttachment: true,
+          });
           console.log('[CHAT/P2P] 📲 Push נשלח לפיר לא מחובר:', peerKey?.slice(0,8));
         }
         quietTransferLog('ממתין לצד השני — עובר למסלול חלופי');

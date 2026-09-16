@@ -68,8 +68,10 @@ orderOk(storage, 'storage.html');
 record('videos.html has nostr-tools before chat', videos.indexOf('nostr-tools') >= 0 && videos.indexOf('nostr-tools') < videos.indexOf('chat-e2ee.js'));
 record('index.html has nostr-tools before chat', indexHtml.indexOf('nostr-tools') >= 0 && indexHtml.indexOf('nostr-tools') < indexHtml.indexOf('chat-e2ee.js'));
 
-// Cutover inactive
-record('minSecureChatEpoch ABSENT in app-version.json', !Object.prototype.hasOwnProperty.call(appVer, 'minSecureChatEpoch'));
+// Cutover active (R3): minSecureChatEpoch=1
+record('minSecureChatEpoch =1 in app-version.json',
+  Object.prototype.hasOwnProperty.call(appVer, 'minSecureChatEpoch') &&
+  Number(appVer.minSecureChatEpoch) === 1);
 record('epoch module treats absent/0 as inactive', epoch.includes("hasOwnProperty.call(data, 'minSecureChatEpoch')") && epoch.includes('CUTOVER') || epoch.includes('cutover'));
 record('decideSecureChatGate READY when remoteMin=0', epoch.includes('decideSecureChatGate'));
 
@@ -79,7 +81,7 @@ record('encrypt helper exists but QA-isolated in chat-e2ee', e2ee.includes('encr
 record('no sos_caps capability kind', !profile.includes('sos_caps') && !svc.includes('sos_caps'));
 
 // SW
-record('SW CACHE_NAME sos-cache-v829', /sos-cache-v829/.test(sw));
+record('SW CACHE_NAME sos-cache-v830', /sos-cache-v830/.test(sw));
 record('SW precaches chat-e2ee.js', sw.includes("'./chat-e2ee.js'"));
 record('SW precaches chat-secure-epoch.js', sw.includes("'./chat-secure-epoch.js'"));
 record('SW precaches chat-service.js', sw.includes("'./chat-service.js'"));
@@ -89,10 +91,12 @@ record('app-version.json SW bypass', sw.includes('app-version.json') && /app-ver
 // PWA hook for forced reload (R3/R4 later)
 record('prepareCleanReloadAfterUiUpdate exposed', pwa.includes('prepareCleanReloadAfterUiUpdate'));
 
-// Push / Blossom unchanged markers (no E3B coupling)
-record('Push still builds body from messageContent plaintext path',
+// Push / Blossom markers
+record('Push chat path is generic (no messageContent.slice)',
+  push.includes('sanitizePrivateChatPushPayload') &&
   push.includes('triggerOutgoingMessagePush') &&
-  /messageContent\.length\s*>\s*100/.test(push));
+  !/messageContent\.length\s*>\s*100/.test(push));
+
 record('Blossom module present unchanged by E2EE send', exists('blossom.js') && !blossom.includes('sos-e2ee') && !blossom.includes('encryptPrivateChatPayload'));
 
 // Native freeze (static)
@@ -111,15 +115,15 @@ record('safe diagnostic: getSecureChatGateState', epoch.includes('getSecureChatG
 record('safe diagnostic: SOS_SECURE_CHAT_EPOCH on App', e2ee.includes('SOS_SECURE_CHAT_EPOCH'));
 record('epoch logs omit message/keys', !/\$\{.*content/.test(epoch) && epoch.includes('[E2EE/EPOCH]'));
 
-// Proposed version convention note (not activated)
-record('R1 app-version e2ee-read1 (cutover still inactive)', appVer.version === '2026.09.16-e2ee-read1');
-record('R1 minSecureChatEpoch still absent', !Object.prototype.hasOwnProperty.call(appVer, 'minSecureChatEpoch'));
+// Version: pushpriv1; minSecureChatEpoch=1 after R3
+record('app-version pushpriv1', String(appVer.version || '').includes('pushpriv'));
+record('minSecureChatEpoch =1', Number(appVer.minSecureChatEpoch) === 1);
 
 console.log(results.join('\n'));
 console.log(`\nSummary: ${pass} passed, ${fail} failed`);
 console.log('APP_VERSION: ' + appVer.version);
-console.log('secure cutover active: false');
+console.log('secure cutover active: ' + (Number(appVer.minSecureChatEpoch) > 0 ? 'true' : 'false'));
 console.log('LIVE_E2EE_SEND: false');
-console.log('PUSH_PLAINTEXT_BLOCKS_E3B: YES (messageContent → push body)');
+console.log('PUSH_PLAINTEXT_BLOCKS_E3B: ' + (/messageContent\.length\s*>\s*100/.test(push) ? 'YES' : 'NO'));
 console.log('TEXT_E2EE_BEFORE_BLOSSOM: SAFE_INTERMEDIATE (do not claim full attachment E2EE)');
 process.exit(fail ? 1 : 0);

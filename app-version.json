@@ -1,6 +1,6 @@
 {
-  "version": "2026.09.16-e2ee-read1",
-  "buildTime": "2026-09-16T05:50:00+03:00",
-  "notes": "R1 Web: E2EE dual-read + secure-epoch gate infrastructure. minSecureChatEpoch omitted (= cutover inactive). Encrypted send OFF.",
+  "version": "2026.09.16-pushpriv1",
+  "buildTime": "2026-09-16T07:00:00+03:00",
+  "notes": "Push Privacy: private chat notifications are generic only. minSecureChatEpoch=1. Encrypted send OFF.",
   "minSecureChatEpoch": 1
 }

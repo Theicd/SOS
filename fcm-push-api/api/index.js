@@ -78,20 +78,38 @@ export default async function handler(req, res) {
   const entry = store[String(pubkey).toLowerCase()];
   if (!entry?.token) return res.status(404).json({ ok: false, error: 'no_fcm_token' });
 
+  // Push Privacy: chat-message notifications ignore client title/body content.
+  const dataType = String((data && (data.type || data.messageType)) || tag || '');
+  const isChat = dataType === 'chat-message' || dataType === 'chat' || String(tag || '').startsWith('chat-');
+  const safeTitle = isChat ? 'SOS' : (title || 'SOS');
+  const safeBody = isChat ? 'הודעה חדשה' : (body || 'יש לך עדכון חדש');
+  const safeUrl = url || (data && data.url) || 'https://sos010.com/videos.html';
+  const safeTag = tag || (isChat ? 'chat' : 'sos');
+  const safeData = Object.assign({}, data || {}, {
+    type: isChat ? 'chat-message' : (data && data.type) || 'general',
+  });
+  // Drop accidental private-content keys if present.
+  delete safeData.messageContent;
+  delete safeData.rawContent;
+  delete safeData.preview;
+  delete safeData.caption;
+  delete safeData.attachment;
+  delete safeData.content;
+
   try {
     const messageId = await admin.messaging().send({
       token: entry.token,
       notification: {
-        title: title || 'SOS',
-        body: body || 'יש לך עדכון חדש',
+        title: safeTitle,
+        body: safeBody,
       },
       data: Object.fromEntries(
         Object.entries({
-          title: title || 'SOS',
-          body: body || 'יש לך עדכון חדש',
-          url: url || 'https://sos010.com/videos.html',
-          tag: tag || 'sos',
-          ...(data || {}),
+          title: safeTitle,
+          body: safeBody,
+          url: safeUrl,
+          tag: safeTag,
+          ...safeData,
         }).map(([k, v]) => [k, String(v ?? '')])
       ),
       android: {

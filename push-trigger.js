@@ -1,5 +1,6 @@
 // חלק Push Trigger (push-trigger.js) – שליחת התראות Push כשמגיעות הודעות/שיחות | HYPER CORE TECH
 // קובץ זה מחבר את מערכת הצ'אט והשיחות לשרת ה-Push
+// Push Privacy: private chat notifications are generic wake-ups only (no message/attachment content).
 (function initPushTrigger(window) {
   const App = window.NostrApp || (window.NostrApp = {});
 
@@ -12,6 +13,8 @@
     return 'https://sos-push-server.vercel.app';
   };
   const DEFAULT_ICON = './icons/so-call010.png';
+  const GENERIC_CHAT_TITLE = 'SOS';
+  const GENERIC_CHAT_BODY = 'הודעה חדשה';
 
   // חלק קאש אנשי קשר (push-trigger.js) – קבלת מידע על איש קשר מקאש | HYPER CORE TECH
   function getCachedContactInfo(pubkey) {
@@ -88,6 +91,64 @@
     return false;
   }
 
+  function isChatMessagePushType(type) {
+    const t = String(type || '');
+    return t === 'chat-message' || t === 'chat';
+  }
+
+  /**
+   * Fail-closed sanitizer for private-chat notification payloads.
+   * Drops any accidental private-content fields; forces generic title/body.
+   */
+  function sanitizePrivateChatPushPayload(payload, defaults) {
+    const src = payload && typeof payload === 'object' ? payload : {};
+    const peer = String(src.peerPubkey || defaults?.peerPubkey || '').toLowerCase();
+    const eventId = src.eventId != null ? String(src.eventId) : (defaults?.eventId != null ? String(defaults.eventId) : '');
+    const openUrl = defaults?.url || (peer ? `https://sos010.com/videos.html?chat=${peer}` : 'https://sos010.com/videos.html');
+    const relativeUrl = defaults?.relativeUrl || (peer ? `./videos.html?chat=${peer}` : './videos.html');
+    const tag = src.tag || defaults?.tag || (peer ? `chat-${peer}` : 'chat');
+
+    // Intentionally ignore: body, title, messageContent, rawContent, preview, caption,
+    // attachment, name, url content fields, icon/picture from caller for chat type.
+    return {
+      title: GENERIC_CHAT_TITLE,
+      body: GENERIC_CHAT_BODY,
+      badge: DEFAULT_ICON,
+      icon: DEFAULT_ICON,
+      tag,
+      type: 'chat-message',
+      peerPubkey: peer || undefined,
+      eventId: eventId || undefined,
+      url: relativeUrl,
+      data: {
+        type: 'chat-message',
+        peerPubkey: peer || undefined,
+        eventId: eventId || undefined,
+        url: openUrl,
+      },
+    };
+  }
+
+  function parseOutgoingPushArgs(arg2, arg3, arg4) {
+    // New contract: triggerOutgoingMessagePush(peerPubkey, { eventId, hasAttachment })
+    if (arg2 && typeof arg2 === 'object' && !Array.isArray(arg2) && (
+      Object.prototype.hasOwnProperty.call(arg2, 'eventId') ||
+      Object.prototype.hasOwnProperty.call(arg2, 'messageId') ||
+      Object.prototype.hasOwnProperty.call(arg2, 'hasAttachment') ||
+      arg2.type === 'chat-message'
+    )) {
+      return {
+        eventId: arg2.eventId != null ? String(arg2.eventId) : (arg2.messageId != null ? String(arg2.messageId) : ''),
+        // hasAttachment accepted only as boolean routing hint; never reads content fields.
+        hasAttachment: arg2.hasAttachment === true,
+      };
+    }
+    // Legacy positional: (peer, messageContent, attachment, messageId) — content IGNORED.
+    const eventId = arg4 != null ? String(arg4) : '';
+    const hasAttachment = arg3 === true || (arg3 && typeof arg3 === 'object');
+    return { eventId, hasAttachment };
+  }
+
   // חלק שליחת Push (push-trigger.js) – שליחה לשרת Push עם rate limiting | HYPER CORE TECH
   let pushServerAvailable = true;
   let pushServerCheckTime = 0;
@@ -100,6 +161,17 @@
       console.warn('[PUSH-TRIGGER] חסר pubkey או payload');
       return;
     }
+
+    let safePayload = payload;
+    if (isChatMessagePushType(payload.type)) {
+      safePayload = sanitizePrivateChatPushPayload(payload, {
+        peerPubkey: payload.peerPubkey,
+        eventId: payload.eventId,
+        tag: payload.tag,
+        url: payload.data?.url,
+        relativeUrl: payload.url,
+      });
+    }
     
     // אם השרת לא זמין - דלג
     if (!pushServerAvailable && Date.now() - pushServerCheckTime < PUSH_SERVER_CHECK_INTERVAL) {
@@ -107,8 +179,8 @@
       return;
     }
     
-    // מניעת שליחות כפולות
-    const dedupKey = `${targetPubkey}_${payload.type || 'msg'}_${payload.body?.slice(0, 20) || ''}`;
+    // מניעת שליחות כפולות (ללא שימוש בתוכן הודעה)
+    const dedupKey = `${targetPubkey}_${safePayload.type || 'msg'}_${safePayload.eventId || safePayload.tag || ''}`;
     if (pushSentRecently.has(dedupKey)) {
       console.log('[PUSH-TRIGGER] דילוג על שליחה כפולה');
       return;
@@ -116,20 +188,20 @@
     pushSentRecently.set(dedupKey, Date.now());
     setTimeout(() => pushSentRecently.delete(dedupKey), PUSH_DEDUP_TTL);
     
-    console.log('[PUSH-TRIGGER] שולח Push לשרת:', targetPubkey.slice(0, 8), payload.type);
+    console.log('[PUSH-TRIGGER] שולח Push לשרת:', targetPubkey.slice(0, 8), safePayload.type);
     
     // FCM למעטפת Android (מסך כבוי / אפליקציה סגורה) – בנוסף ל-Web Push | HYPER CORE TECH
     try {
       if (typeof App.sendFcmToPubkey === 'function') {
         App.sendFcmToPubkey(targetPubkey, {
-          title: payload.title || 'SOS',
-          body: payload.body || 'יש לך עדכון חדש',
-          url: payload.url || payload.data?.url || 'https://sos010.com/videos.html',
-          tag: payload.tag || payload.type || 'sos',
-          data: Object.assign({}, payload.data || { type: payload.type || 'general' }, {
-            eventId: payload.eventId || payload.data?.eventId || '',
-            peer: payload.peerPubkey || payload.data?.peerPubkey || '',
-            peerPubkey: payload.peerPubkey || payload.data?.peerPubkey || '',
+          title: safePayload.title || 'SOS',
+          body: safePayload.body || GENERIC_CHAT_BODY,
+          url: safePayload.url || safePayload.data?.url || 'https://sos010.com/videos.html',
+          tag: safePayload.tag || safePayload.type || 'sos',
+          data: Object.assign({}, safePayload.data || { type: safePayload.type || 'general' }, {
+            eventId: safePayload.eventId || safePayload.data?.eventId || '',
+            peer: safePayload.peerPubkey || safePayload.data?.peerPubkey || '',
+            peerPubkey: safePayload.peerPubkey || safePayload.data?.peerPubkey || '',
           }),
         });
       }
@@ -141,7 +213,7 @@
       const response = await fetch(`${getPushServerUrl()}/api/push/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pubkey: targetPubkey, payload }),
+        body: JSON.stringify({ pubkey: targetPubkey, payload: safePayload }),
       });
       
       const data = await response.json();
@@ -166,61 +238,29 @@
     }
   }
 
-  // חלק Push יוצא (push-trigger.js) – שליחת Push לנמען כשאני שולח הודעה | HYPER CORE TECH
-  async function triggerOutgoingMessagePush(peerPubkey, messageContent, attachment, messageId) {
+  // חלק Push יוצא (push-trigger.js) – שליחת Push גנרי לנמען (ללא תוכן הודעה) | HYPER CORE TECH
+  async function triggerOutgoingMessagePush(peerPubkey, arg2, arg3, arg4) {
     if (!peerPubkey) return;
-    
-    // קבלת שם ותמונת השולח (אני)
-    const myName = App.profile?.name || App.chatState?.myProfile?.name || 'משתמש';
-    const myPicture = App.profile?.picture || App.chatState?.myProfile?.picture || DEFAULT_ICON;
-    
-    // בניית תוכן ההודעה
-    let body = 'הודעה חדשה';
-    let messageType = 'text';
-    
-    if (attachment) {
-      if (attachment.type === 'audio' || attachment.mimeType?.startsWith('audio/')) {
-        body = '🎤 הודעה קולית';
-        messageType = 'voice-message';
-      } else if (attachment.type === 'image' || attachment.mimeType?.startsWith('image/')) {
-        body = '📷 תמונה';
-        messageType = 'image';
-      } else if (attachment.type === 'video' || attachment.mimeType?.startsWith('video/')) {
-        body = '🎬 וידאו';
-        messageType = 'video';
-      } else {
-        body = '📎 קובץ מצורף';
-        messageType = 'file';
-      }
-    } else if (messageContent) {
-      body = messageContent.length > 100 ? messageContent.slice(0, 100) + '...' : messageContent;
-    }
-    
-    const eventId = messageId ? String(messageId) : '';
-    // שליחת Push לנמען (לא לעצמי!)
-    await sendPushToServer(peerPubkey, {
-      title: `הודעה מ-${myName}`,
-      body,
-      icon: myPicture,
-      badge: DEFAULT_ICON,
-      tag: `chat-${App.publicKey}`,
+    const parsed = parseOutgoingPushArgs(arg2, arg3, arg4);
+    const self = String(App.publicKey || '').toLowerCase();
+    const payload = sanitizePrivateChatPushPayload({
       type: 'chat-message',
-      messageType,
-      peerPubkey: App.publicKey, // ה-pubkey שלי - כדי שהנמען יוכל לפתוח צ'אט איתי
-      url: `./videos.html?chat=${App.publicKey}`,
-      eventId,
-      data: {
-        type: 'chat-message',
-        peerPubkey: App.publicKey,
-        eventId,
-        url: `https://sos010.com/videos.html?chat=${App.publicKey}`,
-      },
+      peerPubkey: self,
+      eventId: parsed.eventId,
+      tag: self ? `chat-${self}` : 'chat',
+    }, {
+      peerPubkey: self,
+      eventId: parsed.eventId,
+      tag: self ? `chat-${self}` : 'chat',
+      url: self ? `https://sos010.com/videos.html?chat=${self}` : undefined,
+      relativeUrl: self ? `./videos.html?chat=${self}` : undefined,
     });
-    
+    // hasAttachment intentionally unused for body text (generic only).
+    await sendPushToServer(peerPubkey, payload);
     console.log('[PUSH] Sent to recipient:', peerPubkey.slice(0, 8));
   }
 
-  // חלק הודעת צ'אט (push-trigger.js) – התראה מקומית + Push כשמתקבלת הודעה | HYPER CORE TECH
+  // חלק הודעת צ'אט (push-trigger.js) – התראה מקומית + Push גנרי כשמתקבלת הודעה | HYPER CORE TECH
   async function triggerChatMessagePush(message) {
     // לא שולחים אם המשתמש פעיל וצופה בצ'אט עם השולח
     if (isUserActive() && isChatOpenWith(message.from)) {
@@ -240,35 +280,13 @@
       console.log('[PUSH-TRIGGER] דילוג על הודעה ישנה:', messageAgeSec, 'שניות');
       return;
     }
-    
-    const contactInfo = getCachedContactInfo(message.from);
-    
-    let body = 'הודעה חדשה';
-    let messageType = 'text';
-    
-    if (message.attachment) {
-      const att = message.attachment;
-      if (att.type === 'audio' || att.mimeType?.startsWith('audio/')) {
-        body = '🎤 הודעה קולית';
-        messageType = 'voice-message';
-      } else if (att.type === 'image' || att.mimeType?.startsWith('image/')) {
-        body = '📷 תמונה';
-        messageType = 'image';
-      } else if (att.type === 'video' || att.mimeType?.startsWith('video/')) {
-        body = '🎬 וידאו';
-        messageType = 'video';
-      } else {
-        body = '📎 קובץ מצורף';
-        messageType = 'file';
-      }
-    } else if (message.content) {
-      body = message.content.length > 100 ? message.content.slice(0, 100) + '...' : message.content;
-    }
 
-    const title = `הודעה מ-${contactInfo.name}`;
-    const openUrl = `https://sos010.com/videos.html?chat=${message.from}`;
-    const tag = `chat-${message.from}`;
+    const from = String(message.from || '').toLowerCase();
+    const openUrl = `https://sos010.com/videos.html?chat=${from}`;
+    const tag = `chat-${from}`;
     const eventId = message.id || message.eventId || '';
+    const title = GENERIC_CHAT_TITLE;
+    const body = GENERIC_CHAT_BODY;
 
     // באפליקציית APK: chat-ui + SosRelayWatcher כבר מתריעים – בלי כפילות מקומית | HYPER CORE TECH
     const isNative = typeof App.isNativeShell === 'function' && App.isNativeShell();
@@ -282,13 +300,13 @@
             eventId,
             data: {
               type: 'chat-message',
-              peerPubkey: message.from,
+              peerPubkey: from,
               eventId,
               url: openUrl,
             },
           });
         } else if (typeof App.showChatNotification === 'function') {
-          App.showChatNotification(contactInfo.name, body, message.from);
+          App.showChatNotification(title, body, from);
         }
       } catch (localErr) {
         console.warn('[PUSH-TRIGGER] local notify failed', localErr);
@@ -299,18 +317,18 @@
     const myPubkey = App.publicKey;
     if (!myPubkey) return;
     
-    await sendPushToServer(myPubkey, {
-      title,
-      body,
-      icon: contactInfo.picture,
-      badge: DEFAULT_ICON,
-      tag,
+    await sendPushToServer(myPubkey, sanitizePrivateChatPushPayload({
       type: 'chat-message',
-      messageType,
-      peerPubkey: message.from,
+      peerPubkey: from,
       eventId,
-      url: `./videos.html?chat=${message.from}`,
-    });
+      tag,
+    }, {
+      peerPubkey: from,
+      eventId,
+      tag,
+      url: openUrl,
+      relativeUrl: `./videos.html?chat=${from}`,
+    }));
   }
 
   // חלק שיחה נכנסת (push-trigger.js) – שליחת Push כשמתקבלת שיחה קולית/וידאו | HYPER CORE TECH
@@ -428,9 +446,12 @@
     triggerIncomingCallPush,
     triggerMissedCallPush,
     getCachedContactInfo,
+    sanitizePrivateChatPushPayload,
     triggerP2PSyncPush,      // שליחת Push לסנכרון P2P
     triggerSelfWakeupPush,   // שליחת Push להערת המכשיר שלי
     triggerAppUpdatePush,    // שליחת Push על עדכון גרסה
+    PUSH_GENERIC_CHAT_TITLE: GENERIC_CHAT_TITLE,
+    PUSH_GENERIC_CHAT_BODY: GENERIC_CHAT_BODY,
   });
 
   console.log('[PUSH-TRIGGER] מודול Push Trigger נטען');
