@@ -111,21 +111,21 @@ record('publishChatMessage gated before serialize/publish', (() => {
   const iPub = svc.indexOf('pool.publish', iFn);
   return iFn >= 0 && iErr > iFn && iErr < iSer && iErr < iPub;
 })());
-record('LIVE_E2EE_SEND=false (gated; e2eeSendRequired explicit false)',
+record('LIVE_E2EE_SEND=true (E3B ACTIVE; e2eeSendRequired explicit true)',
   svc.includes('isE2eeSendRequired') &&
   svc.includes('encryptPrivateChatPayload') &&
-  Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired') && appVer.e2eeSendRequired === false);
+  Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired') && appVer.e2eeSendRequired === true);
 record('E2 dual-read still present', svc.includes('decryptPrivateChatPayload') && svc.includes('looksLikeIncomingE2eeContent'));
 
-record('SW cache bumped for E3B prep', /sos-cache-v832/.test(sw));
+record('SW cache bumped for E3B self-echo', /sos-cache-v833/.test(sw));
 record('SW precaches chat-e2ee.js', sw.includes("'./chat-e2ee.js'"));
 record('SW precaches chat-secure-epoch.js', sw.includes("'./chat-secure-epoch.js'"));
 record('app-version.json still bypasses SW', sw.includes("app-version.json") && sw.includes('return'));
 record('minSecureChatEpoch activated =1 in app-version.json',
   Object.prototype.hasOwnProperty.call(appVer, 'minSecureChatEpoch') &&
   Number(appVer.minSecureChatEpoch) === 1);
-record('e2eeSendRequired explicit false (not activated)',
-  Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired') && appVer.e2eeSendRequired === false);
+record('e2eeSendRequired explicit true (E3B ACTIVE)',
+  Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired') && appVer.e2eeSendRequired === true);
 record('normal PWA Later toast still exists', pwa.includes('pwa-update-toast__later') && pwa.includes('UPDATE_LATER_KEY'));
 record('prepareCleanReloadAfterUiUpdate exposed', pwa.includes('prepareCleanReloadAfterUiUpdate'));
 
@@ -293,6 +293,6 @@ record('secure blocker has no pwa-update-toast__later', !epochSrc.includes('pwa-
 
 console.log(results.join('\n'));
 console.log(`\nSummary: ${pass} passed, ${fail} failed`);
-console.log('LIVE_E2EE_SEND=false');
+console.log('LIVE_E2EE_SEND=true');
 console.log('secure cutover active=true (minSecureChatEpoch=1)');
 process.exit(fail ? 1 : 0);

@@ -69,10 +69,10 @@ record(
   !profile.includes('sos_caps') && !profile.includes('sos-e2ee-chat-v1'),
 );
 
-// Live send still inactive (prep code gated; e2eeSendRequired explicit false)
-record('LIVE_E2EE_SEND=false (activation ABSENT)',
+// Live send ACTIVE (e2eeSendRequired explicit true)
+record('LIVE_E2EE_SEND=true (E3B ACTIVE)',
   svc.includes('isE2eeSendRequired') &&
-  JSON.parse(read('app-version.json')).e2eeSendRequired === false);
+  JSON.parse(read('app-version.json')).e2eeSendRequired === true);
 record('E2 dual-read still present', svc.includes('looksLikeIncomingE2eeContent') && svc.includes('decryptPrivateChatPayload'));
 record('E2 dual-read gate present', dual.includes('signature-before-decrypt'));
 

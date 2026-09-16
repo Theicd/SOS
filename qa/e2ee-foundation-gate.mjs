@@ -248,8 +248,8 @@ record(
   !fileTransferSrc.includes('encryptPrivateChatPayload') && !fileTransferSrc.includes('sos-e2ee'),
 );
 record(
-  'LIVE_E2EE_SEND=false (activation ABSENT in app-version)',
-  JSON.parse(read('app-version.json')).e2eeSendRequired === false,
+  'LIVE_E2EE_SEND=true (E3B ACTIVE in app-version)',
+  JSON.parse(read('app-version.json')).e2eeSendRequired === true,
 );
 // E2 may load chat-e2ee.js for receive-only dual-read.
 record(

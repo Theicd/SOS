@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.16-e2ee-cutover-ready2",
-  "buildTime": "2026-09-16T08:00:00+03:00",
-  "notes": "E3B cutover-safe policy refresh before Relay 1050. e2eeSendRequired=false (encrypted send activation still OFF). minSecureChatEpoch=1.",
+  "version": "2026.09.16-e2ee-selfecho1",
+  "buildTime": "2026-09-16T08:45:00+03:00",
+  "notes": "E3B encrypted Relay 1050 ACTIVE. Self-authored Relay echo/history fix deployed. minSecureChatEpoch=1. e2eeSendRequired=true.",
   "minSecureChatEpoch": 1,
   "e2eeSendRequired": true
 }

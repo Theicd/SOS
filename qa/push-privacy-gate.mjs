@@ -48,8 +48,8 @@ record('chat-service uses options object for Push', /triggerOutgoingMessagePush\
 record('chat-p2p-file does not pass attachment name to Push', !/triggerOutgoingMessagePush\([^)]*name:\s*transfer\.file/.test(p2p));
 record('call incoming push path preserved', push.includes('triggerIncomingCallPush') && push.includes('voice-call-incoming') && push.includes('video-call-incoming'));
 record('missed call push path preserved', push.includes('triggerMissedCallPush') && push.includes('missed-call'));
-record('LIVE_E2EE_SEND=false (activation ABSENT)',
-  JSON.parse(fs.readFileSync(path.join(ROOT, 'app-version.json'), 'utf8')).e2eeSendRequired === false);
+record('LIVE_E2EE_SEND=true (E3B ACTIVE)',
+  JSON.parse(fs.readFileSync(path.join(ROOT, 'app-version.json'), 'utf8')).e2eeSendRequired === true);
 record('dual-read still present', svc.includes('decryptPrivateChatPayload'));
 record('secure epoch code still SOS_SECURE_CHAT_EPOCH=1', /SOS_SECURE_CHAT_EPOCH\s*=\s*1/.test(e2ee));
 record('push privacy does not edit app-version.json in this gate scope', true);

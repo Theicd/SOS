@@ -75,14 +75,14 @@ record('minSecureChatEpoch =1 in app-version.json',
 record('epoch module treats absent/0 as inactive', epoch.includes("hasOwnProperty.call(data, 'minSecureChatEpoch')") && epoch.includes('CUTOVER') || epoch.includes('cutover'));
 record('decideSecureChatGate READY when remoteMin=0', epoch.includes('decideSecureChatGate'));
 
-// Encrypted send: code present, activation OFF (e2eeSendRequired explicit false)
+// Encrypted send: ACTIVE (e2eeSendRequired explicit true)
 record('LIVE encrypted send gated by isE2eeSendRequired', svc.includes('isE2eeSendRequired') && svc.includes('encryptPrivateChatPayload'));
-record('e2eeSendRequired explicit false in app-version prep', Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired') && appVer.e2eeSendRequired === false);
+record('e2eeSendRequired explicit true in app-version (E3B ACTIVE)', Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired') && appVer.e2eeSendRequired === true);
 record('encrypt helper exists in chat-e2ee', e2ee.includes('encryptPrivateChatPayload'));
 record('no sos_caps capability kind', !profile.includes('sos_caps') && !svc.includes('sos_caps'));
 
 // SW
-record('SW CACHE_NAME sos-cache-v832', /sos-cache-v832/.test(sw));
+record('SW CACHE_NAME sos-cache-v833', /sos-cache-v833/.test(sw));
 record('SW precaches chat-e2ee.js', sw.includes("'./chat-e2ee.js'"));
 record('SW precaches chat-secure-epoch.js', sw.includes("'./chat-secure-epoch.js'"));
 record('SW precaches chat-service.js', sw.includes("'./chat-service.js'"));
@@ -116,15 +116,15 @@ record('safe diagnostic: getSecureChatGateState', epoch.includes('getSecureChatG
 record('safe diagnostic: SOS_SECURE_CHAT_EPOCH on App', e2ee.includes('SOS_SECURE_CHAT_EPOCH'));
 record('epoch logs omit message/keys', !/\$\{.*content/.test(epoch) && epoch.includes('[E2EE/EPOCH]'));
 
-// Version: e2ee-cutover-ready2; minSecureChatEpoch=1; e2eeSendRequired explicit false
-record('app-version e2ee-cutover-ready2', String(appVer.version || '').includes('e2ee-cutover-ready'));
+// Version: e2ee-selfecho1; minSecureChatEpoch=1; e2eeSendRequired explicit true
+record('app-version e2ee-selfecho1', String(appVer.version || '').includes('e2ee-selfecho'));
 record('minSecureChatEpoch =1', Number(appVer.minSecureChatEpoch) === 1);
 
 console.log(results.join('\n'));
 console.log(`\nSummary: ${pass} passed, ${fail} failed`);
 console.log('APP_VERSION: ' + appVer.version);
 console.log('secure cutover active: ' + (Number(appVer.minSecureChatEpoch) > 0 ? 'true' : 'false'));
-console.log('LIVE_E2EE_SEND: false (e2eeSendRequired explicit false)');
+console.log('LIVE_E2EE_SEND: true (e2eeSendRequired explicit true)');
 console.log('PUSH_PLAINTEXT_BLOCKS_E3B: ' + (/messageContent\.length\s*>\s*100/.test(push) ? 'YES' : 'NO'));
 console.log('TEXT_E2EE_BEFORE_BLOSSOM: SAFE_INTERMEDIATE (do not claim full attachment E2EE)');
 process.exit(fail ? 1 : 0);

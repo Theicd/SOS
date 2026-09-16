@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v832'; // E3B cutover: refresh send policy before Relay 1050
+  const CACHE_NAME = 'sos-cache-v833'; // E3B self-echo/history hotfix
   const PRECACHE_URLS = [
     './',
     './videos.html',
