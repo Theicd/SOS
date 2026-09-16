@@ -274,6 +274,20 @@
     return { sender, recipient, author, local };
   }
 
+  function bindOuterInnerIdentitiesSelfAuthored({ inner, eventAuthorPubkey, localPubkey, intendedRecipientPubkey }) {
+    const sender = requireHexPubkey(inner && inner.sender, 'BAD_SENDER');
+    const recipient = requireHexPubkey(inner && inner.recipient, 'BAD_RECIPIENT');
+    const author = requireHexPubkey(eventAuthorPubkey, 'BAD_AUTHOR');
+    const local = requireHexPubkey(localPubkey, 'BAD_LOCAL');
+    const intended = requireHexPubkey(intendedRecipientPubkey, 'BAD_RECIPIENT');
+    if (author !== local) e2eeFail('SELF_AUTHOR_MISMATCH', 'self-authored event.pubkey must equal local pubkey');
+    if (sender !== author) e2eeFail('SENDER_MISMATCH', 'inner.sender must match outer event.pubkey');
+    if (sender !== local) e2eeFail('SENDER_MISMATCH', 'inner.sender must equal local pubkey for self-authored');
+    if (intended === local) e2eeFail('SELF_RECIPIENT', 'intended recipient must not equal local pubkey');
+    if (recipient !== intended) e2eeFail('RECIPIENT_MISMATCH', 'inner.recipient must match validated outer p-tag recipient');
+    return { sender, recipient, author, local, intended };
+  }
+
   function encryptPrivateChatPayload({
     senderPrivateKeyHex,
     senderPubkey,
@@ -322,16 +336,27 @@
     localPubkey,
     eventAuthorPubkey,
     encryptedEnvelope,
+    selfAuthored = false,
+    intendedRecipientPubkey = null,
   }) {
     const local = requireHexPubkey(localPubkey, 'BAD_LOCAL');
     const author = requireHexPubkey(eventAuthorPubkey, 'BAD_AUTHOR');
     const privBytes = requirePrivateKeyBytes(localPrivateKeyHex);
     const env = parseEncryptedEnvelope(encryptedEnvelope);
 
+    const isSelf = selfAuthored === true;
+    let conversationPeer = author;
+    if (isSelf) {
+      if (author !== local) e2eeFail('SELF_AUTHOR_MISMATCH', 'self-authored requires event.pubkey === local');
+      conversationPeer = requireHexPubkey(intendedRecipientPubkey, 'BAD_RECIPIENT');
+      if (conversationPeer === local) e2eeFail('SELF_RECIPIENT', 'intended recipient must not equal local');
+    }
+
     let decrypted;
     try {
       const nip44 = getNip44();
-      const conversationKey = nip44.getConversationKey(privBytes, author);
+      // Incoming: ECDH with event author. Self-authored echo/history: ECDH with validated p-tag recipient.
+      const conversationKey = nip44.getConversationKey(privBytes, conversationPeer);
       decrypted = nip44.decrypt(env.ciphertext, conversationKey);
     } catch (err) {
       if (err && err.name === 'ChatE2eeError') throw err;
@@ -342,11 +367,20 @@
     }
 
     const inner = parseE2eeChatPayloadV1(decrypted);
-    bindOuterInnerIdentities({
-      inner,
-      eventAuthorPubkey: author,
-      localPubkey: local,
-    });
+    if (isSelf) {
+      bindOuterInnerIdentitiesSelfAuthored({
+        inner,
+        eventAuthorPubkey: author,
+        localPubkey: local,
+        intendedRecipientPubkey: conversationPeer,
+      });
+    } else {
+      bindOuterInnerIdentities({
+        inner,
+        eventAuthorPubkey: author,
+        localPubkey: local,
+      });
+    }
     return inner;
   }
 
@@ -392,6 +426,7 @@
     parseE2eeChatPayloadV1,
     parseEncryptedEnvelope,
     bindOuterInnerIdentities,
+    bindOuterInnerIdentitiesSelfAuthored,
     buildCanonicalPayloadV1,
     isE2eeEnvelope,
     looksLikeSosE2eeEnvelope,
@@ -404,8 +439,10 @@
     parseE2eeChatPayloadV1,
     parseEncryptedEnvelope,
     bindOuterInnerIdentities,
+    bindOuterInnerIdentitiesSelfAuthored,
     isE2eeEnvelope,
     looksLikeSosE2eeEnvelope,
+    normalizeHexPubkey,
     E2EE_FAMILY,
     E2EE_VERSION,
     E2EE_ALGORITHM,

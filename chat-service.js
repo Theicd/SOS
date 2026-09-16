@@ -904,9 +904,45 @@
   }
 
   /**
+   * Private kind 1050 recipient: deterministic single distinct valid `p` hex-64 tag.
+   * Multiple conflicting p values → fail closed (CONFLICTING_P_TAGS).
+   */
+  function extractValidatedChatRecipientPTag(event) {
+    const tags = Array.isArray(event && event.tags) ? event.tags : [];
+    const values = [];
+    for (let i = 0; i < tags.length; i += 1) {
+      const tag = tags[i];
+      if (!Array.isArray(tag) || tag[0] !== 'p') continue;
+      const raw = tag[1];
+      const hex =
+        typeof App.normalizeHexPubkey === 'function'
+          ? App.normalizeHexPubkey(raw)
+          : (typeof raw === 'string' && /^[0-9a-fA-F]{64}$/.test(raw.trim())
+            ? raw.trim().toLowerCase()
+            : null);
+      if (!hex) {
+        return { ok: false, reason: 'BAD_P_TAG' };
+      }
+      values.push(hex);
+    }
+    if (!values.length) {
+      return { ok: false, reason: 'MISSING_P_TAG' };
+    }
+    const unique = [];
+    for (let i = 0; i < values.length; i += 1) {
+      if (unique.indexOf(values[i]) === -1) unique.push(values[i]);
+    }
+    if (unique.length > 1) {
+      return { ok: false, reason: 'CONFLICTING_P_TAGS' };
+    }
+    return { ok: true, recipient: unique[0] };
+  }
+
+  /**
    * E2 dual-read: decrypt recognized sos-e2ee envelopes after signature/recipient.
    * transportEventId = outer event.id (dedupe/delete)
    * logicalMessageId = inner messageId (metadata only; does not replace event.id)
+   * Self-authored Relay echo/history: crypto peer = validated p-tag recipient (not event.pubkey).
    */
   function resolveIncomingE2eeChatPayload(event) {
     if (typeof App.decryptPrivateChatPayload !== 'function') {
@@ -951,22 +987,66 @@
       logE2eeReject('OVERSIZED_CIPHERTEXT', event);
       return { ok: false, retryable: false, reason: 'OVERSIZED_CIPHERTEXT' };
     }
+
+    const author =
+      typeof App.normalizeHexPubkey === 'function'
+        ? App.normalizeHexPubkey(event.pubkey)
+        : String(event.pubkey || '').trim().toLowerCase();
+    const local =
+      typeof App.normalizeHexPubkey === 'function'
+        ? App.normalizeHexPubkey(App.publicKey)
+        : String(App.publicKey || '').trim().toLowerCase();
+    if (!author || !local) {
+      logE2eeReject('BAD_PUBKEY', event);
+      return { ok: false, retryable: false, reason: 'BAD_PUBKEY' };
+    }
+    const selfAuthored = author === local;
+    let intendedRecipient = null;
+    if (selfAuthored) {
+      const pRes = extractValidatedChatRecipientPTag(event);
+      if (!pRes.ok) {
+        logE2eeReject(pRes.reason || 'BAD_P_TAG', event);
+        return { ok: false, retryable: false, reason: pRes.reason || 'BAD_P_TAG' };
+      }
+      if (pRes.recipient === local) {
+        logE2eeReject('SELF_RECIPIENT', event);
+        return { ok: false, retryable: false, reason: 'SELF_RECIPIENT' };
+      }
+      intendedRecipient = pRes.recipient;
+    }
+
     try {
       const payload = App.decryptPrivateChatPayload({
         localPrivateKeyHex: App.privateKey,
         localPubkey: App.publicKey,
         eventAuthorPubkey: event.pubkey,
         encryptedEnvelope: envelope,
+        selfAuthored,
+        intendedRecipientPubkey: intendedRecipient,
       });
       try {
-        console.log(
-          '[CHAT/E2EE] accepted peer=' +
-            String(event.pubkey || '').slice(0, 8) +
-            ' event=' +
-            String(event.id || '').slice(0, 8),
-        );
+        if (selfAuthored) {
+          console.log(
+            '[CHAT/E2EE] accepted-self peer=' +
+              String(intendedRecipient || '').slice(0, 8) +
+              ' event=' +
+              String(event.id || '').slice(0, 8),
+          );
+        } else {
+          console.log(
+            '[CHAT/E2EE] accepted peer=' +
+              String(event.pubkey || '').slice(0, 8) +
+              ' event=' +
+              String(event.id || '').slice(0, 8),
+          );
+        }
       } catch (_logErr) {}
-      return { ok: true, payload };
+      return {
+        ok: true,
+        payload,
+        selfAuthored,
+        conversationPeer: selfAuthored ? intendedRecipient : author,
+      };
     } catch (err) {
       logE2eeReject((err && err.code) || 'DECRYPT_FAILED', event);
       return { ok: false, retryable: false, reason: (err && err.code) || 'DECRYPT_FAILED' };
@@ -1011,10 +1091,25 @@
     const sender = event.pubkey.toLowerCase();
     const currentUser = (App.publicKey || '').toLowerCase();
     const isSelfMessage = sender === currentUser;
-    const peerTag = event.tags?.find?.((tag) => Array.isArray(tag) && tag[0] === 'p');
-    const recipient = peerTag?.[1]?.toLowerCase?.() || '';
+    let recipient = '';
+    if (isE2eeContent) {
+      // Encrypted 1050: deterministic single distinct valid p-tag (fail closed on conflict).
+      const pRes = extractValidatedChatRecipientPTag(event);
+      if (!pRes.ok) {
+        logE2eeReject(pRes.reason || 'BAD_P_TAG', event);
+        return;
+      }
+      recipient = pRes.recipient;
+    } else {
+      const peerTag = event.tags?.find?.((tag) => Array.isArray(tag) && tag[0] === 'p');
+      recipient = peerTag?.[1]?.toLowerCase?.() || '';
+    }
     if (!isSelfMessage && recipient && recipient !== currentUser) {
       // לא נועד עבור המשתמש הנוכחי
+      return;
+    }
+    if (isSelfMessage && isE2eeContent && (!recipient || recipient === currentUser)) {
+      logE2eeReject(recipient === currentUser ? 'SELF_RECIPIENT' : 'MISSING_P_TAG', event);
       return;
     }
 
@@ -1190,6 +1285,24 @@
     };
     if (logicalMessageId) {
       normalizedMessage.logicalMessageId = logicalMessageId;
+    }
+
+    let selfEchoDeduped = false;
+    if (isSelfMessage && isE2eeContent && event.id && typeof App.getChatMessages === 'function') {
+      try {
+        const existing = App.getChatMessages(peerPubkey) || [];
+        selfEchoDeduped = existing.some((m) => m && m.id === event.id);
+      } catch (_e) { /* ignore */ }
+    }
+    if (selfEchoDeduped) {
+      try {
+        console.log(
+          '[CHAT/E2EE] self-echo deduped peer=' +
+            String(peerPubkey || '').slice(0, 8) +
+            ' event=' +
+            String(event.id || '').slice(0, 8),
+        );
+      } catch (_logErr) {}
     }
 
     App.appendChatMessage(normalizedMessage);
@@ -1980,6 +2093,9 @@
     isSafeIncomingChatResource,
     isValidIncomingMagnetURI,
     flushPendingE2eeEvents,
+    handleIncomingChatEvent,
+    extractValidatedChatRecipientPTag,
+    resolveIncomingE2eeChatPayload,
   });
 
   if (!App._chatServiceBootstrapped) {
