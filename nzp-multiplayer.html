@@ -109,6 +109,25 @@
       margin-bottom: 10px;
       min-height: 1.2em;
     }
+    .host-row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .host-row .btn { flex: 1; margin-bottom: 0; }
+    .btn-pen {
+      flex: 0 0 48px;
+      width: 48px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 12px;
+      background: rgba(255,255,255,.1);
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .btn-pen:hover,
+    .btn-pen.is-on { background: rgba(255,255,255,.18); }
     input {
       width: 100%;
       padding: 12px 14px;
@@ -119,6 +138,7 @@
       font-size: 1rem;
       margin-bottom: 10px;
     }
+    input.is-hidden { display: none !important; }
     .btn {
       width: 100%;
       border: 0;
@@ -169,7 +189,14 @@
       border-radius: 14px;
       padding: 12px;
     }
-    .room__thumb { display: none; }
+    .room__thumb {
+      display: block;
+      width: 56px;
+      height: 56px;
+      border-radius: 10px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
     .room__copy { min-width: 0; }
     .room__name { font-weight: 700; font-size: 15px; }
     .room__meta { color: var(--sos-muted); font-size: 12px; margin-top: 3px; }
@@ -186,6 +213,56 @@
     .room.full { opacity: .45; }
     .room.full .room__join { display: none; }
     .hint { margin: 0 14px 12px; font-size: 12px; color: var(--sos-muted); text-shadow: 0 2px 10px #000; }
+
+    .maps {
+      background: #030a14;
+      display: flex;
+      flex-direction: column;
+      padding: calc(14px + env(safe-area-inset-top, 0px)) 14px calc(14px + env(safe-area-inset-bottom, 0px));
+      gap: 12px;
+      overflow: hidden;
+    }
+    .maps__bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .maps__title { font-size: 1.15rem; font-weight: 800; }
+    .maps__grid {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      overflow: auto;
+    }
+    .map-card {
+      position: relative;
+      border: 1px solid var(--glass-border);
+      border-radius: 14px;
+      overflow: hidden;
+      cursor: pointer;
+      background: #0b1522;
+      min-height: 92px;
+      text-align: right;
+    }
+    .map-card img {
+      width: 100%;
+      height: 100%;
+      min-height: 92px;
+      max-height: 140px;
+      object-fit: cover;
+      display: block;
+    }
+    .map-card__label {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      padding: 10px 12px;
+      background: linear-gradient(transparent, rgba(0,0,0,.85));
+      font-weight: 700;
+      font-size: 14px;
+    }
 
     .play { background: #000; }
     .game-frame { width: 100%; height: 100%; border: 0; display: block; }
@@ -221,8 +298,9 @@
       .hero__gap,
       .plot--head,
       .hint,
-      .store__aside input,
       .rooms-title { display: none; }
+      .store__aside input.is-hidden { display: none !important; }
+      .store__aside input:not(.is-hidden) { display: block; }
       .store__head {
         grid-column: 1 / -1;
         grid-row: 1;
@@ -306,6 +384,20 @@
       }
       .status { margin-bottom: 4px; }
       .btn { margin-bottom: 0; padding: 14px 16px; font-size: 16px; }
+      .btn-pen { flex-basis: 52px; width: 52px; }
+      .maps {
+        padding: 18px 24px 16px;
+      }
+      .maps__grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        overflow: hidden;
+      }
+      .map-card { min-height: 0; height: 100%; }
+      .map-card img {
+        min-height: 0;
+        max-height: none;
+        height: 100%;
+      }
       .store__rooms {
         grid-column: 1;
         grid-row: 3;
@@ -349,6 +441,7 @@
         display: block;
         width: 100%;
         height: 72px;
+        border-radius: 0;
         object-fit: cover;
       }
       .room__copy { padding: 6px 8px 8px; }
@@ -372,9 +465,11 @@
       <aside class="store__aside">
         <p class="plot plot--aside">1945. חיילים נעולים בבונקר נאצי נטוש. המתים קמים, התחמושת אוזלת, ורק מי ששורד ביחד יוצא. עד 4 שחקנים באותה זירה — מחשב ומובייל.</p>
         <div class="status" id="lobbyStatus">מתחבר...</div>
-        <input id="roomNameInput" maxlength="24" placeholder="שם החדר (רק למארח)">
-        <button class="btn" id="btnHost" type="button">שחקו עכשיו</button>
-        <button class="btn btn-ghost" id="btnSolo" type="button">שחק לבד</button>
+        <input id="roomNameInput" class="is-hidden" maxlength="24" placeholder="שם החדר (אופציונלי)">
+        <div class="host-row">
+          <button class="btn" id="btnHost" type="button">שחקו עכשיו</button>
+          <button class="btn-pen" id="btnRename" type="button" title="שם לחדר" aria-label="שם לחדר">✎</button>
+        </div>
       </aside>
       <div class="billboard" id="nzpBillboard">
         <img class="billboard__poster" id="nzpTrailerPoster" src="./icons/nzp-hero.png" alt="">
@@ -386,6 +481,14 @@
       <div class="rooms" id="roomsList"></div>
     </div>
     <p class="hint">אם מישהו נכנס ולא נולד במפה: המארח לוחץ ~ ומקליד restart</p>
+  </section>
+
+  <section class="stage maps" id="mapStage" hidden>
+    <div class="maps__bar">
+      <div class="maps__title">בחרו זירה</div>
+      <button class="btn btn-ghost" id="btnMapsBack" type="button" style="width:auto;margin:0;padding:10px 14px;">חזרה</button>
+    </div>
+    <div class="maps__grid" id="mapsGrid"></div>
   </section>
 
   <section class="stage play" id="gameStage" hidden>
@@ -409,9 +512,19 @@
         ROOM_TTL: 50
       };
 
+      const MAPS = [
+        { id: 'ndu', title: 'Nacht der Untoten', thumb: './icons/nzp-maps/ndu.png' },
+        { id: 'wahnsinn', title: 'Wahnsinn', thumb: './icons/nzp-maps/wahnsinn.png' },
+        { id: 'nzp_warehouse', title: 'Warehouse Classic', thumb: './icons/nzp-maps/nzp_warehouse.png' },
+        { id: 'nzp_warehouse2', title: 'Warehouse', thumb: './icons/nzp-maps/nzp_warehouse2.png' },
+        { id: 'christmas_special', title: 'Christmas Special', thumb: './icons/nzp-maps/christmas_special.png' }
+      ];
+      const MAP_BY_ID = Object.fromEntries(MAPS.map((m) => [m.id, m]));
+
       const state = {
         roomId: null,
         roomName: '',
+        mapId: 'ndu',
         isHost: false,
         rooms: new Map(),
         processed: new Set(),
@@ -428,8 +541,11 @@
       const roomsList = document.getElementById('roomsList');
       const roomNameInput = document.getElementById('roomNameInput');
       const btnHost = document.getElementById('btnHost');
-      const btnSolo = document.getElementById('btnSolo');
+      const btnRename = document.getElementById('btnRename');
+      const btnMapsBack = document.getElementById('btnMapsBack');
       const lobbyStage = document.getElementById('lobbyStage');
+      const mapStage = document.getElementById('mapStage');
+      const mapsGrid = document.getElementById('mapsGrid');
       const gameStage = document.getElementById('gameStage');
       const gameFrame = document.getElementById('gameFrame');
 
@@ -452,13 +568,18 @@
         return bytes;
       }
 
+      function mapInfo(id) {
+        return MAP_BY_ID[id] || MAP_BY_ID.ndu;
+      }
+
       function openGame(params) {
         const url = new URL(GAME_URL);
         Object.keys(params || {}).forEach((key) => {
           if (params[key]) url.searchParams.set(key, params[key]);
         });
-        url.searchParams.set('cb', '20260916nzp13');
+        url.searchParams.set('cb', '20260916nzp14');
         lobbyStage.hidden = true;
+        mapStage.hidden = true;
         gameStage.hidden = false;
         gameFrame.src = url.toString();
         try { window.parent.postMessage({ type: 'nzp-playing' }, '*'); } catch (_) {}
@@ -485,10 +606,13 @@
       }
 
       function publishHost() {
+        const map = mapInfo(state.mapId);
         publishEvent({
           type: 'host',
           room: state.roomId,
           roomName: state.roomName,
+          map: map.id,
+          mapTitle: map.title,
           name: getPlayerName(),
           players: state.players,
           max: CFG.MAX_PLAYERS,
@@ -519,11 +643,12 @@
           const full = r.players >= CFG.MAX_PLAYERS;
           const count = Math.min(r.players || 1, CFG.MAX_PLAYERS);
           const label = full ? 'מלא' : 'הצטרף';
+          const map = mapInfo(r.mapId);
           return `<div class="room${full ? ' full' : ''}" data-room="${escapeHtml(r.roomId)}" data-name="${escapeHtml(r.roomName)}">
-            <img class="room__thumb" src="./icons/nzp-hero.png" alt="">
+            <img class="room__thumb" src="${escapeHtml(map.thumb)}" alt="">
             <div class="room__copy">
               <div class="room__name">${escapeHtml(r.roomName)}</div>
-              <div class="room__meta">${count}/${CFG.MAX_PLAYERS} שחקנים · ${escapeHtml(r.hostName)}</div>
+              <div class="room__meta">${escapeHtml(map.title)} · ${count}/${CFG.MAX_PLAYERS} · ${escapeHtml(r.hostName)}</div>
             </div>
             <button type="button" class="room__join" ${full ? 'disabled' : ''}>${label}</button>
           </div>`;
@@ -532,6 +657,32 @@
           const join = () => joinRoom(item.dataset.room, item.dataset.name);
           item.addEventListener('click', join);
         });
+      }
+
+      function renderMaps() {
+        mapsGrid.innerHTML = MAPS.map((m) => `
+          <button type="button" class="map-card" data-map="${escapeHtml(m.id)}">
+            <img src="${escapeHtml(m.thumb)}" alt="">
+            <span class="map-card__label">${escapeHtml(m.title)}</span>
+          </button>
+        `).join('');
+        mapsGrid.querySelectorAll('.map-card').forEach((card) => {
+          card.addEventListener('click', () => hostRoom(card.dataset.map));
+        });
+      }
+
+      function showMapPicker() {
+        lobbyStage.hidden = true;
+        gameStage.hidden = true;
+        mapStage.hidden = false;
+        lobbyStatus.textContent = 'בחרו זירה לפתיחת החדר.';
+      }
+
+      function showLobby() {
+        mapStage.hidden = true;
+        gameStage.hidden = true;
+        lobbyStage.hidden = false;
+        btnHost.disabled = false;
       }
 
       function handleEvent(ev) {
@@ -545,6 +696,7 @@
           state.rooms.set(data.room, {
             roomId: data.room,
             roomName: data.roomName || data.room,
+            mapId: data.map || 'ndu',
             hostPubkey: ev.pubkey,
             hostName: data.name || 'שחקן',
             players: Number(data.players) || 1,
@@ -560,20 +712,23 @@
         }
       }
 
-      function hostRoom() {
+      function hostRoom(mapId) {
+        const map = mapInfo(mapId);
         const typed = String(roomNameInput.value || '').trim().slice(0, 24);
+        state.mapId = map.id;
         state.roomName = typed || ('חדר של ' + getPlayerName());
         state.roomId = createIceId();
         state.isHost = true;
         state.players = 1;
         btnHost.disabled = true;
-        lobbyStatus.textContent = `החדר "${state.roomName}" פתוח.`;
+        lobbyStatus.textContent = `החדר "${state.roomName}" ב-${map.title}.`;
         startHeartbeat();
         openGame({
           sos: 'host',
           ice: state.roomId,
           name: fteName(),
-          room: state.roomId
+          room: state.roomId,
+          map: map.id
         });
       }
 
@@ -592,10 +747,6 @@
           ice: roomId,
           name: fteName()
         });
-      }
-
-      function startSolo() {
-        openGame({});
       }
 
       function subscribe() {
@@ -629,21 +780,30 @@
       }
 
       async function init() {
+        renderMaps();
         await connectNostr();
         if (state.pool && state.publicKey) {
           subscribe();
-          lobbyStatus.textContent = 'מחובר. פתח חדר או היכנס לחדר פתוח.';
+          lobbyStatus.textContent = 'מחובר. שחקו עכשיו או היכנסו לחדר פתוח.';
         } else {
-          lobbyStatus.textContent = 'אין חיבור לרשת. אפשר לשחק לבד.';
+          lobbyStatus.textContent = 'אין חיבור לרשת. אפשר לפתוח חדר מקומי.';
         }
         refreshRoomsList();
         setInterval(refreshRoomsList, 5000);
       }
 
-      btnHost.addEventListener('click', hostRoom);
-      btnSolo.addEventListener('click', startSolo);
+      btnHost.addEventListener('click', showMapPicker);
+      btnMapsBack.addEventListener('click', showLobby);
+      btnRename.addEventListener('click', () => {
+        const open = roomNameInput.classList.toggle('is-hidden') === false;
+        btnRename.classList.toggle('is-on', open);
+        if (open) {
+          roomNameInput.focus();
+          roomNameInput.select();
+        }
+      });
       roomNameInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') hostRoom();
+        if (e.key === 'Enter') showMapPicker();
       });
 
       function waitForNostrTools() {
