@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.16-sec18",
-  "buildTime": "2026-09-16T03:25:00+03:00",
-  "notes": "Security packages A–C: XSS URL gates, P2P rate/parse bounds, file safety, log/capability privacy"
+  "version": "2026.09.16-e2ee-read1",
+  "buildTime": "2026-09-16T05:50:00+03:00",
+  "notes": "R1 Web: E2EE dual-read + secure-epoch gate infrastructure. minSecureChatEpoch omitted (= cutover inactive). Encrypted send OFF."
 }

@@ -456,6 +456,22 @@
   }
 
   async function publishChatMessage(peerPubkey, plainText, options = {}) {
+    // חלק אבטחה (chat-service.js) – שער epoch חוסם שליחה פרטית לפני publish/Push | HYPER CORE TECH
+    if (typeof App.ensureSecureChatEpochReady === 'function') {
+      const stateNow = typeof App.getSecureChatGateState === 'function' ? App.getSecureChatGateState() : '';
+      if (stateNow === 'CHECKING' || (typeof App.isSecureChatReady === 'function' && !App.isSecureChatReady() && !stateNow)) {
+        try { await App.ensureSecureChatEpochReady({ skipAutoReload: true }); } catch (_e) { /* ignore */ }
+      }
+    }
+    if (typeof App.isSecureChatReady === 'function' && !App.isSecureChatReady()) {
+      try {
+        console.log('[E2EE/EPOCH] send blocked state=' + (App.getSecureChatGateState?.() || 'unknown'));
+      } catch (_err) { /* ignore */ }
+      if (typeof App.ensureSecureChatEpochReady === 'function') {
+        try { App.ensureSecureChatEpochReady({ skipAutoReload: true }); } catch (_e) { /* ignore */ }
+      }
+      return { ok: false, error: 'secure-update-required' };
+    }
     const clientTempId = typeof options?.clientTempId === 'string' ? options.clientTempId : null;
     // חלק צ'אט (chat-service.js) – בודק אם מצורף קובץ לפני סינון טקסט ריק כדי לאפשר שליחת קבצים בלבד
     const attachmentReady = typeof App.hasChatFileAttachment === 'function' && App.hasChatFileAttachment(peerPubkey);
@@ -718,9 +734,141 @@
     return existing || null;
   }
 
+  const pendingE2eeEvents = new Map();
+  const MAX_PENDING_E2EE_EVENTS = 64;
+  // NIP-44 v2 max ciphertext string length (see nostr-tools nip44 decodePayload).
+  const MAX_E2EE_CIPHERTEXT_CHARS =
+    typeof App.MAX_E2EE_CIPHERTEXT_CHARS === 'number' ? App.MAX_E2EE_CIPHERTEXT_CHARS : 87472;
+
+  function logE2eeReject(reasonCode, event) {
+    console.warn(
+      '[SECURITY/E2EE_REJECT] reason=' +
+        String(reasonCode || 'E2EE_REJECT') +
+        ' event=' +
+        (event && event.id ? String(event.id).slice(0, 8) : ''),
+    );
+  }
+
+  function looksLikeIncomingE2eeContent(rawContent) {
+    if (typeof App.looksLikeSosE2eeEnvelope === 'function') {
+      return App.looksLikeSosE2eeEnvelope(rawContent);
+    }
+    if (typeof rawContent !== 'string') return false;
+    const trimmed = rawContent.trim();
+    if (!trimmed || trimmed.charAt(0) !== '{') return false;
+    try {
+      const parsed = JSON.parse(trimmed);
+      return !!(parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.family === 'sos-e2ee');
+    } catch (_err) {
+      return false;
+    }
+  }
+
+  function queuePendingE2eeEvent(event) {
+    if (!event || !event.id) return;
+    if (pendingE2eeEvents.size >= MAX_PENDING_E2EE_EVENTS) {
+      const oldest = pendingE2eeEvents.keys().next().value;
+      if (oldest != null) pendingE2eeEvents.delete(oldest);
+    }
+    pendingE2eeEvents.set(event.id, event);
+  }
+
+  function flushPendingE2eeEvents() {
+    if (!App.privateKey || !App.publicKey || !pendingE2eeEvents.size) return;
+    if (flushPendingE2eeEvents._busy) return;
+    flushPendingE2eeEvents._busy = true;
+    try {
+      const queued = Array.from(pendingE2eeEvents.values());
+      pendingE2eeEvents.clear();
+      for (let i = 0; i < queued.length; i += 1) {
+        try {
+          handleIncomingChatEvent(queued[i]);
+        } catch (_err) {
+          /* keep going */
+        }
+      }
+    } finally {
+      flushPendingE2eeEvents._busy = false;
+    }
+  }
+
+  /**
+   * E2 dual-read: decrypt recognized sos-e2ee envelopes after signature/recipient.
+   * transportEventId = outer event.id (dedupe/delete)
+   * logicalMessageId = inner messageId (metadata only; does not replace event.id)
+   */
+  function resolveIncomingE2eeChatPayload(event) {
+    if (typeof App.decryptPrivateChatPayload !== 'function') {
+      logE2eeReject('E2EE_MODULE_UNAVAILABLE', event);
+      return { ok: false, retryable: true, reason: 'E2EE_MODULE_UNAVAILABLE' };
+    }
+    if (!App.privateKey || !App.publicKey) {
+      logE2eeReject('E2EE_DECRYPT_UNAVAILABLE', event);
+      return { ok: false, retryable: true, reason: 'E2EE_DECRYPT_UNAVAILABLE' };
+    }
+    let envelope;
+    try {
+      envelope = typeof event.content === 'string' ? JSON.parse(event.content) : event.content;
+    } catch (_err) {
+      logE2eeReject('BAD_ENVELOPE', event);
+      return { ok: false, retryable: false, reason: 'BAD_ENVELOPE' };
+    }
+    if (!envelope || typeof envelope !== 'object' || Array.isArray(envelope)) {
+      logE2eeReject('BAD_ENVELOPE', event);
+      return { ok: false, retryable: false, reason: 'BAD_ENVELOPE' };
+    }
+    if (envelope.family !== 'sos-e2ee') {
+      logE2eeReject('UNKNOWN_FAMILY', event);
+      return { ok: false, retryable: false, reason: 'UNKNOWN_FAMILY' };
+    }
+    const version = envelope.v != null ? envelope.v : envelope.version;
+    if (version !== 1) {
+      logE2eeReject('UNKNOWN_VERSION', event);
+      return { ok: false, retryable: false, reason: 'UNKNOWN_VERSION' };
+    }
+    const algorithm = envelope.alg != null ? envelope.alg : envelope.algorithm;
+    if (algorithm !== 'nip44') {
+      logE2eeReject('UNSUPPORTED_ALGORITHM', event);
+      return { ok: false, retryable: false, reason: 'UNSUPPORTED_ALGORITHM' };
+    }
+    const ciphertext = envelope.ct != null ? envelope.ct : envelope.ciphertext;
+    if (typeof ciphertext !== 'string' || !ciphertext) {
+      logE2eeReject('BAD_CIPHERTEXT', event);
+      return { ok: false, retryable: false, reason: 'BAD_CIPHERTEXT' };
+    }
+    if (ciphertext.length > MAX_E2EE_CIPHERTEXT_CHARS) {
+      logE2eeReject('OVERSIZED_CIPHERTEXT', event);
+      return { ok: false, retryable: false, reason: 'OVERSIZED_CIPHERTEXT' };
+    }
+    try {
+      const payload = App.decryptPrivateChatPayload({
+        localPrivateKeyHex: App.privateKey,
+        localPubkey: App.publicKey,
+        eventAuthorPubkey: event.pubkey,
+        encryptedEnvelope: envelope,
+      });
+      try {
+        console.log(
+          '[CHAT/E2EE] accepted peer=' +
+            String(event.pubkey || '').slice(0, 8) +
+            ' event=' +
+            String(event.id || '').slice(0, 8),
+        );
+      } catch (_logErr) {}
+      return { ok: true, payload };
+    } catch (err) {
+      logE2eeReject((err && err.code) || 'DECRYPT_FAILED', event);
+      return { ok: false, retryable: false, reason: (err && err.code) || 'DECRYPT_FAILED' };
+    }
+  }
+
   async function handleIncomingChatEvent(event) {
     if (!event || !event.pubkey) {
       return;
+    }
+    // Retry E2EE events that arrived before local key was ready.
+    if (App.privateKey && App.publicKey && pendingE2eeEvents.size) {
+      flushPendingE2eeEvents();
     }
     const eventTs = typeof event.created_at === 'number' ? event.created_at : Math.floor(Date.now() / 1000);
     const nowSec = Math.floor(Date.now() / 1000);
@@ -734,9 +882,17 @@
     if (event.kind !== CHAT_KIND || !event.content) {
       return;
     }
-    if (!verifyIncomingChatRelayPayload(event.content, { eventId: event.id })) {
+
+    const isE2eeContent = looksLikeIncomingE2eeContent(event.content);
+    if (!isE2eeContent) {
+      if (!verifyIncomingChatRelayPayload(event.content, { eventId: event.id })) {
+        return;
+      }
+    } else if (typeof event.content === 'string' && event.content.length > MAX_CHAT_EVENT_CONTENT_CHARS) {
+      console.warn('[SO-CALL SECURITY] rejected oversized chat payload');
       return;
     }
+
     // חלק שמירה 90 יום (chat-service.js) – מתעלמים מהודעות ישנות מהריליי | HYPER CORE TECH
     if (eventTs < getChatRetentionFloorTs(nowSec)) {
       return;
@@ -770,84 +926,104 @@
     // חלק תיקון cache (chat-service.js) — profileFetchedAt = זמן נוכחי (לא eventTs!) כדי שה-TTL cache יעבוד | HYPER CORE TECH
     App.ensureChatContact(peerPubkey, { ...profile, profileFetchedAt: Math.floor(Date.now() / 1000) });
 
-    // חלק WebTorrent (chat-service.js) – זיהוי בקשות העברת קבצים גדולים | HYPER CORE TECH
-    // ההודעה יכולה להגיע בשני פורמטים:
-    // 1. ישירות כ-JSON: {"type":"torrent-transfer-request",...}
-    // 2. עטופה בפורמט צ'אט: {"t":"{\"type\":\"torrent-transfer-request\",...}","a":null}
-    
-    if (event.content?.includes('torrent-transfer-request') && event.content?.includes('magnetURI')) {
-      console.log('[CHAT/TORRENT] 🔍 Detected torrent keywords, parsing...');
-      
-      try {
-        let torrentData = null;
-        const parsed = JSON.parse(event.content);
-        
-        // בדיקה אם זה עטוף בפורמט {"t":"..."}
-        if (parsed?.t && typeof parsed.t === 'string' && parsed.t.includes('torrent-transfer-request')) {
-          console.log('[CHAT/TORRENT] 📦 Found wrapped format {t:...}, extracting inner JSON');
-          torrentData = JSON.parse(parsed.t);
-        } else if (parsed?.type === 'torrent-transfer-request') {
-          // פורמט ישיר
-          torrentData = parsed;
-        }
-        
-        if (torrentData?.type === 'torrent-transfer-request' && torrentData?.magnetURI) {
-          if (typeof App.isValidIncomingMagnetURI === 'function' && !App.isValidIncomingMagnetURI(torrentData.magnetURI)) {
-            console.warn('[SO-CALL SECURITY] rejected malformed torrent magnet');
-            torrentData = null;
-          }
-        }
-        if (torrentData?.type === 'torrent-transfer-request' && torrentData?.magnetURI) {
-          console.log('[CHAT/TORRENT] ✅ Valid WebTorrent request from:', sender.slice(0, 8));
-          console.log('[CHAT/TORRENT] 📊 Size:', torrentData.fileSize, 'bytes');
-          console.log('[CHAT/TORRENT] 🧲 Magnet:', typeof App.diagSafeMagnet === 'function' ? App.diagSafeMagnet(torrentData.magnetURI) : { magnetLength: String(torrentData.magnetURI || '').length });
-          
-          // שמירת ההודעה בצ'אט כפי שהיא (וואטסאפ סטייל) – ההודעה תירנדר ע"י chat-ui.js | HYPER CORE TECH
-          const normalizedTorrentPayload = {
-            type: 'torrent-transfer-request',
-            transferId: torrentData.transferId,
-            magnetURI: torrentData.magnetURI,
-            infoHash: torrentData.infoHash,
-            fileName: torrentData.fileName,
-            fileSize: torrentData.fileSize,
-            fromPeer: sender,
-            timestamp: torrentData.timestamp || event.created_at || Date.now()
-          };
-          event.content = JSON.stringify(normalizedTorrentPayload);
-          event.torrentPayload = normalizedTorrentPayload;
+    let parsedPayload;
+    let logicalMessageId = null;
 
-          if (typeof App.torrentTransfer?.handleIncomingRequest === 'function') {
-            if (!isRecentAutoStartEvent) {
-              console.log('[CHAT/TORRENT] ⏭️ Skipping auto-start for historical message', { ageSec: messageAgeSec, size: torrentData.fileSize });
-            } else {
-              if (!App._autoStartedTorrentMagnets) {
-                App._autoStartedTorrentMagnets = new Set();
-              }
-              if (torrentData.magnetURI) {
-                App._autoStartedTorrentMagnets.add(torrentData.magnetURI);
-              }
-              console.log('[CHAT/TORRENT] 📞 Calling handleIncomingRequest...');
-              App.torrentTransfer.handleIncomingRequest(sender, torrentData);
-              console.log('[CHAT/TORRENT] ✅ Request forwarded - download should auto-start');
-            }
-          } else {
-            console.warn('[CHAT/TORRENT] ⚠️ WebTorrent module not loaded');
-          }
-          // לא מחזירים – נותנים להודעה להמשיך ב-renderMessages כדי שתוצג לשני הצדדים
+    if (isE2eeContent) {
+      // Recognized sos-e2ee → never legacy-fallback on failure.
+      const resolved = resolveIncomingE2eeChatPayload(event);
+      if (!resolved.ok) {
+        if (resolved.retryable) {
+          queuePendingE2eeEvent(event);
         }
-      } catch (e) {
-        console.error('[CHAT/TORRENT] ❌ Parse error:', e.message);
+        return;
       }
-    }
+      logicalMessageId = resolved.payload.messageId || null;
+      parsedPayload = {
+        displayText: resolved.payload.text || '',
+        attachment: resolved.payload.attachment || null,
+        hasAttachment: Boolean(resolved.payload.attachment),
+      };
+    } else {
+      // חלק WebTorrent (chat-service.js) – זיהוי בקשות העברת קבצים גדולים | HYPER CORE TECH
+      // ההודעה יכולה להגיע בשני פורמטים:
+      // 1. ישירות כ-JSON: {"type":"torrent-transfer-request",...}
+      // 2. עטופה בפורמט צ'אט: {"t":"{\"type\":\"torrent-transfer-request\",...}","a":null}
 
-    const parsedPayload =
-      typeof App.deserializeChatMessageContent === 'function'
-        ? App.deserializeChatMessageContent(event.content)
-        : {
-            displayText: event.content,
-            attachment: null,
-            hasAttachment: false,
-          };
+      if (event.content?.includes('torrent-transfer-request') && event.content?.includes('magnetURI')) {
+        console.log('[CHAT/TORRENT] 🔍 Detected torrent keywords, parsing...');
+
+        try {
+          let torrentData = null;
+          const parsed = JSON.parse(event.content);
+
+          // בדיקה אם זה עטוף בפורמט {"t":"..."}
+          if (parsed?.t && typeof parsed.t === 'string' && parsed.t.includes('torrent-transfer-request')) {
+            console.log('[CHAT/TORRENT] 📦 Found wrapped format {t:...}, extracting inner JSON');
+            torrentData = JSON.parse(parsed.t);
+          } else if (parsed?.type === 'torrent-transfer-request') {
+            // פורמט ישיר
+            torrentData = parsed;
+          }
+
+          if (torrentData?.type === 'torrent-transfer-request' && torrentData?.magnetURI) {
+            if (typeof App.isValidIncomingMagnetURI === 'function' && !App.isValidIncomingMagnetURI(torrentData.magnetURI)) {
+              console.warn('[SO-CALL SECURITY] rejected malformed torrent magnet');
+              torrentData = null;
+            }
+          }
+          if (torrentData?.type === 'torrent-transfer-request' && torrentData?.magnetURI) {
+            console.log('[CHAT/TORRENT] ✅ Valid WebTorrent request from:', sender.slice(0, 8));
+            console.log('[CHAT/TORRENT] 📊 Size:', torrentData.fileSize, 'bytes');
+            console.log('[CHAT/TORRENT] 🧲 Magnet:', typeof App.diagSafeMagnet === 'function' ? App.diagSafeMagnet(torrentData.magnetURI) : { magnetLength: String(torrentData.magnetURI || '').length });
+
+            // שמירת ההודעה בצ'אט כפי שהיא (וואטסאפ סטייל) – ההודעה תירנדר ע"י chat-ui.js | HYPER CORE TECH
+            const normalizedTorrentPayload = {
+              type: 'torrent-transfer-request',
+              transferId: torrentData.transferId,
+              magnetURI: torrentData.magnetURI,
+              infoHash: torrentData.infoHash,
+              fileName: torrentData.fileName,
+              fileSize: torrentData.fileSize,
+              fromPeer: sender,
+              timestamp: torrentData.timestamp || event.created_at || Date.now()
+            };
+            event.content = JSON.stringify(normalizedTorrentPayload);
+            event.torrentPayload = normalizedTorrentPayload;
+
+            if (typeof App.torrentTransfer?.handleIncomingRequest === 'function') {
+              if (!isRecentAutoStartEvent) {
+                console.log('[CHAT/TORRENT] ⏭️ Skipping auto-start for historical message', { ageSec: messageAgeSec, size: torrentData.fileSize });
+              } else {
+                if (!App._autoStartedTorrentMagnets) {
+                  App._autoStartedTorrentMagnets = new Set();
+                }
+                if (torrentData.magnetURI) {
+                  App._autoStartedTorrentMagnets.add(torrentData.magnetURI);
+                }
+                console.log('[CHAT/TORRENT] 📞 Calling handleIncomingRequest...');
+                App.torrentTransfer.handleIncomingRequest(sender, torrentData);
+                console.log('[CHAT/TORRENT] ✅ Request forwarded - download should auto-start');
+              }
+            } else {
+              console.warn('[CHAT/TORRENT] ⚠️ WebTorrent module not loaded');
+            }
+            // לא מחזירים – נותנים להודעה להמשיך ב-renderMessages כדי שתוצג לשני הצדדים
+          }
+        } catch (e) {
+          console.error('[CHAT/TORRENT] ❌ Parse error:', e.message);
+        }
+      }
+
+      parsedPayload =
+        typeof App.deserializeChatMessageContent === 'function'
+          ? App.deserializeChatMessageContent(event.content)
+          : {
+              displayText: event.content,
+              attachment: null,
+              hasAttachment: false,
+            };
+    }
 
     if (parsedPayload.attachment) {
       const inspected = inspectIncomingChatAttachment(parsedPayload.attachment);
@@ -896,11 +1072,14 @@
       id: event.id,
       from: sender,
       to: conversationTarget,
-      content: parsedPayload.displayText || event.content,
+      content: parsedPayload.displayText || (isE2eeContent ? '' : event.content),
       attachment: parsedPayload.attachment || null,
       createdAt: eventTs,
       direction: isSelfMessage ? 'outgoing' : 'incoming',
     };
+    if (logicalMessageId) {
+      normalizedMessage.logicalMessageId = logicalMessageId;
+    }
 
     App.appendChatMessage(normalizedMessage);
 
@@ -1060,7 +1239,32 @@
     }
   }
 
+  function stopPrivateChatSubscription(reason) {
+    if (activeSubscription && typeof activeSubscription.close === 'function') {
+      try { activeSubscription.close(); } catch (_err) { /* ignore */ }
+    }
+    activeSubscription = null;
+    try {
+      if (reason) console.log('[E2EE/EPOCH] private chat subscription stopped', reason);
+    } catch (_err) { /* ignore */ }
+  }
+
+  function resumePrivateChatAfterSecureEpoch() {
+    if (typeof App.isSecureChatReady === 'function' && !App.isSecureChatReady()) {
+      return;
+    }
+    ensureChatKeepaliveStarted();
+    subscribeToChatEvents();
+  }
+
   function subscribeToChatEvents() {
+    // חלק אבטחה (chat-service.js) – לא נרשמים לצ'אט פרטי לפני שער epoch מוכן | HYPER CORE TECH
+    if (typeof App.isSecureChatReady === 'function' && !App.isSecureChatReady()) {
+      try {
+        console.log('[E2EE/EPOCH] subscribe blocked state=' + (App.getSecureChatGateState?.() || 'unknown'));
+      } catch (_err) { /* ignore */ }
+      return;
+    }
     if (activeSubscription || !ensurePoolReady()) {
       return;
     }
@@ -1377,6 +1581,21 @@
         console.warn('[CHAT/SERVICE] Failed to wait for state restore', err);
       }
     }
+
+    // חלק אבטחה (chat-service.js) – שער epoch לפני subscribe/history | HYPER CORE TECH
+    if (typeof App.ensureSecureChatEpochReady === 'function') {
+      let epochReady = false;
+      try {
+        epochReady = await App.ensureSecureChatEpochReady();
+      } catch (err) {
+        console.warn('[E2EE/EPOCH] gate evaluation failed', err);
+        epochReady = typeof App.isSecureChatReady === 'function' ? App.isSecureChatReady() : false;
+      }
+      if (!epochReady) {
+        console.log('[E2EE/EPOCH] chat bootstrap deferred state=' + (App.getSecureChatGateState?.() || 'unknown'));
+        return;
+      }
+    }
     
     ensureChatKeepaliveStarted();
     subscribeToChatEvents();
@@ -1634,6 +1853,8 @@
     publishChatMessage,
     deleteChatMessage,
     subscribeToChatEvents,
+    stopPrivateChatSubscription,
+    resumePrivateChatAfterSecureEpoch,
     bootstrapChatContacts: bootstrapContactsFromFeed,
     addChatContact,
     searchProfilesByName,
@@ -1647,6 +1868,7 @@
     sanitizeIncomingChatFileName,
     isSafeIncomingChatResource,
     isValidIncomingMagnetURI,
+    flushPendingE2eeEvents,
   });
 
   if (!App._chatServiceBootstrapped) {

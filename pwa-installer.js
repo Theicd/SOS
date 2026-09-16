@@ -1031,6 +1031,7 @@
   }
 
   // חשיפת API ציבורי
+  // Expose prepareCleanReload for secure-epoch forced reload (optional hook).
   Object.assign(App, {
     getPlatformInfo,
     checkIfInstalled,
@@ -1047,6 +1048,7 @@
     showApkUpdateAvailableToast,
     checkApkReleaseVersion,
     ensurePushAfterInstall,
+    prepareCleanReloadAfterUiUpdate,
     SOS_APK_VERSION: NATIVE_APK_VERSION,
     SOS_APK_FILE: NATIVE_APK_FILE,
     SOS_APK_URL: NATIVE_APK_URL,
