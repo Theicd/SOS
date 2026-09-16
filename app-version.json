@@ -1,7 +1,8 @@
 {
-  "version": "2026.09.16-e2ee-selfecho1",
-  "buildTime": "2026-09-16T08:45:00+03:00",
-  "notes": "E3B encrypted Relay 1050 ACTIVE. Self-authored Relay echo/history fix deployed. minSecureChatEpoch=1. e2eeSendRequired=true.",
+  "version": "2026.09.16-media-server-e2ee-prep",
+  "buildTime": "2026-09-16T17:20:00+03:00",
+  "notes": "E3B Relay private text ACTIVE. Private-chat Blossom/server fallback E2EE code staged (mediaServerE2eeRequired=false). Local secure chat capability epoch 2. Remote minSecureChatEpoch still 1 during prep. P2P/Torrent routing unchanged. Public feed Blossom unchanged.",
   "minSecureChatEpoch": 1,
-  "e2eeSendRequired": true
+  "e2eeSendRequired": true,
+  "mediaServerE2eeRequired": false
 }

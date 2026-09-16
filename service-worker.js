@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v833'; // E3B self-echo/history hotfix
+  const CACHE_NAME = 'sos-cache-v834'; // Private-chat media server E2EE prep (activation off)
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -14,6 +14,9 @@
     './chat-e2ee.js',
     './chat-secure-epoch.js',
     './chat-service.js',
+    './media-file-e2ee.js',
+    './media-server-e2ee.js',
+    './blossom.js',
     './android-bridge.js',
     './emergency-bridge.js',
     './emergency-wrapper.js',

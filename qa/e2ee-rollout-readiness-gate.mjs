@@ -50,7 +50,7 @@ const profile = read('profile.js');
 // Runtime modules present
 record('chat-e2ee.js present', exists('chat-e2ee.js'));
 record('chat-secure-epoch.js present', exists('chat-secure-epoch.js'));
-record('local SOS_SECURE_CHAT_EPOCH=1', /SOS_SECURE_CHAT_EPOCH\s*=\s*1/.test(e2ee));
+record('local SOS_SECURE_CHAT_EPOCH=2', /SOS_SECURE_CHAT_EPOCH\s*=\s*2/.test(e2ee));
 record('E2 dual-read wired', svc.includes('decryptPrivateChatPayload') && svc.includes('looksLikeIncomingE2eeContent'));
 record('E3A3 gate wired before subscribe', svc.includes('ensureSecureChatEpochReady') && svc.includes('chat bootstrap deferred'));
 record('E3A3 send gate present', svc.includes("secure-update-required"));
@@ -82,7 +82,7 @@ record('encrypt helper exists in chat-e2ee', e2ee.includes('encryptPrivateChatPa
 record('no sos_caps capability kind', !profile.includes('sos_caps') && !svc.includes('sos_caps'));
 
 // SW
-record('SW CACHE_NAME sos-cache-v833', /sos-cache-v833/.test(sw));
+record('SW CACHE_NAME sos-cache-v834', /sos-cache-v834/.test(sw));
 record('SW precaches chat-e2ee.js', sw.includes("'./chat-e2ee.js'"));
 record('SW precaches chat-secure-epoch.js', sw.includes("'./chat-secure-epoch.js'"));
 record('SW precaches chat-service.js', sw.includes("'./chat-service.js'"));
@@ -116,8 +116,10 @@ record('safe diagnostic: getSecureChatGateState', epoch.includes('getSecureChatG
 record('safe diagnostic: SOS_SECURE_CHAT_EPOCH on App', e2ee.includes('SOS_SECURE_CHAT_EPOCH'));
 record('epoch logs omit message/keys', !/\$\{.*content/.test(epoch) && epoch.includes('[E2EE/EPOCH]'));
 
-// Version: e2ee-selfecho1; minSecureChatEpoch=1; e2eeSendRequired explicit true
-record('app-version e2ee-selfecho1', String(appVer.version || '').includes('e2ee-selfecho'));
+// Version: media-server-e2ee-prep; minSecureChatEpoch=1; e2eeSendRequired explicit true; mediaServerE2eeRequired=false
+record('app-version media-server-e2ee-prep', String(appVer.version || '').includes('media-server-e2ee-prep'));
+record('mediaServerE2eeRequired explicit false (Phase A prep)',
+  Object.prototype.hasOwnProperty.call(appVer, 'mediaServerE2eeRequired') && appVer.mediaServerE2eeRequired === false);
 record('minSecureChatEpoch =1', Number(appVer.minSecureChatEpoch) === 1);
 
 console.log(results.join('\n'));

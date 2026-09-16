@@ -14,13 +14,14 @@
   const MAX_FUTURE_SKEW_SEC = 172800; // 48h ahead of local clock
 
   /*
-   * SOS_SECURE_CHAT_EPOCH (E3A3):
+   * SOS_SECURE_CHAT_EPOCH (E3A3 / media-server E2EE):
    * Local immutable integer = what THIS loaded JS can safely receive.
-   * epoch 1 = understands sos-e2ee v1 dual-read (legacy plaintext + encrypted envelope).
+   * epoch 1 = sos-e2ee v1 dual-read (legacy plaintext + encrypted envelope).
+   * epoch 2 = + encrypted-media v2 private-chat Blossom fallback (AES-GCM + secure download).
    * Not derived from app-version.json string; not peer-claimed.
    * Remote minSecureChatEpoch (optional) may later require this epoch before chat.
    */
-  const SOS_SECURE_CHAT_EPOCH = 1;
+  const SOS_SECURE_CHAT_EPOCH = 2;
 
   // Future capability token — not published in E1.
   const E2EE_CAPABILITY_V1 = Object.freeze({

@@ -78,7 +78,7 @@ const indexHtml = read('index.html');
 const storage = read('storage.html');
 const appVer = JSON.parse(read('app-version.json'));
 
-record('SOS_SECURE_CHAT_EPOCH=1 in chat-e2ee.js', /SOS_SECURE_CHAT_EPOCH\s*=\s*1/.test(e2ee));
+record('SOS_SECURE_CHAT_EPOCH=2 in chat-e2ee.js', /SOS_SECURE_CHAT_EPOCH\s*=\s*2/.test(e2ee));
 record('SOS_SECURE_CHAT_EPOCH exported on App', e2ee.includes('SOS_SECURE_CHAT_EPOCH'));
 record('chat-secure-epoch.js present', epochSrc.includes('decideSecureChatGate') && epochSrc.includes('ensureSecureChatEpochReady'));
 record('GATE_STATES include READY/UPDATE_REQUIRED/CHECK_FAILED/CHECKING',
@@ -117,7 +117,7 @@ record('LIVE_E2EE_SEND=true (E3B ACTIVE; e2eeSendRequired explicit true)',
   Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired') && appVer.e2eeSendRequired === true);
 record('E2 dual-read still present', svc.includes('decryptPrivateChatPayload') && svc.includes('looksLikeIncomingE2eeContent'));
 
-record('SW cache bumped for E3B self-echo', /sos-cache-v833/.test(sw));
+record('SW cache bumped for media-server E2EE prep', /sos-cache-v834/.test(sw));
 record('SW precaches chat-e2ee.js', sw.includes("'./chat-e2ee.js'"));
 record('SW precaches chat-secure-epoch.js', sw.includes("'./chat-secure-epoch.js'"));
 record('app-version.json still bypasses SW', sw.includes("app-version.json") && sw.includes('return'));

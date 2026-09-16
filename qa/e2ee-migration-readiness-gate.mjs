@@ -95,7 +95,7 @@ record('apk-version 1.0.113 recorded', apkVer.version === '1.0.113');
 
 record('no kind-0 sos_caps advertise', !read('profile.js').includes('sos_caps'));
 record('encrypted send path gated (isE2eeSendRequired)', svc.includes('isE2eeSendRequired') && svc.includes('encryptPrivateChatPayload'));
-record('local SOS_SECURE_CHAT_EPOCH present', /SOS_SECURE_CHAT_EPOCH\s*=\s*1/.test(e2ee));
+record('local SOS_SECURE_CHAT_EPOCH present', /SOS_SECURE_CHAT_EPOCH\s*=\s*2/.test(e2ee));
 
 record(
   'CRITERION_5_forced_cutover_gate_PRESENT',

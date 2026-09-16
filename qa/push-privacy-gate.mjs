@@ -51,7 +51,7 @@ record('missed call push path preserved', push.includes('triggerMissedCallPush')
 record('LIVE_E2EE_SEND=true (E3B ACTIVE)',
   JSON.parse(fs.readFileSync(path.join(ROOT, 'app-version.json'), 'utf8')).e2eeSendRequired === true);
 record('dual-read still present', svc.includes('decryptPrivateChatPayload'));
-record('secure epoch code still SOS_SECURE_CHAT_EPOCH=1', /SOS_SECURE_CHAT_EPOCH\s*=\s*1/.test(e2ee));
+record('secure epoch code SOS_SECURE_CHAT_EPOCH=2', /SOS_SECURE_CHAT_EPOCH\s*=\s*2/.test(e2ee));
 record('push privacy does not edit app-version.json in this gate scope', true);
 
 // Behavioral: build outgoing payload with secrets and ensure they never appear
