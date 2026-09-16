@@ -1,17 +1,17 @@
 (function initBlossomClient(window){
   const App = window.NostrApp || (window.NostrApp = {});
 
-  // חלק העלאות (blossom.js) – לקוח Blossom קל משקל עם נפילות חן ורב-שרתים, נכתב עבור פרויקט SOS2
-  // מבוסס רעיונית על yakbak/src/lib/blossom.ts אך מותאם JS פשוט וללא תלות חיצונית
+  // ׳—׳׳§ ׳”׳¢׳׳׳•׳× (blossom.js) ג€“ ׳׳§׳•׳— Blossom ׳§׳ ׳׳©׳§׳ ׳¢׳ ׳ ׳₪׳™׳׳•׳× ׳—׳ ׳•׳¨׳‘-׳©׳¨׳×׳™׳, ׳ ׳›׳×׳‘ ׳¢׳‘׳•׳¨ ׳₪׳¨׳•׳™׳§׳˜ SOS2
+  // ׳׳‘׳•׳¡׳¡ ׳¨׳¢׳™׳•׳ ׳™׳× ׳¢׳ yakbak/src/lib/blossom.ts ׳׳ ׳׳•׳×׳׳ JS ׳₪׳©׳•׳˜ ׳•׳׳׳ ׳×׳׳•׳× ׳—׳™׳¦׳•׳ ׳™׳×
 
-  // חלק העלאות (blossom.js) – שרתי Blossom עם תמיכה ב-CORS
-  // files.sovbit.host ירד לסוף — ERR_CERT_DATE_INVALID שובר אורחים | HYPER CORE TECH
+  // ׳—׳׳§ ׳”׳¢׳׳׳•׳× (blossom.js) ג€“ ׳©׳¨׳×׳™ Blossom ׳¢׳ ׳×׳׳™׳›׳” ׳‘-CORS
+  // files.sovbit.host ׳™׳¨׳“ ׳׳¡׳•׳£ ג€” ERR_CERT_DATE_INVALID ׳©׳•׳‘׳¨ ׳׳•׳¨׳—׳™׳ | HYPER CORE TECH
   const DEFAULT_SERVERS = [
     { url: 'https://blossom.band', pubkey: 'npub1blossomserver' },
     { url: 'https://blossom.nostr.build', pubkey: 'npub1nostrbuild' },
     { url: 'https://nostr.build', pubkey: 'npub1nostrbuild' },
     { url: 'https://blossom.primal.net', pubkey: 'npub1primal' },
-    { url: 'https://files.sovbit.host' }, // SSL שבור כרגע — רק fallback אחרון
+    { url: 'https://files.sovbit.host' }, // SSL ׳©׳‘׳•׳¨ ׳›׳¨׳’׳¢ ג€” ׳¨׳§ fallback ׳׳—׳¨׳•׳
   ];
 
   function fixUrl(u){
@@ -38,7 +38,7 @@
     return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
   }
 
-  // חלק העלאות (blossom.js) – יצירת ארוע הרשאה בסיסי (NIP-24242) באמצעות חותם קיים על האפליקציה
+  // ׳—׳׳§ ׳”׳¢׳׳׳•׳× (blossom.js) ג€“ ׳™׳¦׳™׳¨׳× ׳׳¨׳•׳¢ ׳”׳¨׳©׳׳” ׳‘׳¡׳™׳¡׳™ (NIP-24242) ׳‘׳׳׳¦׳¢׳•׳× ׳—׳•׳×׳ ׳§׳™׳™׳ ׳¢׳ ׳”׳׳₪׳׳™׳§׳¦׳™׳”
   async function createAuthEvent(verb, content, sha256){
     if(!App.publicKey || typeof App.finalizeEvent !== 'function'){
       throw new Error('missing-signer');
@@ -68,7 +68,7 @@
     }
   }
 
-  // חלק העלאות (blossom.js) – ניסיון העלאה לכמה שרתים עד הצלחה
+  // ׳—׳׳§ ׳”׳¢׳׳׳•׳× (blossom.js) ג€“ ׳ ׳™׳¡׳™׳•׳ ׳”׳¢׳׳׳” ׳׳›׳׳” ׳©׳¨׳×׳™׳ ׳¢׳“ ׳”׳¦׳׳—׳”
   async function uploadToBlossom(blob){
     console.log('[BLOSSOM] uploadToBlossom called:', {
       blobType: blob?.type,
@@ -77,9 +77,9 @@
       isFile: blob instanceof File
     });
     
-    // בדיקת תנאים מוקדמת
+    // ׳‘׳“׳™׳§׳× ׳×׳ ׳׳™׳ ׳׳•׳§׳“׳׳×
     if (!App.publicKey) {
-      console.error('[BLOSSOM] ❌ חסר publicKey');
+      console.error('[BLOSSOM] ג ׳—׳¡׳¨ publicKey');
       throw new Error('missing-publicKey');
     }
     if (!App.privateKey) {
@@ -87,7 +87,7 @@
       throw new Error('missing-privateKey');
     }
     if (typeof App.finalizeEvent !== 'function') {
-      console.error('[BLOSSOM] ❌ חסר finalizeEvent');
+      console.error('[BLOSSOM] ג ׳—׳¡׳¨ finalizeEvent');
       throw new Error('missing-finalizeEvent');
     }
     
@@ -99,7 +99,7 @@
       hash = await sha256Hex(blob);
       console.log('[BLOSSOM] hash:', hash.slice(0, 16) + '...');
     } catch (hashErr) {
-      console.error('[BLOSSOM] ❌ שגיאה בחישוב hash:', hashErr);
+      console.error('[BLOSSOM] ג ׳©׳’׳™׳׳” ׳‘׳—׳™׳©׳•׳‘ hash:', hashErr);
       throw hashErr;
     }
     
@@ -108,7 +108,7 @@
       auth = await createAuthEvent('upload', 'Upload media file', hash);
       console.log('[BLOSSOM] auth event created');
     } catch (authErr) {
-      console.error('[BLOSSOM] ❌ שגיאה ביצירת auth event:', authErr);
+      console.error('[BLOSSOM] ג ׳©׳’׳™׳׳” ׳‘׳™׳¦׳™׳¨׳× auth event:', authErr);
       throw authErr;
     }
     
@@ -123,7 +123,7 @@
     });
 
     for(const s of servers){
-      // נסה נתיבי העלאה שונים לפי סוג השרת
+      // ׳ ׳¡׳” ׳ ׳×׳™׳‘׳™ ׳”׳¢׳׳׳” ׳©׳•׳ ׳™׳ ׳׳₪׳™ ׳¡׳•׳’ ׳”׳©׳¨׳×
       const uploadPaths = ['/upload', '/api/v1/upload', '/api/upload', '/media'];
       
       for(const path of uploadPaths){
@@ -131,7 +131,7 @@
           const url = new URL(path, s.url).toString();
           console.log('[BLOSSOM] Trying:', diagUrl(url));
           
-          // ניסיון עם PUT ואז POST
+          // ׳ ׳™׳¡׳™׳•׳ ׳¢׳ PUT ׳•׳׳– POST
           for (const method of ['PUT', 'POST']) {
             try {
               const res = await fetch(url, {
@@ -155,7 +155,7 @@
               const data = await res.json();
               console.log('[BLOSSOM] Response:', { ok: true, hasUrl: !!(data?.url || data?.data?.url) });
               
-              // תמיכה בפורמטים שונים של תשובה
+              // ׳×׳׳™׳›׳” ׳‘׳₪׳•׳¨׳׳˜׳™׳ ׳©׳•׳ ׳™׳ ׳©׳ ׳×׳©׳•׳‘׳”
               const resultUrl = data?.url || data?.data?.url || data?.nip94_event?.tags?.find(t => t[0] === 'url')?.[1];
               if(resultUrl){
                 if (!isSafeBlossomResultUrl(resultUrl)) {
@@ -180,13 +180,24 @@
   }
 
   // ---------------------------------------------------------------------------
-  // M3 — Encrypted Blossom transport (ciphertext only). Legacy uploadToBlossom
+  // M3 ג€” Encrypted Blossom transport (ciphertext only). Legacy uploadToBlossom
   // above remains plaintext-capable and is intentionally UNCHANGED.
   // Secure APIs require media-file-e2ee.js (M2) to be loaded.
+  //
+  // Wire compat (prod): real Blossom fleets reject application/octet-stream (415).
+  // Encrypted private bytes are wrapped in a FIXED opaque JPEG container and uploaded
+  // with Content-Type image/jpeg. This MIME is constant and does NOT leak original MIME.
+  // Auth x-tag / Blossom object hash = SHA-256(wire bytes).
+  // Descriptor cipher.sha256 remains SHA-256(raw ciphertext) after unwrap.
   // ---------------------------------------------------------------------------
 
-  const SECURE_UPLOAD_CONTENT_TYPE = 'application/octet-stream';
+  const SECURE_WIRE_CONTENT_TYPE = 'image/jpeg';
+  const SECURE_WIRE_ENCODING = 'sos-opaque-jpeg-v1';
+  const SECURE_WIRE_MAGIC = new TextEncoder().encode('SOSOJPE1');
+  const MAX_JPEG_COM_PAYLOAD = 65533; // marker length field includes 2 length bytes
   const MAX_SECURE_DOWNLOAD_BYTES = 2 * 1024 * 1024 * 1024;
+  // Prefer /upload for encrypted wire; /media may strip/re-encode and destroy ciphertext.
+  const SECURE_UPLOAD_PATHS = ['/upload', '/api/v1/upload', '/api/upload'];
 
   function blossomSecureFail(code, message) {
     const err = new Error(message || code);
@@ -210,6 +221,134 @@
     const f = fetchImpl || (typeof fetch === 'function' ? fetch : null);
     if (typeof f !== 'function') blossomSecureFail('BLOSSOM_FETCH_UNAVAILABLE', 'fetch unavailable');
     return f;
+  }
+
+  /** Secure-upload server order: prefer hosts known to accept opaque JPEG wire. */
+  async function getSecureServers() {
+    const list = await getServers();
+    const preferred = [];
+    const rest = [];
+    for (const s of list) {
+      let host = '';
+      try {
+        host = new URL(s.url).hostname.toLowerCase();
+      } catch (_e) {
+        rest.push(s);
+        continue;
+      }
+      if (host === 'blossom.primal.net' || host.endsWith('.primal.net')) preferred.push(s);
+      else rest.push(s);
+    }
+    return preferred.concat(rest);
+  }
+
+  // Fixed minimal 1x1 JPEG scaffold (JFIF). Ciphertext rides in COM markers inserted
+  // immediately after SOI so real Blossom fleets accept image/jpeg sniffing.
+  // Probe-confirmed on blossom.primal.net/upload — SOI+COM+EOI alone is rejected.
+  const OPAQUE_JPEG_SCAFFOLD = Uint8Array.from(
+    atob(
+      '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAGcP//EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAQUCf//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQMBAT8Bf//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQIBAT8Bf//Z',
+    ),
+    (c) => c.charCodeAt(0),
+  );
+
+  /**
+   * Wrap raw ciphertext in opaque JPEG (SOI + COM segments + fixed JPEG scaffold tail).
+   * First COM begins with magic SOSOJPE1 + uint32be cipherLen, then cipher bytes
+   * (continued across COM segments if needed). Content-Type stays image/jpeg always.
+   */
+  function wrapOpaqueJpegV1(ciphertextBytes) {
+    const cipher =
+      ciphertextBytes instanceof Uint8Array
+        ? ciphertextBytes
+        : new Uint8Array(ciphertextBytes || []);
+    if (!cipher.length) blossomSecureFail('MEDIA_E2EE_BAD_DESCRIPTOR', 'empty ciphertext');
+    if (cipher.length > MAX_SECURE_DOWNLOAD_BYTES) {
+      blossomSecureFail('MEDIA_E2EE_TOO_LARGE', 'ciphertext too large for wire wrap');
+    }
+    if (OPAQUE_JPEG_SCAFFOLD.length < 4 || OPAQUE_JPEG_SCAFFOLD[0] !== 0xff || OPAQUE_JPEG_SCAFFOLD[1] !== 0xd8) {
+      blossomSecureFail('MEDIA_E2EE_BAD_DESCRIPTOR', 'opaque jpeg scaffold invalid');
+    }
+    const headerLen = SECURE_WIRE_MAGIC.length + 4;
+    const totalPayload = headerLen + cipher.length;
+    const parts = [new Uint8Array([0xff, 0xd8])]; // SOI
+    let offset = 0;
+    let first = true;
+    while (offset < totalPayload) {
+      const remaining = totalPayload - offset;
+      const take = Math.min(MAX_JPEG_COM_PAYLOAD, remaining);
+      const seg = new Uint8Array(4 + take);
+      seg[0] = 0xff;
+      seg[1] = 0xfe;
+      const len = take + 2;
+      seg[2] = (len >> 8) & 0xff;
+      seg[3] = len & 0xff;
+      for (let i = 0; i < take; i += 1) {
+        const globalOff = offset + i;
+        if (first && globalOff < SECURE_WIRE_MAGIC.length) {
+          seg[4 + i] = SECURE_WIRE_MAGIC[globalOff];
+        } else if (first && globalOff < headerLen) {
+          const bi = globalOff - SECURE_WIRE_MAGIC.length;
+          seg[4 + i] = (cipher.length >>> (24 - bi * 8)) & 0xff;
+        } else {
+          const ci = globalOff - headerLen;
+          seg[4 + i] = cipher[ci];
+        }
+      }
+      parts.push(seg);
+      offset += take;
+      first = false;
+    }
+    // Append scaffold body after SOI so decoders/sniffers see a real JPEG.
+    parts.push(OPAQUE_JPEG_SCAFFOLD.subarray(2));
+    let total = 0;
+    for (const p of parts) total += p.length;
+    const out = new Uint8Array(total);
+    let o = 0;
+    for (const p of parts) {
+      out.set(p, o);
+      o += p.length;
+    }
+    return out;
+  }
+
+  function unwrapOpaqueJpegV1(wireBytes) {
+    const bytes = wireBytes instanceof Uint8Array ? wireBytes : new Uint8Array(wireBytes || []);
+    if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) {
+      blossomSecureFail('MEDIA_E2EE_HASH_MISMATCH', 'opaque jpeg missing SOI');
+    }
+    // Only consecutive COM markers immediately after SOI carry ciphertext.
+    const payload = [];
+    let i = 2;
+    while (i + 3 < bytes.length && bytes[i] === 0xff && bytes[i + 1] === 0xfe) {
+      const len = (bytes[i + 2] << 8) | bytes[i + 3];
+      if (len < 2 || i + 2 + len > bytes.length) {
+        blossomSecureFail('MEDIA_E2EE_HASH_MISMATCH', 'opaque jpeg bad COM length');
+      }
+      const start = i + 4;
+      const end = i + 2 + len;
+      for (let j = start; j < end; j += 1) payload.push(bytes[j]);
+      i = end;
+    }
+    const buf = new Uint8Array(payload);
+    if (buf.length < SECURE_WIRE_MAGIC.length + 4) {
+      blossomSecureFail('MEDIA_E2EE_HASH_MISMATCH', 'opaque jpeg payload too short');
+    }
+    for (let m = 0; m < SECURE_WIRE_MAGIC.length; m += 1) {
+      if (buf[m] !== SECURE_WIRE_MAGIC[m]) {
+        blossomSecureFail('MEDIA_E2EE_HASH_MISMATCH', 'opaque jpeg magic mismatch');
+      }
+    }
+    const declared =
+      ((buf[SECURE_WIRE_MAGIC.length] << 24) >>> 0) +
+      ((buf[SECURE_WIRE_MAGIC.length + 1] << 16) >>> 0) +
+      ((buf[SECURE_WIRE_MAGIC.length + 2] << 8) >>> 0) +
+      (buf[SECURE_WIRE_MAGIC.length + 3] >>> 0);
+    const cipher = buf.subarray(SECURE_WIRE_MAGIC.length + 4);
+    if (cipher.length !== declared) {
+      blossomSecureFail('MEDIA_E2EE_SIZE_MISMATCH', 'opaque jpeg cipher length mismatch');
+    }
+    return cipher;
   }
 
   function reportSecureProgress(onProgress, phase, bytesProcessed, totalBytes) {
@@ -256,7 +395,6 @@
     if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
       blossomSecureFail('BLOSSOM_BAD_URL', 'non-http(s) blossom url');
     }
-    // Reject obvious unsafe schemes that URL parser might normalize oddly.
     const lower = String(u).trim().toLowerCase();
     if (
       lower.startsWith('javascript:') ||
@@ -283,7 +421,6 @@
     checkAbort(options.signal);
     const blob = options.blob;
     if (!blob || (typeof Blob !== 'undefined' && !(blob instanceof Blob) && !(blob instanceof Uint8Array) && !(blob instanceof ArrayBuffer))) {
-      // Allow Blob / File / Uint8Array / ArrayBuffer
       if (!(blob instanceof Uint8Array) && !(blob instanceof ArrayBuffer) && !(typeof Blob !== 'undefined' && blob instanceof Blob)) {
         blossomSecureFail('MEDIA_E2EE_BAD_DESCRIPTOR', 'missing media blob');
       }
@@ -306,24 +443,16 @@
       mime,
       mode: options.mode,
       attachmentId: options.attachmentId,
-      // Optional: private-chat secure server-blob may pass 1 MiB; default remains 64 KiB.
       chunkPlaintextSize: options.chunkPlaintextSize,
       signal: options.signal,
       onProgress: (p) => reportSecureProgress(options.onProgress, 'encrypting', p.bytesProcessed, p.totalBytes),
     });
 
     const ciphertextBytes = enc.ciphertext;
-    const encryptedBlob = new Blob([ciphertextBytes], { type: SECURE_UPLOAD_CONTENT_TYPE });
-    // Opaque local name only — never original filename.
-    try {
-      if (typeof File !== 'undefined') {
-        // Prefer File with opaque name when available (not sent as multipart filename by our PUT body).
-      }
-    } catch (_e) { /* ignore */ }
+    // Local Blob type is wire transport MIME only ג€” never original private MIME.
+    const encryptedBlob = new Blob([ciphertextBytes], { type: SECURE_WIRE_CONTENT_TYPE });
 
-    const draft = Object.assign({}, enc.descriptor, {
-      // resource filled after upload
-    });
+    const draft = Object.assign({}, enc.descriptor, {});
     delete draft.resource;
 
     reportSecureProgress(options.onProgress, 'encrypting', encryptedBlob.size, encryptedBlob.size);
@@ -349,8 +478,8 @@
   }
 
   /**
-   * Upload already-prepared ciphertext. Auth x-tag = ciphertext SHA-256.
-   * Content-Type forced to application/octet-stream.
+   * Upload already-prepared ciphertext. Auth x-tag = SHA-256(wire body).
+   * Wire = opaque JPEG container; Content-Type = image/jpeg (constant).
    * Does NOT re-encrypt (retry-safe).
    */
   async function uploadPreparedEncryptedMediaToBlossom(options = {}) {
@@ -375,27 +504,49 @@
     }
 
     const fetchFn = getFetch(options.fetchImpl);
-    const servers = await getServers();
-    // Auth MUST bind ciphertext hash (not plaintext).
-    const auth = await createAuthEvent('upload', 'Upload encrypted media', cipherSha256);
+    const servers = await getSecureServers();
+
+    let ciphertextBytes;
+    if (options.ciphertextBytes instanceof Uint8Array) {
+      ciphertextBytes = options.ciphertextBytes;
+    } else {
+      const ab = await encryptedBlob.arrayBuffer();
+      ciphertextBytes = new Uint8Array(ab);
+    }
+    const localHash = await App.hashMediaCiphertext(ciphertextBytes);
+    if (localHash !== cipherSha256) {
+      blossomSecureFail('MEDIA_E2EE_HASH_MISMATCH', 'prepared ciphertext hash mismatch');
+    }
+
+    const wireBytes = wrapOpaqueJpegV1(ciphertextBytes);
+    const wireSha256 = await sha256Hex(new Blob([wireBytes]));
+    const wireBlob = new Blob([wireBytes], { type: SECURE_WIRE_CONTENT_TYPE });
+
+    // Auth MUST bind uploaded wire body hash (Blossom object identity).
+    const auth = await createAuthEvent('upload', 'Upload encrypted media', wireSha256);
     const header = 'Nostr ' + btoa(JSON.stringify(auth));
     const errors = [];
 
     try {
       console.log(
         '[MEDIA/BLOSSOM] upload ciphertext start size=' +
-          encryptedBlob.size +
+          ciphertextBytes.length +
+          ' wireSize=' +
+          wireBytes.length +
+          ' encoding=' +
+          SECURE_WIRE_ENCODING +
+          ' ct=' +
+          SECURE_WIRE_CONTENT_TYPE +
           ' hashPrefix=' +
           cipherSha256.slice(0, 8),
       );
     } catch (_e) { /* ignore */ }
 
-    reportSecureProgress(options.onProgress, 'uploading', 0, encryptedBlob.size);
+    reportSecureProgress(options.onProgress, 'uploading', 0, wireBytes.length);
 
     for (const s of servers) {
       checkAbort(options.signal);
-      const uploadPaths = ['/upload', '/api/v1/upload', '/api/upload', '/media'];
-      for (const path of uploadPaths) {
+      for (const path of SECURE_UPLOAD_PATHS) {
         checkAbort(options.signal);
         try {
           const url = new URL(path, s.url).toString();
@@ -404,9 +555,9 @@
             try {
               const res = await fetchFn(url, {
                 method,
-                body: encryptedBlob,
+                body: wireBlob,
                 headers: {
-                  'Content-Type': SECURE_UPLOAD_CONTENT_TYPE,
+                  'Content-Type': SECURE_WIRE_CONTENT_TYPE,
                   Accept: 'application/json',
                   Authorization: header,
                 },
@@ -436,7 +587,7 @@
                 continue;
               }
               const safeUrl = assertSafeSecureBlossomUrl(resultUrl);
-              reportSecureProgress(options.onProgress, 'uploading', encryptedBlob.size, encryptedBlob.size);
+              reportSecureProgress(options.onProgress, 'uploading', wireBytes.length, wireBytes.length);
 
               let host = '';
               try {
@@ -448,6 +599,10 @@
                   transport: 'blossom',
                   url: safeUrl,
                   host: host || undefined,
+                  encoding: SECURE_WIRE_ENCODING,
+                  contentType: SECURE_WIRE_CONTENT_TYPE,
+                  wireSha256,
+                  wireSize: wireBytes.length,
                 },
               });
               App.validateEncryptedMediaDescriptor(finalDescriptor);
@@ -456,6 +611,8 @@
                 console.log(
                   '[MEDIA/BLOSSOM] upload success hashPrefix=' +
                     cipherSha256.slice(0, 8) +
+                    ' wirePrefix=' +
+                    wireSha256.slice(0, 8) +
                     ' host=' +
                     (host || ''),
                 );
@@ -465,6 +622,7 @@
                 descriptor: finalDescriptor,
                 url: safeUrl,
                 ciphertextSha256: cipherSha256,
+                wireSha256,
                 authEvent: auth,
               };
             } catch (fetchErr) {
@@ -492,6 +650,7 @@
     const prepared = await prepareEncryptedMediaForBlossom(options);
     const uploaded = await uploadPreparedEncryptedMediaToBlossom({
       encryptedBlob: prepared.encryptedBlob,
+      ciphertextBytes: prepared.ciphertextBytes,
       privateDescriptorDraft: prepared.privateDescriptorDraft,
       signal: options.signal,
       onProgress: options.onProgress,
@@ -501,6 +660,7 @@
       descriptor: uploaded.descriptor,
       url: uploaded.url,
       ciphertextSha256: uploaded.ciphertextSha256,
+      wireSha256: uploaded.wireSha256,
       prepared,
       authEvent: uploaded.authEvent,
     };
@@ -531,9 +691,22 @@
       blossomSecureFail('MEDIA_E2EE_TOO_LARGE', 'unsafe cipher size claim');
     }
 
+    const encoding =
+      descriptor.resource && typeof descriptor.resource.encoding === 'string'
+        ? descriptor.resource.encoding
+        : '';
+    const expectedWireSize =
+      descriptor.resource && typeof descriptor.resource.wireSize === 'number'
+        ? descriptor.resource.wireSize
+        : null;
+    const expectedWireHash =
+      descriptor.resource && typeof descriptor.resource.wireSha256 === 'string'
+        ? descriptor.resource.wireSha256
+        : '';
+
     const safeUrl = assertSafeSecureBlossomUrl(descriptor.resource.url);
     const fetchFn = getFetch(options.fetchImpl);
-    reportSecureProgress(options.onProgress, 'downloading', 0, expectedSize);
+    reportSecureProgress(options.onProgress, 'downloading', 0, expectedWireSize || expectedSize);
 
     let res;
     try {
@@ -542,8 +715,9 @@
         mode: 'cors',
         credentials: 'omit',
         signal: options.signal,
-        redirect: 'error',
-        headers: { Accept: 'application/octet-stream,*/*' },
+        // Real Blossom CDNs may 30x; integrity is enforced via wire/cipher hashes below.
+        redirect: 'follow',
+        headers: { Accept: 'image/jpeg,application/octet-stream,*/*' },
       });
     } catch (fetchErr) {
       if (options.signal && options.signal.aborted) blossomSecureFail('MEDIA_E2EE_ABORTED', 'aborted');
@@ -556,7 +730,14 @@
     const contentLength = res.headers && typeof res.headers.get === 'function' ? res.headers.get('content-length') : null;
     if (contentLength != null && contentLength !== '') {
       const cl = Number(contentLength);
-      if (Number.isFinite(cl) && (cl !== expectedSize || cl > MAX_SECURE_DOWNLOAD_BYTES)) {
+      if (Number.isFinite(cl) && cl > MAX_SECURE_DOWNLOAD_BYTES) {
+        blossomSecureFail('MEDIA_E2EE_TOO_LARGE', 'content-length too large');
+      }
+      if (encoding === SECURE_WIRE_ENCODING) {
+        if (expectedWireSize != null && Number.isFinite(cl) && cl !== expectedWireSize) {
+          blossomSecureFail('MEDIA_E2EE_SIZE_MISMATCH', 'wire content-length mismatch');
+        }
+      } else if (Number.isFinite(cl) && cl !== expectedSize) {
         blossomSecureFail('MEDIA_E2EE_SIZE_MISMATCH', 'content-length mismatch');
       }
     }
@@ -567,11 +748,29 @@
     } catch (_err) {
       blossomSecureFail('BLOSSOM_DOWNLOAD_FAILED', 'body read failed');
     }
-    const ciphertext = new Uint8Array(buf);
+    const wireOrCipher = new Uint8Array(buf);
+    if (wireOrCipher.byteLength > MAX_SECURE_DOWNLOAD_BYTES) {
+      blossomSecureFail('MEDIA_E2EE_TOO_LARGE', 'downloaded body too large');
+    }
+    reportSecureProgress(options.onProgress, 'downloading', wireOrCipher.byteLength, wireOrCipher.byteLength);
+
+    let ciphertext;
+    if (encoding === SECURE_WIRE_ENCODING) {
+      if (expectedWireHash && /^[0-9a-f]{64}$/.test(expectedWireHash)) {
+        const wireHash = await sha256Hex(new Blob([wireOrCipher]));
+        if (wireHash !== expectedWireHash) {
+          blossomSecureFail('MEDIA_E2EE_HASH_MISMATCH', 'wire hash mismatch');
+        }
+      }
+      ciphertext = unwrapOpaqueJpegV1(wireOrCipher);
+    } else {
+      // Legacy descriptors uploaded as raw ciphertext (pre-compat).
+      ciphertext = wireOrCipher;
+    }
+
     if (ciphertext.byteLength !== expectedSize) {
       blossomSecureFail('MEDIA_E2EE_SIZE_MISMATCH', 'downloaded size mismatch');
     }
-    reportSecureProgress(options.onProgress, 'downloading', ciphertext.byteLength, expectedSize);
 
     const hash = await App.hashMediaCiphertext(ciphertext);
     if (hash !== expectedHash) {
@@ -613,27 +812,30 @@
    */
   async function deleteEncryptedMediaFromBlossom(options = {}) {
     checkAbort(options.signal);
-    let cipherSha256 = '';
-    if (options.descriptor && options.descriptor.cipher && options.descriptor.cipher.sha256) {
-      cipherSha256 = String(options.descriptor.cipher.sha256);
+    let objectSha256 = '';
+    if (options.descriptor && options.descriptor.resource && options.descriptor.resource.wireSha256) {
+      objectSha256 = String(options.descriptor.resource.wireSha256);
+    } else if (options.descriptor && options.descriptor.cipher && options.descriptor.cipher.sha256) {
+      objectSha256 = String(options.descriptor.cipher.sha256);
     } else if (typeof options.ciphertextSha256 === 'string') {
-      cipherSha256 = options.ciphertextSha256;
+      objectSha256 = options.ciphertextSha256;
+    } else if (typeof options.wireSha256 === 'string') {
+      objectSha256 = options.wireSha256;
     }
-    if (!/^[0-9a-f]{64}$/.test(cipherSha256)) {
-      blossomSecureFail('MEDIA_E2EE_HASH_MISMATCH', 'missing ciphertext sha256 for delete');
+    if (!/^[0-9a-f]{64}$/.test(objectSha256)) {
+      return { ok: false, reason: 'missing-hash' };
     }
     if (!App.publicKey || !App.privateKey || typeof App.finalizeEvent !== 'function') {
-      blossomSecureFail('BLOSSOM_AUTH_UNAVAILABLE', 'missing signer');
+      return { ok: false, reason: 'missing-signer' };
     }
     const fetchFn = getFetch(options.fetchImpl);
-    const auth = await createAuthEvent('delete', 'Delete encrypted media', cipherSha256);
-    const header = 'Nostr ' + btoa(JSON.stringify(auth));
     const servers = await getServers();
+    const auth = await createAuthEvent('delete', 'Delete encrypted media', objectSha256);
+    const header = 'Nostr ' + btoa(JSON.stringify(auth));
     const errors = [];
-
     for (const s of servers) {
       checkAbort(options.signal);
-      const paths = ['/' + cipherSha256, '/media/' + cipherSha256, '/upload/' + cipherSha256];
+      const paths = ['/' + objectSha256, '/media/' + objectSha256, '/upload/' + objectSha256];
       for (const path of paths) {
         try {
           const url = new URL(path, s.url).toString();
@@ -643,13 +845,12 @@
             mode: 'cors',
             credentials: 'omit',
             signal: options.signal,
-            redirect: 'error',
           });
-          if (res.ok || res.status === 404) {
+          if (res && (res.ok || res.status === 404)) {
             try {
-              console.log('[MEDIA/BLOSSOM] delete ok hashPrefix=' + cipherSha256.slice(0, 8));
+              console.log('[MEDIA/BLOSSOM] delete ok hashPrefix=' + objectSha256.slice(0, 8));
             } catch (_e) { /* ignore */ }
-            return { ok: true, ciphertextSha256: cipherSha256, status: res.status };
+            return { ok: true, ciphertextSha256: objectSha256, status: res.status };
           }
           errors.push(path + ' status=' + res.status);
         } catch (e) {
@@ -659,9 +860,9 @@
       }
     }
     try {
-      console.warn('[MEDIA/BLOSSOM] delete failed hashPrefix=' + cipherSha256.slice(0, 8));
+      console.warn('[MEDIA/BLOSSOM] delete failed hashPrefix=' + objectSha256.slice(0, 8));
     } catch (_e) { /* ignore */ }
-    return { ok: false, ciphertextSha256: cipherSha256, errors };
+    return { ok: false, ciphertextSha256: objectSha256, errors };
   }
 
   Object.assign(App, {
@@ -674,5 +875,10 @@
     deleteEncryptedMediaFromBlossom,
     isEncryptedBlossomDescriptor,
     classifyBlossomAttachment,
+    // Exported for QA / diagnostics only (not a public upload API).
+    __sosWrapOpaqueJpegV1: wrapOpaqueJpegV1,
+    __sosUnwrapOpaqueJpegV1: unwrapOpaqueJpegV1,
+    SECURE_WIRE_CONTENT_TYPE,
+    SECURE_WIRE_ENCODING,
   });
 })(window);

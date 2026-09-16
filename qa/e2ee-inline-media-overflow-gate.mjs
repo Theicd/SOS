@@ -445,8 +445,8 @@ async function main() {
   }
   record('server body not plaintext bytes', !plaintextMatch);
   record(
-    'server Content-Type octet-stream (or unset mock)',
-    !ct || /octet-stream/i.test(String(ct)),
+    'server Content-Type opaque image/jpeg',
+    ct === 'image/jpeg',
   );
   const keyLeak =
     JSON.stringify(resB.attachment).includes(resB.attachment.enc?.key) === false

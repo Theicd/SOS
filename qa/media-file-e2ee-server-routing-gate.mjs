@@ -493,14 +493,21 @@ async function runGateOnBlossomEncrypt(kind, marker, mime, fileName) {
   const bodyText = body ? Buffer.from(body).toString('utf8') : '';
   const ct = (counts.networkHeaders[0] && (counts.networkHeaders[0]['Content-Type'] || counts.networkHeaders[0]['content-type'])) || '';
   record(kind + ' body has no plaintext marker', !bodyText.includes(marker));
-  record(kind + ' Content-Type application/octet-stream', ct === 'application/octet-stream');
+  record(kind + ' Content-Type opaque image/jpeg', ct === 'image/jpeg');
   record(kind + ' AES key not in network body', !bodyText.includes(descriptor.enc.key));
   record(kind + ' nonce not in network body', !bodyText.includes(descriptor.enc.nonce));
 
-  // Ciphertext hash matches body
+  // Blossom object hash is wire (opaque container) SHA-256; cipher.sha256 is raw ciphertext.
   const hashBuf = await webcrypto.subtle.digest('SHA-256', body);
   const hashHex = Buffer.from(hashBuf).toString('hex');
-  record(kind + ' blossom hash is ciphertext SHA-256', hashHex === descriptor.cipher.sha256);
+  record(
+    kind + ' blossom hash is wire SHA-256',
+    hashHex === (descriptor.resource && descriptor.resource.wireSha256),
+  );
+  record(
+    kind + ' cipher.sha256 differs from wire when wrapped',
+    descriptor.cipher.sha256 !== descriptor.resource.wireSha256,
+  );
 
   // Receiver roundtrip
   const resolved = await rt.App.resolveServerMediaAttachment(descriptor, {

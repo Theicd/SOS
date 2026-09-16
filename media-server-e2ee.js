@@ -414,6 +414,7 @@
       }
       const uploaded = await App.uploadPreparedEncryptedMediaToBlossom({
         encryptedBlob: opts.prepared.encryptedBlob,
+        ciphertextBytes: opts.prepared.ciphertextBytes,
         privateDescriptorDraft: opts.prepared.privateDescriptorDraft,
         signal: opts.signal,
         onProgress: opts.onProgress,
