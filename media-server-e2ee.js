@@ -460,6 +460,196 @@
 
   App.assertEncryptedBlossomFitsE3b = assertEncryptedBlossomFitsE3b;
 
+  function isPrivateChatMediaAttachmentType(mime, name) {
+    const m = typeof mime === 'string' ? mime : '';
+    if (/^(image|audio|video)\//i.test(m)) return true;
+    return /\.(jpe?g|png|gif|webp|bmp|heic|mp4|m4v|mov|webm|mkv|avi|3gp|ogg|mp3|m4a|wav)$/i.test(
+      String(name || ''),
+    );
+  }
+
+  /**
+   * Hotfix: legacy inline size may still exceed NIP-44 after dataURL/JSON/E3B wrapping.
+   * Classify the exact candidate; never use ENCRYPT_FAILURE as flow control.
+   * Media → encrypted server fallback. Generic → caller uses existing non-Blossom alternate.
+   */
+  async function resolveInlineAttachmentForE2ee(options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const attachment =
+      opts.attachment && typeof opts.attachment === 'object' ? { ...opts.attachment } : null;
+    if (!attachment) {
+      const err = new Error('MEDIA_E2EE_INLINE_MISSING_ATTACHMENT');
+      err.code = 'MEDIA_E2EE_INLINE_MISSING_ATTACHMENT';
+      throw err;
+    }
+
+    const messageId = ensureLogicalMessageId(
+      opts.messageId || attachment.clientMessageId || attachment.logicalMessageId,
+    );
+    const sender =
+      (typeof opts.sender === 'string' && opts.sender) ||
+      (typeof App.publicKey === 'string' && App.publicKey) ||
+      '';
+    const recipient = (typeof opts.recipient === 'string' && opts.recipient) || '';
+    const text = opts.text == null ? '' : String(opts.text);
+    const createdAt =
+      typeof opts.createdAt === 'number' ? opts.createdAt : Math.floor(Date.now() / 1000);
+
+    attachment.clientMessageId = messageId;
+    attachment.logicalMessageId = messageId;
+
+    if (typeof App.classifyAttachmentForE2eeRoute !== 'function' || !sender || !recipient) {
+      return {
+        route: 'INLINE_E2EE_SAFE',
+        reason: !sender || !recipient ? 'missing-parties' : 'classifier-unavailable',
+        messageId,
+        attachment,
+        classification: null,
+        secureUploadCalls: 0,
+        plaintextBlossomCalls: 0,
+      };
+    }
+
+    const candidate = {
+      messageId,
+      sender,
+      recipient,
+      createdAt,
+      text,
+      attachment,
+    };
+    const classification = App.classifyAttachmentForE2eeRoute(candidate);
+    const route = classification && classification.route ? classification.route : 'INLINE_E2EE_SAFE';
+
+    if (route === 'INLINE_E2EE_SAFE') {
+      return {
+        route,
+        reason: (classification && classification.reason) || 'fits-nip44-v2',
+        messageId,
+        attachment,
+        classification,
+        secureUploadCalls: 0,
+        plaintextBlossomCalls: 0,
+      };
+    }
+
+    if (route === 'REJECT_TOO_LARGE') {
+      const err = new Error('MEDIA_E2EE_TOO_LARGE');
+      err.code = 'MEDIA_E2EE_TOO_LARGE';
+      err.details = classification;
+      throw err;
+    }
+
+    // SECURE_BLOB_REQUIRED
+    const mime = attachment.type || opts.mimeType || opts.mime || '';
+    const name = attachment.name || opts.fileName || opts.filename || '';
+    const mediaOk = isPrivateChatMediaAttachmentType(mime, name);
+    if (!mediaOk) {
+      return {
+        route: 'GENERIC_ALTERNATE_REQUIRED',
+        reason: 'e2ee-inline-overflow-generic',
+        messageId,
+        attachment,
+        classification,
+        secureUploadCalls: 0,
+        plaintextBlossomCalls: 0,
+      };
+    }
+
+    if (typeof App.uploadMediaForServerFallback !== 'function') {
+      const err = new Error('MEDIA_SERVER_E2EE_FALLBACK_UNAVAILABLE');
+      err.code = 'MEDIA_SERVER_E2EE_FALLBACK_UNAVAILABLE';
+      throw err;
+    }
+
+    const blob = opts.blob || opts.file || null;
+    if (!blob) {
+      const err = new Error('MEDIA_E2EE_INLINE_MISSING_BLOB');
+      err.code = 'MEDIA_E2EE_INLINE_MISSING_BLOB';
+      throw err;
+    }
+
+    // Never plaintext Blossom retry from this path — uploadMediaForServerFallback honors gate.
+    const uploaded = await App.uploadMediaForServerFallback(blob, {
+      messageId,
+      sender,
+      recipient,
+      mimeType: mime,
+      fileName: name,
+      duration: typeof attachment.duration === 'number' ? attachment.duration : opts.duration,
+      signal: opts.signal,
+      skipPolicyFetch: opts.skipPolicyFetch === true,
+      policyFetchImpl: opts.policyFetchImpl,
+      fetchImpl: opts.fetchImpl,
+    });
+
+    if (uploaded && typeof uploaded === 'object' && uploaded.type === 'encrypted-media') {
+      const descriptor = { ...uploaded };
+      descriptor.id = descriptor.attachmentId || attachment.id || descriptor.id;
+      descriptor.fileId = attachment.fileId || descriptor.id;
+      descriptor.name =
+        (descriptor.media && descriptor.media.filename) || name || descriptor.name;
+      descriptor.size =
+        descriptor.media && typeof descriptor.media.originalSize === 'number'
+          ? descriptor.media.originalSize
+          : attachment.size;
+      if (attachment.caption != null) descriptor.caption = attachment.caption;
+      if (attachment.hidePreview != null) descriptor.hidePreview = attachment.hidePreview;
+      if (attachment.isVoice) descriptor.isVoice = true;
+      if (attachment.isVideo) descriptor.isVideo = true;
+      if (typeof attachment.duration === 'number') descriptor.duration = attachment.duration;
+      if (attachment.previewUrl) descriptor.previewUrl = attachment.previewUrl;
+      descriptor.clientMessageId = messageId;
+      descriptor.logicalMessageId = messageId;
+      // Drop inline plaintext payload — descriptor only on the wire.
+      delete descriptor.dataUrl;
+      return {
+        route: 'SECURE_BLOB_REQUIRED',
+        reason: (classification && classification.reason) || 'exceeds-nip44-v2-plaintext',
+        messageId,
+        attachment: descriptor,
+        classification,
+        secureUploadCalls: 1,
+        plaintextBlossomCalls: 0,
+      };
+    }
+
+    // Gate OFF may return a plain URL string. Callers must not treat that as success
+    // under production mediaServerE2eeRequired=true; still never invent a second plaintext upload.
+    if (typeof uploaded === 'string' && uploaded) {
+      const urlAtt = {
+        id: attachment.id || 'blossom-' + Date.now(),
+        fileId: attachment.fileId || attachment.id,
+        name,
+        size: attachment.size,
+        type: mime || 'application/octet-stream',
+        url: uploaded,
+        dataUrl: '',
+        caption: attachment.caption,
+        hidePreview: attachment.hidePreview !== false,
+        clientMessageId: messageId,
+        logicalMessageId: messageId,
+      };
+      if (typeof attachment.duration === 'number') urlAtt.duration = attachment.duration;
+      return {
+        route: 'SECURE_BLOB_REQUIRED',
+        reason: 'server-fallback-gate-off-url',
+        messageId,
+        attachment: urlAtt,
+        classification,
+        secureUploadCalls: 1,
+        plaintextBlossomCalls: 1,
+      };
+    }
+
+    const err = new Error('MEDIA_SERVER_E2EE_FALLBACK_FAILED');
+    err.code = 'MEDIA_SERVER_E2EE_FALLBACK_FAILED';
+    throw err;
+  }
+
+  App.resolveInlineAttachmentForE2ee = resolveInlineAttachmentForE2ee;
+  App.isPrivateChatMediaAttachmentType = isPrivateChatMediaAttachmentType;
+
   function getAttachmentPlainMime(attachment) {
     if (!attachment || typeof attachment !== 'object') return '';
     if (typeof attachment._plainMime === 'string' && attachment._plainMime) {

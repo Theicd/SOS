@@ -103,25 +103,18 @@
     const ext = getFileExtension(mimeType || 'audio/webm');
     const fileName = `voice-message.${ext}`;
     const finalMime = canonicalVoiceMime(mimeType || 'audio/webm');
-    
-    if(blob.size <= MAX_INLINE_BYTES){
-      const dataUrl = await new Promise((res,rej)=>{
-        const r = new FileReader(); r.onload = ()=>res(String(r.result||'')); r.onerror = rej; r.readAsDataURL(blob);
-      });
-      return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl, url: '', duration };
-    }
-    // העלאה ל-Blossom (M4: when server-E2EE gate ON → ciphertext only; transport choice unchanged)
-    try{
+    const peer =
+      (typeof App.getActiveChatPeer === 'function' && App.getActiveChatPeer()) ||
+      (App.chatState && App.chatState.activeContact) ||
+      '';
+    const messageId =
+      typeof App.ensureLogicalMessageIdForMedia === 'function'
+        ? App.ensureLogicalMessageIdForMedia()
+        : ('cmsg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));
+
+    async function uploadSecureVoice() {
       const uploadBlob = new Blob([blob], { type: finalMime });
-      const peer =
-        (typeof App.getActiveChatPeer === 'function' && App.getActiveChatPeer()) ||
-        (App.chatState && App.chatState.activeContact) ||
-        '';
       if (typeof App.uploadMediaForServerFallback === 'function') {
-        const messageId =
-          typeof App.ensureLogicalMessageIdForMedia === 'function'
-            ? App.ensureLogicalMessageIdForMedia()
-            : ('cmsg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));
         const uploaded = await App.uploadMediaForServerFallback(uploadBlob, {
           messageId,
           sender: App.publicKey,
@@ -153,19 +146,95 @@
       const url = await App.uploadToBlossom(uploadBlob);
       console.log('[VOICE] Uploaded to Blossom:', typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]');
       return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl: '', url, duration };
+    }
+
+    async function tryInlineVoice() {
+      const dataUrl = await new Promise((res,rej)=>{
+        const r = new FileReader(); r.onload = ()=>res(String(r.result||'')); r.onerror = rej; r.readAsDataURL(blob);
+      });
+      const inlineAtt = {
+        id: 'audio-'+Date.now(),
+        name: fileName,
+        size: blob.size,
+        type: finalMime,
+        dataUrl,
+        url: '',
+        duration,
+        isVoice: true,
+        clientMessageId: messageId,
+        logicalMessageId: messageId,
+      };
+      if (typeof App.resolveInlineAttachmentForE2ee !== 'function') {
+        return inlineAtt;
+      }
+      const resolved = await App.resolveInlineAttachmentForE2ee({
+        attachment: inlineAtt,
+        blob,
+        file: blob,
+        messageId,
+        sender: App.publicKey,
+        recipient: peer,
+        text: '',
+        mimeType: finalMime,
+        fileName,
+        duration,
+      });
+      if (resolved.route === 'INLINE_E2EE_SAFE') {
+        return resolved.attachment;
+      }
+      if (resolved.route === 'SECURE_BLOB_REQUIRED' && resolved.attachment) {
+        return resolved.attachment;
+      }
+      // GENERIC should not happen for voice MIME; fall through to secure upload.
+      return null;
+    }
+    
+    if(blob.size <= MAX_INLINE_BYTES){
+      try {
+        const inlineOrSecure = await tryInlineVoice();
+        if (inlineOrSecure) return inlineOrSecure;
+      } catch (preErr) {
+        // Prefer secure Blossom over impossible inline when preflight rejects.
+        if (preErr && preErr.code === 'MEDIA_E2EE_TOO_LARGE') throw preErr;
+        console.warn('[VOICE] inline E3B preflight failed, trying secure server fallback', preErr?.code || preErr?.message);
+      }
+      // SECURE_BLOB_REQUIRED without descriptor (or classifier miss) → encrypted Blossom path
+      try {
+        return await uploadSecureVoice();
+      } catch (err) {
+        console.error('[VOICE] Blossom upload failed after inline overflow:', err);
+        if (typeof App.isMediaServerE2eeRequired === 'function' && App.isMediaServerE2eeRequired()) {
+          throw err;
+        }
+        throw err;
+      }
+    }
+    // העלאה ל-Blossom (M4: when server-E2EE gate ON → ciphertext only; transport choice unchanged)
+    try{
+      return await uploadSecureVoice();
     }catch(err){
       console.error('[VOICE] Blossom upload failed:', err);
       // When server E2EE gate is ON: never silent plaintext Blossom downgrade.
-      // Existing controller may still use oversized-inline emergency path below.
+      // Do not return an E3B-impossible inline as flow control (ENCRYPT_FAILURE).
       if (typeof App.isMediaServerE2eeRequired === 'function' && App.isMediaServerE2eeRequired()) {
-        if (blob.size <= MAX_INLINE_BYTES * 1.2){
-          const dataUrl = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result||'')); r.onerror=rej; r.readAsDataURL(blob); });
-          return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl, url: '', duration };
+        if (blob.size <= MAX_INLINE_BYTES * 1.2 && typeof App.resolveInlineAttachmentForE2ee === 'function') {
+          try {
+            const emergency = await tryInlineVoice();
+            if (emergency && emergency.dataUrl && emergency.type !== 'encrypted-media') {
+              // Only accept if classifier kept it INLINE_E2EE_SAFE
+              return emergency;
+            }
+            if (emergency && emergency.type === 'encrypted-media') return emergency;
+          } catch (_e) {}
         }
         throw err;
       }
       // Fallback: אם העלאה נכשלה נחזור ל-inline אם אפשר, אחרת נדווח שגיאה
       if (blob.size <= MAX_INLINE_BYTES * 1.2){
+        try {
+          const emergency = await tryInlineVoice();
+          if (emergency) return emergency;
+        } catch (_e) {}
         const dataUrl = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result||'')); r.onerror=rej; r.readAsDataURL(blob); });
         return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl, url: '', duration };
       }

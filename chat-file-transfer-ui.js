@@ -406,6 +406,7 @@
     
     // חלק קבצים קטנים/בינוניים (chat-file-transfer-ui.js) – inline DataURL לקבצים עד 256KB | HYPER CORE TECH
     // כל הקבצים (מדיה ולא-מדיה) נשלחים אוטומטית — בלי שורת preview תחתונה שמחכה ללחיצת שלח
+    // E3B hotfix: legacy ≤256KiB may still exceed NIP-44 after dataURL wrap — preflight exact candidate.
     const isMediaFile = /^(image|audio|video)\//i.test(file.type || '');
     const reader = new FileReader();
     reader.onload = async () => {
@@ -447,7 +448,7 @@
           isFileCard: false,
         });
       }
-      const attachment = {
+      let attachment = {
         id: attachmentId,
         fileId: attachmentId,
         name: file.name,
@@ -458,13 +459,87 @@
         caption,
         hidePreview: true, // שליחה מיידית — לא מציגים שורת שם-קובץ מתחת לקומפוזר
       };
+      const displayText = caption || (isMediaFile ? '' : `📎 ${file.name}`);
+
+      // Exact E3B/NIP-44 preflight before any Relay encrypt attempt.
+      if (typeof App.resolveInlineAttachmentForE2ee === 'function') {
+        try {
+          const resolved = await App.resolveInlineAttachmentForE2ee({
+            attachment,
+            blob: file,
+            file,
+            recipient: peer,
+            sender: App.publicKey,
+            text: displayText,
+            mimeType: file.type,
+            fileName: file.name,
+          });
+          if (resolved?.route === 'GENERIC_ALTERNATE_REQUIRED') {
+            log('inline E3B-unsafe generic → existing torrent alternate', {
+              name: file.name,
+              size: file.size,
+              utf8Bytes: resolved.classification?.utf8Bytes,
+            });
+            if (typeof App.torrentTransfer?.requestTransfer === 'function') {
+              try {
+                if (caption) {
+                  App.setChatFileAttachment?.(peer, {
+                    id: `pending-caption-${Date.now()}`,
+                    name: file.name,
+                    size: file.size,
+                    type: file.type,
+                    caption,
+                    hidePreview: true,
+                  });
+                }
+                const torrentResult = await App.torrentTransfer.requestTransfer(peer, file);
+                if (torrentResult?.success) {
+                  const tid = torrentResult.transferId || '';
+                  if (optimisticFileId && tid && optimisticFileId !== tid) {
+                    App.adoptChatTransferBubble?.(optimisticFileId, tid);
+                    optimisticFileId = null;
+                  }
+                  log('generic E3B-overflow torrent ok', { name: file.name, transferId: tid || null });
+                  return;
+                }
+              } catch (torrentErr) {
+                log('generic E3B-overflow torrent failed', torrentErr?.message || torrentErr);
+              }
+            }
+            App.notifyChatFileTransferError?.({
+              peer,
+              code: 'e2ee-inline-overflow',
+              message: 'הקובץ גדול מדי לשליחה מוצפנת במסלול הנוכחי. נסה שוב דרך מסלול ישיר.',
+            });
+            return;
+          }
+          if (resolved?.attachment) {
+            attachment = resolved.attachment;
+            log('E3B inline preflight', {
+              route: resolved.route,
+              utf8Bytes: resolved.classification?.utf8Bytes,
+              size: file.size,
+              secureUpload: resolved.secureUploadCalls || 0,
+            });
+          }
+        } catch (preErr) {
+          const code = preErr?.code || preErr?.message || 'e2ee-inline-preflight-failed';
+          log('E3B inline preflight failed', code);
+          App.notifyChatFileTransferError?.({
+            peer,
+            code: String(code),
+            message: 'שליחת הקובץ נכשלה במסלול המוצפן. נסה שוב בעוד רגע.',
+          });
+          return;
+        }
+      }
+
       App.setChatFileAttachment?.(peer, attachment);
       renderPreview(null);
 
       // חלק שליחה אוטומטית (chat-file-transfer-ui.js) – תמונה/וידאו/קובץ נשלחים מיד אחרי בחירה | HYPER CORE TECH
       if (typeof App.publishChatMessage === 'function') {
         log('שליחה אוטומטית של קובץ', { name: file.name, size: file.size, media: isMediaFile, hasCaption: !!caption });
-        const displayText = caption || (isMediaFile ? '' : `📎 ${file.name}`);
         try {
           const result = await App.publishChatMessage(peer, displayText);
           if (result?.ok) {
@@ -479,7 +554,7 @@
                 status: 'complete',
                 progress: 1,
                 caption: caption || undefined,
-                blobUrl: attachment.dataUrl || undefined,
+                blobUrl: attachment.dataUrl || attachment.previewUrl || undefined,
               });
             }
           } else {
