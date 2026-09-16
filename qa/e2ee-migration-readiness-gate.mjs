@@ -46,7 +46,7 @@ const apkVer = JSON.parse(read('apk-version.json'));
 record('E2 dual-read present in chat-service', svc.includes('looksLikeIncomingE2eeContent') && svc.includes('decryptPrivateChatPayload'));
 record('LIVE_E2EE_SEND=false (activation ABSENT)',
   svc.includes('isE2eeSendRequired') &&
-  !Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired'));
+  Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired') && appVer.e2eeSendRequired === false);
 record('videos.html loads chat-e2ee.js before chat-service', (() => {
   const a = videos.indexOf('chat-e2ee.js');
   const b = videos.indexOf('chat-service.js');
@@ -90,7 +90,7 @@ record('WebView cache-else-network only for emergency offline shell', main.inclu
 
 record('app-version.json present', typeof appVer.version === 'string' && appVer.version.length > 0);
 record('minSecureChatEpoch activated =1', Number(appVer.minSecureChatEpoch) === 1);
-record('e2eeSendRequired ABSENT (not activated)', !Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired'));
+record('e2eeSendRequired explicit false (not activated)', Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired') && appVer.e2eeSendRequired === false);
 record('apk-version 1.0.113 recorded', apkVer.version === '1.0.113');
 
 record('no kind-0 sos_caps advertise', !read('profile.js').includes('sos_caps'));

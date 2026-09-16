@@ -572,10 +572,35 @@
       return { ok: false, error: 'invalid-recipient' };
     }
 
-    // E3B: when e2eeSendRequired (monotonic), kind 1050 relay content MUST be sos-e2ee envelope.
+    // E3B cutover safety: authoritative policy refresh BEFORE every kind 1050 Relay publish.
+    // READY tabs must not rely on a stale in-memory false after remote activation.
+    // Unknown/fetch-failure without prior true → block (no plaintext relay). No Push on block.
+    let e2eeSendRequired = false;
+    if (typeof App.resolveRelayE2eeSendDecision === 'function') {
+      let decision;
+      try {
+        decision = await App.resolveRelayE2eeSendDecision();
+      } catch (_polErr) {
+        decision = { ok: false, error: 'e2ee-policy-unavailable' };
+      }
+      if (!decision || decision.ok !== true) {
+        try {
+          console.warn(
+            '[E2EE/SEND] blocked reason=' +
+              String((decision && decision.error) || 'e2ee-policy-unavailable'),
+          );
+        } catch (_e) {}
+        return { ok: false, error: (decision && decision.error) || 'e2ee-policy-unavailable' };
+      }
+      e2eeSendRequired = decision.encrypt === true;
+    } else {
+      // Pre-hotfix clients only; cutover-ready builds always expose resolveRelayE2eeSendDecision.
+      e2eeSendRequired =
+        typeof App.isE2eeSendRequired === 'function' ? App.isE2eeSendRequired() === true : false;
+    }
+
+    // E3B: when required, kind 1050 relay content MUST be sos-e2ee envelope.
     // Fail closed — never plaintext fallback. No Push / no publish on encrypt failure.
-    const e2eeSendRequired =
-      typeof App.isE2eeSendRequired === 'function' ? App.isE2eeSendRequired() === true : false;
     let wireContent = serialization.rawContent || '';
     if (e2eeSendRequired) {
       if (!App.privateKey || !App.publicKey) {

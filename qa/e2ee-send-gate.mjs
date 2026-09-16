@@ -191,7 +191,7 @@ function loadRuntime(overrides = {}) {
       json: async () => ({
         version: 'test',
         minSecureChatEpoch: 1,
-        // e2eeSendRequired ABSENT by default in prep
+        e2eeSendRequired: false,
       }),
     })),
     navigator: { onLine: true },
@@ -288,14 +288,18 @@ const epochSrc = read('chat-secure-epoch.js');
 const pushSrc = read('push-trigger.js');
 const nativeWatcher = read('android-shell/app/src/main/java/com/sos010/app/SosRelayWatcher.kt');
 
-// --- Static prep assertions ---
-record('app-version e2ee-send-ready1', String(appVer.version || '').includes('e2ee-send-ready'));
+// --- Static cutover-ready assertions ---
+record('app-version e2ee-cutover-ready2', String(appVer.version || '').includes('e2ee-cutover-ready'));
 record('minSecureChatEpoch=1', Number(appVer.minSecureChatEpoch) === 1);
-record('e2eeSendRequired ABSENT in prep app-version', !Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired'));
-record('SW cache v831', /sos-cache-v831/.test(sw));
-record('chat-service encrypts when isE2eeSendRequired', svc.includes('isE2eeSendRequired') && svc.includes('encryptPrivateChatPayload'));
+record('e2eeSendRequired explicit false (not activated)',
+  Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired') && appVer.e2eeSendRequired === false);
+record('SW cache v832', /sos-cache-v832/.test(sw));
+record('chat-service resolves relay policy before publish',
+  svc.includes('resolveRelayE2eeSendDecision') && svc.includes('encryptPrivateChatPayload'));
 record('chat-service fail-closed encrypt errors', svc.includes('e2ee-encrypt-failed') && svc.includes('e2ee-key-unavailable'));
+record('chat-service blocks on policy unavailable', svc.includes('e2ee-policy-unavailable'));
 record('no plaintext fallback comment/guard', svc.includes('never plaintext') || svc.includes('Fail closed'));
+record('epoch has refreshE2eeSendPolicy', epochSrc.includes('refreshE2eeSendPolicy') && epochSrc.includes('resolveRelayE2eeSendDecision'));
 record('epoch has e2eeSendRequired monotonic key', epochSrc.includes('sos_e2ee_send_required') && epochSrc.includes('parseRemoteE2eeSendRequired'));
 record('Push privacy sanitizer still present', pushSrc.includes('sanitizePrivateChatPushPayload'));
 record('Native unchanged JSON preview safe', nativeWatcher.includes('raw.startsWith("{")') && nativeWatcher.includes('הודעה / קובץ'));
@@ -305,20 +309,19 @@ async function runBehavioral() {
   const alice = makePair();
   const bob = makePair();
 
-  // 1) Legacy send while E3B not required
+  // 1) Legacy send while E3B explicitly false
   {
     const rt = loadRuntime({
       epochFetch: async () => ({
         ok: true,
-        json: async () => ({ version: 't', minSecureChatEpoch: 1 }),
+        json: async () => ({ version: 't', minSecureChatEpoch: 1, e2eeSendRequired: false }),
       }),
     });
     rt.App.publicKey = alice.pk;
     rt.App.privateKey = alice.hex;
-    rt.App.__qaE2eeSendRequiredOverride = false;
     await rt.App.ensureSecureChatEpochReady({ skipAutoReload: true, silentUi: true });
     const res = await rt.App.publishChatMessage(bob.pk, 'legacy hello');
-    record('legacy send when activation absent', res.ok === true && rt.published.length === 1);
+    record('legacy send when activation explicit false', res.ok === true && rt.published.length === 1);
     const ev = rt.published[0];
     record('legacy wire is not sos-e2ee', ev && !String(ev.content).includes('"family":"sos-e2ee"') && String(ev.content).includes('legacy hello'));
     record('legacy single publish', rt.published.length === 1);
@@ -717,6 +720,166 @@ async function runBehavioral() {
       encryptedEnvelope: env,
     });
     record('mixed history both readable', legacy.displayText === 'old legacy' && dec.text === 'new encrypted');
+  }
+
+  // === CUTOVER SAFETY ===
+  const CUTOVER_SECRET = 'CUTOVER_SECRET_91827';
+  const CUTOVER_FILE = 'CUTOVER_PRIVATE_FILE_91827.txt';
+
+  // READY_TAB_REMOTE_ACTIVATION_WITHOUT_RELOAD
+  {
+    let remoteCfg = { version: 't', minSecureChatEpoch: 1, e2eeSendRequired: false };
+    const rt = loadRuntime({
+      epochFetch: async () => ({
+        ok: true,
+        json: async () => ({ ...remoteCfg }),
+      }),
+    });
+    rt.App.publicKey = alice.pk;
+    rt.App.privateKey = alice.hex;
+    await rt.App.ensureSecureChatEpochReady({ skipAutoReload: true, silentUi: true });
+    record('cutover start READY + false', rt.App.isSecureChatReady() === true && rt.App.isE2eeSendRequired() === false);
+    const legacyRes = await rt.App.publishChatMessage(bob.pk, 'pre-cutover legacy');
+    record('cutover pre-activation legacy relay', legacyRes.ok === true && rt.published.length === 1 && !String(rt.published[0].content).includes('sos-e2ee'));
+
+    // Same runtime — flip remote to true WITHOUT reload
+    remoteCfg = { version: 't', minSecureChatEpoch: 1, e2eeSendRequired: true };
+    const encRes = await rt.App.publishChatMessage(bob.pk, CUTOVER_SECRET);
+    record('READY_TAB_REMOTE_ACTIVATION_WITHOUT_RELOAD', encRes.ok === true && encRes.e2ee === true && rt.published.length === 2);
+    const wire = rt.published[1] && rt.published[1].content;
+    record('cutover wire is sos-e2ee', wire && String(wire).includes('"family":"sos-e2ee"'));
+    record('cutover secret absent from wire', wire && !String(wire).includes(CUTOVER_SECRET));
+    const env = JSON.parse(wire);
+    const inner = rt.App.decryptPrivateChatPayload({
+      localPrivateKeyHex: bob.hex,
+      localPubkey: bob.pk,
+      eventAuthorPubkey: alice.pk,
+      encryptedEnvelope: env,
+    });
+    record('cutover decrypt equals secret', inner.text === CUTOVER_SECRET);
+
+    // fetch failure after true → still encrypt
+    rt.App.__qaSecureEpochFetch = async () => {
+      throw new Error('offline');
+    };
+    const enc2 = await rt.App.publishChatMessage(bob.pk, CUTOVER_SECRET + '_b');
+    record('true observed → fetch failure → encrypted', enc2.ok === true && enc2.e2ee === true);
+
+    // remote false after true → still encrypt
+    rt.App.__qaSecureEpochFetch = async () => ({
+      ok: true,
+      json: async () => ({ version: 't', minSecureChatEpoch: 1, e2eeSendRequired: false }),
+    });
+    const enc3 = await rt.App.publishChatMessage(bob.pk, CUTOVER_SECRET + '_c');
+    record('true observed → remote false → encrypted', enc3.ok === true && enc3.e2ee === true);
+  }
+
+  // false → fetch failure → relay blocked (never observed true)
+  {
+    const rt = loadRuntime({
+      epochFetch: async () => ({
+        ok: true,
+        json: async () => ({ version: 't', minSecureChatEpoch: 1, e2eeSendRequired: false }),
+      }),
+    });
+    rt.App.publicKey = alice.pk;
+    rt.App.privateKey = alice.hex;
+    await rt.App.ensureSecureChatEpochReady({ skipAutoReload: true, silentUi: true });
+    rt.App.__qaSecureEpochFetch = async () => {
+      throw new Error('offline');
+    };
+    const res = await rt.App.publishChatMessage(bob.pk, 'should-block');
+    record('false → fetch failure → relay blocked', res.ok === false && res.error === 'e2ee-policy-unavailable' && rt.published.length === 0);
+    record('blocked relay → no Push', rt.pushCalls.length === 0);
+  }
+
+  // P2P success during policy uncertainty → DTLS path preserved
+  {
+    const rt = loadRuntime({
+      epochFetch: async () => ({
+        ok: true,
+        json: async () => ({ version: 't', minSecureChatEpoch: 1, e2eeSendRequired: false }),
+      }),
+    });
+    rt.App.publicKey = alice.pk;
+    rt.App.privateKey = alice.hex;
+    rt.App.forceRelay = false;
+    rt.App.dataChannel = {
+      isConnected() {
+        return true;
+      },
+      connect() {},
+      send() {
+        return true;
+      },
+    };
+    await rt.App.ensureSecureChatEpochReady({ skipAutoReload: true, silentUi: true });
+    rt.App.__qaSecureEpochFetch = async () => {
+      throw new Error('offline');
+    };
+    const res = await rt.App.publishChatMessage(bob.pk, 'p2p-ok');
+    record('P2P success during policy uncertainty → DTLS path', res.ok === true && res.p2p === true && rt.published.length === 0);
+  }
+
+  // P2P failure → Relay blocked if policy unknown
+  {
+    const rt = loadRuntime({
+      epochFetch: async () => ({
+        ok: true,
+        json: async () => ({ version: 't', minSecureChatEpoch: 1, e2eeSendRequired: false }),
+      }),
+    });
+    rt.App.publicKey = alice.pk;
+    rt.App.privateKey = alice.hex;
+    rt.App.forceRelay = false;
+    rt.App.dataChannel = {
+      isConnected() {
+        return true;
+      },
+      connect() {},
+      send() {
+        return false;
+      },
+    };
+    await rt.App.ensureSecureChatEpochReady({ skipAutoReload: true, silentUi: true });
+    rt.App.__qaSecureEpochFetch = async () => {
+      throw new Error('offline');
+    };
+    const res = await rt.App.publishChatMessage(bob.pk, 'relay-block');
+    record('P2P failure → Relay blocked if policy unknown', res.ok === false && res.error === 'e2ee-policy-unavailable' && rt.published.length === 0);
+  }
+
+  // Attachment cutover without reload
+  {
+    let remoteCfg = { version: 't', minSecureChatEpoch: 1, e2eeSendRequired: false };
+    const rt = loadRuntime({
+      epochFetch: async () => ({
+        ok: true,
+        json: async () => ({ ...remoteCfg }),
+      }),
+    });
+    rt.App.publicKey = alice.pk;
+    rt.App.privateKey = alice.hex;
+    rt.App.__qaAttachment = {
+      name: CUTOVER_FILE,
+      type: 'text/plain',
+      size: 8,
+      url: 'https://sos010.com/media/' + CUTOVER_FILE,
+    };
+    rt.App.hasChatFileAttachment = () => true;
+    await rt.App.ensureSecureChatEpochReady({ skipAutoReload: true, silentUi: true });
+    remoteCfg = { version: 't', minSecureChatEpoch: 1, e2eeSendRequired: true };
+    const res = await rt.App.publishChatMessage(bob.pk, 'cap');
+    const wire = rt.published[0] && rt.published[0].content;
+    record('cutover attachment filename absent from wire', res.ok && wire && !wire.includes(CUTOVER_FILE));
+    const env = JSON.parse(wire);
+    const inner = rt.App.decryptPrivateChatPayload({
+      localPrivateKeyHex: bob.hex,
+      localPubkey: bob.pk,
+      eventAuthorPubkey: alice.pk,
+      encryptedEnvelope: env,
+    });
+    record('cutover attachment metadata roundtrip', inner.attachment && inner.attachment.name === CUTOVER_FILE);
   }
 }
 

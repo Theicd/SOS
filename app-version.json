@@ -1,6 +1,7 @@
 {
-  "version": "2026.09.16-e2ee-send-ready1",
-  "buildTime": "2026-09-16T07:20:00+03:00",
-  "notes": "E3B preparation: encrypted 1050 send code present. e2eeSendRequired ABSENT (not activated). minSecureChatEpoch=1. Encrypted send OFF until owner sets e2eeSendRequired=true.",
-  "minSecureChatEpoch": 1
+  "version": "2026.09.16-e2ee-cutover-ready2",
+  "buildTime": "2026-09-16T08:00:00+03:00",
+  "notes": "E3B cutover-safe policy refresh before Relay 1050. e2eeSendRequired=false (encrypted send activation still OFF). minSecureChatEpoch=1.",
+  "minSecureChatEpoch": 1,
+  "e2eeSendRequired": false
 }

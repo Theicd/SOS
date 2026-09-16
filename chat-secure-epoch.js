@@ -67,7 +67,9 @@
    * E3B activation: remote app-version.json field e2eeSendRequired.
    * Monotonic: once observed true, never silently allow legacy plaintext send
    * because the field disappears, returns false, or fetch fails.
-   * Prep/default: ABSENT/false → legacy send allowed (when epoch READY).
+   * Cutover-safe clients require an authoritative refresh immediately before
+   * kind 1050 Relay publish (see refreshE2eeSendPolicy / resolveRelayE2eeSendDecision).
+   * Explicit remote false → legacy relay allowed; fetch failure without prior true → block.
    */
   function readE2eeSendRequiredKnown() {
     if (e2eeSendRequiredKnown) return true;
@@ -113,6 +115,65 @@
       return App.__qaE2eeSendRequiredOverride;
     }
     return readE2eeSendRequiredKnown();
+  }
+
+  /**
+   * Authoritative E2EE send-policy refresh (cache: no-store via fetchAuthoritativeAppVersionJson).
+   * Used immediately before kind 1050 Relay publish so READY tabs cannot rely on stale false.
+   */
+  async function refreshE2eeSendPolicy() {
+    let fetchOk = false;
+    let remoteValue = null;
+    try {
+      const data = await fetchAuthoritativeAppVersionJson();
+      remoteValue = parseRemoteE2eeSendRequired(data);
+      fetchOk = true;
+    } catch (_err) {
+      fetchOk = false;
+      remoteValue = null;
+    }
+    noteE2eeSendRequiredFromRemote(remoteValue, fetchOk);
+    const required = isE2eeSendRequired();
+    return {
+      fetchOk,
+      remotePresent: remoteValue !== null,
+      remoteValue,
+      required,
+    };
+  }
+
+  /**
+   * Pure decision after refreshE2eeSendPolicy().
+   * encrypt if monotonic/required; legacy only when fetchOk && remote explicitly false;
+   * otherwise block (no plaintext relay on uncertainty).
+   */
+  function decideRelayE2eeSendFromPolicy(policy) {
+    const p = policy || {};
+    if (p.required === true) {
+      return { ok: true, encrypt: true };
+    }
+    if (p.fetchOk === true && p.remoteValue === false) {
+      return { ok: true, encrypt: false };
+    }
+    return { ok: false, error: 'e2ee-policy-unavailable' };
+  }
+
+  async function resolveRelayE2eeSendDecision() {
+    const policy = await refreshE2eeSendPolicy();
+    const decision = decideRelayE2eeSendFromPolicy(policy);
+    try {
+      console.log(
+        '[E2EE/SEND] relay-policy fetchOk=' +
+          String(!!policy.fetchOk) +
+          ' remote=' +
+          (policy.remoteValue === null ? 'absent' : String(policy.remoteValue)) +
+          ' required=' +
+          String(!!policy.required) +
+          ' decision=' +
+          (decision.ok ? (decision.encrypt ? 'encrypt' : 'legacy') : 'block:' + decision.error)
+      );
+    } catch (_logErr) { /* ignore */ }
+    return decision;
   }
 
   /**
@@ -452,6 +513,9 @@
     parseRemoteE2eeSendRequired,
     noteE2eeSendRequiredFromRemote,
     isE2eeSendRequired,
+    refreshE2eeSendPolicy,
+    decideRelayE2eeSendFromPolicy,
+    resolveRelayE2eeSendDecision,
     readE2eeSendRequiredKnown,
     writeE2eeSendRequiredKnown,
     decideSecureChatGate,
@@ -479,6 +543,9 @@
     parseRemoteMinSecureChatEpoch,
     parseRemoteE2eeSendRequired,
     isE2eeSendRequired,
+    refreshE2eeSendPolicy,
+    decideRelayE2eeSendFromPolicy,
+    resolveRelayE2eeSendDecision,
     getLocalSecureChatEpoch,
     GATE_STATES_SECURE_CHAT: GATE_STATES,
   });

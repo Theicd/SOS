@@ -303,7 +303,7 @@ record('E2 fail-closed recognized envelope', svc.includes('Recognized sos-e2ee')
 record('E2 pending key retry present', svc.includes('queuePendingE2eeEvent') && svc.includes('flushPendingE2eeEvents'));
 record('LIVE_E2EE_SEND=false (activation ABSENT; send gated)',
   svc.includes('isE2eeSendRequired') &&
-  !Object.prototype.hasOwnProperty.call(JSON.parse(read('app-version.json')), 'e2eeSendRequired') &&
+  JSON.parse(read('app-version.json')).e2eeSendRequired === false &&
   !fts.includes('encryptPrivateChatPayload'));
 record('videos.html loads chat-e2ee.js before chat-service', (() => {
   const a = videos.indexOf('chat-e2ee.js');

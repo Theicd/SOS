@@ -249,7 +249,7 @@ record(
 );
 record(
   'LIVE_E2EE_SEND=false (activation ABSENT in app-version)',
-  !Object.prototype.hasOwnProperty.call(JSON.parse(read('app-version.json')), 'e2eeSendRequired'),
+  JSON.parse(read('app-version.json')).e2eeSendRequired === false,
 );
 // E2 may load chat-e2ee.js for receive-only dual-read.
 record(
