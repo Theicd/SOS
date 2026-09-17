@@ -3,6 +3,8 @@
   "versionCode": 115,
   "file": "SOS-1.0.114.apk",
   "url": "",
+  "published": false,
+  "channel": "qa",
   "releasedAt": "2026-09-17",
-  "note": "QA-only APK for owner physical call QA — NOT published to users. Contains Native kind1059 opaque wake + secure queue. Production call SEND remains legacy until callSignalGiftWrapRequired=true."
+  "note": "QA-only APK for owner physical call QA — NOT published to users. Production update UI must not advertise this release until published=true and a real URL exist."
 }

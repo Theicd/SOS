@@ -200,15 +200,66 @@
     });
   }
 
-  // כתובת APK – נשאר ב-git (downloads/) ומורד מ-GitHub, לא מפורסם מחדש ב-Pages בכל deploy | HYPER CORE TECH
+  // PUBLIC STABLE install target (initial Android install) — separate from remote UPDATE release.
   const NATIVE_APK_VERSION = '1.0.113';
   const NATIVE_APK_FILE = `SOS-${NATIVE_APK_VERSION}.apk`;
   const NATIVE_APK_URL = (typeof localStorage !== 'undefined' && localStorage.getItem('sos_apk_url'))
     || `https://github.com/Theicd/SOS/releases/download/apk-${NATIVE_APK_VERSION}/${NATIVE_APK_FILE}`;
   const APK_VERSION_URL = './apk-version.json';
 
+  function isApkReleasePublished(data) {
+    return !!(data && data.published === true);
+  }
+
+  /**
+   * Validate a remote apk-version.json update release.
+   * NEVER falls back to PUBLIC STABLE (NATIVE_APK_*) URL for a newer advertised version.
+   * @returns {{ ok: true, release: object } | { ok: false, reason: string }}
+   */
+  function validateApkUpdateRelease(data) {
+    if (!data || typeof data !== 'object') {
+      return { ok: false, reason: 'missing' };
+    }
+    if (!isApkReleasePublished(data)) {
+      return { ok: false, reason: 'unpublished' };
+    }
+    const version = String(data.version || '').trim();
+    const versionCode = Number(data.versionCode) || 0;
+    const file = String(data.file || '').trim();
+    const url = String(data.url || '').trim();
+    if (!version || !/^\d+\.\d+\.\d+/.test(version)) {
+      return { ok: false, reason: 'bad-version' };
+    }
+    if (!(versionCode > 0)) {
+      return { ok: false, reason: 'bad-versionCode' };
+    }
+    if (!file || !url) {
+      return { ok: false, reason: 'missing-url-or-file' };
+    }
+    // File must match advertised version (SOS-1.0.114.apk ↔ 1.0.114).
+    const fileVerMatch = file.match(/SOS-(\d+\.\d+\.\d+)/i);
+    if (fileVerMatch && fileVerMatch[1] !== version) {
+      return { ok: false, reason: 'file-version-mismatch' };
+    }
+    // URL must not advertise a different apk-X.Y.Z release tag / file.
+    const urlTagMatch = url.match(/apk-(\d+\.\d+\.\d+)/i);
+    if (urlTagMatch && urlTagMatch[1] !== version) {
+      return { ok: false, reason: 'url-version-mismatch' };
+    }
+    if (url.includes(NATIVE_APK_FILE) && version !== NATIVE_APK_VERSION) {
+      return { ok: false, reason: 'stable-fallback-blocked' };
+    }
+    if (url.includes(`apk-${NATIVE_APK_VERSION}`) && version !== NATIVE_APK_VERSION) {
+      return { ok: false, reason: 'stable-fallback-blocked' };
+    }
+    return {
+      ok: true,
+      release: { version, versionCode, file, url, published: true, channel: data.channel || 'production' },
+    };
+  }
+
   function startNativeApkInstall() {
-    // הורדה ישירה של APK – בלי מדריכים ובלי תפריט Chrome | HYPER CORE TECH
+    // Initial install only — always PUBLIC STABLE, not remote update metadata.
     pwaToast(`מוריד את אפליקציית SOS ${NATIVE_APK_VERSION}…`);
     try {
       const link = document.createElement('a');
@@ -892,7 +943,29 @@
 
     toast.querySelector('.pwa-update-toast__now').onclick = (e) => {
       try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
-      const url = String(pendingApkRelease?.url || NATIVE_APK_URL);
+      // Exact remote release URL only — NEVER fall back to PUBLIC STABLE NATIVE_APK_URL.
+      const url = String(pendingApkRelease?.url || '').trim();
+      const file = String(pendingApkRelease?.file || '').trim();
+      const ver = String(pendingApkRelease?.version || '').trim();
+      if (!url || !file || !ver) {
+        console.warn('[PWA] APK_UPDATE_METADATA_INVALID');
+        pwaToast('עדכון האפליקציה אינו זמין כרגע');
+        finishApkToast();
+        return;
+      }
+      const check = validateApkUpdateRelease({
+        published: true,
+        version: ver,
+        versionCode: Number(pendingApkRelease?.versionCode) || 0,
+        file,
+        url,
+      });
+      if (!check.ok) {
+        console.warn('[PWA] APK_UPDATE_METADATA_INVALID', check.reason);
+        pwaToast('עדכון האפליקציה אינו זמין כרגע');
+        finishApkToast();
+        return;
+      }
       const bridge = window.SosNativeShell;
       try {
         if (bridge && typeof bridge.installApkUpdate === 'function') {
@@ -902,12 +975,11 @@
           return;
         }
       } catch (_) {}
-      // APK ישן בלי installApkUpdate – הורדה ישירה של הגרסה החדשה (לא "כבר מותקן") | HYPER CORE TECH
       try {
         pwaToast('מוריד את עדכון האפליקציה…');
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', String(pendingApkRelease?.file || NATIVE_APK_FILE));
+        link.setAttribute('download', file);
         link.rel = 'noopener';
         link.style.display = 'none';
         document.body.appendChild(link);
@@ -931,9 +1003,18 @@
       const res = await fetch(`${APK_VERSION_URL}?_=${Date.now()}`, { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
-      const remoteVersion = String(data?.version || '').trim();
-      const remoteCode = Number(data?.versionCode) || 0;
-      if (!remoteVersion && !remoteCode) return;
+      const validated = validateApkUpdateRelease(data);
+      if (!validated.ok) {
+        if (validated.reason === 'unpublished') {
+          console.log('[PWA] APK release unpublished/qa — no update toast');
+          return;
+        }
+        console.warn('[PWA] APK_UPDATE_METADATA_INVALID', validated.reason);
+        return;
+      }
+      const release = validated.release;
+      const remoteVersion = release.version;
+      const remoteCode = release.versionCode;
 
       const localVersion = getInstalledShellVersion();
       const localCode = getInstalledShellVersionCode();
@@ -945,12 +1026,7 @@
       }
       if (!needsUpdate) return;
 
-      pendingApkRelease = {
-        version: remoteVersion || NATIVE_APK_VERSION,
-        versionCode: remoteCode,
-        file: data?.file || NATIVE_APK_FILE,
-        url: data?.url || NATIVE_APK_URL,
-      };
+      pendingApkRelease = release;
       console.log('[PWA] עדכון APK זמין', { localVersion, localCode, remoteVersion, remoteCode });
       showApkUpdateAvailableToast(pendingApkRelease);
     } catch (err) {
@@ -1047,6 +1123,8 @@
     showUpdateAvailableToast,
     showApkUpdateAvailableToast,
     checkApkReleaseVersion,
+    validateApkUpdateRelease,
+    isApkReleasePublished,
     ensurePushAfterInstall,
     prepareCleanReloadAfterUiUpdate,
     SOS_APK_VERSION: NATIVE_APK_VERSION,

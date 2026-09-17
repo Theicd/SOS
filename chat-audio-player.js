@@ -24,9 +24,33 @@
   }
   
   // חלק עיצוב (chat-audio-player.js) – HTML משודרג לנגן אודיו בסגנון וואטסאפ | HYPER CORE TECH
+  function resolveVoiceCacheKey(attachment) {
+    if (!attachment) return '';
+    if (typeof App.chatP2PCacheKey === 'function') {
+      try { return String(App.chatP2PCacheKey(attachment) || ''); } catch (_) {}
+    }
+    if (attachment.cacheKey) return String(attachment.cacheKey);
+    if (attachment.fileId) return `p2p-file-${attachment.fileId}`;
+    if (attachment.attachmentId) return `p2p-file-${attachment.attachmentId}`;
+    const msgId = attachment.logicalMessageId || attachment.messageId || attachment.clientMessageId || attachment.id;
+    if (msgId) return `p2p-msg-${String(msgId)}`;
+    return '';
+  }
+
+  function isLivePlayableSrc(src) {
+    const s = String(src || '').trim();
+    if (!s) return false;
+    if (s.startsWith('data:')) return true;
+    if (s.startsWith('http://') || s.startsWith('https://')) return true;
+    if (s.startsWith('blob:')) return true; // may be dead — verified async
+    return false;
+  }
+
   function createEnhancedAudioPlayer(attachment) {
     const srcRaw = attachment.url || attachment.dataUrl || '';
-    const src = (typeof App.isSafeIncomingChatResource === 'function' && srcRaw && !App.isSafeIncomingChatResource(srcRaw)) ? '' : srcRaw;
+    // Never trust dead blob: as durable initial src — leave empty for hydrate.
+    let src = (typeof App.isSafeIncomingChatResource === 'function' && srcRaw && !App.isSafeIncomingChatResource(srcRaw)) ? '' : srcRaw;
+    if (src.startsWith('blob:')) src = '';
     const dur = typeof attachment.duration === 'number' && attachment.duration > 0 ? attachment.duration : null;
     const mm = dur !== null ? Math.floor(dur / 60) : null;
     const ss = dur !== null ? String(dur % 60).padStart(2, '0') : null;
@@ -34,7 +58,7 @@
     
     // חלק MIME מקיף (chat-audio-player.js) – זיהוי MIME לכל פורמטי האודיו PC/Android/iPhone/Apple | HYPER CORE TECH
     let mimeType = attachment.type || 'audio/mpeg';
-    const srcLower = src.toLowerCase();
+    const srcLower = (src || srcRaw).toLowerCase();
     const nameLower = (attachment.name || '').toLowerCase();
     const checkStr = srcLower + '|' + nameLower;
     
@@ -60,26 +84,33 @@
     const magnetUriRaw = attachment.magnetURI || '';
     const magnetUri = (magnetUriRaw && typeof App.isValidIncomingMagnetURI === 'function' && !App.isValidIncomingMagnetURI(magnetUriRaw)) ? '' : magnetUriRaw;
     const fallbackSrc = src;
+    const cacheKey = resolveVoiceCacheKey(attachment);
+    const fileId = attachment.fileId || attachment.attachmentId || '';
     const safeSrc = escapeAttr(src);
     const safeMagnet = escapeAttr(magnetUri);
     const safeFallback = escapeAttr(fallbackSrc);
     const safeMime = escapeAttr(mimeType);
+    const safeCacheKey = escapeAttr(cacheKey);
+    const safeFileId = escapeAttr(fileId);
     // חלק דיבאג אודיו (chat-audio-player.js) – יצירת נגן והגדרת מקורות | HYPER CORE TECH
     mediaDebugLog('audio-player-create', {
       name: attachment.name || '',
       mime: attachment.type || mimeType,
       hasSrc: !!src,
-      hasMagnet: !!magnetUri
+      hasMagnet: !!magnetUri,
+      cacheKey: cacheKey || ''
     });
     return `
       <div class="chat-message__audio chat-audio-enhanced" data-audio data-src="${safeSrc}"
+           ${cacheKey ? `data-cache-key="${safeCacheKey}"` : ''}
+           ${fileId ? `data-file-id="${safeFileId}"` : ''}
            ${magnetUri ? `data-magnet-uri="${safeMagnet}"` : ''}
            ${fallbackSrc ? `data-fallback-src="${safeFallback}"` : ''}>
         <audio preload="auto" class="chat-message__audio-el"${src ? ` src="${safeSrc}"` : ''}>
           ${src ? `<source src="${safeSrc}" type="${safeMime}">
           <source src="${safeSrc}" type="audio/mpeg">
           <source src="${safeSrc}" type="audio/ogg">
-          <source src="${safeSrc}" type="audio/webm">` : '<!-- audio source pending / P2P -->'}
+          <source src="${safeSrc}" type="audio/webm">` : '<!-- audio source pending / durable hydrate / P2P -->'}
         </audio>
         <div class="chat-audio-whatsapp">
           <button type="button" class="chat-audio-whatsapp__play" aria-label="נגן הודעה קולית">
@@ -172,24 +203,68 @@
     const magnetUri = container.dataset.magnetUri;
     const srcFromData = container.dataset.src;
     const fallbackSrc = container.dataset.fallbackSrc || srcFromData || '';
+    const cacheKey = container.dataset.cacheKey || '';
+    const fileId = container.dataset.fileId || '';
     // חלק דיבאג אודיו (chat-audio-player.js) – חיווט נגן ומקורות זמינים | HYPER CORE TECH
     mediaDebugLog('audio-player-wire', {
       hasMagnet: !!magnetUri,
       hasFallback: !!fallbackSrc,
-      srcFromData: !!srcFromData
+      srcFromData: !!srcFromData,
+      cacheKey: cacheKey || ''
     });
 
-    // חלק מקור ניגון (chat-audio-player.js) – תמיד מעדיפים URL/dataUrl; magnet רק כשדרוג אופציונלי | HYPER CORE TECH
-    if (fallbackSrc && !audio.getAttribute('src') && !audio.src) {
-      audio.src = fallbackSrc;
-      audio.load();
-      mediaDebugLog('audio-fallback-set', { src: fallbackSrc, reason: 'wire-init' });
+    let hydratePromise = null;
+
+    async function hydrateDurableAudioSource() {
+      const current = String(audio.getAttribute('src') || audio.src || '').trim();
+      // Prefer durable local cache BEFORE network / P2P.
+      const att = {
+        url: current.startsWith('blob:') ? '' : (current || fallbackSrc || ''),
+        dataUrl: '',
+        cacheKey: cacheKey || undefined,
+        fileId: fileId || undefined,
+        magnetURI: magnetUri || undefined,
+      };
+      let resolved = '';
+      try {
+        if (typeof App.resolveChatMediaSrc === 'function') {
+          resolved = await App.resolveChatMediaSrc(att);
+        } else if (cacheKey && typeof App.loadChatP2PMediaBlob === 'function') {
+          const blob = await App.loadChatP2PMediaBlob(cacheKey);
+          if (blob) resolved = URL.createObjectURL(blob);
+        }
+      } catch (_) {}
+      if (resolved) {
+        applyAudioSource(audio, btn, resolved, { markPlay: true });
+        container.dataset.src = resolved;
+        container.dataset.durableHydrated = 'true';
+        mediaDebugLog('audio-durable-hydrate', { cacheKey, hasSrc: true });
+        if (container.dataset.autoplayPending === 'true') {
+          audio.play().catch(() => {});
+        }
+        return resolved;
+      }
+      // Live http/data fallback if present and not a dead blob.
+      if (fallbackSrc && !String(fallbackSrc).startsWith('blob:')) {
+        if (!audio.getAttribute('src') && !audio.src) {
+          applyAudioSource(audio, btn, fallbackSrc, { markPlay: true });
+        }
+        return fallbackSrc;
+      }
+      return '';
     }
 
-    if (magnetUri) {
-      mediaDebugLog('audio-p2p-start', { magnetPreview: magnetUri.slice(0, 60), hasFallback: !!fallbackSrc });
-      tryLoadAudioFromTorrent(container, audio, btn, magnetUri, fallbackSrc);
-    }
+    hydratePromise = hydrateDurableAudioSource().then((src) => {
+      // After durable miss — start P2P if magnet present.
+      if (magnetUri && (!src || container.dataset.durableHydrated !== 'true')) {
+        mediaDebugLog('audio-p2p-start', { magnetPreview: magnetUri.slice(0, 60), hasFallback: !!fallbackSrc });
+        tryLoadAudioFromTorrent(container, audio, btn, magnetUri, fallbackSrc);
+      }
+      return src;
+    }).catch(() => {
+      if (magnetUri) tryLoadAudioFromTorrent(container, audio, btn, magnetUri, fallbackSrc);
+      return '';
+    });
     
     const format = (sec) => {
       const s = Math.max(0, Math.round(sec || 0));
@@ -230,7 +305,7 @@
     });
     
     // חלק ניגון (chat-audio-player.js) – toggle play/pause | HYPER CORE TECH
-    const toggle = () => {
+    const toggle = async () => {
       // טעינה ראשונית אם לא נטען
       if (!loadAttempted) {
         loadAttempted = true;
@@ -242,7 +317,14 @@
         if (container?.dataset) {
           container.dataset.autoplayPending = 'true';
         }
-        const playSrc = audio.getAttribute('src') || fallbackSrc || container?.dataset?.src || container?.dataset?.fallbackSrc || '';
+        let playSrc = audio.getAttribute('src') || audio.src || '';
+        if (!playSrc || String(playSrc).startsWith('blob:')) {
+          try {
+            if (hydratePromise) await hydratePromise;
+            else await hydrateDurableAudioSource();
+          } catch (_) {}
+          playSrc = audio.getAttribute('src') || audio.src || '';
+        }
         if (playSrc && (!audio.getAttribute('src') || audio.error)) {
           audio.src = playSrc;
           audio.load();
@@ -479,6 +561,29 @@
           }
           console.log('[AUDIO/P2P] ✅✅ הודעה קולית נטענה בהצלחה דרך P2P!');
           mediaDebugLog('audio-p2p-success', { hasBlob: !!blobUrl });
+
+          // Persist durable Blob so reload/WebView restart can restore without network.
+          (async () => {
+            try {
+              const key = container?.dataset?.cacheKey
+                || (container?.dataset?.fileId ? `p2p-file-${container.dataset.fileId}` : '');
+              if (key && blobUrl && typeof App.persistChatP2PMedia === 'function') {
+                const resp = await fetch(blobUrl);
+                const blob = await resp.blob();
+                if (blob && blob.size > 0) {
+                  const persistedKey = await App.persistChatP2PMedia(key, blob, {
+                    name: 'voice',
+                    type: blob.type || 'audio/webm',
+                  });
+                  if (persistedKey && container) container.dataset.cacheKey = persistedKey;
+                  mediaDebugLog('audio-p2p-persisted', { cacheKey: persistedKey || key, size: blob.size });
+                }
+              }
+            } catch (persistErr) {
+              mediaDebugLog('audio-p2p-persist-failed', { error: persistErr?.message || String(persistErr) });
+            }
+          })();
+
           // לא מחליפים מקור באמצע ניגון – waiters מקבלים blob לנגנים שלא מנגנים | HYPER CORE TECH
           const canSwapNow = audioEl.paused && audioEl.currentTime === 0;
           if (canSwapNow) {

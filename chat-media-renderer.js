@@ -89,16 +89,27 @@
   }
 
   // חלק מפתח P2P (chat-media-renderer.js) – מפתח יציב לקבצי צ'אט שנשמרו אחרי העברת P2P | HYPER CORE TECH
+  function extractMagnetInfoHash(magnet) {
+    const m = String(magnet || '').match(/[?&]xt=urn:btih:([a-fA-F0-9]{40}|[a-zA-Z2-7]{32})/i);
+    return m ? String(m[1]).toLowerCase() : '';
+  }
+
   function chatP2PCacheKey(fileIdOrAttachment) {
     if (!fileIdOrAttachment) return '';
     if (typeof fileIdOrAttachment === 'string') {
-      return fileIdOrAttachment.startsWith('p2p-file-')
-        ? fileIdOrAttachment
-        : `p2p-file-${fileIdOrAttachment}`;
+      // Preserve already-stable keys (file / message / infoHash).
+      if (/^p2p-(file|msg|ih)-/.test(fileIdOrAttachment)) return fileIdOrAttachment;
+      return `p2p-file-${fileIdOrAttachment}`;
     }
     const att = fileIdOrAttachment;
     if (att.cacheKey) return String(att.cacheKey);
     if (att.fileId) return `p2p-file-${att.fileId}`;
+    if (att.attachmentId) return `p2p-file-${att.attachmentId}`;
+    const msgId = att.logicalMessageId || att.messageId || att.clientMessageId || att.id;
+    if (msgId) return `p2p-msg-${String(msgId)}`;
+    if (att.infoHash) return `p2p-ih-${String(att.infoHash).toLowerCase()}`;
+    const ih = extractMagnetInfoHash(att.magnetURI);
+    if (ih) return `p2p-ih-${ih}`;
     return '';
   }
 
@@ -161,7 +172,7 @@
         if (resp.ok) {
           const liveBlob = await resp.blob();
           if (cacheKey && liveBlob?.size > 0) {
-            persistChatP2PMedia(cacheKey.replace(/^p2p-file-/, ''), liveBlob, {
+            persistChatP2PMedia(cacheKey, liveBlob, {
               name: attachment.name,
               type: attachment.type || liveBlob.type,
             }).catch(() => {});
