@@ -1,8 +1,8 @@
 {
-  "version": "1.0.113",
-  "versionCode": 114,
-  "file": "SOS-1.0.113.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.113/SOS-1.0.113.apk",
-  "releasedAt": "2026-09-10",
-  "note": "So-Call splash logo lowered to match SOS loading height"
+  "version": "1.0.114",
+  "versionCode": 115,
+  "file": "SOS-1.0.114.apk",
+  "url": "",
+  "releasedAt": "2026-09-17",
+  "note": "QA-only APK for owner physical call QA — NOT published to users. Contains Native kind1059 opaque wake + secure queue. Production call SEND remains legacy until callSignalGiftWrapRequired=true."
 }

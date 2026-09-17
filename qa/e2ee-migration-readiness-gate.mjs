@@ -91,7 +91,7 @@ record('WebView cache-else-network only for emergency offline shell', main.inclu
 record('app-version.json present', typeof appVer.version === 'string' && appVer.version.length > 0);
 record('minSecureChatEpoch activated =2', Number(appVer.minSecureChatEpoch) === 2);
 record('e2eeSendRequired explicit true (E3B ACTIVE)', Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired') && appVer.e2eeSendRequired === true);
-record('apk-version 1.0.113 recorded', apkVer.version === '1.0.113');
+record('apk-version 1.0.114 recorded', apkVer.version === '1.0.114');
 
 record('no kind-0 sos_caps advertise', !read('profile.js').includes('sos_caps'));
 record('encrypted send path gated (isE2eeSendRequired)', svc.includes('isE2eeSendRequired') && svc.includes('encryptPrivateChatPayload'));

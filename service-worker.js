@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v842'; // Private P2P kind 30078 NIP-44 E2EE
+  const CACHE_NAME = 'sos-cache-v843'; // Call privacy precutover — secure receive ready, SEND still legacy
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -13,6 +13,7 @@
     './chat-state.js',
     './chat-e2ee.js',
     './chat-secure-epoch.js',
+    './call-signal-e2ee.js',
     './chat-service.js',
     './media-file-e2ee.js',
     './media-server-e2ee.js',
