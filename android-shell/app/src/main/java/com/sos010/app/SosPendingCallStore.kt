@@ -40,10 +40,49 @@ object SosPendingCallStore {
             .put("callType", type)
             .put("savedAt", System.currentTimeMillis())
             .put("event", raw)
+            .put("secure", false)
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_RAW_EVENT, meta.toString())
             .apply()
+    }
+
+    /**
+     * Opaque Gift Wrap (kind 1059) — peer/media unknown until JS unwrap.
+     * Does NOT trigger ring by itself.
+     */
+    fun saveSecureWrap(context: Context, eventJson: String?) {
+        val raw = eventJson?.trim().orEmpty()
+        if (raw.isEmpty() || raw.length > 200_000) return
+        val meta = JSONObject()
+            .put("peer", "")
+            .put("callType", "secure")
+            .put("savedAt", System.currentTimeMillis())
+            .put("event", raw)
+            .put("secure", true)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_RAW_EVENT, meta.toString())
+            .apply()
+    }
+
+    fun updateSecureWrapPeer(context: Context, peer: String?, callType: String?) {
+        val pk = peer?.trim()?.lowercase().orEmpty()
+        if (pk.length != 64) return
+        val existing = getRawEventJson(context)
+        if (existing.isBlank()) return
+        try {
+            val meta = JSONObject(existing)
+            meta.put("peer", pk)
+            meta.put("callType", normalizeType(callType))
+            meta.put("secure", true)
+            meta.put("savedAt", System.currentTimeMillis())
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_RAW_EVENT, meta.toString())
+                .apply()
+        } catch (_: Exception) {
+        }
     }
 
     fun getJson(context: Context): String {

@@ -184,7 +184,7 @@ object NotificationHelper {
                 inboxLines.removeFirst()
             }
             lastOpenUrl = openUrl ?: lastOpenUrl
-            SosDebugLog.i("notify", "showMessage post sound=$allowAlert peer=${resolvedPeer.take(8)}")
+            SosDebugLog.i("notify", "showMessage post sound=$allowAlert peer=redacted")
             postAggregateLocked(app, playSound = allowAlert)
         }
 

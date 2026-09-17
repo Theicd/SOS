@@ -46,8 +46,10 @@ record('generic chat title/body constants', push.includes("GENERIC_CHAT_TITLE = 
 record('chat-service does not pass serialization.rawContent to Push', !/triggerOutgoingMessagePush\([^)]*rawContent/.test(svc));
 record('chat-service uses options object for Push', /triggerOutgoingMessagePush\(\s*peerPubkey\s*,\s*\{/.test(svc));
 record('chat-p2p-file does not pass attachment name to Push', !/triggerOutgoingMessagePush\([^)]*name:\s*transfer\.file/.test(p2p));
-record('call incoming push path preserved', push.includes('triggerIncomingCallPush') && push.includes('voice-call-incoming') && push.includes('video-call-incoming'));
-record('missed call push path preserved', push.includes('triggerMissedCallPush') && push.includes('missed-call'));
+record('call incoming push disabled (secure native wake)', push.includes('CALL_PUSH_DISABLED') && push.includes('triggerIncomingCallPush'));
+record('missed call push disabled', push.includes('MISSED_CALL_PUSH_DISABLED') && push.includes('triggerMissedCallPush'));
+record('call push has no peerPubkey field in send path', !/type:\s*isVideo\s*\?\s*'video-call-incoming'/.test(push));
+record('call push has no contactInfo.name body', !/contactInfo\.name\} מתקשר/.test(push));
 record('LIVE_E2EE_SEND=true (E3B ACTIVE)',
   JSON.parse(fs.readFileSync(path.join(ROOT, 'app-version.json'), 'utf8')).e2eeSendRequired === true);
 record('dual-read still present', svc.includes('decryptPrivateChatPayload'));
@@ -162,8 +164,9 @@ const sanStr = JSON.stringify(sanitized);
 record('sanitizer drops secrets', !sanStr.includes(SECRET) && !sanStr.includes(FILENAME) && !sanStr.includes(CAPTION));
 record('sanitizer forces generic body', sanitized.body === 'הודעה חדשה' && sanitized.title === 'SOS');
 
-// Call path still distinct
-record('incoming call function still builds call type', /type:\s*isVideo\s*\?\s*'video-call-incoming'\s*:\s*'voice-call-incoming'/.test(push));
+// Phase 1B: call Push disabled — no voice/video call type to FCM
+record('incoming call push disabled', push.includes('CALL_PUSH_DISABLED') && !/type:\s*isVideo\s*\?\s*'video-call-incoming'\s*:\s*'voice-call-incoming'/.test(push));
+record('missed call push disabled', push.includes('MISSED_CALL_PUSH_DISABLED'));
 
 // Server source if present adjacent
 const serverSend = path.join('C:\\BRAIN\\sos-push-server\\api\\push\\send.js');

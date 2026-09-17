@@ -596,6 +596,29 @@
 
     const tryDecryptEvent = async (eventObj) => {
       if (!eventObj || typeof eventObj !== 'object') return null;
+      // Gift Wrap 1059 first
+      if (eventObj.kind === 1059) {
+        const api = App.CallSignalE2ee;
+        if (!api || typeof api.unwrapGiftWrappedCallSignal !== 'function') return null;
+        if (!App.privateKey || !App.publicKey) return null;
+        try {
+          const unwrapped = await api.unwrapGiftWrappedCallSignal(eventObj, App.privateKey, App.publicKey);
+          if (!unwrapped || unwrapped.media !== 'video' || unwrapped.action !== 'offer') return null;
+          const peer = String(unwrapped.sender || '').toLowerCase();
+          if (peerWanted && peer && peer !== peerWanted) return null;
+          let offer = unwrapped.data;
+          if (offer && offer.offer && !offer.type && !offer.sdp) offer = offer.offer;
+          if (!offer?.type || !offer?.sdp) return null;
+          App.__videoIncomingOffer = { type: offer.type, sdp: offer.sdp };
+          App.__videoIncomingPeer = peer || peerWanted || App.__videoIncomingPeer;
+          App.__videoIncomingOfferCreatedAt = Number(unwrapped.sentAt) || 0;
+          console.log('CALL_HYDRATE_SECURE_VIDEO');
+          return App.__videoIncomingOffer;
+        } catch (_e) {
+          return null;
+        }
+      }
+      // LEGACY_READ_ONLY NIP-04
       const peer = String(eventObj.pubkey || '').toLowerCase();
       if (peerWanted && peer && peer !== peerWanted) return null;
       const typeTag = Array.isArray(eventObj.tags) ? eventObj.tags.find((t) => t && t[0] === 'type') : null;
@@ -625,10 +648,10 @@
             App.videoCall.noteIncomingOffer(App.__videoIncomingPeer, eventObj.created_at);
           }
         } catch (_) {}
-        console.log('[APK] hydrated video offer from native raw event', String(peer || '').slice(0, 8));
+        console.log('CALL_HYDRATE_LEGACY_VIDEO');
         return App.__videoIncomingOffer;
       } catch (err) {
-        console.warn('[APK] decrypt video raw event failed', err);
+        console.warn('CALL_HYDRATE_VIDEO_FAIL');
         return null;
       }
     };

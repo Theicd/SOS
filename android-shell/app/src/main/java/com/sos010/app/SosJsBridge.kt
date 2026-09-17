@@ -3,6 +3,7 @@ package com.sos010.app
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import org.json.JSONObject
@@ -17,6 +18,9 @@ class SosJsBridge(
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var cachedFcmToken: String = ""
+    private companion object {
+        private const val TAG = "SosJsBridge"
+    }
 
     private fun clampText(value: String?, max: Int, fallback: String = ""): String {
         val raw = value?.trim().orEmpty()
@@ -305,6 +309,70 @@ class SosJsBridge(
     fun stopCallSounds() {
         CallSoundHelper.stopAll()
         NotificationHelper.cancelIncomingCall(context.applicationContext)
+    }
+
+    /**
+     * After JS authenticates Gift Wrap offer — ONLY then may Native ring.
+     * peer/media come from decrypted inner payload, never from outer Relay tags.
+     */
+    @JavascriptInterface
+    fun notifySecureCallOfferVerified(peer: String?, media: String?, sessionId: String?) {
+        val pk = SosSessionStore.normalizeHexPubkey(peer)
+        if (pk.isEmpty()) return
+        val kind = when (media?.trim()?.lowercase()) {
+            "video", "v" -> "video"
+            else -> "voice"
+        }
+        mainHandler.post {
+            try {
+                SosPendingCallStore.updateSecureWrapPeer(context.applicationContext, pk, kind)
+                if (MainActivity.isHostAlive) {
+                    // Foreground UI owned by Web — still cache for answer path.
+                    return@post
+                }
+                if (SosIncomingCallSession.isSameActiveCall(context.applicationContext, pk)) {
+                    return@post
+                }
+                val title = if (kind == "video") "שיחת וידאו נכנסת" else "שיחה קולית נכנסת"
+                val caller = SosContactCache.displayName(context.applicationContext, pk, "מישהו")
+                val openUrl = SosCallUrls.acceptPage(kind)
+                MainActivity.warmHostForIncomingCall(context.applicationContext, pk, kind)
+                NotificationHelper.showIncomingCall(
+                    context.applicationContext,
+                    title,
+                    "$caller מתקשר אליך ב-SOS",
+                    openUrl,
+                    kind,
+                    peerPubkey = pk,
+                    callerName = caller
+                )
+                Log.i(TAG, "SECURE_CALL_OFFER_VERIFIED")
+            } catch (err: Exception) {
+                Log.w(TAG, "secure offer verified failed: ${err.message}")
+            }
+        }
+    }
+
+    /** Authenticated disconnect / dismiss after secure unwrap. */
+    @JavascriptInterface
+    fun notifySecureCallDismissed(peer: String?) {
+        val pk = SosSessionStore.normalizeHexPubkey(peer)
+        mainHandler.post {
+            try {
+                val offerId = SosPendingCallStore.extractEventId(context.applicationContext)
+                SosIncomingCallSession.rememberHandledOffer(context.applicationContext, offerId)
+                if (pk.isNotEmpty()) {
+                    SosIncomingCallSession.markRemoteEnded(context.applicationContext, pk)
+                }
+                SosPendingCallStore.clear(context.applicationContext)
+                NotificationHelper.cancelIncomingCall(context.applicationContext)
+                CallSoundHelper.stopAll()
+                if (pk.isNotEmpty()) IncomingCallActivity.dismiss(context.applicationContext, pk)
+                Log.i(TAG, "SECURE_CALL_DISMISSED")
+            } catch (err: Exception) {
+                Log.w(TAG, "secure dismiss failed: ${err.message}")
+            }
+        }
     }
 
     /** שמירת offer שיחה נכנסת (JSON) לשחזור מסך ענה אחרי deep-link | HYPER CORE TECH */

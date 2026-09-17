@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * מאזין Nostr מקורי בתוך שירות הרקע –
- * הודעות (1050) + שיחות נכנסות (25050) כשהממשק/כרטיסייה סגורים.
+ * הודעות (1050) + Gift Wrap 1059 (opaque wake) + legacy 25050 READ-ONLY.
  * P2P (25055) לא כאן – רק WebView כשה-Activity חיה (גם ברקע).
  */
 class SosRelayWatcher(private val appContext: Context) {
@@ -34,6 +34,9 @@ class SosRelayWatcher(private val appContext: Context) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var lastNotifyAt = 0L
     private var lastCallNotifyAt = 0L
+    private var lastSecureWakeAt = 0L
+    private var secureWakeWindowStart = 0L
+    private var secureWakeCount = 0
 
     fun start() {
         val pubkey = SosSessionStore.getPubkey(appContext)
@@ -53,12 +56,12 @@ class SosRelayWatcher(private val appContext: Context) {
                 }
             }
             if (missing > 0) {
-                SosDebugLog.i("relay", "ensure missing=$missing pubkey=${pubkey.take(8)}")
+                SosDebugLog.i("relay", "ensure missing=$missing pubkey=redacted")
             }
             return
         }
-        Log.i(TAG, "starting watcher for ${pubkey.take(8)}…")
-        SosDebugLog.i("relay", "start watcher ${pubkey.take(8)}")
+        Log.i(TAG, "starting watcher")
+        SosDebugLog.i("relay", "start watcher")
         RELAYS.forEach { url -> connectRelay(url, pubkey) }
     }
 
@@ -80,30 +83,40 @@ class SosRelayWatcher(private val appContext: Context) {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 sockets[url] = webSocket
                 failCounts[url] = 0
-                val since = (System.currentTimeMillis() / 1000L) - 30
+                val nowSec = System.currentTimeMillis() / 1000L
+                val sinceChat = nowSec - 30
+                // Gift-wrap outer created_at is privacy-randomized up to ~2 days past.
+                val sinceSecure = nowSec - (2L * 24L * 60L * 60L) - 120L
                 val filterYala = JSONObject()
                     .put("kinds", JSONArray().put(CHAT_KIND))
                     .put("#p", JSONArray().put(pubkey))
                     .put("#t", JSONArray().put(CHAT_TAG))
-                    .put("since", since)
+                    .put("since", sinceChat)
                 val filterNet = JSONObject()
                     .put("kinds", JSONArray().put(CHAT_KIND))
                     .put("#p", JSONArray().put(pubkey))
                     .put("#t", JSONArray().put(NETWORK_TAG))
-                    .put("since", since)
-                val filterCalls = JSONObject()
+                    .put("since", sinceChat)
+                val filterSecureCalls = JSONObject()
+                    .put("kinds", JSONArray().put(GIFT_WRAP_KIND))
+                    .put("#p", JSONArray().put(pubkey))
+                    .put("since", sinceSecure)
+                // LEGACY_READ_ONLY: direct kind 25050 from already-deployed clients.
+                val filterLegacyCalls = JSONObject()
                     .put("kinds", JSONArray().put(CALL_KIND))
                     .put("#p", JSONArray().put(pubkey))
-                    .put("since", since)
+                    .put("since", sinceChat)
                 // בלי 25055 – חוסך תעבורה ומונע הדלקת Native כשהכרטיס סגור | HYPER CORE TECH
+                // Subscription id must NOT embed pubkey prefix (relay-visible).
                 val req = JSONArray()
                     .put("REQ")
-                    .put("sos-bg-${pubkey.take(8)}")
+                    .put("sos-bg-secure")
                     .put(filterYala)
                     .put(filterNet)
-                    .put(filterCalls)
+                    .put(filterSecureCalls)
+                    .put(filterLegacyCalls)
                 webSocket.send(req.toString())
-                Log.i(TAG, "subscribed chat+calls on $url")
+                Log.i(TAG, "subscribed chat+secure-calls on $url")
                 SosDebugLog.i("relay", "subscribed $url")
             }
 
@@ -181,7 +194,8 @@ class SosRelayWatcher(private val appContext: Context) {
 
             when (kind) {
                 CHAT_KIND -> notifyChat(author, event.optString("content").orEmpty(), id)
-                CALL_KIND -> handleCallSignal(author, signalType, event)
+                GIFT_WRAP_KIND -> handleSecureGiftWrap(event, id)
+                CALL_KIND -> handleCallSignal(author, signalType, event) // LEGACY_READ_ONLY
                 // P2P_KIND מתעלמים במכוון – WebView בלבד כש-Activity חיה | HYPER CORE TECH
             }
         } catch (err: Exception) {
@@ -198,7 +212,7 @@ class SosRelayWatcher(private val appContext: Context) {
             if (name.isEmpty() && picture.isEmpty()) return
             SosContactCache.put(appContext, author, name, picture)
             NotificationHelper.updatePeerProfile(appContext, author, name, picture)
-            Log.i(TAG, "profile cached ${author.take(8)} nameLen=${name.length}")
+            Log.i(TAG, "profile cached redacted nameLen=${name.length}")
         } catch (err: Exception) {
             Log.w(TAG, "profile parse fail: ${err.message}")
         }
@@ -212,7 +226,7 @@ class SosRelayWatcher(private val appContext: Context) {
             .put("limit", 1)
         val req = JSONArray()
             .put("REQ")
-            .put("sos-prof-${author.take(8)}")
+            .put("sos-prof-req")
             .put(filter)
             .toString()
         sockets.values.forEach { ws ->
@@ -240,7 +254,7 @@ class SosRelayWatcher(private val appContext: Context) {
             else -> "משתמש"
         }
 
-        SosDebugLog.i("relay", "chat NOTIFY ${author.take(8)} id=${eventId.take(10)}")
+        SosDebugLog.i("relay", "chat NOTIFY redacted")
         NotificationHelper.showMessage(
             appContext,
             senderLabel,
@@ -269,6 +283,53 @@ class SosRelayWatcher(private val appContext: Context) {
         }
     }
 
+    /**
+     * Opaque kind 1059 wake ONLY.
+     * Must NOT ring / show call UI until JS authenticates sos-call-signal + offer.
+     */
+    private fun handleSecureGiftWrap(event: JSONObject, eventId: String) {
+        val id = eventId.ifBlank { event.optString("id") }
+        if (id.isBlank()) return
+        if (SosIncomingCallSession.isHandledOffer(appContext, id)) {
+            Log.i(TAG, "SECURE_WAKE skip already-handled")
+            return
+        }
+        if (!allowSecureWake()) {
+            Log.i(TAG, "SECURE_WAKE rate-limited")
+            return
+        }
+        try {
+            SosPendingCallStore.saveSecureWrap(appContext, event.toString())
+        } catch (err: Exception) {
+            Log.w(TAG, "save secure wrap failed: ${err.message}")
+            return
+        }
+        // Foreground WebView already subscribed to 1059 — do not wake/ring here.
+        if (MainActivity.isHostAlive) {
+            Log.i(TAG, "SECURE_WAKE hostAlive – JS handles")
+            return
+        }
+        SosIncomingCallSession.rememberHandledOffer(appContext, id)
+        lastSecureWakeAt = System.currentTimeMillis()
+        Log.i(TAG, "SECURE_WAKE opaque → warm host")
+        SosDebugLog.i("relay", "SECURE_WAKE opaque")
+        // Opaque wake only — ring UI only after JS verified offer callback.
+        MainActivity.warmHostForSecureWrap(appContext)
+    }
+
+    /** Max ~6 opaque wakes / minute to resist junk 1059 battery drain. */
+    private fun allowSecureWake(): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - secureWakeWindowStart > 60_000L) {
+            secureWakeWindowStart = now
+            secureWakeCount = 0
+        }
+        if (secureWakeCount >= 6) return false
+        if (now - lastSecureWakeAt < 800L) return false
+        secureWakeCount++
+        return true
+    }
+
     private fun handleCallSignal(author: String, signalType: String, event: JSONObject) {
         when (signalType) {
             "offer", "v-offer" -> {
@@ -281,12 +342,12 @@ class SosRelayWatcher(private val appContext: Context) {
                     return
                 }
                 if (SosIncomingCallSession.isHandledOffer(appContext, eventId)) {
-                    Log.i(TAG, "already-handled offer ${eventId.take(8)} from redacted")
+                    Log.i(TAG, "already-handled offer redacted")
                     return
                 }
                 if (SosIncomingCallSession.isReplayOfEndedCall(appContext, author, createdAt)) {
                     SosIncomingCallSession.rememberHandledOffer(appContext, eventId)
-                    Log.i(TAG, "replay after hangup ${eventId.take(8)} from redacted")
+                    Log.i(TAG, "replay after hangup redacted")
                     SosDebugLog.i("relay", "call skip ended-replay from=redacted")
                     return
                 }
@@ -364,7 +425,8 @@ class SosRelayWatcher(private val appContext: Context) {
     companion object {
         private const val TAG = "SosRelayWatcher"
         private const val CHAT_KIND = 1050
-        private const val CALL_KIND = 25050
+        private const val CALL_KIND = 25050 // LEGACY_READ_ONLY
+        private const val GIFT_WRAP_KIND = 1059
         private const val CHAT_TAG = "yalachat"
         private const val NETWORK_TAG = "israel-network"
 

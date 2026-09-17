@@ -170,8 +170,41 @@
     if (incomingOffer && incomingOffer.type && incomingOffer.sdp) return incomingOffer;
     const peerWanted = String(peerPubkey || '').toLowerCase();
 
+    const trySecureUnwrap = async (eventObj) => {
+      if (!eventObj || eventObj.kind !== 1059) return null;
+      const api = App.CallSignalE2ee;
+      if (!api || typeof api.unwrapGiftWrappedCallSignal !== 'function') return null;
+      if (!App.privateKey || !App.publicKey) return null;
+      try {
+        const unwrapped = await api.unwrapGiftWrappedCallSignal(eventObj, App.privateKey, App.publicKey);
+        if (!unwrapped || unwrapped.action !== 'offer') return null;
+        if (unwrapped.media && unwrapped.media !== 'voice') return null;
+        const peer = String(unwrapped.sender || '').toLowerCase();
+        if (peerWanted && peer && peer !== peerWanted) return null;
+        let offer = unwrapped.data;
+        if (offer && offer.offer && !offer.type && !offer.sdp) offer = offer.offer;
+        if (!offer?.type || !offer?.sdp) return null;
+        incomingOffer = offer;
+        incomingOfferPeer = peer || peerWanted || incomingOfferPeer;
+        persistIncomingOffer(incomingOfferPeer, offer);
+        console.log('CALL_HYDRATE_SECURE');
+        try {
+          if (unwrapped.signalId && App.voiceCall && typeof App.voiceCall.markEventProcessed === 'function') {
+            App.voiceCall.markEventProcessed(unwrapped.signalId);
+          }
+        } catch (_) {}
+        return { offer, peer, media: 'voice', sessionId: unwrapped.sessionId };
+      } catch (_err) {
+        return null;
+      }
+    };
+
     const tryDecryptEvent = async (eventObj) => {
       if (!eventObj || typeof eventObj !== 'object') return null;
+      // Prefer Gift Wrap path for kind 1059.
+      const secure = await trySecureUnwrap(eventObj);
+      if (secure) return secure.offer;
+      // LEGACY_READ_ONLY: NIP-04 direct 25050
       const peer = String(eventObj.pubkey || '').toLowerCase();
       if (peerWanted && peer && peer !== peerWanted) return null;
       if (!eventObj.content || !App.privateKey || !window.NostrTools?.nip04) return null;
@@ -187,7 +220,7 @@
         incomingOffer = offer;
         incomingOfferPeer = peer || peerWanted || incomingOfferPeer;
         persistIncomingOffer(incomingOfferPeer, offer);
-        console.log('[APK] hydrated offer from native raw event', peer.slice(0, 8));
+        console.log('CALL_HYDRATE_LEGACY');
         try {
           if (eventObj.id && App.voiceCall && typeof App.voiceCall.markEventProcessed === 'function') {
             App.voiceCall.markEventProcessed(eventObj.id);
@@ -195,7 +228,7 @@
         } catch (_) {}
         return offer;
       } catch (err) {
-        console.warn('[APK] decrypt raw event failed', err);
+        console.warn('CALL_HYDRATE_FAIL');
         return null;
       }
     };
@@ -1118,6 +1151,92 @@
     try {
       if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
     } catch (_) {}
+  };
+
+  // Opaque Native wake: verify Gift Wrap in JS, then authorize Native ring.
+  App.prepareSecureCallEventFromNative = async function prepareSecureCallEventFromNative(pendingRawEvent) {
+    try {
+      if (typeof App.initVoiceCall === 'function') App.initVoiceCall({});
+      if (typeof App.initVideoCall === 'function') App.initVideoCall({});
+    } catch (_) {}
+
+    const unwrapPack = (raw) => {
+      if (!raw) return null;
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (parsed?.event) {
+          const ev = typeof parsed.event === 'string' ? JSON.parse(parsed.event) : parsed.event;
+          return ev;
+        }
+        if (parsed?.pubkey && parsed?.content) return parsed;
+      } catch (_) {}
+      return null;
+    };
+
+    let eventObj = unwrapPack(pendingRawEvent);
+    if (!eventObj) {
+      try {
+        const bridge = window.SosNativeShell;
+        if (bridge && typeof bridge.getIncomingCallRawEvent === 'function') {
+          eventObj = unwrapPack(bridge.getIncomingCallRawEvent());
+        }
+      } catch (_) {}
+    }
+    if (!eventObj || eventObj.kind !== 1059) return false;
+
+    const api = App.CallSignalE2ee;
+    if (!api || typeof api.unwrapGiftWrappedCallSignal !== 'function') return false;
+    if (!App.privateKey || !App.publicKey) return false;
+
+    const unwrapped = await api.unwrapGiftWrappedCallSignal(eventObj, App.privateKey, App.publicKey);
+    if (!unwrapped) {
+      console.log('CALL_SECURE_WAKE reject');
+      return false;
+    }
+
+    if (unwrapped.action === 'disconnect') {
+      try {
+        const bridge = window.SosNativeShell;
+        if (bridge && typeof bridge.notifySecureCallDismissed === 'function') {
+          bridge.notifySecureCallDismissed(unwrapped.sender);
+        }
+      } catch (_) {}
+      return true;
+    }
+
+    if (unwrapped.action !== 'offer') {
+      // answer/candidates: leave to live subscribe handlers after warm.
+      console.log('CALL_SECURE_WAKE non_offer action=' + unwrapped.action);
+      return true;
+    }
+
+    // Authenticated offer — authorize Native ring, then drive Web UI.
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.notifySecureCallOfferVerified === 'function') {
+        bridge.notifySecureCallOfferVerified(unwrapped.sender, unwrapped.media, unwrapped.sessionId || '');
+      }
+    } catch (_) {}
+
+    let offer = unwrapped.data;
+    if (offer && offer.offer && !offer.type && !offer.sdp) offer = offer.offer;
+    if (!offer?.type || !offer?.sdp) return false;
+
+    if (unwrapped.media === 'video') {
+      if (typeof App.onVideoCallIncoming === 'function') {
+        App.onVideoCallIncoming(unwrapped.sender, offer);
+      }
+      return true;
+    }
+
+    incomingOffer = offer;
+    incomingOfferPeer = String(unwrapped.sender || '').toLowerCase();
+    persistIncomingOffer(incomingOfferPeer, offer);
+    if (typeof App.onVoiceCallIncoming === 'function') {
+      App.onVoiceCallIncoming(unwrapped.sender, offer);
+    }
+    console.log('CALL_SECURE_OFFER_VERIFIED');
+    return true;
   };
 
   // חלק APK (chat-voice-call-ui.js) – חימום בזמן צלצול: מפתח/offer/מיקרופון בלי UI | HYPER CORE TECH
