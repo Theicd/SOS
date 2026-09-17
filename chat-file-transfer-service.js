@@ -37,6 +37,36 @@
     }
   }
 
+  function isEncryptedVoiceAttachment(attachment) {
+    if (!attachment || typeof attachment !== 'object') return false;
+    if (attachment.isVoice === true) return true;
+    const mediaMime =
+      attachment.media && typeof attachment.media.mime === 'string'
+        ? attachment.media.mime.toLowerCase()
+        : '';
+    if (mediaMime.startsWith('audio/') || mediaMime === 'application/ogg') return true;
+    const mediaName =
+      attachment.media && typeof attachment.media.filename === 'string'
+        ? attachment.media.filename.toLowerCase()
+        : '';
+    if (mediaName.includes('voice') || mediaName.includes('ptt') || mediaName.includes('voicemessage')) {
+      return true;
+    }
+    return false;
+  }
+
+  function isAudioLikeAttachment(attachment) {
+    if (!attachment || typeof attachment !== 'object') return false;
+    if (isEncryptedVoiceAttachment(attachment)) return true;
+    if (typeof attachment.type === 'string' && attachment.type.indexOf('audio/') === 0) return true;
+    if (attachment.type === 'application/ogg') return true;
+    const name = String(attachment.name || '').toLowerCase();
+    if (name.includes('voice') || name.endsWith('.webm') || name.endsWith('.ogg') || name.endsWith('.mp3')) {
+      return true;
+    }
+    return typeof attachment.duration === 'number' && attachment.duration > 0;
+  }
+
   function serializeAttachment(attachment) {
     if (!attachment) {
       return null;
@@ -46,6 +76,9 @@
       attachment.type === 'encrypted-media' ||
       (typeof App.isEncryptedBlossomDescriptor === 'function' && App.isEncryptedBlossomDescriptor(attachment))
     ) {
+      if (typeof App.buildEncryptedAttachmentWireDescriptor === 'function') {
+        return App.buildEncryptedAttachmentWireDescriptor(attachment);
+      }
       const wire = {
         v: attachment.v,
         type: attachment.type,
@@ -55,9 +88,16 @@
         media: attachment.media,
         resource: attachment.resource,
       };
-      if (typeof attachment.duration === 'number') {
-        wire.duration = attachment.duration;
+      if (Array.isArray(attachment.chunks)) wire.chunks = attachment.chunks;
+      if (typeof attachment.chunkCount === 'number') wire.chunkCount = attachment.chunkCount;
+      if (typeof attachment.chunkPlaintextSize === 'number') {
+        wire.chunkPlaintextSize = attachment.chunkPlaintextSize;
       }
+      if (typeof attachment.duration === 'number') wire.duration = attachment.duration;
+      if (attachment.isVoice === true) wire.isVoice = true;
+      if (attachment.magnetURI) wire.magnetURI = attachment.magnetURI;
+      if (attachment.infoHash) wire.infoHash = attachment.infoHash;
+      if (attachment.isTorrent === true) wire.isTorrent = true;
       return wire;
     }
     const wireType = typeof attachment.type === 'string' && attachment.type.indexOf(';') >= 0
@@ -83,6 +123,9 @@
     }
     if (attachment.isTorrent) {
       serialized.isTorrent = true;
+    }
+    if (attachment.isVoice === true) {
+      serialized.isVoice = true;
     }
     return serialized;
   }
@@ -115,7 +158,7 @@
       console.error('Failed to serialize chat payload', err);
       return null;
     }
-    const isAudio = attachment && typeof attachment.type === 'string' && attachment.type.indexOf('audio/') === 0;
+    const isAudio = isAudioLikeAttachment(attachment);
     // חלק תיקון קול (chat-file-transfer-service.js) – displayText לא ריק להודעות קוליות, אחרת appendMessageToConversation דוחה | HYPER CORE TECH
     let audioDisplayText = '🎤 הודעה קולית';
     if (isAudio && typeof attachment.duration === 'number' && attachment.duration > 0) {
@@ -162,10 +205,7 @@
       // חלק תיקון קול (chat-file-transfer-service.js) – זיהוי הודעות קוליות בדסריאליזציה והצגת טקסט מתאים | HYPER CORE TECH
       let displayText = payload.t || '';
       if (!displayText && attachment) {
-        const aMime = (attachment.type || '').toLowerCase();
-        const aName = (attachment.name || '').toLowerCase();
-        const isAudioAtt = aMime.startsWith('audio/') || aName.includes('voice') || aName.endsWith('.webm') || aName.endsWith('.ogg') || aName.endsWith('.mp3');
-        if (isAudioAtt) {
+        if (isAudioLikeAttachment(attachment)) {
           const d = typeof attachment.duration === 'number' && attachment.duration > 0 ? attachment.duration : 0;
           displayText = d > 0 ? `🎤 הודעה קולית (${Math.floor(d / 60)}:${String(Math.floor(d % 60)).padStart(2, '0')})` : '🎤 הודעה קולית';
         } else {

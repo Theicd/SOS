@@ -476,6 +476,79 @@
   }
 
   // חלק שחזור IndexedDB (chat-state.js) – שחזור מ-IndexedDB עם fallback ל-localStorage | HYPER CORE TECH
+  let restoreInFlight = null;
+  let restoreInFlightStorageKey = null;
+  let restoredStorageKey = null;
+
+  function statusRank(status) {
+    const rank = MESSAGE_STATUS_RANK[String(status || '')];
+    return typeof rank === 'number' ? rank : -1;
+  }
+
+  function scrubRestoredMessage(message) {
+    if (!message || typeof message !== 'object') return null;
+    if (!message.attachment) return message;
+    const att = message.attachment;
+    if (typeof App.inspectIncomingChatAttachment === 'function') {
+      const inspected = App.inspectIncomingChatAttachment(att);
+      if (!inspected || inspected.ok !== true) {
+        try {
+          console.warn('[SECURITY/PARSE_REJECT] kind=history reason=bad_attachment');
+        } catch (_) {}
+        return { ...message, attachment: null };
+      }
+    }
+    if (att && typeof att.name === 'string' && typeof App.sanitizeIncomingChatFileName === 'function') {
+      att.name = App.sanitizeIncomingChatFileName(att.name);
+    }
+    return message;
+  }
+
+  /**
+   * Merge disk snapshot messages with live in-memory messages.
+   * Never drop live messages because a stale snapshot arrives later.
+   */
+  function mergeConversationMessages(liveMessages, diskMessages, peer) {
+    const byId = new Map();
+    const cutoffTs = getCutoffForPeer(peer);
+
+    function consider(raw, preferLiveOnTie) {
+      const message = scrubRestoredMessage(raw);
+      if (!message || typeof message !== 'object') return;
+      if (!message.id || typeof message.id !== 'string') return;
+      if (isChatMessageMarkedDeleted(message)) return;
+      const ts = getMessageCreatedAt(message);
+      if (ts && ts < cutoffTs) return;
+      const existing = byId.get(message.id);
+      if (!existing) {
+        byId.set(message.id, message);
+        return;
+      }
+      const existingRank = statusRank(existing.status);
+      const nextRank = statusRank(message.status);
+      if (nextRank > existingRank) {
+        byId.set(message.id, message);
+        return;
+      }
+      if (nextRank < existingRank) return;
+      // Same status rank: live in-memory object MUST win over persisted disk.
+      if (preferLiveOnTie) {
+        byId.set(message.id, message);
+      }
+      // Disk on tie: keep existing (prefer live already in map).
+    }
+
+    (Array.isArray(diskMessages) ? diskMessages : []).forEach((m) => consider(m, false));
+    (Array.isArray(liveMessages) ? liveMessages : []).forEach((m) => consider(m, true));
+
+    const merged = Array.from(byId.values());
+    merged.sort((a, b) => getMessageCreatedAt(a) - getMessageCreatedAt(b));
+    if (MAX_MESSAGES_PER_THREAD && merged.length > MAX_MESSAGES_PER_THREAD) {
+      return merged.slice(-MAX_MESSAGES_PER_THREAD);
+    }
+    return merged;
+  }
+
   async function restoreStateFromIndexedDB() {
     const storageKey = getStorageKey();
     if (!storageKey) return null;
@@ -494,9 +567,32 @@
     }
   }
 
-  async function restoreState() {
+  function restoreState() {
     const storageKey = getStorageKey();
-    if (!storageKey) return;
+    if (!storageKey) return Promise.resolve();
+    // Idempotent restore per storageKey: concurrent callers share one promise;
+    // subsequent calls after success do not re-apply a destructive disk overwrite.
+    if (restoredStorageKey === storageKey && !restoreInFlight) {
+      persistLog('RESTORE', 'SKIP already-restored storageKey=' + storageKey);
+      return Promise.resolve();
+    }
+    if (restoreInFlight && restoreInFlightStorageKey === storageKey) {
+      return restoreInFlight;
+    }
+    // Different account/key: allow a new restore.
+    if (restoredStorageKey && restoredStorageKey !== storageKey) {
+      restoredStorageKey = null;
+    }
+
+    // Claim the in-flight slot synchronously so concurrent callers share one promise.
+    let settle;
+    const run = new Promise((resolve, reject) => {
+      settle = { resolve, reject };
+    });
+    restoreInFlight = run;
+    restoreInFlightStorageKey = storageKey;
+
+    (async () => {
     try {
       // נסה קודם IndexedDB
       let parsed = await restoreStateFromIndexedDB();
@@ -517,13 +613,17 @@
         }
       }
       
-      if (!parsed || typeof parsed !== 'object') return;
+      if (!parsed || typeof parsed !== 'object') {
+        restoredStorageKey = storageKey;
+        return;
+      }
       if (Array.isArray(parsed.contacts)) {
         parsed.contacts.forEach((contact) => {
           if (!contact || !contact.pubkey) {
             return;
           }
           const key = contact.pubkey.toLowerCase();
+          const existing = chatState.contacts.get(key);
           const restoredContact = {
             pubkey: key,
             name: contact.name || 'משתמש',
@@ -532,7 +632,7 @@
               contact.initials || (typeof App.getInitials === 'function' ? App.getInitials(contact.name || '') : 'מש'),
             lastMessage: contact.lastMessage || '',
             lastTimestamp: typeof contact.lastTimestamp === 'number' ? contact.lastTimestamp : 0,
-            unreadCount: 0, // חלק אופטימיזציה (chat-state.js) – אתחול unread ל-0 בשחזור | HYPER CORE TECH
+            unreadCount: existing ? existing.unreadCount : 0,
             lastReadTimestamp: typeof contact.lastReadTimestamp === 'number' ? contact.lastReadTimestamp : 0,
             profileFetchedAt: typeof contact.profileFetchedAt === 'number' ? contact.profileFetchedAt : 0,
             archived: !!contact.archived,
@@ -540,15 +640,23 @@
             meshReachable: !!contact.meshReachable,
             meshRelation: contact.meshRelation || '',
           };
+          // Prefer newer live contact timestamps when present.
+          if (existing && Number(existing.lastTimestamp) > Number(restoredContact.lastTimestamp)) {
+            restoredContact.lastMessage = existing.lastMessage;
+            restoredContact.lastTimestamp = existing.lastTimestamp;
+            restoredContact.unreadCount = existing.unreadCount;
+          }
           chatState.contacts.set(key, restoredContact);
         });
       }
       if (Array.isArray(parsed.disappearingTimers)) {
-        chatState.disappearingTimers.clear();
+        // Merge timers: do not wipe live map before applying disk.
         parsed.disappearingTimers.forEach((row) => {
           const peer = typeof row?.peer === 'string' ? row.peer.toLowerCase() : '';
           if (!peer) return;
-          chatState.disappearingTimers.set(peer, normalizeDisappearingTimerSec(row.seconds));
+          if (!chatState.disappearingTimers.has(peer)) {
+            chatState.disappearingTimers.set(peer, normalizeDisappearingTimerSec(row.seconds));
+          }
         });
       }
       if (typeof parsed.defaultDisappearingSec === 'number' && parsed.defaultDisappearingSec > 0) {
@@ -560,29 +668,10 @@
             return;
           }
           const peer = entry.peer.toLowerCase();
-          const cutoffTs = getCutoffForPeer(peer);
-          const filtered = (Array.isArray(entry.messages) ? entry.messages : []).filter((message) => {
-            const ts = getMessageCreatedAt(message);
-            return !ts || ts >= cutoffTs;
-          });
-          const scrubbed = filtered.map((message) => {
-            if (!message || typeof message !== 'object' || !message.attachment) return message;
-            const att = message.attachment;
-            if (typeof App.inspectIncomingChatAttachment === 'function') {
-              const inspected = App.inspectIncomingChatAttachment(att);
-              if (!inspected || inspected.ok !== true) {
-                try {
-                  console.warn('[SECURITY/PARSE_REJECT] kind=history reason=bad_attachment');
-                } catch (_) {}
-                return { ...message, attachment: null };
-              }
-            }
-            if (att && typeof att.name === 'string' && typeof App.sanitizeIncomingChatFileName === 'function') {
-              att.name = App.sanitizeIncomingChatFileName(att.name);
-            }
-            return message;
-          });
-          const messages = MAX_MESSAGES_PER_THREAD ? scrubbed.slice(-MAX_MESSAGES_PER_THREAD) : scrubbed;
+          const liveEntry = chatState.conversations.get(entry.key);
+          const liveMessages = liveEntry && Array.isArray(liveEntry.messages) ? liveEntry.messages : [];
+          const diskMessages = Array.isArray(entry.messages) ? entry.messages : [];
+          const messages = mergeConversationMessages(liveMessages, diskMessages, peer);
           chatState.conversations.set(entry.key, {
             peer,
             messages,
@@ -599,24 +688,30 @@
         });
       }
       if (Array.isArray(parsed.deletedIds)) {
-        App.deletedChatMessageIds = new Set(parsed.deletedIds.filter((id) => typeof id === 'string'));
+        App.deletedChatMessageIds = App.deletedChatMessageIds || new Set();
+        parsed.deletedIds.forEach((id) => {
+          if (typeof id === 'string') App.deletedChatMessageIds.add(id);
+        });
       }
       if (typeof parsed.lastSyncTs === 'number') {
-        chatState.lastSyncTs = parsed.lastSyncTs;
+        chatState.lastSyncTs = Math.max(Number(chatState.lastSyncTs) || 0, parsed.lastSyncTs);
       }
-      chatState.pendingReadReceipts.clear();
       if (Array.isArray(parsed.pendingReadReceipts)) {
         parsed.pendingReadReceipts.forEach((row) => {
           const peer = typeof row?.peer === 'string' ? row.peer.toLowerCase() : '';
           if (!peer) return;
+          const prev = chatState.pendingReadReceipts.get(peer);
+          const nextAt = Number(row.lastReadAt) || 0;
+          if (prev && Number(prev.lastReadAt) > nextAt) return;
           chatState.pendingReadReceipts.set(peer, {
             receiptId: row.receiptId || '',
-            lastReadAt: Number(row.lastReadAt) || 0,
+            lastReadAt: nextAt,
             lastReadMessageId: row.lastReadMessageId || '',
             queuedAt: Number(row.queuedAt) || 0,
           });
         });
       }
+      restoredStorageKey = storageKey;
       persistLog(
         'RESTORE',
         'storageKey=' + storageKey +
@@ -633,6 +728,17 @@
     notify('unread', chatState.unreadTotal);
     // אחרי שחזור – רענון שיחה פתוחה (פתיחה מהתרעה לפני שהקאש היה מוכן) | HYPER CORE TECH
     notify('restored', { ok: true });
+    })()
+      .then(() => settle.resolve())
+      .catch((err) => settle.reject(err))
+      .finally(() => {
+        if (restoreInFlight === run) {
+          restoreInFlight = null;
+          restoreInFlightStorageKey = null;
+        }
+      });
+
+    return run;
   }
 
   // חלק צ'אט (chat-state.js) – מחשב מחדש את מספור ההודעות הלא נקראות לפי הזמן האחרון שהשיחה נקראה
@@ -1094,7 +1200,7 @@
   }
 
   function restoreChatModuleState() {
-    restoreState();
+    return restoreState();
   }
 
   function setLastSyncTs(ts) {
