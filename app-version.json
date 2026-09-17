@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.17-encrypted-blossom-compat1",
-  "buildTime": "2026-09-17T02:10:00+03:00",
-  "notes": "Private-chat encrypted Blossom fallback restored for real Blossom servers using fixed opaque JPEG wire transport. Original private MIME and filename remain hidden. P2P/Torrent routing unchanged. Public feed unchanged.",
+  "version": "2026.09.17-chat-recovery-hotfix1",
+  "buildTime": "2026-09-17T15:10:00+03:00",
+  "notes": "Restores encrypted private attachments, voice messages and live chat state integrity. Encrypted-media descriptors now survive chat state/serialization. Stale persisted state can no longer overwrite newer live messages. P2P/Torrent and encrypted Blossom wire transport unchanged.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true

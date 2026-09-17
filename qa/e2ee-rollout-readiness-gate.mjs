@@ -82,7 +82,7 @@ record('encrypt helper exists in chat-e2ee', e2ee.includes('encryptPrivateChatPa
 record('no sos_caps capability kind', !profile.includes('sos_caps') && !svc.includes('sos_caps'));
 
 // SW
-record('SW CACHE_NAME sos-cache-v840', /sos-cache-v840/.test(sw));
+record('SW CACHE_NAME sos-cache-v841', /sos-cache-v841/.test(sw));
 record('SW precaches chat-e2ee.js', sw.includes("'./chat-e2ee.js'"));
 record('SW precaches chat-secure-epoch.js', sw.includes("'./chat-secure-epoch.js'"));
 record('SW precaches chat-service.js', sw.includes("'./chat-service.js'"));
@@ -116,8 +116,8 @@ record('safe diagnostic: getSecureChatGateState', epoch.includes('getSecureChatG
 record('safe diagnostic: SOS_SECURE_CHAT_EPOCH on App', e2ee.includes('SOS_SECURE_CHAT_EPOCH'));
 record('epoch logs omit message/keys', !/\$\{.*content/.test(epoch) && epoch.includes('[E2EE/EPOCH]'));
 
-// Version: encrypted-blossom-compat1; minSecureChatEpoch=2; e2eeSendRequired explicit true; mediaServerE2eeRequired=true
-record('app-version encrypted-blossom-compat1', String(appVer.version || '').includes('encrypted-blossom-compat1'));
+// Version: chat-recovery-hotfix1; minSecureChatEpoch=2; e2eeSendRequired explicit true; mediaServerE2eeRequired=true
+record('app-version chat-recovery-hotfix1', String(appVer.version || '').includes('chat-recovery-hotfix1'));
 record('mediaServerE2eeRequired explicit true (ACTIVE)',
   Object.prototype.hasOwnProperty.call(appVer, 'mediaServerE2eeRequired') && appVer.mediaServerE2eeRequired === true);
 record('minSecureChatEpoch =2', Number(appVer.minSecureChatEpoch) === 2);
