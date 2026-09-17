@@ -18,7 +18,7 @@ class CallActionReceiver : BroadcastReceiver() {
             "video", "v", "v-offer" -> "video"
             else -> "voice"
         }
-        Log.i(TAG, "action=$action peer=${peer.take(8)} type=$callType")
+        Log.i(TAG, "action=$action peer=redacted type=$callType")
 
         when (action) {
             ACTION_DECLINE -> {

@@ -2,7 +2,7 @@
 (function initMarketDashboard(window) {
   const App = window.NostrApp || (window.NostrApp = {});
 
-  const CALL_METRIC_KIND = App.CALL_METRIC_KIND || 25060; // חלק מדדי שיחה (market-dashboard.js) – kind עבור אירועי משך שיחות | HYPER CORE TECH
+  // Call metrics kind 25060 retired — per-call duration/peer analytics unavailable (privacy).
   const CORE_METRIC_KINDS = {
     profile: 0,
     post: 1,
@@ -12,7 +12,6 @@
     videoCall: 1051,
     voiceCall: 1052,
     gameOpen: 1053,
-    callMetric: CALL_METRIC_KIND,
   }; // חלק מדדי רשת (market-dashboard.js) – מגדיר קינד נדרש לכל פרמטר מדיד שנשלף מהריליי | HYPER CORE TECH
   const MIN_GROWTH_DATE = '2025-09-25';
   const MIN_GROWTH_TIMESTAMP = Math.floor(Date.parse(`${MIN_GROWTH_DATE}T00:00:00Z`) / 1000);
@@ -127,7 +126,7 @@
     filters.push(loginFilter);
 
     const metricKindsFilter = {
-      kinds: [CALL_METRIC_KIND, 1051, 1052, 1053],
+      kinds: [1051, 1052, 1053],
       limit: GROWTH_FETCH_LIMIT,
       since: MIN_GROWTH_TIMESTAMP,
     };
@@ -870,71 +869,8 @@
         }
       }
 
-      if (event.kind === CALL_METRIC_KIND) {
-        const callSummary = (() => {
-          const summary = {
-            mode: null,
-            durationSeconds: 0,
-          };
-          if (Array.isArray(event?.tags)) {
-            event.tags.forEach((tag) => {
-              if (!Array.isArray(tag)) return;
-              const [type, value] = tag;
-              if (type === 't' && typeof value === 'string') {
-                if (value === 'video-call') {
-                  summary.mode = summary.mode || 'video';
-                } else if (value === 'voice-call') {
-                  summary.mode = summary.mode || 'voice';
-                }
-              }
-              if (typeof type === 'string' && type.toLowerCase() === 'duration') {
-                const parsed = Number(value);
-                if (Number.isFinite(parsed)) {
-                  summary.durationSeconds = Math.max(summary.durationSeconds, parsed);
-                }
-              }
-            });
-          }
-          if (!summary.mode) {
-            if (Array.isArray(event?.tags) && event.tags.some((tag) => Array.isArray(tag) && tag[0] === 'metric' && tag[1] === 'call')) {
-              summary.mode = 'voice';
-            }
-          }
-          if (typeof event?.content === 'string') {
-            try {
-              const parsedContent = JSON.parse(event.content);
-              if (typeof parsedContent?.mode === 'string') {
-                summary.mode = parsedContent.mode;
-              }
-              if (Number.isFinite(parsedContent?.durationSeconds)) {
-                summary.durationSeconds = Math.max(summary.durationSeconds, Number(parsedContent.durationSeconds));
-              }
-            } catch (error) {
-              // אין צורך בלוג – תוכן שאינו JSON
-            }
-          }
-          return summary;
-        })();
-
-        const durationSeconds = Number.isFinite(callSummary.durationSeconds) ? Math.max(0, callSummary.durationSeconds) : 0;
-        if (durationSeconds > 0) {
-          if (callSummary.mode === 'video') {
-            videoCallsCount += 1;
-            videoCallDurationSecondsTotal += durationSeconds;
-          } else if (callSummary.mode === 'voice') {
-            voiceCallsCount += 1;
-            voiceCallDurationSecondsTotal += durationSeconds;
-          }
-          if (bucket) {
-            if (callSummary.mode === 'video') {
-              bucket.videoCallDurationSeconds = (bucket.videoCallDurationSeconds || 0) + durationSeconds;
-            } else if (callSummary.mode === 'voice') {
-              bucket.voiceCallDurationSeconds = (bucket.voiceCallDurationSeconds || 0) + durationSeconds;
-            } else {
-              bucket.voiceCallDurationSeconds = (bucket.voiceCallDurationSeconds || 0) + durationSeconds;
-            }
-          }
-        }
+      // 25060 call metrics removed — do not reconstruct duration/peer/call-type from Relay.
+      if (false) {
         return;
       }
 
@@ -1049,8 +985,8 @@
       };
 
       bumpMetric(event.kind === 1050 || hasTagValue(event, 't', 'login'), 'logins');
-      bumpMetric(event.kind === 1051 || hasTagValue(event, 't', 'video-call'), 'videoCalls');
-      bumpMetric(event.kind === 1052 || hasTagValue(event, 't', 'voice-call'), 'voiceCalls');
+      bumpMetric(event.kind === 1051, 'videoCalls');
+      bumpMetric(event.kind === 1052, 'voiceCalls');
       bumpMetric(event.kind === 1053 || hasTagValue(event, 't', 'game-open'), 'gameOpens');
 
       const parentIds = extractParentIds(event);

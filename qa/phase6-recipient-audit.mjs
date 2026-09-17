@@ -79,24 +79,31 @@ record(
   p2p.includes("['p',p.toLowerCase()]") && p2p.includes('kind:SIG_KIND'),
 );
 
+const voiceSub = sliceBetween(voice, 'function subscribeToSignals(options)', 'function forceResubscribeSignals');
+const videoSub = sliceBetween(video, 'function subscribeToSignals(options)', 'function forceResubscribeSignals');
+
 record(
-  'voice 25050 signature then recipient before handleSignalEvent',
-  voice.includes('verifyIncomingVoiceRelayEvent(ev)') &&
-    voice.includes('verifyIncomingVoiceRelayRecipient(ev)') &&
-    voice.indexOf('verifyIncomingVoiceRelayEvent(ev)') <
-      voice.indexOf('verifyIncomingVoiceRelayRecipient(ev)') &&
-    voice.indexOf('verifyIncomingVoiceRelayRecipient(ev)') <
-      voice.indexOf('handleSignalEvent(ev);'),
+  'voice gift-wrap 1059 signature then recipient before unwrap/dispatch',
+  voiceSub.includes("ev.kind === 1059") &&
+    voiceSub.includes('verifyIncomingVoiceRelayEvent(ev)') &&
+    voiceSub.includes('verifyIncomingVoiceRelayRecipient(ev)') &&
+    voiceSub.includes('handleGiftWrapCallEvent(ev)') &&
+    voiceSub.indexOf('verifyIncomingVoiceRelayEvent(ev)') <
+      voiceSub.indexOf('verifyIncomingVoiceRelayRecipient(ev)') &&
+    voiceSub.indexOf('verifyIncomingVoiceRelayRecipient(ev)') <
+      voiceSub.indexOf('handleGiftWrapCallEvent(ev)'),
 );
 
 record(
-  'video 25050 signature then recipient before handleSignalEvent',
-  video.includes('verifyIncomingVideoRelayEvent(ev)') &&
-    video.includes('verifyIncomingVideoRelayRecipient(ev)') &&
-    video.indexOf('verifyIncomingVideoRelayEvent(ev)') <
-      video.indexOf('verifyIncomingVideoRelayRecipient(ev)') &&
-    video.indexOf('verifyIncomingVideoRelayRecipient(ev)') <
-      video.indexOf('handleSignalEvent(ev);'),
+  'video gift-wrap 1059 signature then recipient before unwrap/dispatch',
+  videoSub.includes("ev.kind === 1059") &&
+    videoSub.includes('verifyIncomingVideoRelayEvent(ev)') &&
+    videoSub.includes('verifyIncomingVideoRelayRecipient(ev)') &&
+    videoSub.includes('handleGiftWrapCallEvent(ev)') &&
+    videoSub.indexOf('verifyIncomingVideoRelayEvent(ev)') <
+      videoSub.indexOf('verifyIncomingVideoRelayRecipient(ev)') &&
+    videoSub.indexOf('verifyIncomingVideoRelayRecipient(ev)') <
+      videoSub.indexOf('handleGiftWrapCallEvent(ev)'),
 );
 
 record(

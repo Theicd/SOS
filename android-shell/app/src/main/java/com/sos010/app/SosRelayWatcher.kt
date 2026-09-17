@@ -223,7 +223,7 @@ class SosRelayWatcher(private val appContext: Context) {
     private fun notifyChat(author: String, rawContent: String, eventId: String) {
         // כשהממשק פתוח – ה-Web מטפל בהתראות (מונע כפילות צליל/כרטיס)
         if (MainActivity.isHostAlive) {
-            SosDebugLog.i("relay", "chat skip hostAlive id=${eventId.take(10)} from=${author.take(8)}")
+            SosDebugLog.i("relay", "chat skip hostAlive id=${eventId.take(10)} from=redacted")
             return
         }
 
@@ -259,7 +259,7 @@ class SosRelayWatcher(private val appContext: Context) {
             requestProfile(author)
         }
         lastNotifyAt = System.currentTimeMillis()
-        Log.i(TAG, "chat notify from ${author.take(8)} as $senderLabel")
+        Log.i(TAG, "chat notify from redacted as $senderLabel")
     }
 
     fun publish(event: JSONObject) {
@@ -276,18 +276,18 @@ class SosRelayWatcher(private val appContext: Context) {
                 val eventId = event.optString("id")
                 val createdAt = event.optLong("created_at", 0L)
                 if (SosIncomingCallSession.isOfferTooOld(createdAt)) {
-                    Log.i(TAG, "stale offer from ${author.take(8)} age>${SosIncomingCallSession.MAX_OFFER_AGE_SEC}s")
+                    Log.i(TAG, "stale offer from redacted age>${SosIncomingCallSession.MAX_OFFER_AGE_SEC}s")
                     SosIncomingCallSession.rememberHandledOffer(appContext, eventId)
                     return
                 }
                 if (SosIncomingCallSession.isHandledOffer(appContext, eventId)) {
-                    Log.i(TAG, "already-handled offer ${eventId.take(8)} from ${author.take(8)}")
+                    Log.i(TAG, "already-handled offer ${eventId.take(8)} from redacted")
                     return
                 }
                 if (SosIncomingCallSession.isReplayOfEndedCall(appContext, author, createdAt)) {
                     SosIncomingCallSession.rememberHandledOffer(appContext, eventId)
-                    Log.i(TAG, "replay after hangup ${eventId.take(8)} from ${author.take(8)}")
-                    SosDebugLog.i("relay", "call skip ended-replay from=${author.take(8)}")
+                    Log.i(TAG, "replay after hangup ${eventId.take(8)} from redacted")
+                    SosDebugLog.i("relay", "call skip ended-replay from=redacted")
                     return
                 }
                 // אותה שיחה כבר מצלצלת/בשיחה – לא לפתוח התראה שוב | HYPER CORE TECH
@@ -300,7 +300,7 @@ class SosRelayWatcher(private val appContext: Context) {
                 }
                 if (SosIncomingCallSession.isSameActiveCall(appContext, author)) {
                     SosIncomingCallSession.rememberHandledOffer(appContext, eventId)
-                    Log.i(TAG, "duplicate active offer from ${author.take(8)} (raw refreshed)")
+                    Log.i(TAG, "duplicate active offer from redacted (raw refreshed)")
                     return
                 }
                 if (now - lastCallNotifyAt < 1500L) return
@@ -313,7 +313,7 @@ class SosRelayWatcher(private val appContext: Context) {
                 // כשהממשק בחזית: Web מציג דיאלוג; לא מסמנים handled כאן כדי לא לחסום FSI אם עוברים לרקע בזמן צלצול | HYPER CORE TECH
                 if (MainActivity.isHostAlive) {
                     Log.i(TAG, "host alive – web handles UI, raw offer cached")
-                    SosDebugLog.i("relay", "call skip hostAlive from=${author.take(8)}")
+                    SosDebugLog.i("relay", "call skip hostAlive from=redacted")
                     return
                 }
 
@@ -321,7 +321,7 @@ class SosRelayWatcher(private val appContext: Context) {
                 SosIncomingCallSession.rememberHandledOffer(appContext, eventId)
 
                 // מחממים WebView ברקע בזמן צלצול – ענה יהיה מהיר | HYPER CORE TECH
-                SosDebugLog.i("relay", "incoming $callType from=${author.take(8)} → notify+warm")
+                SosDebugLog.i("relay", "incoming $callType from=redacted → notify+warm")
                 MainActivity.warmHostForIncomingCall(appContext, author, callType)
 
                 NotificationHelper.showIncomingCall(
@@ -334,7 +334,7 @@ class SosRelayWatcher(private val appContext: Context) {
                     callerName = caller
                 )
                 if (caller == "מישהו") requestProfile(author)
-                Log.i(TAG, "incoming $callType from ${author.take(8)}")
+                Log.i(TAG, "incoming $callType from redacted")
             }
             "disconnect", "v-disconnect" -> {
                 val offerId = SosPendingCallStore.extractEventId(appContext)
@@ -344,7 +344,7 @@ class SosRelayWatcher(private val appContext: Context) {
                 NotificationHelper.cancelIncomingCall(appContext)
                 CallSoundHelper.stopAll()
                 IncomingCallActivity.dismiss(appContext, author)
-                Log.i(TAG, "remote hangup from ${author.take(8)}")
+                Log.i(TAG, "remote hangup from redacted")
             }
         }
     }

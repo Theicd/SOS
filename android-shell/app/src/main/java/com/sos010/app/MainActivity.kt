@@ -853,7 +853,7 @@ class MainActivity : AppCompatActivity() {
         """.trimIndent()
         try {
             webView.evaluateJavascript(js, null)
-            Log.i(TAG, "warm-for-call peer=${peer.take(8)} type=$type")
+            Log.i(TAG, "warm-for-call type=redacted")
         } catch (err: Exception) {
             Log.w(TAG, "warm inject failed: ${err.message}")
         }
@@ -973,7 +973,7 @@ class MainActivity : AppCompatActivity() {
         """.trimIndent()
         try {
             webView.evaluateJavascript(js, null)
-            Log.i(TAG, "injected deeplink peer=${peer?.take(8)} call=$call autoAccept=$autoAccept")
+            Log.i(TAG, "injected deeplink call=redacted")
         } catch (err: Exception) {
             Log.w(TAG, "deeplink inject failed: ${err.message}")
         }
@@ -1072,7 +1072,7 @@ class MainActivity : AppCompatActivity() {
         """.trimIndent()
         try {
             webView.evaluateJavascript(js, null)
-            Log.i(TAG, "injected decline peer=${peer.take(8)}")
+            Log.i(TAG, "injected decline")
         } catch (_: Exception) {
         }
         listOf(600L, 1200L, 2500L, 4000L, 6000L).forEach { delay ->
