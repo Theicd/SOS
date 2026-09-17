@@ -184,7 +184,7 @@ object NotificationHelper {
                 inboxLines.removeFirst()
             }
             lastOpenUrl = openUrl ?: lastOpenUrl
-            SosDebugLog.i("notify", "showMessage post sound=$allowAlert peer=${resolvedPeer.take(8)}")
+            SosDebugLog.i("notify", "showMessage post sound=$allowAlert peer=redacted")
             postAggregateLocked(app, playSound = allowAlert)
         }
 
@@ -281,7 +281,7 @@ object NotificationHelper {
         val callBody = app.getString(R.string.incoming_call_from, displayName)
 
         SosIncomingCallSession.markRinging(app, peer, type)
-        SosDebugLog.i("notify", "showIncomingCall type=$type peer=${peer.take(8)}")
+        SosDebugLog.i("notify", "showIncomingCall type=$type peer=redacted")
 
         val fullScreenIntent = IncomingCallActivity.lockScreenIntent(
             app, peer, type, displayName, openUrl, pictureUrl

@@ -73,6 +73,7 @@ class MainActivity : AppCompatActivity() {
     private var pendingAutoAccept: Boolean = false
     private var warmForCallPeer: String? = null
     private var warmForCallType: String? = null
+    private var warmForSecureWrapPending = false
     private var warmForP2pPeer: String? = null
     private var warmForP2pPending = false
     @Volatile private var pendingOpenChatList = false
@@ -230,16 +231,18 @@ class MainActivity : AppCompatActivity() {
         captureDeepLinkFromIntent(intent)
         captureCallActionFromIntent(intent)
         captureWarmForCallFromIntent(intent)
+        captureWarmForSecureWrapFromIntent(intent)
         captureWarmForP2pFromIntent(intent)
         captureOpenChatListFromIntent(intent)
         // שיחה נכנסת – לא עוצרים צלצול מיד; Web יקבל deeplink בלי reload | HYPER CORE TECH
-        if (!openedFromCallIntent && pendingCallAction != CALL_ACTION_ANSWER && warmForCallPeer.isNullOrBlank()) {
+        if (!openedFromCallIntent && pendingCallAction != CALL_ACTION_ANSWER && warmForCallPeer.isNullOrBlank() && !warmForSecureWrapPending) {
             CallSoundHelper.stopAll()
         }
         if (webPageReady && isWarmSosPage()) {
             injectPendingDeepLink()
             injectPendingCallAction()
             injectWarmForCall()
+            injectSecureWrapProcessing()
             injectWarmForP2p()
         } else {
             val url = resolveStartUrl(intent)
@@ -273,6 +276,7 @@ class MainActivity : AppCompatActivity() {
                     injectPendingDeepLink()
                     injectPendingCallAction()
                     injectWarmForCall()
+                    injectSecureWrapProcessing()
                     injectWarmForP2p()
                 }
                 injectNativeFilePickScript()
@@ -390,7 +394,9 @@ class MainActivity : AppCompatActivity() {
         if (intent.getStringExtra(EXTRA_CALL_ACTION) == CALL_ACTION_ANSWER) return false
         if (intent.getBooleanExtra(EXTRA_START_IN_BACKGROUND, false)) return true
         if (intent.getBooleanExtra(EXTRA_WARM_FOR_CALL, false)) return true
+        if (intent.getBooleanExtra(EXTRA_WARM_FOR_SECURE_WRAP, false)) return true
         if (intent.getBooleanExtra(EXTRA_WARM_FOR_P2P, false)) return true
+        if (warmForSecureWrapPending) return true
         if (warmForP2pPending) return true
         // warmForCallPeer לבדו לא מספיק אחרי שהמשתמש כבר בחזית בלי extras של warm
         return false
@@ -400,9 +406,12 @@ class MainActivity : AppCompatActivity() {
     fun clearWarmCallState(reason: String = "") {
         warmForCallPeer = null
         warmForCallType = null
+        warmForSecureWrapPending = false
         try {
             intent?.removeExtra(EXTRA_WARM_FOR_CALL)
             intent?.putExtra(EXTRA_WARM_FOR_CALL, false)
+            intent?.removeExtra(EXTRA_WARM_FOR_SECURE_WRAP)
+            intent?.putExtra(EXTRA_WARM_FOR_SECURE_WRAP, false)
             intent?.removeExtra(EXTRA_START_IN_BACKGROUND)
             intent?.putExtra(EXTRA_START_IN_BACKGROUND, false)
         } catch (_: Exception) {
@@ -810,6 +819,73 @@ class MainActivity : AppCompatActivity() {
         if (this::loading.isInitialized) loading.visibility = View.GONE
     }
 
+    /** Opaque Gift Wrap wake — no peer/media until JS authenticates. */
+    private fun captureWarmForSecureWrapFromIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_WARM_FOR_SECURE_WRAP, false) != true) return
+        warmForSecureWrapPending = true
+        if (this::loading.isInitialized) loading.visibility = View.GONE
+    }
+
+    private fun injectSecureWrapProcessing() {
+        if (!warmForSecureWrapPending) return
+        if (!this::webView.isInitialized) return
+        val queueJson = SosPendingCallStore.drainSecureWraps(applicationContext).toString()
+        if (queueJson == "[]") {
+            // Also try legacy single-slot for older pending meta
+            val legacy = SosPendingCallStore.getRawEventJson(applicationContext)
+            if (legacy.isBlank()) return
+        }
+        val rawEventJs = JSONObject.quote(
+            if (queueJson != "[]") queueJson
+            else SosPendingCallStore.getRawEventJson(applicationContext)
+        )
+        if (rawEventJs == "\"\"" || rawEventJs == "null" || rawEventJs == "\"[]\"") return
+        val js = """
+            (function(){
+              try {
+                var App = window.NostrApp || {};
+                if (typeof App.initVoiceCall === 'function') App.initVoiceCall({});
+                if (typeof App.initVideoCall === 'function') App.initVideoCall({});
+                if (App.CallSignalE2ee && typeof App.CallSignalE2ee.ensureSecureCallSubscription === 'function') {
+                  App.CallSignalE2ee.ensureSecureCallSubscription();
+                }
+                if (typeof App.prepareSecureCallEventFromNative === 'function') {
+                  App.prepareSecureCallEventFromNative($rawEventJs);
+                }
+              } catch (e) {}
+            })();
+        """.trimIndent()
+        try {
+            webView.evaluateJavascript(js, null)
+            Log.i(TAG, "SECURE_WRAP inject")
+            warmForSecureWrapPending = false
+            SosRelayWatcher.clearSecureWarmInFlight()
+        } catch (err: Exception) {
+            Log.w(TAG, "secure wrap inject failed: ${err.message}")
+        }
+        mainHandler.postDelayed({
+            if (!this::webView.isInitialized) return@postDelayed
+            // Drain any wraps that arrived during inject.
+            val more = SosPendingCallStore.drainSecureWraps(applicationContext).toString()
+            if (more == "[]") return@postDelayed
+            val moreJs = JSONObject.quote(more)
+            val retry = """
+                (function(){
+                  try {
+                    var App = window.NostrApp || {};
+                    if (typeof App.prepareSecureCallEventFromNative === 'function') {
+                      App.prepareSecureCallEventFromNative($moreJs);
+                    }
+                  } catch (e) {}
+                })();
+            """.trimIndent()
+            try {
+                webView.evaluateJavascript(retry, null)
+            } catch (_: Exception) {
+            }
+        }, 1200L)
+    }
+
     private fun injectWarmForCall() {
         val peer = warmForCallPeer ?: return
         // אחרי ענה/ניתוק או בלי צלצול פעיל – לא מזריקים warm (שובר שיחות/פרופיל) | HYPER CORE TECH
@@ -853,7 +929,7 @@ class MainActivity : AppCompatActivity() {
         """.trimIndent()
         try {
             webView.evaluateJavascript(js, null)
-            Log.i(TAG, "warm-for-call peer=${peer.take(8)} type=$type")
+            Log.i(TAG, "warm-for-call type=redacted")
         } catch (err: Exception) {
             Log.w(TAG, "warm inject failed: ${err.message}")
         }
@@ -907,7 +983,7 @@ class MainActivity : AppCompatActivity() {
         """.trimIndent()
         try {
             webView.evaluateJavascript(js, null)
-            Log.i(TAG, "warm-for-p2p peer=${warmForP2pPeer?.take(8) ?: "-"}")
+            Log.i(TAG, "warm-for-p2p peer=redacted")
         } catch (err: Exception) {
             Log.w(TAG, "p2p warm inject failed: ${err.message}")
         }
@@ -973,7 +1049,7 @@ class MainActivity : AppCompatActivity() {
         """.trimIndent()
         try {
             webView.evaluateJavascript(js, null)
-            Log.i(TAG, "injected deeplink peer=${peer?.take(8)} call=$call autoAccept=$autoAccept")
+            Log.i(TAG, "injected deeplink call=redacted")
         } catch (err: Exception) {
             Log.w(TAG, "deeplink inject failed: ${err.message}")
         }
@@ -1072,7 +1148,7 @@ class MainActivity : AppCompatActivity() {
         """.trimIndent()
         try {
             webView.evaluateJavascript(js, null)
-            Log.i(TAG, "injected decline peer=${peer.take(8)}")
+            Log.i(TAG, "injected decline")
         } catch (_: Exception) {
         }
         listOf(600L, 1200L, 2500L, 4000L, 6000L).forEach { delay ->
@@ -2238,6 +2314,7 @@ class MainActivity : AppCompatActivity() {
         const val EXTRA_CALL_PEER = "call_peer"
         const val EXTRA_CALL_TYPE = "call_type"
         const val EXTRA_WARM_FOR_CALL = "warm_for_call"
+        const val EXTRA_WARM_FOR_SECURE_WRAP = "warm_for_secure_wrap"
         const val EXTRA_WARM_FOR_P2P = "warm_for_p2p"
         const val CALL_ACTION_ANSWER = "answer"
         const val CALL_ACTION_DECLINE = "decline"
@@ -2313,6 +2390,35 @@ class MainActivity : AppCompatActivity() {
             act.runOnUiThread {
                 try {
                     act.clearWarmCallState(reason)
+                } catch (_: Exception) {
+                }
+            }
+        }
+
+        /** Opaque 1059 wake — warm WebView for JS unwrap; do NOT ring yet. */
+        fun warmHostForSecureWrap(context: Context) {
+            val app = context.applicationContext
+            val intent = Intent(app, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_NO_USER_ACTION
+                putExtra(EXTRA_START_IN_BACKGROUND, true)
+                putExtra(EXTRA_WARM_FOR_SECURE_WRAP, true)
+                putExtra(EXTRA_OPEN_URL, SosCallUrls.warmPage())
+            }
+            try {
+                val opts = IncomingCallActivity.backgroundStartOptions()
+                if (opts != null) app.startActivity(intent, opts) else app.startActivity(intent)
+            } catch (err: Exception) {
+                SosDebugLog.i("call", "warmSecureWrap fail ${err.message}")
+            }
+            hostRef?.get()?.runOnUiThread {
+                try {
+                    hostRef?.get()?.let { act ->
+                        act.warmForSecureWrapPending = true
+                        if (act.webPageReady) act.injectSecureWrapProcessing()
+                    }
                 } catch (_: Exception) {
                 }
             }

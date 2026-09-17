@@ -16,7 +16,7 @@
               ]))
   };
   const ICE_DISCONNECT_GRACE_MS = 4000;
-  const CALL_METRIC_KIND = 25060; // חלק שיחות קול (chat-voice-call.js) – kind למדדי שיחות כלליות | HYPER CORE TECH
+  // CALL_METRIC_KIND 25060 RETIRED — NEW per-call Relay metrics are ZERO (privacy phase 1)
   const MAX_SIGNAL_SDP_CHARS = 64 * 1024;
   const MAX_SIGNAL_CANDIDATES = 256;
   const MAX_CANDIDATE_FIELD_CHARS = 4096;
@@ -76,6 +76,7 @@
     signalKeepaliveTimer: null,
     ending: false,
     callStartTimestamp: null,
+    callSessionId: null,
     // חלק שיחות קול (chat-voice-call.js) – שמירת audioSession.type כדי להחזיר אותו בסיום השיחה (מובייל) | HYPER CORE TECH
     previousAudioSessionType: null,
     // חלק שיחות קול (chat-voice-call.js) – דגל: האם שינינו AudioSession עבור שיחה (כדי לא לשנות כשדוחים לפני קבלה) | HYPER CORE TECH
@@ -90,43 +91,9 @@
     try { if (typeof sub.unsubscribe === 'function') { sub.unsubscribe(); } } catch {}
   }
 
-  async function publishCallMetric(durationSeconds, peerPubkey) {
-    if (!App.pool || !App.publicKey || !App.privateKey) {
-      return;
-    }
-    const safeDuration = Number.isFinite(durationSeconds) && durationSeconds > 0 ? Math.round(durationSeconds) : 0;
-    const payload = {
-      mode: 'voice',
-      durationSeconds: safeDuration,
-      endedAt: Math.floor(Date.now() / 1000),
-    };
-    if (peerPubkey) {
-      payload.peer = peerPubkey;
-    }
-
-    const tags = [
-      ['t', 'voice-call'],
-      ['metric', 'call'],
-      ['duration', String(safeDuration)],
-    ];
-    if (App.NETWORK_TAG) {
-      tags.push(['t', App.NETWORK_TAG]);
-    }
-
-    const event = {
-      kind: CALL_METRIC_KIND,
-      pubkey: App.publicKey,
-      created_at: Math.floor(Date.now() / 1000),
-      tags,
-      content: JSON.stringify(payload),
-    };
-
-    try {
-      const signed = App.finalizeEvent(event, App.privateKey);
-      await App.pool.publish(App.relayUrls, signed);
-    } catch (error) {
-      console.warn('Voice call metric publish failed', error);
-    }
+  // NEW 25060 WRITE COUNT = ZERO — historical Relay copies may remain; do not publish.
+  async function publishCallMetric() {
+    return;
   }
 
   // חלק שיחות קול (chat-voice-call.js) – בדיקת תמיכה בדפדפן
@@ -217,7 +184,7 @@
     }
   }
 
-  // חלק שיחות קול (chat-voice-call.js) – חישוב מזהה חדר לפי זוג המפתחות
+  // LEGACY_READ_ONLY helper — deterministic room ID must NOT be emitted on NEW secure sends.
   function getRoomId(peerPubkey) {
     const a = (App.publicKey || '').toLowerCase();
     const b = (peerPubkey || '').toLowerCase();
@@ -225,38 +192,46 @@
     return a < b ? `${a}:${b}` : `${b}:${a}`;
   }
 
-  // חלק שיחות קול (chat-voice-call.js) – שליחת אירוע סינכרון דרך Nostr
+  function ensureCallSessionId() {
+    const api = App.CallSignalE2ee;
+    if (state.callSessionId && String(state.callSessionId).length >= 32) return state.callSessionId;
+    if (api && typeof api.createSessionId === 'function') {
+      state.callSessionId = api.createSessionId();
+    } else {
+      const buf = new Uint8Array(16);
+      crypto.getRandomValues(buf);
+      state.callSessionId = Array.from(buf).map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+    return state.callSessionId;
+  }
+
+  // Shared cutover: publishCallSignal picks ONE transport (legacy 25050 XOR gift-wrap 1059).
   async function sendSignal(peerPubkey, type, data) {
     if (!App.pool || !App.publicKey || !App.privateKey) {
-      console.error('Nostr pool or keys not available');
-      return;
+      console.error('CALL_SIGNAL_E2EE_ENCRYPT_FAILED: pool or keys unavailable');
+      throw Object.assign(new Error('CALL_SIGNAL_E2EE_ENCRYPT_FAILED'), { code: 'CALL_SIGNAL_E2EE_ENCRYPT_FAILED' });
     }
-
+    const api = App.CallSignalE2ee;
+    if (!api || typeof api.publishCallSignal !== 'function') {
+      throw Object.assign(new Error('CALL_SIGNAL_E2EE_ENCRYPT_FAILED: helper missing'), { code: 'CALL_SIGNAL_E2EE_ENCRYPT_FAILED' });
+    }
     try {
-      // הצפנת התוכן עם NIP-04
-      const content = data ? JSON.stringify(data) : '';
-      const encryptedContent = content
-        ? await window.NostrTools.nip04.encrypt(App.privateKey, peerPubkey, content)
-        : '';
-
-      const event = {
-        kind: 25050, // WebRTC signaling event
-        pubkey: App.publicKey,
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [
-          ['type', type],
-          ['p', peerPubkey],
-          ['r', getRoomId(peerPubkey)]
-        ],
-        content: encryptedContent
-      };
-
-      const signedEvent = App.finalizeEvent(event, App.privateKey);
-      await App.pool.publish(App.relayUrls, signedEvent);
-
-      console.log(`Sent ${type} signal to ${peerPubkey.slice(0, 8)}`);
+      await api.publishCallSignal({
+        media: 'voice',
+        peerPubkey,
+        type,
+        data,
+        sessionId: ensureCallSessionId(),
+        pool: App.pool,
+        relays: App.relayUrls,
+        senderPubkey: App.publicKey,
+        senderPrivateKey: App.privateKey,
+        roomId: getRoomId(peerPubkey),
+      });
     } catch (err) {
-      console.error('Failed to send signal', err);
+      const code = err && err.code ? err.code : 'CALL_SIGNAL_E2EE_ENCRYPT_FAILED';
+      console.error('CALL_SIGNAL_SEND_FAILED code=' + code);
+      throw err && err.code ? err : Object.assign(err || new Error(code), { code });
     }
   }
 
@@ -279,16 +254,7 @@
   }
 
   function loadEndedCallMap() {
-    try {
-      const raw = localStorage.getItem('sos_voice_ended_v1');
-      const o = raw ? JSON.parse(raw) : null;
-      if (!o || typeof o !== 'object') return;
-      const now = Date.now();
-      Object.keys(o).forEach((k) => {
-        const at = Number(o[k]);
-        if (at > 0 && now - at < 120000) state.lastEndedAt[k] = at;
-      });
-    } catch (_) {}
+    // In-memory only — no identity-linked localStorage (sos_voice_ended_v1 removed).
   }
 
   function noteCallEnded(peerPubkey) {
@@ -296,13 +262,7 @@
     if (!pk) return;
     state.lastEndedAt[pk] = Date.now();
     try {
-      const now = Date.now();
-      const next = {};
-      Object.keys(state.lastEndedAt).forEach((k) => {
-        const at = Number(state.lastEndedAt[k]);
-        if (at > 0 && now - at < 120000) next[k] = at;
-      });
-      localStorage.setItem('sos_voice_ended_v1', JSON.stringify(next));
+      localStorage.removeItem('sos_voice_ended_v1');
     } catch (_) {}
   }
 
@@ -441,6 +401,7 @@
         if (typeof App.onVoiceCallConnected === 'function') {
           App.onVoiceCallConnected(peerPubkey);
         }
+        console.log('CALL_CONNECTED');
       } else if (ice === 'disconnected') {
         if (state.iceDisconnectTimer || state.ending) return;
         state.iceDisconnectTimer = setTimeout(() => {
@@ -494,6 +455,8 @@
       // יצירת חיבור
       state.currentPeer = peerPubkey;
       state.peerConnection = createPeerConnection(peerPubkey);
+      state.callSessionId = null;
+      ensureCallSessionId();
       // חלק שיחות קול (chat-voice-call.js) – איפוס זמן התחלה עד לחיבור בפועל (connected)
       state.callStartTimestamp = null;
       state.callStartTime = null;
@@ -511,7 +474,7 @@
       // שליחת offer
       await sendSignal(peerPubkey, 'offer', offer);
 
-      console.log('Call started to', peerPubkey.slice(0, 8));
+      console.log('CALL_STARTED');
 
       // עדכון UI
       if (typeof App.onVoiceCallStarted === 'function') {
@@ -536,7 +499,7 @@
       const pc = state.peerConnection;
       const cs = pc && (pc.connectionState || pc.iceConnectionState);
       if (samePeer && pc && (state.isCallActive || cs === 'connected' || cs === 'connecting' || cs === 'checking')) {
-        console.log('Accept skipped – already in call with', String(peerPubkey || '').slice(0, 8), cs);
+        console.log('CALL_ACCEPT_SKIP already_in_call');
         return;
       }
     } catch (_) {}
@@ -578,7 +541,7 @@
       answerSent = true;
       state.callAnswered = true;
 
-      console.log('Call accepted from', peerPubkey.slice(0, 8));
+      console.log('CALL_ACCEPTED');
 
       // עדכון UI
       if (typeof App.onVoiceCallStarted === 'function') {
@@ -612,7 +575,7 @@
   async function endCall() {
     if (state.ending) return;
     state.ending = true;
-    console.log('Ending call');
+    console.log('CALL_ENDING');
 
     // שליחת אירוע disconnect – חשוב await כדי שדחייה מ-APK תגיע לצד השני | HYPER CORE TECH
     if (state.currentPeer) {
@@ -667,12 +630,14 @@
     state.callAnswered = false;
     state.callStartTimestamp = null;
     state.callStartTime = null;
+    state.callSessionId = null;
     // חלק שיחות קול (chat-voice-call.js) – שחזור AudioSession לסוג שהיה לפני השיחה | HYPER CORE TECH
     restoreAudioSessionType();
     setTimeout(() => { state.ending = false; }, 100);
 
     if (durationSeconds > 0 && peer) {
-      publishCallMetric(durationSeconds, peer);
+      // intentionally no Relay call metric (25060 WRITE ZERO)
+      void publishCallMetric;
     }
 
     // חלק שיחות קול (chat-voice-call.js) – התראה על שיחה שלא נענתה (נכנסת + לא נענתה) | HYPER CORE TECH
@@ -709,42 +674,53 @@
   }
 
   // חלק שיחות קול (chat-voice-call.js) – טיפול באירועי סינכרון נכנסים
-  async function handleSignalEvent(event) {
-    if (event.pubkey === App.publicKey) return;
+  // preParsed: secure gift-wrap path { type, data, sender, sentAt, signalId }
+  async function handleSignalEvent(event, preParsed) {
+    const peerPubkey = preParsed && preParsed.sender
+      ? String(preParsed.sender).toLowerCase()
+      : event.pubkey;
+    if (peerPubkey === App.publicKey) return;
     
     // חלק דה-דופליקציה (chat-voice-call.js) – דילוג על אירועים שכבר עובדו (מונע שיחות כפולות אחרי רענון) | HYPER CORE TECH
-    if (event.id && isCallEventProcessed(event.id)) {
+    const dedupeId = (preParsed && preParsed.signalId) || event.id;
+    if (dedupeId && isCallEventProcessed(dedupeId)) {
       // מאפשרים offer שוב אם יש מענה ממתין מ-APK (אחרת השיחה נתקעת בלי SDP) | HYPER CORE TECH
       try {
         const pending = window.__sosNativePendingAnswer;
         const pendingDecline = window.__sosNativePendingDecline;
-        const peer = String(event.pubkey || '').toLowerCase();
+        const peer = String(peerPubkey || '').toLowerCase();
         const allowReplay = (pending && pending.peer === peer && Date.now() < (pending.until || 0))
           || (pendingDecline && pendingDecline.peer === peer && Date.now() < (pendingDecline.until || 0));
         if (!allowReplay) {
-          console.log('Skipping already processed call event:', event.id.slice(0, 8));
+          console.log('CALL_SIGNAL_SKIP already_processed');
           return;
         }
       } catch (_) {
-        console.log('Skipping already processed call event:', event.id.slice(0, 8));
+        console.log('CALL_SIGNAL_SKIP already_processed');
         return;
       }
     }
 
-    const typeTag = event.tags.find(t => t[0] === 'type');
-    if (!typeTag) return;
-
-    const type = typeTag[1];
+    let type;
+    if (preParsed && preParsed.type) {
+      type = preParsed.type;
+    } else {
+      const typeTag = event.tags.find(t => t[0] === 'type');
+      if (!typeTag) return;
+      type = typeTag[1];
+    }
     // אותות שידור חי (live-*) לא שייכים לשיחות קול | HYPER CORE TECH
     if (String(type || '').startsWith('live-')) return;
-    const peerPubkey = event.pubkey;
 
     try {
-      if (event.content && typeof event.content === 'string' && event.content.length > 524288) {
+      if (!preParsed && event.content && typeof event.content === 'string' && event.content.length > 524288) {
         return;
       }
       let data = null;
-      if (event.content) {
+      if (preParsed) {
+        data = preParsed.data;
+      } else if (event.content) {
+        // LEGACY_READ_ONLY: NIP-04 decrypt for already-deployed clients.
         const decrypted = await window.NostrTools.nip04.decrypt(
           App.privateKey,
           peerPubkey,
@@ -753,25 +729,26 @@
         data = decrypted ? JSON.parse(decrypted) : null;
       }
 
-      console.log(`Received ${type} from ${peerPubkey.slice(0, 8)}`);
+      console.log('CALL_SIGNAL_RECV action=' + String(type) + ' encrypted=' + (preParsed ? 'true' : 'legacy'));
 
       switch (type) {
         case 'offer':
           // שיחה נכנסת – ולידציה והמרה במקרה הצורך
           try {
-            if (isOfferEventTooOld(event)) {
-              console.log('Ignored stale offer from', peerPubkey.slice(0, 8), 'age>', MAX_OFFER_AGE_SEC, 's');
-              if (event.id) markCallEventProcessed(event.id);
+            const createdAt = preParsed && preParsed.sentAt ? preParsed.sentAt : event.created_at;
+            if (!preParsed && isOfferEventTooOld(event)) {
+              console.log('CALL_SIGNAL_REJECT stale_offer');
+              if (dedupeId) markCallEventProcessed(dedupeId);
               return;
             }
-            if (isOfferReplayAfterHangup(peerPubkey, event.created_at)) {
-              console.log('Ignored offer – replay after hangup from', peerPubkey.slice(0, 8));
-              if (event.id) markCallEventProcessed(event.id);
+            if (isOfferReplayAfterHangup(peerPubkey, createdAt)) {
+              console.log('CALL_SIGNAL_REJECT replay_after_hangup');
+              if (dedupeId) markCallEventProcessed(dedupeId);
               return;
             }
             let offerData = normalizeSessionDescription(data);
             if (!offerData) {
-              console.error('Invalid offer payload received', { reason: 'invalid-sdp', type: typeof data, sdpLength: typeof data === 'string' ? data.length : 0 });
+              console.error('CALL_SIGNAL_REJECT invalid_offer');
               return;
             }
             // דה-דופליקציה: מתעלם מהצעות כפולות מאותו peer בחלון קצר
@@ -779,13 +756,13 @@
             const last = state.lastOfferFrom[peerPubkey] || 0;
             state.lastOfferFrom[peerPubkey] = now;
             if (now - last < 1500) {
-              console.log('Ignored duplicate offer from', peerPubkey.slice(0,8));
+              console.log('CALL_SIGNAL_SKIP duplicate_offer');
               return;
             }
             // כבר בשיחה פעילה עם אותו peer – לא לפתוח דיאלוג שני | HYPER CORE TECH
             if (state.isCallActive && state.currentPeer && String(state.currentPeer).toLowerCase() === String(peerPubkey).toLowerCase()) {
-              console.log('Ignored offer – already in active call with', peerPubkey.slice(0, 8));
-              if (event.id) markCallEventProcessed(event.id);
+              console.log('CALL_SIGNAL_SKIP already_active');
+              if (dedupeId) markCallEventProcessed(dedupeId);
               return;
             }
             // חיבור בתהליך (לפני isCallActive) או accept בתהליך – לא לצלצל שוב | HYPER CORE TECH
@@ -795,14 +772,14 @@
               const cs = pc && String(pc.connectionState || pc.iceConnectionState || '');
               const acceptBusy = !!(window.__sosAcceptInFlight && String(window.__sosAcceptInFlightPeer || '').toLowerCase() === String(peerPubkey).toLowerCase());
               if (samePeer && (acceptBusy || cs === 'connected' || cs === 'connecting' || cs === 'checking' || cs === 'completed')) {
-                console.log('Ignored offer – call connecting/connected with', peerPubkey.slice(0, 8), cs || 'accept');
-                if (event.id) markCallEventProcessed(event.id);
+                console.log('CALL_SIGNAL_SKIP connecting');
+                if (dedupeId) markCallEventProcessed(dedupeId);
                 return;
               }
             } catch (_) {}
             // חלק דה-דופליקציה (chat-voice-call.js) – סימון האירוע כמעובד כדי שלא יופיע שוב אחרי רענון | HYPER CORE TECH
-            if (event.id) markCallEventProcessed(event.id);
-            console.log('Received valid offer:', { type: offerData.type, sdpLength: offerData.sdp?.length || 0 });
+            if (dedupeId) markCallEventProcessed(dedupeId);
+            console.log('CALL_OFFER_OK');
             // חלק שיחות קול (chat-voice-call.js) – שיחה ממתינה: אם יש שיחה פעילה מפיר אחר, לא מצלצלים אלא מתריעים בלבד | HYPER CORE TECH
             if (state.isCallActive && state.currentPeer && state.currentPeer !== peerPubkey) {
               state.waitingOffer = { peer: peerPubkey, offer: offerData, ts: now };
@@ -813,16 +790,17 @@
             }
             // קיבוע peer עבור שיחה נכנסת כדי שאירוע disconnect/ביטול יסגור UI גם לפני קבלה | HYPER CORE TECH
             if (state.currentPeer && state.currentPeer !== peerPubkey) {
-              console.log('Ignored incoming offer while another call context exists');
+              console.log('CALL_SIGNAL_SKIP other_context');
               return;
             }
             // אותו peer כבר ב־context (מסך ענה פתוח) – לא לפתוח שוב | HYPER CORE TECH
             if (state.currentPeer && String(state.currentPeer).toLowerCase() === String(peerPubkey).toLowerCase() && state.isIncoming) {
-              console.log('Ignored offer – already handling incoming from', peerPubkey.slice(0, 8));
+              console.log('CALL_SIGNAL_SKIP already_incoming');
               return;
             }
             state.currentPeer = peerPubkey;
             state.isIncoming = true;
+            if (preParsed && preParsed.sessionId) state.callSessionId = preParsed.sessionId;
             // חלק Push (chat-voice-call.js) – שליחת התראת Push על שיחה נכנסת | HYPER CORE TECH
             if (typeof App.triggerIncomingCallPush === 'function') {
               App.triggerIncomingCallPush(peerPubkey, 'voice');
@@ -831,13 +809,13 @@
               App.onVoiceCallIncoming(peerPubkey, offerData);
             }
           } catch (e) {
-            console.error('Failed to parse offer payload', e && e.message);
+            console.error('CALL_SIGNAL_REJECT offer_parse');
           }
           break;
 
         case 'connect':
           // הודעת נוכחות/התחברות – לא מפעילים UI ולא משנים incomingOffer
-          console.log('Peer connected presence from', peerPubkey.slice(0,8));
+          console.log('CALL_PEER_PRESENCE');
           break;
 
         case 'answer':
@@ -845,10 +823,10 @@
           if (state.peerConnection && state.currentPeer === peerPubkey) {
             const answerData = normalizeSessionDescription(data);
             if (!answerData) {
-              console.error('Invalid answer received', { reason: 'invalid-sdp', type: typeof data, sdpLength: typeof data === 'string' ? data.length : (data && data.sdp ? String(data.sdp).length : 0) });
+              console.error('CALL_SIGNAL_REJECT invalid_answer');
               return;
             }
-            console.log('Applying remote answer', { type: answerData.type, sdpLen: answerData.sdp?.length });
+            console.log('CALL_ANSWER_APPLY');
             await state.peerConnection.setRemoteDescription(answerData);
             await flushRemoteCandidates(peerPubkey);
             state.callAnswered = true;
@@ -880,7 +858,38 @@
           break;
       }
     } catch (err) {
-      console.error('Failed to handle signal event', err);
+      console.error('CALL_SIGNAL_HANDLE_FAILED');
+    }
+  }
+
+  async function handleSecureSignal(logical) {
+    if (!logical || logical.media !== 'voice') return false;
+    const synthetic = {
+      id: logical.wrapId || logical.signalId,
+      pubkey: logical.sender,
+      created_at: logical.sentAt,
+      kind: 1059,
+    };
+    await handleSignalEvent(synthetic, {
+      type: logical.wireType || logical.action,
+      data: logical.data,
+      sender: logical.sender,
+      sentAt: logical.sentAt,
+      signalId: logical.signalId,
+      sessionId: logical.sessionId,
+    });
+    return true;
+  }
+
+  // LEGACY: direct unwrap path removed — use App.CallSignalE2ee.dispatchGiftWrappedCallSignal
+  async function handleGiftWrapCallEvent(ev) {
+    const api = App.CallSignalE2ee;
+    if (api && typeof api.enqueueSecureDispatch === 'function') {
+      await api.enqueueSecureDispatch(ev);
+      return;
+    }
+    if (api && typeof api.dispatchGiftWrappedCallSignal === 'function') {
+      await api.dispatchGiftWrappedCallSignal(ev);
     }
   }
 
@@ -1094,6 +1103,8 @@
         );
     const filters = [
       {
+        // LEGACY_READ_ONLY: direct kind 25050 from already-deployed clients.
+        // Secure kind 1059 is owned by CallSignalE2ee.ensureSecureCallSubscription (single unwrap).
         kinds: [25050],
         '#p': [App.publicKey],
         since
@@ -1101,9 +1112,16 @@
     ];
 
     try {
-      console.log('Voice call: subscribing to events for', App.publicKey.slice(0,8), 'since', since);
+      console.log('CALL_SUBSCRIBE legacy=25050 (secure=shared-1059)');
+      try {
+        if (App.CallSignalE2ee && typeof App.CallSignalE2ee.ensureSecureCallSubscription === 'function') {
+          App.CallSignalE2ee.ensureSecureCallSubscription();
+        }
+      } catch (_e) {}
       const sub = App.pool.subscribeMany(App.relayUrls, filters, {
         onevent: (ev) => {
+          // LEGACY_READ_ONLY path only — 1059 handled by shared dispatcher
+          if (ev && ev.kind === 1059) return;
           if (!verifyIncomingVoiceRelayEvent(ev)) return;
           if (!verifyIncomingVoiceRelayRecipient(ev)) return;
           if (!verifyIncomingVoiceRelayFreshness(ev)) return;
@@ -1112,14 +1130,14 @@
         },
         oneose: () => {
           state.lastSignalReceivedAt = Date.now();
-          console.log('Voice call subscription ready');
+          console.log('CALL_SUBSCRIBE_READY');
         }
       });
       state.signalSubscription = sub;
       state.lastSignalReceivedAt = Date.now();
       return sub;
     } catch (err) {
-      console.warn('Voice call subscribe failed', err);
+      console.warn('CALL_SUBSCRIBE_FAILED');
       return null;
     }
   }
@@ -1214,6 +1232,7 @@
       toggleMute,
       getState: () => ({ ...state }),
       subscribe: subscribeToSignals,
+      handleSecureSignal,
       markEventProcessed: markCallEventProcessed,
       verifyIncomingRelayEvent: verifyIncomingVoiceRelayEvent,
       verifyIncomingRelayRecipient: verifyIncomingVoiceRelayRecipient,

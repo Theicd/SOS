@@ -79,24 +79,29 @@ record(
   p2p.includes("['p',p.toLowerCase()]") && p2p.includes('kind:SIG_KIND'),
 );
 
+const voiceSub = sliceBetween(voice, 'function subscribeToSignals(options)', 'function forceResubscribeSignals');
+const videoSub = sliceBetween(video, 'function subscribeToSignals(options)', 'function forceResubscribeSignals');
+const helperSrc = read('call-signal-e2ee.js');
+const secureEnsure = sliceBetween(helperSrc, 'function ensureSecureCallSubscription', 'function drainPendingSecureWrapsFromNative');
+
 record(
-  'voice 25050 signature then recipient before handleSignalEvent',
-  voice.includes('verifyIncomingVoiceRelayEvent(ev)') &&
-    voice.includes('verifyIncomingVoiceRelayRecipient(ev)') &&
-    voice.indexOf('verifyIncomingVoiceRelayEvent(ev)') <
-      voice.indexOf('verifyIncomingVoiceRelayRecipient(ev)') &&
-    voice.indexOf('verifyIncomingVoiceRelayRecipient(ev)') <
-      voice.indexOf('handleSignalEvent(ev);'),
+  'shared secure 1059 signature then recipient before dispatch',
+  secureEnsure.includes('verifyEventSig(ev)') &&
+    secureEnsure.includes('getPTag(ev)') &&
+    secureEnsure.includes('enqueueSecureDispatch(ev)') &&
+    secureEnsure.indexOf('verifyEventSig(ev)') < secureEnsure.indexOf('getPTag(ev)') &&
+    secureEnsure.indexOf('getPTag(ev)') < secureEnsure.indexOf('enqueueSecureDispatch(ev)') &&
+    helperSrc.includes('dispatchGiftWrappedCallSignal'),
 );
 
 record(
-  'video 25050 signature then recipient before handleSignalEvent',
-  video.includes('verifyIncomingVideoRelayEvent(ev)') &&
-    video.includes('verifyIncomingVideoRelayRecipient(ev)') &&
-    video.indexOf('verifyIncomingVideoRelayEvent(ev)') <
-      video.indexOf('verifyIncomingVideoRelayRecipient(ev)') &&
-    video.indexOf('verifyIncomingVideoRelayRecipient(ev)') <
-      video.indexOf('handleSignalEvent(ev);'),
+  'voice+video legacy 25050 only; secure via shared dispatcher handlers',
+  voiceSub.includes('kinds: [25050]') &&
+    !voiceSub.includes('kinds: [1059]') &&
+    videoSub.includes('kinds: [25050]') &&
+    !videoSub.includes('kinds: [1059]') &&
+    voice.includes('handleSecureSignal') &&
+    video.includes('handleSecureSignal'),
 );
 
 record(

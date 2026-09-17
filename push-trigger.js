@@ -331,53 +331,17 @@
     }));
   }
 
-  // חלק שיחה נכנסת (push-trigger.js) – שליחת Push כשמתקבלת שיחה קולית/וידאו | HYPER CORE TECH
-  async function triggerIncomingCallPush(peerPubkey, callType = 'voice') {
-    // לא שולחים Push אם המשתמש פעיל
-    if (isUserActive()) {
-      console.log('[PUSH-TRIGGER] המשתמש פעיל - לא שולחים Push לשיחה');
-      return;
-    }
-    
-    // קבלת שם ותמונת המתקשר מקאש
-    const contactInfo = getCachedContactInfo(peerPubkey);
-    
-    const isVideo = callType === 'video';
-    const myPubkey = App.publicKey;
-    if (!myPubkey) return;
-    
-    await sendPushToServer(myPubkey, {
-      title: `שיחה ${isVideo ? 'וידאו' : 'קולית'} נכנסת`,
-      body: `${contactInfo.name} מתקשר אליך`,
-      icon: contactInfo.picture, // תמונת המתקשר מקאש
-      badge: DEFAULT_ICON,
-      tag: `call-${peerPubkey}`,
-      type: isVideo ? 'video-call-incoming' : 'voice-call-incoming',
-      peerPubkey,
-      url: './',
-      requireInteraction: true,
-    });
+  // חלק שיחה נכנסת (push-trigger.js) – server Push disabled for calls (Native 1059 wake).
+  // If wake Push is ever re-enabled it must be GENERIC secure-wake ONLY (no peer/type/name/image).
+  async function triggerIncomingCallPush(_peerPubkey, _callType = 'voice') {
+    console.log('[PUSH-TRIGGER] CALL_PUSH_DISABLED secure_native_wake');
+    return;
   }
 
-  // חלק שיחה שלא נענתה (push-trigger.js) – שליחת Push על שיחה קולית/וידאו שהוחמצה | HYPER CORE TECH
-  async function triggerMissedCallPush(peerPubkey, callType = 'voice') {
-    // קבלת שם ותמונת המתקשר מקאש
-    const contactInfo = getCachedContactInfo(peerPubkey);
-    
-    const isVideo = callType === 'video';
-    const myPubkey = App.publicKey;
-    if (!myPubkey) return;
-    
-    await sendPushToServer(myPubkey, {
-      title: `שיחה ${isVideo ? 'וידאו' : 'קולית'} שלא נענתה`,
-      body: `החמצת שיחה מ-${contactInfo.name}`,
-      icon: contactInfo.picture, // תמונת המתקשר מקאש
-      badge: DEFAULT_ICON,
-      tag: `missed-${peerPubkey}`,
-      type: 'missed-call',
-      peerPubkey,
-      url: './',
-    });
+  // Missed-call metadata must not leave the device — derive locally only.
+  async function triggerMissedCallPush(_peerPubkey, _callType = 'voice') {
+    console.log('[PUSH-TRIGGER] MISSED_CALL_PUSH_DISABLED');
+    return;
   }
 
   // חלק P2P Sync (push-trigger.js) – שליחת Push שקט לסנכרון P2P כשיש פוסטים חדשים | HYPER CORE TECH

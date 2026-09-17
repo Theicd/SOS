@@ -170,8 +170,45 @@
     if (incomingOffer && incomingOffer.type && incomingOffer.sdp) return incomingOffer;
     const peerWanted = String(peerPubkey || '').toLowerCase();
 
+    const trySecureUnwrap = async (eventObj) => {
+      if (!eventObj || eventObj.kind !== 1059) return null;
+      const api = App.CallSignalE2ee;
+      if (!api) return null;
+      // Prefer cache from authoritative dispatch (avoids second unwrap / replay race).
+      try {
+        if (typeof api.getCachedSecureOffer === 'function') {
+          const cached = api.getCachedSecureOffer(peerWanted);
+          if (cached && cached.media === 'voice' && cached.offer?.type && cached.offer?.sdp) {
+            incomingOffer = cached.offer;
+            incomingOfferPeer = peerWanted || incomingOfferPeer;
+            persistIncomingOffer(incomingOfferPeer, cached.offer);
+            console.log('CALL_HYDRATE_SECURE');
+            return { offer: cached.offer, peer: peerWanted, media: 'voice', sessionId: cached.sessionId };
+          }
+        }
+      } catch (_) {}
+      if (!App.privateKey || !App.publicKey) return null;
+      if (typeof api.dispatchGiftWrappedCallSignal === 'function') {
+        const r = await api.dispatchGiftWrappedCallSignal(eventObj);
+        if (r && r.status === 'invalid_offer') return null;
+        const cached = typeof api.getCachedSecureOffer === 'function' ? api.getCachedSecureOffer(peerWanted) : null;
+        if (cached && cached.media === 'voice' && cached.offer?.type && cached.offer?.sdp) {
+          incomingOffer = cached.offer;
+          incomingOfferPeer = peerWanted || incomingOfferPeer;
+          persistIncomingOffer(incomingOfferPeer, cached.offer);
+          console.log('CALL_HYDRATE_SECURE');
+          return { offer: cached.offer, peer: peerWanted, media: 'voice', sessionId: cached.sessionId };
+        }
+      }
+      return null;
+    };
+
     const tryDecryptEvent = async (eventObj) => {
       if (!eventObj || typeof eventObj !== 'object') return null;
+      // Prefer Gift Wrap path for kind 1059.
+      const secure = await trySecureUnwrap(eventObj);
+      if (secure) return secure.offer;
+      // LEGACY_READ_ONLY: NIP-04 direct 25050
       const peer = String(eventObj.pubkey || '').toLowerCase();
       if (peerWanted && peer && peer !== peerWanted) return null;
       if (!eventObj.content || !App.privateKey || !window.NostrTools?.nip04) return null;
@@ -187,7 +224,7 @@
         incomingOffer = offer;
         incomingOfferPeer = peer || peerWanted || incomingOfferPeer;
         persistIncomingOffer(incomingOfferPeer, offer);
-        console.log('[APK] hydrated offer from native raw event', peer.slice(0, 8));
+        console.log('CALL_HYDRATE_LEGACY');
         try {
           if (eventObj.id && App.voiceCall && typeof App.voiceCall.markEventProcessed === 'function') {
             App.voiceCall.markEventProcessed(eventObj.id);
@@ -195,7 +232,7 @@
         } catch (_) {}
         return offer;
       } catch (err) {
-        console.warn('[APK] decrypt raw event failed', err);
+        console.warn('CALL_HYDRATE_FAIL');
         return null;
       }
     };
@@ -1118,6 +1155,78 @@
     try {
       if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
     } catch (_) {}
+  };
+
+  // Opaque Native wake: drain pending queue through THE SAME authoritative dispatcher.
+  App.prepareSecureCallEventFromNative = async function prepareSecureCallEventFromNative(pendingRawEvent) {
+    try {
+      if (typeof App.initVoiceCall === 'function') App.initVoiceCall({});
+      if (typeof App.initVideoCall === 'function') App.initVideoCall({});
+    } catch (_) {}
+
+    const api = App.CallSignalE2ee;
+    if (!api || typeof api.dispatchGiftWrappedCallSignal !== 'function') return false;
+    if (!App.privateKey || !App.publicKey) return false;
+
+    try {
+      if (api.ensureSecureCallSubscription) api.ensureSecureCallSubscription();
+    } catch (_) {}
+
+    const parseQueue = (raw) => {
+      const out = [];
+      if (!raw) return out;
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (Array.isArray(parsed)) {
+          for (let i = 0; i < parsed.length; i += 1) out.push(parsed[i]);
+          return out;
+        }
+        if (parsed && parsed.event) {
+          out.push(parsed);
+          return out;
+        }
+        if (parsed && parsed.kind === 1059) {
+          out.push(parsed);
+          return out;
+        }
+      } catch (_) {}
+      return out;
+    };
+
+    let items = parseQueue(pendingRawEvent);
+    if (!items.length) {
+      try {
+        const bridge = window.SosNativeShell;
+        if (bridge && typeof bridge.drainPendingSecureWraps === 'function') {
+          items = parseQueue(bridge.drainPendingSecureWraps());
+        } else if (bridge && typeof bridge.getIncomingCallRawEvent === 'function') {
+          items = parseQueue(bridge.getIncomingCallRawEvent());
+        }
+      } catch (_) {}
+    }
+
+    if (!items.length) return false;
+
+    let any = false;
+    if (typeof api.drainPendingSecureWrapsFromNative === 'function') {
+      const results = await api.drainPendingSecureWrapsFromNative(items);
+      any = Array.isArray(results) && results.some((r) => r && (r.status === 'dispatched' || r.status === 'duplicate'));
+    } else {
+      for (let i = 0; i < items.length; i += 1) {
+        let ev = items[i];
+        if (ev && ev.event) {
+          try {
+            ev = typeof ev.event === 'string' ? JSON.parse(ev.event) : ev.event;
+          } catch (_) {
+            continue;
+          }
+        }
+        const r = await api.dispatchGiftWrappedCallSignal(ev);
+        if (r && (r.status === 'dispatched' || r.status === 'duplicate')) any = true;
+      }
+    }
+    if (any) console.log('CALL_SECURE_WAKE drained');
+    return any;
   };
 
   // חלק APK (chat-voice-call-ui.js) – חימום בזמן צלצול: מפתח/offer/מיקרופון בלי UI | HYPER CORE TECH

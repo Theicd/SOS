@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * מאזין Nostr מקורי בתוך שירות הרקע –
- * הודעות (1050) + שיחות נכנסות (25050) כשהממשק/כרטיסייה סגורים.
+ * הודעות (1050) + Gift Wrap 1059 (opaque wake) + legacy 25050 READ-ONLY.
  * P2P (25055) לא כאן – רק WebView כשה-Activity חיה (גם ברקע).
  */
 class SosRelayWatcher(private val appContext: Context) {
@@ -34,6 +34,11 @@ class SosRelayWatcher(private val appContext: Context) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var lastNotifyAt = 0L
     private var lastCallNotifyAt = 0L
+    private var lastSecureWakeAt = 0L
+    private var secureWakeWindowStart = 0L
+    private var secureWakeCount = 0
+    private var secureWarmInFlight = false
+    private val opaqueWakeSeen = LinkedHashSet<String>()
 
     fun start() {
         val pubkey = SosSessionStore.getPubkey(appContext)
@@ -53,12 +58,12 @@ class SosRelayWatcher(private val appContext: Context) {
                 }
             }
             if (missing > 0) {
-                SosDebugLog.i("relay", "ensure missing=$missing pubkey=${pubkey.take(8)}")
+                SosDebugLog.i("relay", "ensure missing=$missing pubkey=redacted")
             }
             return
         }
-        Log.i(TAG, "starting watcher for ${pubkey.take(8)}…")
-        SosDebugLog.i("relay", "start watcher ${pubkey.take(8)}")
+        Log.i(TAG, "starting watcher")
+        SosDebugLog.i("relay", "start watcher")
         RELAYS.forEach { url -> connectRelay(url, pubkey) }
     }
 
@@ -80,30 +85,40 @@ class SosRelayWatcher(private val appContext: Context) {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 sockets[url] = webSocket
                 failCounts[url] = 0
-                val since = (System.currentTimeMillis() / 1000L) - 30
+                val nowSec = System.currentTimeMillis() / 1000L
+                val sinceChat = nowSec - 30
+                // Gift-wrap outer created_at is privacy-randomized up to ~2 days past.
+                val sinceSecure = nowSec - (2L * 24L * 60L * 60L) - 120L
                 val filterYala = JSONObject()
                     .put("kinds", JSONArray().put(CHAT_KIND))
                     .put("#p", JSONArray().put(pubkey))
                     .put("#t", JSONArray().put(CHAT_TAG))
-                    .put("since", since)
+                    .put("since", sinceChat)
                 val filterNet = JSONObject()
                     .put("kinds", JSONArray().put(CHAT_KIND))
                     .put("#p", JSONArray().put(pubkey))
                     .put("#t", JSONArray().put(NETWORK_TAG))
-                    .put("since", since)
-                val filterCalls = JSONObject()
+                    .put("since", sinceChat)
+                val filterSecureCalls = JSONObject()
+                    .put("kinds", JSONArray().put(GIFT_WRAP_KIND))
+                    .put("#p", JSONArray().put(pubkey))
+                    .put("since", sinceSecure)
+                // LEGACY_READ_ONLY: direct kind 25050 from already-deployed clients.
+                val filterLegacyCalls = JSONObject()
                     .put("kinds", JSONArray().put(CALL_KIND))
                     .put("#p", JSONArray().put(pubkey))
-                    .put("since", since)
+                    .put("since", sinceChat)
                 // בלי 25055 – חוסך תעבורה ומונע הדלקת Native כשהכרטיס סגור | HYPER CORE TECH
+                // Subscription id must NOT embed pubkey prefix (relay-visible).
                 val req = JSONArray()
                     .put("REQ")
-                    .put("sos-bg-${pubkey.take(8)}")
+                    .put("sos-bg-secure")
                     .put(filterYala)
                     .put(filterNet)
-                    .put(filterCalls)
+                    .put(filterSecureCalls)
+                    .put(filterLegacyCalls)
                 webSocket.send(req.toString())
-                Log.i(TAG, "subscribed chat+calls on $url")
+                Log.i(TAG, "subscribed chat+secure-calls on $url")
                 SosDebugLog.i("relay", "subscribed $url")
             }
 
@@ -181,7 +196,8 @@ class SosRelayWatcher(private val appContext: Context) {
 
             when (kind) {
                 CHAT_KIND -> notifyChat(author, event.optString("content").orEmpty(), id)
-                CALL_KIND -> handleCallSignal(author, signalType, event)
+                GIFT_WRAP_KIND -> handleSecureGiftWrap(event, id)
+                CALL_KIND -> handleCallSignal(author, signalType, event) // LEGACY_READ_ONLY
                 // P2P_KIND מתעלמים במכוון – WebView בלבד כש-Activity חיה | HYPER CORE TECH
             }
         } catch (err: Exception) {
@@ -198,7 +214,7 @@ class SosRelayWatcher(private val appContext: Context) {
             if (name.isEmpty() && picture.isEmpty()) return
             SosContactCache.put(appContext, author, name, picture)
             NotificationHelper.updatePeerProfile(appContext, author, name, picture)
-            Log.i(TAG, "profile cached ${author.take(8)} nameLen=${name.length}")
+            Log.i(TAG, "profile cached redacted nameLen=${name.length}")
         } catch (err: Exception) {
             Log.w(TAG, "profile parse fail: ${err.message}")
         }
@@ -212,7 +228,7 @@ class SosRelayWatcher(private val appContext: Context) {
             .put("limit", 1)
         val req = JSONArray()
             .put("REQ")
-            .put("sos-prof-${author.take(8)}")
+            .put("sos-prof-req")
             .put(filter)
             .toString()
         sockets.values.forEach { ws ->
@@ -223,7 +239,7 @@ class SosRelayWatcher(private val appContext: Context) {
     private fun notifyChat(author: String, rawContent: String, eventId: String) {
         // כשהממשק פתוח – ה-Web מטפל בהתראות (מונע כפילות צליל/כרטיס)
         if (MainActivity.isHostAlive) {
-            SosDebugLog.i("relay", "chat skip hostAlive id=${eventId.take(10)} from=${author.take(8)}")
+            SosDebugLog.i("relay", "chat skip hostAlive id=${eventId.take(10)} from=redacted")
             return
         }
 
@@ -240,7 +256,7 @@ class SosRelayWatcher(private val appContext: Context) {
             else -> "משתמש"
         }
 
-        SosDebugLog.i("relay", "chat NOTIFY ${author.take(8)} id=${eventId.take(10)}")
+        SosDebugLog.i("relay", "chat NOTIFY redacted")
         NotificationHelper.showMessage(
             appContext,
             senderLabel,
@@ -259,7 +275,7 @@ class SosRelayWatcher(private val appContext: Context) {
             requestProfile(author)
         }
         lastNotifyAt = System.currentTimeMillis()
-        Log.i(TAG, "chat notify from ${author.take(8)} as $senderLabel")
+        Log.i(TAG, "chat notify from redacted as $senderLabel")
     }
 
     fun publish(event: JSONObject) {
@@ -269,6 +285,78 @@ class SosRelayWatcher(private val appContext: Context) {
         }
     }
 
+    /**
+     * Opaque kind 1059 wake ONLY.
+     * Must NOT ring / show call UI until JS authenticates sos-call-signal + offer.
+     * Always enqueue (bounded); Activity wake is rate-limited separately so stale
+     * historical wraps cannot starve a fresh offer sitting in the queue.
+     */
+    private fun handleSecureGiftWrap(event: JSONObject, eventId: String) {
+        val id = eventId.ifBlank { event.optString("id") }
+        if (id.isBlank()) return
+        // Opaque wake-dedupe only — NOT authenticated handled-offer state.
+        if (opaqueWakeSeen.contains(id)) {
+            return
+        }
+        val queued = try {
+            SosPendingCallStore.enqueueSecureWrap(appContext, event.toString())
+        } catch (err: Exception) {
+            Log.w(TAG, "enqueue secure wrap failed: ${err.message}")
+            false
+        }
+        if (!queued) return
+        rememberOpaqueWakeId(id)
+        // Foreground WebView shared 1059 dispatcher handles live events.
+        if (MainActivity.isHostAlive) {
+            Log.i(TAG, "SECURE_WAKE hostAlive – JS handles")
+            return
+        }
+        // One warm hosts the whole queue; further wraps only enqueue.
+        if (secureWarmInFlight) {
+            Log.i(TAG, "SECURE_WAKE queued (warm in-flight)")
+            return
+        }
+        if (!allowSecureWake()) {
+            // Still queued — do not drop; next wake window or existing warm drains.
+            Log.i(TAG, "SECURE_WAKE rate-limited (kept in queue)")
+            if (SosPendingCallStore.peekSecureWrapCount(appContext) > 0 &&
+                System.currentTimeMillis() - lastSecureWakeAt > 15_000L
+            ) {
+                // Allow a single recovery wake so a fresh offer is not starved forever.
+                secureWakeCount = 0
+            } else {
+                return
+            }
+            if (!allowSecureWake()) return
+        }
+        secureWarmInFlight = true
+        lastSecureWakeAt = System.currentTimeMillis()
+        Log.i(TAG, "SECURE_WAKE opaque → warm host")
+        SosDebugLog.i("relay", "SECURE_WAKE opaque")
+        MainActivity.warmHostForSecureWrap(appContext)
+    }
+
+    private fun rememberOpaqueWakeId(id: String) {
+        opaqueWakeSeen.add(id)
+        while (opaqueWakeSeen.size > 200) {
+            val first = opaqueWakeSeen.iterator().next()
+            opaqueWakeSeen.remove(first)
+        }
+    }
+
+    /** Max ~6 Activity wakes / minute. Queue enqueue is NOT gated by this. */
+    private fun allowSecureWake(): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - secureWakeWindowStart > 60_000L) {
+            secureWakeWindowStart = now
+            secureWakeCount = 0
+        }
+        if (secureWakeCount >= 6) return false
+        if (now - lastSecureWakeAt < 800L) return false
+        secureWakeCount++
+        return true
+    }
+
     private fun handleCallSignal(author: String, signalType: String, event: JSONObject) {
         when (signalType) {
             "offer", "v-offer" -> {
@@ -276,18 +364,18 @@ class SosRelayWatcher(private val appContext: Context) {
                 val eventId = event.optString("id")
                 val createdAt = event.optLong("created_at", 0L)
                 if (SosIncomingCallSession.isOfferTooOld(createdAt)) {
-                    Log.i(TAG, "stale offer from ${author.take(8)} age>${SosIncomingCallSession.MAX_OFFER_AGE_SEC}s")
+                    Log.i(TAG, "stale offer from redacted age>${SosIncomingCallSession.MAX_OFFER_AGE_SEC}s")
                     SosIncomingCallSession.rememberHandledOffer(appContext, eventId)
                     return
                 }
                 if (SosIncomingCallSession.isHandledOffer(appContext, eventId)) {
-                    Log.i(TAG, "already-handled offer ${eventId.take(8)} from ${author.take(8)}")
+                    Log.i(TAG, "already-handled offer redacted")
                     return
                 }
                 if (SosIncomingCallSession.isReplayOfEndedCall(appContext, author, createdAt)) {
                     SosIncomingCallSession.rememberHandledOffer(appContext, eventId)
-                    Log.i(TAG, "replay after hangup ${eventId.take(8)} from ${author.take(8)}")
-                    SosDebugLog.i("relay", "call skip ended-replay from=${author.take(8)}")
+                    Log.i(TAG, "replay after hangup redacted")
+                    SosDebugLog.i("relay", "call skip ended-replay from=redacted")
                     return
                 }
                 // אותה שיחה כבר מצלצלת/בשיחה – לא לפתוח התראה שוב | HYPER CORE TECH
@@ -300,7 +388,7 @@ class SosRelayWatcher(private val appContext: Context) {
                 }
                 if (SosIncomingCallSession.isSameActiveCall(appContext, author)) {
                     SosIncomingCallSession.rememberHandledOffer(appContext, eventId)
-                    Log.i(TAG, "duplicate active offer from ${author.take(8)} (raw refreshed)")
+                    Log.i(TAG, "duplicate active offer from redacted (raw refreshed)")
                     return
                 }
                 if (now - lastCallNotifyAt < 1500L) return
@@ -313,7 +401,7 @@ class SosRelayWatcher(private val appContext: Context) {
                 // כשהממשק בחזית: Web מציג דיאלוג; לא מסמנים handled כאן כדי לא לחסום FSI אם עוברים לרקע בזמן צלצול | HYPER CORE TECH
                 if (MainActivity.isHostAlive) {
                     Log.i(TAG, "host alive – web handles UI, raw offer cached")
-                    SosDebugLog.i("relay", "call skip hostAlive from=${author.take(8)}")
+                    SosDebugLog.i("relay", "call skip hostAlive from=redacted")
                     return
                 }
 
@@ -321,7 +409,7 @@ class SosRelayWatcher(private val appContext: Context) {
                 SosIncomingCallSession.rememberHandledOffer(appContext, eventId)
 
                 // מחממים WebView ברקע בזמן צלצול – ענה יהיה מהיר | HYPER CORE TECH
-                SosDebugLog.i("relay", "incoming $callType from=${author.take(8)} → notify+warm")
+                SosDebugLog.i("relay", "incoming $callType from=redacted → notify+warm")
                 MainActivity.warmHostForIncomingCall(appContext, author, callType)
 
                 NotificationHelper.showIncomingCall(
@@ -334,7 +422,7 @@ class SosRelayWatcher(private val appContext: Context) {
                     callerName = caller
                 )
                 if (caller == "מישהו") requestProfile(author)
-                Log.i(TAG, "incoming $callType from ${author.take(8)}")
+                Log.i(TAG, "incoming $callType from redacted")
             }
             "disconnect", "v-disconnect" -> {
                 val offerId = SosPendingCallStore.extractEventId(appContext)
@@ -344,7 +432,7 @@ class SosRelayWatcher(private val appContext: Context) {
                 NotificationHelper.cancelIncomingCall(appContext)
                 CallSoundHelper.stopAll()
                 IncomingCallActivity.dismiss(appContext, author)
-                Log.i(TAG, "remote hangup from ${author.take(8)}")
+                Log.i(TAG, "remote hangup from redacted")
             }
         }
     }
@@ -364,7 +452,8 @@ class SosRelayWatcher(private val appContext: Context) {
     companion object {
         private const val TAG = "SosRelayWatcher"
         private const val CHAT_KIND = 1050
-        private const val CALL_KIND = 25050
+        private const val CALL_KIND = 25050 // LEGACY_READ_ONLY
+        private const val GIFT_WRAP_KIND = 1059
         private const val CHAT_TAG = "yalachat"
         private const val NETWORK_TAG = "israel-network"
 
@@ -382,6 +471,10 @@ class SosRelayWatcher(private val appContext: Context) {
             val app = context.applicationContext
             val watcher = instance ?: SosRelayWatcher(app).also { instance = it }
             watcher.start()
+        }
+
+        fun clearSecureWarmInFlight() {
+            instance?.secureWarmInFlight = false
         }
 
         fun stopAll() {

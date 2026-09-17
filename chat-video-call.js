@@ -8,7 +8,7 @@
   const RTC_CONFIG = { iceServers: Array.isArray(window.NostrRTC_ICE) && window.NostrRTC_ICE.length
     ? window.NostrRTC_ICE
     : [ { urls: 'stun:stun.l.google.com:19302' } ] };
-  const CALL_METRIC_KIND = 25060; // חלק שיחות וידאו (chat-video-call.js) – kind יעודי לרישום מדדי שיחה | HYPER CORE TECH
+  // CALL_METRIC_KIND 25060 RETIRED — NEW per-call Relay metrics are ZERO (privacy phase 1)
 
   function normalizeVideoSessionDescription(raw) {
     if (!raw) return null;
@@ -84,7 +84,8 @@
     sessionOfferCreatedAt: 0,
     answeredLocally: false,
     outboundStarting: false,
-    videoLookbackUntil: 0
+    videoLookbackUntil: 0,
+    callSessionId: null
   };
 
   // חלק שיחות וידאו (chat-video-call.js) – בניית אילוצי וידאו ברירת מחדל עם אפשרות דריסה | HYPER CORE TECH
@@ -102,44 +103,9 @@
     return Object.assign(base, overrides || {});
   }
 
-  // חלק שיחות וידאו (chat-video-call.js) – מפרסם אירוע מדד לריליי עם משך השיחה | HYPER CORE TECH
-  async function publishCallMetric(durationSeconds, peerPubkey) {
-    if (!App.pool || !App.publicKey || !App.privateKey) {
-      return;
-    }
-    const safeDuration = Number.isFinite(durationSeconds) && durationSeconds > 0 ? Math.round(durationSeconds) : 0;
-    const payload = {
-      mode: 'video',
-      durationSeconds: safeDuration,
-      endedAt: Math.floor(Date.now() / 1000),
-    };
-    if (peerPubkey) {
-      payload.peer = peerPubkey;
-    }
-
-    const tags = [
-      ['t', 'video-call'],
-      ['metric', 'call'],
-      ['duration', String(safeDuration)],
-    ];
-    if (App.NETWORK_TAG) {
-      tags.push(['t', App.NETWORK_TAG]);
-    }
-
-    const event = {
-      kind: CALL_METRIC_KIND,
-      pubkey: App.publicKey,
-      created_at: Math.floor(Date.now() / 1000),
-      tags,
-      content: JSON.stringify(payload),
-    };
-
-    try {
-      const signed = App.finalizeEvent(event, App.privateKey);
-      await App.pool.publish(App.relayUrls, signed);
-    } catch (error) {
-      console.warn('Video call metric publish failed', error);
-    }
+  // NEW 25060 WRITE COUNT = ZERO — historical Relay copies may remain; do not publish.
+  async function publishCallMetric() {
+    return;
   }
 
   // חלק שיחות וידאו – בדיקת תמיכה
@@ -192,10 +158,10 @@
     };
 
     pc.oniceconnectionstatechange = () => {
-      console.log('VIDEO ICE:', pc.iceConnectionState);
       if (pc.iceConnectionState === 'connected') {
         state.isActive = true;
         state.callStartTimestamp = Date.now();
+        console.log('CALL_CONNECTED');
         if (typeof App.onVideoCallConnected === 'function') App.onVideoCallConnected(peerPubkey);
       } else if (['disconnected','failed','closed'].includes(pc.iceConnectionState)) {
         if (!state.ending) end();
@@ -204,7 +170,6 @@
 
     pc.onconnectionstatechange = () => {
       const cs = pc.connectionState;
-      console.log('VIDEO PC:', cs);
       if (['disconnected','failed','closed'].includes(cs)) {
         if (!state.ending) end();
       }
@@ -214,7 +179,7 @@
     return pc;
   }
 
-  // חלק שיחות וידאו – חישוב מזהה חדר
+  // LEGACY_READ_ONLY helper — deterministic room ID must NOT be emitted on NEW secure sends.
   function getRoomId(peer) {
     const a = (App.publicKey || '').toLowerCase();
     const b = (peer || '').toLowerCase();
@@ -222,38 +187,67 @@
     return a < b ? `${a}:${b}` : `${b}:${a}`;
   }
 
-  // חלק שיחות וידאו – תור למועמדי ICE
-  async function sendSignal(peer, type, data) {
-    if (!App.pool || !App.publicKey || !App.privateKey) return;
-    const payload = data ? JSON.stringify(data) : '';
-    const content = payload ? await NostrTools.nip04.encrypt(App.privateKey, peer, payload) : '';
-    const event = {
-      kind: 25050,
-      pubkey: App.publicKey,
-      created_at: Math.floor(Date.now()/1000),
-      tags: [ ['type', type], ['p', peer], ['r', getRoomId(peer)] ],
-      content
-    };
-    const signed = App.finalizeEvent(event, App.privateKey);
-    if (type !== 'v-candidates' && type !== 'v-answer') {
-      await new Promise(r => setTimeout(r, 80));
+  function ensureCallSessionId() {
+    const api = App.CallSignalE2ee;
+    if (state.callSessionId && String(state.callSessionId).length >= 32) return state.callSessionId;
+    if (api && typeof api.createSessionId === 'function') {
+      state.callSessionId = api.createSessionId();
+    } else {
+      const buf = new Uint8Array(16);
+      crypto.getRandomValues(buf);
+      state.callSessionId = Array.from(buf).map((b) => b.toString(16).padStart(2, '0')).join('');
     }
-    await App.pool.publish(App.relayUrls, signed);
-    console.log(`Sent ${type} (video) to ${peer.slice(0,8)}`);
+    return state.callSessionId;
+  }
+
+  // Shared cutover: publishCallSignal picks ONE transport (legacy 25050 XOR gift-wrap 1059).
+  async function sendSignal(peer, type, data) {
+    if (!App.pool || !App.publicKey || !App.privateKey) {
+      console.error('CALL_SIGNAL_E2EE_ENCRYPT_FAILED: pool or keys unavailable');
+      throw Object.assign(new Error('CALL_SIGNAL_E2EE_ENCRYPT_FAILED'), { code: 'CALL_SIGNAL_E2EE_ENCRYPT_FAILED' });
+    }
+    const api = App.CallSignalE2ee;
+    if (!api || typeof api.publishCallSignal !== 'function') {
+      throw Object.assign(new Error('CALL_SIGNAL_E2EE_ENCRYPT_FAILED: helper missing'), { code: 'CALL_SIGNAL_E2EE_ENCRYPT_FAILED' });
+    }
+    try {
+      await api.publishCallSignal({
+        media: 'video',
+        peerPubkey: peer,
+        type,
+        data,
+        sessionId: ensureCallSessionId(),
+        pool: App.pool,
+        relays: App.relayUrls,
+        senderPubkey: App.publicKey,
+        senderPrivateKey: App.privateKey,
+        roomId: getRoomId(peer),
+      });
+    } catch (err) {
+      const code = err && err.code ? err.code : 'CALL_SIGNAL_E2EE_ENCRYPT_FAILED';
+      console.error('CALL_SIGNAL_SEND_FAILED code=' + code);
+      throw err && err.code ? err : Object.assign(err || new Error(code), { code });
+    }
   }
 
   function queueCandidate(peer, cand) {
     if (cand) state.candidateQueue.push(cand);
     if (!cand) {
       const batch = state.candidateQueue.splice(0);
-      if (batch.length) sendSignal(peer, 'v-candidates', batch);
+      if (batch.length) {
+        console.log('CALL_SIGNAL_ICE candidateCount=' + batch.length);
+        sendSignal(peer, 'v-candidates', batch);
+      }
       clearTimer();
       return;
     }
     clearTimer();
     state.candidateTimer = setTimeout(() => {
       const batch = state.candidateQueue.splice(0);
-      if (batch.length) sendSignal(peer, 'v-candidates', batch);
+      if (batch.length) {
+        console.log('CALL_SIGNAL_ICE candidateCount=' + batch.length);
+        sendSignal(peer, 'v-candidates', batch);
+      }
       clearTimer();
     }, 200);
   }
@@ -264,16 +258,7 @@
   }
 
   function loadEndedCallMap() {
-    try {
-      const raw = localStorage.getItem('sos_video_ended_v1');
-      const o = raw ? JSON.parse(raw) : null;
-      if (!o || typeof o !== 'object') return;
-      const now = Date.now();
-      Object.keys(o).forEach((k) => {
-        const at = Number(o[k]);
-        if (at > 0 && now - at < 120000) state.lastEndedAt[k] = at;
-      });
-    } catch (_) {}
+    // In-memory only — no identity-linked localStorage (sos_video_ended_v1 removed).
   }
 
   function noteCallEnded(peerPubkey) {
@@ -281,13 +266,7 @@
     if (!pk) return;
     state.lastEndedAt[pk] = Date.now();
     try {
-      const now = Date.now();
-      const next = {};
-      Object.keys(state.lastEndedAt).forEach((k) => {
-        const at = Number(state.lastEndedAt[k]);
-        if (at > 0 && now - at < 120000) next[k] = at;
-      });
-      localStorage.setItem('sos_video_ended_v1', JSON.stringify(next));
+      localStorage.removeItem('sos_video_ended_v1');
     } catch (_) {}
   }
 
@@ -420,6 +399,7 @@
       await sendSignal(peerPubkey, 'v-offer', offer);
       state.outboundStarting = false;
       state.answeredLocally = true;
+      console.log('CALL_STARTED');
       if (typeof App.onVideoCallStarted === 'function') App.onVideoCallStarted(peerPubkey, false);
     } catch (err) {
       state.outboundStarting = false;
@@ -455,6 +435,7 @@
     await flushRemoteCandidates(peerPubkey);
     await sendSignal(peerPubkey, 'v-answer', answer);
     state.answeredLocally = true;
+    console.log('CALL_ACCEPTED');
     if (typeof App.onVideoCallStarted === 'function') App.onVideoCallStarted(peerPubkey, true);
   }
 
@@ -462,6 +443,7 @@
   async function end() {
     if (state.ending) return;
     state.ending = true;
+    console.log('CALL_ENDING');
     const peer = state.currentPeer;
     const startMs = state.callStartTimestamp;
     const durationSeconds = startMs ? (Date.now() - startMs) / 1000 : 0;
@@ -472,7 +454,7 @@
       try {
         await sendSignal(peer, 'v-disconnect', null);
       } catch (err) {
-        console.warn('v-disconnect failed', err);
+        console.warn('disconnect signal failed', err);
       }
     }
     try { if (state.pc) state.pc.close(); } catch {}
@@ -488,8 +470,10 @@
     state.sessionOfferCreatedAt = 0;
     state.answeredLocally = false;
     state.outboundStarting = false;
-    if (durationSeconds > 0) {
-      publishCallMetric(durationSeconds, peer);
+    state.callSessionId = null;
+    if (durationSeconds > 0 && peer) {
+      // intentionally no Relay call metric (25060 WRITE ZERO)
+      void publishCallMetric;
     }
     setTimeout(()=>{ state.ending=false; },100);
     state.callStartTimestamp = null;
@@ -706,39 +690,56 @@
   }
 
   // חלק שיחות וידאו – טיפול באירועי אותות נכנסים
-  async function handleSignalEvent(event) {
-    if (event.pubkey && String(event.pubkey).toLowerCase() === String(App.publicKey || '').toLowerCase()) return;
-    const typeTag = event.tags.find(t => t[0] === 'type');
-    if (!typeTag) return;
-    const type = typeTag[1];
-    if (!type || type[0] !== 'v') return; // מתייחס רק לשיחות וידאו
+  // preParsed: secure gift-wrap path { type, data, sender, sentAt, signalId, sessionId }
+  async function handleSignalEvent(event, preParsed) {
+    const peer = preParsed && preParsed.sender
+      ? String(preParsed.sender).toLowerCase()
+      : String(event.pubkey || '').toLowerCase();
+    if (peer === String(App.publicKey || '').toLowerCase()) return;
 
-    if (event && event.id && rememberProcessedSignalId(event.id)) return;
+    const dedupeId = (preParsed && preParsed.signalId) || (event && event.id);
+    if (dedupeId && rememberProcessedSignalId(dedupeId)) return;
+
+    let type;
+    if (preParsed && preParsed.type) {
+      type = preParsed.type;
+    } else {
+      const typeTag = event.tags.find(t => t[0] === 'type');
+      if (!typeTag) return;
+      type = typeTag[1];
+    }
+    if (!type || type[0] !== 'v') return; // מתייחס רק לשיחות וידאו
 
     // חלק שיחות וידאו (chat-video-call.js) – מעקב אחר חיות subscription (לשימוש keepalive/re-subscribe) | HYPER CORE TECH
     state.lastSignalReceivedAt = Date.now();
     try {
-      const createdAt = Number(event.created_at) || 0;
-      if (createdAt > state.lastSignalCreatedAt) state.lastSignalCreatedAt = createdAt;
+      const createdAtTrack = preParsed && preParsed.sentAt
+        ? Number(preParsed.sentAt) || 0
+        : Number(event.created_at) || 0;
+      if (createdAtTrack > state.lastSignalCreatedAt) state.lastSignalCreatedAt = createdAtTrack;
     } catch {}
 
-    const peer = String(event.pubkey || '').toLowerCase();
     let data = null;
-    if (event.content) {
+    if (preParsed) {
+      data = preParsed.data;
+    } else if (event.content) {
       if (typeof event.content === 'string' && event.content.length > 524288) return;
       try {
+        // LEGACY_READ_ONLY: NIP-04 decrypt for already-deployed clients.
         const dec = await NostrTools.nip04.decrypt(App.privateKey, peer, event.content);
         data = dec ? JSON.parse(dec) : null;
       } catch (err) {
-        console.warn('Failed to decrypt/parse video signal', err);
+        console.warn('CALL_SIGNAL_HANDLE_FAILED');
         return;
       }
     }
 
-    console.log(`Received ${type} from ${peer.slice(0,8)}`);
-    const createdAt = Number(event.created_at) || 0;
+    console.log('CALL_SIGNAL_RECV action=' + String(type) + ' encrypted=' + (preParsed ? 'true' : 'legacy'));
+    const createdAt = preParsed && preParsed.sentAt
+      ? Number(preParsed.sentAt) || 0
+      : Number(event.created_at) || 0;
     if (type !== 'v-offer' && isStaleForCurrentSession(createdAt, peer)) {
-      console.log('Ignored stale video signal', type, 'from', peer.slice(0, 8));
+      console.log('CALL_SIGNAL_SKIP stale');
       return;
     }
     switch (type) {
@@ -746,19 +747,19 @@
         // חלק שיחות וידאו (chat-video-call.js) – הגנה מפני offer ישן אחרי re-subscribe | HYPER CORE TECH
         try {
           const nowSec = Math.floor(Date.now() / 1000);
-          if (createdAt && (nowSec - createdAt) > MAX_OFFER_AGE_SEC) {
-            console.log('Ignored old video offer from', peer.slice(0,8));
+          if (!preParsed && createdAt && (nowSec - createdAt) > MAX_OFFER_AGE_SEC) {
+            console.log('CALL_SIGNAL_REJECT stale_offer');
             return;
           }
           if (isOfferReplayAfterHangup(peer, createdAt)) {
-            console.log('Ignored video offer – replay after hangup from', peer.slice(0, 8));
+            console.log('CALL_SIGNAL_REJECT replay_after_hangup');
             return;
           }
         } catch {}
 
         let offerData = normalizeVideoSessionDescription(data);
         if (!offerData) {
-          console.error('Invalid video offer received', { reason: 'invalid-sdp', type: typeof data, sdpLength: typeof data === 'string' ? data.length : 0 });
+          console.error('CALL_SIGNAL_REJECT invalid_offer');
           return;
         }
 
@@ -767,34 +768,35 @@
         const last = state.lastOfferFrom[peer] || 0;
         state.lastOfferFrom[peer] = now;
         if (now - last < 1500) {
-          console.log('Ignored duplicate video offer from', peer.slice(0,8));
+          console.log('CALL_SIGNAL_SKIP duplicate_offer');
           return;
         }
 
-        console.log('Received valid video offer:', { type: offerData.type, sdpLen: offerData.sdp?.length });
+        console.log('CALL_OFFER_OK');
         if (state.outboundStarting || (state.pc && !state.isIncoming)) {
-          console.log('Ignored video offer – already calling');
+          console.log('CALL_SIGNAL_SKIP already_calling');
           return;
         }
         try {
           if (window.__sosAcceptInFlight && window.__sosAcceptInFlightPeer === String(peer).toLowerCase()) {
             noteSessionOffer(createdAt);
-            console.log('Ignored video offer – native accept already in flight');
+            console.log('CALL_SIGNAL_SKIP accept_in_flight');
             return;
           }
         } catch (_) {}
         // חלק שיחות וידאו (chat-video-call.js) – קיבוע peer עבור שיחה נכנסת כדי שאירוע v-disconnect/ביטול יסגור UI גם לפני קבלה | HYPER CORE TECH
         if (state.pc && state.currentPeer === peer) {
-          console.log('Ignored video offer – already in call with', peer.slice(0, 8));
+          console.log('CALL_SIGNAL_SKIP already_active');
           return;
         }
         if (state.currentPeer && state.currentPeer !== peer) {
-          console.log('Ignored incoming video offer while another call context exists');
+          console.log('CALL_SIGNAL_SKIP other_context');
           return;
         }
         noteSessionOffer(createdAt);
         state.currentPeer = peer;
         state.isIncoming = true;
+        if (preParsed && preParsed.sessionId) state.callSessionId = preParsed.sessionId;
         // חלק Push (chat-video-call.js) – שליחת התראת Push על שיחת וידאו נכנסת | HYPER CORE TECH
         if (typeof App.triggerIncomingCallPush === 'function') {
           App.triggerIncomingCallPush(peer, 'video');
@@ -805,15 +807,16 @@
       case 'v-answer': {
         if (!state.pc || state.currentPeer !== peer) break;
         if (state.isIncoming) {
-          console.log('Ignored video answer – local side is callee');
+          console.log('CALL_SIGNAL_SKIP answer_as_callee');
           break;
         }
         const answerData = normalizeVideoSessionDescription(data);
         if (answerData) {
+          console.log('CALL_ANSWER_APPLY');
           await state.pc.setRemoteDescription(answerData);
           await flushRemoteCandidates(peer);
         } else {
-          console.error('Invalid video answer received', { reason: 'invalid-sdp', type: typeof data, sdpLength: typeof data === 'string' ? data.length : 0 });
+          console.error('CALL_SIGNAL_REJECT invalid_answer');
         }
         break;
       }
@@ -836,18 +839,14 @@
             bufferRemoteCandidates(peer, candidatesData, createdAt);
           }
         } else if (candidatesData) {
-          console.error('Invalid video candidates received', {
-            reason: 'invalid-candidates',
-            type: typeof candidatesData,
-            candidateCount: Array.isArray(candidatesData) ? candidatesData.length : 0
-          });
+          console.error('CALL_SIGNAL_REJECT invalid_candidates');
         }
         break;
       }
       case 'v-disconnect': {
         if (state.currentPeer !== peer) break;
         if (state.outboundStarting && !state.pc) {
-          console.log('Ignored video disconnect – outbound still starting');
+          console.log('CALL_SIGNAL_SKIP disconnect_outbound_starting');
           break;
         }
         end();
@@ -856,11 +855,41 @@
     }
   }
 
+  async function handleSecureSignal(logical) {
+    if (!logical || logical.media !== 'video') return false;
+    const synthetic = {
+      id: logical.wrapId || logical.signalId,
+      pubkey: logical.sender,
+      created_at: logical.sentAt,
+      kind: 1059,
+    };
+    enqueueVideoSignalEvent(synthetic, {
+      type: logical.wireType || logical.action,
+      data: logical.data,
+      sender: logical.sender,
+      sentAt: logical.sentAt,
+      signalId: logical.signalId,
+      sessionId: logical.sessionId,
+    });
+    return true;
+  }
+
+  async function handleGiftWrapCallEvent(ev) {
+    const api = App.CallSignalE2ee;
+    if (api && typeof api.enqueueSecureDispatch === 'function') {
+      await api.enqueueSecureDispatch(ev);
+      return;
+    }
+    if (api && typeof api.dispatchGiftWrappedCallSignal === 'function') {
+      await api.dispatchGiftWrappedCallSignal(ev);
+    }
+  }
+
   // חלק שיחות וידאו (chat-video-call.js) – תור אותות כדי שלא ירוצו במקביל אחרי decrypt | HYPER CORE TECH
   let signalChain = Promise.resolve();
-  function enqueueVideoSignalEvent(ev) {
-    signalChain = signalChain.then(() => handleSignalEvent(ev)).catch((err) => {
-      console.warn('video signal handler failed', err);
+  function enqueueVideoSignalEvent(ev, preParsed) {
+    signalChain = signalChain.then(() => handleSignalEvent(ev, preParsed)).catch((err) => {
+      console.warn('CALL_SIGNAL_HANDLE_FAILED');
     });
   }
 
@@ -903,7 +932,7 @@
     closeSubscriptionSafely(state.signalSubscription);
     state.signalSubscription = null;
     state.lastSignalReceivedAt = now;
-    subscribeToSignals({ since });
+    subscribeToSignals({ since, force: true });
   }
 
   // חלק שיחות וידאו (chat-video-call.js) – keepalive קל: מוודא subscription חי ומרענן אחרי שקט ממושך | HYPER CORE TECH
@@ -949,19 +978,40 @@
       console.log('Video call: disabled for guest users');
       return null;
     }
-    if (state.signalSubscription) return state.signalSubscription;
+    if (state.signalSubscription && !options.force) return state.signalSubscription;
     if (!App.pool || !App.publicKey) {
       console.log('Video call: waiting for pool/publicKey...');
       return null;
     }
+
+    if (options.force) {
+      closeSubscriptionSafely(state.signalSubscription);
+      state.signalSubscription = null;
+    }
+
     const nowSec = Math.floor(Date.now() / 1000);
     const requestedSince = Number(options.since);
     const since = Number.isFinite(requestedSince) ? Math.max(0, Math.floor(requestedSince)) : (nowSec - 2);
-    const filters = [{ kinds: [25050], '#p': [App.publicKey], since }];
-    console.log('Video call: subscribing to events for', App.publicKey.slice(0, 8), 'since', since);
+    const filters = [
+      {
+        // LEGACY_READ_ONLY: direct kind 25050 from already-deployed clients.
+        // Secure kind 1059 is owned by CallSignalE2ee.ensureSecureCallSubscription (single unwrap).
+        kinds: [25050],
+        '#p': [App.publicKey],
+        since
+      }
+    ];
     try {
+      console.log('CALL_SUBSCRIBE legacy=25050 (secure=shared-1059)');
+      try {
+        if (App.CallSignalE2ee && typeof App.CallSignalE2ee.ensureSecureCallSubscription === 'function') {
+          App.CallSignalE2ee.ensureSecureCallSubscription();
+        }
+      } catch (_e) {}
       const sub = App.pool.subscribeMany(App.relayUrls, filters, {
         onevent: (ev) => {
+          if (ev && ev.kind === 1059) return;
+          // LEGACY_READ_ONLY path
           if (!verifyIncomingVideoRelayEvent(ev)) return;
           if (!verifyIncomingVideoRelayRecipient(ev)) return;
           if (!verifyIncomingVideoRelayFreshness(ev)) return;
@@ -969,14 +1019,14 @@
         },
         oneose: () => {
           state.lastSignalReceivedAt = Date.now();
-          console.log('Video call subscription ready');
+          console.log('CALL_SUBSCRIBE_READY');
         }
       });
       state.signalSubscription = sub;
       state.lastSignalReceivedAt = Date.now();
       return sub;
     } catch (err) {
-      console.warn('Video call subscribe failed', err);
+      console.warn('CALL_SUBSCRIBE_FAILED');
       return null;
     }
   }
@@ -1024,6 +1074,7 @@
     toggleCamera,
     switchCamera,
     subscribe: subscribeToSignals,
+    handleSecureSignal,
     getState: () => ({
       currentPeer: state.currentPeer,
       isActive: state.isActive,

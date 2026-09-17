@@ -596,6 +596,37 @@
 
     const tryDecryptEvent = async (eventObj) => {
       if (!eventObj || typeof eventObj !== 'object') return null;
+      // Gift Wrap 1059 first — use shared dispatcher / cache (no second independent unwrap).
+      if (eventObj.kind === 1059) {
+        const api = App.CallSignalE2ee;
+        if (!api) return null;
+        try {
+          if (typeof api.getCachedSecureOffer === 'function') {
+            const cached = api.getCachedSecureOffer(peerWanted);
+            if (cached && cached.media === 'video' && cached.offer?.type && cached.offer?.sdp) {
+              App.__videoIncomingOffer = { type: cached.offer.type, sdp: cached.offer.sdp };
+              App.__videoIncomingPeer = peerWanted || App.__videoIncomingPeer;
+              console.log('CALL_HYDRATE_SECURE_VIDEO');
+              return App.__videoIncomingOffer;
+            }
+          }
+          if (!App.privateKey || !App.publicKey) return null;
+          if (typeof api.dispatchGiftWrappedCallSignal === 'function') {
+            await api.dispatchGiftWrappedCallSignal(eventObj);
+            const cached2 = typeof api.getCachedSecureOffer === 'function' ? api.getCachedSecureOffer(peerWanted) : null;
+            if (cached2 && cached2.media === 'video' && cached2.offer?.type && cached2.offer?.sdp) {
+              App.__videoIncomingOffer = { type: cached2.offer.type, sdp: cached2.offer.sdp };
+              App.__videoIncomingPeer = peerWanted || App.__videoIncomingPeer;
+              console.log('CALL_HYDRATE_SECURE_VIDEO');
+              return App.__videoIncomingOffer;
+            }
+          }
+        } catch (_e) {
+          return null;
+        }
+        return null;
+      }
+      // LEGACY_READ_ONLY NIP-04
       const peer = String(eventObj.pubkey || '').toLowerCase();
       if (peerWanted && peer && peer !== peerWanted) return null;
       const typeTag = Array.isArray(eventObj.tags) ? eventObj.tags.find((t) => t && t[0] === 'type') : null;
@@ -625,10 +656,10 @@
             App.videoCall.noteIncomingOffer(App.__videoIncomingPeer, eventObj.created_at);
           }
         } catch (_) {}
-        console.log('[APK] hydrated video offer from native raw event', String(peer || '').slice(0, 8));
+        console.log('CALL_HYDRATE_LEGACY_VIDEO');
         return App.__videoIncomingOffer;
       } catch (err) {
-        console.warn('[APK] decrypt video raw event failed', err);
+        console.warn('CALL_HYDRATE_VIDEO_FAIL');
         return null;
       }
     };

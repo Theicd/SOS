@@ -179,7 +179,7 @@ class IncomingCallActivity : AppCompatActivity() {
     private fun warmWebViewNow() {
         if (warmed || peer.length != 64) return
         warmed = true
-        SosDebugLog.i("call", "ring UI warm peer=${peer.take(8)}")
+        SosDebugLog.i("call", "ring UI warm peer=redacted")
         MainActivity.warmHostForIncomingCall(applicationContext, peer, callType)
     }
 
@@ -191,7 +191,7 @@ class IncomingCallActivity : AppCompatActivity() {
         NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true, dismissUi = false)
         CallSoundHelper.stopRingtone()
         findViewById<TextView>(R.id.incomingCallSub)?.text = getString(R.string.call_connecting)
-        SosDebugLog.i("call", "answer → MainActivity peer=${peer.take(8)} type=$callType")
+        SosDebugLog.i("call", "answer → MainActivity peer=redacted type=$callType")
 
         // בחזית – Android נותן מיקרופון/WebRTC רק כש־Activity גלויה | HYPER CORE TECH
         val launch = Intent(this, MainActivity::class.java).apply {
@@ -288,7 +288,7 @@ class IncomingCallActivity : AppCompatActivity() {
             try {
                 val opts = backgroundStartOptions()
                 if (opts != null) app.startActivity(intent, opts) else app.startActivity(intent)
-                SosDebugLog.i("call", "launch IncomingCall peer=${pk.take(8)}")
+                SosDebugLog.i("call", "launch IncomingCall peer=redacted")
             } catch (err: Exception) {
                 SosDebugLog.i("call", "launch IncomingCall fail ${err.message}")
             }
@@ -383,7 +383,7 @@ class IncomingCallActivity : AppCompatActivity() {
 
         fun notifyCallConnected(context: Context, peer: String?) {
             // נשאר לתאימות גשר JS – אחרי פישוט המענה ה־UI הוא הווב בחזית
-            SosDebugLog.i("call", "connected peer=${peer?.take(8)}")
+            SosDebugLog.i("call", "connected peer=redacted")
         }
 
         fun notifyCallEnded(context: Context, peer: String?) {
