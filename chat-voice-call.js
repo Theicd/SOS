@@ -861,19 +861,35 @@
     }
   }
 
+  async function handleSecureSignal(logical) {
+    if (!logical || logical.media !== 'voice') return false;
+    const synthetic = {
+      id: logical.wrapId || logical.signalId,
+      pubkey: logical.sender,
+      created_at: logical.sentAt,
+      kind: 1059,
+    };
+    await handleSignalEvent(synthetic, {
+      type: logical.wireType || logical.action,
+      data: logical.data,
+      sender: logical.sender,
+      sentAt: logical.sentAt,
+      signalId: logical.signalId,
+      sessionId: logical.sessionId,
+    });
+    return true;
+  }
+
+  // LEGACY: direct unwrap path removed — use App.CallSignalE2ee.dispatchGiftWrappedCallSignal
   async function handleGiftWrapCallEvent(ev) {
     const api = App.CallSignalE2ee;
-    if (!api || typeof api.unwrapGiftWrappedCallSignal !== 'function') return;
-    const unwrapped = await api.unwrapGiftWrappedCallSignal(ev, App.privateKey, App.publicKey);
-    if (!unwrapped || unwrapped.media !== 'voice') return;
-    await handleSignalEvent(ev, {
-      type: unwrapped.wireType,
-      data: unwrapped.data,
-      sender: unwrapped.sender,
-      sentAt: unwrapped.sentAt,
-      signalId: unwrapped.signalId,
-      sessionId: unwrapped.sessionId,
-    });
+    if (api && typeof api.enqueueSecureDispatch === 'function') {
+      await api.enqueueSecureDispatch(ev);
+      return;
+    }
+    if (api && typeof api.dispatchGiftWrappedCallSignal === 'function') {
+      await api.dispatchGiftWrappedCallSignal(ev);
+    }
   }
 
   // חלק שיחות קול (chat-voice-call.js) – זמן התחלת ניסיון הרשמה לתפוס שיחות שנכנסו בזמן טעינה | HYPER CORE TECH
@@ -1086,13 +1102,8 @@
         );
     const filters = [
       {
-        // Gift-wrap lookback covers NIP-59 randomized created_at (up to ~2 days past).
-        kinds: [1059],
-        '#p': [App.publicKey],
-        since: Math.floor(Date.now() / 1000) - (2 * 24 * 60 * 60) - 120,
-      },
-      {
         // LEGACY_READ_ONLY: direct kind 25050 from already-deployed clients.
+        // Secure kind 1059 is owned by CallSignalE2ee.ensureSecureCallSubscription (single unwrap).
         kinds: [25050],
         '#p': [App.publicKey],
         since
@@ -1100,18 +1111,16 @@
     ];
 
     try {
-      console.log('CALL_SUBSCRIBE secure=1059 legacy=25050');
+      console.log('CALL_SUBSCRIBE legacy=25050 (secure=shared-1059)');
+      try {
+        if (App.CallSignalE2ee && typeof App.CallSignalE2ee.ensureSecureCallSubscription === 'function') {
+          App.CallSignalE2ee.ensureSecureCallSubscription();
+        }
+      } catch (_e) {}
       const sub = App.pool.subscribeMany(App.relayUrls, filters, {
         onevent: (ev) => {
-          if (ev && ev.kind === 1059) {
-            if (!verifyIncomingVoiceRelayEvent(ev)) return;
-            if (!verifyIncomingVoiceRelayRecipient(ev)) return;
-            // Freshness for gift-wrap uses INNER sentAt after unwrap — not outer created_at.
-            state.lastSignalReceivedAt = Date.now();
-            handleGiftWrapCallEvent(ev);
-            return;
-          }
-          // LEGACY_READ_ONLY path
+          // LEGACY_READ_ONLY path only — 1059 handled by shared dispatcher
+          if (ev && ev.kind === 1059) return;
           if (!verifyIncomingVoiceRelayEvent(ev)) return;
           if (!verifyIncomingVoiceRelayRecipient(ev)) return;
           if (!verifyIncomingVoiceRelayFreshness(ev)) return;
@@ -1222,6 +1231,7 @@
       toggleMute,
       getState: () => ({ ...state }),
       subscribe: subscribeToSignals,
+      handleSecureSignal,
       markEventProcessed: markCallEventProcessed,
       verifyIncomingRelayEvent: verifyIncomingVoiceRelayEvent,
       verifyIncomingRelayRecipient: verifyIncomingVoiceRelayRecipient,

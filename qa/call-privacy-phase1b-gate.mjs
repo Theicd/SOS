@@ -53,11 +53,11 @@ record('native warmHostForSecureWrap', main.includes('warmHostForSecureWrap') &&
 record('native injectSecureWrapProcessing', main.includes('injectSecureWrapProcessing') && main.includes('prepareSecureCallEventFromNative'));
 record('bridge notifySecureCallOfferVerified', bridge.includes('notifySecureCallOfferVerified'));
 record('bridge notifySecureCallDismissed', bridge.includes('notifySecureCallDismissed'));
-record('pending store saveSecureWrap', store.includes('saveSecureWrap'));
+record('pending store saveSecureWrap', store.includes('enqueueSecureWrap') || store.includes('saveSecureWrap'));
 record('JS prepareSecureCallEventFromNative', voiceUi.includes('prepareSecureCallEventFromNative'));
-record('JS hydrate prefers kind 1059 unwrap', voiceUi.includes('eventObj.kind !== 1059') || voiceUi.includes('kind !== 1059') || voiceUi.includes('trySecureUnwrap'));
-record('JS only offer notifies native ring', voiceUi.includes("unwrapped.action !== 'offer'") && voiceUi.includes('CALL_SECURE_WAKE non_offer'));
-record('offer path calls notifySecureCallOfferVerified', voiceUi.includes('notifySecureCallOfferVerified(unwrapped.sender'));
+record('JS hydrate prefers kind 1059 unwrap', voiceUi.includes('getCachedSecureOffer') || voiceUi.includes('dispatchGiftWrappedCallSignal') || voiceUi.includes('trySecureUnwrap'));
+record('JS only offer notifies native ring', helper.includes('authorizeNativeSecureOfferRing') && helper.includes("status: 'invalid_offer'"));
+record('offer path calls notifySecureCallOfferVerified', helper.includes('notifySecureCallOfferVerified'));
 record('push incoming disabled', push.includes('CALL_PUSH_DISABLED'));
 record('push missed disabled', push.includes('MISSED_CALL_PUSH_DISABLED'));
 record('push no voice-call-incoming send', !/type:\s*isVideo\s*\?\s*'video-call-incoming'/.test(push));

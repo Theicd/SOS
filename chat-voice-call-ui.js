@@ -173,30 +173,34 @@
     const trySecureUnwrap = async (eventObj) => {
       if (!eventObj || eventObj.kind !== 1059) return null;
       const api = App.CallSignalE2ee;
-      if (!api || typeof api.unwrapGiftWrappedCallSignal !== 'function') return null;
-      if (!App.privateKey || !App.publicKey) return null;
+      if (!api) return null;
+      // Prefer cache from authoritative dispatch (avoids second unwrap / replay race).
       try {
-        const unwrapped = await api.unwrapGiftWrappedCallSignal(eventObj, App.privateKey, App.publicKey);
-        if (!unwrapped || unwrapped.action !== 'offer') return null;
-        if (unwrapped.media && unwrapped.media !== 'voice') return null;
-        const peer = String(unwrapped.sender || '').toLowerCase();
-        if (peerWanted && peer && peer !== peerWanted) return null;
-        let offer = unwrapped.data;
-        if (offer && offer.offer && !offer.type && !offer.sdp) offer = offer.offer;
-        if (!offer?.type || !offer?.sdp) return null;
-        incomingOffer = offer;
-        incomingOfferPeer = peer || peerWanted || incomingOfferPeer;
-        persistIncomingOffer(incomingOfferPeer, offer);
-        console.log('CALL_HYDRATE_SECURE');
-        try {
-          if (unwrapped.signalId && App.voiceCall && typeof App.voiceCall.markEventProcessed === 'function') {
-            App.voiceCall.markEventProcessed(unwrapped.signalId);
+        if (typeof api.getCachedSecureOffer === 'function') {
+          const cached = api.getCachedSecureOffer(peerWanted);
+          if (cached && cached.media === 'voice' && cached.offer?.type && cached.offer?.sdp) {
+            incomingOffer = cached.offer;
+            incomingOfferPeer = peerWanted || incomingOfferPeer;
+            persistIncomingOffer(incomingOfferPeer, cached.offer);
+            console.log('CALL_HYDRATE_SECURE');
+            return { offer: cached.offer, peer: peerWanted, media: 'voice', sessionId: cached.sessionId };
           }
-        } catch (_) {}
-        return { offer, peer, media: 'voice', sessionId: unwrapped.sessionId };
-      } catch (_err) {
-        return null;
+        }
+      } catch (_) {}
+      if (!App.privateKey || !App.publicKey) return null;
+      if (typeof api.dispatchGiftWrappedCallSignal === 'function') {
+        const r = await api.dispatchGiftWrappedCallSignal(eventObj);
+        if (r && r.status === 'invalid_offer') return null;
+        const cached = typeof api.getCachedSecureOffer === 'function' ? api.getCachedSecureOffer(peerWanted) : null;
+        if (cached && cached.media === 'voice' && cached.offer?.type && cached.offer?.sdp) {
+          incomingOffer = cached.offer;
+          incomingOfferPeer = peerWanted || incomingOfferPeer;
+          persistIncomingOffer(incomingOfferPeer, cached.offer);
+          console.log('CALL_HYDRATE_SECURE');
+          return { offer: cached.offer, peer: peerWanted, media: 'voice', sessionId: cached.sessionId };
+        }
       }
+      return null;
     };
 
     const tryDecryptEvent = async (eventObj) => {
@@ -1153,90 +1157,76 @@
     } catch (_) {}
   };
 
-  // Opaque Native wake: verify Gift Wrap in JS, then authorize Native ring.
+  // Opaque Native wake: drain pending queue through THE SAME authoritative dispatcher.
   App.prepareSecureCallEventFromNative = async function prepareSecureCallEventFromNative(pendingRawEvent) {
     try {
       if (typeof App.initVoiceCall === 'function') App.initVoiceCall({});
       if (typeof App.initVideoCall === 'function') App.initVideoCall({});
     } catch (_) {}
 
-    const unwrapPack = (raw) => {
-      if (!raw) return null;
-      try {
-        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        if (parsed?.event) {
-          const ev = typeof parsed.event === 'string' ? JSON.parse(parsed.event) : parsed.event;
-          return ev;
-        }
-        if (parsed?.pubkey && parsed?.content) return parsed;
-      } catch (_) {}
-      return null;
-    };
-
-    let eventObj = unwrapPack(pendingRawEvent);
-    if (!eventObj) {
-      try {
-        const bridge = window.SosNativeShell;
-        if (bridge && typeof bridge.getIncomingCallRawEvent === 'function') {
-          eventObj = unwrapPack(bridge.getIncomingCallRawEvent());
-        }
-      } catch (_) {}
-    }
-    if (!eventObj || eventObj.kind !== 1059) return false;
-
     const api = App.CallSignalE2ee;
-    if (!api || typeof api.unwrapGiftWrappedCallSignal !== 'function') return false;
+    if (!api || typeof api.dispatchGiftWrappedCallSignal !== 'function') return false;
     if (!App.privateKey || !App.publicKey) return false;
 
-    const unwrapped = await api.unwrapGiftWrappedCallSignal(eventObj, App.privateKey, App.publicKey);
-    if (!unwrapped) {
-      console.log('CALL_SECURE_WAKE reject');
-      return false;
-    }
-
-    if (unwrapped.action === 'disconnect') {
-      try {
-        const bridge = window.SosNativeShell;
-        if (bridge && typeof bridge.notifySecureCallDismissed === 'function') {
-          bridge.notifySecureCallDismissed(unwrapped.sender);
-        }
-      } catch (_) {}
-      return true;
-    }
-
-    if (unwrapped.action !== 'offer') {
-      // answer/candidates: leave to live subscribe handlers after warm.
-      console.log('CALL_SECURE_WAKE non_offer action=' + unwrapped.action);
-      return true;
-    }
-
-    // Authenticated offer — authorize Native ring, then drive Web UI.
     try {
-      const bridge = window.SosNativeShell;
-      if (bridge && typeof bridge.notifySecureCallOfferVerified === 'function') {
-        bridge.notifySecureCallOfferVerified(unwrapped.sender, unwrapped.media, unwrapped.sessionId || '');
-      }
+      if (api.ensureSecureCallSubscription) api.ensureSecureCallSubscription();
     } catch (_) {}
 
-    let offer = unwrapped.data;
-    if (offer && offer.offer && !offer.type && !offer.sdp) offer = offer.offer;
-    if (!offer?.type || !offer?.sdp) return false;
+    const parseQueue = (raw) => {
+      const out = [];
+      if (!raw) return out;
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (Array.isArray(parsed)) {
+          for (let i = 0; i < parsed.length; i += 1) out.push(parsed[i]);
+          return out;
+        }
+        if (parsed && parsed.event) {
+          out.push(parsed);
+          return out;
+        }
+        if (parsed && parsed.kind === 1059) {
+          out.push(parsed);
+          return out;
+        }
+      } catch (_) {}
+      return out;
+    };
 
-    if (unwrapped.media === 'video') {
-      if (typeof App.onVideoCallIncoming === 'function') {
-        App.onVideoCallIncoming(unwrapped.sender, offer);
+    let items = parseQueue(pendingRawEvent);
+    if (!items.length) {
+      try {
+        const bridge = window.SosNativeShell;
+        if (bridge && typeof bridge.drainPendingSecureWraps === 'function') {
+          items = parseQueue(bridge.drainPendingSecureWraps());
+        } else if (bridge && typeof bridge.getIncomingCallRawEvent === 'function') {
+          items = parseQueue(bridge.getIncomingCallRawEvent());
+        }
+      } catch (_) {}
+    }
+
+    if (!items.length) return false;
+
+    let any = false;
+    if (typeof api.drainPendingSecureWrapsFromNative === 'function') {
+      const results = await api.drainPendingSecureWrapsFromNative(items);
+      any = Array.isArray(results) && results.some((r) => r && (r.status === 'dispatched' || r.status === 'duplicate'));
+    } else {
+      for (let i = 0; i < items.length; i += 1) {
+        let ev = items[i];
+        if (ev && ev.event) {
+          try {
+            ev = typeof ev.event === 'string' ? JSON.parse(ev.event) : ev.event;
+          } catch (_) {
+            continue;
+          }
+        }
+        const r = await api.dispatchGiftWrappedCallSignal(ev);
+        if (r && (r.status === 'dispatched' || r.status === 'duplicate')) any = true;
       }
-      return true;
     }
-
-    incomingOffer = offer;
-    incomingOfferPeer = String(unwrapped.sender || '').toLowerCase();
-    persistIncomingOffer(incomingOfferPeer, offer);
-    if (typeof App.onVoiceCallIncoming === 'function') {
-      App.onVoiceCallIncoming(unwrapped.sender, offer);
-    }
-    console.log('CALL_SECURE_OFFER_VERIFIED');
-    return true;
+    if (any) console.log('CALL_SECURE_WAKE drained');
+    return any;
   };
 
   // חלק APK (chat-voice-call-ui.js) – חימום בזמן צלצול: מפתח/offer/מיקרופון בלי UI | HYPER CORE TECH

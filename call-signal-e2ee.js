@@ -9,7 +9,9 @@
   const GIFT_WRAP_KIND = 1059;
   const RUMOR_KIND = 25050;
   const TWO_DAYS_SEC = 2 * 24 * 60 * 60;
+  const MAX_SIGNAL_SDP_CHARS = 64 * 1024;
   const MAX_SEEN_SIGNAL_IDS = 400;
+  const MAX_SEEN_WRAP_IDS = 400;
 
   const FRESHNESS_SEC = {
     offer: 60,
@@ -20,9 +22,23 @@
   };
 
   const seenSignalIds = new Map(); // signalId -> tsMs
+  const seenWrapIds = new Map(); // outer wrap event id -> tsMs
+  const secureOfferCache = new Map(); // peer -> { offer, media, sessionId, wrapId, at }
+  const dispatchStats = {
+    unwrapCount: 0,
+    voiceDispatch: 0,
+    videoDispatch: 0,
+    replayReject: 0,
+    duplicateWrap: 0,
+    invalidOffer: 0,
+    nativeRingAuth: 0,
+  };
 
-  function callSignalFail(code, detail) {
-    const err = new Error(detail ? String(code) + ': ' + String(detail) : String(code));
+  let secureSub = null;
+  let secureDispatchChain = Promise.resolve();
+  const nativeRingAuthOnce = new Set(); // signalId authorized for Native ring
+
+  function callSignalFail(code, detail) {    const err = new Error(detail ? String(code) + ': ' + String(detail) : String(code));
     err.code = code || 'CALL_SIGNAL_E2EE_ENCRYPT_FAILED';
     err.name = 'CallSignalE2eeError';
     throw err;
@@ -221,6 +237,259 @@
       }
     }
     return false;
+  }
+
+  function rememberWrapId(wrapId) {
+    if (!wrapId || typeof wrapId !== 'string') return false;
+    const now = Date.now();
+    if (seenWrapIds.has(wrapId)) return true;
+    seenWrapIds.set(wrapId, now);
+    if (seenWrapIds.size > MAX_SEEN_WRAP_IDS) {
+      const drop = seenWrapIds.size - MAX_SEEN_WRAP_IDS;
+      let i = 0;
+      for (const k of seenWrapIds.keys()) {
+        seenWrapIds.delete(k);
+        i += 1;
+        if (i >= drop) break;
+      }
+    }
+    return false;
+  }
+
+  function normalizeSessionDescription(raw) {
+    if (!raw) return null;
+    let o = raw;
+    if (typeof o === 'string') {
+      try { o = JSON.parse(o); } catch (_err) { return null; }
+    }
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+    if (o.offer && typeof o.offer === 'object' && !o.type && !o.sdp) o = o.offer;
+    if (o.answer && typeof o.answer === 'object' && !o.type && !o.sdp) o = o.answer;
+    const type = o.type;
+    const sdp = typeof o.sdp === 'string' ? o.sdp : '';
+    if (typeof type !== 'string' || !type || !sdp) return null;
+    if (sdp.length > MAX_SIGNAL_SDP_CHARS) return null;
+    return { type, sdp };
+  }
+
+  function cacheSecureOffer(unwrapped, offer) {
+    if (!unwrapped || !offer) return;
+    const peer = String(unwrapped.sender || '').toLowerCase();
+    if (!peer) return;
+    secureOfferCache.set(peer, {
+      offer,
+      media: unwrapped.media,
+      sessionId: unwrapped.sessionId,
+      wrapId: unwrapped.wrapId,
+      at: Date.now(),
+    });
+    if (secureOfferCache.size > 32) {
+      const first = secureOfferCache.keys().next().value;
+      secureOfferCache.delete(first);
+    }
+  }
+
+  function getCachedSecureOffer(peerPubkey) {
+    const peer = String(peerPubkey || '').toLowerCase();
+    if (!peer) return null;
+    const hit = secureOfferCache.get(peer);
+    if (!hit) return null;
+    if (Date.now() - (hit.at || 0) > 120000) {
+      secureOfferCache.delete(peer);
+      return null;
+    }
+    return hit;
+  }
+
+  function authorizeNativeSecureOfferRing(unwrapped, offer) {
+    if (!unwrapped || unwrapped.action !== 'offer' || !offer) return false;
+    if (nativeRingAuthOnce.has(unwrapped.signalId)) return false;
+    nativeRingAuthOnce.add(unwrapped.signalId);
+    if (nativeRingAuthOnce.size > 200) {
+      const first = nativeRingAuthOnce.values().next().value;
+      nativeRingAuthOnce.delete(first);
+    }
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.notifySecureCallOfferVerified === 'function') {
+        bridge.notifySecureCallOfferVerified(unwrapped.sender, unwrapped.media, unwrapped.sessionId || '');
+      }
+      if (bridge && typeof bridge.cacheIncomingCallOffer === 'function') {
+        bridge.cacheIncomingCallOffer(unwrapped.sender, unwrapped.media, JSON.stringify(offer));
+      }
+    } catch (_e) {}
+    dispatchStats.nativeRingAuth += 1;
+    return true;
+  }
+
+  function routeSecureSignal(unwrapped) {
+    const logical = {
+      sender: unwrapped.sender,
+      recipient: unwrapped.recipient,
+      media: unwrapped.media,
+      action: unwrapped.action,
+      wireType: unwrapped.wireType,
+      sessionId: unwrapped.sessionId,
+      signalId: unwrapped.signalId,
+      sentAt: unwrapped.sentAt,
+      data: unwrapped.data,
+      wrapId: unwrapped.wrapId,
+    };
+    if (unwrapped.media === 'voice') {
+      dispatchStats.voiceDispatch += 1;
+      const vc = App.voiceCall;
+      if (vc && typeof vc.handleSecureSignal === 'function') {
+        return Promise.resolve(vc.handleSecureSignal(logical));
+      }
+      return Promise.resolve(false);
+    }
+    if (unwrapped.media === 'video') {
+      dispatchStats.videoDispatch += 1;
+      const vc = App.videoCall;
+      if (vc && typeof vc.handleSecureSignal === 'function') {
+        return Promise.resolve(vc.handleSecureSignal(logical));
+      }
+      return Promise.resolve(false);
+    }
+    return Promise.resolve(false);
+  }
+
+  /**
+   * Authoritative single-consume secure 1059 path.
+   * Unwrap once → claim replay → validate offer SDP before Native ring → route by media.
+   */
+  async function dispatchGiftWrappedCallSignal(wrapEvent, _opts) {
+    try {
+      if (!wrapEvent || wrapEvent.kind !== GIFT_WRAP_KIND) {
+        return { status: 'reject', reason: 'not_wrap' };
+      }
+      const wrapId = typeof wrapEvent.id === 'string' ? wrapEvent.id : '';
+      if (wrapId && rememberWrapId(wrapId)) {
+        dispatchStats.duplicateWrap += 1;
+        return { status: 'duplicate', reason: 'wrap_id' };
+      }
+      if (!App.privateKey || !App.publicKey) {
+        if (wrapId) seenWrapIds.delete(wrapId);
+        return { status: 'reject', reason: 'no_keys' };
+      }
+      dispatchStats.unwrapCount += 1;
+      const unwrapped = await unwrapGiftWrappedCallSignal(wrapEvent, App.privateKey, App.publicKey);
+      if (!unwrapped) {
+        // unwrap already claimed signalId on success; failure may be replay
+        dispatchStats.replayReject += 1;
+        return { status: 'reject', reason: 'unwrap' };
+      }
+
+      if (unwrapped.action === 'disconnect') {
+        try {
+          const bridge = window.SosNativeShell;
+          if (bridge && typeof bridge.notifySecureCallDismissed === 'function') {
+            bridge.notifySecureCallDismissed(unwrapped.sender);
+          }
+        } catch (_e) {}
+        await routeSecureSignal(unwrapped);
+        return { status: 'dispatched', media: unwrapped.media, action: unwrapped.action };
+      }
+
+      if (unwrapped.action === 'offer') {
+        const offer = normalizeSessionDescription(unwrapped.data);
+        if (!offer) {
+          dispatchStats.invalidOffer += 1;
+          // signalId already claimed — do NOT ring
+          return { status: 'invalid_offer', media: unwrapped.media };
+        }
+        unwrapped.data = offer;
+        cacheSecureOffer(unwrapped, offer);
+        authorizeNativeSecureOfferRing(unwrapped, offer);
+      }
+
+      await routeSecureSignal(unwrapped);
+      return { status: 'dispatched', media: unwrapped.media, action: unwrapped.action, signalId: unwrapped.signalId };
+    } catch (_err) {
+      return { status: 'reject', reason: 'exception' };
+    }
+  }
+
+  function enqueueSecureDispatch(wrapEvent) {
+    secureDispatchChain = secureDispatchChain
+      .then(() => dispatchGiftWrappedCallSignal(wrapEvent))
+      .catch(() => ({ status: 'reject', reason: 'chain' }));
+    return secureDispatchChain;
+  }
+
+  function ensureSecureCallSubscription(options) {
+    options = options || {};
+    if (App.guestMode) return null;
+    if (secureSub && !options.force) return secureSub;
+    if (!App.pool || !App.publicKey) return null;
+    if (options.force && secureSub) {
+      try {
+        if (typeof secureSub.close === 'function') secureSub.close();
+        else if (typeof secureSub.unsub === 'function') secureSub.unsub();
+      } catch (_e) {}
+      secureSub = null;
+    }
+    const filters = [
+      {
+        kinds: [GIFT_WRAP_KIND],
+        '#p': [App.publicKey],
+        since: Math.floor(Date.now() / 1000) - TWO_DAYS_SEC - 120,
+      },
+    ];
+    try {
+      console.log('CALL_SECURE_SUBSCRIBE kind=1059');
+      secureSub = App.pool.subscribeMany(App.relayUrls, filters, {
+        onevent: (ev) => {
+          if (!ev || ev.kind !== GIFT_WRAP_KIND) return;
+          if (!verifyEventSig(ev)) return;
+          if (getPTag(ev) !== String(App.publicKey || '').toLowerCase()) return;
+          enqueueSecureDispatch(ev);
+        },
+        oneose: () => {
+          console.log('CALL_SECURE_SUBSCRIBE_READY');
+        },
+      });
+      return secureSub;
+    } catch (_err) {
+      console.warn('CALL_SECURE_SUBSCRIBE_FAILED');
+      return null;
+    }
+  }
+
+  /** Drain Native pending queue into the same authoritative dispatcher. */
+  async function drainPendingSecureWrapsFromNative(pendingList) {
+    const items = Array.isArray(pendingList) ? pendingList : [];
+    const results = [];
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i];
+      let ev = null;
+      try {
+        if (item && item.event) {
+          ev = typeof item.event === 'string' ? JSON.parse(item.event) : item.event;
+        } else if (item && item.kind === GIFT_WRAP_KIND) {
+          ev = item;
+        }
+      } catch (_e) {
+        continue;
+      }
+      if (!ev) continue;
+      results.push(await dispatchGiftWrappedCallSignal(ev));
+    }
+    return results;
+  }
+
+  function getDispatchStats() {
+    return { ...dispatchStats };
+  }
+
+  function resetDispatchStatsForQa() {
+    dispatchStats.unwrapCount = 0;
+    dispatchStats.voiceDispatch = 0;
+    dispatchStats.videoDispatch = 0;
+    dispatchStats.replayReject = 0;
+    dispatchStats.duplicateWrap = 0;
+    dispatchStats.invalidOffer = 0;
+    dispatchStats.nativeRingAuth = 0;
   }
 
   function normalizeAction(media, type) {
@@ -440,17 +709,44 @@
       GIFT_WRAP_KIND,
       RUMOR_KIND,
       FRESHNESS_SEC,
+      MAX_SIGNAL_SDP_CHARS,
       createSessionId,
       createSignalId,
       publishGiftWrappedCallSignal,
       unwrapGiftWrappedCallSignal,
+      dispatchGiftWrappedCallSignal,
+      enqueueSecureDispatch,
+      ensureSecureCallSubscription,
+      drainPendingSecureWrapsFromNative,
+      normalizeSessionDescription,
+      getCachedSecureOffer,
+      getDispatchStats,
+      resetDispatchStatsForQa,
       looksLikeLegacyDirectCallSignal,
       normalizeAction,
       toWireType,
       randomizedPastCreatedAt,
       generateEphemeralSecretKey,
       rememberSignalId,
+      rememberWrapId,
       _seenSignalIds: seenSignalIds,
+      _seenWrapIds: seenWrapIds,
     },
   });
+
+  // Shared secure 1059 subscription — one unwrap for voice+video.
+  if (typeof App.notifyPoolReady === 'function') {
+    const prevNotify = App.notifyPoolReady;
+    App.notifyPoolReady = function(pool) {
+      prevNotify(pool);
+      try { ensureSecureCallSubscription(); } catch (_e) {}
+    };
+  } else {
+    App.notifyPoolReady = function(_pool) {
+      try { ensureSecureCallSubscription(); } catch (_e) {}
+    };
+  }
+  try {
+    if (App.pool && App.publicKey) ensureSecureCallSubscription();
+  } catch (_e) {}
 })(window);

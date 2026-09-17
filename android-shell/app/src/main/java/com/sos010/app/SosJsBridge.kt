@@ -326,26 +326,28 @@ class SosJsBridge(
         mainHandler.post {
             try {
                 SosPendingCallStore.updateSecureWrapPeer(context.applicationContext, pk, kind)
-                if (MainActivity.isHostAlive) {
-                    // Foreground UI owned by Web — still cache for answer path.
-                    return@post
-                }
+                // Mark authenticated offer handled (outer wrap id if available).
+                val offerId = SosPendingCallStore.extractEventId(context.applicationContext)
+                SosIncomingCallSession.rememberHandledOffer(context.applicationContext, offerId)
                 if (SosIncomingCallSession.isSameActiveCall(context.applicationContext, pk)) {
                     return@post
                 }
                 val title = if (kind == "video") "שיחת וידאו נכנסת" else "שיחה קולית נכנסת"
                 val caller = SosContactCache.displayName(context.applicationContext, pk, "מישהו")
                 val openUrl = SosCallUrls.acceptPage(kind)
-                MainActivity.warmHostForIncomingCall(context.applicationContext, pk, kind)
-                NotificationHelper.showIncomingCall(
-                    context.applicationContext,
-                    title,
-                    "$caller מתקשר אליך ב-SOS",
-                    openUrl,
-                    kind,
-                    peerPubkey = pk,
-                    callerName = caller
-                )
+                // Background warm keeps isHostAlive=false; still show Native ring for verified secure offers.
+                if (!MainActivity.isHostAlive) {
+                    MainActivity.warmHostForIncomingCall(context.applicationContext, pk, kind)
+                    NotificationHelper.showIncomingCall(
+                        context.applicationContext,
+                        title,
+                        "$caller מתקשר אליך ב-SOS",
+                        openUrl,
+                        kind,
+                        peerPubkey = pk,
+                        callerName = caller
+                    )
+                }
                 Log.i(TAG, "SECURE_CALL_OFFER_VERIFIED")
             } catch (err: Exception) {
                 Log.w(TAG, "secure offer verified failed: ${err.message}")
@@ -395,6 +397,16 @@ class SosJsBridge(
     @JavascriptInterface
     fun getIncomingCallRawEvent(): String {
         return SosPendingCallStore.getRawEventJson(context.applicationContext)
+    }
+
+    /** Drain opaque secure wrap queue (encrypted 1059 events only). */
+    @JavascriptInterface
+    fun drainPendingSecureWraps(): String {
+        return try {
+            SosPendingCallStore.drainSecureWraps(context.applicationContext).toString()
+        } catch (_: Exception) {
+            "[]"
+        }
     }
 
     @JavascriptInterface

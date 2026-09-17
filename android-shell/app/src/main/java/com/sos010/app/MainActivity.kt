@@ -829,14 +829,26 @@ class MainActivity : AppCompatActivity() {
     private fun injectSecureWrapProcessing() {
         if (!warmForSecureWrapPending) return
         if (!this::webView.isInitialized) return
-        val rawEventJs = JSONObject.quote(SosPendingCallStore.getRawEventJson(applicationContext))
-        if (rawEventJs == "\"\"" || rawEventJs == "null") return
+        val queueJson = SosPendingCallStore.drainSecureWraps(applicationContext).toString()
+        if (queueJson == "[]") {
+            // Also try legacy single-slot for older pending meta
+            val legacy = SosPendingCallStore.getRawEventJson(applicationContext)
+            if (legacy.isBlank()) return
+        }
+        val rawEventJs = JSONObject.quote(
+            if (queueJson != "[]") queueJson
+            else SosPendingCallStore.getRawEventJson(applicationContext)
+        )
+        if (rawEventJs == "\"\"" || rawEventJs == "null" || rawEventJs == "\"[]\"") return
         val js = """
             (function(){
               try {
                 var App = window.NostrApp || {};
                 if (typeof App.initVoiceCall === 'function') App.initVoiceCall({});
                 if (typeof App.initVideoCall === 'function') App.initVideoCall({});
+                if (App.CallSignalE2ee && typeof App.CallSignalE2ee.ensureSecureCallSubscription === 'function') {
+                  App.CallSignalE2ee.ensureSecureCallSubscription();
+                }
                 if (typeof App.prepareSecureCallEventFromNative === 'function') {
                   App.prepareSecureCallEventFromNative($rawEventJs);
                 }
@@ -846,14 +858,29 @@ class MainActivity : AppCompatActivity() {
         try {
             webView.evaluateJavascript(js, null)
             Log.i(TAG, "SECURE_WRAP inject")
+            warmForSecureWrapPending = false
+            SosRelayWatcher.clearSecureWarmInFlight()
         } catch (err: Exception) {
             Log.w(TAG, "secure wrap inject failed: ${err.message}")
         }
         mainHandler.postDelayed({
             if (!this::webView.isInitialized) return@postDelayed
-            if (!warmForSecureWrapPending) return@postDelayed
+            // Drain any wraps that arrived during inject.
+            val more = SosPendingCallStore.drainSecureWraps(applicationContext).toString()
+            if (more == "[]") return@postDelayed
+            val moreJs = JSONObject.quote(more)
+            val retry = """
+                (function(){
+                  try {
+                    var App = window.NostrApp || {};
+                    if (typeof App.prepareSecureCallEventFromNative === 'function') {
+                      App.prepareSecureCallEventFromNative($moreJs);
+                    }
+                  } catch (e) {}
+                })();
+            """.trimIndent()
             try {
-                webView.evaluateJavascript(js, null)
+                webView.evaluateJavascript(retry, null)
             } catch (_: Exception) {
             }
         }, 1200L)

@@ -81,29 +81,27 @@ record(
 
 const voiceSub = sliceBetween(voice, 'function subscribeToSignals(options)', 'function forceResubscribeSignals');
 const videoSub = sliceBetween(video, 'function subscribeToSignals(options)', 'function forceResubscribeSignals');
+const helperSrc = read('call-signal-e2ee.js');
+const secureEnsure = sliceBetween(helperSrc, 'function ensureSecureCallSubscription', 'function drainPendingSecureWrapsFromNative');
 
 record(
-  'voice gift-wrap 1059 signature then recipient before unwrap/dispatch',
-  voiceSub.includes("ev.kind === 1059") &&
-    voiceSub.includes('verifyIncomingVoiceRelayEvent(ev)') &&
-    voiceSub.includes('verifyIncomingVoiceRelayRecipient(ev)') &&
-    voiceSub.includes('handleGiftWrapCallEvent(ev)') &&
-    voiceSub.indexOf('verifyIncomingVoiceRelayEvent(ev)') <
-      voiceSub.indexOf('verifyIncomingVoiceRelayRecipient(ev)') &&
-    voiceSub.indexOf('verifyIncomingVoiceRelayRecipient(ev)') <
-      voiceSub.indexOf('handleGiftWrapCallEvent(ev)'),
+  'shared secure 1059 signature then recipient before dispatch',
+  secureEnsure.includes('verifyEventSig(ev)') &&
+    secureEnsure.includes('getPTag(ev)') &&
+    secureEnsure.includes('enqueueSecureDispatch(ev)') &&
+    secureEnsure.indexOf('verifyEventSig(ev)') < secureEnsure.indexOf('getPTag(ev)') &&
+    secureEnsure.indexOf('getPTag(ev)') < secureEnsure.indexOf('enqueueSecureDispatch(ev)') &&
+    helperSrc.includes('dispatchGiftWrappedCallSignal'),
 );
 
 record(
-  'video gift-wrap 1059 signature then recipient before unwrap/dispatch',
-  videoSub.includes("ev.kind === 1059") &&
-    videoSub.includes('verifyIncomingVideoRelayEvent(ev)') &&
-    videoSub.includes('verifyIncomingVideoRelayRecipient(ev)') &&
-    videoSub.includes('handleGiftWrapCallEvent(ev)') &&
-    videoSub.indexOf('verifyIncomingVideoRelayEvent(ev)') <
-      videoSub.indexOf('verifyIncomingVideoRelayRecipient(ev)') &&
-    videoSub.indexOf('verifyIncomingVideoRelayRecipient(ev)') <
-      videoSub.indexOf('handleGiftWrapCallEvent(ev)'),
+  'voice+video legacy 25050 only; secure via shared dispatcher handlers',
+  voiceSub.includes('kinds: [25050]') &&
+    !voiceSub.includes('kinds: [1059]') &&
+    videoSub.includes('kinds: [25050]') &&
+    !videoSub.includes('kinds: [1059]') &&
+    voice.includes('handleSecureSignal') &&
+    video.includes('handleSecureSignal'),
 );
 
 record(

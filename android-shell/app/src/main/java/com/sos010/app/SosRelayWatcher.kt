@@ -37,6 +37,8 @@ class SosRelayWatcher(private val appContext: Context) {
     private var lastSecureWakeAt = 0L
     private var secureWakeWindowStart = 0L
     private var secureWakeCount = 0
+    private var secureWarmInFlight = false
+    private val opaqueWakeSeen = LinkedHashSet<String>()
 
     fun start() {
         val pubkey = SosSessionStore.getPubkey(appContext)
@@ -286,38 +288,63 @@ class SosRelayWatcher(private val appContext: Context) {
     /**
      * Opaque kind 1059 wake ONLY.
      * Must NOT ring / show call UI until JS authenticates sos-call-signal + offer.
+     * Always enqueue (bounded); Activity wake is rate-limited separately so stale
+     * historical wraps cannot starve a fresh offer sitting in the queue.
      */
     private fun handleSecureGiftWrap(event: JSONObject, eventId: String) {
         val id = eventId.ifBlank { event.optString("id") }
         if (id.isBlank()) return
-        if (SosIncomingCallSession.isHandledOffer(appContext, id)) {
-            Log.i(TAG, "SECURE_WAKE skip already-handled")
+        // Opaque wake-dedupe only — NOT authenticated handled-offer state.
+        if (opaqueWakeSeen.contains(id)) {
             return
         }
-        if (!allowSecureWake()) {
-            Log.i(TAG, "SECURE_WAKE rate-limited")
-            return
-        }
-        try {
-            SosPendingCallStore.saveSecureWrap(appContext, event.toString())
+        val queued = try {
+            SosPendingCallStore.enqueueSecureWrap(appContext, event.toString())
         } catch (err: Exception) {
-            Log.w(TAG, "save secure wrap failed: ${err.message}")
-            return
+            Log.w(TAG, "enqueue secure wrap failed: ${err.message}")
+            false
         }
-        // Foreground WebView already subscribed to 1059 — do not wake/ring here.
+        if (!queued) return
+        rememberOpaqueWakeId(id)
+        // Foreground WebView shared 1059 dispatcher handles live events.
         if (MainActivity.isHostAlive) {
             Log.i(TAG, "SECURE_WAKE hostAlive – JS handles")
             return
         }
-        SosIncomingCallSession.rememberHandledOffer(appContext, id)
+        // One warm hosts the whole queue; further wraps only enqueue.
+        if (secureWarmInFlight) {
+            Log.i(TAG, "SECURE_WAKE queued (warm in-flight)")
+            return
+        }
+        if (!allowSecureWake()) {
+            // Still queued — do not drop; next wake window or existing warm drains.
+            Log.i(TAG, "SECURE_WAKE rate-limited (kept in queue)")
+            if (SosPendingCallStore.peekSecureWrapCount(appContext) > 0 &&
+                System.currentTimeMillis() - lastSecureWakeAt > 15_000L
+            ) {
+                // Allow a single recovery wake so a fresh offer is not starved forever.
+                secureWakeCount = 0
+            } else {
+                return
+            }
+            if (!allowSecureWake()) return
+        }
+        secureWarmInFlight = true
         lastSecureWakeAt = System.currentTimeMillis()
         Log.i(TAG, "SECURE_WAKE opaque → warm host")
         SosDebugLog.i("relay", "SECURE_WAKE opaque")
-        // Opaque wake only — ring UI only after JS verified offer callback.
         MainActivity.warmHostForSecureWrap(appContext)
     }
 
-    /** Max ~6 opaque wakes / minute to resist junk 1059 battery drain. */
+    private fun rememberOpaqueWakeId(id: String) {
+        opaqueWakeSeen.add(id)
+        while (opaqueWakeSeen.size > 200) {
+            val first = opaqueWakeSeen.iterator().next()
+            opaqueWakeSeen.remove(first)
+        }
+    }
+
+    /** Max ~6 Activity wakes / minute. Queue enqueue is NOT gated by this. */
     private fun allowSecureWake(): Boolean {
         val now = System.currentTimeMillis()
         if (now - secureWakeWindowStart > 60_000L) {
@@ -444,6 +471,10 @@ class SosRelayWatcher(private val appContext: Context) {
             val app = context.applicationContext
             val watcher = instance ?: SosRelayWatcher(app).also { instance = it }
             watcher.start()
+        }
+
+        fun clearSecureWarmInFlight() {
+            instance?.secureWarmInFlight = false
         }
 
         fun stopAll() {
