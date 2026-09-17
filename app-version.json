@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.17-call-privacy-precutover1",
-  "buildTime": "2026-09-17T20:20:00+03:00",
-  "notes": "Call privacy secure signaling CODE deployed (Gift Wrap 1059 receive + Native opaque wake + cutover policy). callSignalGiftWrapRequired remains FALSE - secure SEND is NOT active; calls continue legacy kind25050 signaling for old-APK background compatibility. Dual-read 1059+legacy25050 receive retained. Kind25060 metrics remain disabled. Call server Push remains disabled. P2P/30078/Blossom/chat E3B unchanged. Activate secure SEND only after owner APK 1.0.114 physical QA.",
+  "version": "2026.09.18-apk114-voice-cache1",
+  "buildTime": "2026-09-18T01:50:00+03:00",
+  "notes": "APK install/update points solely to GitHub SOS-1.0.114.apk; durable voice playback cache restore. callSignalGiftWrapRequired remains FALSE — secure call SEND not activated.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,

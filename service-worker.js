@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v843'; // Call privacy precutover — secure receive ready, SEND still legacy
+  const CACHE_NAME = 'sos-cache-v844'; // APK 1.0.114 sole download + durable voice cache; call cutover still OFF
   const PRECACHE_URLS = [
     './',
     './videos.html',
