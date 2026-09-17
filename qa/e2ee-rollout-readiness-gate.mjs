@@ -82,7 +82,7 @@ record('encrypt helper exists in chat-e2ee', e2ee.includes('encryptPrivateChatPa
 record('no sos_caps capability kind', !profile.includes('sos_caps') && !svc.includes('sos_caps'));
 
 // SW
-record('SW CACHE_NAME sos-cache-v843', /sos-cache-v843/.test(sw));
+record('SW CACHE_NAME sos-cache-v844', /sos-cache-v844/.test(sw));
 record('SW precaches chat-e2ee.js', sw.includes("'./chat-e2ee.js'"));
 record('SW precaches chat-secure-epoch.js', sw.includes("'./chat-secure-epoch.js'"));
 record('SW precaches chat-service.js', sw.includes("'./chat-service.js'"));
@@ -116,12 +116,12 @@ record('safe diagnostic: getSecureChatGateState', epoch.includes('getSecureChatG
 record('safe diagnostic: SOS_SECURE_CHAT_EPOCH on App', e2ee.includes('SOS_SECURE_CHAT_EPOCH'));
 record('epoch logs omit message/keys', !/\$\{.*content/.test(epoch) && epoch.includes('[E2EE/EPOCH]'));
 
-// Version: call-privacy-precutover1; minSecureChatEpoch=2; e2eeSendRequired true; mediaServerE2eeRequired true; callSignalGiftWrapRequired false
-record('app-version call-privacy-precutover1', String(appVer.version || '').includes('call-privacy-precutover1'));
+// RC: apk114-voice-cache1; minSecureChatEpoch=2; e2eeSendRequired true; mediaServerE2eeRequired true; callSignalGiftWrapRequired true
+record('app-version apk114-voice-cache1 RC', String(appVer.version || '').includes('apk114-voice-cache1'));
 record('mediaServerE2eeRequired explicit true (ACTIVE)',
   Object.prototype.hasOwnProperty.call(appVer, 'mediaServerE2eeRequired') && appVer.mediaServerE2eeRequired === true);
 record('minSecureChatEpoch =2', Number(appVer.minSecureChatEpoch) === 2);
-record('callSignalGiftWrapRequired false', appVer.callSignalGiftWrapRequired === false);
+record('callSignalGiftWrapRequired true (RC)', appVer.callSignalGiftWrapRequired === true);
 
 console.log(results.join('\n'));
 console.log(`\nSummary: ${pass} passed, ${fail} failed`);

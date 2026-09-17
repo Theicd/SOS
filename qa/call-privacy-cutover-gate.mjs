@@ -51,7 +51,7 @@ const video = read('chat-video-call.js');
 const appVer = JSON.parse(read('app-version.json'));
 const gradle = read('android-shell/app/build.gradle.kts');
 
-record('policy field false in app-version', appVer.callSignalGiftWrapRequired === false);
+record('policy field true in app-version (RC cutover)', appVer.callSignalGiftWrapRequired === true);
 record('decision API present', helperSrc.includes('resolveCallSignalSecurityDecision'));
 record('publishCallSignal present', helperSrc.includes('publishCallSignal'));
 record('sticky seen key', helperSrc.includes('sos_call_signal_giftwrap_required_seen'));
@@ -63,7 +63,7 @@ record('video uses publishCallSignal', video.includes('publishCallSignal'));
 record('CALL_PRIVACY_SIGNALING_ACTIVE helper', helperSrc.includes('isCallPrivacySignalingActive'));
 record('old APK post-cutover limitation documented', helperSrc.includes('1.0.114') && read('qa/call-privacy-cutover-gate.mjs').includes('OLD APK + POST-CUTOVER'));
 record('25060 still retired', /async function publishCallMetric\(\)\s*\{\s*return;\s*\}/.test(voice) && /async function publishCallMetric\(\)\s*\{\s*return;\s*\}/.test(video));
-record('callSignalGiftWrapRequired remains false', JSON.parse(read('app-version.json')).callSignalGiftWrapRequired === false);
+record('callSignalGiftWrapRequired true (RC)', JSON.parse(read('app-version.json')).callSignalGiftWrapRequired === true);
 
 async function runtime() {
   const {

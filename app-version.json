@@ -1,9 +1,9 @@
 {
   "version": "2026.09.18-apk114-voice-cache1",
   "buildTime": "2026-09-18T01:50:00+03:00",
-  "notes": "APK install/update points solely to GitHub SOS-1.0.114.apk; durable voice playback cache restore. callSignalGiftWrapRequired remains FALSE — secure call SEND not activated.",
+  "notes": "RELEASE CANDIDATE ONLY - callSignalGiftWrapRequired=true for final giftwrap cutover exercise. NOT production. minSecureChatEpoch=2; e2eeSendRequired/mediaServerE2eeRequired unchanged. Do NOT merge/deploy until owner approval.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,
-  "callSignalGiftWrapRequired": false
+  "callSignalGiftWrapRequired": true
 }
