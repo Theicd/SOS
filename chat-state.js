@@ -531,9 +531,11 @@
         return;
       }
       if (nextRank < existingRank) return;
-      // Same status rank: prefer live when merging disk onto live.
-      if (preferLiveOnTie) return;
-      byId.set(message.id, message);
+      // Same status rank: live in-memory object MUST win over persisted disk.
+      if (preferLiveOnTie) {
+        byId.set(message.id, message);
+      }
+      // Disk on tie: keep existing (prefer live already in map).
     }
 
     (Array.isArray(diskMessages) ? diskMessages : []).forEach((m) => consider(m, false));

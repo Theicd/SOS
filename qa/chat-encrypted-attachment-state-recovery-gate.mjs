@@ -520,6 +520,11 @@ async function run() {
   record('clone helper present', stateSrc.includes('buildEncryptedAttachmentWireDescriptor'));
   record('serialize uses wire helper', xferSrc.includes('buildEncryptedAttachmentWireDescriptor'));
   record('restore merge present', chatStateSrc.includes('mergeConversationMessages'));
+  record(
+    'live-on-tie sets live (no early return bug)',
+    /Same status rank:[\s\S]{0,120}if \(preferLiveOnTie\) \{\s*byId\.set/.test(chatStateSrc) &&
+      !/if \(preferLiveOnTie\) return;/.test(chatStateSrc),
+  );
   record('restore idempotent present', chatStateSrc.includes('restoreInFlight') && chatStateSrc.includes('restoredStorageKey'));
   record('restoreChatModuleState returns Promise', /function restoreChatModuleState\(\)\s*\{\s*return restoreState\(\);/.test(chatStateSrc));
   record(
@@ -826,6 +831,122 @@ async function run() {
       record('STABLE MEDIA MESSAGE ID E3B ok', false, String(e && e.message));
     }
     App.clearChatFileAttachment(bob.pk);
+  }
+
+  // --- LIVE-ON-TIE merge regressions (would FAIL with preferLiveOnTie early-return bug) ---
+  async function restoreRaceMergeCase(label, diskMsg, liveMsg, assertFn) {
+    const now = Math.floor(Date.now() / 1000);
+    const peer = hexPubkeyPair().pk;
+    const self = hexPubkeyPair();
+    const key =
+      self.pk.toLowerCase() < peer.toLowerCase()
+        ? self.pk.toLowerCase() + ':' + peer.toLowerCase()
+        : peer.toLowerCase() + ':' + self.pk.toLowerCase();
+    const diskFull = {
+      from: peer,
+      to: self.pk,
+      createdAt: now - 5,
+      direction: 'incoming',
+      ...diskMsg,
+    };
+    const liveFull = {
+      from: peer,
+      to: self.pk,
+      createdAt: now - 4,
+      direction: 'incoming',
+      ...liveMsg,
+    };
+    const snapshot = {
+      id: 'nostr_chat_' + self.pk.toLowerCase(),
+      contacts: [{ pubkey: peer, name: 'Peer', picture: '', initials: 'Pe' }],
+      conversations: [{ key, peer: peer.toLowerCase(), messages: [diskFull] }],
+      deletedIds: [],
+      lastSyncTs: now,
+      disappearingTimers: [],
+      defaultDisappearingSec: 7 * 24 * 60 * 60,
+      pendingReadReceipts: [],
+    };
+    const st = loadChatStateRuntime({ snapshot, delayMs: 100 });
+    st.App.publicKey = self.pk;
+    const rp = st.App.restoreChatState();
+    st.App.appendChatMessage(liveFull);
+    await rp;
+    const msgs = st.App.getChatMessages(peer) || [];
+    const hit = msgs.find((m) => m.id === liveFull.id);
+    assertFn(hit, msgs, label);
+    return { st, peer, hit, msgs };
+  }
+
+  // TEST A — same id / same status / different content → LIVE wins
+  {
+    await restoreRaceMergeCase(
+      'A',
+      { id: 'same-1', status: 'sent', content: 'OLD DISK' },
+      { id: 'same-1', status: 'sent', content: 'NEW LIVE' },
+      (hit) => {
+        record('LIVE-ON-TIE same status content LIVE WINS', !!(hit && hit.content === 'NEW LIVE'));
+      },
+    );
+  }
+
+  // TEST B — same id / same status / live encrypted-media attachment survives
+  {
+    const encAtt = {
+      v: 2,
+      type: 'encrypted-media',
+      attachmentId: 'att-live-tie-1',
+      enc: { alg: 'aes-256-gcm', mode: 'single', key: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA', nonce: 'AAAAAAAAAAAA' },
+      cipher: { size: 32, sha256: 'a'.repeat(64) },
+      media: { mime: 'image/jpeg', filename: 'live.jpg', originalSize: 12 },
+      resource: { transport: 'blossom', url: 'https://blossom.test.invalid/x', encoding: 'sos-opaque-jpeg-v1' },
+      clientMessageId: 'cmsg-live-tie',
+      logicalMessageId: 'cmsg-live-tie',
+    };
+    await restoreRaceMergeCase(
+      'B',
+      { id: 'same-enc-1', status: 'sent', content: '📎 file', attachment: null },
+      { id: 'same-enc-1', status: 'sent', content: '📎 file', attachment: encAtt },
+      (hit) => {
+        const att = hit && hit.attachment;
+        record(
+          'LIVE-ON-TIE encrypted attachment LIVE WINS',
+          !!(
+            att &&
+            att.type === 'encrypted-media' &&
+            att.attachmentId === 'att-live-tie-1' &&
+            att.enc &&
+            att.cipher &&
+            att.media &&
+            att.resource &&
+            att.clientMessageId === 'cmsg-live-tie'
+          ),
+        );
+      },
+    );
+  }
+
+  // TEST C — disk higher status (read) wins over live (sent)
+  {
+    await restoreRaceMergeCase(
+      'C',
+      { id: 'same-status-disk', status: 'read', content: 'disk-read' },
+      { id: 'same-status-disk', status: 'sent', content: 'live-sent' },
+      (hit) => {
+        record('DISK HIGHER STATUS wins', !!(hit && hit.status === 'read' && hit.content === 'disk-read'));
+      },
+    );
+  }
+
+  // TEST D — live higher status (read) wins over disk (sent)
+  {
+    await restoreRaceMergeCase(
+      'D',
+      { id: 'same-status-live', status: 'sent', content: 'disk-sent' },
+      { id: 'same-status-live', status: 'read', content: 'live-read' },
+      (hit) => {
+        record('LIVE HIGHER STATUS wins', !!(hit && hit.status === 'read' && hit.content === 'live-read'));
+      },
+    );
   }
 
   // --- ROOT C: stale restore cannot overwrite live 141 ---
