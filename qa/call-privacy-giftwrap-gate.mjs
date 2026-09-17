@@ -142,12 +142,13 @@ async function run() {
   record('helper family sos-call-signal', helper.includes("sos-call-signal"));
   record('helper gift wrap 1059', helper.includes('1059'));
   record('helper seal 13', /SEAL_KIND\s*=\s*13/.test(helper));
-  record('voice uses gift wrap publish', voice.includes('publishGiftWrappedCallSignal'));
-  record('video uses gift wrap publish', video.includes('publishGiftWrappedCallSignal'));
+  record('voice uses shared publishCallSignal', voice.includes('publishCallSignal'));
+  record('video uses shared publishCallSignal', video.includes('publishCallSignal'));
+  record('helper has gift wrap + legacy publish', helper.includes('publishGiftWrappedCallSignal') && helper.includes('publishLegacyDirectCallSignal'));
+  record('voice sendSignal has no direct nip04', !/nip04\.encrypt\(App\.privateKey/.test(voice.split('async function sendSignal')[1]?.slice(0, 800) || ''));
+  record('video sendSignal has no direct nip04', !/nip04\.encrypt/.test(video.split('async function sendSignal')[1]?.slice(0, 900) || ''));
   record('voice 25060 publish disabled', /async function publishCallMetric\(\)\s*\{\s*return;\s*\}/.test(voice));
   record('video 25060 publish disabled', /async function publishCallMetric\(\)\s*\{\s*return;\s*\}/.test(video));
-  record('voice no nip04.encrypt on send', !/nip04\.encrypt\(App\.privateKey/.test(voice.split('async function sendSignal')[1]?.slice(0, 800) || ''));
-  record('video no nip04.encrypt on send', !/nip04\.encrypt/.test(video.split('async function sendSignal')[1]?.slice(0, 800) || ''));
   record('LEGACY_READ_ONLY voice', voice.includes('LEGACY_READ_ONLY'));
   record('LEGACY_READ_ONLY video', video.includes('LEGACY_READ_ONLY'));
   record('voice ended map no localStorage write', !/localStorage\.setItem\('sos_voice_ended_v1'/.test(voice));

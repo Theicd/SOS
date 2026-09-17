@@ -205,18 +205,18 @@
     return state.callSessionId;
   }
 
-  // NEW SEND: Gift Wrap (kind 1059) ONLY — ZERO direct 25050 / NIP-04 / plaintext.
+  // Shared cutover: publishCallSignal picks ONE transport (legacy 25050 XOR gift-wrap 1059).
   async function sendSignal(peerPubkey, type, data) {
     if (!App.pool || !App.publicKey || !App.privateKey) {
       console.error('CALL_SIGNAL_E2EE_ENCRYPT_FAILED: pool or keys unavailable');
       throw Object.assign(new Error('CALL_SIGNAL_E2EE_ENCRYPT_FAILED'), { code: 'CALL_SIGNAL_E2EE_ENCRYPT_FAILED' });
     }
     const api = App.CallSignalE2ee;
-    if (!api || typeof api.publishGiftWrappedCallSignal !== 'function') {
+    if (!api || typeof api.publishCallSignal !== 'function') {
       throw Object.assign(new Error('CALL_SIGNAL_E2EE_ENCRYPT_FAILED: helper missing'), { code: 'CALL_SIGNAL_E2EE_ENCRYPT_FAILED' });
     }
     try {
-      await api.publishGiftWrappedCallSignal({
+      await api.publishCallSignal({
         media: 'voice',
         peerPubkey,
         type,
@@ -226,6 +226,7 @@
         relays: App.relayUrls,
         senderPubkey: App.publicKey,
         senderPrivateKey: App.privateKey,
+        roomId: getRoomId(peerPubkey),
       });
     } catch (err) {
       const code = err && err.code ? err.code : 'CALL_SIGNAL_E2EE_ENCRYPT_FAILED';

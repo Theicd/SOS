@@ -701,6 +701,315 @@
     return !!(event && event.kind === 25050 && Array.isArray(event.tags) && event.tags.some((t) => t && t[0] === 'type'));
   }
 
+  // ─── Safe cutover: callSignalGiftWrapRequired (monotonic) ───
+  // First Native APK that includes 1059 opaque wake + secure queue + bridge:
+  // versionCode 115 / versionName 1.0.114 (NOT published in this phase).
+  const CALL_GIFT_WRAP_NATIVE_MIN_VERSION_CODE = 115;
+  const CALL_GIFT_WRAP_NATIVE_MIN_VERSION_NAME = '1.0.114';
+  const SEEN_GIFTWRAP_REQUIRED_KEY = 'sos_call_signal_giftwrap_required_seen';
+  const QA_LOCAL_GIFTWRAP_KEY = 'sos.callSignalGiftWrapRequired';
+  const APP_VERSION_URL = './app-version.json';
+  const POLICY_STATES = Object.freeze({
+    NOT_REQUIRED: 'NOT_REQUIRED',
+    REQUIRED: 'REQUIRED',
+    POLICY_UNAVAILABLE: 'POLICY_UNAVAILABLE',
+  });
+  const SEND_MODES = Object.freeze({
+    SECURE: 'SECURE',
+    LEGACY_ROLLOUT: 'LEGACY_ROLLOUT',
+    BLOCK: 'BLOCK',
+  });
+
+  let giftWrapRequiredKnown = false;
+
+  function readSeenGiftWrapRequired() {
+    if (giftWrapRequiredKnown) return true;
+    try {
+      const raw = window.localStorage && window.localStorage.getItem(SEEN_GIFTWRAP_REQUIRED_KEY);
+      if (raw === '1' || raw === 'true') {
+        giftWrapRequiredKnown = true;
+        return true;
+      }
+    } catch (_e) {}
+    return false;
+  }
+
+  function writeSeenGiftWrapRequired(required) {
+    if (!required) return readSeenGiftWrapRequired();
+    giftWrapRequiredKnown = true;
+    try {
+      if (window.localStorage) window.localStorage.setItem(SEEN_GIFTWRAP_REQUIRED_KEY, '1');
+    } catch (_e) {}
+    return true;
+  }
+
+  /** @returns {boolean|null} */
+  function parseRemoteCallSignalGiftWrapRequired(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+    if (!Object.prototype.hasOwnProperty.call(data, 'callSignalGiftWrapRequired')) return null;
+    const v = data.callSignalGiftWrapRequired;
+    if (v === true || v === 1 || v === '1' || v === 'true') return true;
+    if (v === false || v === 0 || v === '0' || v === 'false') return false;
+    return null;
+  }
+
+  function readQaGiftWrapOverride() {
+    try {
+      if (typeof App.__qaCallSignalGiftWrapRequiredOverride === 'boolean') {
+        return App.__qaCallSignalGiftWrapRequiredOverride;
+      }
+    } catch (_e) {}
+    try {
+      if (window.__SOS_CALL_SIGNAL_GIFTWRAP_REQUIRED__ === true) return true;
+      if (window.__SOS_CALL_SIGNAL_GIFTWRAP_REQUIRED__ === false) return false;
+    } catch (_e2) {}
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const v = localStorage.getItem(QA_LOCAL_GIFTWRAP_KEY);
+        if (v === '1' || v === 'true') return true;
+        if (v === '0' || v === 'false') return false;
+      }
+    } catch (_e3) {}
+    return null;
+  }
+
+  function isCallSignalGiftWrapRequired() {
+    if (readSeenGiftWrapRequired()) return true;
+    const qa = readQaGiftWrapOverride();
+    if (qa === true) return true;
+    return false;
+  }
+
+  /** Privacy phase ACTIVE only after owner activates + sticky true. */
+  function isCallPrivacySignalingActive() {
+    return isCallSignalGiftWrapRequired() === true;
+  }
+
+  /**
+   * Authoritative refresh. Sticky after true — never downgrade.
+   *
+   * States:
+   * - NOT_REQUIRED: remote/qa false and never seen true → legacy rollout send OK
+   * - REQUIRED: seen true OR remote true → 1059 only
+   * - POLICY_UNAVAILABLE: fetch fail / missing field
+   *   - before ever seeing true → LEGACY_ROLLOUT (Production APK compat during prep)
+   *   - after seeing true → REQUIRED
+   */
+  async function refreshCallSignalGiftWrapPolicy(options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const seenBefore = readSeenGiftWrapRequired();
+
+    const qa = readQaGiftWrapOverride();
+    if (qa === true) {
+      writeSeenGiftWrapRequired(true);
+      return {
+        state: POLICY_STATES.REQUIRED,
+        required: true,
+        fetchOk: true,
+        remoteValue: true,
+        source: 'qa-override',
+      };
+    }
+    if (qa === false && !seenBefore) {
+      return {
+        state: POLICY_STATES.NOT_REQUIRED,
+        required: false,
+        fetchOk: true,
+        remoteValue: false,
+        source: 'qa-override',
+      };
+    }
+    if (qa === false && seenBefore) {
+      return {
+        state: POLICY_STATES.REQUIRED,
+        required: true,
+        fetchOk: true,
+        remoteValue: false,
+        source: 'sticky-after-true',
+      };
+    }
+
+    if (opts.skipFetch) {
+      if (seenBefore) {
+        return {
+          state: POLICY_STATES.REQUIRED,
+          required: true,
+          fetchOk: false,
+          remoteValue: null,
+          source: 'sticky',
+        };
+      }
+      return {
+        state: POLICY_STATES.NOT_REQUIRED,
+        required: false,
+        fetchOk: false,
+        remoteValue: null,
+        source: 'default-off',
+      };
+    }
+
+    let fetchOk = false;
+    let remoteValue = null;
+    try {
+      const fetchFn =
+        typeof opts.fetchImpl === 'function'
+          ? opts.fetchImpl
+          : typeof window.fetch === 'function'
+            ? window.fetch.bind(window)
+            : null;
+      if (!fetchFn) throw new Error('no-fetch');
+      const res = await fetchFn(opts.url || APP_VERSION_URL, {
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'omit',
+        signal: opts.signal,
+      });
+      if (!res || !res.ok) throw new Error('http-' + String(res && res.status));
+      const data = await res.json();
+      fetchOk = true;
+      remoteValue = parseRemoteCallSignalGiftWrapRequired(data);
+      if (remoteValue === true) writeSeenGiftWrapRequired(true);
+    } catch (_err) {
+      fetchOk = false;
+      remoteValue = null;
+    }
+
+    if (readSeenGiftWrapRequired()) {
+      return {
+        state: POLICY_STATES.REQUIRED,
+        required: true,
+        fetchOk,
+        remoteValue,
+        source: fetchOk && remoteValue === true ? 'remote' : 'sticky',
+      };
+    }
+    if (fetchOk && remoteValue === false) {
+      return {
+        state: POLICY_STATES.NOT_REQUIRED,
+        required: false,
+        fetchOk: true,
+        remoteValue: false,
+        source: 'remote',
+      };
+    }
+    return {
+      state: POLICY_STATES.POLICY_UNAVAILABLE,
+      required: false,
+      fetchOk,
+      remoteValue,
+      source: fetchOk ? 'field-absent' : 'fetch-failed',
+    };
+  }
+
+  /**
+   * Shared voice/video send decision.
+   * @returns {{ mode: 'SECURE'|'LEGACY_ROLLOUT'|'BLOCK', policy: object }}
+   */
+  async function resolveCallSignalSecurityDecision(options) {
+    const policy = await refreshCallSignalGiftWrapPolicy(options);
+    if (policy.required === true || policy.state === POLICY_STATES.REQUIRED) {
+      return { mode: SEND_MODES.SECURE, policy };
+    }
+    // Pre-cutover: NOT_REQUIRED or POLICY_UNAVAILABLE (never seen true) → legacy only.
+    if (
+      policy.state === POLICY_STATES.NOT_REQUIRED ||
+      policy.state === POLICY_STATES.POLICY_UNAVAILABLE
+    ) {
+      return { mode: SEND_MODES.LEGACY_ROLLOUT, policy };
+    }
+    return { mode: SEND_MODES.BLOCK, policy };
+  }
+
+  function computeLegacyRoomId(senderPubkey, peerPubkey) {
+    const a = String(senderPubkey || '').toLowerCase();
+    const b = String(peerPubkey || '').toLowerCase();
+    if (!a || !b) return '';
+    return a < b ? a + ':' + b : b + ':' + a;
+  }
+
+  /**
+   * LEGACY_ROLLOUT only — direct kind 25050 + NIP-04.
+   * Never used after sticky REQUIRED.
+   */
+  async function publishLegacyDirectCallSignal(opts) {
+    const media = opts && opts.media;
+    const peerPubkey = opts && opts.peerPubkey;
+    const type = opts && opts.type;
+    const data = opts && opts.data;
+    const pool = opts && opts.pool;
+    const relays = opts && opts.relays;
+    const senderPubkey = opts && opts.senderPubkey;
+    const senderPrivateKey = opts && opts.senderPrivateKey;
+    if (media !== 'voice' && media !== 'video') {
+      callSignalFail('CALL_SIGNAL_LEGACY_SEND_FAILED', 'bad media');
+    }
+    if (!pool || typeof pool.publish !== 'function') {
+      callSignalFail('CALL_SIGNAL_LEGACY_SEND_FAILED', 'pool unavailable');
+    }
+    if (!window.NostrTools || !window.NostrTools.nip04 || typeof window.NostrTools.nip04.encrypt !== 'function') {
+      callSignalFail('CALL_SIGNAL_LEGACY_SEND_FAILED', 'NIP04 unavailable');
+    }
+    const recipient = requireHexPubkey(peerPubkey);
+    const sender = requireHexPubkey(senderPubkey);
+    const senderSk = typeof senderPrivateKey === 'string' ? senderPrivateKey : '';
+    if (!senderSk) callSignalFail('CALL_SIGNAL_LEGACY_SEND_FAILED', 'empty private key');
+    const wireType = toWireType(media, normalizeAction(media, type));
+    const payload = data == null ? '' : JSON.stringify(data);
+    let encryptedContent = '';
+    try {
+      encryptedContent = payload
+        ? await window.NostrTools.nip04.encrypt(senderSk, recipient, payload)
+        : '';
+    } catch (err) {
+      callSignalFail('CALL_SIGNAL_LEGACY_SEND_FAILED', err && err.message ? err.message : 'nip04');
+    }
+    const roomId =
+      typeof opts.roomId === 'string' && opts.roomId
+        ? opts.roomId
+        : computeLegacyRoomId(sender, recipient);
+    const event = {
+      kind: RUMOR_KIND,
+      pubkey: sender,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [
+        ['type', wireType],
+        ['p', recipient],
+        ['r', roomId],
+      ],
+      content: encryptedContent,
+    };
+    const finalizeEvent = getFinalizeEvent();
+    const signed = finalizeEvent(event, requirePrivBytes(senderSk));
+    await pool.publish(Array.isArray(relays) ? relays : [], signed);
+    try {
+      console.log('CALL_SIGNAL_SENT action=' + normalizeAction(media, type) + ' encrypted=false transport=legacy');
+    } catch (_e) {}
+    return { event: signed, transport: 'legacy25050', action: normalizeAction(media, type) };
+  }
+
+  /**
+   * ONE transport per signal — never dual-write 1059 + 25050.
+   */
+  async function publishCallSignal(opts) {
+    const decision = await resolveCallSignalSecurityDecision(opts && opts.policyOptions);
+    if (decision.mode === SEND_MODES.BLOCK) {
+      callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', 'policy-block');
+    }
+    if (decision.mode === SEND_MODES.SECURE) {
+      try {
+        const res = await publishGiftWrappedCallSignal(opts);
+        return { ...res, transport: 'giftwrap1059', mode: SEND_MODES.SECURE };
+      } catch (err) {
+        // FAIL CLOSED — no 25050 fallback after REQUIRED.
+        if (err && err.code) throw err;
+        callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', err && err.message ? err.message : 'secure-send');
+      }
+    }
+    // LEGACY_ROLLOUT
+    const res = await publishLegacyDirectCallSignal(opts);
+    return { ...res, mode: SEND_MODES.LEGACY_ROLLOUT };
+  }
+
   Object.assign(App, {
     CallSignalE2ee: {
       FAMILY: CALL_SIGNAL_FAMILY,
@@ -710,9 +1019,16 @@
       RUMOR_KIND,
       FRESHNESS_SEC,
       MAX_SIGNAL_SDP_CHARS,
+      POLICY_STATES,
+      SEND_MODES,
+      CALL_GIFT_WRAP_NATIVE_MIN_VERSION_CODE,
+      CALL_GIFT_WRAP_NATIVE_MIN_VERSION_NAME,
+      SEEN_GIFTWRAP_REQUIRED_KEY,
       createSessionId,
       createSignalId,
       publishGiftWrappedCallSignal,
+      publishLegacyDirectCallSignal,
+      publishCallSignal,
       unwrapGiftWrappedCallSignal,
       dispatchGiftWrappedCallSignal,
       enqueueSecureDispatch,
@@ -729,10 +1045,21 @@
       generateEphemeralSecretKey,
       rememberSignalId,
       rememberWrapId,
+      parseRemoteCallSignalGiftWrapRequired,
+      refreshCallSignalGiftWrapPolicy,
+      resolveCallSignalSecurityDecision,
+      isCallSignalGiftWrapRequired,
+      isCallPrivacySignalingActive,
+      writeSeenGiftWrapRequired,
+      readSeenGiftWrapRequired,
       _seenSignalIds: seenSignalIds,
       _seenWrapIds: seenWrapIds,
     },
   });
+
+  App.isCallSignalGiftWrapRequired = isCallSignalGiftWrapRequired;
+  App.isCallPrivacySignalingActive = isCallPrivacySignalingActive;
+  App.resolveCallSignalSecurityDecision = resolveCallSignalSecurityDecision;
 
   // Shared secure 1059 subscription — one unwrap for voice+video.
   if (typeof App.notifyPoolReady === 'function') {
@@ -740,6 +1067,7 @@
     App.notifyPoolReady = function(pool) {
       prevNotify(pool);
       try { ensureSecureCallSubscription(); } catch (_e) {}
+      try { refreshCallSignalGiftWrapPolicy({ skipFetch: false }); } catch (_e2) {}
     };
   } else {
     App.notifyPoolReady = function(_pool) {
@@ -748,5 +1076,8 @@
   }
   try {
     if (App.pool && App.publicKey) ensureSecureCallSubscription();
+  } catch (_e) {}
+  try {
+    refreshCallSignalGiftWrapPolicy({ skipFetch: false });
   } catch (_e) {}
 })(window);
