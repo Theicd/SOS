@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.16-media-policy-hotfix1",
-  "buildTime": "2026-09-16T19:20:00+03:00",
-  "notes": "Private-chat P2P→Blossom fallback now resolves authoritative server-E2EE policy before upload. Policy uncertainty fails closed. P2P/Torrent routing unchanged. Public feed unchanged.",
+  "version": "2026.09.17-encrypted-blossom-compat1",
+  "buildTime": "2026-09-17T02:10:00+03:00",
+  "notes": "Private-chat encrypted Blossom fallback restored for real Blossom servers using fixed opaque JPEG wire transport. Original private MIME and filename remain hidden. P2P/Torrent routing unchanged. Public feed unchanged.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true

@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v839'; // NZP dual-stick mobile controls
+  const CACHE_NAME = 'sos-cache-v840'; // Encrypted Blossom opaque JPEG wire compat
   const PRECACHE_URLS = [
     './',
     './videos.html',
