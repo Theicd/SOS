@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.17-chat-recovery-hotfix1",
-  "buildTime": "2026-09-17T15:10:00+03:00",
-  "notes": "Restores encrypted private attachments, voice messages and live chat state integrity. Encrypted-media descriptors now survive chat state/serialization. Stale persisted state can no longer overwrite newer live messages. P2P/Torrent and encrypted Blossom wire transport unchanged.",
+  "version": "2026.09.17-p2p-30078-e2ee1",
+  "buildTime": "2026-09-17T16:30:00+03:00",
+  "notes": "Private peer-addressed kind 30078 P2P signaling now requires NIP-44 encryption with fail-closed sending. Public P2P availability remains unchanged. P2P routing, DataChannel, Torrent, WebTorrent, Blossom and calls are unchanged.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true

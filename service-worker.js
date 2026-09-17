@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v841'; // Chat encrypted attachment + restore recovery hotfix
+  const CACHE_NAME = 'sos-cache-v842'; // Private P2P kind 30078 NIP-44 E2EE
   const PRECACHE_URLS = [
     './',
     './videos.html',
