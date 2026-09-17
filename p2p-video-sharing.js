@@ -94,7 +94,27 @@
   const FILE_RESPONSE_KIND = 30078; // kind לתשובה על בקשה (NIP-78)
   const P2P_VERSION = '2.15.6-chatqos1';
   const P2P_APP_TAG = 'sos-p2p-video'; // תג לזיהוי אירועי P2P של האפליקציה
-  const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // חלק סיגנלים (p2p-video-sharing.js) – קונפיגורציה להצפנת סיגנלים | HYPER CORE TECH
+  const SIGNAL_ENCRYPTION_ENABLED = window.NostrP2P_SIGNAL_ENCRYPTION === true; // legacy flag (ignored for private 30078; kept for docs/compat probes)
+  // Private peer-addressed 30078 MUST use NIP-44. No plaintext outbound fallback.
+  const P2P_PRIVATE_SIGNAL_FAMILY = 'sos-p2p-signal';
+  const P2P_PRIVATE_SIGNAL_VERSION = 1;
+  const MAX_P2P_PRIVATE_SIGNAL_PLAINTEXT_CHARS = 60000;
+  const MAX_P2P_PRIVATE_SIGNAL_AGE_SEC = 300;
+  const PRIVATE_P2P_SIGNAL_TYPES = new Set([
+    'file-offer',
+    'file-request',
+    'file-response',
+    'ice-candidate',
+    'chunk-ack',
+    'file-resend-request',
+    'file-ready',
+    'chunk-meta',
+    'file-complete-ack',
+    'ack',
+    'file-resend-failed',
+  ]);
+  const recentPrivateSignalIds = new Map(); // eventId -> tsMs
+  const MAX_RECENT_PRIVATE_SIGNAL_IDS = 400;
   const AVAILABILITY_EXPIRY = 24 * 60 * 60 * 1000; // 24 שעות - כדי שהקובץ יהיה זמין לאורך זמן
   const AVAILABILITY_REPUBLISH_INTERVAL = 2 * 60 * 1000; // דקהיים קירור
   const AVAILABILITY_MANIFEST_KEY = 'p2pAvailabilityManifest';
@@ -621,44 +641,234 @@
     }
   }
 
-  // חלק סיגנלים (p2p-video-sharing.js) – עטיפת הצפנה/פענוח עבור תאימות רחבה | HYPER CORE TECH
-  async function prepareSignalContent(payload, peerPubkey) {
-    if (!SIGNAL_ENCRYPTION_ENABLED || typeof App.encryptMessage !== 'function') {
-      return { content: payload, encrypted: false };
-    }
+  // חלק סיגנלים (p2p-video-sharing.js) – NIP-44 חובה ל-30078 פרטי; ללא fallback גלוי | HYPER CORE TECH
+  function p2pPrivateSignalFail(code, detail) {
+    const err = new Error(detail ? String(code) + ': ' + String(detail) : String(code));
+    err.code = code || 'P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED';
+    err.name = 'P2PPrivateSignalError';
+    throw err;
+  }
 
+  function requireP2pHexPriv(hexKey) {
+    if (typeof hexKey !== 'string' || !hexKey.trim()) {
+      p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'empty private key');
+    }
+    const clean = hexKey.trim().toLowerCase().replace(/^0x/, '');
+    if (!/^[0-9a-f]{64}$/.test(clean)) {
+      p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'bad private key');
+    }
+    const hexToBytes =
+      (window.NostrTools && window.NostrTools.utils && window.NostrTools.utils.hexToBytes) ||
+      (typeof App.hexToBytes === 'function' ? App.hexToBytes : null);
+    if (typeof hexToBytes !== 'function') {
+      p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'hexToBytes unavailable');
+    }
+    const bytes = hexToBytes(clean);
+    const out = new Uint8Array(32);
+    for (let i = 0; i < 32; i += 1) out[i] = (bytes[i] || 0) & 0xff;
+    return out;
+  }
+
+  function requireP2pHexPubkey(pk, code) {
+    if (typeof pk !== 'string' || !/^[0-9a-fA-F]{64}$/.test(pk.trim())) {
+      p2pPrivateSignalFail(code || 'P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'bad recipient pubkey');
+    }
+    return pk.trim().toLowerCase();
+  }
+
+  function getP2pNip44() {
+    const NT = window.NostrTools;
+    const nip44 = NT && NT.nip44;
+    if (!nip44 || !nip44.v2 || typeof nip44.v2.encrypt !== 'function' || typeof nip44.v2.decrypt !== 'function') {
+      p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'NIP44 unavailable');
+    }
+    const getConversationKey =
+      (nip44.v2.utils && nip44.v2.utils.getConversationKey) || nip44.getConversationKey;
+    if (typeof getConversationKey !== 'function') {
+      p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'getConversationKey missing');
+    }
+    return {
+      encrypt: nip44.v2.encrypt.bind(nip44.v2),
+      decrypt: nip44.v2.decrypt.bind(nip44.v2),
+      getConversationKey,
+    };
+  }
+
+  function looksLikePrivateP2pSignalEnvelope(raw) {
+    let obj = raw;
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (!trimmed || trimmed.charAt(0) !== '{') return false;
+      try {
+        obj = JSON.parse(trimmed);
+      } catch (_e) {
+        return false;
+      }
+    }
+    return !!(
+      obj &&
+      typeof obj === 'object' &&
+      !Array.isArray(obj) &&
+      obj.family === P2P_PRIVATE_SIGNAL_FAMILY &&
+      obj.v === P2P_PRIVATE_SIGNAL_VERSION &&
+      obj.alg === 'nip44' &&
+      typeof obj.ct === 'string' &&
+      obj.ct
+    );
+  }
+
+  function looksLikeLegacyPrivateP2pSignalPlaintext(raw) {
+    if (typeof raw !== 'string') return false;
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed.charAt(0) !== '{') return false;
+    if (looksLikePrivateP2pSignalEnvelope(trimmed)) return false;
     try {
-      const encrypted = await App.encryptMessage(payload, peerPubkey);
-      return { content: encrypted, encrypted: true };
-    } catch (err) {
-      log('info', 'ℹ️ כשל בהצפנת signal – שולח כטקסט גלוי להבטחת תאימות', {
-        peer: peerPubkey?.slice?.(0, 16) + '...',
-        error: err?.message || String(err),
-      }, {
-        throttleKey: `signal-encrypt-${peerPubkey}`,
-        throttleMs: 15000,
-      });
-      return { content: payload, encrypted: false };
+      const obj = JSON.parse(trimmed);
+      if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
+      if (typeof obj.type !== 'string' || !PRIVATE_P2P_SIGNAL_TYPES.has(obj.type)) return false;
+      return true;
+    } catch (_e) {
+      return false;
     }
   }
 
-  async function extractSignalContent(rawContent, senderPubkey) {
-    if (!rawContent || typeof App.decryptMessage !== 'function') {
-      return rawContent;
+  async function encryptPrivateP2pSignalPayload(plaintext, recipientPubkey, senderPrivateKeyHex) {
+    if (typeof plaintext !== 'string' || !plaintext) {
+      p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'empty plaintext');
     }
-
+    if (plaintext.length > MAX_P2P_PRIVATE_SIGNAL_PLAINTEXT_CHARS) {
+      p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'plaintext too large');
+    }
+    const recipient = requireP2pHexPubkey(recipientPubkey, 'P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED');
+    const privBytes = requireP2pHexPriv(senderPrivateKeyHex);
+    const nip44 = getP2pNip44();
+    let ct;
     try {
-      return await App.decryptMessage(rawContent, senderPubkey);
+      const conversationKey = nip44.getConversationKey(privBytes, recipient);
+      ct = nip44.encrypt(plaintext, conversationKey);
     } catch (err) {
-      log('info', 'ℹ️ לא הצלחתי לפענח signal – משתמש בתוכן המקורי', {
-        sender: senderPubkey?.slice?.(0, 16) + '...',
-        error: err?.message || String(err),
-      }, {
-        throttleKey: `signal-decrypt-${senderPubkey}`,
-        throttleMs: 15000,
-      });
-      return rawContent;
+      if (err && err.code === 'P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED') throw err;
+      p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', err && err.message ? err.message : 'encrypt failed');
     }
+    if (typeof ct !== 'string' || !ct) {
+      p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'empty ciphertext');
+    }
+    return JSON.stringify({
+      family: P2P_PRIVATE_SIGNAL_FAMILY,
+      v: P2P_PRIVATE_SIGNAL_VERSION,
+      alg: 'nip44',
+      ct,
+    });
+  }
+
+  async function decryptPrivateP2pSignalPayload(rawContent, senderPubkey, localPrivateKeyHex) {
+    let env = rawContent;
+    if (typeof rawContent === 'string') {
+      try {
+        env = JSON.parse(rawContent);
+      } catch (_e) {
+        p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_DECRYPT_FAILED', 'envelope JSON invalid');
+      }
+    }
+    if (!looksLikePrivateP2pSignalEnvelope(env)) {
+      p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_DECRYPT_FAILED', 'unsupported envelope');
+    }
+    const sender = requireP2pHexPubkey(senderPubkey, 'P2P_PRIVATE_SIGNAL_DECRYPT_FAILED');
+    const privBytes = requireP2pHexPriv(localPrivateKeyHex);
+    const nip44 = getP2pNip44();
+    try {
+      const conversationKey = nip44.getConversationKey(privBytes, sender);
+      const plain = nip44.decrypt(env.ct, conversationKey);
+      if (typeof plain !== 'string' || !plain) {
+        p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_DECRYPT_FAILED', 'empty plaintext');
+      }
+      return plain;
+    } catch (err) {
+      if (err && err.code === 'P2P_PRIVATE_SIGNAL_DECRYPT_FAILED') throw err;
+      p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_DECRYPT_FAILED', err && err.message ? err.message : 'decrypt failed');
+    }
+  }
+
+  async function prepareSignalContent(payload, peerPubkey) {
+    // PRIVATE 30078 only: mandatory NIP-44. ZERO plaintext fallback.
+    void SIGNAL_ENCRYPTION_ENABLED; // legacy flag intentionally unused for private path
+    const keys = getEffectiveKeys();
+    if (!keys || !keys.privateKey) {
+      p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'missing local private key');
+    }
+    if (!peerPubkey) {
+      p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'missing recipient');
+    }
+    const wire = await encryptPrivateP2pSignalPayload(payload, peerPubkey, keys.privateKey);
+    return { content: wire, encrypted: true };
+  }
+
+  async function extractSignalContent(rawContent, senderPubkey) {
+    const keys = getEffectiveKeys();
+    if (!rawContent || typeof rawContent !== 'string') {
+      return null;
+    }
+    if (looksLikePrivateP2pSignalEnvelope(rawContent)) {
+      if (!keys || !keys.privateKey) return null;
+      try {
+        const plain = await decryptPrivateP2pSignalPayload(rawContent, senderPubkey, keys.privateKey);
+        return { plaintext: plain, legacy: false, encrypted: true };
+      } catch (_err) {
+        try {
+          console.warn(
+            '[SO-CALL SECURITY] rejected private 30078 decrypt failure peer=' +
+              String(senderPubkey || '').slice(0, 8),
+          );
+        } catch (_e) {}
+        return null;
+      }
+    }
+    // LEGACY_READ_ONLY: accept old plaintext private signals for already-deployed peers.
+    if (looksLikeLegacyPrivateP2pSignalPlaintext(rawContent)) {
+      try {
+        console.warn(
+          '[SO-CALL SECURITY] LEGACY_READ_ONLY private 30078 plaintext accepted peer=' +
+            String(senderPubkey || '').slice(0, 8),
+        );
+      } catch (_e) {}
+      return { plaintext: rawContent, legacy: true, encrypted: false };
+    }
+    try {
+      console.warn(
+        '[SO-CALL SECURITY] rejected private 30078 unsupported content peer=' +
+          String(senderPubkey || '').slice(0, 8),
+      );
+    } catch (_e) {}
+    return null;
+  }
+
+  function rememberPrivateSignalEventId(eventId) {
+    if (!eventId || typeof eventId !== 'string') return false;
+    const now = Date.now();
+    if (recentPrivateSignalIds.has(eventId)) return true;
+    recentPrivateSignalIds.set(eventId, now);
+    if (recentPrivateSignalIds.size > MAX_RECENT_PRIVATE_SIGNAL_IDS) {
+      const keys = Array.from(recentPrivateSignalIds.keys());
+      for (let i = 0; i < Math.floor(keys.length / 2); i += 1) {
+        recentPrivateSignalIds.delete(keys[i]);
+      }
+    }
+    return false;
+  }
+
+  function isPrivateSignalEventFresh(event) {
+    const created = Number(event && event.created_at);
+    if (!Number.isFinite(created) || !Number.isInteger(created)) return false;
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (created > nowSec + 120) return false;
+    if (nowSec - created > MAX_P2P_PRIVATE_SIGNAL_AGE_SEC) return false;
+    return true;
+  }
+
+  function validatePrivateP2pSignalMessage(message) {
+    if (!message || typeof message !== 'object' || Array.isArray(message)) return false;
+    if (typeof message.type !== 'string' || !PRIVATE_P2P_SIGNAL_TYPES.has(message.type)) return false;
+    return true;
   }
 
   // חלק אבטחה (p2p-video-sharing.js) – אימות נמען לסיגנלי 30078 פרטיים לפני פענוח | HYPER CORE TECH
@@ -2743,6 +2953,9 @@
       const content = JSON.stringify({ type, data });
 
       const { content: wireContent, encrypted } = await prepareSignalContent(content, peerPubkey);
+      if (!encrypted || typeof wireContent !== 'string' || !looksLikePrivateP2pSignalEnvelope(wireContent)) {
+        p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'encrypted envelope required');
+      }
 
       const kind = FILE_REQUEST_KIND; // כל הסיגנלים משתמשים ב-30078
       const signalType = type === 'file-request' ? 'req' : (type === 'file-response' ? 'res' : 'ice');
@@ -2755,14 +2968,11 @@
           ['d', `${P2P_APP_TAG}:signal:${Date.now()}`], // NIP-78: מזהה ייחודי
           ['p', peerPubkey],
           ['t', `p2p-${signalType}`], // סוג הסיגנל
+          ['enc', 'nip44'],
           keys.isGuest ? ['guest', 'true'] : null
         ].filter(Boolean),
         content: wireContent,
       };
-
-      if (encrypted) {
-        event.tags.push(['enc', 'nip04']);
-      }
 
       let signed;
       if (App.finalizeEvent) {
@@ -2915,8 +3125,21 @@
     try {
       const sub = App.pool.subscribeMany(relays, filters, {
         onevent: async (event) => {
-          if (!verifyIncomingFileSignalRecipient(event)) return;
+          // Required order: signature → recipient → decrypt → schema → dispatch
           if (!verifyIncomingFileSignalEvent(event)) return;
+          if (!verifyIncomingFileSignalRecipient(event)) return;
+          if (!isPrivateSignalEventFresh(event)) {
+            try {
+              console.warn(
+                '[SO-CALL SECURITY] rejected private 30078 stale/skew event id=' +
+                  String(event && event.id ? event.id.slice(0, 8) : ''),
+              );
+            } catch (_e) {}
+            return;
+          }
+          if (rememberPrivateSignalEventId(event && event.id)) {
+            return;
+          }
           log('request', `📬 התקבל סיגנל`, {
             kind: event.kind,
             from: event.pubkey.slice(0, 16) + '...',
@@ -2925,12 +3148,24 @@
           });
 
           try {
-            const decodedContent = await extractSignalContent(event.content, event.pubkey);
-            const message = JSON.parse(decodedContent);
+            const extracted = await extractSignalContent(event.content, event.pubkey);
+            if (!extracted || typeof extracted.plaintext !== 'string') return;
+            const message = JSON.parse(extracted.plaintext);
+            if (!validatePrivateP2pSignalMessage(message)) {
+              try {
+                console.warn(
+                  '[SO-CALL SECURITY] rejected private 30078 bad schema peer=' +
+                    String(event.pubkey || '').slice(0, 8),
+                );
+              } catch (_e) {}
+              return;
+            }
             
             log('info', `📨 [DEBUG] סוג סיגנל: ${message.type}`, {
               from: event.pubkey.slice(0, 8),
-              hasData: !!message.data
+              hasData: !!message.data,
+              encrypted: extracted.encrypted === true,
+              legacy: extracted.legacy === true
             });
 
             if (message.type === 'file-request') {
@@ -2945,7 +3180,8 @@
                 from: event.pubkey?.slice?.(0, 12) + '...',
                 fileId: message.data?.fileId || message.fileId,
                 attachmentType: message.data?.mimeType || message.mimeType || 'unknown',
-                size: message.data?.size || message.size
+                size: message.data?.size || message.size,
+                encrypted: extracted.encrypted === true
               });
               if (typeof App.handleP2PFileOffer === 'function') {
                 await App.handleP2PFileOffer(event.pubkey, message.data || message);
@@ -4202,6 +4438,13 @@
     resumeFeedMediaAfterChat,
     printP2PStats,
     verifyIncomingFileSignalRecipient,
+    verifyIncomingFileSignalEvent,
+    encryptPrivateP2pSignalPayload,
+    decryptPrivateP2pSignalPayload,
+    looksLikePrivateP2pSignalEnvelope,
+    preparePrivateP2pSignalContent: prepareSignalContent,
+    extractPrivateP2pSignalContent: extractSignalContent,
+    P2P_PRIVATE_SIGNAL_FAMILY,
   });
 
 })(window);

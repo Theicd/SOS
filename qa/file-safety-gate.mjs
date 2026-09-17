@@ -50,11 +50,11 @@ record('blossom result URL http(s) only', blossom.includes('isSafeBlossomResultU
 record('webtorrent magnet gated approveTransfer', wt.includes('isValidIncomingMagnetURI') && wt.includes('approveTransfer-bad-magnet'));
 record('webtorrent magnet gated download', wt.includes('download-bad-magnet'));
 record('30078 verifyEvent gate present', p2p.includes('verifyIncomingFileSignalEvent') && p2p.includes('rejected invalid signed event kind=30078'));
-record('30078 verify after recipient before decrypt', (() => {
+record('30078 verify signature before recipient before decrypt', (() => {
   const idx = p2p.indexOf('onevent: async (event) => {');
-  const slice = p2p.slice(idx, idx + 1200);
-  const a = slice.indexOf('verifyIncomingFileSignalRecipient');
-  const b = slice.indexOf('verifyIncomingFileSignalEvent');
+  const slice = p2p.slice(idx, idx + 1600);
+  const a = slice.indexOf('verifyIncomingFileSignalEvent');
+  const b = slice.indexOf('verifyIncomingFileSignalRecipient');
   const c = slice.indexOf('extractSignalContent');
   return a >= 0 && b > a && c > b;
 })());
