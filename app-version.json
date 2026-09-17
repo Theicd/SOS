@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.18-apk114-voice-cache1",
-  "buildTime": "2026-09-18T01:50:00+03:00",
-  "notes": "RELEASE CANDIDATE ONLY - callSignalGiftWrapRequired=true for final giftwrap cutover exercise. NOT production. minSecureChatEpoch=2; e2eeSendRequired/mediaServerE2eeRequired unchanged. Do NOT merge/deploy until owner approval.",
+  "version": "2026.09.18-call-giftwrap-final1",
+  "buildTime": "2026-09-18T02:40:00+03:00",
+  "notes": "FINAL CALL PRIVACY CUTOVER ACTIVE. New voice/video signaling uses NIP-59 Gift Wrap (outer kind 1059) + NIP-44 seal (kind 13) with inner logical kind 25050. Direct kind25050 writes DISABLED. Kind25060 DISABLED. Call server Push DISABLED. Legacy kind25050 receive retained temporarily for older clients. APK 1.0.114 / versionCode 115 remains current. Monotonic: once true observed, secure send does not fall back to legacy.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,
