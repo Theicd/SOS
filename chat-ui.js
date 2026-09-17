@@ -716,7 +716,20 @@
         : messageOrAttachment;
     if (!a || typeof a !== 'object') return false;
     if (a.isVoice === true) return true;
+    const mediaMime =
+      a.media && typeof a.media.mime === 'string' ? String(a.media.mime).toLowerCase() : '';
+    if (mediaMime.startsWith('audio/') || mediaMime === 'application/ogg') return true;
     const mime = String(a.type || a.mimeType || '').toLowerCase();
+    if (mime === 'encrypted-media') {
+      // encrypted-media: private MIME lives only in media.mime / isVoice
+      const mediaName =
+        a.media && typeof a.media.filename === 'string' ? String(a.media.filename).toLowerCase() : '';
+      if (mediaName.includes('voice') || mediaName.includes('ptt') || mediaName.includes('voicemessage')) {
+        return true;
+      }
+      if (typeof a.duration === 'number' && a.duration > 0) return true;
+      return false;
+    }
     if (mime.startsWith('audio/') || mime === 'application/ogg') return true;
     const name = String(a.name || '').toLowerCase();
     if (name.includes('voice') || name.includes('ptt') || name.includes('voicemessage')) return true;
@@ -4170,15 +4183,24 @@
       clearTimeout(chatEnableRetryHandle);
       chatEnableRetryHandle = null;
     }
-    if (typeof App.restoreChatState === 'function') {
-      App.restoreChatState();
-    }
-    if (typeof App.subscribeToChatEvents === 'function') {
-      App.subscribeToChatEvents();
-    }
-    if (typeof App.bootstrapChatContacts === 'function') {
-      App.bootstrapChatContacts();
-    }
+    // Restore/merge must complete before live subscribe so a stale IndexedDB
+    // snapshot cannot overwrite messages that arrived during the await gap.
+    const bootChat = async () => {
+      try {
+        if (typeof App.restoreChatState === 'function') {
+          await App.restoreChatState();
+        } else if (App.chatStateReady && typeof App.chatStateReady.then === 'function') {
+          await App.chatStateReady;
+        }
+      } catch (_restoreErr) { /* continue */ }
+      if (typeof App.subscribeToChatEvents === 'function') {
+        App.subscribeToChatEvents();
+      }
+      if (typeof App.bootstrapChatContacts === 'function') {
+        App.bootstrapChatContacts();
+      }
+    };
+    bootChat();
   }
 
   // חלק צ'אט (chat-ui.js) – מקלדת כמו וואטסאפ: הפאנל = visualViewport; הדר לא זז, קומפוזר בתחתית הנראה | HYPER CORE TECH
