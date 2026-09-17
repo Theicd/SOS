@@ -1,0 +1,29 @@
+---
+description: GitHub Releases must retain only the latest SOS APK; delete older apk-* assets.
+alwaysApply: true
+---
+
+# APK on GitHub — latest only
+
+## Hard rule
+
+On GitHub Releases for this repo, **only one APK** may exist at a time: the **current latest** shell build.
+
+- Tag pattern: `apk-X.Y.Z`
+- Asset name: `SOS-X.Y.Z.apk`
+- Mark that release as **Latest**
+- After publishing the new APK, **delete** all older `apk-*` releases (and their assets/tags)
+
+## Do not
+
+- Leave previous APKs downloadable (causes UI to keep installing an old version)
+- Point `NATIVE_APK_URL` / install UI at an older release while advertising a newer one
+- Fall back from advertised version X to download URL for version Y
+
+## When releasing a new APK
+
+1. Upload `SOS-<new>.apk` to release `apk-<new>` with `--latest`
+2. Update `apk-version.json` (`version`, `versionCode`, `file`, `url`, `published: true`)
+3. Update `NATIVE_APK_VERSION` in `pwa-installer.js` to the same version
+4. Delete every older `apk-*` release
+5. Verify `gh release list` shows only the new tag as Latest with that single APK asset

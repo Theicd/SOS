@@ -2,9 +2,9 @@
   "version": "1.0.114",
   "versionCode": 115,
   "file": "SOS-1.0.114.apk",
-  "url": "",
-  "published": false,
-  "channel": "qa",
-  "releasedAt": "2026-09-17",
-  "note": "QA-only APK for owner physical call QA — NOT published to users. Production update UI must not advertise this release until published=true and a real URL exist."
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.114/SOS-1.0.114.apk",
+  "published": true,
+  "channel": "production",
+  "releasedAt": "2026-09-18",
+  "note": "Sole public APK on GitHub Releases. Policy: only the latest APK is retained; older release assets must be deleted."
 }

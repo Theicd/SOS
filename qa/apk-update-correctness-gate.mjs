@@ -33,12 +33,11 @@ function read(rel) {
   return fs.readFileSync(path.join(ROOT, rel), 'utf8');
 }
 
-// ── Static: production apk-version.json must be unpublished QA ──
+// ── Static: production apk-version.json must advertise sole latest published APK ──
 const apkMeta = JSON.parse(read('apk-version.json'));
 record('apk-version has published field', Object.prototype.hasOwnProperty.call(apkMeta, 'published'));
-record('apk-version published === false (QA-only)', apkMeta.published === false);
-record('apk-version channel qa', apkMeta.channel === 'qa' || apkMeta.channel === 'QA');
-record('apk-version url empty', !String(apkMeta.url || '').trim());
+record('apk-version published === true', apkMeta.published === true);
+record('apk-version url points to 1.0.114', String(apkMeta.url || '').includes('apk-1.0.114/SOS-1.0.114.apk'));
 record('apk-version advertises 1.0.114 / 115', apkMeta.version === '1.0.114' && Number(apkMeta.versionCode) === 115);
 
 const installerSrc = read('pwa-installer.js');
@@ -51,8 +50,12 @@ record('APK_UPDATE_METADATA_INVALID logged on bad metadata',
   /APK_UPDATE_METADATA_INVALID/.test(installerSrc));
 record('checkApkReleaseVersion uses validateApkUpdateRelease',
   /const validated = validateApkUpdateRelease\(data\)/.test(installerSrc));
-record('PUBLIC STABLE remains 1.0.113 for initial install',
-  /const NATIVE_APK_VERSION = '1\.0\.113'/.test(installerSrc));
+record('PUBLIC STABLE remains 1.0.114 for initial install',
+  /const NATIVE_APK_VERSION = '1\.0\.114'/.test(installerSrc));
+record('apk-version published with matching 1.0.114 URL',
+  apkMeta.published === true
+  && String(apkMeta.url).includes('apk-1.0.114')
+  && String(apkMeta.file) === 'SOS-1.0.114.apk');
 
 const bridgeSrc = read('android-shell/app/src/main/java/com/sos010/app/SosJsBridge.kt');
 record('Native getShellVersion = BuildConfig.VERSION_NAME',
