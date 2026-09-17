@@ -67,8 +67,8 @@ const gradle = read('android-shell/app/build.gradle.kts');
 record('BuildConfig versionName 1.0.114', /versionName\s*=\s*"1\.0\.114"/.test(gradle));
 record('BuildConfig versionCode 115', /versionCode\s*=\s*115/.test(gradle));
 
-record('callSignalGiftWrapRequired remains false',
-  JSON.parse(read('app-version.json')).callSignalGiftWrapRequired === false);
+record('callSignalGiftWrapRequired true (RC)',
+  JSON.parse(read('app-version.json')).callSignalGiftWrapRequired === true);
 
 // ── Runtime: load validateApkUpdateRelease in VM ──
 function loadInstaller() {

@@ -90,8 +90,8 @@ if (typeof keyFn === 'function') {
   record('key: raw fileId string', keyFn('rawid') === 'p2p-file-rawid');
 }
 
-record('callSignalGiftWrapRequired remains false',
-  JSON.parse(read('app-version.json')).callSignalGiftWrapRequired === false);
+record('callSignalGiftWrapRequired true (RC)',
+  JSON.parse(read('app-version.json')).callSignalGiftWrapRequired === true);
 
 console.log(results.join('\n'));
 console.log(`\nVOICE_DURABLE_PLAYBACK_GATE ${fail === 0 ? 'PASS' : 'FAIL'} (${pass} passed, ${fail} failed)`);
