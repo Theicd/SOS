@@ -122,7 +122,7 @@ record('policy remains callSignalGiftWrapRequired true', appVer.callSignalGiftWr
 record('APK QA version 1.0.115 / 116',
   /versionName\s*=\s*"1\.0\.115"/.test(gradle) && /versionCode\s*=\s*116/.test(gradle));
 record('production web version unchanged final1',
-  String(appVer.version || '').includes('call-giftwrap-final1'));
+  String(appVer.version || '').includes('secure-wake115'));
 
 console.log(results.join('\n'));
 console.log(`\nCALL_SECURE_BACKGROUND_WAKE_GATE ${fail === 0 ? 'PASS' : 'FAIL'} (${pass} passed, ${fail} failed)`);

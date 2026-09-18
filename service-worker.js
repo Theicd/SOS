@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v845'; // Final call giftwrap cutover ACTIVE — secure 1059 send
+  const CACHE_NAME = 'sos-cache-v846'; // APK 1.0.115 secure background wake + sole GitHub APK
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -78,7 +78,7 @@
       return null;
     }
     try {
-      const registration = await navigator.serviceWorker.register('./service-worker.js?v=845', {
+      const registration = await navigator.serviceWorker.register('./service-worker.js?v=846', {
         scope: './',
         updateViaCache: 'none',
       });
@@ -202,7 +202,7 @@
 
   // PUBLIC STABLE install target (initial Android install) — must match sole latest GitHub APK.
   // Policy: GitHub Releases keeps ONLY the latest APK; older apk-* releases are deleted.
-  const NATIVE_APK_VERSION = '1.0.114';
+  const NATIVE_APK_VERSION = '1.0.115';
   const NATIVE_APK_FILE = `SOS-${NATIVE_APK_VERSION}.apk`;
   const NATIVE_APK_URL = (typeof localStorage !== 'undefined' && localStorage.getItem('sos_apk_url'))
     || `https://github.com/Theicd/SOS/releases/download/apk-${NATIVE_APK_VERSION}/${NATIVE_APK_FILE}`;

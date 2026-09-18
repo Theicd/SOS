@@ -1,10 +1,10 @@
 {
-  "version": "1.0.114",
-  "versionCode": 115,
-  "file": "SOS-1.0.114.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.114/SOS-1.0.114.apk",
+  "version": "1.0.115",
+  "versionCode": 116,
+  "file": "SOS-1.0.115.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.115/SOS-1.0.115.apk",
   "published": true,
   "channel": "production",
   "releasedAt": "2026-09-18",
-  "note": "Sole public APK on GitHub Releases. Policy: only the latest APK is retained; older release assets must be deleted."
+  "note": "Sole public APK on GitHub Releases. Secure 1059 background verifier wake. Older apk-* releases deleted per latest-only policy."
 }
