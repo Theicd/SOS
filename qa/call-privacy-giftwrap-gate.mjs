@@ -61,7 +61,8 @@ function loadHelper() {
     pool: {
       publish(_relays, event) {
         published.push(event);
-        return [];
+        // Match nostr-tools SimplePool shape: Promise[]
+        return [Promise.resolve('ok')];
       },
     },
     relayUrls: ['wss://qa.example'],

@@ -44,6 +44,7 @@ const assetE2ee = read('android-shell/app/src/main/assets/secure-call-verifier/c
 
 record('1 offer send requires 1059 publish success markers',
   /CALL_SEND_1059_PUBLISH_OK/.test(e2ee)
+  && /awaitPoolPublish|Promise\.allSettled/.test(e2ee)
   && /transport !== 'giftwrap1059'/.test(voice)
   && /transport !== 'giftwrap1059'/.test(video));
 record('2 CALL_STARTED gated after publish',

@@ -692,6 +692,24 @@
    * Build + publish one gift-wrapped call signal.
    * Returns published outer event. Throws CALL_SIGNAL_E2EE_ENCRYPT_FAILED on any failure (publish ZERO).
    */
+  async function awaitPoolPublish(pool, relays, event) {
+    const relayList = Array.isArray(relays) ? relays : [];
+    const issued = pool.publish(relayList, event);
+    // nostr-tools SimplePool.publish returns Promise[] — await alone is a silent no-op.
+    const pending = Array.isArray(issued)
+      ? issued
+      : (issued && typeof issued.then === 'function' ? [issued] : []);
+    if (!pending.length) {
+      callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', 'publish returned no promises');
+    }
+    const settled = await Promise.allSettled(pending);
+    const ok = settled.filter((r) => r && r.status === 'fulfilled').length;
+    if (ok <= 0) {
+      callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', 'publish zero relays');
+    }
+    return { ok, total: settled.length };
+  }
+
   async function publishGiftWrappedCallSignal(opts) {
     const media = opts && opts.media;
     const peerPubkey = opts && opts.peerPubkey;
@@ -784,9 +802,10 @@
       console.log('CALL_SEND_1059_PUBLISH_START');
     } catch (_e) {}
     try {
-      await pool.publish(Array.isArray(relays) ? relays : [], wrap);
+      await awaitPoolPublish(pool, Array.isArray(relays) ? relays : [], wrap);
     } catch (pubErr) {
       try { console.log('CALL_SEND_1059_PUBLISH_FAIL'); } catch (_e) {}
+      if (pubErr && pubErr.code) throw pubErr;
       callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', pubErr && pubErr.message ? pubErr.message : 'publish');
     }
     try {
