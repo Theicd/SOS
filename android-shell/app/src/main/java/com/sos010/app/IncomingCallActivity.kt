@@ -157,7 +157,7 @@ class IncomingCallActivity : AppCompatActivity() {
 
         avatarExecutor.execute {
             val bmp = try {
-                SosContactCache.loadBitmap(url)
+                SosContactCache.loadBitmap(this@IncomingCallActivity, url)
             } catch (_: Exception) {
                 null
             } ?: return@execute
@@ -219,11 +219,14 @@ class IncomingCallActivity : AppCompatActivity() {
     private fun onDecline() {
         if (handled) return
         handled = true
+        SosSecureCallSessionStore.markActiveDeclined(applicationContext)
         SosIncomingCallSession.markDeclined(applicationContext, peer)
         rememberPendingOfferHandled()
         SosPendingCallStore.clear(applicationContext)
         NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true, dismissUi = false)
+        NotificationHelper.cancelSecureVerifierWake(applicationContext)
         CallSoundHelper.stopAll()
+        MainActivity.cancelKeepFrontAfterDecline()
         MainActivity.startBackgroundCallDecline(applicationContext, peer, callType)
         finishAndRemoveTaskSafe()
     }

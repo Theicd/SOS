@@ -398,7 +398,7 @@ object NotificationHelper {
     ) {
         avatarExecutor.execute {
             try {
-                SosContactCache.loadBitmap(pictureUrl) ?: return@execute
+                SosContactCache.loadBitmap(app, pictureUrl) ?: return@execute
                 // רענון מסך נעילה עם תמונה אחרי הורדה | HYPER CORE TECH
                 IncomingCallActivity.launch(app, peer, type, displayName, openUrl, pictureUrl)
             } catch (_: Exception) {
@@ -568,7 +568,7 @@ object NotificationHelper {
         if (url.isEmpty()) return
         avatarExecutor.execute {
             try {
-                SosContactCache.loadBitmap(url) ?: return@execute
+                SosContactCache.loadBitmap(app, url) ?: return@execute
                 synchronized(lock) {
                     if (inboxLines.isEmpty()) return@synchronized
                     postAggregateLocked(app, playSound = false)

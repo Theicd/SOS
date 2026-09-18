@@ -80,6 +80,9 @@ class MainActivity : AppCompatActivity() {
     private var suppressCallCancelUntil = 0L
     @Volatile private var pendingApkUpdateFile: java.io.File? = null
     @Volatile private var apkUpdateInFlight = false
+    @Volatile private var declineKeepFrontCancelled = false
+    private val keepFrontTokens = java.util.Collections.synchronizedSet(mutableSetOf<Any>())
+    @Volatile private var verifyOnlyShutdownScheduled = false
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -382,23 +385,27 @@ class MainActivity : AppCompatActivity() {
 
     /** Intent של חימום ברקע – בלי UI מלא ובלי דיכוי התראות | HYPER CORE TECH */
     private fun isBackgroundWarmIntent(intent: Intent?): Boolean {
-        // ענה/דחייה/ניתוק – תמיד חזית; warmForCallPeer לא ישאיר warm לנצח | HYPER CORE TECH
-        if (pendingCallAction == CALL_ACTION_ANSWER ||
-            pendingCallAction == CALL_ACTION_DECLINE ||
-            pendingCallAction == CALL_ACTION_HANGUP ||
-            pendingAutoAccept
-        ) {
+        // Answer must be foreground. Decline/hangup must stay BACKGROUND — never steal WhatsApp.
+        if (pendingCallAction == CALL_ACTION_ANSWER || pendingAutoAccept) {
             return false
         }
         if (intent == null) return false
         if (intent.getStringExtra(EXTRA_CALL_ACTION) == CALL_ACTION_ANSWER) return false
+        // Decline/hangup with START_IN_BACKGROUND stay warm/background.
+        if (pendingCallAction == CALL_ACTION_DECLINE ||
+            pendingCallAction == CALL_ACTION_HANGUP ||
+            intent.getStringExtra(EXTRA_CALL_ACTION) == CALL_ACTION_DECLINE ||
+            intent.getStringExtra(EXTRA_CALL_ACTION) == CALL_ACTION_HANGUP
+        ) {
+            return intent.getBooleanExtra(EXTRA_START_IN_BACKGROUND, false) ||
+                intent.getBooleanExtra(EXTRA_WARM_FOR_SECURE_WRAP, false)
+        }
         if (intent.getBooleanExtra(EXTRA_START_IN_BACKGROUND, false)) return true
         if (intent.getBooleanExtra(EXTRA_WARM_FOR_CALL, false)) return true
         if (intent.getBooleanExtra(EXTRA_WARM_FOR_SECURE_WRAP, false)) return true
         if (intent.getBooleanExtra(EXTRA_WARM_FOR_P2P, false)) return true
         if (warmForSecureWrapPending) return true
         if (warmForP2pPending) return true
-        // warmForCallPeer לבדו לא מספיק אחרי שהמשתמש כבר בחזית בלי extras של warm
         return false
     }
 
@@ -679,10 +686,23 @@ class MainActivity : AppCompatActivity() {
 
     /** מחזיר את משימת SOS לחזית אחרי מענה מכרטיסיית CallStyle (שיאומי מחזיר לשולחן) | HYPER CORE TECH */
     fun pulseKeepCallInFront(reason: String) {
+        if (declineKeepFrontCancelled) {
+            SosDebugLog.i("call", "DECLINE_CANCEL_KEEPFRONT")
+            return
+        }
+        if (pendingCallAction == CALL_ACTION_DECLINE) {
+            SosDebugLog.i("call", "DECLINE_CANCEL_KEEPFRONT")
+            return
+        }
         keepCallTaskInFront(reason)
         listOf(250L, 700L, 1600L).forEach { delay ->
+            val token = Any()
+            keepFrontTokens.add(token)
             mainHandler.postDelayed({
+                keepFrontTokens.remove(token)
+                if (declineKeepFrontCancelled) return@postDelayed
                 if (isFinishing) return@postDelayed
+                if (pendingCallAction == CALL_ACTION_DECLINE) return@postDelayed
                 if (!openedFromCallIntent &&
                     pendingCallAction != CALL_ACTION_ANSWER &&
                     !SosIncomingCallSession.isAnsweredPhase(this)
@@ -690,6 +710,12 @@ class MainActivity : AppCompatActivity() {
                 keepCallTaskInFront("$reason-$delay")
             }, delay)
         }
+    }
+
+    private fun cancelPendingKeepFrontCallbacks() {
+        declineKeepFrontCancelled = true
+        // Handler has no remove-by-token list; flag gates all delayed keepFront.
+        SosDebugLog.i("call", "DECLINE_CANCEL_KEEPFRONT")
     }
 
     private fun keepCallTaskInFront(reason: String) {
@@ -717,12 +743,13 @@ class MainActivity : AppCompatActivity() {
                 else -> null
             }
         if (action == CALL_ACTION_DECLINE) {
-            mainHandler.postDelayed({
+            // Decline: move back immediately — never leave SOS flashing over WhatsApp.
+            mainHandler.post {
                 try {
                     moveTaskToBack(true)
                 } catch (_: Exception) {
                 }
-            }, 5500L)
+            }
         } else {
             moveTaskToBack(true)
         }
@@ -785,12 +812,21 @@ class MainActivity : AppCompatActivity() {
         }
         if (action == CALL_ACTION_DECLINE) {
             pendingAutoAccept = false
+            declineKeepFrontCancelled = true
+            cancelPendingKeepFrontCallbacks()
             clearWarmCallState("decline")
             val peer = intent.getStringExtra(EXTRA_CALL_PEER) ?: pendingDeepLinkPeer
+            SosSecureCallSessionStore.markActiveDeclined(applicationContext)
             SosIncomingCallSession.markDeclined(applicationContext, peer)
             SosPendingCallStore.clear(applicationContext)
             NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true, dismissUi = true)
+            NotificationHelper.cancelSecureVerifierWake(applicationContext)
             CallSoundHelper.stopAll()
+            SosDebugLog.i("call", "DECLINE_CANCEL_KEEPFRONT")
+            // Stay background — do not steal WhatsApp foreground.
+            mainHandler.post {
+                try { moveTaskToBack(true) } catch (_: Exception) {}
+            }
         }
         if (action == CALL_ACTION_HANGUP) {
             pendingAutoAccept = false
@@ -1130,6 +1166,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun injectNativeDecline(peer: String, callType: String) {
         if (!this::webView.isInitialized) return
+        declineKeepFrontCancelled = true
+        cancelPendingKeepFrontCallbacks()
         val peerJs = JSONObject.quote(peer)
         val typeJs = JSONObject.quote(callType)
         val js = """
@@ -1154,15 +1192,19 @@ class MainActivity : AppCompatActivity() {
             Log.i(TAG, "injected decline")
         } catch (_: Exception) {
         }
-        listOf(600L, 1200L, 2500L, 4000L, 6000L).forEach { delay ->
+        // At most one retry — session terminal guard makes further ends no-ops.
+        mainHandler.postDelayed({
+            if (!this::webView.isInitialized) return@postDelayed
+            if (pendingCallAction == CALL_ACTION_ANSWER) return@postDelayed
+            try {
+                webView.evaluateJavascript(js, null)
+            } catch (_: Exception) {
+            }
+            // After decline processing, stay in background / finish warm host if unused.
             mainHandler.postDelayed({
-                if (!this::webView.isInitialized) return@postDelayed
-                try {
-                    webView.evaluateJavascript(js, null)
-                } catch (_: Exception) {
-                }
-            }, delay)
-        }
+                try { moveTaskToBack(true) } catch (_: Exception) {}
+            }, 800L)
+        }, 700L)
     }
 
     private fun injectNativeHangup(peer: String, callType: String) {
@@ -2393,6 +2435,58 @@ class MainActivity : AppCompatActivity() {
             act.runOnUiThread {
                 try {
                     act.clearWarmCallState(reason)
+                } catch (_: Exception) {
+                }
+            }
+        }
+
+        fun cancelKeepFrontAfterDecline() {
+            val act = hostRef?.get()
+            if (act != null) {
+                act.runOnUiThread {
+                    try {
+                        act.declineKeepFrontCancelled = true
+                        act.cancelPendingKeepFrontCallbacks()
+                        act.moveTaskToBack(true)
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+            SosDebugLog.i("call", "DECLINE_CANCEL_KEEPFRONT")
+        }
+
+        /**
+         * After opaque verifier processes backlog with no fresh authenticated ring,
+         * release background WebView ownership so feed/P2P do not keep running.
+         */
+        fun verifyOnlyIdleShutdown() {
+            val act = hostRef?.get() ?: return
+            act.runOnUiThread {
+                try {
+                    if (act.verifyOnlyShutdownScheduled) return@runOnUiThread
+                    if (isHostAlive && !act.isBackgroundWarmIntent(act.intent)) return@runOnUiThread
+                    if (SosIncomingCallSession.isAnsweredPhase(act)) return@runOnUiThread
+                    if (!SosIncomingCallSession.ringingPeer(act).isNullOrBlank()) return@runOnUiThread
+                    act.verifyOnlyShutdownScheduled = true
+                    SosDebugLog.i("call", "VERIFY_ONLY_IDLE_SHUTDOWN")
+                    android.util.Log.i(TAG, "VERIFY_ONLY_IDLE_SHUTDOWN")
+                    act.clearWarmCallState("verify-only-idle")
+                    SosRelayWatcher.clearSecureWarmInFlight()
+                    NotificationHelper.cancelSecureVerifierWake(act)
+                    try {
+                        SosP2pOwner.onActivityGone(SosSessionStore.isP2pStandbyEnabled(act))
+                    } catch (_: Exception) {
+                    }
+                    act.mainHandler.postDelayed({
+                        try {
+                            if (isHostAlive && !act.isBackgroundWarmIntent(act.intent)) return@postDelayed
+                            if (!SosIncomingCallSession.ringingPeer(act).isNullOrBlank()) return@postDelayed
+                            act.moveTaskToBack(true)
+                            act.finishAndRemoveTask()
+                        } catch (_: Exception) {
+                            try { act.finish() } catch (_: Exception) {}
+                        }
+                    }, 2500L)
                 } catch (_: Exception) {
                 }
             }

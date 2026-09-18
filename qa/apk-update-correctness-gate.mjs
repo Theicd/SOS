@@ -59,8 +59,11 @@ record('Native getShellVersionCode = BuildConfig.VERSION_CODE',
   /fun getShellVersionCode\(\):\s*Int\s*=\s*BuildConfig\.VERSION_CODE/.test(bridgeSrc));
 
 const gradle = read('android-shell/app/build.gradle.kts');
-record('BuildConfig versionName 1.0.115', /versionName\s*=\s*"1\.0\.115"/.test(gradle));
-record('BuildConfig versionCode 116', /versionCode\s*=\s*116/.test(gradle));
+record('BuildConfig QA versionName 1.0.117', /versionName\s*=\s*"1\.0\.117"/.test(gradle));
+record('BuildConfig QA versionCode 118', /versionCode\s*=\s*118/.test(gradle));
+record('published apk-version stays 1.0.115 (not deployed)', 
+  JSON.parse(read('apk-version.json')).version === '1.0.115'
+  && Number(JSON.parse(read('apk-version.json')).versionCode) === 116);
 
 record('callSignalGiftWrapRequired true',
   JSON.parse(read('app-version.json')).callSignalGiftWrapRequired === true);

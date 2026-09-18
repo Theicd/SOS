@@ -48,6 +48,7 @@ class SosRelayWatcher(private val appContext: Context) {
             stop()
             return
         }
+        SosSecureWrapHandledStore.prune(appContext)
         // Idempotent: אם כבר רץ – רק משלימים ריליים חסרים, בלי לנתק סוקטים חיים | HYPER CORE TECH
         if (!running.compareAndSet(false, true)) {
             var missing = 0
@@ -60,11 +61,13 @@ class SosRelayWatcher(private val appContext: Context) {
             if (missing > 0) {
                 SosDebugLog.i("relay", "ensure missing=$missing pubkey=redacted")
             }
+            maybeRecoverPendingSecureWake()
             return
         }
         Log.i(TAG, "starting watcher")
         SosDebugLog.i("relay", "start watcher")
         RELAYS.forEach { url -> connectRelay(url, pubkey) }
+        maybeRecoverPendingSecureWake()
     }
 
     fun stop() {
@@ -292,22 +295,71 @@ class SosRelayWatcher(private val appContext: Context) {
      * historical wraps cannot starve a fresh offer sitting in the queue.
      */
     private fun handleSecureGiftWrap(event: JSONObject, eventId: String) {
-        val id = eventId.ifBlank { event.optString("id") }
-        if (id.isBlank()) return
-        // Opaque wake-dedupe only — NOT authenticated handled-offer state.
-        if (opaqueWakeSeen.contains(id)) {
+        val id = eventId.ifBlank { event.optString("id") }.trim().lowercase()
+        if (id.length < 8) return
+
+        // Durable HANDLED — Relay replay after process restart must not wake WebView.
+        if (SosSecureWrapHandledStore.isHandled(appContext, id)) {
+            rememberOpaqueWakeId(id)
+            Log.i(TAG, "SECURE_WAKE_REPLAY_DROP")
+            SosDebugLog.i("relay", "SECURE_WAKE_REPLAY_DROP")
             return
         }
+
+        // Already queued (pending, not yet drained) — no second wake.
+        if (SosPendingCallStore.containsSecureWrap(appContext, id) || opaqueWakeSeen.contains(id)) {
+            rememberOpaqueWakeId(id)
+            Log.i(TAG, "SECURE_WAKE_PENDING_DUP")
+            SosDebugLog.i("relay", "SECURE_WAKE_PENDING_DUP")
+            return
+        }
+
         val queued = try {
             SosPendingCallStore.enqueueSecureWrap(appContext, event.toString())
         } catch (err: Exception) {
             Log.w(TAG, "enqueue secure wrap failed: ${err.message}")
             false
         }
-        if (!queued) return
+        if (!queued) {
+            // Race: became handled or pending between checks.
+            if (SosSecureWrapHandledStore.isHandled(appContext, id)) {
+                Log.i(TAG, "SECURE_WAKE_REPLAY_DROP")
+                SosDebugLog.i("relay", "SECURE_WAKE_REPLAY_DROP")
+            } else {
+                Log.i(TAG, "SECURE_WAKE_PENDING_DUP")
+                SosDebugLog.i("relay", "SECURE_WAKE_PENDING_DUP")
+            }
+            return
+        }
         rememberOpaqueWakeId(id)
+        Log.i(TAG, "SECURE_WAKE_NEW")
+        SosDebugLog.i("relay", "SECURE_WAKE_NEW")
         Log.i(TAG, "SECURE_WAKE_QUEUED")
         SosDebugLog.i("relay", "SECURE_WAKE_QUEUED")
+        launchSecureVerifierWakeIfNeeded()
+    }
+
+    /**
+     * Process restart recovery: pending encrypted wraps must not depend on
+     * Relay replaying a duplicate as the only wake trigger.
+     */
+    private fun maybeRecoverPendingSecureWake() {
+        mainHandler.post {
+            try {
+                val pending = SosPendingCallStore.peekSecureWrapCount(appContext)
+                if (pending <= 0) return@post
+                if (MainActivity.isHostAlive) return@post
+                if (secureWarmInFlight || SecureCallWakeActivity.isLaunchInFlight()) return@post
+                Log.i(TAG, "SECURE_WAKE_RECOVERY_PENDING")
+                SosDebugLog.i("relay", "SECURE_WAKE_RECOVERY_PENDING")
+                launchSecureVerifierWakeIfNeeded(forceRecovery = true)
+            } catch (err: Exception) {
+                Log.w(TAG, "secure recovery wake failed: ${err.message}")
+            }
+        }
+    }
+
+    private fun launchSecureVerifierWakeIfNeeded(forceRecovery: Boolean = false) {
         // Foreground WebView shared 1059 dispatcher handles live events.
         if (MainActivity.isHostAlive) {
             Log.i(TAG, "SECURE_WAKE hostAlive – JS handles")
@@ -318,7 +370,7 @@ class SosRelayWatcher(private val appContext: Context) {
             Log.i(TAG, "SECURE_WAKE queued (warm in-flight)")
             return
         }
-        if (!allowSecureWake()) {
+        if (!forceRecovery && !allowSecureWake()) {
             // Still queued — do not drop; next wake window or existing warm drains.
             Log.i(TAG, "SECURE_WAKE rate-limited (kept in queue)")
             if (SosPendingCallStore.peekSecureWrapCount(appContext) > 0 &&
@@ -330,6 +382,12 @@ class SosRelayWatcher(private val appContext: Context) {
                 return
             }
             if (!allowSecureWake()) return
+        } else if (forceRecovery) {
+            // One bounded recovery wake — ignore short debounce but still count window.
+            if (!allowSecureWake()) {
+                secureWakeCount = 0
+                if (!allowSecureWake()) return
+            }
         }
         secureWarmInFlight = true
         lastSecureWakeAt = System.currentTimeMillis()

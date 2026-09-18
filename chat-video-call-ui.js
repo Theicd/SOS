@@ -922,6 +922,11 @@
 
   App.declineIncomingVideoCallFromNative = async function declineIncomingVideoCallFromNative(peerPubkey) {
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (App.__videoIncomingPeer || '');
+    if (window.__sosDeclineTerminalPeer === peer && Date.now() < (window.__sosDeclineTerminalUntil || 0)) {
+      return true;
+    }
+    window.__sosDeclineTerminalPeer = peer;
+    window.__sosDeclineTerminalUntil = Date.now() + 120000;
     window.__sosNativePendingDecline = { peer, until: Date.now() + 45000 };
     window.__sosNativePendingAnswer = null;
     userDeclinedVideoCall = true;
@@ -934,13 +939,19 @@
       if (bridge && typeof bridge.markIncomingCallDeclined === 'function') {
         bridge.markIncomingCallDeclined(peer);
       }
+      if (bridge && typeof bridge.stopCallSounds === 'function') {
+        bridge.stopCallSounds();
+      }
     } catch (_) {}
     closeDialog();
+    try {
+      if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+    } catch (_) {}
     try {
       if (App.videoCall && typeof App.videoCall.rejectIncoming === 'function' && peer) {
         await App.videoCall.rejectIncoming(peer);
       } else if (App.videoCall) {
-        await App.videoCall.end();
+        await App.videoCall.end({ declined: true });
       }
     } catch (_) {}
     window.__sosNativePendingDecline = null;
