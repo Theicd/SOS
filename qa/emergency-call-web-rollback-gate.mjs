@@ -95,13 +95,12 @@ record('G call push incoming path not active for production send',
 record('H no android-shell changes in this rollback',
   execSync('git diff --name-only HEAD -- android-shell', { cwd: ROOT, encoding: 'utf8' }).trim() === ''
   && execSync('git diff --cached --name-only -- android-shell', { cwd: ROOT, encoding: 'utf8' }).trim() === '');
-record('H public APK is 1.0.118 / 119',
-  apkVer.version === '1.0.118' && Number(apkVer.versionCode) === 119);
-// Emergency historical gate: ACK may be restored by later fastwake RC — soft note
-record('I SW sos-cache-v850 (fastwake publish)',
-  /sos-cache-v850/.test(sw));
-record('I web version secure-call-fastwake1 or rollback',
-  String(appVer.version || '').includes('call-bg-rollback1')
+record('H public APK is 1.0.119 / 120',
+  apkVer.version === '1.0.119' && Number(apkVer.versionCode) === 120);
+record('I SW sos-cache-v851',
+  /sos-cache-v851/.test(sw));
+record('I web version call-wake-hangup1 or later',
+  String(appVer.version || '').includes('call-wake-hangup1')
   || String(appVer.version || '').includes('secure-call-fastwake1'));
 record('I call script cache-busters present',
   /call-signal-e2ee\.js\?v=20260918/.test(videos)

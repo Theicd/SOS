@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.18-secure-call-fastwake1",
-  "buildTime": "2026-09-18T15:00:00+03:00",
-  "notes": "Secure call fast verifier Web+Native cutover. Minimal verifier for background ring; ACK/peek restored; CALL_STARTED requires 1059 relay ACK. Public APK 1.0.118/119. callSignalGiftWrapRequired TRUE.",
+  "version": "2026.09.18-call-wake-hangup1",
+  "buildTime": "2026-09-18T23:50:00+03:00",
+  "notes": "Call wake delivery watchdog + connected hangup is END not DECLINE. Public APK 1.0.119/120. callSignalGiftWrapRequired TRUE.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,

@@ -122,12 +122,12 @@ record('asset verifier bundles e2ee + nostr',
   fs.existsSync(path.join(ROOT, 'android-shell/app/src/main/assets/secure-call-verifier/nostr.bundle.min.js'))
   && /publishCallSignal/.test(assetE2ee)
   && /__sosSecureVerifierOnly/.test(verifierJs));
-record('QA APK version 1.0.118 / 119',
-  /versionName\s*=\s*"1\.0\.118"/.test(gradle)
-  && /versionCode\s*=\s*119/.test(gradle)
-  && /shell=118/.test(gradle));
-record('public apk-version is 1.0.118 / 119',
-  apkPublic.version === '1.0.118' && Number(apkPublic.versionCode) === 119);
+record('QA APK version 1.0.119 / 120',
+  /versionName\s*=\s*"1\.0\.119"/.test(gradle)
+  && /versionCode\s*=\s*120/.test(gradle)
+  && /shell=119/.test(gradle));
+record('public apk-version is 1.0.119 / 120',
+  apkPublic.version === '1.0.119' && Number(apkPublic.versionCode) === 120);
 record('CALL_SEND instrumentation present',
   /CALL_SEND_ENTER/.test(e2ee)
   && /CALL_SEND_POLICY_REQUIRED/.test(e2ee)

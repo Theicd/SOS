@@ -108,8 +108,8 @@ record('QA shell 1.0.119 / 120 / shell=119',
   /versionName\s*=\s*"1\.0\.119"/.test(gradle)
   && /versionCode\s*=\s*120/.test(gradle)
   && /shell=119/.test(gradle));
-record('public apk-version not republished as 1.0.119',
-  apk.version !== '1.0.119');
+record('public apk-version is 1.0.119 / 120',
+  apk.version === '1.0.119' && Number(apk.versionCode) === 120);
 record('fallback logs present',
   /SECURE_VERIFIER_FALLBACK_SEND/.test(notify)
   && /SECURE_VERIFIER_FALLBACK_OK/.test(notify)
