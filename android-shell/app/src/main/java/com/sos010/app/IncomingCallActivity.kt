@@ -369,6 +369,10 @@ class IncomingCallActivity : AppCompatActivity() {
                 ActivityOptions.makeBasic().apply {
                     pendingIntentBackgroundActivityStartMode =
                         ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                    // System (FSI) is the sender. Creator must opt in or the launch is dropped.
+                    setPendingIntentCreatorBackgroundActivityStartMode(
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                    )
                 }.toBundle()
             } catch (_: Exception) {
                 null

@@ -104,15 +104,16 @@ record('19 video secure disconnect path retained',
   && /disconnect|v-disconnect/.test(read('chat-video-call.js')));
 record('20 P2P unchanged file present',
   /MAX_IN_FLIGHT|datachannel/i.test(p2p) && fs.existsSync(path.join(ROOT, 'chat-p2p-datachannel.js')));
-record('QA shell 1.0.119 / 120 / shell=119',
-  /versionName\s*=\s*"1\.0\.119"/.test(gradle)
-  && /versionCode\s*=\s*120/.test(gradle)
-  && /shell=119/.test(gradle));
+record('QA shell 1.0.120 / 121 / shell=120',
+  /versionName\s*=\s*"1\.0\.120"/.test(gradle)
+  && /versionCode\s*=\s*121/.test(gradle)
+  && /shell=120/.test(gradle));
 record('public apk-version is 1.0.119 / 120',
   apk.version === '1.0.119' && Number(apk.versionCode) === 120);
 record('fallback logs present',
   /SECURE_VERIFIER_FALLBACK_SEND/.test(notify)
-  && /SECURE_VERIFIER_FALLBACK_OK/.test(notify)
+  && /SECURE_VERIFIER_FALLBACK_SENT/.test(notify)
+  && !/SECURE_VERIFIER_FALLBACK_OK/.test(notify)
   && /SECURE_VERIFIER_FALLBACK_BLOCKED/.test(notify));
 record('MODE_BACKGROUND_ACTIVITY_START_ALLOWED retained',
   /MODE_BACKGROUND_ACTIVITY_START_ALLOWED/.test(read('android-shell/app/src/main/java/com/sos010/app/IncomingCallActivity.kt')));

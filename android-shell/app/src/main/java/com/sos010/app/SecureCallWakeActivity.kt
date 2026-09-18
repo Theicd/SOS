@@ -47,6 +47,7 @@ class SecureCallWakeActivity : Activity() {
         }
 
         val recovery = intent?.getBooleanExtra(EXTRA_RECOVERY, false) == true
+        logLaunchEntry(intent)
         Log.i(TAG, if (recovery) "SECURE_WAKE_RECOVERY" else "SECURE_WAKE_LIVE")
         SosDebugLog.i("call", if (recovery) "SECURE_WAKE_RECOVERY" else "SECURE_WAKE_LIVE")
         noteActivityStarted()
@@ -268,9 +269,15 @@ class SecureCallWakeActivity : Activity() {
         private const val WAKE_MS = 45_000L
         private const val VERIFIER_MAX_MS = 25_000L
         const val EXTRA_RECOVERY = "secure_wake_recovery"
+        const val EXTRA_LAUNCH_ENTRY = "secure_verifier_entry"
+        const val ENTRY_FSI = "fsi"
+        const val ENTRY_CONTENT = "content"
+        const val ENTRY_FALLBACK = "fallback"
+        const val ENTRY_DIRECT = "direct"
 
         private val launchInFlight = AtomicBoolean(false)
         private val activityStarted = AtomicBoolean(false)
+        private val fallbackUsed = AtomicBoolean(false)
         private val attemptsThisCycle = java.util.concurrent.atomic.AtomicInteger(0)
         private val launchGeneration = java.util.concurrent.atomic.AtomicInteger(0)
         @Volatile private var lastLaunchElapsed = 0L
@@ -288,8 +295,14 @@ class SecureCallWakeActivity : Activity() {
         fun noteActivityStarted() {
             activityStarted.set(true)
             attemptsThisCycle.set(0)
+            fallbackUsed.set(false)
             launchGeneration.incrementAndGet()
         }
+
+        /** True only the first time in this cycle. A second fallback must not run. */
+        fun markFallbackUsed(): Boolean = fallbackUsed.compareAndSet(false, true)
+
+        fun fallbackAlreadyUsed(): Boolean = fallbackUsed.get()
 
         fun consumeLaunchAttempt(): Boolean {
             val n = attemptsThisCycle.incrementAndGet()
@@ -300,6 +313,7 @@ class SecureCallWakeActivity : Activity() {
 
         fun resetAttemptCycle() {
             attemptsThisCycle.set(0)
+            fallbackUsed.set(false)
         }
 
         /**
@@ -333,14 +347,27 @@ class SecureCallWakeActivity : Activity() {
 
         fun isLaunchInFlight(): Boolean = launchInFlight.get()
 
-        fun verifierIntent(context: Context, recovery: Boolean = false): Intent {
+        fun verifierIntent(context: Context, recovery: Boolean = false, entry: String? = null): Intent {
             return Intent(context, SecureCallWakeActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
                     Intent.FLAG_ACTIVITY_SINGLE_TOP or
                     Intent.FLAG_ACTIVITY_NO_USER_ACTION
                 putExtra(EXTRA_RECOVERY, recovery)
+                if (!entry.isNullOrBlank()) putExtra(EXTRA_LAUNCH_ENTRY, entry)
             }
+        }
+
+        fun logLaunchEntry(intent: Intent?) {
+            val line = when (intent?.getStringExtra(EXTRA_LAUNCH_ENTRY)) {
+                ENTRY_FSI -> "SECURE_VERIFIER_ENTRY_FSI"
+                ENTRY_CONTENT -> "SECURE_VERIFIER_ENTRY_CONTENT_TAP"
+                ENTRY_FALLBACK -> "SECURE_VERIFIER_ENTRY_FALLBACK"
+                ENTRY_DIRECT -> "SECURE_VERIFIER_ENTRY_DIRECT"
+                else -> "SECURE_VERIFIER_ENTRY_UNKNOWN"
+            }
+            Log.i(TAG, line)
+            SosDebugLog.i("call", line)
         }
     }
 }
