@@ -1,4 +1,2 @@
 ﻿# APKs must NOT live in this git folder.
-# Sole public install target is GitHub Releases (latest only):
-# https://github.com/Theicd/SOS/releases/latest
 *.apk
