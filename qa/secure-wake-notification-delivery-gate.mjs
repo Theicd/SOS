@@ -121,8 +121,8 @@ record('QA shell 1.0.122 / 123 / shell=122',
   /versionName\s*=\s*"1\.0\.122"/.test(gradle)
   && /versionCode\s*=\s*123/.test(gradle)
   && /shell=122/.test(gradle));
-record('public apk-version is 1.0.121 / 122',
-  apk.version === '1.0.121' && Number(apk.versionCode) === 122);
+record('public apk-version is 1.0.122 / 123',
+  apk.version === '1.0.122' && Number(apk.versionCode) === 123);
 record('phoneCall service is screen-on delivery only',
   /foregroundServiceType="phoneCall"/.test(manifest)
   && /FOREGROUND_SERVICE_PHONE_CALL/.test(manifest)

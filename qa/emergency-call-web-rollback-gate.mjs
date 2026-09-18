@@ -95,13 +95,13 @@ record('G call push incoming path not active for production send',
 record('H no android-shell changes in this rollback',
   execSync('git diff --name-only HEAD -- android-shell', { cwd: ROOT, encoding: 'utf8' }).trim() === ''
   && execSync('git diff --cached --name-only -- android-shell', { cwd: ROOT, encoding: 'utf8' }).trim() === '');
-record('H public APK is 1.0.121 / 122',
-  apkVer.version === '1.0.121' && Number(apkVer.versionCode) === 122);
-record('I SW sos-cache-v853',
-  /sos-cache-v853/.test(sw));
-record('I web version native-call-verify1 or later',
-  String(appVer.version || '').includes('native-call-verify1')
-  || String(appVer.version || '').includes('secure-wake-delivery1'));
+record('H public APK is 1.0.122 / 123',
+  apkVer.version === '1.0.122' && Number(apkVer.versionCode) === 123);
+record('I SW sos-cache-v854',
+  /sos-cache-v854/.test(sw));
+record('I web version native-nostr-interop1 or later',
+  String(appVer.version || '').includes('native-nostr-interop1')
+  || String(appVer.version || '').includes('native-call-verify1'));
 record('I call script cache-busters present',
   /call-signal-e2ee\.js\?v=20260918/.test(videos)
   && /chat-deeplink\.js\?v=20260918/.test(videos));

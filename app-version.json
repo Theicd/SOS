@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.19-native-call-verify1",
-  "buildTime": "2026-09-19T01:25:00+03:00",
-  "notes": "Public APK 1.0.121/122. Native NIP59 verification rings without a wake Activity. callSignalGiftWrapRequired TRUE.",
+  "version": "2026.09.19-native-nostr-interop1",
+  "buildTime": "2026-09-19T02:25:00+03:00",
+  "notes": "Public APK 1.0.122/123. Native Nostr event id matches nostr-tools. callSignalGiftWrapRequired TRUE.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,

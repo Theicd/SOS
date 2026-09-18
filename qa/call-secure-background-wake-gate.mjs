@@ -121,8 +121,8 @@ record('secure queue MAX 32', /MAX_SECURE_WRAPS\s*=\s*32|maxSecure.*=\s*32|32/.t
 record('policy remains callSignalGiftWrapRequired true', appVer.callSignalGiftWrapRequired === true);
 record('APK QA version 1.0.122 / 123',
   /versionName\s*=\s*"1\.0\.122"/.test(gradle) && /versionCode\s*=\s*123/.test(gradle));
-record('production web version native-call-verify1',
-  String(appVer.version || '').includes('native-call-verify1'));
+record('production web version native-nostr-interop1',
+  String(appVer.version || '').includes('native-nostr-interop1'));
 record('durable handled store present',
   fs.existsSync(path.join(ROOT, 'android-shell/app/src/main/java/com/sos010/app/SosSecureWrapHandledStore.kt')));
 record('SECURE_WAKE_REPLAY_DROP log', /SECURE_WAKE_REPLAY_DROP/.test(watcher));
@@ -132,18 +132,18 @@ record('session tombstone store present',
   fs.existsSync(path.join(ROOT, 'android-shell/app/src/main/java/com/sos010/app/SosSecureCallSessionStore.kt')));
 record('DECLINE_CANCEL_KEEPFRONT present', /DECLINE_CANCEL_KEEPFRONT/.test(main) || /DECLINE_CANCEL_KEEPFRONT/.test(bridge));
 record('VERIFY_ONLY_IDLE_SHUTDOWN present', /VERIFY_ONLY_IDLE_SHUTDOWN/.test(main));
-record('SW cache v853', /sos-cache-v853/.test(read('service-worker.js')));
-record('public APK is 1.0.121',
-  JSON.parse(read('apk-version.json')).version === '1.0.121'
-  && Number(JSON.parse(read('apk-version.json')).versionCode) === 122);
+record('SW cache v854', /sos-cache-v854/.test(read('service-worker.js')));
+record('public APK is 1.0.122',
+  JSON.parse(read('apk-version.json')).version === '1.0.122'
+  && Number(JSON.parse(read('apk-version.json')).versionCode) === 123);
 record('session-terminal WEB ACK restored for fastwake',
   /ackSecureWrapHandledToNative/.test(read('call-signal-e2ee.js')));
 record('QA shell version 1.0.122 / 123',
   /versionName\s*=\s*"1\.0\.122"/.test(read('android-shell/app/build.gradle.kts'))
   && /versionCode\s*=\s*123/.test(read('android-shell/app/build.gradle.kts')));
-record('public APK pointer is 1.0.121',
-  JSON.parse(read('apk-version.json')).version === '1.0.121'
-  && Number(JSON.parse(read('apk-version.json')).versionCode) === 122);
+record('public APK pointer is 1.0.122',
+  JSON.parse(read('apk-version.json')).version === '1.0.122'
+  && Number(JSON.parse(read('apk-version.json')).versionCode) === 123);
 record('minimal verifier asset present',
   fs.existsSync(path.join(ROOT, 'android-shell/app/src/main/assets/secure-call-verifier/index.html')));
 
