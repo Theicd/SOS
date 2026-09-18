@@ -49,6 +49,9 @@ class SecureCallWakeActivity : Activity() {
         val recovery = intent?.getBooleanExtra(EXTRA_RECOVERY, false) == true
         Log.i(TAG, if (recovery) "SECURE_WAKE_RECOVERY" else "SECURE_WAKE_LIVE")
         SosDebugLog.i("call", if (recovery) "SECURE_WAKE_RECOVERY" else "SECURE_WAKE_LIVE")
+        noteActivityStarted()
+        Log.i(TAG, "SECURE_VERIFIER_ACTIVITY_STARTED")
+        SosDebugLog.i("call", "SECURE_VERIFIER_ACTIVITY_STARTED")
         Log.i(TAG, "SECURE_VERIFIER_START")
         SosDebugLog.i("call", "SECURE_VERIFIER_START")
         Log.i(TAG, "SECURE_VERIFIER_ACTIVE")
@@ -267,29 +270,65 @@ class SecureCallWakeActivity : Activity() {
         const val EXTRA_RECOVERY = "secure_wake_recovery"
 
         private val launchInFlight = AtomicBoolean(false)
+        private val activityStarted = AtomicBoolean(false)
+        private val attemptsThisCycle = java.util.concurrent.atomic.AtomicInteger(0)
+        private val launchGeneration = java.util.concurrent.atomic.AtomicInteger(0)
         @Volatile private var lastLaunchElapsed = 0L
         private val instanceRef = AtomicReference<SecureCallWakeActivity?>(null)
 
+        const val MAX_LAUNCH_ATTEMPTS = 2
+
         fun currentOrNull(): SecureCallWakeActivity? = instanceRef.get()
 
-        /** Returns true if this process may launch the verifier now. */
-        fun tryBeginLaunch(): Boolean {
+        fun isActivityStarted(): Boolean = activityStarted.get() && instanceRef.get() != null
+
+        fun launchGeneration(): Int = launchGeneration.get()
+
+        /** Requested != started. onCreate is the only proof of delivery. */
+        fun noteActivityStarted() {
+            activityStarted.set(true)
+            attemptsThisCycle.set(0)
+            launchGeneration.incrementAndGet()
+        }
+
+        fun consumeLaunchAttempt(): Boolean {
+            val n = attemptsThisCycle.incrementAndGet()
+            return n <= MAX_LAUNCH_ATTEMPTS
+        }
+
+        fun canAttemptFallback(): Boolean = attemptsThisCycle.get() < MAX_LAUNCH_ATTEMPTS
+
+        fun resetAttemptCycle() {
+            attemptsThisCycle.set(0)
+        }
+
+        /**
+         * Returns true if this process may request a verifier launch now.
+         * Does NOT mean the Activity was created.
+         */
+        fun tryBeginLaunch(bypassDedupe: Boolean = false): Boolean {
             val now = SystemClock.elapsedRealtime()
-            if (launchInFlight.get()) {
+            if (instanceRef.get() != null) {
                 Log.i(TAG, "SECURE_VERIFIER_LAUNCH skipped (active)")
                 return false
             }
-            if (now - lastLaunchElapsed < 8_000L) {
+            if (launchInFlight.get() && !bypassDedupe) {
+                Log.i(TAG, "SECURE_VERIFIER_LAUNCH skipped (active)")
+                return false
+            }
+            if (!bypassDedupe && now - lastLaunchElapsed < 8_000L && attemptsThisCycle.get() == 0) {
                 Log.i(TAG, "SECURE_VERIFIER_LAUNCH skipped (dedupe)")
                 return false
             }
-            if (!launchInFlight.compareAndSet(false, true)) return false
+            launchInFlight.set(true)
+            activityStarted.set(false)
             lastLaunchElapsed = now
             return true
         }
 
         fun clearLaunchInFlight() {
             launchInFlight.set(false)
+            if (instanceRef.get() == null) activityStarted.set(false)
         }
 
         fun isLaunchInFlight(): Boolean = launchInFlight.get()

@@ -961,6 +961,7 @@
       await App.voiceCall.accept(peerPubkey, offer);
       incomingOffer = null;
       incomingOfferPeer = null;
+      try { window.__sosNativePendingDecline = null; } catch (_) {}
       clearPersistedIncomingOffer();
       if (!window.__sosNativeInCallUi) {
         updateCallStatus('מתחבר...');
@@ -982,15 +983,19 @@
 
   // חלק שיחות קול (chat-voice-call-ui.js) – טיפול בניתוק/דחייה | HYPER CORE TECH
   function handleEndCall() {
-    // סימון שהמשתמש דחה את השיחה באופן יזום (אם זו שיחה נכנסת שעדיין לא נענתה)
-    if (incomingOffer) {
+    const stillRinging = !!incomingOffer;
+    const peer = incomingOfferPeer || '';
+    if (stillRinging) {
       userDeclinedCall = true;
+    } else {
+      try { window.__sosNativePendingDecline = null; } catch (_) {}
     }
     try {
-      const peer = incomingOfferPeer || '';
       const bridge = window.SosNativeShell;
-      if (bridge && typeof bridge.markIncomingCallDeclined === 'function') {
+      if (stillRinging && bridge && typeof bridge.markIncomingCallDeclined === 'function') {
         bridge.markIncomingCallDeclined(peer);
+      } else if (bridge && typeof bridge.markIncomingCallEnded === 'function') {
+        bridge.markIncomingCallEnded(peer);
       } else if (typeof App.nativeStopCallSounds === 'function') {
         App.nativeStopCallSounds();
       }

@@ -726,6 +726,7 @@
       videoAcceptStarted = true;
       await App.videoCall.accept(peer, offer, { createdAt: App.__videoIncomingOfferCreatedAt });
       App.__videoIncomingOffer = null;
+      try { window.__sosNativePendingDecline = null; } catch (_) {}
       setStatus('מתחבר...');
       return true;
     } catch(e){
@@ -748,8 +749,11 @@
     } catch {}
     try {
       const bridge = window.SosNativeShell;
-      if (bridge && typeof bridge.markIncomingCallDeclined === 'function') {
+      if (shouldMarkDeclined && bridge && typeof bridge.markIncomingCallDeclined === 'function') {
         bridge.markIncomingCallDeclined(peer);
+      } else if (!shouldMarkDeclined && bridge && typeof bridge.markIncomingCallEnded === 'function') {
+        try { window.__sosNativePendingDecline = null; } catch (_) {}
+        bridge.markIncomingCallEnded(peer);
       }
     } catch (_) {}
     closeDialog();

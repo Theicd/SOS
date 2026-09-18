@@ -258,8 +258,16 @@ class SosJsBridge(
 
     @JavascriptInterface
     fun markIncomingCallDeclined(peer: String?) {
+        val app = context.applicationContext
+        // Connected/answered hangup must not be recorded as decline or send SOS to the launcher.
+        if (SosIncomingCallSession.isAnsweredPhase(app)) {
+            Log.i(TAG, "DECLINE_IGNORED_AFTER_ANSWER")
+            SosDebugLog.i("call", "DECLINE_IGNORED_AFTER_ANSWER")
+            markIncomingCallEnded(peer)
+            return
+        }
         // Terminal: tombstone active session BEFORE clearing UI/sounds.
-        SosSecureCallSessionStore.markActiveDeclined(context.applicationContext)
+        SosSecureCallSessionStore.markActiveDeclined(app)
         SosIncomingCallSession.markDeclined(context.applicationContext, peer)
         rememberPendingOfferId()
         SosPendingCallStore.clear(context.applicationContext)
@@ -295,6 +303,8 @@ class SosJsBridge(
     @JavascriptInterface
     fun markIncomingCallAnswered(peer: String?) {
         SosIncomingCallSession.markAnswered(context.applicationContext, peer)
+        Log.i(TAG, "ANSWER_CLEARS_PENDING_DECLINE")
+        SosDebugLog.i("call", "ANSWER_CLEARS_PENDING_DECLINE")
         rememberPendingOfferId()
         NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true, dismissUi = false)
         clearHostWarmState()

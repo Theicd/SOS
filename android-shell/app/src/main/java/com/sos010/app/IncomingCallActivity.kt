@@ -187,6 +187,8 @@ class IncomingCallActivity : AppCompatActivity() {
         if (handled) return
         handled = true
         SosIncomingCallSession.markAnswered(applicationContext, peer)
+        SosDebugLog.i("call", "ANSWER_CLEARS_PENDING_DECLINE")
+        android.util.Log.i("IncomingCall", "ANSWER_CLEARS_PENDING_DECLINE")
         rememberPendingOfferHandled()
         NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true, dismissUi = false)
         CallSoundHelper.stopRingtone()

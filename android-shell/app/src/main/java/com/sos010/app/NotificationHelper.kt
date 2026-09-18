@@ -12,6 +12,8 @@ import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -408,42 +410,123 @@ object NotificationHelper {
 
     /**
      * Opaque secure 1059 verifier wake — NOT an incoming call.
-     * Uses full-screen PendingIntent so Android allows Activity start when
-     * MainActivity is destroyed / screen is off. No peer/media/caller metadata.
+     * FSI notify is only a request. Activity onCreate is the delivery proof.
+     * No peer/media/caller metadata.
      */
     fun showSecureVerifierWake(context: Context, recovery: Boolean = false) {
-        if (!SecureCallWakeActivity.tryBeginLaunch()) {
+        val app = context.applicationContext
+        val fsiAllowed = isFullScreenIntentAllowed(app)
+        Log.i("NotificationHelper", "SECURE_VERIFIER_FSI_ALLOWED=$fsiAllowed")
+        SosDebugLog.i("call", "SECURE_VERIFIER_FSI_ALLOWED=$fsiAllowed")
+        if (!fsiAllowed) {
+            // Do not pretend FSI succeeded. Queue stays pending. One bounded fallback.
+            sendVerifierFallback(app, recovery)
+            return
+        }
+        requestVerifierLaunch(app, recovery, fallback = false)
+    }
+
+    private fun isFullScreenIntentAllowed(app: Context): Boolean {
+        if (Build.VERSION.SDK_INT < 34) return true
+        return try {
+            val nm = app.getSystemService(NotificationManager::class.java)
+            nm?.canUseFullScreenIntent() == true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun requestVerifierLaunch(app: Context, recovery: Boolean, fallback: Boolean) {
+        if (!SecureCallWakeActivity.tryBeginLaunch(bypassDedupe = fallback)) {
             SosDebugLog.i("call", "SECURE_VERIFIER_LAUNCH skipped")
             return
         }
-        ensureChannels(context)
-        val app = context.applicationContext
+        if (!SecureCallWakeActivity.consumeLaunchAttempt()) {
+            SecureCallWakeActivity.clearLaunchInFlight()
+            SosRelayWatcher.clearSecureWarmInFlight()
+            SecureCallWakeActivity.resetAttemptCycle()
+            Log.i("NotificationHelper", "SECURE_VERIFIER_FALLBACK_BLOCKED")
+            SosDebugLog.i("call", "SECURE_VERIFIER_FALLBACK_BLOCKED")
+            return
+        }
+        ensureChannels(app)
         val verifierIntent = SecureCallWakeActivity.verifierIntent(app, recovery = recovery)
         val fullScreenPi = activityPendingIntent(app, SECURE_VERIFIER_WAKE_ID, verifierIntent)
-        val builder = NotificationCompat.Builder(app, CHANNEL_SECURE_WAKE)
-            .setSmallIcon(R.drawable.ic_stat_sos)
-            .setContentTitle(app.getString(R.string.secure_wake_title))
-            .setContentText(app.getString(R.string.secure_wake_body))
-            .setContentIntent(fullScreenPi)
-            .setFullScreenIntent(fullScreenPi, true)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
-            .setSilent(true)
-            .setSound(null)
-            .setVibrate(null)
-            .setAutoCancel(true)
-            .setOngoing(false)
-            .setTimeoutAfter(20_000L)
-            .setOnlyAlertOnce(true)
-        try {
-            NotificationManagerCompat.from(app).notify(SECURE_VERIFIER_WAKE_ID, builder.build())
-            Log.i("NotificationHelper", "SECURE_VERIFIER_LAUNCH")
-            SosDebugLog.i("call", "SECURE_VERIFIER_LAUNCH")
-        } catch (err: Exception) {
-            SecureCallWakeActivity.clearLaunchInFlight()
-            SosDebugLog.i("call", "SECURE_VERIFIER_LAUNCH fail ${err.message}")
+        val generation = SecureCallWakeActivity.launchGeneration()
+        if (!fallback) {
+            val builder = NotificationCompat.Builder(app, CHANNEL_SECURE_WAKE)
+                .setSmallIcon(R.drawable.ic_stat_sos)
+                .setContentTitle(app.getString(R.string.secure_wake_title))
+                .setContentText(app.getString(R.string.secure_wake_body))
+                .setContentIntent(fullScreenPi)
+                .setFullScreenIntent(fullScreenPi, true)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+                .setSilent(true)
+                .setSound(null)
+                .setVibrate(null)
+                .setAutoCancel(true)
+                .setOngoing(false)
+                .setTimeoutAfter(20_000L)
+                .setOnlyAlertOnce(true)
+            try {
+                NotificationManagerCompat.from(app).notify(SECURE_VERIFIER_WAKE_ID, builder.build())
+                Log.i("NotificationHelper", "SECURE_VERIFIER_LAUNCH_REQUESTED")
+                SosDebugLog.i("call", "SECURE_VERIFIER_LAUNCH_REQUESTED")
+            } catch (err: Exception) {
+                SecureCallWakeActivity.clearLaunchInFlight()
+                SosRelayWatcher.clearSecureWarmInFlight()
+                SosDebugLog.i("call", "SECURE_VERIFIER_LAUNCH fail ${err.message}")
+                return
+            }
+        } else {
+            Log.i("NotificationHelper", "SECURE_VERIFIER_FALLBACK_SEND")
+            SosDebugLog.i("call", "SECURE_VERIFIER_FALLBACK_SEND")
+            try {
+                val opts = IncomingCallActivity.backgroundStartOptions()
+                if (opts != null && Build.VERSION.SDK_INT >= 34) {
+                    fullScreenPi.send(app, 0, null, null, null, null, opts)
+                } else {
+                    fullScreenPi.send()
+                }
+                Log.i("NotificationHelper", "SECURE_VERIFIER_FALLBACK_OK")
+                SosDebugLog.i("call", "SECURE_VERIFIER_FALLBACK_OK")
+            } catch (err: Exception) {
+                Log.i("NotificationHelper", "SECURE_VERIFIER_FALLBACK_BLOCKED")
+                SosDebugLog.i("call", "SECURE_VERIFIER_FALLBACK_BLOCKED")
+                Handler(Looper.getMainLooper()).postDelayed({
+                    if (SecureCallWakeActivity.currentOrNull() == null) {
+                        SecureCallWakeActivity.clearLaunchInFlight()
+                        SosRelayWatcher.clearSecureWarmInFlight()
+                        SecureCallWakeActivity.resetAttemptCycle()
+                    }
+                }, 400L)
+                return
+            }
         }
+        scheduleVerifierDeliveryWatchdog(app, recovery, generation)
+    }
+
+    private fun sendVerifierFallback(app: Context, recovery: Boolean) {
+        requestVerifierLaunch(app, recovery, fallback = true)
+    }
+
+    private fun scheduleVerifierDeliveryWatchdog(app: Context, recovery: Boolean, generation: Int) {
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (SecureCallWakeActivity.currentOrNull() != null) return@postDelayed
+            if (SecureCallWakeActivity.isActivityStarted()) return@postDelayed
+            if (SecureCallWakeActivity.launchGeneration() != generation) return@postDelayed
+            Log.i("NotificationHelper", "SECURE_VERIFIER_START_TIMEOUT")
+            SosDebugLog.i("call", "SECURE_VERIFIER_START_TIMEOUT")
+            SecureCallWakeActivity.clearLaunchInFlight()
+            SosRelayWatcher.clearSecureWarmInFlight()
+            if (!SecureCallWakeActivity.canAttemptFallback()) {
+                SecureCallWakeActivity.resetAttemptCycle()
+                return@postDelayed
+            }
+            sendVerifierFallback(app, recovery)
+        }, 2_000L)
     }
 
     fun cancelSecureVerifierWake(context: Context) {
