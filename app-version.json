@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.18-call-session-terminal1",
-  "buildTime": "2026-09-18T10:40:00+03:00",
-  "notes": "Web call-session terminal cutover: durable 1059 ACK, session tombstone, one-ring, decline terminal, deeplink consume, verify-only idle shutdown. Public APK remains 1.0.115/116. QA APK 1.0.117 manual only. callSignalGiftWrapRequired TRUE.",
+  "version": "2026.09.18-call-session-apk117",
+  "buildTime": "2026-09-18T13:40:00+03:00",
+  "notes": "Publish sole public APK 1.0.117 / code118 (call-session terminal + durable 1059 ACK + native avatar). callSignalGiftWrapRequired TRUE. Older GitHub APK releases removed per latest-only policy.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,
