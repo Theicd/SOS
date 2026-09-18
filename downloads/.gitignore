@@ -1,4 +1,2 @@
-# APK served for one-tap Android install
+﻿# APKs must NOT live in this git folder.
 *.apk
-!SOS.apk
-!SOS-*.apk
