@@ -126,8 +126,8 @@ record('QA APK version 1.0.120 / 121',
   /versionName\s*=\s*"1\.0\.120"/.test(gradle)
   && /versionCode\s*=\s*121/.test(gradle)
   && /shell=120/.test(gradle));
-record('public apk-version is 1.0.119 / 120',
-  apkPublic.version === '1.0.119' && Number(apkPublic.versionCode) === 120);
+record('public apk-version is 1.0.120 / 121',
+  apkPublic.version === '1.0.120' && Number(apkPublic.versionCode) === 121);
 record('CALL_SEND instrumentation present',
   /CALL_SEND_ENTER/.test(e2ee)
   && /CALL_SEND_POLICY_REQUIRED/.test(e2ee)

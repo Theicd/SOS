@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.18-call-wake-hangup1",
-  "buildTime": "2026-09-18T23:50:00+03:00",
-  "notes": "Call wake delivery watchdog + connected hangup is END not DECLINE. Public APK 1.0.119/120. callSignalGiftWrapRequired TRUE.",
+  "version": "2026.09.19-secure-wake-delivery1",
+  "buildTime": "2026-09-19T00:35:00+03:00",
+  "notes": "Public APK 1.0.120/121. Silent wake channel v2. Activity onCreate is the only delivery proof. callSignalGiftWrapRequired TRUE.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,
