@@ -2576,26 +2576,7 @@ class MainActivity : AppCompatActivity() {
 
         fun startBackgroundCallDecline(context: Context, peer: String, callType: String) {
             val app = context.applicationContext
-            // Prefer minimal verifier disconnect — do NOT flash Home/videos.html.
-            val verifier = SecureCallWakeActivity.currentOrNull()
-            if (verifier != null) {
-                verifier.requestDeclineDisconnect(peer, callType)
-                return
-            }
-            val intent = Intent(app, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_NO_USER_ACTION
-                putExtra(EXTRA_START_IN_BACKGROUND, true)
-                putExtra(EXTRA_CALL_ACTION, CALL_ACTION_DECLINE)
-                putExtra(EXTRA_CALL_PEER, peer.trim().lowercase())
-                putExtra(EXTRA_CALL_TYPE, callType)
-            }
-            try {
-                app.startActivity(intent)
-            } catch (_: Exception) {
-            }
+            SosNativeCallVerifier.sendDecline(app, peer, callType)
         }
 
         fun startBackgroundCallHangup(context: Context, peer: String, callType: String) {

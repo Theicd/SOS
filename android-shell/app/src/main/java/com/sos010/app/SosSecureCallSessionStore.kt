@@ -21,6 +21,8 @@ object SosSecureCallSessionStore {
     const val STATE_DECLINED = "DECLINED"
     const val STATE_ENDED = "ENDED"
     const val STATE_CONNECTED_END = "CONNECTED_END"
+    const val STATE_VERIFIED_RINGING = "VERIFIED_RINGING"
+    const val STATE_ANSWERED = "ANSWERED"
 
     fun isTombstoned(context: Context, sessionId: String?): Boolean {
         val hash = hashSessionId(sessionId) ?: return false
@@ -45,6 +47,8 @@ object SosSecureCallSessionStore {
         val st = when (state.trim().uppercase()) {
             STATE_DECLINED -> STATE_DECLINED
             STATE_CONNECTED_END -> STATE_CONNECTED_END
+            STATE_VERIFIED_RINGING -> STATE_VERIFIED_RINGING
+            STATE_ANSWERED -> STATE_ANSWERED
             else -> STATE_ENDED
         }
         val now = System.currentTimeMillis()
@@ -106,6 +110,8 @@ object SosSecureCallSessionStore {
         val st = when (state.trim().uppercase()) {
             STATE_DECLINED -> STATE_DECLINED
             STATE_CONNECTED_END -> STATE_CONNECTED_END
+            STATE_VERIFIED_RINGING -> STATE_VERIFIED_RINGING
+            STATE_ANSWERED -> STATE_ANSWERED
             else -> STATE_ENDED
         }
         for (i in 0 until arr.length()) {
@@ -122,6 +128,20 @@ object SosSecureCallSessionStore {
         arr.put(JSONObject().put("h", h).put("st", st).put("at", now))
         persist(context, arr)
         logState(st)
+    }
+
+    fun stateOf(context: Context, sessionId: String?): String? {
+        val hash = hashSessionId(sessionId) ?: return null
+        val now = System.currentTimeMillis()
+        val arr = loadRaw(context)
+        for (i in 0 until arr.length()) {
+            val item = arr.optJSONObject(i) ?: continue
+            if (item.optString("h") != hash) continue
+            val at = item.optLong("at", 0L)
+            if (at <= 0L || now - at > TTL_MS) return null
+            return item.optString("st")
+        }
+        return null
     }
 
     fun hasRingedSession(context: Context, sessionId: String?): Boolean {
@@ -190,10 +210,11 @@ object SosSecureCallSessionStore {
                 Log.i(TAG, "CALL_SESSION_ENDED")
                 SosDebugLog.i("call", "CALL_SESSION_ENDED")
             }
-            else -> {
+            STATE_ENDED -> {
                 Log.i(TAG, "CALL_SESSION_ENDED")
                 SosDebugLog.i("call", "CALL_SESSION_ENDED")
             }
+            else -> Unit
         }
     }
 

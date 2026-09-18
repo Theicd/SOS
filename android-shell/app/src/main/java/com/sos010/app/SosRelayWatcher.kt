@@ -336,7 +336,7 @@ class SosRelayWatcher(private val appContext: Context) {
         SosDebugLog.i("relay", "SECURE_WAKE_NEW")
         Log.i(TAG, "SECURE_WAKE_QUEUED")
         SosDebugLog.i("relay", "SECURE_WAKE_QUEUED")
-        launchSecureVerifierWakeIfNeeded()
+        verifySecureWrapsNative()
     }
 
     /**
@@ -352,48 +352,23 @@ class SosRelayWatcher(private val appContext: Context) {
                 if (secureWarmInFlight || SecureCallWakeActivity.isLaunchInFlight()) return@post
                 Log.i(TAG, "SECURE_WAKE_RECOVERY_PENDING")
                 SosDebugLog.i("relay", "SECURE_WAKE_RECOVERY_PENDING")
-                launchSecureVerifierWakeIfNeeded(forceRecovery = true)
+                verifySecureWrapsNative()
             } catch (err: Exception) {
                 Log.w(TAG, "secure recovery wake failed: ${err.message}")
             }
         }
     }
 
-    private fun launchSecureVerifierWakeIfNeeded(forceRecovery: Boolean = false) {
-        // Foreground WebView shared 1059 dispatcher handles live events.
+    private fun verifySecureWrapsNative() {
         if (MainActivity.isHostAlive) {
             Log.i(TAG, "SECURE_WAKE hostAlive – JS handles")
             return
         }
-        // One warm hosts the whole queue; further wraps only enqueue.
-        if (secureWarmInFlight || SecureCallWakeActivity.isLaunchInFlight()) {
-            Log.i(TAG, "SECURE_WAKE queued (warm in-flight)")
-            return
+        try {
+            SosNativeCallVerifier.processPending(appContext)
+        } catch (err: Exception) {
+            Log.w(TAG, "native verifier failed")
         }
-        if (!forceRecovery && !allowSecureWake()) {
-            // Still queued — do not drop; next wake window or existing warm drains.
-            Log.i(TAG, "SECURE_WAKE rate-limited (kept in queue)")
-            if (SosPendingCallStore.peekSecureWrapCount(appContext) > 0 &&
-                System.currentTimeMillis() - lastSecureWakeAt > 15_000L
-            ) {
-                // Allow a single recovery wake so a fresh offer is not starved forever.
-                secureWakeCount = 0
-            } else {
-                return
-            }
-            if (!allowSecureWake()) return
-        } else if (forceRecovery) {
-            // One bounded recovery wake — ignore short debounce but still count window.
-            if (!allowSecureWake()) {
-                secureWakeCount = 0
-                if (!allowSecureWake()) return
-            }
-        }
-        secureWarmInFlight = true
-        lastSecureWakeAt = System.currentTimeMillis()
-        Log.i(TAG, "SECURE_WAKE_RECEIVED → verifier")
-        SosDebugLog.i("relay", "SECURE_WAKE_RECEIVED")
-        MainActivity.warmHostForSecureWrap(appContext, recovery = forceRecovery)
     }
 
     private fun rememberOpaqueWakeId(id: String) {

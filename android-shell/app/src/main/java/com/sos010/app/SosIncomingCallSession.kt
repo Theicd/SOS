@@ -55,6 +55,7 @@ object SosIncomingCallSession {
             .putString(KEY_ACTIVE_PHASE, PHASE_ANSWERED)
             .putLong(KEY_ACTIVE_AT, System.currentTimeMillis())
             .apply()
+        SosNativeCallVerifier.noteAnswered(context, pk)
     }
 
     fun markDeclined(context: Context, peer: String?) {

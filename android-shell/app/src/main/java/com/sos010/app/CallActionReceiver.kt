@@ -31,6 +31,7 @@ class CallActionReceiver : BroadcastReceiver() {
             }
             ACTION_ANSWER -> {
                 SosIncomingCallSession.markAnswered(app, peer)
+                SosNativeCallVerifier.noteAnswered(app, peer)
                 NotificationHelper.cancelIncomingCall(app, stopSound = true, dismissUi = false)
                 val openUrl = intent.getStringExtra(MainActivity.EXTRA_OPEN_URL)
                     ?: SosCallUrls.acceptPage(callType)

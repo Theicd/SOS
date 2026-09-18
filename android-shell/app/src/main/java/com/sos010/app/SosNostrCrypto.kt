@@ -118,6 +118,47 @@ object SosNostrCrypto {
         return Hex.encode(sha256(arr.toString().toByteArray(Charsets.UTF_8)))
     }
 
+    fun verifyEvent(event: JSONObject): Boolean {
+        return try {
+            val id = event.optString("id").lowercase()
+            val pubkey = event.optString("pubkey").lowercase()
+            val sig = event.optString("sig").lowercase()
+            val kind = event.optInt("kind", -1)
+            val createdAt = event.optLong("created_at", -1L)
+            val tags = event.optJSONArray("tags") ?: return false
+            if (!event.has("content")) return false
+            val content = event.optString("content")
+            if (!isHex64(id) || !isHex64(pubkey) || !sig.matches(Regex("^[0-9a-f]{128}$"))) return false
+            val expect = eventId(pubkey, createdAt, kind, tags, content)
+            if (!expect.equals(id, ignoreCase = true)) return false
+            secp.verifySchnorr(Hex.decode(sig), Hex.decode(expect), Hex.decode(pubkey))
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    fun nip44ConversationKey(privHex: String, peerPubHex: String): ByteArray? {
+        return try {
+            SosNip44.conversationKey(sharedKey(privHex, peerPubHex))
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun nip44Encrypt(conversationKey: ByteArray, plaintext: String, nonce: ByteArray): String {
+        return SosNip44.encrypt(conversationKey, plaintext, nonce)
+    }
+
+    fun nip44Decrypt(conversationKey: ByteArray, payload: String): String? {
+        return SosNip44.decrypt(conversationKey, payload)
+    }
+
+    fun nip44MessageKeys(conversationKey: ByteArray, nonce: ByteArray): SosNip44.MessageKeys {
+        return SosNip44.messageKeys(conversationKey, nonce)
+    }
+
+    fun nip44PaddedLen(unpaddedLen: Int): Int = SosNip44.calcPaddedLen(unpaddedLen)
+
     private fun sha256(data: ByteArray): ByteArray =
         MessageDigest.getInstance("SHA-256").digest(data)
 }

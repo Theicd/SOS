@@ -16,9 +16,9 @@ android {
         applicationId = "com.sos010.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 121
-        versionName = "1.0.120"
-        buildConfigField("String", "SOS_START_URL", "\"https://sos010.com/videos.html?shell=120\"")
+        versionCode = 122
+        versionName = "1.0.121"
+        buildConfigField("String", "SOS_START_URL", "\"https://sos010.com/videos.html?shell=121\"")
         buildConfigField("boolean", "HAS_FCM", hasGoogleServices.toString())
         buildConfigField("boolean", "SECURE_CALL_FAST_VERIFIER", "true")
     }
@@ -51,6 +51,11 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
+    }
+    testOptions {
+        unitTests.all {
+            it.jvmArgs("-Djava.library.path=${project.projectDir}/build/native")
+        }
     }
 }
 
