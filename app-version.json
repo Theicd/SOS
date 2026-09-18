@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.18-call-session-apk117",
-  "buildTime": "2026-09-18T13:40:00+03:00",
-  "notes": "Publish sole public APK 1.0.117 / code118 (call-session terminal + durable 1059 ACK + native avatar). callSignalGiftWrapRequired TRUE. Older GitHub APK releases removed per latest-only policy.",
+  "version": "2026.09.18-call-bg-rollback1",
+  "buildTime": "2026-09-18T14:15:00+03:00",
+  "notes": "EMERGENCY Web-only call runtime rollback to known-good physical background call behavior (b764d4d call JS). Security policies unchanged. Public APK remains 1.0.117/118. callSignalGiftWrapRequired TRUE.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,

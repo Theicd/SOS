@@ -254,11 +254,6 @@
       lastHandledKey = key;
       lastHandledAt = now;
       consumePendingDeepLink();
-      // Consume incomingCall immediately — must not reprocess on resume/focus.
-      if (incomingCall) {
-        stripDeepLinkParams();
-        console.log('DEEPLINK_CALL_CONSUMED');
-      }
       // מנקים chat= מה-URL + pending native – מונע קפיצה חזרה לשיחה אחרי יציאה | HYPER CORE TECH
       stripChatParamFromUrl();
       if (!incomingCall) {

@@ -83,33 +83,6 @@
     audioSessionTypeApplied: false,
   };
 
-  // Session-scoped terminal guards — survive UI resets / deeplink / decline retries.
-  const terminalBySession = new Map(); // sessionId -> { ended, disconnectSent, missedSent, declined, at }
-
-  function getTerminal(sessionId) {
-    const sid = String(sessionId || '').trim();
-    if (!sid || sid.length < 16) return null;
-    let t = terminalBySession.get(sid);
-    if (!t) {
-      t = { ended: false, disconnectSent: false, missedSent: false, declined: false, at: Date.now() };
-      terminalBySession.set(sid, t);
-      if (terminalBySession.size > 40) {
-        const first = terminalBySession.keys().next().value;
-        terminalBySession.delete(first);
-      }
-    }
-    return t;
-  }
-
-  function markNativeSessionTerminal(sessionId, stateName) {
-    try {
-      const bridge = window.SosNativeShell;
-      if (bridge && typeof bridge.markSecureCallSessionTerminal === 'function') {
-        bridge.markSecureCallSessionTerminal(sessionId, stateName);
-      }
-    } catch (_e) {}
-  }
-
   // חלק שיחות קול (chat-voice-call.js) – סגירה בטוחה של subscription (מוגדר מוקדם כדי להיות זמין לכל הפונקציות) | HYPER CORE TECH
   function closeSubscriptionSafely(sub) {
     if (!sub) return;
@@ -599,37 +572,18 @@
   }
 
   // חלק שיחות קול (chat-voice-call.js) – סיום שיחה
-  async function endCall(opts) {
-    const options = opts || {};
-    const sid = state.callSessionId || options.sessionId || '';
-    const term = getTerminal(sid);
-    if (term && term.ended) {
-      console.log('CALL_END_ONCE');
-      return;
-    }
+  async function endCall() {
     if (state.ending) return;
     state.ending = true;
-    if (term) term.ended = true;
     console.log('CALL_ENDING');
-    console.log('CALL_END_ONCE');
 
     // שליחת אירוע disconnect – חשוב await כדי שדחייה מ-APK תגיע לצד השני | HYPER CORE TECH
     if (state.currentPeer) {
-      if (term && term.disconnectSent) {
-        console.log('CALL_DISCONNECT_ONCE');
-      } else {
-        try {
-          await sendSignal(state.currentPeer, 'disconnect', null);
-          if (term) term.disconnectSent = true;
-          console.log('CALL_DISCONNECT_ONCE');
-        } catch (err) {
-          console.warn('disconnect signal failed', err);
-        }
+      try {
+        await sendSignal(state.currentPeer, 'disconnect', null);
+      } catch (err) {
+        console.warn('disconnect signal failed', err);
       }
-    }
-
-    if (sid) {
-      markNativeSessionTerminal(sid, options.declined ? 'DECLINED' : (options.connectedEnd ? 'CONNECTED_END' : 'ENDED'));
     }
 
     // חלק שיחות קול (chat-voice-call.js) – חישוב משך שיחה לפי timestamp זמין (תאימות ל-UI ולמדדים) | HYPER CORE TECH
@@ -640,7 +594,6 @@
     const wasIncoming = state.isIncoming;
     const wasAnswered = !!startMs || !!state.callAnswered;
     const peer = state.currentPeer;
-    const userDeclined = !!(options.declined || (term && term.declined) || window.__sosNativePendingDecline);
     if (peer) noteCallEnded(peer);
 
     // סגירת חיבור
@@ -680,7 +633,6 @@
     state.callSessionId = null;
     // חלק שיחות קול (chat-voice-call.js) – שחזור AudioSession לסוג שהיה לפני השיחה | HYPER CORE TECH
     restoreAudioSessionType();
-    // Do NOT clear session terminal; keep ending latch short only for UI state.
     setTimeout(() => { state.ending = false; }, 100);
 
     if (durationSeconds > 0 && peer) {
@@ -688,19 +640,14 @@
       void publishCallMetric;
     }
 
-    // Missed-call: never on decline; exactly once on unanswered timeout/remote cancel.
-    if (wasIncoming && !wasAnswered && peer && !userDeclined) {
-      if (term && term.missedSent) {
-        console.log('CALL_MISSED_ONCE');
-      } else {
-        if (term) term.missedSent = true;
-        console.log('CALL_MISSED_ONCE');
-        if (typeof App.triggerMissedCallPush === 'function') {
-          App.triggerMissedCallPush(peer, 'voice');
-        }
-        if (typeof App.onVoiceCallMissed === 'function') {
-          App.onVoiceCallMissed(peer);
-        }
+    // חלק שיחות קול (chat-voice-call.js) – התראה על שיחה שלא נענתה (נכנסת + לא נענתה) | HYPER CORE TECH
+    if (wasIncoming && !wasAnswered && peer) {
+      // חלק Push (chat-voice-call.js) – שליחת Push על שיחה שהוחמצה | HYPER CORE TECH
+      if (typeof App.triggerMissedCallPush === 'function') {
+        App.triggerMissedCallPush(peer, 'voice');
+      }
+      if (typeof App.onVoiceCallMissed === 'function') {
+        App.onVoiceCallMissed(peer);
       }
     }
 
@@ -1007,29 +954,13 @@
     state.isIncoming = true;
     state.callStartTimestamp = null;
     state.callStartTime = null;
-    if (!state.callSessionId) {
-      try {
-        const api = App.CallSignalE2ee;
-        if (api && typeof api.getCachedSecureOffer === 'function') {
-          const hit = api.getCachedSecureOffer(peer);
-          if (hit && hit.sessionId) state.callSessionId = hit.sessionId;
-        }
-      } catch (_e) {}
-    }
-    const sid = state.callSessionId || '';
-    const term = getTerminal(sid);
-    if (term) term.declined = true;
-    if (sid) markNativeSessionTerminal(sid, 'DECLINED');
     try {
-      await endCall({ declined: true, sessionId: sid });
+      await endCall();
       return true;
     } catch (err) {
       console.warn('rejectIncoming failed', err);
       try {
-        if (!(term && term.disconnectSent)) {
-          await sendSignal(peer, 'disconnect', null);
-          if (term) term.disconnectSent = true;
-        }
+        await sendSignal(peer, 'disconnect', null);
       } catch (_) {}
       return false;
     }

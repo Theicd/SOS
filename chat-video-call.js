@@ -88,30 +88,6 @@
     callSessionId: null
   };
 
-  const terminalBySession = new Map();
-  function getTerminal(sessionId) {
-    const sid = String(sessionId || '').trim();
-    if (!sid || sid.length < 16) return null;
-    let t = terminalBySession.get(sid);
-    if (!t) {
-      t = { ended: false, disconnectSent: false, missedSent: false, declined: false, at: Date.now() };
-      terminalBySession.set(sid, t);
-      if (terminalBySession.size > 40) {
-        const first = terminalBySession.keys().next().value;
-        terminalBySession.delete(first);
-      }
-    }
-    return t;
-  }
-  function markNativeSessionTerminal(sessionId, stateName) {
-    try {
-      const bridge = window.SosNativeShell;
-      if (bridge && typeof bridge.markSecureCallSessionTerminal === 'function') {
-        bridge.markSecureCallSessionTerminal(sessionId, stateName);
-      }
-    } catch (_e) {}
-  }
-
   // חלק שיחות וידאו (chat-video-call.js) – בניית אילוצי וידאו ברירת מחדל עם אפשרות דריסה | HYPER CORE TECH
   function buildVideoConstraints(overrides) {
     const base = {
@@ -464,41 +440,22 @@
   }
 
   // חלק שיחות וידאו – סיום
-  async function end(opts) {
-    const options = opts || {};
-    const sid = state.callSessionId || options.sessionId || '';
-    const term = getTerminal(sid);
-    if (term && term.ended) {
-      console.log('CALL_END_ONCE');
-      return;
-    }
+  async function end() {
     if (state.ending) return;
     state.ending = true;
-    if (term) term.ended = true;
     console.log('CALL_ENDING');
-    console.log('CALL_END_ONCE');
     const peer = state.currentPeer;
     const startMs = state.callStartTimestamp;
     const durationSeconds = startMs ? (Date.now() - startMs) / 1000 : 0;
     const wasIncoming = state.isIncoming;
     const wasAnswered = !!startMs || !!state.answeredLocally;
-    const userDeclined = !!(options.declined || (term && term.declined) || window.__sosNativePendingDecline);
     if (peer) noteCallEnded(peer);
     if (peer) {
-      if (term && term.disconnectSent) {
-        console.log('CALL_DISCONNECT_ONCE');
-      } else {
-        try {
-          await sendSignal(peer, 'v-disconnect', null);
-          if (term) term.disconnectSent = true;
-          console.log('CALL_DISCONNECT_ONCE');
-        } catch (err) {
-          console.warn('disconnect signal failed', err);
-        }
+      try {
+        await sendSignal(peer, 'v-disconnect', null);
+      } catch (err) {
+        console.warn('disconnect signal failed', err);
       }
-    }
-    if (sid) {
-      markNativeSessionTerminal(sid, options.declined ? 'DECLINED' : (options.connectedEnd ? 'CONNECTED_END' : 'ENDED'));
     }
     try { if (state.pc) state.pc.close(); } catch {}
     state.pc = null;
@@ -521,18 +478,13 @@
     setTimeout(()=>{ state.ending=false; },100);
     state.callStartTimestamp = null;
     // חלק שיחות וידאו (chat-video-call.js) – התראה על שיחה נכנסת שלא נענתה (missed) | HYPER CORE TECH
-    if (wasIncoming && !wasAnswered && peer && !userDeclined) {
-      if (term && term.missedSent) {
-        console.log('CALL_MISSED_ONCE');
-      } else {
-        if (term) term.missedSent = true;
-        console.log('CALL_MISSED_ONCE');
-        if (typeof App.triggerMissedCallPush === 'function') {
-          App.triggerMissedCallPush(peer, 'video');
-        }
-        if (typeof App.onVideoCallMissed === 'function') {
-          App.onVideoCallMissed(peer);
-        }
+    if (wasIncoming && !wasAnswered && peer) {
+      // חלק Push (chat-video-call.js) – שליחת Push על שיחת וידאו שהוחמצה | HYPER CORE TECH
+      if (typeof App.triggerMissedCallPush === 'function') {
+        App.triggerMissedCallPush(peer, 'video');
+      }
+      if (typeof App.onVideoCallMissed === 'function') {
+        App.onVideoCallMissed(peer);
       }
     }
     if (typeof App.onVideoCallEnded === 'function') App.onVideoCallEnded(peer);
@@ -1101,30 +1053,12 @@
     state.currentPeer = peer;
     state.isIncoming = true;
     state.callStartTimestamp = null;
-    if (!state.callSessionId) {
-      try {
-        const api = App.CallSignalE2ee;
-        if (api && typeof api.getCachedSecureOffer === 'function') {
-          const hit = api.getCachedSecureOffer(peer);
-          if (hit && hit.sessionId) state.callSessionId = hit.sessionId;
-        }
-      } catch (_e) {}
-    }
-    const sid = state.callSessionId || '';
-    const term = getTerminal(sid);
-    if (term) term.declined = true;
-    if (sid) markNativeSessionTerminal(sid, 'DECLINED');
     try {
-      await end({ declined: true, sessionId: sid });
+      await end();
       return true;
     } catch (err) {
       console.warn('video rejectIncoming failed', err);
-      try {
-        if (!(term && term.disconnectSent)) {
-          await sendSignal(peer, 'v-disconnect', null);
-          if (term) term.disconnectSent = true;
-        }
-      } catch (_) {}
+      try { await sendSignal(peer, 'v-disconnect', null); } catch (_) {}
       return false;
     }
   }
