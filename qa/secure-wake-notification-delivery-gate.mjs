@@ -117,12 +117,12 @@ record('device state logs before delivery',
   /SECURE_VERIFIER_DEVICE_API=/.test(notify)
   && /SECURE_VERIFIER_SCREEN_INTERACTIVE=/.test(notify)
   && /SECURE_VERIFIER_KEYGUARD_LOCKED=/.test(notify));
-record('QA shell 1.0.120 / 121 / shell=120',
-  /versionName\s*=\s*"1\.0\.120"/.test(gradle)
-  && /versionCode\s*=\s*121/.test(gradle)
-  && /shell=120/.test(gradle));
-record('public apk-version is 1.0.120 / 121',
-  apk.version === '1.0.120' && Number(apk.versionCode) === 121);
+record('QA shell 1.0.121 / 122 / shell=121',
+  /versionName\s*=\s*"1\.0\.121"/.test(gradle)
+  && /versionCode\s*=\s*122/.test(gradle)
+  && /shell=121/.test(gradle));
+record('public apk-version is 1.0.121 / 122',
+  apk.version === '1.0.121' && Number(apk.versionCode) === 122);
 record('phoneCall service is screen-on delivery only',
   /foregroundServiceType="phoneCall"/.test(manifest)
   && /FOREGROUND_SERVICE_PHONE_CALL/.test(manifest)

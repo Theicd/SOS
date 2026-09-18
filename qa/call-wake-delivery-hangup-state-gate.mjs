@@ -104,12 +104,12 @@ record('19 video secure disconnect path retained',
   && /disconnect|v-disconnect/.test(read('chat-video-call.js')));
 record('20 P2P unchanged file present',
   /MAX_IN_FLIGHT|datachannel/i.test(p2p) && fs.existsSync(path.join(ROOT, 'chat-p2p-datachannel.js')));
-record('QA shell 1.0.120 / 121 / shell=120',
-  /versionName\s*=\s*"1\.0\.120"/.test(gradle)
-  && /versionCode\s*=\s*121/.test(gradle)
-  && /shell=120/.test(gradle));
-record('public apk-version is 1.0.120 / 121',
-  apk.version === '1.0.120' && Number(apk.versionCode) === 121);
+record('QA shell 1.0.121 / 122 / shell=121',
+  /versionName\s*=\s*"1\.0\.121"/.test(gradle)
+  && /versionCode\s*=\s*122/.test(gradle)
+  && /shell=121/.test(gradle));
+record('public apk-version is 1.0.121 / 122',
+  apk.version === '1.0.121' && Number(apk.versionCode) === 122);
 record('fallback logs present',
   /SECURE_VERIFIER_FALLBACK_SEND/.test(notify)
   && /SECURE_VERIFIER_FALLBACK_SENT/.test(notify)

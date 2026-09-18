@@ -117,7 +117,7 @@ record('LIVE_E2EE_SEND=true (E3B ACTIVE; e2eeSendRequired explicit true)',
   Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired') && appVer.e2eeSendRequired === true);
 record('E2 dual-read still present', svc.includes('decryptPrivateChatPayload') && svc.includes('looksLikeIncomingE2eeContent'));
 
-record('SW cache bumped for call privacy precutover', /sos-cache-v852/.test(sw));
+record('SW cache bumped for call privacy precutover', /sos-cache-v853/.test(sw));
 record('SW precaches chat-e2ee.js', sw.includes("'./chat-e2ee.js'"));
 record('SW precaches chat-secure-epoch.js', sw.includes("'./chat-secure-epoch.js'"));
 record('app-version.json still bypasses SW', sw.includes("app-version.json") && sw.includes('return'));

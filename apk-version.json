@@ -1,11 +1,11 @@
 {
-  "version": "1.0.120",
-  "versionCode": 121,
-  "file": "SOS-1.0.120.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.120/SOS-1.0.120.apk",
+  "version": "1.0.121",
+  "versionCode": 122,
+  "file": "SOS-1.0.121.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.121/SOS-1.0.121.apk",
   "published": true,
   "channel": "production",
   "releasedAt": "2026-09-19",
-  "sha256": "66159CC29B943CE0E60A73783C89EB5CE864996D1E398192308989E140CD4C9D",
-  "note": "Sole public APK on GitHub Releases. Secure wake channel v2 + delivery proof is Activity start only. Older apk-* releases deleted per latest-only policy."
+  "sha256": "C003B48915DF4D25DE40C84F3FFE16B4D682EE836D154ECE6EAE8AB9EF79D0A3",
+  "note": "Sole public APK on GitHub Releases. Native 1059 verification rings without SecureCallWakeActivity. Older apk-* releases deleted per latest-only policy."
 }
