@@ -95,16 +95,17 @@ record('G call push incoming path not active for production send',
 record('H no android-shell changes in this rollback',
   execSync('git diff --name-only HEAD -- android-shell', { cwd: ROOT, encoding: 'utf8' }).trim() === ''
   && execSync('git diff --cached --name-only -- android-shell', { cwd: ROOT, encoding: 'utf8' }).trim() === '');
-record('H public APK remains 1.0.117 / 118',
-  apkVer.version === '1.0.117' && Number(apkVer.versionCode) === 118);
+record('H public APK is 1.0.118 / 119',
+  apkVer.version === '1.0.118' && Number(apkVer.versionCode) === 119);
 // Emergency historical gate: ACK may be restored by later fastwake RC — soft note
-record('I SW sos-cache-v849 (v848 already used by apk117 publish)',
-  /sos-cache-v849/.test(sw));
-record('I web version call-bg-rollback1',
-  String(appVer.version || '').includes('call-bg-rollback1'));
-record('I new call script cache-busters',
-  /call-signal-e2ee\.js\?v=20260918bgroll1/.test(videos)
-  && /chat-deeplink\.js\?v=20260918bgroll1/.test(videos));
+record('I SW sos-cache-v850 (fastwake publish)',
+  /sos-cache-v850/.test(sw));
+record('I web version secure-call-fastwake1 or rollback',
+  String(appVer.version || '').includes('call-bg-rollback1')
+  || String(appVer.version || '').includes('secure-call-fastwake1'));
+record('I call script cache-busters present',
+  /call-signal-e2ee\.js\?v=20260918/.test(videos)
+  && /chat-deeplink\.js\?v=20260918/.test(videos));
 
 // J P2P / Blossom / 30078 unchanged vs HEAD for those files
 const frozen = [

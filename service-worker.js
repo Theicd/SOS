@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v849'; // emergency call web rollback (v848 already used by apk117 publish)
+  const CACHE_NAME = 'sos-cache-v850'; // secure call fastwake1 + public APK 1.0.118
   const PRECACHE_URLS = [
     './',
     './videos.html',

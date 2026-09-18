@@ -32,8 +32,8 @@ function read(rel) {
 const apkMeta = JSON.parse(read('apk-version.json'));
 record('apk-version has published field', Object.prototype.hasOwnProperty.call(apkMeta, 'published'));
 record('apk-version published === true', apkMeta.published === true);
-record('apk-version url points to 1.0.117', String(apkMeta.url || '').includes('apk-1.0.117/SOS-1.0.117.apk'));
-record('apk-version advertises 1.0.117 / 118', apkMeta.version === '1.0.117' && Number(apkMeta.versionCode) === 118);
+record('apk-version url points to 1.0.118', String(apkMeta.url || '').includes('apk-1.0.118/SOS-1.0.118.apk'));
+record('apk-version advertises 1.0.118 / 119', apkMeta.version === '1.0.118' && Number(apkMeta.versionCode) === 119);
 
 const installerSrc = read('pwa-installer.js');
 record('validateApkUpdateRelease present', /function validateApkUpdateRelease/.test(installerSrc));
@@ -45,12 +45,12 @@ record('APK_UPDATE_METADATA_INVALID logged on bad metadata',
   /APK_UPDATE_METADATA_INVALID/.test(installerSrc));
 record('checkApkReleaseVersion uses validateApkUpdateRelease',
   /const validated = validateApkUpdateRelease\(data\)/.test(installerSrc));
-record('PUBLIC STABLE is 1.0.117 for initial install',
-  /const NATIVE_APK_VERSION = '1\.0\.117'/.test(installerSrc));
-record('apk-version published with matching 1.0.117 URL',
+record('PUBLIC STABLE is 1.0.118 for initial install',
+  /const NATIVE_APK_VERSION = '1\.0\.118'/.test(installerSrc));
+record('apk-version published with matching 1.0.118 URL',
   apkMeta.published === true
-  && String(apkMeta.url).includes('apk-1.0.117')
-  && String(apkMeta.file) === 'SOS-1.0.117.apk');
+  && String(apkMeta.url).includes('apk-1.0.118')
+  && String(apkMeta.file) === 'SOS-1.0.118.apk');
 
 const bridgeSrc = read('android-shell/app/src/main/java/com/sos010/app/SosJsBridge.kt');
 record('Native getShellVersion = BuildConfig.VERSION_NAME',
@@ -59,11 +59,11 @@ record('Native getShellVersionCode = BuildConfig.VERSION_CODE',
   /fun getShellVersionCode\(\):\s*Int\s*=\s*BuildConfig\.VERSION_CODE/.test(bridgeSrc));
 
 const gradle = read('android-shell/app/build.gradle.kts');
-record('BuildConfig QA shell versionName 1.0.118', /versionName\s*=\s*"1\.0\.118"/.test(gradle));
-record('BuildConfig QA shell versionCode 119', /versionCode\s*=\s*119/.test(gradle));
-record('published apk-version is 1.0.117 / 118',
-  JSON.parse(read('apk-version.json')).version === '1.0.117'
-  && Number(JSON.parse(read('apk-version.json')).versionCode) === 118);
+record('BuildConfig shell versionName 1.0.118', /versionName\s*=\s*"1\.0\.118"/.test(gradle));
+record('BuildConfig shell versionCode 119', /versionCode\s*=\s*119/.test(gradle));
+record('published apk-version is 1.0.118 / 119',
+  JSON.parse(read('apk-version.json')).version === '1.0.118'
+  && Number(JSON.parse(read('apk-version.json')).versionCode) === 119);
 
 record('callSignalGiftWrapRequired true',
   JSON.parse(read('app-version.json')).callSignalGiftWrapRequired === true);
@@ -105,8 +105,8 @@ const validate = App.validateApkUpdateRelease;
 record('validateApkUpdateRelease exported', typeof validate === 'function');
 
 const OLD_STABLE_URL = 'https://github.com/Theicd/SOS/releases/download/apk-1.0.115/SOS-1.0.115.apk';
-const V117_URL = 'https://github.com/Theicd/SOS/releases/download/apk-1.0.117/SOS-1.0.117.apk';
 const V118_URL = 'https://github.com/Theicd/SOS/releases/download/apk-1.0.118/SOS-1.0.118.apk';
+const V119_URL = 'https://github.com/Theicd/SOS/releases/download/apk-1.0.119/SOS-1.0.119.apk';
 
 function decideUpdate(localVersion, localCode, remote) {
   const validated = validate(remote);
@@ -129,9 +129,9 @@ function decideUpdate(localVersion, localCode, remote) {
 
 {
   const r = decideUpdate('1.0.115', 116, {
-    version: '1.0.117',
-    versionCode: 118,
-    file: 'SOS-1.0.117.apk',
+    version: '1.0.118',
+    versionCode: 119,
+    file: 'SOS-1.0.118.apk',
     url: '',
     published: false,
     channel: 'qa',
@@ -142,9 +142,9 @@ function decideUpdate(localVersion, localCode, remote) {
 
 {
   const r = decideUpdate('1.0.115', 116, {
-    version: '1.0.117',
-    versionCode: 118,
-    file: 'SOS-1.0.117.apk',
+    version: '1.0.118',
+    versionCode: 119,
+    file: 'SOS-1.0.118.apk',
     url: '',
     published: true,
   });
@@ -154,9 +154,9 @@ function decideUpdate(localVersion, localCode, remote) {
 
 {
   const r = decideUpdate('1.0.115', 116, {
-    version: '1.0.117',
-    versionCode: 118,
-    file: 'SOS-1.0.117.apk',
+    version: '1.0.118',
+    versionCode: 119,
+    file: 'SOS-1.0.118.apk',
     url: OLD_STABLE_URL,
     published: true,
   });
@@ -167,37 +167,24 @@ function decideUpdate(localVersion, localCode, remote) {
 
 {
   const r = decideUpdate('1.0.115', 116, {
-    version: '1.0.117',
-    versionCode: 118,
+    version: '1.0.118',
+    versionCode: 119,
     file: 'SOS-1.0.115.apk',
-    url: 'https://github.com/Theicd/SOS/releases/download/apk-1.0.117/SOS-1.0.115.apk',
+    url: 'https://github.com/Theicd/SOS/releases/download/apk-1.0.118/SOS-1.0.115.apk',
     published: true,
   });
   record('file vs version mismatch → BLOCK', r.toast === false && r.reason === 'file-version-mismatch');
 }
 
 {
-  const r = decideUpdate('1.0.117', 118, {
-    version: '1.0.117',
-    versionCode: 118,
-    file: 'SOS-1.0.117.apk',
-    url: V117_URL,
+  const r = decideUpdate('1.0.118', 119, {
+    version: '1.0.118',
+    versionCode: 119,
+    file: 'SOS-1.0.118.apk',
+    url: V118_URL,
     published: true,
   });
   record('CASE D localCode >= remoteCode → toast ZERO', r.toast === false && r.download === false);
-}
-
-{
-  const r = decideUpdate('1.0.115', 116, {
-    version: '1.0.117',
-    versionCode: 118,
-    file: 'SOS-1.0.117.apk',
-    url: V117_URL,
-    published: true,
-  });
-  record('CASE E toast offers 1.0.117', r.toast === true && r.download === true);
-  record('CASE E exact 1.0.117 URL used', r.url === V117_URL);
-  record('CASE E no old stable fallback', r.url !== OLD_STABLE_URL && !String(r.url || '').includes('1.0.115'));
 }
 
 {
@@ -208,7 +195,20 @@ function decideUpdate(localVersion, localCode, remote) {
     url: V118_URL,
     published: true,
   });
-  record('future newer release uses exact URL', r.toast === true && r.url === V118_URL);
+  record('CASE E toast offers 1.0.118', r.toast === true && r.download === true);
+  record('CASE E exact 1.0.118 URL used', r.url === V118_URL);
+  record('CASE E no old stable fallback', r.url !== OLD_STABLE_URL && !String(r.url || '').includes('1.0.115'));
+}
+
+{
+  const r = decideUpdate('1.0.118', 119, {
+    version: '1.0.119',
+    versionCode: 120,
+    file: 'SOS-1.0.119.apk',
+    url: V119_URL,
+    published: true,
+  });
+  record('future newer release uses exact URL', r.toast === true && r.url === V119_URL);
 }
 
 console.log(results.join('\n'));

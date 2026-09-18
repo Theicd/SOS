@@ -1,11 +1,11 @@
 {
-  "version": "1.0.117",
-  "versionCode": 118,
-  "file": "SOS-1.0.117.apk",
-  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.117/SOS-1.0.117.apk",
+  "version": "1.0.118",
+  "versionCode": 119,
+  "file": "SOS-1.0.118.apk",
+  "url": "https://github.com/Theicd/SOS/releases/download/apk-1.0.118/SOS-1.0.118.apk",
   "published": true,
   "channel": "production",
   "releasedAt": "2026-09-18",
-  "sha256": "614B38A06AA13C387605756876748646D6C48B104B6FBB8642D50C02A1385242",
-  "note": "Sole public APK on GitHub Releases. Call session terminal + durable 1059 ACK + native avatar. Older apk-* releases deleted per latest-only policy."
+  "sha256": "BB0A27071F5446609C3FA887826C54D9791A9BE1BE6D499F6123388932C475F8",
+  "note": "Sole public APK on GitHub Releases. Secure call fast verifier wake + 1059 ACK/peek + fail-closed publish. Older apk-* releases deleted per latest-only policy."
 }
