@@ -12,6 +12,7 @@ import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import java.util.ArrayDeque
@@ -27,8 +28,11 @@ object NotificationHelper {
     /** ערוץ שיחות חדש – CallStyle + heads-up על מסך נעול | HYPER CORE TECH */
     const val CHANNEL_CALLS = "sos_calls_v3"
     const val CHANNEL_KEEPALIVE = "sos_keepalive"
+    /** Silent high-importance channel — full-screen intent for opaque 1059 verifier only. */
+    const val CHANNEL_SECURE_WAKE = "sos_secure_wake_v1"
     const val KEEPALIVE_ID = 1001
     const val INCOMING_CALL_ID = 2002
+    const val SECURE_VERIFIER_WAKE_ID = 2005
     const val MESSAGES_AGGREGATE_ID = 3001
     private const val MESSAGES_TAG = "sos-messages"
     private const val MAX_INBOX_LINES = 7
@@ -116,6 +120,24 @@ object NotificationHelper {
                     description = context.getString(R.string.channel_keepalive_desc)
                     setShowBadge(false)
                     setSound(null, null)
+                }
+            )
+        }
+
+        if (nm.getNotificationChannel(CHANNEL_SECURE_WAKE) == null) {
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    CHANNEL_SECURE_WAKE,
+                    context.getString(R.string.channel_secure_wake),
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = context.getString(R.string.channel_secure_wake_desc)
+                    enableVibration(false)
+                    enableLights(false)
+                    setShowBadge(false)
+                    setSound(null, null)
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_SECRET
+                    setBypassDnd(true)
                 }
             )
         }
@@ -381,6 +403,54 @@ object NotificationHelper {
                 IncomingCallActivity.launch(app, peer, type, displayName, openUrl, pictureUrl)
             } catch (_: Exception) {
             }
+        }
+    }
+
+    /**
+     * Opaque secure 1059 verifier wake — NOT an incoming call.
+     * Uses full-screen PendingIntent so Android allows Activity start when
+     * MainActivity is destroyed / screen is off. No peer/media/caller metadata.
+     */
+    fun showSecureVerifierWake(context: Context) {
+        if (!SecureCallWakeActivity.tryBeginLaunch()) {
+            SosDebugLog.i("call", "SECURE_VERIFIER_LAUNCH skipped")
+            return
+        }
+        ensureChannels(context)
+        val app = context.applicationContext
+        val verifierIntent = SecureCallWakeActivity.verifierIntent(app)
+        val fullScreenPi = activityPendingIntent(app, SECURE_VERIFIER_WAKE_ID, verifierIntent)
+        val builder = NotificationCompat.Builder(app, CHANNEL_SECURE_WAKE)
+            .setSmallIcon(R.drawable.ic_stat_sos)
+            .setContentTitle(app.getString(R.string.secure_wake_title))
+            .setContentText(app.getString(R.string.secure_wake_body))
+            .setContentIntent(fullScreenPi)
+            .setFullScreenIntent(fullScreenPi, true)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setSilent(true)
+            .setSound(null)
+            .setVibrate(null)
+            .setAutoCancel(true)
+            .setOngoing(false)
+            .setTimeoutAfter(20_000L)
+            .setOnlyAlertOnce(true)
+        try {
+            NotificationManagerCompat.from(app).notify(SECURE_VERIFIER_WAKE_ID, builder.build())
+            Log.i("NotificationHelper", "SECURE_VERIFIER_LAUNCH")
+            SosDebugLog.i("call", "SECURE_VERIFIER_LAUNCH")
+        } catch (err: Exception) {
+            SecureCallWakeActivity.clearLaunchInFlight()
+            SosDebugLog.i("call", "SECURE_VERIFIER_LAUNCH fail ${err.message}")
+        }
+    }
+
+    fun cancelSecureVerifierWake(context: Context) {
+        try {
+            NotificationManagerCompat.from(context.applicationContext)
+                .cancel(SECURE_VERIFIER_WAKE_ID)
+        } catch (_: Exception) {
         }
     }
 

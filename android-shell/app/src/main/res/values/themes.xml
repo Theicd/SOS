@@ -15,4 +15,14 @@
         <item name="android:windowShowWallpaper">false</item>
         <item name="colorPrimary">#2E7D32</item>
     </style>
+
+    <!-- Transparent silent verifier — no call UI -->
+    <style name="Theme.SosSecureWake" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>

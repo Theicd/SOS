@@ -57,7 +57,8 @@ record('publishCallSignal present', helperSrc.includes('publishCallSignal'));
 record('sticky seen key', helperSrc.includes('sos_call_signal_giftwrap_required_seen'));
 record('native min versionCode 115', helperSrc.includes('CALL_GIFT_WRAP_NATIVE_MIN_VERSION_CODE = 115'));
 record('native min versionName 1.0.114', helperSrc.includes("CALL_GIFT_WRAP_NATIVE_MIN_VERSION_NAME = '1.0.114'"));
-record('current gradle is native-capable 115', /versionCode\s*=\s*115/.test(gradle));
+record('current gradle is native-capable (>=115)',
+  /versionCode\s*=\s*11[5-9]|versionCode\s*=\s*1[2-9]\d/.test(gradle));
 record('voice uses publishCallSignal', voice.includes('publishCallSignal'));
 record('video uses publishCallSignal', video.includes('publishCallSignal'));
 record('CALL_PRIVACY_SIGNALING_ACTIVE helper', helperSrc.includes('isCallPrivacySignalingActive'));

@@ -64,8 +64,8 @@ record('Native getShellVersionCode = BuildConfig.VERSION_CODE',
   /fun getShellVersionCode\(\):\s*Int\s*=\s*BuildConfig\.VERSION_CODE/.test(bridgeSrc));
 
 const gradle = read('android-shell/app/build.gradle.kts');
-record('BuildConfig versionName 1.0.114', /versionName\s*=\s*"1\.0\.114"/.test(gradle));
-record('BuildConfig versionCode 115', /versionCode\s*=\s*115/.test(gradle));
+record('BuildConfig versionName 1.0.115', /versionName\s*=\s*"1\.0\.115"/.test(gradle));
+record('BuildConfig versionCode 116', /versionCode\s*=\s*116/.test(gradle));
 
 record('callSignalGiftWrapRequired true (RC)',
   JSON.parse(read('app-version.json')).callSignalGiftWrapRequired === true);

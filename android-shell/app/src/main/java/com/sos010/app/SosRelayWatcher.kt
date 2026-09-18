@@ -306,13 +306,15 @@ class SosRelayWatcher(private val appContext: Context) {
         }
         if (!queued) return
         rememberOpaqueWakeId(id)
+        Log.i(TAG, "SECURE_WAKE_QUEUED")
+        SosDebugLog.i("relay", "SECURE_WAKE_QUEUED")
         // Foreground WebView shared 1059 dispatcher handles live events.
         if (MainActivity.isHostAlive) {
             Log.i(TAG, "SECURE_WAKE hostAlive – JS handles")
             return
         }
         // One warm hosts the whole queue; further wraps only enqueue.
-        if (secureWarmInFlight) {
+        if (secureWarmInFlight || SecureCallWakeActivity.isLaunchInFlight()) {
             Log.i(TAG, "SECURE_WAKE queued (warm in-flight)")
             return
         }
@@ -331,8 +333,8 @@ class SosRelayWatcher(private val appContext: Context) {
         }
         secureWarmInFlight = true
         lastSecureWakeAt = System.currentTimeMillis()
-        Log.i(TAG, "SECURE_WAKE opaque → warm host")
-        SosDebugLog.i("relay", "SECURE_WAKE opaque")
+        Log.i(TAG, "SECURE_WAKE_RECEIVED → verifier")
+        SosDebugLog.i("relay", "SECURE_WAKE_RECEIVED")
         MainActivity.warmHostForSecureWrap(appContext)
     }
 
@@ -475,6 +477,7 @@ class SosRelayWatcher(private val appContext: Context) {
 
         fun clearSecureWarmInFlight() {
             instance?.secureWarmInFlight = false
+            SecureCallWakeActivity.clearLaunchInFlight()
         }
 
         fun stopAll() {

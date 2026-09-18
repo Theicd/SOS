@@ -72,6 +72,10 @@
     <string name="call_in_progress">בשיחה</string>
     <string name="channel_keepalive">SOS ברקע</string>
     <string name="channel_keepalive_desc">שומר את SOS פעיל לקבלת הודעות</string>
+    <string name="channel_secure_wake">SOS חיבור מאובטח</string>
+    <string name="channel_secure_wake_desc">מעורר את האפליקציה לאימות שיחה מוצפנת — ללא פרטי מתקשר</string>
+    <string name="secure_wake_title">SOS</string>
+    <string name="secure_wake_body">מתחבר…</string>
     <string name="fg_title">SOS פעיל ברקע</string>
     <string name="fg_text">מקבל הודעות ושיחות גם כשהמסך כבוי</string>
     <string name="debug_log_title">לוג רקע (מעטפת APK)</string>

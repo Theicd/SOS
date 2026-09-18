@@ -55,6 +55,16 @@
         </provider>
 
         <activity
+            android:name=".SecureCallWakeActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.SosSecureWake" />
+
+        <activity
             android:name=".IncomingCallActivity"
             android:excludeFromRecents="true"
             android:exported="false"

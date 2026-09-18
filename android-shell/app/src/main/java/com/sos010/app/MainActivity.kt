@@ -858,8 +858,11 @@ class MainActivity : AppCompatActivity() {
         try {
             webView.evaluateJavascript(js, null)
             Log.i(TAG, "SECURE_WRAP inject")
+            SosDebugLog.i("call", "SECURE_WRAP_AUTH_PIPELINE")
             warmForSecureWrapPending = false
             SosRelayWatcher.clearSecureWarmInFlight()
+            SecureCallWakeActivity.clearLaunchInFlight()
+            NotificationHelper.cancelSecureVerifierWake(applicationContext)
         } catch (err: Exception) {
             Log.w(TAG, "secure wrap inject failed: ${err.message}")
         }
@@ -2395,24 +2398,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        /** Opaque 1059 wake — warm WebView for JS unwrap; do NOT ring yet. */
+        /** Opaque 1059 wake — warm WebView for JS unwrap via authorized FSI; do NOT ring yet. */
         fun warmHostForSecureWrap(context: Context) {
             val app = context.applicationContext
-            val intent = Intent(app, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_NO_USER_ACTION
-                putExtra(EXTRA_START_IN_BACKGROUND, true)
-                putExtra(EXTRA_WARM_FOR_SECURE_WRAP, true)
-                putExtra(EXTRA_OPEN_URL, SosCallUrls.warmPage())
-            }
-            try {
-                val opts = IncomingCallActivity.backgroundStartOptions()
-                if (opts != null) app.startActivity(intent, opts) else app.startActivity(intent)
-            } catch (err: Exception) {
-                SosDebugLog.i("call", "warmSecureWrap fail ${err.message}")
-            }
+            // If a live host already exists, only inject — never ring.
             hostRef?.get()?.runOnUiThread {
                 try {
                     hostRef?.get()?.let { act ->
@@ -2421,6 +2410,19 @@ class MainActivity : AppCompatActivity() {
                     }
                 } catch (_: Exception) {
                 }
+            }
+            if (isHostAlive) {
+                SosDebugLog.i("call", "SECURE_WAKE hostAlive inject")
+                return
+            }
+            // Background Activity Launch from FGS is unreliable when task is destroyed.
+            // Use silent full-screen PendingIntent verifier bridge instead.
+            try {
+                NotificationHelper.showSecureVerifierWake(app)
+            } catch (err: Exception) {
+                SosDebugLog.i("call", "warmSecureWrap fail ${err.message}")
+                SecureCallWakeActivity.clearLaunchInFlight()
+                SosRelayWatcher.clearSecureWarmInFlight()
             }
         }
 

@@ -349,6 +349,8 @@ class SosJsBridge(
                     )
                 }
                 Log.i(TAG, "SECURE_CALL_OFFER_VERIFIED")
+                SosDebugLog.i("call", "SECURE_WRAP_AUTH_OK")
+                SosDebugLog.i("call", "SECURE_NATIVE_RING_AUTHORIZED")
             } catch (err: Exception) {
                 Log.w(TAG, "secure offer verified failed: ${err.message}")
             }
