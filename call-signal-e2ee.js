@@ -301,25 +301,70 @@
     return hit;
   }
 
+  function isSessionTombstoned(sessionId) {
+    const sid = typeof sessionId === 'string' ? sessionId.trim() : '';
+    if (!sid) return false;
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.isSecureCallSessionTombstoned === 'function') {
+        return !!bridge.isSecureCallSessionTombstoned(sid);
+      }
+    } catch (_e) {}
+    return false;
+  }
+
   function authorizeNativeSecureOfferRing(unwrapped, offer) {
     if (!unwrapped || unwrapped.action !== 'offer' || !offer) return false;
-    if (nativeRingAuthOnce.has(unwrapped.signalId)) return false;
-    nativeRingAuthOnce.add(unwrapped.signalId);
-    if (nativeRingAuthOnce.size > 200) {
-      const first = nativeRingAuthOnce.values().next().value;
-      nativeRingAuthOnce.delete(first);
+    const sessionId = typeof unwrapped.sessionId === 'string' ? unwrapped.sessionId : '';
+    if (sessionId && isSessionTombstoned(sessionId)) {
+      console.log('CALL_SESSION_TOMBSTONE_DROP');
+      return false;
+    }
+    // Ring once per authenticated session (not per outer wrap / signalId).
+    const ringKey = sessionId || unwrapped.signalId || '';
+    if (ringKey && nativeRingAuthOnce.has(ringKey)) {
+      console.log('CALL_SESSION_TOMBSTONE_DROP');
+      return false;
+    }
+    if (ringKey) {
+      nativeRingAuthOnce.add(ringKey);
+      if (nativeRingAuthOnce.size > 200) {
+        const first = nativeRingAuthOnce.values().next().value;
+        nativeRingAuthOnce.delete(first);
+      }
     }
     try {
       const bridge = window.SosNativeShell;
       if (bridge && typeof bridge.notifySecureCallOfferVerified === 'function') {
-        bridge.notifySecureCallOfferVerified(unwrapped.sender, unwrapped.media, unwrapped.sessionId || '');
+        bridge.notifySecureCallOfferVerified(unwrapped.sender, unwrapped.media, sessionId || '');
       }
       if (bridge && typeof bridge.cacheIncomingCallOffer === 'function') {
         bridge.cacheIncomingCallOffer(unwrapped.sender, unwrapped.media, JSON.stringify(offer));
       }
     } catch (_e) {}
     dispatchStats.nativeRingAuth += 1;
+    console.log('CALL_RING_AUTH_ONCE');
     return true;
+  }
+
+  function markSessionTerminalFromJs(sessionId, state) {
+    const sid = typeof sessionId === 'string' ? sessionId.trim() : '';
+    if (!sid) return;
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.markSecureCallSessionTerminal === 'function') {
+        bridge.markSecureCallSessionTerminal(sid, state || 'ENDED');
+      }
+    } catch (_e) {}
+  }
+
+  function requestVerifyOnlyIdleShutdown() {
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.requestVerifyOnlyIdleShutdown === 'function') {
+        bridge.requestVerifyOnlyIdleShutdown();
+      }
+    } catch (_e) {}
   }
 
   function routeSecureSignal(unwrapped) {
@@ -431,12 +476,18 @@
             bridge.notifySecureCallDismissed(unwrapped.sender);
           }
         } catch (_e) {}
+        markSessionTerminalFromJs(unwrapped.sessionId, 'ENDED');
         await routeSecureSignal(unwrapped);
         ackSecureWrapHandledToNative(wrapId);
         return { status: 'dispatched', media: unwrapped.media, action: unwrapped.action };
       }
 
       if (unwrapped.action === 'offer') {
+        if (isSessionTombstoned(unwrapped.sessionId)) {
+          console.log('CALL_SESSION_TOMBSTONE_DROP');
+          ackSecureWrapHandledToNative(wrapId);
+          return { status: 'dispatched', media: unwrapped.media, action: 'tombstone_drop' };
+        }
         const offer = normalizeSessionDescription(unwrapped.data);
         if (!offer) {
           dispatchStats.invalidOffer += 1;
@@ -447,6 +498,10 @@
         unwrapped.data = offer;
         cacheSecureOffer(unwrapped, offer);
         authorizeNativeSecureOfferRing(unwrapped, offer);
+      } else if (unwrapped.sessionId && isSessionTombstoned(unwrapped.sessionId)) {
+        console.log('CALL_SESSION_TOMBSTONE_DROP');
+        ackSecureWrapHandledToNative(wrapId);
+        return { status: 'dispatched', media: unwrapped.media, action: 'tombstone_drop' };
       }
 
       await routeSecureSignal(unwrapped);
@@ -514,6 +569,7 @@
   async function drainPendingSecureWrapsFromNative(pendingList) {
     const items = Array.isArray(pendingList) ? pendingList : [];
     const results = [];
+    let anyRingAuth = false;
     for (let i = 0; i < items.length; i += 1) {
       const item = items[i];
       let ev = null;
@@ -527,12 +583,18 @@
         continue;
       }
       if (!ev) continue;
+      const beforeAuth = dispatchStats.nativeRingAuth;
       const result = await dispatchGiftWrappedCallSignal(ev);
       results.push(result);
+      if (dispatchStats.nativeRingAuth > beforeAuth) anyRingAuth = true;
       // Temporary failures: restore encrypted wrap so process restart can recover.
       if (shouldRequeueSecureWrap(result)) {
         requeueSecureWrapToNative(ev);
       }
+    }
+    // Backlog / verify-only: no fresh ring → release background WebView ownership.
+    if (!anyRingAuth && items.length > 0) {
+      setTimeout(() => requestVerifyOnlyIdleShutdown(), 1500);
     }
     return results;
   }

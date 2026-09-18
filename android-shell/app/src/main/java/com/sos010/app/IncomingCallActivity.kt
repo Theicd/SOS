@@ -219,11 +219,14 @@ class IncomingCallActivity : AppCompatActivity() {
     private fun onDecline() {
         if (handled) return
         handled = true
+        SosSecureCallSessionStore.markActiveDeclined(applicationContext)
         SosIncomingCallSession.markDeclined(applicationContext, peer)
         rememberPendingOfferHandled()
         SosPendingCallStore.clear(applicationContext)
         NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true, dismissUi = false)
+        NotificationHelper.cancelSecureVerifierWake(applicationContext)
         CallSoundHelper.stopAll()
+        MainActivity.cancelKeepFrontAfterDecline()
         MainActivity.startBackgroundCallDecline(applicationContext, peer, callType)
         finishAndRemoveTaskSafe()
     }

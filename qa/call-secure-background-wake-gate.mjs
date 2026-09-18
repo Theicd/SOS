@@ -119,8 +119,8 @@ record('PARTIAL_WAKE_LOCK bounded ~12s',
 // Queue limits unchanged
 record('secure queue MAX 32', /MAX_SECURE_WRAPS\s*=\s*32|maxSecure.*=\s*32|32/.test(pending));
 record('policy remains callSignalGiftWrapRequired true', appVer.callSignalGiftWrapRequired === true);
-record('APK QA version 1.0.116 / 117',
-  /versionName\s*=\s*"1\.0\.116"/.test(gradle) && /versionCode\s*=\s*117/.test(gradle));
+record('APK QA version 1.0.117 / 118',
+  /versionName\s*=\s*"1\.0\.117"/.test(gradle) && /versionCode\s*=\s*118/.test(gradle));
 record('production web version unchanged final1',
   String(appVer.version || '').includes('secure-wake115'));
 record('durable handled store present',
@@ -128,6 +128,10 @@ record('durable handled store present',
 record('SECURE_WAKE_REPLAY_DROP log', /SECURE_WAKE_REPLAY_DROP/.test(watcher));
 record('SECURE_WAKE_RECOVERY_PENDING log', /SECURE_WAKE_RECOVERY_PENDING/.test(watcher));
 record('ackSecureWrapHandled bridge', /fun ackSecureWrapHandled/.test(bridge));
+record('session tombstone store present',
+  fs.existsSync(path.join(ROOT, 'android-shell/app/src/main/java/com/sos010/app/SosSecureCallSessionStore.kt')));
+record('DECLINE_CANCEL_KEEPFRONT present', /DECLINE_CANCEL_KEEPFRONT/.test(main) || /DECLINE_CANCEL_KEEPFRONT/.test(bridge));
+record('VERIFY_ONLY_IDLE_SHUTDOWN present', /VERIFY_ONLY_IDLE_SHUTDOWN/.test(main));
 
 console.log(results.join('\n'));
 console.log(`\nCALL_SECURE_BACKGROUND_WAKE_GATE ${fail === 0 ? 'PASS' : 'FAIL'} (${pass} passed, ${fail} failed)`);

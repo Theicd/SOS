@@ -258,17 +258,31 @@ class SosJsBridge(
 
     @JavascriptInterface
     fun markIncomingCallDeclined(peer: String?) {
+        // Terminal: tombstone active session BEFORE clearing UI/sounds.
+        SosSecureCallSessionStore.markActiveDeclined(context.applicationContext)
         SosIncomingCallSession.markDeclined(context.applicationContext, peer)
         rememberPendingOfferId()
         SosPendingCallStore.clear(context.applicationContext)
         NotificationHelper.cancelIncomingCall(context.applicationContext, stopSound = true, dismissUi = true)
+        NotificationHelper.cancelSecureVerifierWake(context.applicationContext)
         CallSoundHelper.stopAll()
         IncomingCallActivity.notifyCallEnded(context.applicationContext, peer)
+        MainActivity.cancelKeepFrontAfterDecline()
         clearHostWarmState()
+        Log.i(TAG, "DECLINE_CANCEL_KEEPFRONT")
+        SosDebugLog.i("call", "DECLINE_CANCEL_KEEPFRONT")
     }
 
     @JavascriptInterface
     fun markIncomingCallEnded(peer: String?) {
+        val active = SosSecureCallSessionStore.activeSessionHash(context.applicationContext)
+        if (active != null) {
+            SosSecureCallSessionStore.markByHash(
+                context.applicationContext,
+                active,
+                SosSecureCallSessionStore.STATE_ENDED
+            )
+        }
         SosIncomingCallSession.markRemoteEnded(context.applicationContext, peer)
         rememberPendingOfferId()
         SosPendingCallStore.clear(context.applicationContext)
@@ -335,17 +349,33 @@ class SosJsBridge(
     /**
      * After JS authenticates Gift Wrap offer — ONLY then may Native ring.
      * peer/media come from decrypted inner payload, never from outer Relay tags.
+     * Session tombstone / ring-once guards suppress decline/end replays.
      */
     @JavascriptInterface
     fun notifySecureCallOfferVerified(peer: String?, media: String?, sessionId: String?) {
         val pk = SosSessionStore.normalizeHexPubkey(peer)
         if (pk.isEmpty()) return
+        val sid = sessionId?.trim().orEmpty()
         val kind = when (media?.trim()?.lowercase()) {
             "video", "v" -> "video"
             else -> "voice"
         }
         mainHandler.post {
             try {
+                if (sid.isNotEmpty() && SosSecureCallSessionStore.isTombstoned(context.applicationContext, sid)) {
+                    Log.i(TAG, "CALL_SESSION_TOMBSTONE_DROP")
+                    SosDebugLog.i("call", "CALL_SESSION_TOMBSTONE_DROP")
+                    return@post
+                }
+                // One ring per authenticated sessionId.
+                if (sid.isNotEmpty() && !SosSecureCallSessionStore.markRinged(context.applicationContext, sid)) {
+                    Log.i(TAG, "CALL_SESSION_TOMBSTONE_DROP")
+                    SosDebugLog.i("call", "CALL_SESSION_TOMBSTONE_DROP")
+                    return@post
+                }
+                if (sid.isNotEmpty()) {
+                    SosSecureCallSessionStore.rememberActiveSession(context.applicationContext, sid)
+                }
                 SosPendingCallStore.updateSecureWrapPeer(context.applicationContext, pk, kind)
                 // Mark authenticated offer handled (outer wrap id if available).
                 val offerId = SosPendingCallStore.extractEventId(context.applicationContext)
@@ -374,6 +404,28 @@ class SosJsBridge(
                 SosDebugLog.i("call", "SECURE_NATIVE_RING_AUTHORIZED")
             } catch (err: Exception) {
                 Log.w(TAG, "secure offer verified failed: ${err.message}")
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun isSecureCallSessionTombstoned(sessionId: String?): Boolean {
+        return SosSecureCallSessionStore.isTombstoned(context.applicationContext, sessionId)
+    }
+
+    @JavascriptInterface
+    fun markSecureCallSessionTerminal(sessionId: String?, state: String?): Boolean {
+        val st = state?.trim()?.uppercase().orEmpty()
+        return SosSecureCallSessionStore.mark(context.applicationContext, sessionId, st)
+    }
+
+    /** Verify-only warm finished with no fresh ring — release background WebView ownership. */
+    @JavascriptInterface
+    fun requestVerifyOnlyIdleShutdown() {
+        mainHandler.post {
+            try {
+                MainActivity.verifyOnlyIdleShutdown()
+            } catch (_: Exception) {
             }
         }
     }
