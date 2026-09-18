@@ -60,6 +60,8 @@ object SosPendingCallStore {
         val raw = eventJson?.trim().orEmpty()
         if (raw.isEmpty() || raw.length > SECURE_EVENT_MAX_CHARS) return false
         val eventId = extractIdFromEventJson(raw) ?: return false
+        // Durable handled store — never re-queue a fully processed outer wrap.
+        if (SosSecureWrapHandledStore.isHandled(context, eventId)) return false
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()
         val queue = loadSecureQueue(prefs, now)
@@ -78,6 +80,41 @@ object SosPendingCallStore {
         )
         prefs.edit().putString(KEY_SECURE_QUEUE, queue.toString()).apply()
         return true
+    }
+
+    /** Remove one pending wrap by outer id without clearing the rest of the queue. */
+    fun removeSecureWrap(context: Context, eventId: String?): Boolean {
+        val id = eventId?.trim()?.lowercase().orEmpty()
+        if (id.length < 8) return false
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val queue = loadSecureQueue(prefs, now)
+        val next = JSONArray()
+        var removed = false
+        for (i in 0 until queue.length()) {
+            val item = queue.optJSONObject(i) ?: continue
+            if (item.optString("id").equals(id, ignoreCase = true)) {
+                removed = true
+                continue
+            }
+            next.put(item)
+        }
+        if (removed) {
+            prefs.edit().putString(KEY_SECURE_QUEUE, next.toString()).apply()
+        }
+        return removed
+    }
+
+    fun containsSecureWrap(context: Context, eventId: String?): Boolean {
+        val id = eventId?.trim()?.lowercase().orEmpty()
+        if (id.length < 8) return false
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val queue = loadSecureQueue(prefs, System.currentTimeMillis())
+        for (i in 0 until queue.length()) {
+            val item = queue.optJSONObject(i) ?: continue
+            if (item.optString("id").equals(id, ignoreCase = true)) return true
+        }
+        return false
     }
 
     /** @deprecated Prefer enqueueSecureWrap — kept for callers; enqueues without overwrite. */
@@ -227,7 +264,7 @@ object SosPendingCallStore {
 
     private fun extractIdFromEventJson(eventJson: String): String? {
         return try {
-            JSONObject(eventJson).optString("id").trim().takeIf { it.length >= 8 }
+            JSONObject(eventJson).optString("id").trim().lowercase().takeIf { it.length >= 8 }
         } catch (_: Exception) {
             null
         }

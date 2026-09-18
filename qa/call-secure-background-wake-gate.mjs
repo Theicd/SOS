@@ -119,10 +119,15 @@ record('PARTIAL_WAKE_LOCK bounded ~12s',
 // Queue limits unchanged
 record('secure queue MAX 32', /MAX_SECURE_WRAPS\s*=\s*32|maxSecure.*=\s*32|32/.test(pending));
 record('policy remains callSignalGiftWrapRequired true', appVer.callSignalGiftWrapRequired === true);
-record('APK QA version 1.0.115 / 116',
-  /versionName\s*=\s*"1\.0\.115"/.test(gradle) && /versionCode\s*=\s*116/.test(gradle));
+record('APK QA version 1.0.116 / 117',
+  /versionName\s*=\s*"1\.0\.116"/.test(gradle) && /versionCode\s*=\s*117/.test(gradle));
 record('production web version unchanged final1',
   String(appVer.version || '').includes('secure-wake115'));
+record('durable handled store present',
+  fs.existsSync(path.join(ROOT, 'android-shell/app/src/main/java/com/sos010/app/SosSecureWrapHandledStore.kt')));
+record('SECURE_WAKE_REPLAY_DROP log', /SECURE_WAKE_REPLAY_DROP/.test(watcher));
+record('SECURE_WAKE_RECOVERY_PENDING log', /SECURE_WAKE_RECOVERY_PENDING/.test(watcher));
+record('ackSecureWrapHandled bridge', /fun ackSecureWrapHandled/.test(bridge));
 
 console.log(results.join('\n'));
 console.log(`\nCALL_SECURE_BACKGROUND_WAKE_GATE ${fail === 0 ? 'PASS' : 'FAIL'} (${pass} passed, ${fail} failed)`);

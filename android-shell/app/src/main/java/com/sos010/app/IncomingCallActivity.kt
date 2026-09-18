@@ -157,7 +157,7 @@ class IncomingCallActivity : AppCompatActivity() {
 
         avatarExecutor.execute {
             val bmp = try {
-                SosContactCache.loadBitmap(url)
+                SosContactCache.loadBitmap(this@IncomingCallActivity, url)
             } catch (_: Exception) {
                 null
             } ?: return@execute

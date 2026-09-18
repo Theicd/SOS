@@ -358,14 +358,57 @@
    * Authoritative single-consume secure 1059 path.
    * Unwrap once → claim replay → validate offer SDP before Native ring → route by media.
    */
+  function shouldMarkSecureWrapHandled(result) {
+    if (!result || typeof result !== 'object') return false;
+    const status = String(result.status || '');
+    if (status === 'dispatched' || status === 'duplicate' || status === 'invalid_offer') return true;
+    if (status === 'reject') {
+      const reason = String(result.reason || '');
+      // Deterministic outcomes after keys were present / schema fail.
+      // Do NOT mark for no_keys / exception (temporary — pending must remain recoverable).
+      return reason === 'not_wrap' || reason === 'unwrap';
+    }
+    return false;
+  }
+
+  function shouldRequeueSecureWrap(result) {
+    if (!result || typeof result !== 'object') return false;
+    if (String(result.status || '') !== 'reject') return false;
+    const reason = String(result.reason || '');
+    return reason === 'no_keys' || reason === 'exception' || reason === 'chain';
+  }
+
+  function ackSecureWrapHandledToNative(wrapId) {
+    const id = typeof wrapId === 'string' ? wrapId.trim() : '';
+    if (!id) return;
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.ackSecureWrapHandled === 'function') {
+        bridge.ackSecureWrapHandled(id);
+      }
+    } catch (_e) {}
+  }
+
+  function requeueSecureWrapToNative(ev) {
+    if (!ev) return;
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.requeueSecureWrap === 'function') {
+        bridge.requeueSecureWrap(JSON.stringify(ev));
+      }
+    } catch (_e) {}
+  }
+
   async function dispatchGiftWrappedCallSignal(wrapEvent, _opts) {
+    let wrapId = '';
     try {
       if (!wrapEvent || wrapEvent.kind !== GIFT_WRAP_KIND) {
         return { status: 'reject', reason: 'not_wrap' };
       }
-      const wrapId = typeof wrapEvent.id === 'string' ? wrapEvent.id : '';
+      wrapId = typeof wrapEvent.id === 'string' ? wrapEvent.id : '';
       if (wrapId && rememberWrapId(wrapId)) {
         dispatchStats.duplicateWrap += 1;
+        ackSecureWrapHandledToNative(wrapId);
         return { status: 'duplicate', reason: 'wrap_id' };
       }
       if (!App.privateKey || !App.publicKey) {
@@ -377,6 +420,7 @@
       if (!unwrapped) {
         // unwrap already claimed signalId on success; failure may be replay
         dispatchStats.replayReject += 1;
+        ackSecureWrapHandledToNative(wrapId);
         return { status: 'reject', reason: 'unwrap' };
       }
 
@@ -388,6 +432,7 @@
           }
         } catch (_e) {}
         await routeSecureSignal(unwrapped);
+        ackSecureWrapHandledToNative(wrapId);
         return { status: 'dispatched', media: unwrapped.media, action: unwrapped.action };
       }
 
@@ -396,6 +441,7 @@
         if (!offer) {
           dispatchStats.invalidOffer += 1;
           // signalId already claimed — do NOT ring
+          ackSecureWrapHandledToNative(wrapId);
           return { status: 'invalid_offer', media: unwrapped.media };
         }
         unwrapped.data = offer;
@@ -404,15 +450,23 @@
       }
 
       await routeSecureSignal(unwrapped);
+      ackSecureWrapHandledToNative(wrapId);
       return { status: 'dispatched', media: unwrapped.media, action: unwrapped.action, signalId: unwrapped.signalId };
     } catch (_err) {
+      if (wrapId) {
+        try { seenWrapIds.delete(wrapId); } catch (_e) {}
+      }
       return { status: 'reject', reason: 'exception' };
     }
   }
 
   function enqueueSecureDispatch(wrapEvent) {
     secureDispatchChain = secureDispatchChain
-      .then(() => dispatchGiftWrappedCallSignal(wrapEvent))
+      .then(async () => {
+        const result = await dispatchGiftWrappedCallSignal(wrapEvent);
+        // Live path already acks inside dispatch on terminal statuses.
+        return result;
+      })
       .catch(() => ({ status: 'reject', reason: 'chain' }));
     return secureDispatchChain;
   }
@@ -473,7 +527,12 @@
         continue;
       }
       if (!ev) continue;
-      results.push(await dispatchGiftWrappedCallSignal(ev));
+      const result = await dispatchGiftWrappedCallSignal(ev);
+      results.push(result);
+      // Temporary failures: restore encrypted wrap so process restart can recover.
+      if (shouldRequeueSecureWrap(result)) {
+        requeueSecureWrapToNative(ev);
+      }
     }
     return results;
   }

@@ -196,12 +196,33 @@ class SosJsBridge(
     fun cacheContact(pubkey: String?, name: String?, picture: String?) {
         val pk = SosSessionStore.normalizeHexPubkey(pubkey)
         if (pk.isEmpty()) return
+        // Do NOT clamp data:image Base64 mid-stream — SosContactCache persists
+        // a bounded local avatarfile. http(s) URLs stay length-bounded inside put().
+        val pic = picture?.trim().orEmpty()
         SosContactCache.put(
             context.applicationContext,
             pk,
             clampText(name, 120),
-            clampText(picture, 2048)
+            pic
         )
+    }
+
+    /**
+     * Mark outer kind-1059 event id as durably HANDLED after JS processing
+     * completed or deterministic rejection. Safe to call multiple times.
+     */
+    @JavascriptInterface
+    fun ackSecureWrapHandled(eventId: String?) {
+        val id = eventId?.trim()?.lowercase().orEmpty()
+        if (id.length < 8) return
+        SosSecureWrapHandledStore.markHandled(context.applicationContext, id)
+        SosPendingCallStore.removeSecureWrap(context.applicationContext, id)
+    }
+
+    /** Re-queue an encrypted wrap after temporary processing failure (keys/runtime). */
+    @JavascriptInterface
+    fun requeueSecureWrap(eventJson: String?) {
+        SosPendingCallStore.enqueueSecureWrap(context.applicationContext, eventJson)
     }
 
     @JavascriptInterface
