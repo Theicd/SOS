@@ -1,4 +1,4 @@
-# APK served for one-tap Android install
+﻿# APKs must NOT live in this git folder.
+# Sole public install target is GitHub Releases (latest only):
+# https://github.com/Theicd/SOS/releases/latest
 *.apk
-!SOS.apk
-!SOS-*.apk

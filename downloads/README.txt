@@ -1,8 +1,9 @@
-﻿SOS Android APK downloads
+﻿SOS Android APK — do not store APKs in this folder.
 
-Latest: SOS-1.0.113.apk (So-Call splash logo at SOS loading height)
+Public download (sole latest on GitHub Releases):
+https://github.com/Theicd/SOS/releases/download/apk-1.0.115/SOS-1.0.115.apk
 
-GitHub Release:
-https://github.com/Theicd/SOS/releases/download/apk-1.0.113/SOS-1.0.113.apk
+Release page:
+https://github.com/Theicd/SOS/releases/tag/apk-1.0.115
 
-Previous: https://github.com/Theicd/SOS/releases/download/apk-1.0.112/SOS-1.0.112.apk
+Policy: only one APK asset on GitHub Releases at a time. Never commit APKs into downloads/.
