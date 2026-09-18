@@ -1197,7 +1197,9 @@
     if (!items.length) {
       try {
         const bridge = window.SosNativeShell;
-        if (bridge && typeof bridge.drainPendingSecureWraps === 'function') {
+        if (bridge && typeof bridge.peekPendingSecureWraps === 'function') {
+          items = parseQueue(bridge.peekPendingSecureWraps());
+        } else if (bridge && typeof bridge.drainPendingSecureWraps === 'function') {
           items = parseQueue(bridge.drainPendingSecureWraps());
         } else if (bridge && typeof bridge.getIncomingCallRawEvent === 'function') {
           items = parseQueue(bridge.getIncomingCallRawEvent());
@@ -1433,6 +1435,12 @@
       }
     }
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : (incomingOfferPeer || '');
+    // Idempotent: second inject must not re-ring / re-end.
+    if (window.__sosDeclineTerminalPeer === peer && Date.now() < (window.__sosDeclineTerminalUntil || 0)) {
+      return true;
+    }
+    window.__sosDeclineTerminalPeer = peer;
+    window.__sosDeclineTerminalUntil = Date.now() + 120000;
     window.__sosNativePendingDecline = { peer, until: Date.now() + 45000 };
     window.__sosNativePendingAnswer = null;
     userDeclinedCall = true;
@@ -1445,10 +1453,14 @@
       }
     } catch (_) {}
 
+    // FIRST: mark session tombstone + stop all sounds + dismiss UI.
     try {
       const bridge = window.SosNativeShell;
       if (bridge && typeof bridge.markIncomingCallDeclined === 'function') {
         bridge.markIncomingCallDeclined(peer);
+      }
+      if (bridge && typeof bridge.stopCallSounds === 'function') {
+        bridge.stopCallSounds();
       }
     } catch (_) {}
 
@@ -1456,6 +1468,9 @@
     closeCallDialog();
     stopRingtone();
     stopDialtone();
+    try {
+      if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+    } catch (_) {}
 
     let ok = false;
     try {
@@ -1467,28 +1482,24 @@
           const st = App.voiceCall.getState && App.voiceCall.getState();
           if (st) st.currentPeer = peer;
         } catch (_) {}
-        await App.voiceCall.end();
+        await App.voiceCall.end({ declined: true });
         ok = true;
       }
     } catch (err) {
       console.warn('[APK] decline failed', err);
     }
 
-    // ניסיונות נוספים אם pool עדיין לא מוכן | HYPER CORE TECH
+    // Single short retry only if first failed (pool not ready).
     if (!ok && peer) {
-      let tries = 0;
-      const retry = async () => {
-        tries += 1;
+      setTimeout(async () => {
         try {
           if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 120 });
           if (App.voiceCall && typeof App.voiceCall.rejectIncoming === 'function') {
-            ok = await App.voiceCall.rejectIncoming(peer);
+            await App.voiceCall.rejectIncoming(peer);
           }
         } catch (_) {}
-        if (!ok && tries < 15) setTimeout(retry, 500);
-        else window.__sosNativePendingDecline = null;
-      };
-      setTimeout(retry, 400);
+        window.__sosNativePendingDecline = null;
+      }, 500);
     } else {
       window.__sosNativePendingDecline = null;
     }

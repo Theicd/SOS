@@ -175,12 +175,12 @@ class IncomingCallActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.btnDecline).setOnClickListener { onDecline() }
     }
 
-    /** מחמם WebView בזמן צלצול – הפעלה מחזית (מסך השיחה) ולא כ־bg start מעוכב | HYPER CORE TECH */
+    /** מחמם WebView בזמן צלצול – במהלך fastwake לא טוענים videos.html לפני Answer */
     private fun warmWebViewNow() {
         if (warmed || peer.length != 64) return
         warmed = true
-        SosDebugLog.i("call", "ring UI warm peer=redacted")
-        MainActivity.warmHostForIncomingCall(applicationContext, peer, callType)
+        SosDebugLog.i("call", "ring UI warm peer=redacted (defer full UI until answer)")
+        // PART G: RING before full Home. Do NOT boot videos.html until Answer.
     }
 
     private fun onAnswer() {
@@ -222,7 +222,7 @@ class IncomingCallActivity : AppCompatActivity() {
         SosSecureCallSessionStore.markActiveDeclined(applicationContext)
         SosIncomingCallSession.markDeclined(applicationContext, peer)
         rememberPendingOfferHandled()
-        SosPendingCallStore.clear(applicationContext)
+        // Prefer verifier disconnect; do not clear entire queue before ACK path runs.
         NotificationHelper.cancelIncomingCall(applicationContext, stopSound = true, dismissUi = false)
         NotificationHelper.cancelSecureVerifierWake(applicationContext)
         CallSoundHelper.stopAll()

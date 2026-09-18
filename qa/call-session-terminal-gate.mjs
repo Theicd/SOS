@@ -128,8 +128,8 @@ record('18 ackSecureWrapHandled + requeueSecureWrap',
 
 // Policy / version
 record('callSignalGiftWrapRequired true', appVer.callSignalGiftWrapRequired === true);
-record('APK QA 1.0.117 / 118',
-  /versionName\s*=\s*"1\.0\.117"/.test(gradle) && /versionCode\s*=\s*118/.test(gradle));
+record('APK QA 1.0.118 / 119',
+  /versionName\s*=\s*"1\.0\.118"/.test(gradle) && /versionCode\s*=\s*119/.test(gradle));
 record('DEEPLINK_CALL_CONSUMED',
   /DEEPLINK_CALL_CONSUMED/.test(deeplink));
 

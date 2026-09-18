@@ -411,14 +411,14 @@ object NotificationHelper {
      * Uses full-screen PendingIntent so Android allows Activity start when
      * MainActivity is destroyed / screen is off. No peer/media/caller metadata.
      */
-    fun showSecureVerifierWake(context: Context) {
+    fun showSecureVerifierWake(context: Context, recovery: Boolean = false) {
         if (!SecureCallWakeActivity.tryBeginLaunch()) {
             SosDebugLog.i("call", "SECURE_VERIFIER_LAUNCH skipped")
             return
         }
         ensureChannels(context)
         val app = context.applicationContext
-        val verifierIntent = SecureCallWakeActivity.verifierIntent(app)
+        val verifierIntent = SecureCallWakeActivity.verifierIntent(app, recovery = recovery)
         val fullScreenPi = activityPendingIntent(app, SECURE_VERIFIER_WAKE_ID, verifierIntent)
         val builder = NotificationCompat.Builder(app, CHANNEL_SECURE_WAKE)
             .setSmallIcon(R.drawable.ic_stat_sos)

@@ -393,7 +393,7 @@ class SosRelayWatcher(private val appContext: Context) {
         lastSecureWakeAt = System.currentTimeMillis()
         Log.i(TAG, "SECURE_WAKE_RECEIVED → verifier")
         SosDebugLog.i("relay", "SECURE_WAKE_RECEIVED")
-        MainActivity.warmHostForSecureWrap(appContext)
+        MainActivity.warmHostForSecureWrap(appContext, recovery = forceRecovery)
     }
 
     private fun rememberOpaqueWakeId(id: String) {

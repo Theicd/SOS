@@ -52,14 +52,18 @@ record('video handleSecureSignal no unwrap', video.includes('handleSecureSignal'
 record('native ring after SDP normalize', /action === 'offer'[\s\S]{0,500}normalizeSessionDescription[\s\S]{0,400}authorizeNativeSecureOfferRing/.test(helperSrc));
 record('invalid offer skips ring', helperSrc.includes("status: 'invalid_offer'") && helperSrc.includes('authorizeNativeSecureOfferRing'));
 record('bounded secure queue', store.includes('KEY_SECURE_QUEUE') && store.includes('SECURE_QUEUE_MAX = 32') && store.includes('enqueueSecureWrap'));
-record('queue drain API', store.includes('drainSecureWraps') && bridge.includes('drainPendingSecureWraps'));
+record('queue drain API retained + peek API',
+  store.includes('drainSecureWraps')
+  && store.includes('peekSecureWraps')
+  && bridge.includes('drainPendingSecureWraps')
+  && bridge.includes('peekPendingSecureWraps'));
 record('opaque wake no rememberHandledOffer', /handleSecureGiftWrap[\s\S]{0,1200}rememberHandledOffer/.test(watcher) === false);
 record('opaque wake dedupe separate', watcher.includes('opaqueWakeSeen') && watcher.includes('rememberOpaqueWakeId'));
 record('enqueue not gated by rate limit first', watcher.includes('enqueueSecureWrap') && watcher.includes('kept in queue'));
 record('prepareSecure uses dispatcher', voiceUi.includes('dispatchGiftWrappedCallSignal') || voiceUi.includes('drainPendingSecureWrapsFromNative'));
 record('index loads call-signal-e2ee', indexHtml.includes('call-signal-e2ee.js'));
 record('call push still disabled', push.includes('CALL_PUSH_DISABLED') && push.includes('MISSED_CALL_PUSH_DISABLED'));
-record('inject drains queue', main.includes('drainSecureWraps'));
+record('inject peeks queue (non-destructive)', main.includes('peekSecureWraps'));
 
 // Runtime cross-media + double-consume
 async function runtime() {

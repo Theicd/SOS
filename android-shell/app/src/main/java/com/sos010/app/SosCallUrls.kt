@@ -13,4 +13,8 @@ object SosCallUrls {
     }
 
     fun warmPage(): String = BuildConfig.SOS_START_URL
+
+    /** Bundled minimal verifier — never videos.html / feed / WebTorrent. */
+    fun verifierAssetUrl(): String =
+        "file:///android_asset/secure-call-verifier/index.html"
 }

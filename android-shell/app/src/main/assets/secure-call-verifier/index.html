@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SOS Secure Call Verifier</title>
+  <!-- Minimal verifier only — ZERO feed/home/p2p -->
+  <script src="./nostr.bundle.min.js"></script>
+  <script src="./call-signal-e2ee.js"></script>
+  <script src="./secure-call-verifier.js"></script>
+</head>
+<body style="margin:0;background:#000;color:#000;">
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      try {
+        if (typeof window.sosSecureVerifierBoot === 'function') {
+          window.sosSecureVerifierBoot();
+        }
+      } catch (e) {}
+    });
+  </script>
+</body>
+</html>

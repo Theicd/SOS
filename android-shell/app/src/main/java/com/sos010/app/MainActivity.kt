@@ -865,9 +865,9 @@ class MainActivity : AppCompatActivity() {
     private fun injectSecureWrapProcessing() {
         if (!warmForSecureWrapPending) return
         if (!this::webView.isInitialized) return
-        val queueJson = SosPendingCallStore.drainSecureWraps(applicationContext).toString()
+        // PEEK — do not drain/clear queue; ACK removes individual wraps.
+        val queueJson = SosPendingCallStore.peekSecureWraps(applicationContext).toString()
         if (queueJson == "[]") {
-            // Also try legacy single-slot for older pending meta
             val legacy = SosPendingCallStore.getRawEventJson(applicationContext)
             if (legacy.isBlank()) return
         }
@@ -904,8 +904,7 @@ class MainActivity : AppCompatActivity() {
         }
         mainHandler.postDelayed({
             if (!this::webView.isInitialized) return@postDelayed
-            // Drain any wraps that arrived during inject.
-            val more = SosPendingCallStore.drainSecureWraps(applicationContext).toString()
+            val more = SosPendingCallStore.peekSecureWraps(applicationContext).toString()
             if (more == "[]") return@postDelayed
             val moreJs = JSONObject.quote(more)
             val retry = """
@@ -2492,10 +2491,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        /** Opaque 1059 wake — warm WebView for JS unwrap via authorized FSI; do NOT ring yet. */
-        fun warmHostForSecureWrap(context: Context) {
+        /** Opaque 1059 wake — minimal verifier Activity (NOT videos.html). */
+        fun warmHostForSecureWrap(context: Context, recovery: Boolean = false) {
             val app = context.applicationContext
-            // If a live host already exists, only inject — never ring.
+            // If a live host already exists, only inject — never ring from Native alone.
             hostRef?.get()?.runOnUiThread {
                 try {
                     hostRef?.get()?.let { act ->
@@ -2509,10 +2508,8 @@ class MainActivity : AppCompatActivity() {
                 SosDebugLog.i("call", "SECURE_WAKE hostAlive inject")
                 return
             }
-            // Background Activity Launch from FGS is unreliable when task is destroyed.
-            // Use silent full-screen PendingIntent verifier bridge instead.
             try {
-                NotificationHelper.showSecureVerifierWake(app)
+                NotificationHelper.showSecureVerifierWake(app, recovery = recovery)
             } catch (err: Exception) {
                 SosDebugLog.i("call", "warmSecureWrap fail ${err.message}")
                 SecureCallWakeActivity.clearLaunchInFlight()
@@ -2579,6 +2576,12 @@ class MainActivity : AppCompatActivity() {
 
         fun startBackgroundCallDecline(context: Context, peer: String, callType: String) {
             val app = context.applicationContext
+            // Prefer minimal verifier disconnect — do NOT flash Home/videos.html.
+            val verifier = SecureCallWakeActivity.currentOrNull()
+            if (verifier != null) {
+                verifier.requestDeclineDisconnect(peer, callType)
+                return
+            }
             val intent = Intent(app, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_SINGLE_TOP or

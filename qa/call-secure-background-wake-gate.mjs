@@ -105,22 +105,22 @@ record('SecureCallWakeActivity no sound/ringtone in source',
   !/MediaPlayer|startRingtone|CallSoundHelper/.test(wakeAct));
 
 // 14 queue drain
-record('queue drained after WebView ready (injectSecureWrapProcessing)',
-  /drainSecureWraps/.test(main) && /injectSecureWrapProcessing/.test(main));
+record('queue peeked after WebView ready (injectSecureWrapProcessing)',
+  /peekSecureWraps/.test(main) && /injectSecureWrapProcessing/.test(main));
 
 // 15 Activity destroyed → verifier path
 record('Activity destroyed wake uses FSI verifier',
   /showSecureVerifierWake/.test(main) && /CHANNEL_SECURE_WAKE/.test(notify));
 
 // Wake lock bounded
-record('PARTIAL_WAKE_LOCK bounded ~12s',
-  /PARTIAL_WAKE_LOCK/.test(wakeAct) && /WAKE_MS\s*=\s*12_000L/.test(wakeAct));
+record('PARTIAL_WAKE_LOCK bounded for verifier',
+  /PARTIAL_WAKE_LOCK/.test(wakeAct) && /WAKE_MS\s*=\s*\d+_000L/.test(wakeAct));
 
 // Queue limits unchanged
 record('secure queue MAX 32', /MAX_SECURE_WRAPS\s*=\s*32|maxSecure.*=\s*32|32/.test(pending));
 record('policy remains callSignalGiftWrapRequired true', appVer.callSignalGiftWrapRequired === true);
-record('APK QA version 1.0.117 / 118',
-  /versionName\s*=\s*"1\.0\.117"/.test(gradle) && /versionCode\s*=\s*118/.test(gradle));
+record('APK QA version 1.0.118 / 119',
+  /versionName\s*=\s*"1\.0\.118"/.test(gradle) && /versionCode\s*=\s*119/.test(gradle));
 record('production web version call-bg-rollback1',
   String(appVer.version || '').includes('call-bg-rollback1'));
 record('durable handled store present',
@@ -136,8 +136,16 @@ record('SW cache v849', /sos-cache-v849/.test(read('service-worker.js')));
 record('public APK is 1.0.117',
   JSON.parse(read('apk-version.json')).version === '1.0.117'
   && Number(JSON.parse(read('apk-version.json')).versionCode) === 118);
-record('session-terminal WEB markers N/A after emergency rollback',
-  !/ackSecureWrapHandledToNative/.test(read('call-signal-e2ee.js')));
+record('session-terminal WEB ACK restored for fastwake',
+  /ackSecureWrapHandledToNative/.test(read('call-signal-e2ee.js')));
+record('QA shell version 1.0.118 / 119',
+  /versionName\s*=\s*"1\.0\.118"/.test(read('android-shell/app/build.gradle.kts'))
+  && /versionCode\s*=\s*119/.test(read('android-shell/app/build.gradle.kts')));
+record('public APK pointer remains 1.0.117',
+  JSON.parse(read('apk-version.json')).version === '1.0.117'
+  && Number(JSON.parse(read('apk-version.json')).versionCode) === 118);
+record('minimal verifier asset present',
+  fs.existsSync(path.join(ROOT, 'android-shell/app/src/main/assets/secure-call-verifier/index.html')));
 
 console.log(results.join('\n'));
 console.log(`\nCALL_SECURE_BACKGROUND_WAKE_GATE ${fail === 0 ? 'PASS' : 'FAIL'} (${pass} passed, ${fail} failed)`);

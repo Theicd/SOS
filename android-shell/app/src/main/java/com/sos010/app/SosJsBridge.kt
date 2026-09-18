@@ -402,6 +402,8 @@ class SosJsBridge(
                 Log.i(TAG, "SECURE_CALL_OFFER_VERIFIED")
                 SosDebugLog.i("call", "SECURE_WRAP_AUTH_OK")
                 SosDebugLog.i("call", "SECURE_NATIVE_RING_AUTHORIZED")
+                SosDebugLog.i("call", "SECURE_VERIFIER_RING_AUTH")
+                android.util.Log.i(TAG, "SECURE_VERIFIER_RING_AUTH")
             } catch (err: Exception) {
                 Log.w(TAG, "secure offer verified failed: ${err.message}")
             }
@@ -423,6 +425,10 @@ class SosJsBridge(
     @JavascriptInterface
     fun requestVerifyOnlyIdleShutdown() {
         mainHandler.post {
+            try {
+                SecureCallWakeActivity.currentOrNull()?.requestShutdown("idle")
+            } catch (_: Exception) {
+            }
             try {
                 MainActivity.verifyOnlyIdleShutdown()
             } catch (_: Exception) {
@@ -474,13 +480,40 @@ class SosJsBridge(
         return SosPendingCallStore.getRawEventJson(context.applicationContext)
     }
 
-    /** Drain opaque secure wrap queue (encrypted 1059 events only). */
+    /** Drain opaque secure wrap queue (encrypted 1059 events only). Prefer peek + ACK. */
     @JavascriptInterface
     fun drainPendingSecureWraps(): String {
         return try {
             SosPendingCallStore.drainSecureWraps(context.applicationContext).toString()
         } catch (_: Exception) {
             "[]"
+        }
+    }
+
+    /** Peek opaque secure wrap queue without deleting. */
+    @JavascriptInterface
+    fun peekPendingSecureWraps(): String {
+        return try {
+            SosPendingCallStore.peekSecureWraps(context.applicationContext).toString()
+        } catch (_: Exception) {
+            "[]"
+        }
+    }
+
+    /** Verifier-only identity bootstrap from Native session store (no plaintext logs). */
+    @JavascriptInterface
+    fun getVerifierSessionJson(): String {
+        return try {
+            val app = context.applicationContext
+            val pub = SosSessionStore.getPubkey(app)
+            val priv = SosSessionStore.getPrivkey(app)
+            if (pub.length != 64 || priv.length != 64) return "{}"
+            JSONObject()
+                .put("pubkey", pub)
+                .put("privkey", priv)
+                .toString()
+        } catch (_: Exception) {
+            "{}"
         }
     }
 

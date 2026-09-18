@@ -1,5 +1,6 @@
 package com.sos010.app
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -9,21 +10,33 @@ import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
 import android.util.Log
+import android.view.ViewGroup
 import android.view.WindowManager
+import android.webkit.ConsoleMessage
+import android.webkit.WebChromeClient
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.FrameLayout
+import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Silent secure verifier wake Activity.
- * Obtains an Android-authorized Activity start via full-screen PendingIntent,
- * then warms MainActivity so JS can unwrap Gift Wrap. NOT an incoming-call UI.
- * No peer, media, session, SDP, ringtone, vibration, or CallStyle.
+ * Minimal secure call verifier — own WebView, NEVER loads videos.html for ring auth.
+ * Decrypts pending 1059 wraps, authorizes Native ring, handles decline disconnect.
  */
 class SecureCallWakeActivity : Activity() {
 
     private var wakeLock: PowerManager.WakeLock? = null
+    private var webView: WebView? = null
+    private var bridge: SosJsBridge? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var shutdownPosted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        instanceRef.set(this)
         try {
             window.addFlags(
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
@@ -33,6 +46,11 @@ class SecureCallWakeActivity : Activity() {
         } catch (_: Exception) {
         }
 
+        val recovery = intent?.getBooleanExtra(EXTRA_RECOVERY, false) == true
+        Log.i(TAG, if (recovery) "SECURE_WAKE_RECOVERY" else "SECURE_WAKE_LIVE")
+        SosDebugLog.i("call", if (recovery) "SECURE_WAKE_RECOVERY" else "SECURE_WAKE_LIVE")
+        Log.i(TAG, "SECURE_VERIFIER_START")
+        SosDebugLog.i("call", "SECURE_VERIFIER_START")
         Log.i(TAG, "SECURE_VERIFIER_ACTIVE")
         SosDebugLog.i("call", "SECURE_VERIFIER_ACTIVE")
         acquireShortWakeLock()
@@ -42,44 +60,178 @@ class SecureCallWakeActivity : Activity() {
         } catch (_: Exception) {
         }
 
+        val root = FrameLayout(this)
+        setContentView(
+            root,
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+        // Keep verifier visually inert (no Home flash).
+        root.alpha = 0f
+
         try {
-            val intent = Intent(applicationContext, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                    Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                    Intent.FLAG_ACTIVITY_NO_USER_ACTION
-                putExtra(MainActivity.EXTRA_START_IN_BACKGROUND, true)
-                putExtra(MainActivity.EXTRA_WARM_FOR_SECURE_WRAP, true)
-                putExtra(MainActivity.EXTRA_OPEN_URL, SosCallUrls.warmPage())
-            }
-            val opts = IncomingCallActivity.backgroundStartOptions()
-            if (opts != null) startActivity(intent, opts) else startActivity(intent)
-            Log.i(TAG, "SECURE_WEBVIEW_READY requested")
-            SosDebugLog.i("call", "SECURE_WEBVIEW_READY")
+            attachVerifierWebView(root)
         } catch (err: Exception) {
-            Log.w(TAG, "secure verifier → MainActivity failed: ${err.message}")
+            Log.w(TAG, "secure verifier WebView failed: ${err.message}")
             SosDebugLog.i("call", "SECURE_VERIFIER_FAIL ${err.message}")
             launchInFlight.set(false)
             SosRelayWatcher.clearSecureWarmInFlight()
+            finishQuiet()
+            return
         }
 
-        // Release wake shortly; MainActivity continues authentication.
-        Handler(Looper.getMainLooper()).postDelayed({
-            releaseWakeLock()
+        // Safety timeout — do not hold forever if no offer.
+        mainHandler.postDelayed({
+            if (!isFinishing) {
+                Log.i(TAG, "SECURE_VERIFIER_NO_VALID_OFFER")
+                SosDebugLog.i("call", "SECURE_VERIFIER_NO_VALID_OFFER")
+                requestShutdown("timeout")
+            }
+        }, VERIFIER_MAX_MS)
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun attachVerifierWebView(root: FrameLayout) {
+        val wv = WebView(this)
+        webView = wv
+        root.addView(
+            wv,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+        val settings = wv.settings
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.databaseEnabled = true
+        settings.allowFileAccess = true
+        settings.cacheMode = WebSettings.LOAD_NO_CACHE
+        settings.mediaPlaybackRequiresUserGesture = false
+        try {
+            settings.allowFileAccessFromFileURLs = true
+            settings.allowUniversalAccessFromFileURLs = true
+        } catch (_: Exception) {
+        }
+
+        bridge = SosJsBridge(this, wv)
+        wv.addJavascriptInterface(bridge!!, "SosNativeShell")
+
+        wv.webChromeClient = object : WebChromeClient() {
+            override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                val msg = consoleMessage?.message().orEmpty()
+                if (msg.startsWith("SECURE_") || msg.startsWith("CALL_")) {
+                    SosDebugLog.i("call", msg.take(120))
+                }
+                return true
+            }
+        }
+        wv.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                Log.i(TAG, "SECURE_VERIFIER_READY")
+                SosDebugLog.i("call", "SECURE_VERIFIER_READY")
+                Log.i(TAG, "SECURE_WEBVIEW_READY")
+                SosDebugLog.i("call", "SECURE_WEBVIEW_READY")
+                injectBoot()
+            }
+        }
+
+        wv.loadUrl(SosCallUrls.verifierAssetUrl())
+    }
+
+    private fun injectBoot() {
+        val wv = webView ?: return
+        val js = """
+            (function(){
+              try {
+                if (window.__sosVerifierBooted) return;
+                window.__sosVerifierBooted = true;
+                if (typeof window.sosSecureVerifierBoot === 'function') {
+                  window.sosSecureVerifierBoot();
+                }
+              } catch (e) {}
+            })();
+        """.trimIndent()
+        try {
+            wv.evaluateJavascript(js, null)
+        } catch (err: Exception) {
+            Log.w(TAG, "verifier boot inject failed: ${err.message}")
+        }
+    }
+
+    fun requestDeclineDisconnect(peer: String?, callType: String?) {
+        val wv = webView ?: return
+        val peerJs = JSONObject.quote(peer?.trim()?.lowercase().orEmpty())
+        val typeJs = JSONObject.quote(
+            when (callType?.trim()?.lowercase()) {
+                "video", "v", "v-offer" -> "video"
+                else -> "voice"
+            }
+        )
+        val js = """
+            (function(){
+              try {
+                if (typeof window.sosSecureVerifierDecline === 'function') {
+                  window.sosSecureVerifierDecline($peerJs, $typeJs);
+                }
+              } catch (e) {}
+            })();
+        """.trimIndent()
+        mainHandler.post {
             try {
-                finish()
+                wv.evaluateJavascript(js, null)
             } catch (_: Exception) {
             }
-        }, 400L)
+            mainHandler.postDelayed({ requestShutdown("decline") }, 1500L)
+        }
+    }
+
+    fun requestShutdown(reason: String) {
+        if (shutdownPosted) return
+        shutdownPosted = true
+        Log.i(TAG, "SECURE_VERIFIER_SHUTDOWN")
+        SosDebugLog.i("call", "SECURE_VERIFIER_SHUTDOWN reason=$reason")
+        mainHandler.post {
+            try {
+                webView?.evaluateJavascript(
+                    "(function(){ try { if (window.sosSecureVerifierShutdown) window.sosSecureVerifierShutdown(); } catch(e){} })();",
+                    null
+                )
+            } catch (_: Exception) {
+            }
+            mainHandler.postDelayed({ finishQuiet() }, 200L)
+        }
+    }
+
+    private fun finishQuiet() {
+        launchInFlight.set(false)
+        SosRelayWatcher.clearSecureWarmInFlight()
+        releaseWakeLock()
+        try {
+            webView?.apply {
+                stopLoading()
+                removeJavascriptInterface("SosNativeShell")
+                destroy()
+            }
+        } catch (_: Exception) {
+        }
+        webView = null
+        bridge = null
+        try {
+            finish()
+        } catch (_: Exception) {
+        }
     }
 
     override fun onDestroy() {
+        if (instanceRef.get() === this) {
+            instanceRef.set(null)
+        }
         releaseWakeLock()
-        // Allow a later wake if queue still has wraps and host never came up.
         Handler(Looper.getMainLooper()).postDelayed({
-            if (!MainActivity.isHostAlive) {
-                launchInFlight.set(false)
-            }
+            launchInFlight.set(false)
         }, 2_000L)
         super.onDestroy()
     }
@@ -110,10 +262,15 @@ class SecureCallWakeActivity : Activity() {
 
     companion object {
         private const val TAG = "SecureCallWake"
-        private const val WAKE_MS = 12_000L
+        private const val WAKE_MS = 45_000L
+        private const val VERIFIER_MAX_MS = 25_000L
+        const val EXTRA_RECOVERY = "secure_wake_recovery"
 
         private val launchInFlight = AtomicBoolean(false)
         @Volatile private var lastLaunchElapsed = 0L
+        private val instanceRef = AtomicReference<SecureCallWakeActivity?>(null)
+
+        fun currentOrNull(): SecureCallWakeActivity? = instanceRef.get()
 
         /** Returns true if this process may launch the verifier now. */
         fun tryBeginLaunch(): Boolean {
@@ -122,7 +279,6 @@ class SecureCallWakeActivity : Activity() {
                 Log.i(TAG, "SECURE_VERIFIER_LAUNCH skipped (active)")
                 return false
             }
-            // Coalesce bursts within 8s.
             if (now - lastLaunchElapsed < 8_000L) {
                 Log.i(TAG, "SECURE_VERIFIER_LAUNCH skipped (dedupe)")
                 return false
@@ -138,13 +294,13 @@ class SecureCallWakeActivity : Activity() {
 
         fun isLaunchInFlight(): Boolean = launchInFlight.get()
 
-        fun verifierIntent(context: Context): Intent {
+        fun verifierIntent(context: Context, recovery: Boolean = false): Intent {
             return Intent(context, SecureCallWakeActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                     Intent.FLAG_ACTIVITY_CLEAR_TOP or
                     Intent.FLAG_ACTIVITY_SINGLE_TOP or
                     Intent.FLAG_ACTIVITY_NO_USER_ACTION
-                // Opaque only — never put peer/media/session/SDP.
+                putExtra(EXTRA_RECOVERY, recovery)
             }
         }
     }

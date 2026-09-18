@@ -166,6 +166,15 @@ object SosPendingCallStore {
         return queue
     }
 
+    /**
+     * Peek queued secure wraps WITHOUT deleting.
+     * Removal is only via ackSecureWrapHandled / removeSecureWrap / TTL.
+     */
+    fun peekSecureWraps(context: Context): JSONArray {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return loadSecureQueue(prefs, System.currentTimeMillis())
+    }
+
     fun peekSecureWrapCount(context: Context): Int {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         return loadSecureQueue(prefs, System.currentTimeMillis()).length()
