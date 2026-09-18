@@ -59,8 +59,8 @@ record('Native getShellVersionCode = BuildConfig.VERSION_CODE',
   /fun getShellVersionCode\(\):\s*Int\s*=\s*BuildConfig\.VERSION_CODE/.test(bridgeSrc));
 
 const gradle = read('android-shell/app/build.gradle.kts');
-record('BuildConfig shell versionName 1.0.121', /versionName\s*=\s*"1\.0\.121"/.test(gradle));
-record('BuildConfig shell versionCode 122', /versionCode\s*=\s*122/.test(gradle));
+record('BuildConfig shell versionName 1.0.122', /versionName\s*=\s*"1\.0\.122"/.test(gradle));
+record('BuildConfig shell versionCode 123', /versionCode\s*=\s*123/.test(gradle));
 record('published apk-version is 1.0.121 / 122',
   JSON.parse(read('apk-version.json')).version === '1.0.121'
   && Number(JSON.parse(read('apk-version.json')).versionCode) === 122);

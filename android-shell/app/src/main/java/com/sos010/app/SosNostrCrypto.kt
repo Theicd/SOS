@@ -106,35 +106,126 @@ object SosNostrCrypto {
         return compressed.copyOfRange(1, 33)
     }
 
-    private fun eventId(pubkey: String, createdAt: Long, kind: Int, tags: JSONArray, content: String): String {
-        // [0, pubkey, created_at, kind, tags, content]
-        val arr = JSONArray()
-            .put(0)
-            .put(pubkey)
-            .put(createdAt)
-            .put(kind)
-            .put(tags)
-            .put(content)
-        return Hex.encode(sha256(arr.toString().toByteArray(Charsets.UTF_8)))
+    enum class EventVerifyResult {
+        VALID,
+        BAD_FORMAT,
+        EVENT_ID_MISMATCH,
+        SCHNORR_INVALID,
+        SCHNORR_EXCEPTION
     }
 
-    fun verifyEvent(event: JSONObject): Boolean {
-        return try {
-            val id = event.optString("id").lowercase()
-            val pubkey = event.optString("pubkey").lowercase()
-            val sig = event.optString("sig").lowercase()
-            val kind = event.optInt("kind", -1)
-            val createdAt = event.optLong("created_at", -1L)
-            val tags = event.optJSONArray("tags") ?: return false
-            if (!event.has("content")) return false
-            val content = event.optString("content")
-            if (!isHex64(id) || !isHex64(pubkey) || !sig.matches(Regex("^[0-9a-f]{128}$"))) return false
-            val expect = eventId(pubkey, createdAt, kind, tags, content)
-            if (!expect.equals(id, ignoreCase = true)) return false
-            secp.verifySchnorr(Hex.decode(sig), Hex.decode(expect), Hex.decode(pubkey))
-        } catch (_: Exception) {
-            false
+    /**
+     * NIP-01 canonical form. Must match nostr-tools JSON.stringify.
+     * Do not use JSONArray.toString(): Android org.json escapes '/' and
+     * NIP-44 ciphertext contains '/'. That mismatch is outer-sig on device.
+     */
+    fun canonicalNostrEventSerialization(
+        pubkey: String,
+        createdAt: Long,
+        kind: Int,
+        tags: JSONArray,
+        content: String
+    ): String {
+        return buildString {
+            append("[0,")
+            append(jsonString(pubkey))
+            append(',')
+            append(createdAt.toString())
+            append(',')
+            append(kind.toString())
+            append(',')
+            append(jsonValue(tags))
+            append(',')
+            append(jsonString(content))
+            append(']')
         }
+    }
+
+    fun nostrEventId(event: JSONObject): String {
+        val tags = event.optJSONArray("tags") ?: JSONArray()
+        return eventId(
+            event.optString("pubkey"),
+            event.optLong("created_at"),
+            event.optInt("kind"),
+            tags,
+            event.optString("content")
+        )
+    }
+
+    private fun eventId(pubkey: String, createdAt: Long, kind: Int, tags: JSONArray, content: String): String {
+        val canonical = canonicalNostrEventSerialization(pubkey, createdAt, kind, tags, content)
+        return Hex.encode(sha256(canonical.toByteArray(Charsets.UTF_8)))
+    }
+
+    fun verifyEvent(event: JSONObject): Boolean = verifyEventDetailed(event) == EventVerifyResult.VALID
+
+    fun verifyEventDetailed(event: JSONObject): EventVerifyResult {
+        val id = event.optString("id").lowercase()
+        val pubkey = event.optString("pubkey").lowercase()
+        val sig = event.optString("sig").lowercase()
+        if (!event.has("kind") || !event.has("created_at") || event.opt("content") !is String) {
+            return EventVerifyResult.BAD_FORMAT
+        }
+        val tags = event.optJSONArray("tags") ?: return EventVerifyResult.BAD_FORMAT
+        val kind = event.optInt("kind")
+        val createdAt = event.optLong("created_at", -1L)
+        val content = event.getString("content")
+        if (!isHex64(id) || !isHex64(pubkey) || !sig.matches(Regex("^[0-9a-f]{128}$")) || createdAt < 0L) {
+            return EventVerifyResult.BAD_FORMAT
+        }
+        val expect = try {
+            eventId(pubkey, createdAt, kind, tags, content)
+        } catch (_: Exception) {
+            return EventVerifyResult.BAD_FORMAT
+        }
+        if (!expect.equals(id, ignoreCase = true)) return EventVerifyResult.EVENT_ID_MISMATCH
+        return try {
+            val ok = secp.verifySchnorr(Hex.decode(sig), Hex.decode(expect), Hex.decode(pubkey))
+            if (ok) EventVerifyResult.VALID else EventVerifyResult.SCHNORR_INVALID
+        } catch (_: Exception) {
+            EventVerifyResult.SCHNORR_EXCEPTION
+        }
+    }
+
+    private fun jsonValue(value: Any?): String {
+        return when (value) {
+            null, JSONObject.NULL -> "null"
+            is String -> jsonString(value)
+            is JSONArray -> buildString {
+                append('[')
+                for (i in 0 until value.length()) {
+                    if (i > 0) append(',')
+                    append(jsonValue(value.opt(i)))
+                }
+                append(']')
+            }
+            is JSONObject -> value.toString()
+            is Boolean -> if (value) "true" else "false"
+            is Number -> value.toString()
+            else -> jsonString(value.toString())
+        }
+    }
+
+    private fun jsonString(value: String): String = buildString {
+        append('"')
+        for (ch in value) {
+            when (ch) {
+                '"' -> append("\\\"")
+                '\\' -> append("\\\\")
+                '\b' -> append("\\b")
+                '\u000C' -> append("\\f")
+                '\n' -> append("\\n")
+                '\r' -> append("\\r")
+                '\t' -> append("\\t")
+                else -> if (ch.code < 0x20) {
+                    append("\\u")
+                    append(ch.code.toString(16).padStart(4, '0'))
+                } else {
+                    append(ch)
+                }
+            }
+        }
+        append('"')
     }
 
     fun nip44ConversationKey(privHex: String, peerPubHex: String): ByteArray? {

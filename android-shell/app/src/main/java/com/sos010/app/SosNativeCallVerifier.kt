@@ -62,6 +62,21 @@ object SosNativeCallVerifier {
         }
     }
 
+    fun testDisposition(wrap: JSONObject, privHex: String, self: String): String {
+        return when (val result = unwrap(wrap, privHex, self)) {
+            is Unwrap.Ok -> "ok:" + result.payload.optString("action")
+            is Unwrap.Keep -> "keep"
+            is Unwrap.Drop -> "drop:" + result.reason
+        }
+    }
+
+    fun ringDisposition(action: String): String = when (action) {
+        "offer" -> "ring"
+        "candidate", "candidates" -> "silent"
+        "disconnect" -> "disconnect"
+        else -> "ignore"
+    }
+
     fun testUnwrap(wrap: JSONObject, privHex: String, self: String): JSONObject? {
         return when (val result = unwrap(wrap, privHex, self)) {
             is Unwrap.Ok -> result.payload
@@ -107,9 +122,8 @@ object SosNativeCallVerifier {
             ackDrop(app, wrapId, "tombstone")
             return
         }
-        when (action) {
-            "offer" -> authorizeOffer(app, wrap, payload, rawEvent)
-            "candidate", "candidates" -> Unit
+        when (ringDisposition(action)) {
+            "ring" -> authorizeOffer(app, wrap, payload, rawEvent)
             "disconnect" -> onRemoteDisconnect(app, payload, wrapId)
             else -> Unit
         }
@@ -245,7 +259,26 @@ object SosNativeCallVerifier {
         if (wrap.optInt("kind") != GIFT_KIND) return Unwrap.Drop("kind")
         val content = wrap.optString("content")
         if (content.length > MAX_OUTER_CONTENT) return Unwrap.Drop("outer-bound")
-        if (!SosNostrCrypto.verifyEvent(wrap)) return Unwrap.Drop("outer-sig")
+        when (val verified = SosNostrCrypto.verifyEventDetailed(wrap)) {
+            SosNostrCrypto.EventVerifyResult.VALID -> {
+                trace("NATIVE_EVENT_VERIFY_ID_OK")
+                trace("NATIVE_EVENT_VERIFY_SCHNORR_OK")
+                trace("NATIVE_1059_OUTER_OK")
+            }
+            SosNostrCrypto.EventVerifyResult.EVENT_ID_MISMATCH -> {
+                trace("NATIVE_EVENT_VERIFY_ID_MISMATCH")
+                return Unwrap.Keep
+            }
+            SosNostrCrypto.EventVerifyResult.SCHNORR_EXCEPTION -> {
+                trace("NATIVE_EVENT_VERIFY_EXCEPTION")
+                return Unwrap.Keep
+            }
+            SosNostrCrypto.EventVerifyResult.SCHNORR_INVALID -> {
+                trace("NATIVE_EVENT_VERIFY_SCHNORR_INVALID")
+                return Unwrap.Drop("outer-sig")
+            }
+            SosNostrCrypto.EventVerifyResult.BAD_FORMAT -> return Unwrap.Drop("outer-sig")
+        }
         if (pTag(wrap) != self) return Unwrap.Drop("recipient")
         val sealJson = decryptFrom(privHex, wrap.optString("pubkey"), content)
             ?: return Unwrap.Drop("outer-mac")
@@ -259,7 +292,26 @@ object SosNativeCallVerifier {
         if (sealTags.length() != 0) return Unwrap.Drop("seal-tags")
         val sealContent = seal.optString("content")
         if (sealContent.length > MAX_OUTER_CONTENT) return Unwrap.Drop("seal-bound")
-        if (!SosNostrCrypto.verifyEvent(seal)) return Unwrap.Drop("seal-sig")
+        when (val verified = SosNostrCrypto.verifyEventDetailed(seal)) {
+            SosNostrCrypto.EventVerifyResult.VALID -> {
+                trace("NATIVE_EVENT_VERIFY_ID_OK")
+                trace("NATIVE_EVENT_VERIFY_SCHNORR_OK")
+                trace("NATIVE_1059_SEAL_OK")
+            }
+            SosNostrCrypto.EventVerifyResult.EVENT_ID_MISMATCH -> {
+                trace("NATIVE_EVENT_VERIFY_ID_MISMATCH")
+                return Unwrap.Keep
+            }
+            SosNostrCrypto.EventVerifyResult.SCHNORR_EXCEPTION -> {
+                trace("NATIVE_EVENT_VERIFY_EXCEPTION")
+                return Unwrap.Keep
+            }
+            SosNostrCrypto.EventVerifyResult.SCHNORR_INVALID -> {
+                trace("NATIVE_EVENT_VERIFY_SCHNORR_INVALID")
+                return Unwrap.Drop("seal-sig")
+            }
+            SosNostrCrypto.EventVerifyResult.BAD_FORMAT -> return Unwrap.Drop("seal-sig")
+        }
         val rumorJson = decryptFrom(privHex, seal.optString("pubkey"), sealContent)
             ?: return Unwrap.Drop("seal-mac")
         val rumor = try {
@@ -274,7 +326,10 @@ object SosNativeCallVerifier {
             return Unwrap.Drop("author")
         }
         val expectId = eventHash(rumor)
-        if (!rumor.optString("id").equals(expectId, ignoreCase = true)) return Unwrap.Drop("rumor-id")
+        if (!rumor.optString("id").equals(expectId, ignoreCase = true)) {
+            trace("NATIVE_EVENT_VERIFY_ID_MISMATCH")
+            return Unwrap.Keep
+        }
         val payload = try {
             JSONObject(rumor.optString("content"))
         } catch (_: Exception) {
@@ -334,14 +389,17 @@ object SosNativeCallVerifier {
         }
     }
 
-    private fun eventHash(event: JSONObject): String {
-        val pubkey = event.optString("pubkey")
-        val createdAt = event.optLong("created_at")
-        val kind = event.optInt("kind")
-        val tags = event.optJSONArray("tags") ?: JSONArray()
-        val content = event.optString("content")
-        val arr = JSONArray().put(0).put(pubkey).put(createdAt).put(kind).put(tags).put(content)
-        return Hex.encode(SosNip44.sha256(arr.toString().toByteArray(Charsets.UTF_8)))
+    private fun eventHash(event: JSONObject): String = SosNostrCrypto.nostrEventId(event)
+
+    private fun trace(code: String) {
+        try {
+            Log.i(TAG, code)
+        } catch (_: Throwable) {
+        }
+        try {
+            SosDebugLog.i("call", code)
+        } catch (_: Throwable) {
+        }
     }
 
     private fun pTag(event: JSONObject): String {

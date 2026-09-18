@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Native secure call verifier gate (APK 1.0.121 QA, not published).
+ * Native secure call verifier gate.
+ * Crypto items execute Gradle/JVM tests and the production JS gift-wrap stack.
  * Run: node qa/native-secure-call-verifier-gate.mjs
  */
 import { execSync } from 'node:child_process';
@@ -38,18 +39,51 @@ const p2p = read('chat-p2p-datachannel.js');
 const bridge = read('android-shell/app/src/main/java/com/sos010/app/SosJsBridge.kt');
 const appVer = JSON.parse(read('app-version.json'));
 
-record('1 NIP44 official vectors referenced',
-  /conversationKeyVectorsPass/.test(test) && /encrypt_decrypt/.test(test) === false
-    ? fs.existsSync(path.join(ROOT, 'android-shell/app/src/test/resources/nip44.vectors.json'))
-    : fs.existsSync(path.join(ROOT, 'android-shell/app/src/test/resources/nip44.vectors.json')));
+const resultsPath = path.join(ROOT, 'qa/fixtures/interop-results.json');
+if (fs.existsSync(resultsPath)) fs.unlinkSync(resultsPath);
+const javaHome = process.env.JAVA_HOME || 'C:\\Program Files\\Android\\Android Studio\\jbr';
+let gradleOk = false;
+try {
+  execSync(
+    'gradlew.bat :app:cleanTestDebugUnitTest :app:testDebugUnitTest --tests com.sos010.app.SosNostrInteropTest --tests com.sos010.app.SosNip44VectorTest --offline',
+    {
+      cwd: path.join(ROOT, 'android-shell'),
+      stdio: 'inherit',
+      env: { ...process.env, JAVA_HOME: javaHome },
+    }
+  );
+  gradleOk = true;
+} catch (err) {
+  record('gradle crypto tests executed', false, String(err && err.message ? err.message : err).slice(0, 180));
+}
+const interop = fs.existsSync(resultsPath) ? JSON.parse(fs.readFileSync(resultsPath, 'utf8')) : {};
+function executed(name) {
+  record(name, gradleOk && interop[name] === 'PASS', interop[name] || 'not executed');
+}
+record('NIP44_OFFICIAL_VECTORS', gradleOk && fs.existsSync(path.join(ROOT, 'android-shell/app/src/test/resources/nip44.vectors.json')));
+executed('JS_OUTER_ID_NATIVE_MATCH');
+executed('JS_OUTER_SCHNORR_NATIVE');
+executed('JS_OUTER_NIP44_NATIVE');
+executed('JS_SEAL_ID_NATIVE_MATCH');
+executed('JS_SEAL_SCHNORR_NATIVE');
+executed('JS_SEAL_NIP44_NATIVE');
+executed('JS_RUMOR_ID_NATIVE_MATCH');
+executed('JS_VOICE_OFFER_NATIVE_UNWRAP');
+executed('JS_VIDEO_OFFER_NATIVE_UNWRAP');
+executed('NATIVE_DISCONNECT_JS_UNWRAP');
+executed('JS_CANDIDATE_AUTH_RING_ZERO');
+executed('ID_MISMATCH_KEPT');
+executed('SCHNORR_INVALID_DROPPED');
+executed('ANDROID_SOLIDUS_ID_DIFFERS');
+
 record('2 NIP44 invalid MAC fail closed',
   /invalidMacAndPayloadFailClosed/.test(test) && /constantTimeEquals/.test(nip));
-record('3 outer event signature verify', /verifyEvent\(wrap\)/.test(verifier));
-record('4 seal signature verify', /verifyEvent\(seal\)/.test(verifier));
 record('5 rumor author binding verify', /NATIVE_GIFTWRAP_AUTHOR_MISMATCH/.test(verifier));
 record('6 wrong recipient ring zero', /recipient/.test(verifier) && /Drop\("recipient"\)/.test(verifier));
 record('7 stale offer ring zero', /age > maxAge/.test(verifier));
-record('8 candidate ring zero', /"candidate", "candidates" -> Unit/.test(verifier));
+record('8 candidate ring zero',
+  /"candidate", "candidates" -> "silent"/.test(verifier)
+  && interop.JS_CANDIDATE_AUTH_RING_ZERO === 'PASS');
 record('9 fresh offer Native ring once',
   /NATIVE_1059_OFFER_AUTH_OK/.test(verifier)
   && /NATIVE_CALL_RING_AUTHORIZED/.test(verifier)
@@ -67,7 +101,7 @@ record('14 answer full JS consumes offer',
   /peekSecureWraps/.test(read('android-shell/app/src/main/java/com/sos010/app/SosJsBridge.kt'))
   && /STATE_ANSWERED/.test(verifier));
 record('15 candidates preserved',
-  /"candidate", "candidates" -> Unit/.test(verifier));
+  /"candidate", "candidates" -> "silent"/.test(verifier));
 record('16 remote disconnect stops ringtone',
   /NATIVE_CALL_REMOTE_DISCONNECT/.test(verifier) && /stopRingtone/.test(verifier));
 record('17 Native secure decline sends 1059',
@@ -75,10 +109,8 @@ record('17 Native secure decline sends 1059',
   && /GIFT_KIND/.test(verifier)
   && /publishEvent/.test(verifier)
   && !/kind.?25050/.test(verifier.slice(verifier.indexOf('fun publishDisconnect'))));
-record('18 JS can unwrap Native disconnect',
-  /nativeDisconnectRoundtripMatchesPayload/.test(test)
-  && /family/.test(verifier)
-  && /sos-call-signal/.test(verifier));
+record('18 JS unwraps Native disconnect by executing crypto',
+  interop.NATIVE_DISCONNECT_JS_UNWRAP === 'PASS');
 record('19 direct25050 write zero',
   !/put\("kind", 25050\)/.test(verifier) && !/kind\s*=\s*25050/.test(verifier));
 record('20 NIP04 call write zero', !/nip04Encrypt/.test(verifier));
@@ -94,10 +126,10 @@ record('25 P2P unchanged', /datachannel/i.test(p2p) && !/SosNativeP2pEngine/.tes
 record('26 Blossom unchanged',
   fs.existsSync(path.join(ROOT, 'android-shell/app/src/main/java/com/sos010/app/SosNativeP2pEngine.kt'))
   && !/Blossom|blossom/.test(verifier));
-record('QA shell 1.0.121 / 122 / shell=121',
-  /versionName\s*=\s*"1\.0\.121"/.test(gradle)
-  && /versionCode\s*=\s*122/.test(gradle)
-  && /shell=121/.test(gradle));
+record('QA shell 1.0.122 / 123 / shell=122',
+  /versionName\s*=\s*"1\.0\.122"/.test(gradle)
+  && /versionCode\s*=\s*123/.test(gradle)
+  && /shell=122/.test(gradle));
 record('security policy frozen',
   appVer.callSignalGiftWrapRequired === true
   && appVer.minSecureChatEpoch === 2
