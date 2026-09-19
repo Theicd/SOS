@@ -131,6 +131,54 @@ record('receipt id stable for same boundary',
   App.buildChatReadReceiptId(PEER, SELF, 'M3', 200) === App.buildChatReadReceiptId(PEER, SELF, 'M3', 999));
 record('publish does not infer read', /updateChatMessageStatus\(event\.id, 'sent'\)/.test(serviceSrc));
 
+const uiSrc = fs.readFileSync(path.join(ROOT, 'chat-ui.js'), 'utf8');
+const enhancedCss = fs.readFileSync(path.join(ROOT, 'chat-enhanced-styles.css'), 'utf8');
+const themeCss = fs.readFileSync(path.join(ROOT, 'styles/chat-whatsapp-theme.css'), 'utf8');
+const desktopCss = fs.readFileSync(path.join(ROOT, 'styles/chat-desktop-sos-cyber.css'), 'utf8');
+const chatCss = fs.readFileSync(path.join(ROOT, 'styles/chat.css'), 'utf8');
+const readHtml = "chat-message__status--read";
+const helperStart = uiSrc.indexOf('function buildChatMessageStatusHtml');
+const helperEnd = uiSrc.indexOf('function settleFileCardBubble');
+const helperSrc = helperStart >= 0 && helperEnd > helperStart ? uiSrc.slice(helperStart, helperEnd) : '';
+const settleStart = uiSrc.indexOf('function settleFileCardBubble');
+const settleEnd = uiSrc.indexOf('function settleOutgoingFileTransfer');
+const settleSrc = settleStart >= 0 && settleEnd > settleStart ? uiSrc.slice(settleStart, settleEnd) : '';
+const statusFnStart = uiSrc.indexOf('function updateMessageStatus');
+const statusFnEnd = uiSrc.indexOf('function clearChatContactsSearch');
+const statusFnSrc = statusFnStart >= 0 && statusFnEnd > statusFnStart ? uiSrc.slice(statusFnStart, statusFnEnd) : '';
+const READ = '#53bdeb';
+
+record('UI1 text read markup is blue class', helperSrc.includes("st === 'read'") && helperSrc.includes(readHtml));
+record('UI2 image status uses helper', /function appendVisualMediaMessageWithoutWipe[\s\S]{0,2500}buildChatMessageStatusHtml\(message\.status/.test(uiSrc) || uiSrc.includes("const statusHtml = isOutgoing ? buildChatMessageStatusHtml(message.status || 'sent')"));
+record('UI3 voice status uses helper', (uiSrc.match(/buildChatMessageStatusHtml\(message\.status \|\| 'sent'\)/g) || []).length >= 4);
+record('UI4 PDF/TXT settle uses message.status', /buildChatMessageStatusHtml\(message\.status \|\| 'sent'\)/.test(settleSrc) && !/status--sent"/.test(settleSrc));
+record('UI5 generic file card not hard-coded SENT', settleSrc.includes('message.status') && !settleSrc.includes('chat-message__status--sent'));
+record('UI6 settleFileCardBubble respects message.status', /buildChatMessageStatusHtml\(message\.status/.test(settleSrc));
+record('UI7 settled card refreshes status without reopen',
+  /settledMediaTransferIds\.has\(settleKey\)[\s\S]{0,180}updateMessageStatus\(message\.id, message\.status/.test(uiSrc)
+  && /statusUpdate && message\?\.id[\s\S]{0,120}updateMessageStatus\(message\.id, message\.status/.test(uiSrc)
+  && statusFnSrc.includes('buildChatMessageStatusHtml(newStatus)'));
+record('UI8 contact and conversation READ share #53bdeb',
+  enhancedCss.includes('.chat-message__status--read') && enhancedCss.includes(READ)
+  && enhancedCss.includes('.chat-contact__status--read')
+  && themeCss.includes('.chat-contact__status--read') && themeCss.includes(READ)
+  && chatCss.includes(READ)
+  && desktopCss.includes('color: #53bdeb !important'));
+record('UI9 FAILED stays red and distinct',
+  enhancedCss.includes('.chat-message__status--failed') && enhancedCss.includes('#e74c3c')
+  && helperSrc.includes("st === 'failed'") && helperSrc.includes('status--failed'));
+record('UI10 document READ is conversation boundary not download',
+  !/download|openedFile|fileOpened/.test(stateSrc.slice(stateSrc.indexOf('function applyIncomingReadReceipt'), stateSrc.indexOf('function retryInboundReadReceipt')))
+  && /READ_RECEIPT_DUPLICATE_IGNORED/.test(serviceSrc)
+  && /READ_RECEIPT_APPLIED/.test(serviceSrc));
+record('UI11 no stage 5A regression', /VOICE_SOURCE_BLOSSOM_E2EE/.test(audioSrc) && /resolveDurableVoicePlayback/.test(audioSrc));
+record('UI12 no stage 5B boundary/dedupe regression',
+  /seenReceiptIds/.test(stateSrc) && /receiptMovesForward/.test(stateSrc) && /lastReadMessageId/.test(stateSrc));
+record('UI13 read color token not red',
+  !/\.chat-message__status--read\s*\{[^}]*#e74c3c/.test(enhancedCss)
+  && !/\.chat-audio-whatsapp__meta-slot \.chat-message__status--read\s*\{[^}]*#ef4444/.test(enhancedCss)
+  && !/rgba\(52, 211, 153/.test(themeCss.slice(themeCss.indexOf('.chat-contact__status--read'), themeCss.indexOf('.chat-contact__status--read') + 80)));
+
 console.log(results.join('\n'));
 console.log(fail ? 'CHAT_READ_RECEIPT_GATE FAIL (' + pass + ' passed, ' + fail + ' failed)' : 'CHAT_READ_RECEIPT_GATE PASS (' + pass + ' passed, 0 failed)');
 process.exit(fail ? 1 : 0);

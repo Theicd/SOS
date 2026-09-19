@@ -2176,21 +2176,24 @@
       return;
     }
     if (typeof App.applyIncomingReadReceipt === 'function') {
-      App.applyIncomingReadReceipt({
+      const applied = App.applyIncomingReadReceipt({
         from: sender,
         to: recipient || self,
         lastReadAt,
         lastReadMessageId,
         receiptId,
       });
-    }
-    if (!handleIncomingReadReceipt._count) handleIncomingReadReceipt._count = 0;
-    handleIncomingReadReceipt._count++;
-    if (handleIncomingReadReceipt._count <= 5 || handleIncomingReadReceipt._count % 20 === 0) {
-      console.log('[CHAT] Read receipt received from', sender.slice(0, 8),
-        lastReadMessageId ? 'id-boundary' : 'ts-boundary',
-        receiptId ? ('id=' + receiptId.slice(0, 24)) : '',
-        handleIncomingReadReceipt._count > 5 ? `(total: ${handleIncomingReadReceipt._count})` : '');
+      if (!handleIncomingReadReceipt._count) handleIncomingReadReceipt._count = 0;
+      handleIncomingReadReceipt._count++;
+      if (handleIncomingReadReceipt._count <= 5 || handleIncomingReadReceipt._count % 20 === 0) {
+        const token = applied && applied.duplicate
+          ? 'READ_RECEIPT_DUPLICATE_IGNORED'
+          : 'READ_RECEIPT_APPLIED';
+        console.log('[CHAT]', token, 'from', sender.slice(0, 8),
+          lastReadMessageId ? 'id-boundary' : 'ts-boundary',
+          receiptId ? ('id=' + receiptId.slice(0, 24)) : '',
+          handleIncomingReadReceipt._count > 5 ? `(total: ${handleIncomingReadReceipt._count})` : '');
+      }
     }
   }
 

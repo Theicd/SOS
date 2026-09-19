@@ -1296,7 +1296,7 @@ body.chat-lightbox-open {
 }
 
 .chat-audio-whatsapp__meta-slot .chat-message__status--read {
-  color: #ef4444;
+  color: #53bdeb;
 }
 
 .chat-audio-whatsapp__meta-slot .chat-message__status--sent {
@@ -2321,7 +2321,7 @@ body.chat-lightbox-open {
 }
 
 .chat-message__status--read {
-  color: #e74c3c;
+  color: #53bdeb;
 }
 
 .chat-message__status--failed {
@@ -3375,4 +3375,25 @@ button.chat-file-bubble__icon.chat-file-bubble__icon--cancel:focus-visible .chat
   height: 0 !important;
   overflow: hidden !important;
   border: none !important;
+}
+
+/* READ אחד בכל מקום — כחול #53bdeb. SENT נשאר אפור. FAILED נשאר אדום. | HYPER CORE TECH */
+.chat-message__status--read,
+.chat-message__status--read i,
+.chat-contact__status--read,
+.chat-contact__status--read i,
+.chat-file-card__meta .chat-message__status--read,
+.chat-file-card__meta .chat-message__status--read i,
+.chat-audio-whatsapp__meta-slot .chat-message__status--read,
+.chat-audio-whatsapp__meta-slot .chat-message__status--read i,
+.chat-message__video-msg-time .chat-message__status--read,
+.chat-message__video-msg-time .chat-message__status--read i,
+.chat-media-upload__ring-slot .chat-message__status--read,
+.chat-media-upload__ring-slot .chat-message__status--read i {
+  color: #53bdeb !important;
+}
+
+.chat-message__status--failed,
+.chat-message__status--failed i {
+  color: #e74c3c !important;
 }

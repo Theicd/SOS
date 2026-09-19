@@ -445,7 +445,7 @@
   .chat-panel .chat-contact__status--read i,
   .chat-panel .chat-message__status--read,
   .chat-panel .chat-message__status--read i {
-    color: var(--sos-electric) !important;
+    color: #53bdeb !important;
   }
 
   .chat-panel .chat-contact__status--sent,

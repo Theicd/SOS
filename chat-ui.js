@@ -622,9 +622,7 @@
     const textHtml = safeCaption
       ? `<span class="chat-message__text">${safeCaption}</span>`
       : '';
-    const statusHtml = isOutgoing
-      ? '<span class="chat-message__status chat-message__status--sent" title="נשלח"><i class="fa-solid fa-check-double"></i></span>'
-      : '';
+    const statusHtml = isOutgoing ? buildChatMessageStatusHtml(message.status || 'sent') : '';
     const hideMeta = !textHtml;
     const metaRowHtml = hideMeta
       ? ''
@@ -1033,8 +1031,7 @@
     const mediaEl = bubble.querySelector('.chat-media-upload__media');
     const messageTimestamp = message.createdAt || Math.floor(Date.now() / 1000);
     const timeLabel = formatMessageTime(messageTimestamp);
-    const statusHtml =
-      '<span class="chat-message__status chat-message__status--sent" title="נשלח"><i class="fa-solid fa-check-double"></i></span>';
+    const statusHtml = buildChatMessageStatusHtml(message.status || 'sent');
 
     bubble.className = `chat-message chat-message--outgoing chat-message--media-settled`;
     bubble.setAttribute('data-message-id', message.id);
@@ -1325,6 +1322,21 @@
     return pick;
   }
 
+  function buildChatMessageStatusHtml(status) {
+    const st = String(status || 'sent');
+    if (st === 'sending' || st === 'queued') {
+      return '<span class="chat-message__status chat-message__status--sending" title="שולח..."><i class="fa-solid fa-clock"></i></span>';
+    }
+    if (st === 'failed') {
+      return '<span class="chat-message__status chat-message__status--failed" title="שליחה נכשלה"><i class="fa-solid fa-exclamation-circle"></i></span>';
+    }
+    if (st === 'read') {
+      return '<span class="chat-message__status chat-message__status--read" title="נקרא"><i class="fa-solid fa-check-double"></i></span>';
+    }
+    return '<span class="chat-message__status chat-message__status--sent" title="נשלח"><i class="fa-solid fa-check-double"></i></span>';
+  }
+  App.buildChatMessageStatusHtml = buildChatMessageStatusHtml;
+
   function settleFileCardBubble(bubble, message) {
     if (!bubble || !message) return false;
     const isOutgoing =
@@ -1339,9 +1351,7 @@
     const fileId =
       message?.attachment?.fileId || transferId || bubble.getAttribute('data-transfer-id') || '';
     const a = message.attachment || null;
-    const statusHtml = isOutgoing
-      ? '<span class="chat-message__status chat-message__status--sent" title="נשלח"><i class="fa-solid fa-check-double"></i></span>'
-      : '';
+    const statusHtml = isOutgoing ? buildChatMessageStatusHtml(message.status || 'sent') : '';
     const label =
       a?.name ||
       torrentMeta?.fileName ||
@@ -1482,6 +1492,7 @@
     if (!bubble) return false;
 
     if (settleKey && settledMediaTransferIds.has(settleKey) && bubble.getAttribute('data-message-id') === String(message.id)) {
+      updateMessageStatus(message.id, message.status || 'sent');
       return true;
     }
     return settleFileCardBubble(bubble, message);
@@ -1778,10 +1789,20 @@
     const failed = ui.st === 'failed' || ui.st === 'cancelled';
     const nowLabel = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
     // בלי מד קטן ליד השעה בזמן העברה — רק V בסיום | HYPER CORE TECH
+    const boundId = existing && existing.getAttribute ? existing.getAttribute('data-message-id') : '';
+    const boundMessage = boundId && App.chatState && App.chatState.messageIndex
+      ? (() => {
+          const index = App.chatState.messageIndex.get(boundId);
+          const entry = index ? App.chatState.conversations.get(index.key) : null;
+          return entry && Array.isArray(entry.messages)
+            ? entry.messages.find((item) => item && item.id === boundId)
+            : null;
+        })()
+      : null;
     const statusHtml = done
       ? (isReceive
         ? ''
-        : '<span class="chat-message__status chat-message__status--sent" title="נשלח"><i class="fa-solid fa-check-double"></i></span>')
+        : buildChatMessageStatusHtml((boundMessage && boundMessage.status) || 'sent'))
       : (failed
         ? '<i class="fa-solid fa-exclamation-circle chat-media-upload__fail"></i>'
         : '');
@@ -5502,7 +5523,7 @@
             </div>
             <div class="chat-message__meta-row">
               <span class="chat-message__time">${formatMessageTime(message.createdAt || Math.floor(Date.now() / 1000))}</span>
-              <span class="chat-message__status-slot">${isOutgoing ? '<span class="chat-message__status chat-message__status--sent" title="נשלח"><i class="fa-solid fa-check-double"></i></span>' : ''}</span>
+              <span class="chat-message__status-slot">${isOutgoing ? buildChatMessageStatusHtml(message.status || 'sent') : ''}</span>
             </div>
           </div>
           ${!isOutgoing ? sideActionsHtml : ''}
@@ -5899,19 +5920,7 @@
       }`;
       
       // חלק סטטוס הודעות ואטסאפ (chat-ui.js) – וי כפול כמו ואטסאפ | HYPER CORE TECH
-      let statusHtml = '';
-      if (isOutgoing) {
-        const status = message.status || 'sent';
-        if (status === 'sending') {
-          statusHtml = '<span class="chat-message__status chat-message__status--sending" title="שולח..."><i class="fa-solid fa-clock"></i></span>';
-        } else if (status === 'sent') {
-          statusHtml = '<span class="chat-message__status chat-message__status--sent" title="נשלח"><i class="fa-solid fa-check-double"></i></span>';
-        } else if (status === 'read') {
-          statusHtml = '<span class="chat-message__status chat-message__status--read" title="נקרא"><i class="fa-solid fa-check-double"></i></span>';
-        } else if (status === 'failed') {
-          statusHtml = '<span class="chat-message__status chat-message__status--failed" title="שליחה נכשלה"><i class="fa-solid fa-exclamation-circle"></i></span>';
-        }
-      }
+      let statusHtml = isOutgoing ? buildChatMessageStatusHtml(message.status || 'sent') : '';
       
       // חלק meta בתוך נגן (chat-ui.js) – הסתרת meta-row לאודיו/וידאו/תמונה והזרקה לתוך המדיה | HYPER CORE TECH
       const hideMetaForAudio = isAudioAttachment && !textHtml && !youtubeHtml && !linkPreviewHtml && !mediaUrlHtml;
@@ -6137,19 +6146,7 @@
         : `<div class="chat-message__audio" data-audio><audio preload="metadata" class="chat-message__audio-el" src="${src}" type="${a.type || 'audio/webm'}"></audio></div>`;
     if (!attachmentHtml) return false;
 
-    let statusHtml = '';
-    if (isOutgoing) {
-      const status = message.status || 'sent';
-      if (status === 'sending') {
-        statusHtml = '<span class="chat-message__status chat-message__status--sending" title="שולח..."><i class="fa-solid fa-clock"></i></span>';
-      } else if (status === 'sent') {
-        statusHtml = '<span class="chat-message__status chat-message__status--sent" title="נשלח"><i class="fa-solid fa-check-double"></i></span>';
-      } else if (status === 'read') {
-        statusHtml = '<span class="chat-message__status chat-message__status--read" title="נקרא"><i class="fa-solid fa-check-double"></i></span>';
-      } else if (status === 'failed') {
-        statusHtml = '<span class="chat-message__status chat-message__status--failed" title="שליחה נכשלה"><i class="fa-solid fa-exclamation-circle"></i></span>';
-      }
-    }
+    let statusHtml = isOutgoing ? buildChatMessageStatusHtml(message.status || 'sent') : '';
 
     const sideActionsHtml = buildChatSideActionsHtml({
       isOutgoing,
@@ -6303,17 +6300,7 @@
     const safeContent = App.escapeHtml ? App.escapeHtml(textToShow) : textToShow;
     
     // סטטוס הודעה בסגנון ואטסאפ
-    let statusHtml = '';
-    if (isOutgoing) {
-      const status = message.status || 'sent';
-      if (status === 'sending') {
-        statusHtml = '<span class="chat-message__status chat-message__status--sending" title="שולח..."><i class="fa-solid fa-clock"></i></span>';
-      } else if (status === 'sent') {
-        statusHtml = '<span class="chat-message__status chat-message__status--sent" title="נשלח"><i class="fa-solid fa-check-double"></i></span>';
-      } else if (status === 'failed') {
-        statusHtml = '<span class="chat-message__status chat-message__status--failed" title="שליחה נכשלה"><i class="fa-solid fa-exclamation-circle"></i></span>';
-      }
-    }
+    let statusHtml = isOutgoing ? buildChatMessageStatusHtml(message.status || 'sent') : '';
 
     const sideCopyHtml = buildChatLinkCopyHtml(linkCopyUrl);
     const sideActionsHtml = buildChatSideActionsHtml({
@@ -6380,16 +6367,22 @@
     
     // עדכן אייקון סטטוס בסגנון ואטסאפ
     const statusEl = messageEl.querySelector('.chat-message__status');
+    const html = buildChatMessageStatusHtml(newStatus);
     if (statusEl) {
-      statusEl.className = `chat-message__status chat-message__status--${newStatus}`;
-      if (newStatus === 'sent') {
-        statusEl.innerHTML = '<i class="fa-solid fa-check-double"></i>';
-        statusEl.title = 'נשלח';
-      } else if (newStatus === 'failed') {
-        statusEl.innerHTML = '<i class="fa-solid fa-exclamation-circle"></i>';
-        statusEl.title = 'שליחה נכשלה';
-      }
+      statusEl.outerHTML = html;
+      return;
     }
+    const meta = messageEl.querySelector('.chat-file-card__meta, .chat-message__meta-row, .chat-audio-whatsapp__meta-slot, .chat-media-upload__ring-slot');
+    if (!meta) return;
+    let slot = meta.classList && meta.classList.contains('chat-message__status-slot')
+      ? meta
+      : meta.querySelector('.chat-message__status-slot');
+    if (!slot) {
+      slot = doc.createElement('span');
+      slot.className = 'chat-message__status-slot';
+      meta.appendChild(slot);
+    }
+    slot.innerHTML = html;
   }
 
   function clearChatContactsSearch() {

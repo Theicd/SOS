@@ -1244,7 +1244,7 @@ button, .chat-contact, .chat-message, .nav-item, [role="button"] {
 }
 
 .chat-contact__status--read {
-  color: rgba(52, 211, 153, 0.9);
+  color: #53bdeb;
 }
 
 .chat-contact__status--sending {
