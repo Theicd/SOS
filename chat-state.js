@@ -19,6 +19,9 @@
     messageIndex: new Map(), // חלק צ'אט (chat-state.js) – שומר מפה מהירה מהודעה לשיחה לצורך מחיקה וניקוי כפילויות
     lastSyncTs: 0, // חלק צ'אט (chat-state.js) – חותמת סנכרון אחרונה כדי לצמצם משיכה מריליי | HYPER CORE TECH
     pendingReadReceipts: new Map(),
+    readWatermarks: new Map(),
+    seenReceiptIds: [],
+    pendingInboundReceipts: new Map(),
   };
 
   const MESSAGE_STATUS_RANK = {
@@ -386,6 +389,7 @@
         lastTimestamp: contact.lastTimestamp,
         unreadCount: contact.unreadCount,
         lastReadTimestamp: contact.lastReadTimestamp || 0,
+        lastReadMessageId: contact.lastReadMessageId || '',
         profileFetchedAt: contact.profileFetchedAt || 0,
         archived: !!contact.archived,
         emergencyMesh: !!contact.emergencyMesh,
@@ -425,6 +429,9 @@
       disappearingTimers,
       defaultDisappearingSec: chatState.defaultDisappearingSec,
       pendingReadReceipts,
+      readWatermarks: Array.from(chatState.readWatermarks.entries()).map(([peer, row]) => ({ peer, ...row })),
+      seenReceiptIds: chatState.seenReceiptIds.slice(-200),
+      pendingInboundReceipts: Array.from(chatState.pendingInboundReceipts.entries()).map(([peer, row]) => ({ peer, ...row })),
     };
     persistLog(
       'WRITE_START',
@@ -634,6 +641,7 @@
             lastTimestamp: typeof contact.lastTimestamp === 'number' ? contact.lastTimestamp : 0,
             unreadCount: existing ? existing.unreadCount : 0,
             lastReadTimestamp: typeof contact.lastReadTimestamp === 'number' ? contact.lastReadTimestamp : 0,
+            lastReadMessageId: typeof contact.lastReadMessageId === 'string' ? contact.lastReadMessageId : '',
             profileFetchedAt: typeof contact.profileFetchedAt === 'number' ? contact.profileFetchedAt : 0,
             archived: !!contact.archived,
             emergencyMesh: !!contact.emergencyMesh,
@@ -711,6 +719,32 @@
           });
         });
       }
+      if (Array.isArray(parsed.readWatermarks)) {
+        parsed.readWatermarks.forEach((row) => {
+          const peer = typeof row?.peer === 'string' ? row.peer.toLowerCase() : '';
+          if (!peer) return;
+          chatState.readWatermarks.set(peer, {
+            receiptId: row.receiptId || '',
+            lastReadMessageId: row.lastReadMessageId || '',
+            lastReadAt: Number(row.lastReadAt) || 0,
+          });
+        });
+      }
+      if (Array.isArray(parsed.seenReceiptIds)) {
+        chatState.seenReceiptIds = parsed.seenReceiptIds.filter((id) => typeof id === 'string' && id).slice(-200);
+      }
+      if (Array.isArray(parsed.pendingInboundReceipts)) {
+        parsed.pendingInboundReceipts.forEach((row) => {
+          const peer = typeof row?.peer === 'string' ? row.peer.toLowerCase() : '';
+          if (!peer) return;
+          chatState.pendingInboundReceipts.set(peer, {
+            receiptId: row.receiptId || '',
+            lastReadMessageId: row.lastReadMessageId || '',
+            lastReadAt: Number(row.lastReadAt) || 0,
+            from: peer,
+          });
+        });
+      }
       restoredStorageKey = storageKey;
       persistLog(
         'RESTORE',
@@ -724,6 +758,7 @@
     }
     recomputeUnreadCounts();
     recalculateUnreadTotal();
+    try { replayPendingInboundReceipts(); } catch (_) {}
     notify('contacts', getContactsSnapshot());
     notify('unread', chatState.unreadTotal);
     // אחרי שחזור – רענון שיחה פתוחה (פתיחה מהתרעה לפני שהקאש היה מוכן) | HYPER CORE TECH
@@ -992,6 +1027,7 @@
         ' peer=' + String(entry.peer || '').slice(0, 8) +
         ' messagesAfter=' + entry.messages.length
     );
+    try { retryInboundReadReceipt(entry.peer); } catch (_) {}
     persistState();
     notify('message', { peer: entry.peer, message });
   }
@@ -1150,7 +1186,133 @@
     });
   }
 
-  function markConversationRead(peerPubkey) {
+  const READ_RECEIPT_SEEN_CAP = 200;
+  const readReceiptSendTimers = new Map();
+
+  function buildChatReadReceiptId(readerPubkey, peerPubkey, lastReadMessageId, lastReadAt) {
+    const reader = String(readerPubkey || '').toLowerCase();
+    const peer = String(peerPubkey || '').toLowerCase();
+    const boundary = String(lastReadMessageId || '').trim() || ('ts-' + String(Number(lastReadAt) || 0));
+    const id = 'rr-' + reader.slice(0, 16) + '-' + peer.slice(0, 16) + '-' + boundary;
+    return id.length > 240 ? id.slice(0, 240) : id;
+  }
+
+  function rememberReceiptId(receiptId) {
+    const id = String(receiptId || '');
+    if (!id) return false;
+    if (chatState.seenReceiptIds.indexOf(id) !== -1) return true;
+    chatState.seenReceiptIds.push(id);
+    if (chatState.seenReceiptIds.length > READ_RECEIPT_SEEN_CAP) {
+      chatState.seenReceiptIds.splice(0, chatState.seenReceiptIds.length - READ_RECEIPT_SEEN_CAP);
+    }
+    return false;
+  }
+
+  function orderedConversationMessages(messages) {
+    return (Array.isArray(messages) ? messages : []).map((message, index) => ({ message, index }))
+      .sort((a, b) => {
+        const ta = Number(a.message && a.message.createdAt) || 0;
+        const tb = Number(b.message && b.message.createdAt) || 0;
+        if (ta !== tb) return ta - tb;
+        return a.index - b.index;
+      })
+      .map((row) => row.message);
+  }
+
+  function isOutgoingChatMessage(message) {
+    if (!message) return false;
+    if (message.direction === 'outgoing') return true;
+    if (message.direction === 'incoming') return false;
+    const self = String(App.publicKey || '').toLowerCase();
+    return !!self && String(message.from || '').toLowerCase() === self;
+  }
+
+  function receiptMovesForward(ordered, current, nextId, nextAt) {
+    if (!current) return true;
+    const currentId = current.lastReadMessageId || '';
+    const currentIdx = currentId ? ordered.findIndex((message) => message && message.id === currentId) : -1;
+    const nextIdx = nextId ? ordered.findIndex((message) => message && message.id === nextId) : -1;
+    if (currentIdx !== -1 && nextIdx !== -1) return nextIdx > currentIdx;
+    if (currentIdx !== -1 && nextIdx === -1) return false;
+    if (currentIdx === -1 && nextIdx !== -1) return Number(nextAt) >= Number(current.lastReadAt || 0);
+    return Number(nextAt) > Number(current.lastReadAt || 0);
+  }
+
+  function markOutgoingThroughBoundary(ordered, boundaryIndex, lastReadAt, useId) {
+    let changed = 0;
+    ordered.forEach((message, index) => {
+      if (!isOutgoingChatMessage(message) || !message.id) return;
+      const covered = useId && boundaryIndex !== -1
+        ? index <= boundaryIndex
+        : (Number(message.createdAt) > 0 && Number(message.createdAt) < Number(lastReadAt));
+      if (!covered || message.status === 'read') return;
+      if (updateMessageStatus(message.id, 'read')) changed += 1;
+    });
+    return changed;
+  }
+
+  function applyIncomingReadReceipt(receipt, options) {
+    const opts = options || {};
+    const peer = String((receipt && (receipt.from || receipt.peer)) || '').toLowerCase();
+    const lastReadMessageId = String((receipt && receipt.lastReadMessageId) || '');
+    const lastReadAt = Number(receipt && (receipt.lastReadAt || receipt.lastReadTs)) || 0;
+    const receiptId = String((receipt && receipt.receiptId) || buildChatReadReceiptId(peer, App.publicKey, lastReadMessageId, lastReadAt));
+    if (!peer) return { ok: false, reason: 'missing-peer' };
+    if (!lastReadMessageId && !lastReadAt) return { ok: false, reason: 'missing-boundary' };
+    if (!opts.fromRetry && rememberReceiptId(receiptId)) {
+      return { ok: true, duplicate: true, receiptId };
+    }
+    const ordered = orderedConversationMessages(getConversationMessages(peer));
+    const boundaryIndex = lastReadMessageId ? ordered.findIndex((message) => message && message.id === lastReadMessageId) : -1;
+    const current = chatState.readWatermarks.get(peer) || null;
+    if (!receiptMovesForward(ordered, current, lastReadMessageId, lastReadAt)) {
+      return { ok: true, ignored: true, reason: 'regress', receiptId };
+    }
+    if (lastReadMessageId && boundaryIndex === -1) {
+      chatState.pendingInboundReceipts.set(peer, {
+        receiptId,
+        lastReadMessageId,
+        lastReadAt,
+        from: peer,
+      });
+      if (!current || lastReadAt > Number(current.lastReadAt || 0)) {
+        markOutgoingThroughBoundary(ordered, -1, lastReadAt, false);
+      }
+      persistState();
+      return { ok: true, pending: true, receiptId };
+    }
+    const useId = boundaryIndex !== -1;
+    markOutgoingThroughBoundary(ordered, boundaryIndex, lastReadAt, useId);
+    chatState.readWatermarks.set(peer, {
+      receiptId,
+      lastReadMessageId: useId ? lastReadMessageId : (current && current.lastReadMessageId) || '',
+      lastReadAt: Math.max(lastReadAt, Number(current && current.lastReadAt) || 0),
+    });
+    if (useId) chatState.pendingInboundReceipts.delete(peer);
+    persistState();
+    return { ok: true, applied: true, receiptId, boundaryIndex };
+  }
+
+  function retryInboundReadReceipt(peerPubkey) {
+    const peer = String(peerPubkey || '').toLowerCase();
+    const pending = peer ? chatState.pendingInboundReceipts.get(peer) : null;
+    if (!pending) return false;
+    const ordered = orderedConversationMessages(getConversationMessages(peer));
+    if (pending.lastReadMessageId && ordered.findIndex((message) => message && message.id === pending.lastReadMessageId) === -1) {
+      return false;
+    }
+    applyIncomingReadReceipt(pending, { fromRetry: true });
+    return true;
+  }
+
+  function replayPendingInboundReceipts() {
+    const peers = Array.from(chatState.pendingInboundReceipts.keys());
+    peers.forEach((peer) => {
+      try { retryInboundReadReceipt(peer); } catch (_) {}
+    });
+  }
+
+  function markConversationRead(peerPubkey, upToMessageId) {
     const normalized = peerPubkey?.toLowerCase?.();
     if (!normalized) return;
     const contact = chatState.contacts.get(normalized);
@@ -1160,13 +1322,30 @@
     const latestMessage = conversation?.messages?.length
       ? conversation.messages[conversation.messages.length - 1]
       : null;
-    const lastReadTs = latestMessage?.createdAt || Math.floor(Date.now() / 1000);
-    if (!contact.lastReadTimestamp || lastReadTs > contact.lastReadTimestamp) {
-      contact.lastReadTimestamp = lastReadTs;
-      // חלק אישורי קריאה (chat-state.js) – שליחת אישור קריאה לצד השני | HYPER CORE TECH
-      if (typeof App.sendReadReceipt === 'function') {
-        App.sendReadReceipt(normalized, lastReadTs, latestMessage?.id || '');
-      }
+    let boundary = latestMessage;
+    if (upToMessageId && conversation && Array.isArray(conversation.messages)) {
+      const found = conversation.messages.find((message) => message && message.id === upToMessageId);
+      if (found) boundary = found;
+    }
+    const lastReadTs = boundary?.createdAt || Math.floor(Date.now() / 1000);
+    const boundaryId = boundary?.id || '';
+    const sameBoundary = boundaryId
+      ? boundaryId === (contact.lastReadMessageId || '')
+      : lastReadTs <= (contact.lastReadTimestamp || 0);
+    if (!sameBoundary) {
+      contact.lastReadTimestamp = Math.max(Number(contact.lastReadTimestamp) || 0, lastReadTs);
+      if (boundaryId) contact.lastReadMessageId = boundaryId;
+      const pending = readReceiptSendTimers.get(normalized) || {};
+      pending.ts = lastReadTs;
+      pending.id = boundaryId;
+      if (pending.timer) clearTimeout(pending.timer);
+      pending.timer = setTimeout(() => {
+        readReceiptSendTimers.delete(normalized);
+        if (typeof App.sendReadReceipt === 'function') {
+          App.sendReadReceipt(normalized, pending.ts, pending.id || '');
+        }
+      }, 300);
+      readReceiptSendTimers.set(normalized, pending);
     }
     const hadUnread = contact.unreadCount || 0;
     if (hadUnread) {
@@ -1298,7 +1477,13 @@
     if (!peer || !receipt) return false;
     const nextAt = Number(receipt.lastReadAt) || 0;
     const prev = chatState.pendingReadReceipts.get(peer);
-    if (prev && Number(prev.lastReadAt) > nextAt) return false;
+    if (prev) {
+      const prevAt = Number(prev.lastReadAt) || 0;
+      if (nextAt < prevAt) return false;
+      if (nextAt === prevAt && prev.lastReadMessageId && prev.lastReadMessageId !== (receipt.lastReadMessageId || '')) {
+        return false;
+      }
+    }
     chatState.pendingReadReceipts.set(peer, {
       receiptId: receipt.receiptId || '',
       lastReadAt: nextAt,
@@ -1430,6 +1615,9 @@
     setChatContactArchived: setContactArchived,
     isChatContactArchived: isContactArchived,
     markChatConversationRead: markConversationRead,
+    applyIncomingReadReceipt,
+    buildChatReadReceiptId,
+    retryInboundReadReceipt,
     getChatContacts: getContactsSnapshot,
     getChatMessages: getConversationMessages,
     subscribeChat: subscribe,

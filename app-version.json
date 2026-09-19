@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.20-voice-blossom-play1",
-  "buildTime": "2026-09-20T00:40:00+03:00",
-  "notes": "Durable encrypted voice playback from Blossom when P2P is unavailable. Public APK unchanged 1.0.122/123.",
+  "version": "2026.09.20-read-receipt1",
+  "buildTime": "2026-09-20T01:09:00+03:00",
+  "notes": "Read receipts use message id as the boundary and ignore duplicates. Public APK unchanged 1.0.122/123.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,

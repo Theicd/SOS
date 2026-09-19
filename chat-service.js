@@ -1959,16 +1959,18 @@
 
   // חלק אישורי קריאה (chat-service.js) – שליחת אישור קריאה לצד השני כשפותחים שיחה | HYPER CORE TECH
   const READ_RECEIPT_KIND = 1051; // kind מיוחד לאישורי קריאה
-  const lastAppliedReadAt = new Map();
   const inFlightReceiptIds = new Set();
 
   function buildReadReceipt(peerPubkey, lastReadTs, lastReadMessageId) {
     const self = String(App.publicKey || '').toLowerCase();
     const to = String(peerPubkey || '').toLowerCase();
     const lastReadAt = lastReadTs || Math.floor(Date.now() / 1000);
+    const receiptId = typeof App.buildChatReadReceiptId === 'function'
+      ? App.buildChatReadReceiptId(self, to, lastReadMessageId || '', lastReadAt)
+      : ('rr-' + self.slice(0, 16) + '-' + to.slice(0, 16) + '-' + (lastReadMessageId || ('ts-' + lastReadAt)));
     return {
       type: 'chat_read_receipt',
-      receiptId: 'rr-' + self.slice(0, 12) + '-' + to.slice(0, 12) + '-' + lastReadAt,
+      receiptId,
       from: self,
       to,
       lastReadAt,
@@ -2014,18 +2016,42 @@
       ['t', CHAT_TAG],
     ];
     if (App.NETWORK_TAG) tags.push(['t', App.NETWORK_TAG]);
+    const receiptBody = {
+      type: 'chat_read_receipt',
+      receiptId: receipt.receiptId,
+      lastReadAt: receipt.lastReadAt,
+      lastReadMessageId: receipt.lastReadMessageId || '',
+    };
+    let content = JSON.stringify(receiptBody);
+    const mustEncrypt = typeof App.isE2eeSendRequired === 'function' && App.isE2eeSendRequired() === true;
+    if (mustEncrypt) {
+      if (!App.privateKey || !App.publicKey || typeof App.encryptPrivateChatPayload !== 'function') return false;
+      try {
+        const envelope = App.encryptPrivateChatPayload({
+          senderPrivateKeyHex: App.privateKey,
+          senderPubkey: App.publicKey,
+          recipientPubkey: receipt.to,
+          payload: {
+            messageId: receipt.receiptId,
+            sender: App.publicKey,
+            recipient: receipt.to,
+            createdAt: Math.floor(Date.now() / 1000),
+            text: content,
+            attachment: null,
+          },
+        });
+        content = JSON.stringify(envelope);
+      } catch (_encErr) {
+        return false;
+      }
+    }
     try {
       const signed = App.finalizeEvent({
         kind: READ_RECEIPT_KIND,
         pubkey: App.publicKey,
         created_at: Math.floor(Date.now() / 1000),
         tags,
-        content: JSON.stringify({
-          type: 'chat_read_receipt',
-          receiptId: receipt.receiptId,
-          lastReadAt: receipt.lastReadAt,
-          lastReadMessageId: receipt.lastReadMessageId || '',
-        }),
+        content,
       }, App.privateKey);
       const results = pool.publish(App.relayUrls, signed);
       await Promise.allSettled(results);
@@ -2074,34 +2100,66 @@
   }
   
   // חלק אישורי קריאה (chat-service.js) – טיפול באישור קריאה נכנס - מעדכן סטטוס הודעות ל"נקרא" | HYPER CORE TECH
+  function readReceiptFromRelayEvent(event) {
+    const raw = String(event.content || '');
+    const encrypted = typeof App.looksLikeSosE2eeEnvelope === 'function' && App.looksLikeSosE2eeEnvelope(raw);
+    if (encrypted) {
+      if (typeof App.decryptPrivateChatPayload !== 'function' || !App.privateKey || !App.publicKey) return null;
+      try {
+        const inner = App.decryptPrivateChatPayload({
+          localPrivateKeyHex: App.privateKey,
+          localPubkey: App.publicKey,
+          eventAuthorPubkey: event.pubkey,
+          encryptedEnvelope: raw,
+        });
+        return JSON.parse(String(inner && inner.text ? inner.text : '{}'));
+      } catch (_err) {
+        console.warn('[SECURITY/PARSE_REJECT] kind=1051 reason=decrypt-failed');
+        return null;
+      }
+    }
+    const mustEncrypt = typeof App.isE2eeSendRequired === 'function' && App.isE2eeSendRequired() === true;
+    if (mustEncrypt) {
+      console.warn('[SECURITY/PARSE_REJECT] kind=1051 reason=plaintext-receipt');
+      return null;
+    }
+    try {
+      return JSON.parse(raw || '{}');
+    } catch (_err) {
+      return null;
+    }
+  }
+
   function handleIncomingReadReceipt(event) {
     if (!event) return;
     const self = App.publicKey?.toLowerCase?.() || '';
     let sender = '';
     let recipient = '';
     let lastReadAt = 0;
+    let lastReadMessageId = '';
     let receiptId = '';
-    if (event.type === 'chat_read_receipt' || (!event.kind && event.lastReadAt)) {
+    if (event.type === 'chat_read_receipt' || (!event.kind && (event.lastReadAt || event.lastReadMessageId))) {
       sender = String(event.from || '').toLowerCase();
       recipient = String(event.to || '').toLowerCase();
       lastReadAt = Number(event.lastReadAt) || 0;
+      lastReadMessageId = String(event.lastReadMessageId || '');
       receiptId = String(event.receiptId || '');
     } else if (event.kind === READ_RECEIPT_KIND) {
       sender = event.pubkey?.toLowerCase?.() || '';
       const pTag = event.tags?.find?.(t => Array.isArray(t) && t[0] === 'p');
       recipient = pTag?.[1]?.toLowerCase?.() || '';
-      try {
-        const data = JSON.parse(event.content || '{}');
-        lastReadAt = Number(data.lastReadAt) || 0;
-        receiptId = String(data.receiptId || '');
-      } catch {}
+      const data = readReceiptFromRelayEvent(event);
+      if (!data) return;
+      lastReadAt = Number(data.lastReadAt) || 0;
+      lastReadMessageId = String(data.lastReadMessageId || '');
+      receiptId = String(data.receiptId || '');
     } else {
       return;
     }
     if (!sender || sender === self) return;
     if (recipient && recipient !== self) return;
-    if (!lastReadAt) return;
-    if (!Number.isFinite(lastReadAt) || lastReadAt <= 0 || lastReadAt > Math.floor(Date.now() / 1000) + 86400) {
+    if (!lastReadAt && !lastReadMessageId) return;
+    if (lastReadAt && (!Number.isFinite(lastReadAt) || lastReadAt <= 0 || lastReadAt > Math.floor(Date.now() / 1000) + 86400)) {
       console.warn('[SECURITY/PARSE_REJECT] kind=1051 reason=bad_lastReadAt');
       return;
     }
@@ -2109,33 +2167,29 @@
       console.warn('[SECURITY/PARSE_REJECT] kind=1051 reason=bad_receiptId');
       return;
     }
+    if (lastReadMessageId && lastReadMessageId.length > 256) {
+      console.warn('[SECURITY/PARSE_REJECT] kind=1051 reason=bad_message_id');
+      return;
+    }
     if (!allowIngressBucket(receiptIngressBuckets, sender, RECEIPT_INGRESS_WINDOW_MS, RECEIPT_INGRESS_MAX_PER_PEER)) {
       console.warn('[SECURITY/RATE_DROP] type=1051 peer=' + sender.slice(0, 8) + ' reason=receipt_burst');
       return;
     }
-    const prevApplied = lastAppliedReadAt.get(sender) || 0;
-    if (lastReadAt < prevApplied) return;
-    lastAppliedReadAt.set(sender, lastReadAt);
-    if (lastAppliedReadAt.size > INGRESS_PEER_BUCKET_CAP) {
-      const keys = [...lastAppliedReadAt.keys()];
-      for (let i = 0; i < Math.floor(keys.length / 2); i += 1) lastAppliedReadAt.delete(keys[i]);
+    if (typeof App.applyIncomingReadReceipt === 'function') {
+      App.applyIncomingReadReceipt({
+        from: sender,
+        to: recipient || self,
+        lastReadAt,
+        lastReadMessageId,
+        receiptId,
+      });
     }
-    
-    const messages = typeof App.getChatMessages === 'function' ? App.getChatMessages(sender) : [];
-    messages.forEach(msg => {
-      if (msg.direction === 'outgoing' && msg.createdAt <= lastReadAt && msg.status !== 'read') {
-        if (typeof App.updateChatMessageStatus === 'function') {
-          App.updateChatMessageStatus(msg.id, 'read');
-        }
-      }
-    });
-    
-    // חלק הגבלת לוג (chat-service.js) — מדפיס רק 5 RR ראשונים ואח"כ כל 20 למניעת שטפון | HYPER CORE TECH
     if (!handleIncomingReadReceipt._count) handleIncomingReadReceipt._count = 0;
     handleIncomingReadReceipt._count++;
     if (handleIncomingReadReceipt._count <= 5 || handleIncomingReadReceipt._count % 20 === 0) {
-      console.log('[CHAT] Read receipt received from', sender.slice(0, 8), 'up to', lastReadAt,
-        receiptId ? ('id=' + receiptId) : '',
+      console.log('[CHAT] Read receipt received from', sender.slice(0, 8),
+        lastReadMessageId ? 'id-boundary' : 'ts-boundary',
+        receiptId ? ('id=' + receiptId.slice(0, 24)) : '',
         handleIncomingReadReceipt._count > 5 ? `(total: ${handleIncomingReadReceipt._count})` : '');
     }
   }
