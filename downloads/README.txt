@@ -1,4 +1,15 @@
-﻿SOS Android APK — do not store APKs in this folder.
+﻿downloads/ contains the ONE current production APK.
+
+Current file:
+downloads/SOS-1.0.122.apk
 
 Public download:
-https://github.com/Theicd/SOS/releases/download/apk-1.0.115/SOS-1.0.115.apk
+https://sos010.com/downloads/SOS-1.0.122.apk
+
+This APK is intentionally tracked so a GitHub Download ZIP of the repository
+contains the complete project, including the Android APK.
+
+When a new APK is released:
+- remove the previous downloads/SOS-old.apk
+- add the new downloads/SOS-new.apk
+- never keep more than one APK version

@@ -32,7 +32,7 @@ function read(rel) {
 const apkMeta = JSON.parse(read('apk-version.json'));
 record('apk-version has published field', Object.prototype.hasOwnProperty.call(apkMeta, 'published'));
 record('apk-version published === true', apkMeta.published === true);
-record('apk-version url points to 1.0.122', String(apkMeta.url || '').includes('apk-1.0.122/SOS-1.0.122.apk'));
+record('apk-version url points to 1.0.122', String(apkMeta.url || '').includes('downloads/SOS-1.0.122.apk'));
 record('apk-version advertises 1.0.122 / 123', apkMeta.version === '1.0.122' && Number(apkMeta.versionCode) === 123);
 
 const installerSrc = read('pwa-installer.js');
@@ -49,7 +49,7 @@ record('PUBLIC STABLE is 1.0.122 for initial install',
   /const NATIVE_APK_VERSION = '1\.0\.122'/.test(installerSrc));
 record('apk-version published with matching 1.0.122 URL',
   apkMeta.published === true
-  && String(apkMeta.url).includes('apk-1.0.122')
+  && String(apkMeta.url).includes('downloads/SOS-1.0.122.apk')
   && String(apkMeta.file) === 'SOS-1.0.122.apk');
 
 const bridgeSrc = read('android-shell/app/src/main/java/com/sos010/app/SosJsBridge.kt');
@@ -105,8 +105,8 @@ const validate = App.validateApkUpdateRelease;
 record('validateApkUpdateRelease exported', typeof validate === 'function');
 
 const OLD_STABLE_URL = 'https://github.com/Theicd/SOS/releases/download/apk-1.0.115/SOS-1.0.115.apk';
-const V122_URL = 'https://github.com/Theicd/SOS/releases/download/apk-1.0.122/SOS-1.0.122.apk';
-const V123_URL = 'https://github.com/Theicd/SOS/releases/download/apk-1.0.123/SOS-1.0.123.apk';
+const V122_URL = 'https://sos010.com/downloads/SOS-1.0.122.apk';
+const V123_URL = 'https://sos010.com/downloads/SOS-1.0.123.apk';
 
 function decideUpdate(localVersion, localCode, remote) {
   const validated = validate(remote);

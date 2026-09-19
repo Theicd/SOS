@@ -200,12 +200,11 @@
     });
   }
 
-  // PUBLIC STABLE install target (initial Android install) — must match sole latest GitHub APK.
-  // Policy: GitHub Releases keeps ONLY the latest APK; older apk-* releases are deleted.
+  // PUBLIC STABLE install target (initial Android install) — the one tracked APK on the site.
   const NATIVE_APK_VERSION = '1.0.122';
   const NATIVE_APK_FILE = `SOS-${NATIVE_APK_VERSION}.apk`;
   const NATIVE_APK_URL = (typeof localStorage !== 'undefined' && localStorage.getItem('sos_apk_url'))
-    || `https://github.com/Theicd/SOS/releases/download/apk-${NATIVE_APK_VERSION}/${NATIVE_APK_FILE}`;
+    || `https://sos010.com/downloads/${NATIVE_APK_FILE}`;
   const APK_VERSION_URL = './apk-version.json';
 
   function isApkReleasePublished(data) {
@@ -252,6 +251,15 @@
     }
     if (url.includes(`apk-${NATIVE_APK_VERSION}`) && version !== NATIVE_APK_VERSION) {
       return { ok: false, reason: 'stable-fallback-blocked' };
+    }
+    let urlFile = '';
+    try {
+      urlFile = decodeURIComponent(String(url.split('?')[0].split('/').pop() || ''));
+    } catch (_e) {
+      urlFile = '';
+    }
+    if (urlFile !== file) {
+      return { ok: false, reason: 'url-file-mismatch' };
     }
     return {
       ok: true,

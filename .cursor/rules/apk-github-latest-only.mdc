@@ -1,29 +1,32 @@
 ---
-description: GitHub Releases must retain only the latest SOS APK; delete older apk-* assets.
+description: The repository tracks exactly one production APK under downloads/.
 alwaysApply: true
 ---
 
-# APK on GitHub — latest only
+# Single APK policy
 
-## Hard rule
+At all times there is exactly one production APK:
 
-On GitHub Releases for this repo, **only one APK** may exist at a time: the **current latest** shell build.
+`downloads/SOS-X.Y.Z.apk`
 
-- Tag pattern: `apk-X.Y.Z`
-- Asset name: `SOS-X.Y.Z.apk`
-- Mark that release as **Latest**
-- After publishing the new APK, **delete** all older `apk-*` releases (and their assets/tags)
+The public download URL is:
 
-## Do not
+`https://sos010.com/downloads/SOS-X.Y.Z.apk`
 
-- Leave previous APKs downloadable (causes UI to keep installing an old version)
-- Point `NATIVE_APK_URL` / install UI at an older release while advertising a newer one
-- Fall back from advertised version X to download URL for version Y
+Do not keep a second copy in GitHub Releases.
 
 ## When releasing a new APK
 
-1. Upload `SOS-<new>.apk` to release `apk-<new>` with `--latest`
-2. Update `apk-version.json` (`version`, `versionCode`, `file`, `url`, `published: true`)
-3. Update `NATIVE_APK_VERSION` in `pwa-installer.js` to the same version
-4. Delete every older `apk-*` release
-5. Verify `gh release list` shows only the new tag as Latest with that single APK asset
+1. Build the new APK.
+2. Verify versionName and versionCode.
+3. Verify SHA256.
+4. Delete the previous `downloads/SOS-old.apk`.
+5. Copy the new APK to `downloads/SOS-new.apk`.
+6. Update `downloads/.gitignore` so only the new filename is un-ignored.
+7. Update `apk-version.json`.
+8. Update the APK version and download pointer in `pwa-installer.js`.
+9. Verify `https://sos010.com/downloads/SOS-new.apk` works and the SHA256 matches.
+10. Verify exactly one tracked `*.apk` exists.
+11. Commit the new APK and the matching metadata together.
+
+Never accumulate historical APK files in the main source tree.
