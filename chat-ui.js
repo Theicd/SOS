@@ -5584,7 +5584,12 @@
         // זיהוי אודיו: מספיק שאחד מהתנאים מתקיים (src או magnetURI) + תכונת אודיו אמיתית
         // שים לב: hasMagnetURI לבד אינו מספיק — חייבת להיות גם תכונת אודיו (mime/שם/סיומת/duration)
         // כדי שקבצי ZIP/PDF עם magnetURI לא יסווגו בטעות כהודעות קוליות!
-        isAudioAttachment = !!((src || hasMagnetURI) && (
+        const durableEncryptedVoice =
+          a.type === 'encrypted-media' &&
+          a.resource &&
+          a.resource.transport === 'blossom' &&
+          isVoiceOrAudioChatMessage(a);
+        isAudioAttachment = !!(durableEncryptedVoice || ((src || hasMagnetURI) && (
           isAudioMime ||           // type: audio/*
           fromDataUrl ||           // data:audio/*
           audioExtInName ||        // song.mp3, voice.m4a, etc.
@@ -5594,7 +5599,7 @@
           hasDuration ||           // יש duration
           audioExtInUrl ||         // URL מסתיים בסיומת אודיו
           isBlossomAudio           // Blossom URL עם שם קובץ אודיו
-        ));
+        )));
         
         // חלק מדיה (chat-ui.js) – זיהוי תמונות ווידאו | HYPER CORE TECH
         if (!isAudioAttachment && typeof App.isImageAttachment === 'function') {

@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.19-video-session-adopt1",
-  "buildTime": "2026-09-19T04:10:00+03:00",
-  "notes": "Web-only video native-answer session adoption. Public APK unchanged 1.0.122/123.",
+  "version": "2026.09.20-voice-blossom-play1",
+  "buildTime": "2026-09-20T00:40:00+03:00",
+  "notes": "Durable encrypted voice playback from Blossom when P2P is unavailable. Public APK unchanged 1.0.122/123.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,

@@ -97,10 +97,11 @@ record('H no android-shell changes in this rollback',
   && execSync('git diff --cached --name-only -- android-shell', { cwd: ROOT, encoding: 'utf8' }).trim() === '');
 record('H public APK is 1.0.122 / 123',
   apkVer.version === '1.0.122' && Number(apkVer.versionCode) === 123);
-record('I SW sos-cache-v856',
-  /sos-cache-v856/.test(sw));
-record('I web version video-session-adopt1 or later',
-  String(appVer.version || '').includes('video-session-adopt1')
+record('I SW sos-cache-v857',
+  /sos-cache-v857/.test(sw));
+record('I web version voice-blossom-play1 or later',
+  String(appVer.version || '').includes('voice-blossom-play1')
+  || String(appVer.version || '').includes('video-session-adopt1')
   || String(appVer.version || '').includes('native-call-verify1'));
 record('I call script cache-busters present',
   /call-signal-e2ee\.js\?v=20260919scope1/.test(videos)

@@ -46,6 +46,155 @@
     return false;
   }
 
+  function isDurableEncryptedVoice(attachment) {
+    if (!attachment || typeof attachment !== 'object') return false;
+    if (typeof App.isEncryptedBlossomDescriptor === 'function') {
+      return App.isEncryptedBlossomDescriptor(attachment) === true;
+    }
+    return !!(
+      attachment.v === 2 &&
+      attachment.type === 'encrypted-media' &&
+      attachment.resource &&
+      attachment.resource.transport === 'blossom' &&
+      typeof attachment.resource.url === 'string' &&
+      attachment.resource.url
+    );
+  }
+
+  function lookupVoiceMessage(container) {
+    const host = container && typeof container.closest === 'function'
+      ? container.closest('[data-message-id]')
+      : null;
+    const id = host && typeof host.getAttribute === 'function'
+      ? String(host.getAttribute('data-message-id') || '')
+      : '';
+    if (!id || !App.chatState || !App.chatState.conversations) return null;
+    const lists = [];
+    const index = App.chatState.messageIndex && App.chatState.messageIndex.get(id);
+    if (index) {
+      const entry = App.chatState.conversations.get(index.key);
+      if (entry && Array.isArray(entry.messages)) lists.push(entry.messages);
+    }
+    if (!lists.length && typeof App.chatState.conversations.forEach === 'function') {
+      App.chatState.conversations.forEach((entry) => {
+        if (entry && Array.isArray(entry.messages)) lists.push(entry.messages);
+      });
+    }
+    for (let i = 0; i < lists.length; i += 1) {
+      const message = lists[i].find((item) => item && item.id === id);
+      if (message) return { message, attachment: message.attachment || null };
+    }
+    return null;
+  }
+
+  function voiceFailureIsSecurity(err) {
+    const code = String((err && err.code) || '');
+    const text = code + ' ' + String((err && err.message) || '');
+    if (/DOWNLOAD_FAILED|DOWNLOAD_UNAVAILABLE|FETCH_UNAVAILABLE|ABORTED|NETWORK|TIMEOUT/i.test(text)) {
+      return false;
+    }
+    return true;
+  }
+
+  function logVoiceSource(token, code) {
+    if (code) console.warn(token, code);
+    else console.log(token);
+  }
+
+  // Durable encrypted voice: local blob, then secure Blossom. Never a reduced descriptor.
+  async function resolveDurableVoicePlayback(attachment, context) {
+    const att = attachment && typeof attachment === 'object' ? attachment : null;
+    const ctx = context && typeof context === 'object' ? context : {};
+    const encrypted = isDurableEncryptedVoice(att);
+    const cipherUrl = encrypted && att.resource ? String(att.resource.url || '') : '';
+
+    if (
+      att &&
+      att._resolvedBlob &&
+      typeof Blob !== 'undefined' &&
+      att._resolvedBlob instanceof Blob &&
+      att._resolvedBlob.size > 0 &&
+      typeof URL !== 'undefined' &&
+      typeof URL.createObjectURL === 'function'
+    ) {
+      const src = URL.createObjectURL(att._resolvedBlob);
+      logVoiceSource('VOICE_SOURCE_LOCAL');
+      return { ok: true, src, source: 'VOICE_SOURCE_LOCAL', encrypted };
+    }
+
+    let local = '';
+    try {
+      if (att && typeof App.resolveChatMediaSrc === 'function') {
+        const probe = Object.assign({}, att);
+        if (encrypted && (probe.url === cipherUrl || String(probe.url || '').startsWith('http'))) {
+          probe.url = '';
+          probe.dataUrl = '';
+        }
+        local = await App.resolveChatMediaSrc(probe);
+      } else if ((ctx.cacheKey || (att && att.cacheKey)) && typeof App.loadChatP2PMediaBlob === 'function') {
+        const blob = await App.loadChatP2PMediaBlob(ctx.cacheKey || att.cacheKey);
+        if (blob && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+          local = URL.createObjectURL(blob);
+        }
+      }
+    } catch (_) {}
+    local = String(local || '').trim();
+    if (encrypted && (local === cipherUrl || local.startsWith('http://') || local.startsWith('https://'))) {
+      local = '';
+    }
+    if (local && (local.startsWith('blob:') || local.startsWith('data:'))) {
+      logVoiceSource('VOICE_SOURCE_LOCAL');
+      return { ok: true, src: local, source: 'VOICE_SOURCE_LOCAL', encrypted };
+    }
+
+    if (encrypted) {
+      try {
+        if (typeof App.resolveServerMediaAttachment !== 'function') {
+          const missing = new Error('MEDIA_SERVER_E2EE_DOWNLOAD_UNAVAILABLE');
+          missing.code = 'MEDIA_SERVER_E2EE_DOWNLOAD_UNAVAILABLE';
+          throw missing;
+        }
+        const result = await App.resolveServerMediaAttachment(att, {
+          messageId: ctx.messageId || att.clientMessageId || att.logicalMessageId || '',
+          sender: ctx.sender,
+          recipient: ctx.recipient,
+        });
+        const src = result && (result.objectUrl || '');
+        if (!src || src === cipherUrl) {
+          logVoiceSource('VOICE_BLOSSOM_RESOLVE_FAILED');
+          return { ok: false, src: '', source: 'VOICE_BLOSSOM_RESOLVE_FAILED', encrypted, failClosed: false };
+        }
+        if (result.blob && typeof App.persistChatP2PMedia === 'function') {
+          const key = resolveVoiceCacheKey(att) || ctx.cacheKey || '';
+          if (key) {
+            App.persistChatP2PMedia(key, result.blob, {
+              name: 'voice',
+              type: result.blob.type || 'audio/webm',
+            }).catch(() => {});
+          }
+        }
+        logVoiceSource('VOICE_SOURCE_BLOSSOM_E2EE');
+        return { ok: true, src, source: 'VOICE_SOURCE_BLOSSOM_E2EE', encrypted, blob: result.blob || null };
+      } catch (err) {
+        const security = voiceFailureIsSecurity(err);
+        logVoiceSource(security ? 'VOICE_DECRYPT_FAILED' : 'VOICE_BLOSSOM_RESOLVE_FAILED', String((err && err.code) || ''));
+        return {
+          ok: false,
+          src: '',
+          source: security ? 'VOICE_DECRYPT_FAILED' : 'VOICE_BLOSSOM_RESOLVE_FAILED',
+          encrypted,
+          failClosed: security,
+        };
+      }
+    }
+
+    const fallback = String(ctx.fallbackSrc || '').trim();
+    if (fallback && !fallback.startsWith('blob:') && !fallback.startsWith('magnet:')) {
+      return { ok: true, src: fallback, source: 'VOICE_SOURCE_LOCAL', encrypted: false };
+    }
+    return { ok: false, src: '', source: '', encrypted: false, failClosed: false };
+  }
+
   function createEnhancedAudioPlayer(attachment) {
     const srcRaw = attachment.url || attachment.dataUrl || '';
     // Never trust dead blob: as durable initial src — leave empty for hydrate.
@@ -57,7 +206,14 @@
     const durationLabel = dur !== null ? `${mm}:${ss}` : '0:00';
     
     // חלק MIME מקיף (chat-audio-player.js) – זיהוי MIME לכל פורמטי האודיו PC/Android/iPhone/Apple | HYPER CORE TECH
-    let mimeType = attachment.type || 'audio/mpeg';
+    let mimeType =
+      (attachment.media && attachment.media.mime) ||
+      attachment._plainMime ||
+      attachment.type ||
+      'audio/webm';
+    if (mimeType === 'encrypted-media') {
+      mimeType = (attachment.media && attachment.media.mime) || 'audio/webm';
+    }
     const srcLower = (src || srcRaw).toLowerCase();
     const nameLower = (attachment.name || '').toLowerCase();
     const checkStr = srcLower + '|' + nameLower;
@@ -199,7 +355,7 @@
       return;
     }
     
-    // חלק P2P קול (chat-audio-player.js) – ניסיון טעינת אודיו מטורנט P2P לפני Blossom | HYPER CORE TECH
+    // P2P is optional. A valid encrypted Blossom descriptor is resolved first.
     const magnetUri = container.dataset.magnetUri;
     const srcFromData = container.dataset.src;
     const fallbackSrc = container.dataset.fallbackSrc || srcFromData || '';
@@ -216,53 +372,65 @@
     let hydratePromise = null;
 
     async function hydrateDurableAudioSource() {
+      const found = lookupVoiceMessage(container);
+      const full = found && found.attachment && typeof found.attachment === 'object' ? found.attachment : null;
       const current = String(audio.getAttribute('src') || audio.src || '').trim();
-      // Prefer durable local cache BEFORE network / P2P.
-      const att = {
+      const synthetic = {
         url: current.startsWith('blob:') ? '' : (current || fallbackSrc || ''),
         dataUrl: '',
         cacheKey: cacheKey || undefined,
         fileId: fileId || undefined,
         magnetURI: magnetUri || undefined,
       };
-      let resolved = '';
+      const attachment = full || synthetic;
+      if (isDurableEncryptedVoice(attachment)) container.dataset.voiceEncrypted = 'true';
+      const message = found && found.message;
+      let result;
       try {
-        if (typeof App.resolveChatMediaSrc === 'function') {
-          resolved = await App.resolveChatMediaSrc(att);
-        } else if (cacheKey && typeof App.loadChatP2PMediaBlob === 'function') {
-          const blob = await App.loadChatP2PMediaBlob(cacheKey);
-          if (blob) resolved = URL.createObjectURL(blob);
-        }
-      } catch (_) {}
+        result = await resolveDurableVoicePlayback(attachment, {
+          messageId: (message && message.logicalMessageId) || attachment.clientMessageId || attachment.logicalMessageId || '',
+          sender: message && message.from,
+          recipient: message && message.to,
+          fallbackSrc: container.dataset.voiceEncrypted === 'true' ? '' : fallbackSrc,
+          cacheKey,
+        });
+      } catch (_) {
+        result = { ok: false, src: '', failClosed: container.dataset.voiceEncrypted === 'true' };
+      }
+      if (result && result.failClosed) {
+        container.dataset.voiceFailClosed = 'true';
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i>';
+        return '';
+      }
+      const resolved = result && result.ok ? String(result.src || '') : '';
       if (resolved) {
         applyAudioSource(audio, btn, resolved, { markPlay: true });
         container.dataset.src = resolved;
         container.dataset.durableHydrated = 'true';
-        mediaDebugLog('audio-durable-hydrate', { cacheKey, hasSrc: true });
+        mediaDebugLog('audio-durable-hydrate', { cacheKey, hasSrc: true, source: result.source || '' });
         if (container.dataset.autoplayPending === 'true') {
           audio.play().catch(() => {});
         }
         return resolved;
       }
-      // Live http/data fallback if present and not a dead blob.
-      if (fallbackSrc && !String(fallbackSrc).startsWith('blob:')) {
-        if (!audio.getAttribute('src') && !audio.src) {
-          applyAudioSource(audio, btn, fallbackSrc, { markPlay: true });
-        }
-        return fallbackSrc;
-      }
       return '';
     }
 
     hydratePromise = hydrateDurableAudioSource().then((src) => {
-      // After durable miss — start P2P if magnet present.
-      if (magnetUri && (!src || container.dataset.durableHydrated !== 'true')) {
-        mediaDebugLog('audio-p2p-start', { magnetPreview: magnetUri.slice(0, 60), hasFallback: !!fallbackSrc });
-        tryLoadAudioFromTorrent(container, audio, btn, magnetUri, fallbackSrc);
+      if (container.dataset.voiceFailClosed === 'true') return src;
+      if (container.dataset.durableHydrated === 'true') return src;
+      if (magnetUri) {
+        logVoiceSource('VOICE_SOURCE_P2P');
+        const p2pFallback = container.dataset.voiceEncrypted === 'true' ? '' : fallbackSrc;
+        mediaDebugLog('audio-p2p-start', { magnetPreview: magnetUri.slice(0, 60), hasFallback: !!p2pFallback });
+        tryLoadAudioFromTorrent(container, audio, btn, magnetUri, p2pFallback);
       }
       return src;
     }).catch(() => {
-      if (magnetUri) tryLoadAudioFromTorrent(container, audio, btn, magnetUri, fallbackSrc);
+      if (container.dataset.voiceFailClosed === 'true') return '';
+      if (magnetUri && container.dataset.voiceEncrypted !== 'true') {
+        tryLoadAudioFromTorrent(container, audio, btn, magnetUri, fallbackSrc);
+      }
       return '';
     });
     
@@ -611,6 +779,7 @@
   // חלק API ציבורי (chat-audio-player.js) – חשיפת פונקציות ליצירת נגן | HYPER CORE TECH
   Object.assign(App, {
     createEnhancedAudioPlayer,
-    wireEnhancedAudioPlayer: wireAudioPlayer
+    wireEnhancedAudioPlayer: wireAudioPlayer,
+    resolveDurableVoicePlayback,
   });
 })(window);
