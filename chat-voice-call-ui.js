@@ -319,6 +319,24 @@
     } catch (_) {}
   }
 
+  function bindCallIdentity(peerPubkey, root) {
+    const pk = String(peerPubkey || '').toLowerCase();
+    const paint = () => {
+      if (!root || String(activePeerPubkey || '').toLowerCase() !== pk) return;
+      const contact = App.chatState && App.chatState.contacts && App.chatState.contacts.get(pk);
+      if (contact && typeof App.paintCallContact === 'function') App.paintCallContact(root, contact);
+    };
+    if (typeof App.subscribeChat === 'function') {
+      try { App.subscribeChat('contacts', paint); } catch (_e) {}
+    }
+    if (typeof App.resolveCallContact === 'function') {
+      Promise.resolve(App.resolveCallContact(pk)).then((contact) => {
+        if (!root || String(activePeerPubkey || '').toLowerCase() !== pk) return;
+        if (contact && typeof App.paintCallContact === 'function') App.paintCallContact(root, contact);
+      }).catch(() => {});
+    }
+  }
+
   // חלק שיחות קול (chat-voice-call-ui.js) – יצירת דיאלוג שיחה
   function createCallDialog(peerPubkey, isIncoming, options) {
     const opts = options && typeof options === 'object' ? options : {};
@@ -413,6 +431,8 @@
         handleEndCall();
       });
     }
+
+    bindCallIdentity(peerPubkey, callDialog);
 
     callTimer = callDialog.querySelector('.voice-call-dialog__timer');
 
@@ -1005,7 +1025,9 @@
     stopRingtone();
     stopDialtone();
     if (App.voiceCall) {
-      App.voiceCall.end();
+      App.voiceCall.end(stillRinging
+        ? { declined: true, reason: 'decline' }
+        : { reason: 'user_end' });
     }
     // בטיחות: אם מסיבה כלשהי לא נסגר – נסה שוב אחרי 1.5 שניות
     setTimeout(() => { closeCallDialog(); }, 1500);
@@ -1082,7 +1104,7 @@
         if (App.voiceCall && typeof App.voiceCall.rejectIncoming === 'function') {
           App.voiceCall.rejectIncoming(peer);
         } else if (App.voiceCall) {
-          App.voiceCall.end();
+          App.voiceCall.end({ declined: true, reason: 'decline' });
         }
         window.__sosNativePendingDecline = null;
         return;

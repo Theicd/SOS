@@ -367,6 +367,27 @@
     } catch (_e) {}
   }
 
+  function shouldDropOldSessionDisconnect(activeSessionId, incomingSessionId, tombstoned) {
+    const sid = typeof incomingSessionId === 'string' ? incomingSessionId : '';
+    const active = typeof activeSessionId === 'string' ? activeSessionId : '';
+    if (tombstoned) return true;
+    return !!(active && sid && active !== sid);
+  }
+
+  function activeCallSessionId(media) {
+    try {
+      if (media === 'voice' && App.voiceCall && typeof App.voiceCall.getState === 'function') {
+        const st = App.voiceCall.getState();
+        return st && st.callSessionId ? String(st.callSessionId) : '';
+      }
+      if (media === 'video' && App.videoCall && typeof App.videoCall.getState === 'function') {
+        const st = App.videoCall.getState();
+        return st && st.callSessionId ? String(st.callSessionId) : '';
+      }
+    } catch (_e) {}
+    return '';
+  }
+
   function routeSecureSignal(unwrapped) {
     const logical = {
       sender: unwrapped.sender,
@@ -482,13 +503,24 @@
       }
 
       if (unwrapped.action === 'disconnect') {
+        const sid = typeof unwrapped.sessionId === 'string' ? unwrapped.sessionId : '';
+        const active = activeCallSessionId(unwrapped.media);
+        const tombstoned = !!(sid && isSessionTombstoned(sid));
+        const mismatch = shouldDropOldSessionDisconnect(active, sid, tombstoned);
+        if (tombstoned || mismatch) {
+          try { console.log('CALL_OLD_SESSION_DISCONNECT_DROP'); } catch (_e) {}
+          if (sid && mismatch && !tombstoned) markSessionTerminalFromJs(sid, 'ENDED');
+          ackSecureWrapHandledToNative(wrapId);
+          return { status: 'dispatched', media: unwrapped.media, action: 'old_session_drop' };
+        }
         try {
           const bridge = window.SosNativeShell;
           if (bridge && typeof bridge.notifySecureCallDismissed === 'function') {
             bridge.notifySecureCallDismissed(unwrapped.sender);
           }
         } catch (_e) {}
-        markSessionTerminalFromJs(unwrapped.sessionId, 'ENDED');
+        markSessionTerminalFromJs(sid, 'ENDED');
+        try { console.log('SECURE_VERIFIER_DISCONNECT'); } catch (_e) {}
         await routeSecureSignal(unwrapped);
         ackSecureWrapHandledToNative(wrapId);
         return { status: 'dispatched', media: unwrapped.media, action: unwrapped.action };
@@ -527,10 +559,6 @@
         }
         try { console.log('SECURE_VERIFIER_CANDIDATE_PENDING'); } catch (_e) {}
         return { status: 'pending_candidate', media: unwrapped.media, action: unwrapped.action };
-      }
-
-      if (unwrapped.action === 'disconnect') {
-        try { console.log('SECURE_VERIFIER_DISCONNECT'); } catch (_e) {}
       }
 
       await routeSecureSignal(unwrapped);
@@ -1218,6 +1246,7 @@
       publishCallSignal,
       unwrapGiftWrappedCallSignal,
       dispatchGiftWrappedCallSignal,
+      shouldDropOldSessionDisconnect,
       enqueueSecureDispatch,
       ensureSecureCallSubscription,
       drainPendingSecureWrapsFromNative,

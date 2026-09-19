@@ -5,6 +5,7 @@
   const doc = window.document;
 
   let dialog = null;
+  let activeVideoPeer = '';
   let remoteVideo = null;
   let localVideo = null;
   let timerEl = null;
@@ -378,6 +379,24 @@
     });
   }
 
+  function bindCallIdentity(peer, root) {
+    const pk = String(peer || '').toLowerCase();
+    const paint = () => {
+      if (!root || String(activeVideoPeer || '').toLowerCase() !== pk) return;
+      const contact = App.chatState && App.chatState.contacts && App.chatState.contacts.get(pk);
+      if (contact && typeof App.paintCallContact === 'function') App.paintCallContact(root, contact);
+    };
+    if (typeof App.subscribeChat === 'function') {
+      try { App.subscribeChat('contacts', paint); } catch (_e) {}
+    }
+    if (typeof App.resolveCallContact === 'function') {
+      Promise.resolve(App.resolveCallContact(pk)).then((contact) => {
+        if (!root || String(activeVideoPeer || '').toLowerCase() !== pk) return;
+        if (contact && typeof App.paintCallContact === 'function') App.paintCallContact(root, contact);
+      }).catch(() => {});
+    }
+  }
+
   // חלק שיחות וידאו – יצירת דיאלוג
   function createDialog(peer, isIncoming){
     if (dialog) dialog.remove();
@@ -392,6 +411,7 @@
     const initials = contact?.initials || (typeof App.getInitials === 'function' ? App.getInitials(name) : 'מש');
     const picture = contact?.picture || '';
     dialog = doc.createElement('div');
+    activeVideoPeer = String(peer || '').toLowerCase();
     dialog.className = 'video-call-dialog';
     dialog.innerHTML = `
       <div class="video-call-dialog__backdrop"></div>
@@ -427,6 +447,7 @@
         </div>
       </div>`;
     doc.body.appendChild(dialog);
+    bindCallIdentity(peer, dialog);
     remoteVideo = dialog.querySelector('#videoRemote');
     localVideo = dialog.querySelector('#videoLocal');
     timerEl = dialog.querySelector('.video-call-dialog__timer');
@@ -760,7 +781,11 @@
     if (shouldMarkDeclined) {
       userDeclinedVideoCall = true;
     }
-    if (App.videoCall) App.videoCall.end();
+    if (App.videoCall) {
+      App.videoCall.end(shouldMarkDeclined
+        ? { declined: true, reason: 'decline' }
+        : { reason: 'user_end' });
+    }
   }
   function handleMute(){ const m = App.videoCall.toggleMute(); const btn = dialog && dialog.querySelector('[data-action="mute"]'); if (btn){ const i = btn.querySelector('i'); const t = btn.querySelector('span'); if(m){ i.className='fa-solid fa-microphone-slash'; t.textContent='בטל השתקה'; } else { i.className='fa-solid fa-microphone'; t.textContent='השתק'; } } }
   async function handleCamera(){ const off = await App.videoCall.toggleCamera(); const btn = dialog && dialog.querySelector('[data-action="camera"]'); if(btn){ const i = btn.querySelector('i'); const t = btn.querySelector('span'); if(off){ i.className='fa-solid fa-video-slash'; t.textContent='הפעל מצלמה'; } else { i.className='fa-solid fa-camera'; t.textContent='כבה מצלמה'; } } }
@@ -777,7 +802,7 @@
         userDeclinedVideoCall = true;
         if (App.videoCall && typeof App.videoCall.rejectIncoming === 'function') {
           App.videoCall.rejectIncoming(peerNorm);
-        } else if (App.videoCall) App.videoCall.end();
+        } else if (App.videoCall) App.videoCall.end({ declined: true, reason: 'decline' });
         window.__sosNativePendingDecline = null;
         return;
       }
@@ -944,7 +969,7 @@
       if (App.videoCall && typeof App.videoCall.rejectIncoming === 'function' && peer) {
         await App.videoCall.rejectIncoming(peer);
       } else if (App.videoCall) {
-        await App.videoCall.end();
+        await App.videoCall.end({ declined: true, reason: 'decline' });
       }
     } catch (_) {}
     window.__sosNativePendingDecline = null;

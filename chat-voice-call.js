@@ -397,7 +397,7 @@
         try {
           track.onended = () => {
             console.log('Remote track ended');
-            if (!state.ending) endCall();
+            if (!state.ending) endCall({ reason: 'remote_track_ended' });
           };
         } catch {}
       });
@@ -438,13 +438,13 @@
           const still = pc.iceConnectionState;
           if (still === 'disconnected' || still === 'failed' || still === 'closed') {
             console.log('ICE disconnected persisted, closing call');
-            endCall();
+            endCall({ reason: 'ice_disconnected_grace' });
           }
         }, ICE_DISCONNECT_GRACE_MS);
       } else if (ice === 'failed' || ice === 'closed') {
         clearIceDisconnectTimer();
         console.log('ICE state ended, closing call');
-        if (!state.ending) endCall();
+        if (!state.ending) endCall({ reason: 'ice_failed' });
       }
     };
 
@@ -457,7 +457,7 @@
         clearIceDisconnectTimer();
       } else if (cs === 'failed' || cs === 'closed') {
         clearIceDisconnectTimer();
-        if (!state.ending) endCall();
+        if (!state.ending) endCall({ reason: 'peer_connection_closed' });
       }
     };
 
@@ -515,7 +515,7 @@
       }
     } catch (err) {
       console.error('Failed to start call', err);
-      endCall();
+      endCall({ reason: 'start_error' });
       throw err;
     }
   }
@@ -583,7 +583,7 @@
     } catch (err) {
       console.error('Failed to accept call', err);
       if (answerSent) {
-        endCall();
+        endCall({ reason: 'start_error' });
       } else {
         // ניקוי מקומי בלי disconnect – מאפשר retry אוטומטי מ-APK | HYPER CORE TECH
         try {
@@ -616,11 +616,11 @@
     if (state.ending) return;
     state.ending = true;
     if (term) term.ended = true;
-    console.log('CALL_ENDING');
+    console.log('CALL_ENDING reason=' + endReason(options));
     console.log('CALL_END_ONCE');
 
     // שליחת אירוע disconnect – חשוב await כדי שדחייה מ-APK תגיע לצד השני | HYPER CORE TECH
-    if (state.currentPeer) {
+    if (state.currentPeer && !options.remoteDisconnect) {
       if (term && term.disconnectSent) {
         console.log('CALL_DISCONNECT_ONCE');
       } else {
@@ -730,6 +730,34 @@
     }
 
     return state.isMuted;
+  }
+
+  function blockWrongSession(preParsed, action) {
+    if (!preParsed || !preParsed.sessionId || !state.callSessionId) return false;
+    if (String(preParsed.sessionId) === String(state.callSessionId)) return false;
+    const skip = action === 'answer'
+      ? 'session_mismatch_answer'
+      : (action === 'disconnect' ? 'session_mismatch_disconnect' : 'session_mismatch_candidate');
+    console.log('CALL_SIGNAL_SKIP ' + skip);
+    if (action === 'disconnect') console.log('CALL_OLD_SESSION_DISCONNECT_DROP');
+    return true;
+  }
+
+  const END_REASONS = new Set([
+    'user_end',
+    'remote_disconnect',
+    'ice_failed',
+    'ice_disconnected_grace',
+    'peer_connection_closed',
+    'remote_track_ended',
+    'start_error',
+    'decline',
+  ]);
+
+  function endReason(options) {
+    const opts = options || {};
+    const raw = opts.reason || (opts.declined ? 'decline' : (opts.remoteDisconnect ? 'remote_disconnect' : 'user_end'));
+    return END_REASONS.has(raw) ? raw : 'user_end';
   }
 
   // חלק שיחות קול (chat-voice-call.js) – טיפול באירועי סינכרון נכנסים
@@ -878,6 +906,7 @@
           break;
 
         case 'answer':
+          if (blockWrongSession(preParsed, 'answer')) break;
           // תשובה לשיחה יוצאת
           if (state.peerConnection && state.currentPeer === peerPubkey) {
             const answerData = normalizeSessionDescription(data);
@@ -897,22 +926,23 @@
           break;
 
         case 'candidate':
+          if (blockWrongSession(preParsed, 'candidate')) break;
           // ICE candidate בודד (תאימות לאחור)
           if (!isValidIncomingCandidateList(data)) return;
           await addOrBufferRemoteCandidates(peerPubkey, data);
           break;
 
         case 'candidates':
+          if (blockWrongSession(preParsed, 'candidates')) break;
           // ICE candidates מרובים (batch)
           if (!isValidIncomingCandidateList(data)) return;
           await addOrBufferRemoteCandidates(peerPubkey, data);
           break;
 
         case 'disconnect':
-          // ניתוק מהצד השני
-          // חלק שיחות קול (chat-voice-call.js) – ביטול/ניתוק: סוגרים רק אם זה ה-peer הנוכחי (כולל לפני קבלה) | HYPER CORE TECH
+          if (blockWrongSession(preParsed, 'disconnect')) break;
           if (state.currentPeer === peerPubkey) {
-            endCall();
+            endCall({ remoteDisconnect: true, reason: 'remote_disconnect' });
           }
           break;
       }
@@ -1027,7 +1057,7 @@
     if (term) term.declined = true;
     if (sid) markNativeSessionTerminal(sid, 'DECLINED');
     try {
-      await endCall({ declined: true, sessionId: sid });
+      await endCall({ declined: true, sessionId: sid, reason: 'decline' });
       return true;
     } catch (err) {
       console.warn('rejectIncoming failed', err);

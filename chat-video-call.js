@@ -187,15 +187,21 @@
         state.callStartTimestamp = Date.now();
         console.log('CALL_CONNECTED');
         if (typeof App.onVideoCallConnected === 'function') App.onVideoCallConnected(peerPubkey);
-      } else if (['disconnected','failed','closed'].includes(pc.iceConnectionState)) {
-        if (!state.ending) end();
+      } else if (pc.iceConnectionState === 'disconnected') {
+        if (!state.ending) end({ reason: 'ice_disconnected_grace' });
+      } else if (pc.iceConnectionState === 'failed') {
+        if (!state.ending) end({ reason: 'ice_failed' });
+      } else if (pc.iceConnectionState === 'closed') {
+        if (!state.ending) end({ reason: 'peer_connection_closed' });
       }
     };
 
     pc.onconnectionstatechange = () => {
       const cs = pc.connectionState;
-      if (['disconnected','failed','closed'].includes(cs)) {
-        if (!state.ending) end();
+      if (cs === 'failed' || cs === 'closed') {
+        if (!state.ending) end({ reason: 'peer_connection_closed' });
+      } else if (cs === 'disconnected') {
+        if (!state.ending) end({ reason: 'ice_disconnected_grace' });
       }
     };
 
@@ -481,7 +487,7 @@
     if (state.ending) return;
     state.ending = true;
     if (term) term.ended = true;
-    console.log('CALL_ENDING');
+    console.log('CALL_ENDING reason=' + endReason(options));
     console.log('CALL_END_ONCE');
     const peer = state.currentPeer;
     const startMs = state.callStartTimestamp;
@@ -490,7 +496,7 @@
     const wasAnswered = !!startMs || !!state.answeredLocally;
     const userDeclined = !!(options.declined || (term && term.declined) || window.__sosNativePendingDecline);
     if (peer) noteCallEnded(peer);
-    if (peer) {
+    if (peer && !options.remoteDisconnect) {
       if (term && term.disconnectSent) {
         console.log('CALL_DISCONNECT_ONCE');
       } else {
@@ -743,6 +749,41 @@
     }
   }
 
+  function videoScopeAction(type) {
+    if (type === 'v-answer') return 'answer';
+    if (type === 'v-disconnect') return 'disconnect';
+    if (type === 'v-candidate' || type === 'v-candidates') return 'candidate';
+    return '';
+  }
+
+  function blockWrongSession(preParsed, action) {
+    if (!action || !preParsed || !preParsed.sessionId || !state.callSessionId) return false;
+    if (String(preParsed.sessionId) === String(state.callSessionId)) return false;
+    const skip = action === 'answer'
+      ? 'session_mismatch_answer'
+      : (action === 'disconnect' ? 'session_mismatch_disconnect' : 'session_mismatch_candidate');
+    console.log('CALL_SIGNAL_SKIP ' + skip);
+    if (action === 'disconnect') console.log('CALL_OLD_SESSION_DISCONNECT_DROP');
+    return true;
+  }
+
+  const END_REASONS = new Set([
+    'user_end',
+    'remote_disconnect',
+    'ice_failed',
+    'ice_disconnected_grace',
+    'peer_connection_closed',
+    'remote_track_ended',
+    'start_error',
+    'decline',
+  ]);
+
+  function endReason(options) {
+    const opts = options || {};
+    const raw = opts.reason || (opts.declined ? 'decline' : (opts.remoteDisconnect ? 'remote_disconnect' : 'user_end'));
+    return END_REASONS.has(raw) ? raw : 'user_end';
+  }
+
   // חלק שיחות וידאו – טיפול באירועי אותות נכנסים
   // preParsed: secure gift-wrap path { type, data, sender, sentAt, signalId, sessionId }
   async function handleSignalEvent(event, preParsed) {
@@ -789,6 +830,7 @@
     }
 
     console.log('CALL_SIGNAL_RECV action=' + String(type) + ' encrypted=' + (preParsed ? 'true' : 'legacy'));
+    if (preParsed && blockWrongSession(preParsed, videoScopeAction(type))) return;
     const createdAt = preParsed && preParsed.sentAt
       ? Number(preParsed.sentAt) || 0
       : Number(event.created_at) || 0;
@@ -874,8 +916,12 @@
         }
         break;
       }
+      case 'v-candidate':
       case 'v-candidates': {
         let candidatesData = data;
+        if (type === 'v-candidate' && candidatesData && !Array.isArray(candidatesData)) {
+          candidatesData = [candidatesData];
+        }
         if (typeof candidatesData === 'string') {
           try { candidatesData = JSON.parse(candidatesData); } catch {}
         }
@@ -903,7 +949,7 @@
           console.log('CALL_SIGNAL_SKIP disconnect_outbound_starting');
           break;
         }
-        end();
+        end({ remoteDisconnect: true, reason: 'remote_disconnect' });
         break;
       }
     }
@@ -1121,7 +1167,7 @@
     if (term) term.declined = true;
     if (sid) markNativeSessionTerminal(sid, 'DECLINED');
     try {
-      await end({ declined: true, sessionId: sid });
+      await end({ declined: true, sessionId: sid, reason: 'decline' });
       return true;
     } catch (err) {
       console.warn('video rejectIncoming failed', err);
@@ -1149,6 +1195,7 @@
     handleSecureSignal,
     getState: () => ({
       currentPeer: state.currentPeer,
+      callSessionId: state.callSessionId || null,
       isActive: state.isActive,
       isIncoming: state.isIncoming,
       isMuted: state.isMuted,

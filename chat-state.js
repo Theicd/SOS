@@ -1191,6 +1191,61 @@
     return entry ? entry.messages.slice() : [];
   }
 
+  function safeCallPicture(url) {
+    const s = typeof url === 'string' ? url.trim() : '';
+    if (/^https:\/\//i.test(s) || /^blob:/i.test(s) || /^data:image\//i.test(s)) return s;
+    return '';
+  }
+
+  function paintCallContact(root, contact) {
+    if (!root || !contact || typeof root.querySelector !== 'function') return false;
+    const pk = String(contact.pubkey || '').toLowerCase();
+    const realName = contact.name && !isPlaceholderContactName(contact.name, pk) ? String(contact.name) : '';
+    const nameEl = root.querySelector('.voice-call-dialog__name') || root.querySelector('.video-call-dialog__name');
+    if (realName && nameEl) nameEl.textContent = realName;
+    const avatar = root.querySelector('.voice-call-dialog__avatar') || root.querySelector('.video-call-dialog__avatar');
+    const initials = (contact.initials && contact.initials !== 'מש')
+      ? contact.initials
+      : (realName ? realName.trim().slice(0, 2) : 'מש');
+    if (!avatar) return !!realName;
+    const pic = safeCallPicture(contact.picture);
+    const doc = typeof document !== 'undefined' ? document : null;
+    if (pic && doc && typeof doc.createElement === 'function') {
+      avatar.textContent = '';
+      const img = doc.createElement('img');
+      img.alt = realName || '';
+      img.src = pic;
+      img.onerror = function onCallPicFail() {
+        try { img.remove(); } catch (_e) {}
+        avatar.textContent = initials;
+      };
+      avatar.appendChild(img);
+    } else if (realName) {
+      avatar.textContent = initials;
+    }
+    return true;
+  }
+
+  async function resolveCallContact(peerPubkey) {
+    const pk = String(peerPubkey || '').trim().toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(pk)) return null;
+    const existing = chatState.contacts.get(pk);
+    if (existing && !isPlaceholderContactName(existing.name, pk)) return existing;
+    if (typeof App.fetchProfile === 'function') {
+      try {
+        const profile = await App.fetchProfile(pk);
+        if (profile && typeof profile === 'object') {
+          ensureContact(pk, {
+            name: profile.name || profile.display_name || profile.displayName || '',
+            picture: profile.picture || '',
+            initials: profile.initials || '',
+          });
+        }
+      } catch (_e) {}
+    }
+    return chatState.contacts.get(pk) || existing || null;
+  }
+
   function subscribe(topic, callback) {
     if (!chatState.listeners[topic]) {
       chatState.listeners[topic] = new Set();
@@ -1378,6 +1433,8 @@
     getChatContacts: getContactsSnapshot,
     getChatMessages: getConversationMessages,
     subscribeChat: subscribe,
+    resolveCallContact,
+    paintCallContact,
     chatStorageKey: getStorageKey,
     setChatLastSyncTs: setLastSyncTs,
     getChatLastSyncTs: getLastSyncTs,

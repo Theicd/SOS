@@ -97,13 +97,14 @@ record('H no android-shell changes in this rollback',
   && execSync('git diff --cached --name-only -- android-shell', { cwd: ROOT, encoding: 'utf8' }).trim() === '');
 record('H public APK is 1.0.122 / 123',
   apkVer.version === '1.0.122' && Number(apkVer.versionCode) === 123);
-record('I SW sos-cache-v854',
-  /sos-cache-v854/.test(sw));
-record('I web version native-nostr-interop1 or later',
-  String(appVer.version || '').includes('native-nostr-interop1')
+record('I SW sos-cache-v855',
+  /sos-cache-v855/.test(sw));
+record('I web version call-session-scope1 or later',
+  String(appVer.version || '').includes('call-session-scope1')
   || String(appVer.version || '').includes('native-call-verify1'));
 record('I call script cache-busters present',
-  /call-signal-e2ee\.js\?v=20260918/.test(videos)
+  /call-signal-e2ee\.js\?v=20260919scope1/.test(videos)
+  && /chat-voice-call\.js\?v=20260919scope1/.test(videos)
   && /chat-deeplink\.js\?v=20260918/.test(videos));
 
 // J P2P / Blossom / 30078 unchanged vs HEAD for those files
