@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.20-read-ui1",
-  "buildTime": "2026-09-20T01:48:00+03:00",
-  "notes": "Read receipts stay blue on every message type, including TXT and PDF. Public APK unchanged 1.0.122/123.",
+  "version": "2026.09.20-read-p2p1",
+  "buildTime": "2026-09-20T02:27:00+03:00",
+  "notes": "P2P file read receipts share one boundary id. Public APK unchanged 1.0.122/123.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,

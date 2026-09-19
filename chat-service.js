@@ -1965,16 +1965,19 @@
     const self = String(App.publicKey || '').toLowerCase();
     const to = String(peerPubkey || '').toLowerCase();
     const lastReadAt = lastReadTs || Math.floor(Date.now() / 1000);
+    const boundaryId = typeof App.normalizeReceiptBoundaryId === 'function'
+      ? App.normalizeReceiptBoundaryId(lastReadMessageId || '')
+      : String(lastReadMessageId || '');
     const receiptId = typeof App.buildChatReadReceiptId === 'function'
-      ? App.buildChatReadReceiptId(self, to, lastReadMessageId || '', lastReadAt)
-      : ('rr-' + self.slice(0, 16) + '-' + to.slice(0, 16) + '-' + (lastReadMessageId || ('ts-' + lastReadAt)));
+      ? App.buildChatReadReceiptId(self, to, boundaryId, lastReadAt)
+      : ('rr-' + self.slice(0, 16) + '-' + to.slice(0, 16) + '-' + (boundaryId || ('ts-' + lastReadAt)));
     return {
       type: 'chat_read_receipt',
       receiptId,
       from: self,
       to,
       lastReadAt,
-      lastReadMessageId: lastReadMessageId || '',
+      lastReadMessageId: boundaryId || '',
     };
   }
 
@@ -2186,11 +2189,19 @@
       if (!handleIncomingReadReceipt._count) handleIncomingReadReceipt._count = 0;
       handleIncomingReadReceipt._count++;
       if (handleIncomingReadReceipt._count <= 5 || handleIncomingReadReceipt._count % 20 === 0) {
-        const token = applied && applied.duplicate
-          ? 'READ_RECEIPT_DUPLICATE_IGNORED'
-          : 'READ_RECEIPT_APPLIED';
+        let token = 'READ_RECEIPT_APPLIED';
+        if (applied && applied.duplicate) token = 'READ_RECEIPT_DUPLICATE_IGNORED';
+        else if (applied && applied.pending) token = 'READ_RECEIPT_PENDING_BOUNDARY';
+        else if (applied && applied.ignored && applied.reason === 'regress') token = 'READ_RECEIPT_REGRESS_IGNORED';
+        else if (applied && applied.applied) token = 'READ_RECEIPT_APPLIED';
+        const canon = typeof App.normalizeReceiptBoundaryId === 'function'
+          ? App.normalizeReceiptBoundaryId(lastReadMessageId)
+          : String(lastReadMessageId || '');
+        const extra = token === 'READ_RECEIPT_PENDING_BOUNDARY'
+          ? ('boundary=' + (canon ? canon.slice(0, 32) : 'none') + ' local boundary-found=false')
+          : (lastReadMessageId ? 'id-boundary' : 'ts-boundary');
         console.log('[CHAT]', token, 'from', sender.slice(0, 8),
-          lastReadMessageId ? 'id-boundary' : 'ts-boundary',
+          extra,
           receiptId ? ('id=' + receiptId.slice(0, 24)) : '',
           handleIncomingReadReceipt._count > 5 ? `(total: ${handleIncomingReadReceipt._count})` : '');
       }

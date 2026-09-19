@@ -3678,7 +3678,10 @@
     chatSoundSuppressedUntil = Date.now() + Math.max(0, ms);
   }
   try {
-    window.addEventListener('sos-native-resume', () => suppressChatSoundsBriefly(3000));
+    window.addEventListener('sos-native-resume', () => {
+      suppressChatSoundsBriefly(3000);
+      reconcileActiveConversationRead('native-resume');
+    });
   } catch (_) {}
 
   function ensureChatMessageAudio() {
@@ -3737,6 +3740,21 @@
     if (!activePeer || !normalizedPeer || activePeer !== normalizedPeer || !state.isOpen) return false;
     return isUiInForeground();
   }
+
+  function reconcileActiveConversationRead(reason) {
+    const peer = state.activeContact ? String(state.activeContact).toLowerCase() : '';
+    if (!peer || !state.isOpen) return;
+    if (!isConversationActivelyViewed(peer)) return;
+    if (typeof App.markChatConversationRead !== 'function') return;
+    App.markChatConversationRead(peer);
+  }
+
+  try {
+    doc.addEventListener('visibilitychange', () => {
+      if (doc.hidden || doc.visibilityState === 'hidden') return;
+      reconcileActiveConversationRead('visibilitychange');
+    });
+  } catch (_) {}
 
   // חלק צ'אט (chat-ui.js) – בקשת הרשאת התרעות (חסכון בבקשות) | HYPER CORE TECH
   function requestChatNotificationPermissionIfNeeded() {

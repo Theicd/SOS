@@ -179,6 +179,133 @@ record('UI13 read color token not red',
   && !/\.chat-audio-whatsapp__meta-slot \.chat-message__status--read\s*\{[^}]*#ef4444/.test(enhancedCss)
   && !/rgba\(52, 211, 153/.test(themeCss.slice(themeCss.indexOf('.chat-contact__status--read'), themeCss.indexOf('.chat-contact__status--read') + 80)));
 
+function bootState() {
+  const box = {
+    console, setTimeout: () => 1, clearTimeout() {},
+    document: { addEventListener() {}, readyState: 'loading' },
+    Map, Set, Date, Math, JSON, Object, Array, String, Number,
+  };
+  box.window = {};
+  box.globalThis = box;
+  vm.runInNewContext(stateSrc, box, { filename: 'chat-state.js' });
+  const app = box.window.NostrApp;
+  app.publicKey = SELF;
+  return app;
+}
+function proveP2PFile(label, mime, name) {
+  const app = bootState();
+  const fileId = 'F-' + label.replace(/\s+/g, '');
+  app.appendChatMessage({
+    id: 'p2p-send-' + fileId,
+    from: SELF,
+    to: PEER,
+    content: name,
+    createdAt: NOW + 40,
+    direction: 'outgoing',
+    status: 'sent',
+    attachment: { fileId, type: mime, name },
+  });
+  const local = app.getChatMessages(PEER)[0];
+  const canon = app.getReceiptBoundaryId(local);
+  const applied = app.applyIncomingReadReceipt({
+    from: PEER,
+    to: SELF,
+    lastReadMessageId: 'p2p-recv-' + fileId,
+    lastReadAt: NOW + 40,
+    receiptId: app.buildChatReadReceiptId(PEER, SELF, 'p2p-recv-' + fileId, NOW + 40),
+  });
+  record(label + ' shared canonical id',
+    canon === 'p2p-file-' + fileId
+    && app.normalizeReceiptBoundaryId('p2p-send-' + fileId) === canon
+    && app.normalizeReceiptBoundaryId('p2p-recv-' + fileId) === canon
+    && app.normalizeReceiptBoundaryId(canon) === canon);
+  record(label + ' READ without a later text',
+    applied.applied === true && local.status === 'read' && local.id === 'p2p-send-' + fileId);
+}
+proveP2PFile('P2P image', 'image/jpeg', 'photo.jpg');
+proveP2PFile('P2P TXT', 'text/plain', 'note.txt');
+proveP2PFile('P2P PDF', 'application/pdf', 'doc.pdf');
+proveP2PFile('P2P generic', 'application/octet-stream', 'pack.zip');
+
+const legacy = bootState();
+legacy.appendChatMessage({
+  id: 'p2p-send-LEGACY1',
+  from: SELF,
+  to: PEER,
+  content: 'legacy',
+  createdAt: NOW + 41,
+  direction: 'outgoing',
+  status: 'sent',
+  attachment: { fileId: 'LEGACY1', type: 'application/pdf', name: 'old.pdf' },
+});
+const legacyHit = legacy.applyIncomingReadReceipt({
+  from: PEER,
+  to: SELF,
+  lastReadMessageId: 'p2p-recv-LEGACY1',
+  lastReadAt: NOW + 41,
+  receiptId: 'rr-legacy-recv',
+});
+record('legacy p2p-recv matches local p2p-send',
+  legacyHit.applied === true && legacy.getChatMessages(PEER)[0].status === 'read');
+
+const textP2p = bootState();
+const textId = 'p2p-1789858720969-94m2vg';
+record('normal P2P text id unchanged', textP2p.normalizeReceiptBoundaryId(textId) === textId);
+textP2p.appendChatMessage({ id: textId, from: SELF, to: PEER, content: 'hi', createdAt: NOW, direction: 'outgoing', status: 'sent' });
+const textHit = textP2p.applyIncomingReadReceipt({
+  from: PEER, to: SELF, lastReadMessageId: textId, lastReadAt: NOW,
+  receiptId: textP2p.buildChatReadReceiptId(PEER, SELF, textId, NOW),
+});
+record('normal P2P text still reads', textHit.applied === true && textP2p.getChatMessages(PEER)[0].status === 'read');
+
+const relayId = 'c'.repeat(64);
+record('relay id unchanged', textP2p.normalizeReceiptBoundaryId(relayId) === relayId);
+textP2p.appendChatMessage({ id: relayId, from: SELF, to: PEER, content: 'relay', createdAt: NOW + 3, direction: 'outgoing', status: 'sent' });
+const relayHit = textP2p.applyIncomingReadReceipt({
+  from: PEER, to: SELF, lastReadMessageId: relayId, lastReadAt: NOW + 3,
+  receiptId: textP2p.buildChatReadReceiptId(PEER, SELF, relayId, NOW + 3),
+});
+record('relay id still reads', relayHit.applied === true && textP2p.getChatMessages(PEER).find((m) => m.id === relayId).status === 'read');
+
+const sameTs = bootState();
+sameTs.appendChatMessage({
+  id: 'p2p-send-EQ1', from: SELF, to: PEER, content: 'a', createdAt: NOW, direction: 'outgoing', status: 'sent',
+  attachment: { fileId: 'EQ1', type: 'image/png', name: 'a.png' },
+});
+sameTs.appendChatMessage({
+  id: 'p2p-send-EQ2', from: SELF, to: PEER, content: 'b', createdAt: NOW, direction: 'outgoing', status: 'sent',
+  attachment: { fileId: 'EQ2', type: 'text/plain', name: 'b.txt' },
+});
+sameTs.applyIncomingReadReceipt({
+  from: PEER, to: SELF, lastReadMessageId: 'p2p-recv-EQ1', lastReadAt: NOW,
+  receiptId: sameTs.buildChatReadReceiptId(PEER, SELF, 'p2p-recv-EQ1', NOW),
+});
+record('equal timestamps stay safe for P2P files',
+  sameTs.getChatMessages(PEER).find((m) => m.id === 'p2p-send-EQ1').status === 'read'
+  && sameTs.getChatMessages(PEER).find((m) => m.id === 'p2p-send-EQ2').status === 'sent');
+record('canonical receipt id ignores send/recv prefix',
+  sameTs.buildChatReadReceiptId(PEER, SELF, 'p2p-send-EQ1', 1) === sameTs.buildChatReadReceiptId(PEER, SELF, 'p2p-recv-EQ1', 9));
+
+const boundaryApp = bootState();
+boundaryApp.appendChatMessage({ id: 'in-viewed', from: PEER, to: SELF, content: 'seen', createdAt: NOW, direction: 'incoming', status: 'sent' });
+boundaryApp.appendChatMessage({ id: 'out-local', from: SELF, to: PEER, content: 'mine', createdAt: NOW + 30, direction: 'outgoing', status: 'sent' });
+boundaryApp.appendChatMessage({ id: 'sys-note', from: SELF, to: PEER, content: 'notice', createdAt: NOW + 31, direction: 'system', isSystem: true, systemKind: 'disappearing-intro' });
+boundaryApp.markChatConversationRead(PEER);
+const storedBoundary = boundaryApp.chatState.contacts.get(PEER).lastReadMessageId || '';
+record('outgoing and system are not the read boundary', storedBoundary === 'in-viewed');
+
+const uiLive = fs.readFileSync(path.join(ROOT, 'chat-ui.js'), 'utf8');
+record('foreground reconcile marks only the active viewed conversation',
+  /function reconcileActiveConversationRead/.test(uiLive)
+  && /if \(!isConversationActivelyViewed\(peer\)\) return;/.test(uiLive)
+  && /reconcileActiveConversationRead\('visibilitychange'\)/.test(uiLive)
+  && /reconcileActiveConversationRead\('native-resume'\)/.test(uiLive)
+  && /doc\.hidden \|\| doc\.visibilityState === 'hidden'/.test(uiLive));
+record('receipt logs distinguish pending and regress',
+  /READ_RECEIPT_PENDING_BOUNDARY/.test(serviceSrc)
+  && /READ_RECEIPT_REGRESS_IGNORED/.test(serviceSrc)
+  && /local boundary-found=false/.test(serviceSrc));
+
 console.log(results.join('\n'));
 console.log(fail ? 'CHAT_READ_RECEIPT_GATE FAIL (' + pass + ' passed, ' + fail + ' failed)' : 'CHAT_READ_RECEIPT_GATE PASS (' + pass + ' passed, 0 failed)');
 process.exit(fail ? 1 : 0);

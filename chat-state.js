@@ -1189,10 +1189,35 @@
   const READ_RECEIPT_SEEN_CAP = 200;
   const readReceiptSendTimers = new Map();
 
+  function normalizeReceiptBoundaryId(id) {
+    const raw = String(id || '').trim();
+    if (!raw) return '';
+    if (raw.startsWith('p2p-file-')) return raw;
+    if (raw.startsWith('p2p-send-')) return 'p2p-file-' + raw.slice('p2p-send-'.length);
+    if (raw.startsWith('p2p-recv-')) return 'p2p-file-' + raw.slice('p2p-recv-'.length);
+    return raw;
+  }
+
+  function getReceiptBoundaryId(message) {
+    if (!message || isSystemChatMessage(message)) return '';
+    const explicit = message.receiptMessageId || message.logicalMessageId;
+    if (explicit) return normalizeReceiptBoundaryId(explicit);
+    const localId = String(message.id || '');
+    const fromPrefix = extractP2PFileIdFromMessageId(localId);
+    if (fromPrefix) return 'p2p-file-' + fromPrefix;
+    return normalizeReceiptBoundaryId(localId);
+  }
+
+  function findReceiptBoundaryIndex(ordered, boundaryId) {
+    const want = normalizeReceiptBoundaryId(boundaryId);
+    if (!want) return -1;
+    return ordered.findIndex((message) => getReceiptBoundaryId(message) === want);
+  }
+
   function buildChatReadReceiptId(readerPubkey, peerPubkey, lastReadMessageId, lastReadAt) {
     const reader = String(readerPubkey || '').toLowerCase();
     const peer = String(peerPubkey || '').toLowerCase();
-    const boundary = String(lastReadMessageId || '').trim() || ('ts-' + String(Number(lastReadAt) || 0));
+    const boundary = normalizeReceiptBoundaryId(lastReadMessageId) || ('ts-' + String(Number(lastReadAt) || 0));
     const id = 'rr-' + reader.slice(0, 16) + '-' + peer.slice(0, 16) + '-' + boundary;
     return id.length > 240 ? id.slice(0, 240) : id;
   }
@@ -1230,8 +1255,8 @@
   function receiptMovesForward(ordered, current, nextId, nextAt) {
     if (!current) return true;
     const currentId = current.lastReadMessageId || '';
-    const currentIdx = currentId ? ordered.findIndex((message) => message && message.id === currentId) : -1;
-    const nextIdx = nextId ? ordered.findIndex((message) => message && message.id === nextId) : -1;
+    const currentIdx = currentId ? findReceiptBoundaryIndex(ordered, currentId) : -1;
+    const nextIdx = nextId ? findReceiptBoundaryIndex(ordered, nextId) : -1;
     if (currentIdx !== -1 && nextIdx !== -1) return nextIdx > currentIdx;
     if (currentIdx !== -1 && nextIdx === -1) return false;
     if (currentIdx === -1 && nextIdx !== -1) return Number(nextAt) >= Number(current.lastReadAt || 0);
@@ -1254,7 +1279,7 @@
   function applyIncomingReadReceipt(receipt, options) {
     const opts = options || {};
     const peer = String((receipt && (receipt.from || receipt.peer)) || '').toLowerCase();
-    const lastReadMessageId = String((receipt && receipt.lastReadMessageId) || '');
+    const lastReadMessageId = normalizeReceiptBoundaryId(String((receipt && receipt.lastReadMessageId) || ''));
     const lastReadAt = Number(receipt && (receipt.lastReadAt || receipt.lastReadTs)) || 0;
     const receiptId = String((receipt && receipt.receiptId) || buildChatReadReceiptId(peer, App.publicKey, lastReadMessageId, lastReadAt));
     if (!peer) return { ok: false, reason: 'missing-peer' };
@@ -1263,7 +1288,7 @@
       return { ok: true, duplicate: true, receiptId };
     }
     const ordered = orderedConversationMessages(getConversationMessages(peer));
-    const boundaryIndex = lastReadMessageId ? ordered.findIndex((message) => message && message.id === lastReadMessageId) : -1;
+    const boundaryIndex = lastReadMessageId ? findReceiptBoundaryIndex(ordered, lastReadMessageId) : -1;
     const current = chatState.readWatermarks.get(peer) || null;
     if (!receiptMovesForward(ordered, current, lastReadMessageId, lastReadAt)) {
       return { ok: true, ignored: true, reason: 'regress', receiptId };
@@ -1298,7 +1323,7 @@
     const pending = peer ? chatState.pendingInboundReceipts.get(peer) : null;
     if (!pending) return false;
     const ordered = orderedConversationMessages(getConversationMessages(peer));
-    if (pending.lastReadMessageId && ordered.findIndex((message) => message && message.id === pending.lastReadMessageId) === -1) {
+    if (pending.lastReadMessageId && findReceiptBoundaryIndex(ordered, pending.lastReadMessageId) === -1) {
       return false;
     }
     applyIncomingReadReceipt(pending, { fromRetry: true });
@@ -1319,20 +1344,31 @@
     if (!contact) return;
     const conversationKey = getConversationKey(normalized, App.publicKey || '');
     const conversation = conversationKey ? chatState.conversations.get(conversationKey) : null;
-    const latestMessage = conversation?.messages?.length
-      ? conversation.messages[conversation.messages.length - 1]
-      : null;
-    let boundary = latestMessage;
-    if (upToMessageId && conversation && Array.isArray(conversation.messages)) {
-      const found = conversation.messages.find((message) => message && message.id === upToMessageId);
-      if (found) boundary = found;
+    const messages = conversation && Array.isArray(conversation.messages) ? conversation.messages : [];
+    let boundary = null;
+    if (upToMessageId) {
+      const want = normalizeReceiptBoundaryId(upToMessageId);
+      const found = messages.find((message) => message && (
+        message.id === upToMessageId || getReceiptBoundaryId(message) === want
+      ));
+      if (found && !isSystemChatMessage(found) && !isOutgoingChatMessage(found)) boundary = found;
     }
-    const lastReadTs = boundary?.createdAt || Math.floor(Date.now() / 1000);
-    const boundaryId = boundary?.id || '';
+    if (!boundary) {
+      const ordered = orderedConversationMessages(messages);
+      for (let i = ordered.length - 1; i >= 0; i -= 1) {
+        const message = ordered[i];
+        if (!message || isSystemChatMessage(message) || isOutgoingChatMessage(message)) continue;
+        if (!getReceiptBoundaryId(message)) continue;
+        boundary = message;
+        break;
+      }
+    }
+    const lastReadTs = boundary?.createdAt || 0;
+    const boundaryId = boundary ? getReceiptBoundaryId(boundary) : '';
     const sameBoundary = boundaryId
-      ? boundaryId === (contact.lastReadMessageId || '')
-      : lastReadTs <= (contact.lastReadTimestamp || 0);
-    if (!sameBoundary) {
+      ? boundaryId === normalizeReceiptBoundaryId(contact.lastReadMessageId || '')
+      : !boundary;
+    if (boundary && !sameBoundary) {
       contact.lastReadTimestamp = Math.max(Number(contact.lastReadTimestamp) || 0, lastReadTs);
       if (boundaryId) contact.lastReadMessageId = boundaryId;
       const pending = readReceiptSendTimers.get(normalized) || {};
@@ -1480,14 +1516,16 @@
     if (prev) {
       const prevAt = Number(prev.lastReadAt) || 0;
       if (nextAt < prevAt) return false;
-      if (nextAt === prevAt && prev.lastReadMessageId && prev.lastReadMessageId !== (receipt.lastReadMessageId || '')) {
+      const nextBoundary = normalizeReceiptBoundaryId(receipt.lastReadMessageId || '');
+      const prevBoundary = normalizeReceiptBoundaryId(prev.lastReadMessageId || '');
+      if (nextAt === prevAt && prevBoundary && prevBoundary !== nextBoundary) {
         return false;
       }
     }
     chatState.pendingReadReceipts.set(peer, {
       receiptId: receipt.receiptId || '',
       lastReadAt: nextAt,
-      lastReadMessageId: receipt.lastReadMessageId || '',
+      lastReadMessageId: normalizeReceiptBoundaryId(receipt.lastReadMessageId || ''),
       queuedAt: Date.now(),
     });
     persistState();
@@ -1617,6 +1655,8 @@
     markChatConversationRead: markConversationRead,
     applyIncomingReadReceipt,
     buildChatReadReceiptId,
+    normalizeReceiptBoundaryId,
+    getReceiptBoundaryId,
     retryInboundReadReceipt,
     getChatContacts: getContactsSnapshot,
     getChatMessages: getConversationMessages,
