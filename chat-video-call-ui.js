@@ -549,6 +549,7 @@
     stopDialtone();
     App.__videoIncomingOffer = null;
     App.__videoIncomingPeer = null;
+    App.__videoIncomingSessionId = null;
     userDeclinedVideoCall = false;
     videoAcceptStarted = false;
     try {
@@ -595,6 +596,10 @@
       if (peerWanted && p && p !== peerWanted) return false;
       App.__videoIncomingOffer = { type: offer.type, sdp: offer.sdp };
       App.__videoIncomingPeer = p || peerWanted || App.__videoIncomingPeer;
+      if (typeof parsed.sessionId === 'string' && parsed.sessionId.length >= 32) {
+        App.__videoIncomingSessionId = parsed.sessionId;
+      }
+      if (Number(parsed.createdAt)) App.__videoIncomingOfferCreatedAt = Number(parsed.createdAt);
       return true;
     } catch (_) {
       return false;
@@ -627,6 +632,9 @@
             if (cached && cached.media === 'video' && cached.offer?.type && cached.offer?.sdp) {
               App.__videoIncomingOffer = { type: cached.offer.type, sdp: cached.offer.sdp };
               App.__videoIncomingPeer = peerWanted || App.__videoIncomingPeer;
+              if (typeof cached.sessionId === 'string' && cached.sessionId.length >= 32) {
+                App.__videoIncomingSessionId = cached.sessionId;
+              }
               console.log('CALL_HYDRATE_SECURE_VIDEO');
               return App.__videoIncomingOffer;
             }
@@ -638,6 +646,9 @@
             if (cached2 && cached2.media === 'video' && cached2.offer?.type && cached2.offer?.sdp) {
               App.__videoIncomingOffer = { type: cached2.offer.type, sdp: cached2.offer.sdp };
               App.__videoIncomingPeer = peerWanted || App.__videoIncomingPeer;
+              if (typeof cached2.sessionId === 'string' && cached2.sessionId.length >= 32) {
+                App.__videoIncomingSessionId = cached2.sessionId;
+              }
               console.log('CALL_HYDRATE_SECURE_VIDEO');
               return App.__videoIncomingOffer;
             }
@@ -664,7 +675,12 @@
         App.__videoIncomingOfferCreatedAt = Number(eventObj.created_at) || 0;
         try {
           sessionStorage.setItem('sos_pending_video_offer', JSON.stringify({
-            peer: App.__videoIncomingPeer, callType: 'video', offer: App.__videoIncomingOffer, savedAt: Date.now()
+            peer: App.__videoIncomingPeer,
+            callType: 'video',
+            offer: App.__videoIncomingOffer,
+            sessionId: App.__videoIncomingSessionId || '',
+            createdAt: Number(App.__videoIncomingOfferCreatedAt) || 0,
+            savedAt: Date.now()
           }));
         } catch (_) {}
         try {
@@ -745,7 +761,10 @@
         return false;
       }
       videoAcceptStarted = true;
-      await App.videoCall.accept(peer, offer, { createdAt: App.__videoIncomingOfferCreatedAt });
+      await App.videoCall.accept(peer, offer, {
+        createdAt: App.__videoIncomingOfferCreatedAt,
+        sessionId: App.__videoIncomingSessionId
+      });
       App.__videoIncomingOffer = null;
       try { window.__sosNativePendingDecline = null; } catch (_) {}
       setStatus('מתחבר...');
@@ -820,7 +839,12 @@
     App.__videoIncomingPeer = peerNorm;
     try {
       sessionStorage.setItem('sos_pending_video_offer', JSON.stringify({
-        peer: App.__videoIncomingPeer, callType: 'video', offer, savedAt: Date.now()
+        peer: App.__videoIncomingPeer,
+        callType: 'video',
+        offer,
+        sessionId: App.__videoIncomingSessionId || '',
+        createdAt: Number(App.__videoIncomingOfferCreatedAt) || 0,
+        savedAt: Date.now()
       }));
       if (typeof App.nativeCacheIncomingCallOffer === 'function') {
         App.nativeCacheIncomingCallOffer(peer, 'video', offer);
@@ -990,6 +1014,10 @@
         if (!offer?.type || !offer?.sdp) return false;
         App.__videoIncomingOffer = offer;
         App.__videoIncomingPeer = p || peer;
+        if (typeof parsed.sessionId === 'string' && parsed.sessionId.length >= 32) {
+          App.__videoIncomingSessionId = parsed.sessionId;
+        }
+        if (Number(parsed.createdAt)) App.__videoIncomingOfferCreatedAt = Number(parsed.createdAt);
         return true;
       } catch (_) { return false; }
     };

@@ -217,15 +217,55 @@
     return a < b ? `${a}:${b}` : `${b}:${a}`;
   }
 
+  function isSecureVideoSessionId(sid) {
+    return typeof sid === 'string' && /^[0-9a-f]{32,}$/i.test(sid.trim());
+  }
+
   function ensureCallSessionId() {
     const api = App.CallSignalE2ee;
-    if (state.callSessionId && String(state.callSessionId).length >= 32) return state.callSessionId;
+    if (isSecureVideoSessionId(state.callSessionId)) return state.callSessionId;
     if (api && typeof api.createSessionId === 'function') {
       state.callSessionId = api.createSessionId();
     } else {
       const buf = new Uint8Array(16);
       crypto.getRandomValues(buf);
       state.callSessionId = Array.from(buf).map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+    return state.callSessionId;
+  }
+
+  function adoptIncomingVideoSession(peer, sessionId, createdAt) {
+    const pk = String(peer || '').trim().toLowerCase();
+    const sid = typeof sessionId === 'string' ? sessionId.trim() : '';
+    if (!/^[0-9a-f]{64}$/.test(pk) || !isSecureVideoSessionId(sid)) return false;
+    const establishedOther = isSecureVideoSessionId(state.callSessionId)
+      && state.callSessionId !== sid
+      && (state.isActive || state.outboundStarting || (state.pc && !state.isIncoming));
+    if (establishedOther) return false;
+    state.currentPeer = pk;
+    state.isIncoming = true;
+    state.callSessionId = sid;
+    if (createdAt) noteSessionOffer(createdAt);
+    try {
+      App.__videoIncomingSessionId = sid;
+      App.__videoIncomingPeer = pk;
+      if (createdAt) App.__videoIncomingOfferCreatedAt = Number(createdAt) || 0;
+    } catch (_e) {}
+    return true;
+  }
+
+  function requireIncomingVideoSessionId() {
+    if (isSecureVideoSessionId(state.callSessionId)) return state.callSessionId;
+    console.log('CALL_VIDEO_SESSION_MISSING');
+    return null;
+  }
+
+  function sessionIdForSignal(type) {
+    if (state.isIncoming) return requireIncomingVideoSessionId();
+    if (type === 'v-offer') return ensureCallSessionId();
+    if (!isSecureVideoSessionId(state.callSessionId)) {
+      console.log('CALL_VIDEO_SESSION_MISSING');
+      return null;
     }
     return state.callSessionId;
   }
@@ -240,13 +280,17 @@
     if (!api || typeof api.publishCallSignal !== 'function') {
       throw Object.assign(new Error('CALL_SIGNAL_E2EE_ENCRYPT_FAILED: helper missing'), { code: 'CALL_SIGNAL_E2EE_ENCRYPT_FAILED' });
     }
+    const sessionId = sessionIdForSignal(type);
+    if (!sessionId) {
+      throw Object.assign(new Error('CALL_VIDEO_SESSION_MISSING'), { code: 'CALL_VIDEO_SESSION_MISSING' });
+    }
     try {
       const published = await api.publishCallSignal({
         media: 'video',
         peerPubkey: peer,
         type,
         data,
-        sessionId: ensureCallSessionId(),
+        sessionId,
         pool: App.pool,
         relays: App.relayUrls,
         senderPubkey: App.publicKey,
@@ -411,6 +455,9 @@
     state.outboundStarting = true;
     state.answeredLocally = false;
     state.isIncoming = false;
+    state.callSessionId = null;
+    ensureCallSessionId();
+    console.log('CALL_VIDEO_OUTGOING_SESSION_CREATED');
     noteSessionOffer(Math.floor(Date.now() / 1000));
     try {
       await getLocalStream(opts && opts.video);
@@ -446,12 +493,25 @@
   // חלק שיחות וידאו – קבלת שיחה
   async function accept(peerPubkey, offer, meta) {
     if (!isSupported()) throw new Error('הדפדפן לא תומך בוידאו');
+    const peer = String(peerPubkey || '').trim().toLowerCase();
     const createdAt = Number(meta && meta.createdAt) || Number(App.__videoIncomingOfferCreatedAt) || 0;
-    if (createdAt) noteSessionOffer(createdAt);
-    state.isIncoming = true;
+    let sid = meta && typeof meta.sessionId === 'string' ? meta.sessionId.trim() : '';
+    if (!isSecureVideoSessionId(sid)) {
+      try {
+        const api = App.CallSignalE2ee;
+        const hit = api && typeof api.getCachedSecureOffer === 'function' ? api.getCachedSecureOffer(peer) : null;
+        if (hit && hit.media === 'video' && isSecureVideoSessionId(hit.sessionId)) sid = hit.sessionId;
+      } catch (_e) {}
+    }
+    if (!isSecureVideoSessionId(sid) && isSecureVideoSessionId(state.callSessionId)) sid = state.callSessionId;
+    if (!isSecureVideoSessionId(sid) && isSecureVideoSessionId(App.__videoIncomingSessionId)) sid = App.__videoIncomingSessionId;
+    if (!adoptIncomingVideoSession(peer, sid, createdAt)) {
+      console.log('CALL_VIDEO_SESSION_MISSING');
+      throw Object.assign(new Error('CALL_VIDEO_SESSION_MISSING'), { code: 'CALL_VIDEO_SESSION_MISSING' });
+    }
+    console.log('CALL_VIDEO_SESSION_ADOPTED');
     state.answeredLocally = false;
     await getLocalStream();
-    // חלק שיחות וידאו (chat-video-call.js) – איפוס מצב לפני קבלה כדי להתמודד עם candidates שמגיעים לפני accept במובייל | HYPER CORE TECH
     state.isIncoming = true;
     state.isActive = false;
     state.callStartTimestamp = null;
@@ -459,20 +519,20 @@
     state.candidateQueue = [];
     clearTimer();
     try { subscribeToSignals(); } catch {}
-    state.currentPeer = peerPubkey;
-    try { state.lastOfferFrom[peerPubkey] = Date.now(); } catch (_) {}
-    createPC(peerPubkey);
+    state.currentPeer = peer;
+    try { state.lastOfferFrom[peer] = Date.now(); } catch (_) {}
+    createPC(peer);
     const offerNorm = normalizeVideoSessionDescription(offer);
     if (!offerNorm) throw new Error('offer וידאו אינו תקין');
     await state.pc.setRemoteDescription(offerNorm);
-    await flushRemoteCandidates(peerPubkey);
+    await flushRemoteCandidates(peer);
     const answer = await state.pc.createAnswer();
     await state.pc.setLocalDescription(answer);
-    await flushRemoteCandidates(peerPubkey);
-    await sendSignal(peerPubkey, 'v-answer', answer);
+    await flushRemoteCandidates(peer);
+    await sendSignal(peer, 'v-answer', answer);
     state.answeredLocally = true;
     console.log('CALL_ACCEPTED');
-    if (typeof App.onVideoCallStarted === 'function') App.onVideoCallStarted(peerPubkey, true);
+    if (typeof App.onVideoCallStarted === 'function') App.onVideoCallStarted(peer, true);
   }
 
   // חלק שיחות וידאו – סיום
@@ -873,9 +933,11 @@
           console.log('CALL_SIGNAL_SKIP already_calling');
           return;
         }
+        if (preParsed && preParsed.sessionId) {
+          adoptIncomingVideoSession(peer, preParsed.sessionId, createdAt);
+        }
         try {
           if (window.__sosAcceptInFlight && window.__sosAcceptInFlightPeer === String(peer).toLowerCase()) {
-            noteSessionOffer(createdAt);
             console.log('CALL_SIGNAL_SKIP accept_in_flight');
             return;
           }
@@ -892,7 +954,7 @@
         noteSessionOffer(createdAt);
         state.currentPeer = peer;
         state.isIncoming = true;
-        if (preParsed && preParsed.sessionId) state.callSessionId = preParsed.sessionId;
+        if (preParsed && preParsed.sessionId) adoptIncomingVideoSession(peer, preParsed.sessionId, createdAt);
         // חלק Push (chat-video-call.js) – שליחת התראת Push על שיחת וידאו נכנסת | HYPER CORE TECH
         if (typeof App.triggerIncomingCallPush === 'function') {
           App.triggerIncomingCallPush(peer, 'video');

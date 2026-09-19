@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.19-call-session-scope1",
-  "buildTime": "2026-09-19T03:10:00+03:00",
-  "notes": "Web-only call session scope + internal identity. Public APK unchanged 1.0.122/123.",
+  "version": "2026.09.19-video-session-adopt1",
+  "buildTime": "2026-09-19T04:10:00+03:00",
+  "notes": "Web-only video native-answer session adoption. Public APK unchanged 1.0.122/123.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,
