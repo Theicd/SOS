@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.20-call-inflight1",
-  "buildTime": "2026-09-20T18:02:00+03:00",
-  "notes": "Fix stale pendingSecureReconcileInFlight Promise race; Native-priority over web recovery backlog. APK still 1.0.123/124.",
+  "version": "2026.09.20-call-coldanswer1",
+  "buildTime": "2026-09-20T18:34:35+03:00",
+  "notes": "Backward-compatible Web half of locked-screen Native Answer handoff. Existing APK 1.0.123 remains supported. New Native adoption APIs will be used by APK 1.0.124 when available.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,

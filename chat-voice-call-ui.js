@@ -1168,10 +1168,44 @@
     return false;
   }
 
+  function isNativeIncomingAnswered(peerPubkey) {
+    const peer = String(peerPubkey || '').toLowerCase();
+    if (!peer) return false;
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.isIncomingCallAnsweredForPeer === 'function') {
+        return !!bridge.isIncomingCallAnsweredForPeer(peer);
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function notifyNativeCallUiReady() {
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.notifySoCallCallUiReady === 'function') {
+        bridge.notifySoCallCallUiReady();
+      }
+    } catch (_) {}
+  }
+
+  function shouldSkipIncomingRingUi(peerPubkey) {
+    const peer = String(peerPubkey || '').toLowerCase();
+    if (!peer) return false;
+    if (isNativeIncomingAnswered(peer)) return true;
+    try {
+      if (window.__sosAcceptInFlight && String(window.__sosAcceptInFlightPeer || '').toLowerCase() === peer) return true;
+      if (window.__sosAcceptSucceededPeer === peer) return true;
+      if (isAlreadyInVoiceCallWith(peer)) return true;
+    } catch (_) {}
+    return false;
+  }
+
   // חלק שיחות קול (chat-voice-call-ui.js) – callbacks מהמודול הראשי
   App.onVoiceCallIncoming = function(peerPubkey, offer) {
     console.log('Incoming call from', peerPubkey.slice(0, 8));
     const peer = peerPubkey ? String(peerPubkey).toLowerCase() : '';
+    try { console.log('CALL_COLD_JS_READY'); } catch (_) {}
 
     // דחייה ממתינה מ-APK – שולחים disconnect בלי לפתוח UI | HYPER CORE TECH
     try {
@@ -1206,6 +1240,9 @@
     try {
       if (window.__sosAcceptInFlight) {
         console.log('Incoming voice ignored – accept in flight');
+        incomingOffer = offer;
+        incomingOfferPeer = peer;
+        persistIncomingOffer(peerPubkey, offer);
         return;
       }
       if (isAlreadyInVoiceCallWith(peer)) {
@@ -1217,16 +1254,42 @@
         console.log('Incoming voice ignored – call already active');
         return;
       }
-      if (callDialog && document.body.contains(callDialog)) {
-        console.log('Incoming voice ignored – call dialog already open');
-        return;
-      }
     } catch (_) {}
 
     // שמירת ה-offer באופן מקומי
     incomingOffer = offer;
     incomingOfferPeer = peer;
     persistIncomingOffer(peerPubkey, offer);
+
+    // Native already answered (cold start) — adopt offer, skip ring/manual Answer UI.
+    try {
+      if (isNativeIncomingAnswered(peer)) {
+        try {
+          const api = App.CallSignalE2ee;
+          const cached = api && typeof api.getCachedSecureOffer === 'function' ? api.getCachedSecureOffer(peer) : null;
+          const sid = cached && cached.sessionId ? String(cached.sessionId) : '';
+          if (sid && typeof App.isCallSessionTerminal === 'function' && App.isCallSessionTerminal(sid)) {
+            console.log('CALL_STALE_OFFER_APPLY_BLOCK reason=tombstoned');
+            incomingOffer = null;
+            incomingOfferPeer = null;
+            return;
+          }
+        } catch (_) {}
+        console.log('CALL_NATIVE_ANSWER_ADOPT peer=' + peer.slice(0, 8));
+        console.log('CALL_NATIVE_ANSWER_SUPPRESS_RING');
+        console.log('CALL_COLD_OFFER_ADOPT');
+        console.log('CALL_NATIVE_ANSWER_AUTO_ACCEPT_START');
+        console.log('CALL_COLD_AUTO_ACCEPT_START');
+        stopRingtone();
+        try {
+          if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+        } catch (_) {}
+        closeIncomingCallNotification();
+        // acceptIncomingCallFromNative notifies call-UI-ready exactly once
+        App.acceptIncomingCallFromNative(peer, 'voice', null);
+        return;
+      }
+    } catch (_) {}
 
     // מענה ממתין מ-APK – מקבלים ברגע שיש offer | HYPER CORE TECH
     try {
@@ -1236,6 +1299,7 @@
         if (typeof App.pauseAllFeedVideos === 'function') App.pauseAllFeedVideos();
         createCallDialog(peerPubkey, true, { autoAnswering: true });
         stopRingtone();
+        notifyNativeCallUiReady();
         // לא מנקים pending כאן – acceptIncomingCallFromNative / tryAccept מסיימים
         setTimeout(() => {
           handleAcceptCall(peer, { silent: true }).then((ok) => {
@@ -1513,10 +1577,12 @@
       }
       createCallDialog(peer, true, { autoAnswering: true });
       markUiAutoAnswering();
+      notifyNativeCallUiReady();
     } else {
       if (typeof App.pauseAllFeedVideos === 'function') {
         try { App.pauseAllFeedVideos(); } catch (_) {}
       }
+      notifyNativeCallUiReady();
     }
     stopRingtone();
     try {
@@ -1690,39 +1756,55 @@
     window.__sosIncomingCallActive = true;
     pauseFeedQueueLikeChat();
     restoreIncomingOffer(peer, pendingOfferDetail);
-    // קודם מסך ענה – לא פותחים צ'אט שמסתיר את הדיאלוג | HYPER CORE TECH
     const target = incomingOfferPeer || peer;
-    if (target) {
-      // כבר בשיחה עם אותו peer – לא צלצול ולא מסך ענה מחדש | HYPER CORE TECH
-      if (isAlreadyInVoiceCallWith(String(target).toLowerCase())) {
-        console.log('Deep link resume skipped – already in call with', String(target).slice(0, 8));
-        stopRingtone();
-        try {
-          if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
-        } catch (_) {}
-        return true;
-      }
-      const autoAnswering = !!(opts && opts.autoAnswering) || !!(
-        window.__sosNativePendingAnswer &&
-        window.__sosNativePendingAnswer.peer === String(target).toLowerCase()
-      );
-      saveChatPanelState();
-      createCallDialog(target, true, autoAnswering ? { autoAnswering: true } : undefined);
-      if (autoAnswering) {
-        stopRingtone();
-        try {
-          if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
-        } catch (_) {}
-        markUiAutoAnswering();
+    if (!target) return false;
+
+    // Native already answered / accept in flight — never resurrect ringing UI.
+    if (shouldSkipIncomingRingUi(String(target).toLowerCase())) {
+      console.log('CALL_DEEPLINK_SKIP reason=native-already-answered');
+      stopRingtone();
+      try {
+        if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+      } catch (_) {}
+      const t = String(target).toLowerCase();
+      if (!window.__sosAcceptInFlight && window.__sosAcceptSucceededPeer !== t) {
+        // acceptIncomingCallFromNative notifies call-UI-ready exactly once
+        App.acceptIncomingCallFromNative(t, 'voice', opts && opts.pendingRawEvent);
       } else {
-        resumeOnUserGestureOnce(() => playRingtone());
-        try {
-          if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
-        } catch (_) {}
+        notifyNativeCallUiReady();
       }
       return true;
     }
-    return false;
+
+    // כבר בשיחה עם אותו peer – לא צלצול ולא מסך ענה מחדש | HYPER CORE TECH
+    if (isAlreadyInVoiceCallWith(String(target).toLowerCase())) {
+      console.log('Deep link resume skipped – already in call with', String(target).slice(0, 8));
+      stopRingtone();
+      try {
+        if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+      } catch (_) {}
+      return true;
+    }
+    const autoAnswering = !!(opts && opts.autoAnswering) || !!(
+      window.__sosNativePendingAnswer &&
+      window.__sosNativePendingAnswer.peer === String(target).toLowerCase()
+    );
+    saveChatPanelState();
+    createCallDialog(target, true, autoAnswering ? { autoAnswering: true } : undefined);
+    if (autoAnswering) {
+      stopRingtone();
+      try {
+        if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+      } catch (_) {}
+      markUiAutoAnswering();
+      notifyNativeCallUiReady();
+    } else {
+      resumeOnUserGestureOnce(() => playRingtone());
+      try {
+        if (typeof App.nativeStartCallRingtone === 'function') App.nativeStartCallRingtone();
+      } catch (_) {}
+    }
+    return true;
   };
 
   // חלק שיחה ממתינה (chat-voice-call-ui.js) – התראה קצרה ללא צלצול מלא בזמן שיחה פעילה | HYPER CORE TECH

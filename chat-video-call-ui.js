@@ -813,6 +813,7 @@
   // חלק שיחות וידאו – callbacks מהמנוע
   App.onVideoCallIncoming = function(peer, offer){
     const peerNorm = peer ? String(peer).toLowerCase() : '';
+    try { console.log('CALL_COLD_JS_READY'); } catch (_) {}
     try {
       const pendingDecline = window.__sosNativePendingDecline;
       if (pendingDecline && pendingDecline.peer === peerNorm && Date.now() < (pendingDecline.until || 0)) {
@@ -850,6 +851,33 @@
         App.nativeCacheIncomingCallOffer(peer, 'video', offer);
       }
     } catch (_) {}
+
+    // Native already answered — adopt, suppress ring, auto-accept.
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.isIncomingCallAnsweredForPeer === 'function'
+          && bridge.isIncomingCallAnsweredForPeer(peerNorm)) {
+        try {
+          const sid = App.__videoIncomingSessionId || '';
+          if (sid && typeof App.isCallSessionTerminal === 'function' && App.isCallSessionTerminal(sid)) {
+            console.log('CALL_STALE_OFFER_APPLY_BLOCK reason=tombstoned');
+            return;
+          }
+        } catch (_) {}
+        console.log('CALL_NATIVE_ANSWER_ADOPT peer=' + peerNorm.slice(0, 8));
+        console.log('CALL_NATIVE_ANSWER_SUPPRESS_RING');
+        console.log('CALL_COLD_OFFER_ADOPT');
+        console.log('CALL_NATIVE_ANSWER_AUTO_ACCEPT_START');
+        console.log('CALL_COLD_AUTO_ACCEPT_START');
+        try {
+          if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+        } catch (_) {}
+        // acceptIncomingVideoCallFromNative notifies call-UI-ready exactly once
+        App.acceptIncomingVideoCallFromNative(peerNorm, null);
+        return;
+      }
+    } catch (_) {}
+
     try {
       const pendingAnswer = window.__sosNativePendingAnswer;
       if (pendingAnswer && pendingAnswer.peer === peerNorm && pendingAnswer.callType === 'video' && Date.now() < (pendingAnswer.until || 0)) {
@@ -930,6 +958,12 @@
     } catch (_) {}
     try {
       if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+    } catch (_) {}
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.notifySoCallCallUiReady === 'function') {
+        bridge.notifySoCallCallUiReady();
+      }
     } catch (_) {}
 
     let attempts = 0;
@@ -1052,6 +1086,33 @@
     }
     const target = App.__videoIncomingPeer || peer;
     if (!target) return false;
+
+    try {
+      const bridge = window.SosNativeShell;
+      const answered = bridge && typeof bridge.isIncomingCallAnsweredForPeer === 'function'
+        && bridge.isIncomingCallAnsweredForPeer(String(target).toLowerCase());
+      const busy = !!(window.__sosAcceptInFlight && window.__sosAcceptInFlightPeer === String(target).toLowerCase())
+        || window.__sosAcceptSucceededPeer === String(target).toLowerCase();
+      if (answered || busy) {
+        console.log('CALL_DEEPLINK_SKIP reason=native-already-answered');
+        try {
+          if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+        } catch (_) {}
+        if (!busy) {
+          // acceptIncomingVideoCallFromNative notifies call-UI-ready exactly once
+          App.acceptIncomingVideoCallFromNative(String(target).toLowerCase(), opts && opts.pendingRawEvent);
+        } else {
+          try {
+            const bridge = window.SosNativeShell;
+            if (bridge && typeof bridge.notifySoCallCallUiReady === 'function') {
+              bridge.notifySoCallCallUiReady();
+            }
+          } catch (_) {}
+        }
+        return true;
+      }
+    } catch (_) {}
+
     const autoAnswering = !!(opts && opts.autoAnswering) || !!(
       window.__sosNativePendingAnswer &&
       window.__sosNativePendingAnswer.peer === String(target).toLowerCase()
@@ -1076,6 +1137,12 @@
       } catch (_) {}
       try {
         if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
+      } catch (_) {}
+      try {
+        const bridge = window.SosNativeShell;
+        if (bridge && typeof bridge.notifySoCallCallUiReady === 'function') {
+          bridge.notifySoCallCallUiReady();
+        }
       } catch (_) {}
     } else {
       startToneWithPolicy(playRingtone);

@@ -204,6 +204,28 @@
         document.body.classList.add('sos-call-active');
         if (typeof App.setFeedWarmupPaused === 'function') App.setFeedWarmupPaused(true);
       } catch (_) {}
+      // Native already answered — never open ringing UI even if autoAccept=false.
+      try {
+        const bridge = window.SosNativeShell;
+        const answered = chat && bridge && typeof bridge.isIncomingCallAnsweredForPeer === 'function'
+          && bridge.isIncomingCallAnsweredForPeer(chat);
+        const busy = !!(window.__sosAcceptInFlight && String(window.__sosAcceptInFlightPeer || '').toLowerCase() === chat)
+          || window.__sosAcceptSucceededPeer === chat;
+        if (answered || busy) {
+          console.log('CALL_DEEPLINK_SKIP reason=native-already-answered');
+          if (attempt === 0 && answered && !busy) {
+            if (incomingCall === 'video' && typeof App.acceptIncomingVideoCallFromNative === 'function') {
+              App.acceptIncomingVideoCallFromNative(chat, pendingRawEvent);
+            } else if (typeof App.acceptIncomingCallFromNative === 'function') {
+              App.acceptIncomingCallFromNative(chat, incomingCall || 'voice', pendingRawEvent);
+            }
+          }
+          consumePendingDeepLink();
+          lastHandledKey = key;
+          lastHandledAt = now;
+          return true;
+        }
+      } catch (_) {}
       // init חד־פעמי בלבד – retries של deeplink לא מריצים force שוב | HYPER CORE TECH
       if (attempt === 0) {
         try {
