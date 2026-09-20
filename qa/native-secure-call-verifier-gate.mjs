@@ -126,9 +126,9 @@ record('25 P2P unchanged', /datachannel/i.test(p2p) && !/SosNativeP2pEngine/.tes
 record('26 Blossom unchanged',
   fs.existsSync(path.join(ROOT, 'android-shell/app/src/main/java/com/sos010/app/SosNativeP2pEngine.kt'))
   && !/Blossom|blossom/.test(verifier));
-record('QA shell 1.0.123 / 124',
-  /versionName\s*=\s*"1\.0\.123"/.test(gradle)
-  && /versionCode\s*=\s*124/.test(gradle));
+record('QA shell 1.0.124 / 125',
+  /versionName\s*=\s*"1\.0\.124"/.test(gradle)
+  && /versionCode\s*=\s*125/.test(gradle));
 record('security policy frozen',
   appVer.callSignalGiftWrapRequired === true
   && appVer.minSecureChatEpoch === 2

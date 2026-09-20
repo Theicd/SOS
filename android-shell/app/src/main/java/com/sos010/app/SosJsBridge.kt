@@ -310,6 +310,22 @@ class SosJsBridge(
         clearHostWarmState()
     }
 
+    /**
+     * Read-only: Native already marked this peer ANSWERED before Web runtime was ready.
+     * Used so cold-start offer dispatch adopts auto-accept instead of ringing UI.
+     */
+    @JavascriptInterface
+    fun isIncomingCallAnsweredForPeer(peer: String?): Boolean {
+        val app = context.applicationContext
+        return SosIncomingCallSession.isAnsweredPhase(app)
+            && SosIncomingCallSession.isSameActiveCall(app, peer)
+    }
+
+    @JavascriptInterface
+    fun getIncomingCallActiveType(): String {
+        return SosIncomingCallSession.activeCallType(context.applicationContext)
+    }
+
     @JavascriptInterface
     fun notifyNativeCallConnected(peer: String?) {
         IncomingCallActivity.notifyCallConnected(context.applicationContext, peer)
@@ -841,6 +857,15 @@ class SosJsBridge(
         val act = context as? MainActivity ?: return
         act.runOnUiThread {
             act.hideSoCallSplashFromJs()
+        }
+    }
+
+    /** Call cold-start: Web call UI (auto-answering/connecting) ready — hide So-Call splash. */
+    @JavascriptInterface
+    fun notifySoCallCallUiReady() {
+        val act = context as? MainActivity ?: return
+        act.runOnUiThread {
+            act.hideSoCallSplashForCallFromJs()
         }
     }
 }

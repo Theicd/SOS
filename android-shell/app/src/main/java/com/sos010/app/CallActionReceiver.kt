@@ -30,6 +30,7 @@ class CallActionReceiver : BroadcastReceiver() {
                 MainActivity.startBackgroundCallDecline(app, peer, callType)
             }
             ACTION_ANSWER -> {
+                MainActivity.noteColdAnswerClick()
                 SosIncomingCallSession.markAnswered(app, peer)
                 SosNativeCallVerifier.noteAnswered(app, peer)
                 NotificationHelper.cancelIncomingCall(app, stopSound = true, dismissUi = false)

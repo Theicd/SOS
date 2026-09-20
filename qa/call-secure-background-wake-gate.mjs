@@ -119,8 +119,8 @@ record('PARTIAL_WAKE_LOCK bounded for verifier',
 // Queue limits unchanged
 record('secure queue MAX 32', /MAX_SECURE_WRAPS\s*=\s*32|maxSecure.*=\s*32|32/.test(pending));
 record('policy remains callSignalGiftWrapRequired true', appVer.callSignalGiftWrapRequired === true);
-record('APK QA version 1.0.123 / 124',
-  /versionName\s*=\s*"1\.0\.123"/.test(gradle) && /versionCode\s*=\s*124/.test(gradle));
+record('APK QA version 1.0.124 / 125',
+  /versionName\s*=\s*"1\.0\.124"/.test(gradle) && /versionCode\s*=\s*125/.test(gradle));
 record('production web version call-coldanswer1',
   String(appVer.version || '').includes('call-coldanswer1'));
 record('durable handled store present',
@@ -138,9 +138,9 @@ record('public APK is 1.0.123',
   && Number(JSON.parse(read('apk-version.json')).versionCode) === 124);
 record('session-terminal WEB ACK restored for fastwake',
   /ackSecureWrapHandledToNative/.test(read('call-signal-e2ee.js')));
-record('QA shell version 1.0.123 / 124',
-  /versionName\s*=\s*"1\.0\.123"/.test(read('android-shell/app/build.gradle.kts'))
-  && /versionCode\s*=\s*124/.test(read('android-shell/app/build.gradle.kts')));
+record('QA shell version 1.0.124 / 125',
+  /versionName\s*=\s*"1\.0\.124"/.test(read('android-shell/app/build.gradle.kts'))
+  && /versionCode\s*=\s*125/.test(read('android-shell/app/build.gradle.kts')));
 record('public APK pointer is 1.0.123',
   JSON.parse(read('apk-version.json')).version === '1.0.123'
   && Number(JSON.parse(read('apk-version.json')).versionCode) === 124);

@@ -186,6 +186,7 @@ class IncomingCallActivity : AppCompatActivity() {
     private fun onAnswer() {
         if (handled) return
         handled = true
+        MainActivity.noteColdAnswerClick()
         SosIncomingCallSession.markAnswered(applicationContext, peer)
         SosDebugLog.i("call", "ANSWER_CLEARS_PENDING_DECLINE")
         android.util.Log.i("IncomingCall", "ANSWER_CLEARS_PENDING_DECLINE")

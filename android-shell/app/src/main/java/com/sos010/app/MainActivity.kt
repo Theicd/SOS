@@ -77,6 +77,9 @@ class MainActivity : AppCompatActivity() {
     private var warmForP2pPeer: String? = null
     private var warmForP2pPending = false
     @Volatile private var pendingOpenChatList = false
+    /** Call Answer cold-start: hold So-Call splash until Web call UI is ready (not chat-list). */
+    @Volatile private var holdSoCallSplashForCall = false
+    private var callSplashFallbackPosted = false
     private var suppressCallCancelUntil = 0L
     @Volatile private var pendingApkUpdateFile: java.io.File? = null
     @Volatile private var apkUpdateInFlight = false
@@ -161,6 +164,12 @@ class MainActivity : AppCompatActivity() {
         if (pendingOpenChatList) {
             showSoCallSplash()
         }
+        if (holdSoCallSplashForCall || pendingCallAction == CALL_ACTION_ANSWER
+            || SosIncomingCallSession.isAnsweredPhase(this)
+        ) {
+            beginSoCallSplashForCall("onCreate")
+        }
+        logColdFromAnswer("CALL_COLD_MAIN_CREATE")
         if (savedInstanceState == null && wantsEmergencyLaunch(intent)) {
             openEmergencyHardwareScreen()
         }
@@ -259,6 +268,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        logColdFromAnswer("CALL_COLD_MAIN_RESUME")
         hostRef = java.lang.ref.WeakReference(this)
         isActivityAlive = true
 
@@ -632,15 +642,54 @@ class MainActivity : AppCompatActivity() {
         if (this::loading.isInitialized) loading.visibility = View.GONE
     }
 
+    /** Call Answer cold-start: keep splash until Web notifies call UI ready. */
+    private fun beginSoCallSplashForCall(reason: String) {
+        holdSoCallSplashForCall = true
+        showSoCallSplash()
+        SosDebugLog.i("call", "CALL_COLD_SPLASH_HOLD reason=$reason")
+        if (!callSplashFallbackPosted) {
+            callSplashFallbackPosted = true
+            mainHandler.postDelayed({
+                if (holdSoCallSplashForCall && soCallSplash?.visibility == View.VISIBLE) {
+                    SosDebugLog.i("call", "CALL_COLD_SPLASH_HIDE reason=timeout")
+                    holdSoCallSplashForCall = false
+                    hideSoCallSplash(force = true)
+                }
+                callSplashFallbackPosted = false
+            }, 15000L)
+        }
+    }
+
     fun hideSoCallSplashFromJs() {
+        // Chat-list So-Call ready must not tear down an active call cold-start splash.
+        if (holdSoCallSplashForCall) return
         pendingOpenChatList = false
         hideSoCallSplash(force = true)
+    }
+
+    fun hideSoCallSplashForCallFromJs() {
+        if (!holdSoCallSplashForCall && soCallSplash?.visibility != View.VISIBLE) return
+        holdSoCallSplashForCall = false
+        hideSoCallSplash(force = true)
+        SosDebugLog.i("call", "CALL_COLD_SPLASH_HIDE reason=call-ui-ready")
     }
 
     private fun hideSoCallSplash(force: Boolean = false) {
         val splash = soCallSplash ?: return
         if (splash.visibility != View.VISIBLE && !force) return
         splash.visibility = View.GONE
+    }
+
+    private fun logColdFromAnswer(marker: String) {
+        val ms = msFromColdAnswerClick()
+        if (ms < 0L) return
+        SosDebugLog.i("call", "$marker msFromAnswer=$ms")
+    }
+
+    private fun msFromColdAnswerClick(): Long {
+        val t0 = coldAnswerClickElapsed
+        if (t0 <= 0L) return -1L
+        return android.os.SystemClock.elapsedRealtime() - t0
     }
 
     private fun flushOpenChatList() {
@@ -815,8 +864,9 @@ class MainActivity : AppCompatActivity() {
             // ענה = חזית אמיתית; מבטלים מצב warm שנשאר ושובר שיחות/פרופיל | HYPER CORE TECH
             clearWarmCallState("answer")
             NotificationHelper.cancelIncomingCall(applicationContext, stopSound = false, dismissUi = false)
-            // מסתירים loading מיד במענה | HYPER CORE TECH
+            // מסתירים loading מיד במענה + So-Call splash עד Web call UI | HYPER CORE TECH
             if (this::loading.isInitialized) loading.visibility = View.GONE
+            beginSoCallSplashForCall("intent-answer")
             pulseKeepCallInFront("intent-answer")
         }
         if (action == CALL_ACTION_DECLINE) {
@@ -1096,7 +1146,10 @@ class MainActivity : AppCompatActivity() {
         val call = pendingIncomingCall
         if (peer.isNullOrBlank() && call.isNullOrBlank()) return
         if (!this::webView.isInitialized) return
-        val autoAccept = pendingAutoAccept && pendingCallAction == CALL_ACTION_ANSWER
+        val answeredAlready = !peer.isNullOrBlank()
+            && SosIncomingCallSession.isAnsweredPhase(this)
+            && SosIncomingCallSession.isSameActiveCall(this, peer)
+        val autoAccept = (pendingAutoAccept && pendingCallAction == CALL_ACTION_ANSWER) || answeredAlready
         val peerJs = JSONObject.quote(peer ?: "")
         val callJs = JSONObject.quote(call ?: "")
         val pendingOfferRaw = SosPendingCallStore.getJson(applicationContext)
@@ -1122,7 +1175,7 @@ class MainActivity : AppCompatActivity() {
         """.trimIndent()
         try {
             webView.evaluateJavascript(js, null)
-            Log.i(TAG, "injected deeplink call=redacted")
+            Log.i(TAG, "injected deeplink call=redacted autoAccept=$autoAccept")
         } catch (err: Exception) {
             Log.w(TAG, "deeplink inject failed: ${err.message}")
         }
@@ -1565,14 +1618,18 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                 webPageReady = false
+                logColdFromAnswer("CALL_COLD_PAGE_START")
                 // בנתיב שיחה/חימום – בלי מסך טעינה מעל | HYPER CORE TECH
+                val callCold = holdSoCallSplashForCall ||
+                    pendingCallAction == CALL_ACTION_ANSWER ||
+                    SosIncomingCallSession.isAnsweredPhase(this@MainActivity)
                 val quiet = !pendingDeepLinkPeer.isNullOrBlank() ||
                     !pendingIncomingCall.isNullOrBlank() ||
-                    pendingCallAction == CALL_ACTION_ANSWER ||
+                    callCold ||
                     !warmForCallPeer.isNullOrBlank() ||
                     warmForP2pPending ||
                     pendingOpenChatList
-                if (pendingOpenChatList) {
+                if (pendingOpenChatList || callCold) {
                     showSoCallSplash()
                 }
                 if (quiet) {
@@ -1588,7 +1645,8 @@ class MainActivity : AppCompatActivity() {
                     handleMainFrameLoadError(view, url, "chrome-error")
                     return
                 }
-                if (!pendingOpenChatList) {
+                logColdFromAnswer("CALL_COLD_PAGE_FINISHED")
+                if (!pendingOpenChatList && !holdSoCallSplashForCall) {
                     loading.visibility = View.GONE
                 } else {
                     loading.visibility = View.GONE
@@ -2410,6 +2468,16 @@ class MainActivity : AppCompatActivity() {
         @JvmField
         @Volatile
         var isActivityAlive: Boolean = false
+
+        /** elapsedRealtime at Native Answer click — for CALL_COLD_* msFromAnswer markers. */
+        @JvmField
+        @Volatile
+        var coldAnswerClickElapsed: Long = 0L
+
+        fun noteColdAnswerClick() {
+            coldAnswerClickElapsed = android.os.SystemClock.elapsedRealtime()
+            SosDebugLog.i("call", "CALL_COLD_ANSWER_CLICK")
+        }
 
         @Volatile
         private var hostRef: java.lang.ref.WeakReference<MainActivity>? = null
