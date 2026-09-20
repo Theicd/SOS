@@ -942,6 +942,33 @@
     }
     const existingIndex = entry.messages.findIndex((item) => item.id === message.id);
     if (existingIndex !== -1) {
+      const existing = entry.messages[existingIndex];
+      let merged = false;
+      if (existing && !existing.logicalMessageId && message.logicalMessageId) {
+        existing.logicalMessageId = message.logicalMessageId;
+        merged = true;
+      }
+      if (existing && !existing.receiptMessageId && message.receiptMessageId) {
+        existing.receiptMessageId = message.receiptMessageId;
+        merged = true;
+      }
+      if (existing && message.attachment && typeof message.attachment === 'object') {
+        if (!existing.attachment || typeof existing.attachment !== 'object') {
+          existing.attachment = message.attachment;
+          merged = true;
+        } else {
+          ['v', 'type', 'attachmentId', 'logicalMessageId', 'clientMessageId', 'enc', 'cipher', 'media', 'resource', 'chunks', 'context'].forEach((key) => {
+            if (existing.attachment[key] == null && message.attachment[key] != null) {
+              existing.attachment[key] = message.attachment[key];
+              merged = true;
+            }
+          });
+        }
+      }
+      if (merged) {
+        persistState();
+        try { retryInboundReadReceipt(entry.peer); } catch (_) {}
+      }
       return;
     }
     if (isChatMessageMarkedDeleted(message)) {
@@ -1200,7 +1227,10 @@
 
   function getReceiptBoundaryId(message) {
     if (!message || isSystemChatMessage(message)) return '';
-    const explicit = message.receiptMessageId || message.logicalMessageId;
+    const att = message.attachment && typeof message.attachment === 'object' ? message.attachment : null;
+    const explicit = message.receiptMessageId
+      || message.logicalMessageId
+      || (att && (att.logicalMessageId || att.clientMessageId));
     if (explicit) return normalizeReceiptBoundaryId(explicit);
     const localId = String(message.id || '');
     const fromPrefix = extractP2PFileIdFromMessageId(localId);
@@ -1252,6 +1282,13 @@
     return !!self && String(message.from || '').toLowerCase() === self;
   }
 
+  function getOutgoingReceiptSequence(messages) {
+    return orderedConversationMessages(messages).filter((message) => {
+      if (!message || isSystemChatMessage(message) || !isOutgoingChatMessage(message)) return false;
+      return !!getReceiptBoundaryId(message);
+    });
+  }
+
   function receiptMovesForward(ordered, current, nextId, nextAt) {
     if (!current) return true;
     const currentId = current.lastReadMessageId || '';
@@ -1287,12 +1324,11 @@
     if (!opts.fromRetry && rememberReceiptId(receiptId)) {
       return { ok: true, duplicate: true, receiptId };
     }
-    const ordered = orderedConversationMessages(getConversationMessages(peer));
+    const ordered = getOutgoingReceiptSequence(getConversationMessages(peer));
     const boundaryIndex = lastReadMessageId ? findReceiptBoundaryIndex(ordered, lastReadMessageId) : -1;
     const current = chatState.readWatermarks.get(peer) || null;
-    if (!receiptMovesForward(ordered, current, lastReadMessageId, lastReadAt)) {
-      return { ok: true, ignored: true, reason: 'regress', receiptId };
-    }
+    const currentCanon = current ? normalizeReceiptBoundaryId(current.lastReadMessageId || '') : '';
+    const currentIdx = currentCanon ? findReceiptBoundaryIndex(ordered, currentCanon) : -1;
     if (lastReadMessageId && boundaryIndex === -1) {
       chatState.pendingInboundReceipts.set(peer, {
         receiptId,
@@ -1300,11 +1336,28 @@
         lastReadAt,
         from: peer,
       });
-      if (!current || lastReadAt > Number(current.lastReadAt || 0)) {
-        markOutgoingThroughBoundary(ordered, -1, lastReadAt, false);
-      }
       persistState();
-      return { ok: true, pending: true, receiptId };
+      return { ok: true, pending: true, receiptId, boundaryFound: false };
+    }
+    if (lastReadMessageId && currentCanon && currentCanon === lastReadMessageId && boundaryIndex !== -1) {
+      markOutgoingThroughBoundary(ordered, boundaryIndex, lastReadAt, true);
+      persistState();
+      return { ok: true, applied: true, sameBoundary: true, receiptId, boundaryIndex };
+    }
+    if (!receiptMovesForward(ordered, current, lastReadMessageId, lastReadAt)) {
+      return {
+        ok: true,
+        ignored: true,
+        reason: 'regress',
+        receiptId,
+        boundaryFound: boundaryIndex !== -1,
+        currentBoundary: currentCanon,
+        nextBoundary: lastReadMessageId,
+        currentIdx,
+        nextIdx: boundaryIndex,
+        currentAt: Number(current && current.lastReadAt) || 0,
+        nextAt: lastReadAt,
+      };
     }
     const useId = boundaryIndex !== -1;
     markOutgoingThroughBoundary(ordered, boundaryIndex, lastReadAt, useId);
@@ -1322,7 +1375,7 @@
     const peer = String(peerPubkey || '').toLowerCase();
     const pending = peer ? chatState.pendingInboundReceipts.get(peer) : null;
     if (!pending) return false;
-    const ordered = orderedConversationMessages(getConversationMessages(peer));
+    const ordered = getOutgoingReceiptSequence(getConversationMessages(peer));
     if (pending.lastReadMessageId && findReceiptBoundaryIndex(ordered, pending.lastReadMessageId) === -1) {
       return false;
     }

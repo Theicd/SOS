@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v861'; // encrypted document Blossom fallback; public APK 1.0.122
+  const CACHE_NAME = 'sos-cache-v862'; // Blossom document READ boundary; public APK 1.0.122
   const PRECACHE_URLS = [
     './',
     './videos.html',

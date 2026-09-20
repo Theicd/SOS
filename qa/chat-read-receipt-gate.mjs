@@ -303,8 +303,101 @@ record('foreground reconcile marks only the active viewed conversation',
   && /doc\.hidden \|\| doc\.visibilityState === 'hidden'/.test(uiLive));
 record('receipt logs distinguish pending and regress',
   /READ_RECEIPT_PENDING_BOUNDARY/.test(serviceSrc)
-  && /READ_RECEIPT_REGRESS_IGNORED/.test(serviceSrc)
+  && /READ_RECEIPT_TRUE_REGRESS_IGNORED/.test(serviceSrc)
+  && /READ_RECEIPT_SAME_BOUNDARY_APPLIED/.test(serviceSrc)
+  && /currentBoundaryPrefix=/.test(serviceSrc)
+  && /boundaryFound=/.test(serviceSrc)
   && /local boundary-found=false/.test(serviceSrc));
+record('sender persists the same inner logical id',
+  /relayLogicalMessageId = innerMessageId/.test(serviceSrc)
+  && /outgoingMessage\.logicalMessageId = relayLogicalMessageId/.test(serviceSrc));
+
+function blossomDoc(mime, name, logicalId) {
+  const app = bootState();
+  const sender = {
+    id: 'nostr-event-1',
+    logicalMessageId: logicalId,
+    from: SELF,
+    to: PEER,
+    content: name,
+    createdAt: NOW + 40,
+    direction: 'outgoing',
+    status: 'sent',
+    attachment: { type: 'encrypted-media', logicalMessageId: logicalId, clientMessageId: logicalId, media: { mime, filename: name } },
+  };
+  const receiver = Object.assign({}, sender, { direction: 'incoming', from: PEER, to: SELF });
+  app.appendChatMessage(sender);
+  const senderBoundary = app.getReceiptBoundaryId(app.getChatMessages(PEER)[0]);
+  const receiverBoundary = app.getReceiptBoundaryId(receiver);
+  const hit = app.applyIncomingReadReceipt({
+    from: PEER, to: SELF, lastReadMessageId: logicalId, lastReadAt: NOW + 40, receiptId: 'rr-' + logicalId,
+  });
+  return senderBoundary === logicalId && receiverBoundary === logicalId && hit.applied === true
+    && app.getChatMessages(PEER)[0].status === 'read';
+}
+['text/plain', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/octet-stream'].forEach((mime, index) => {
+  const names = ['a.txt', 'a.pdf', 'a.docx', 'a.xlsx', 'a.pptx', 'a.bin'];
+  record('blossom document READ ' + names[index], blossomDoc(mime, names[index], 'cmsg-doc-' + (index + 1)));
+});
+
+const oldDoc = bootState();
+oldDoc.appendChatMessage({
+  id: 'nostr-event-1', from: SELF, to: PEER, content: 'old', createdAt: NOW + 41, direction: 'outgoing', status: 'sent',
+  attachment: { type: 'encrypted-media', logicalMessageId: 'cmsg-doc-1' },
+});
+record('old attachment logical id is the boundary',
+  oldDoc.getReceiptBoundaryId(oldDoc.getChatMessages(PEER)[0]) === 'cmsg-doc-1');
+const oldHit = oldDoc.applyIncomingReadReceipt({
+  from: PEER, to: SELF, lastReadMessageId: 'cmsg-doc-1', lastReadAt: NOW + 41, receiptId: 'rr-old-doc',
+});
+record('old blossom attachment receipt applies', oldHit.applied === true && oldDoc.getChatMessages(PEER)[0].status === 'read');
+
+const miss = bootState();
+miss.appendChatMessage({ id: 'M1', from: SELF, to: PEER, content: '1', createdAt: NOW, direction: 'outgoing', status: 'sent' });
+miss.applyIncomingReadReceipt({ from: PEER, to: SELF, lastReadMessageId: 'M1', lastReadAt: NOW, receiptId: 'rr-m1-base' });
+const pendingHit = miss.applyIncomingReadReceipt({
+  from: PEER, to: SELF, lastReadMessageId: 'cmsg-later', lastReadAt: NOW + 20, receiptId: 'rr-missing',
+});
+record('unknown boundary is pending not regress', pendingHit.pending === true && pendingHit.reason !== 'regress');
+miss.appendChatMessage({
+  id: 'nostr-2', logicalMessageId: 'cmsg-later', from: SELF, to: PEER, content: '2',
+  createdAt: NOW + 20, direction: 'outgoing', status: 'sent',
+});
+record('pending receipt applies after hydration',
+  miss.getChatMessages(PEER).filter((m) => m.direction === 'outgoing').every((m) => m.status === 'read'));
+
+const regress = bootState();
+['M1', 'M2', 'M3'].forEach((id, index) => {
+  regress.appendChatMessage({ id, from: SELF, to: PEER, content: id, createdAt: NOW + index, direction: 'outgoing', status: 'sent' });
+});
+regress.applyIncomingReadReceipt({ from: PEER, to: SELF, lastReadMessageId: 'M3', lastReadAt: NOW + 2, receiptId: 'rr-m3-wm' });
+const back = regress.applyIncomingReadReceipt({ from: PEER, to: SELF, lastReadMessageId: 'M2', lastReadAt: NOW + 1, receiptId: 'rr-m2-late' });
+record('true older boundary stays regress', back.ignored === true && back.reason === 'regress'
+  && regress.chatState.readWatermarks.get(PEER).lastReadMessageId === 'M3');
+
+const same = bootState();
+same.appendChatMessage({ id: 'M3', from: SELF, to: PEER, content: '3', createdAt: NOW + 3, direction: 'outgoing', status: 'sent' });
+same.applyIncomingReadReceipt({ from: PEER, to: SELF, lastReadMessageId: 'M3', lastReadAt: NOW + 3, receiptId: 'rr-m3-first' });
+same.getChatMessages(PEER)[0].status = 'sent';
+const again = same.applyIncomingReadReceipt({ from: PEER, to: SELF, lastReadMessageId: 'M3', lastReadAt: NOW + 3, receiptId: 'rr-m3-again' });
+record('same boundary repairs READ without moving watermark',
+  again.sameBoundary === true
+  && same.getChatMessages(PEER)[0].status === 'read'
+  && same.chatState.readWatermarks.get(PEER).lastReadMessageId === 'M3');
+
+const echo = bootState();
+echo.appendChatMessage({ id: 'nostr-event-1', from: SELF, to: PEER, content: 'x', createdAt: NOW + 4, direction: 'outgoing', status: 'sent' });
+echo.appendChatMessage({
+  id: 'nostr-event-1', logicalMessageId: 'cmsg-doc-1', from: SELF, to: PEER, content: 'x',
+  createdAt: NOW + 4, direction: 'outgoing', status: 'sent',
+  attachment: { type: 'encrypted-media', logicalMessageId: 'cmsg-doc-1' },
+});
+record('self-echo merges logical id without a duplicate',
+  echo.getChatMessages(PEER).length === 1
+  && echo.getReceiptBoundaryId(echo.getChatMessages(PEER)[0]) === 'cmsg-doc-1');
 
 console.log(results.join('\n'));
 console.log(fail ? 'CHAT_READ_RECEIPT_GATE FAIL (' + pass + ' passed, ' + fail + ' failed)' : 'CHAT_READ_RECEIPT_GATE PASS (' + pass + ' passed, 0 failed)');

@@ -621,6 +621,7 @@
     // E3B: when required, kind 1050 relay content MUST be sos-e2ee envelope.
     // Fail closed — never plaintext fallback. No Push / no publish on encrypt failure.
     let wireContent = serialization.rawContent || '';
+    let relayLogicalMessageId = '';
     if (e2eeSendRequired) {
       if (!App.privateKey || !App.publicKey) {
         try { console.warn('[E2EE/SEND] blocked reason=e2ee-key-unavailable'); } catch (_e) {}
@@ -651,6 +652,7 @@
         (activeAtt && typeof activeAtt.clientMessageId === 'string' && activeAtt.clientMessageId) ||
         (activeAtt && typeof activeAtt.logicalMessageId === 'string' && activeAtt.logicalMessageId) ||
         ('cmsg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));
+      relayLogicalMessageId = innerMessageId;
       const innerCreatedAt = Math.floor(Date.now() / 1000);
       // M4: encrypted Blossom descriptor must fit NIP-44 before Relay publish.
       if (
@@ -742,6 +744,13 @@
       status: 'sending',
       e2ee: e2eeSendRequired === true,
     };
+    if (relayLogicalMessageId) {
+      outgoingMessage.logicalMessageId = relayLogicalMessageId;
+      if (outgoingMessage.attachment && typeof outgoingMessage.attachment === 'object') {
+        if (!outgoingMessage.attachment.logicalMessageId) outgoingMessage.attachment.logicalMessageId = relayLogicalMessageId;
+        if (!outgoingMessage.attachment.clientMessageId) outgoingMessage.attachment.clientMessageId = relayLogicalMessageId;
+      }
+    }
 
     // חלק סטטוס הודעות (chat-service.js) – מוסיף/מחליף הודעה במצב "שולח" לפני הפרסום | HYPER CORE TECH
     if (clientTempId && typeof App.replaceOutgoingTempMessage === 'function') {
@@ -2191,15 +2200,29 @@
       if (handleIncomingReadReceipt._count <= 5 || handleIncomingReadReceipt._count % 20 === 0) {
         let token = 'READ_RECEIPT_APPLIED';
         if (applied && applied.duplicate) token = 'READ_RECEIPT_DUPLICATE_IGNORED';
+        else if (applied && applied.sameBoundary) token = 'READ_RECEIPT_SAME_BOUNDARY_APPLIED';
         else if (applied && applied.pending) token = 'READ_RECEIPT_PENDING_BOUNDARY';
-        else if (applied && applied.ignored && applied.reason === 'regress') token = 'READ_RECEIPT_REGRESS_IGNORED';
+        else if (applied && applied.ignored && applied.reason === 'regress') token = 'READ_RECEIPT_TRUE_REGRESS_IGNORED';
         else if (applied && applied.applied) token = 'READ_RECEIPT_APPLIED';
         const canon = typeof App.normalizeReceiptBoundaryId === 'function'
           ? App.normalizeReceiptBoundaryId(lastReadMessageId)
           : String(lastReadMessageId || '');
-        const extra = token === 'READ_RECEIPT_PENDING_BOUNDARY'
-          ? ('boundary=' + (canon ? canon.slice(0, 32) : 'none') + ' local boundary-found=false')
-          : (lastReadMessageId ? 'id-boundary' : 'ts-boundary');
+        const prefix = (value) => {
+          const text = String(value || '');
+          return text ? text.slice(0, 16) : 'none';
+        };
+        let extra = lastReadMessageId ? 'id-boundary' : 'ts-boundary';
+        if (token === 'READ_RECEIPT_PENDING_BOUNDARY') {
+          extra = 'boundary=' + (canon ? canon.slice(0, 32) : 'none') + ' local boundary-found=false';
+        } else if (token === 'READ_RECEIPT_TRUE_REGRESS_IGNORED') {
+          extra = 'currentBoundaryPrefix=' + prefix(applied && applied.currentBoundary)
+            + ' currentIdx=' + String(applied && applied.currentIdx)
+            + ' currentAt=' + String(applied && applied.currentAt || 0)
+            + ' nextBoundaryPrefix=' + prefix(applied && applied.nextBoundary)
+            + ' nextIdx=' + String(applied && applied.nextIdx)
+            + ' nextAt=' + String(applied && applied.nextAt || 0)
+            + ' boundaryFound=' + (applied && applied.boundaryFound ? 'true' : 'false');
+        }
         console.log('[CHAT]', token, 'from', sender.slice(0, 8),
           extra,
           receiptId ? ('id=' + receiptId.slice(0, 24)) : '',

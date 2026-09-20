@@ -97,10 +97,11 @@ record('H no android-shell changes in this rollback',
   && execSync('git diff --cached --name-only -- android-shell', { cwd: ROOT, encoding: 'utf8' }).trim() === '');
 record('H public APK is 1.0.122 / 123',
   apkVer.version === '1.0.122' && Number(apkVer.versionCode) === 123);
-record('I SW sos-cache-v861',
-  /sos-cache-v861/.test(sw));
-record('I web version doc-blossom1 or later',
-  String(appVer.version || '').includes('doc-blossom1')
+record('I SW sos-cache-v862',
+  /sos-cache-v862/.test(sw));
+record('I web version read-blossom1 or later',
+  String(appVer.version || '').includes('read-blossom1')
+  || String(appVer.version || '').includes('doc-blossom1')
   || String(appVer.version || '').includes('read-p2p1')
   || String(appVer.version || '').includes('read-ui1')
   || String(appVer.version || '').includes('read-receipt1')
