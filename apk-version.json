@@ -1,11 +1,11 @@
 {
-  "version": "1.0.122",
-  "versionCode": 123,
-  "file": "SOS-1.0.122.apk",
-  "url": "https://sos010.com/downloads/SOS-1.0.122.apk",
-  "published": true,
-  "channel": "production",
-  "releasedAt": "2026-09-19",
-  "sha256": "400A55FDD478B8AC18AC1EE775CB7076F8A7A41C3746CAD5C882ED055695A415",
-  "note": "Sole production APK is the tracked file downloads/SOS-1.0.122.apk. Download it from the site. Do not keep a second copy in GitHub Releases."
+    "url":  "https://sos010.com/downloads/SOS-1.0.123.apk",
+    "published":  true,
+    "releasedAt":  "2026-09-20",
+    "version":  "1.0.123",
+    "sha256":  "2DBAD7E5566905ED60DD582D85DBEBC0F57F8E45E16D82A231798AC59936FB94",
+    "channel":  "production",
+    "note":  "Sole production APK is the tracked file downloads/SOS-1.0.123.apk. Native offer fast-path while hostAlive + soft relay transport. Download it from the site. Do not keep a second copy in GitHub Releases.",
+    "versionCode":  124,
+    "file":  "SOS-1.0.123.apk"
 }

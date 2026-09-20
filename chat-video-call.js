@@ -563,16 +563,34 @@
     createPC(peer);
     const offerNorm = normalizeVideoSessionDescription(offer);
     if (!offerNorm) throw new Error('offer וידאו אינו תקין');
+    try {
+      if (sid && typeof App.isCallSessionTerminal === 'function' && App.isCallSessionTerminal(sid)) {
+        console.log('CALL_STALE_OFFER_APPLY_BLOCK reason=tombstoned');
+        throw Object.assign(new Error('CALL_STALE_OFFER_APPLY_BLOCK'), { code: 'CALL_STALE_OFFER_APPLY_BLOCK' });
+      }
+    } catch (e) {
+      if (e && e.code === 'CALL_STALE_OFFER_APPLY_BLOCK') throw e;
+    }
+    console.log('Applying remote offer', { type: offerNorm.type, sdpLen: offerNorm.sdp?.length });
     await state.pc.setRemoteDescription(offerNorm);
     await flushRemoteCandidates(peer);
+    state.answeredLocally = true;
     try { console.log('CALL_ANSWER_BUILD_START'); } catch (_) {}
     const answer = await state.pc.createAnswer();
     await state.pc.setLocalDescription(answer);
     try { console.log('CALL_ANSWER_LOCAL_SET'); } catch (_) {}
     await flushRemoteCandidates(peer);
     try { console.log('CALL_ANSWER_PUBLISH_START'); } catch (_) {}
-    await sendSignal(peer, 'v-answer', answer);
-    try { console.log('CALL_ANSWER_PUBLISH_OK'); } catch (_) {}
+    try {
+      await sendSignal(peer, 'v-answer', answer);
+      try { console.log('CALL_ANSWER_PUBLISH_OK'); } catch (_) {}
+    } catch (pubErr) {
+      try { console.log('CALL_SETUP_FAILED_AFTER_ANSWER'); } catch (_) {}
+      try {
+        if (typeof App.markCallSessionTerminal === 'function') App.markCallSessionTerminal(sid, 'setup-failed-after-answer');
+      } catch (_) {}
+      throw pubErr;
+    }
     state.answeredLocally = true;
     console.log('CALL_ACCEPTED');
     try {
@@ -648,6 +666,7 @@
     // חלק שיחות וידאו (chat-video-call.js) – התראה על שיחה נכנסת שלא נענתה (missed) | HYPER CORE TECH
     if (wasIncoming && !wasAnswered && peer && !userDeclined) {
       if (term && term.missedSent) {
+        try { console.log('CALL_MISSED_SKIP reason=already-recorded'); } catch (_) {}
         console.log('CALL_MISSED_ONCE');
       } else {
         if (term) term.missedSent = true;
@@ -659,7 +678,13 @@
           App.onVideoCallMissed(peer);
         }
       }
+    } else if (wasIncoming && wasAnswered) {
+      try { console.log('CALL_MISSED_SKIP reason=answered-locally'); } catch (_) {}
     }
+    try {
+      if (typeof App.markCallSessionTerminal === 'function') App.markCallSessionTerminal(sid, endReason(options));
+      if (typeof App.clearSecureOfferCache === 'function') App.clearSecureOfferCache(sid, peer);
+    } catch (_) {}
     if (typeof App.onVideoCallEnded === 'function') App.onVideoCallEnded(peer);
   }
 

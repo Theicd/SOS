@@ -118,8 +118,8 @@ record('device state logs before delivery',
   && /SECURE_VERIFIER_SCREEN_INTERACTIVE=/.test(notify)
   && /SECURE_VERIFIER_KEYGUARD_LOCKED=/.test(notify));
 record('QA shell 1.0.122 / 123 / shell=122',
-  /versionName\s*=\s*"1\.0\.122"/.test(gradle)
-  && /versionCode\s*=\s*123/.test(gradle)
+  /versionName\s*=\s*"1\.0\.123"/.test(gradle)
+  && /versionCode\s*=\s*124/.test(gradle)
   && /shell=122/.test(gradle));
 record('public apk-version is 1.0.122 / 123',
   apk.version === '1.0.122' && Number(apk.versionCode) === 123);

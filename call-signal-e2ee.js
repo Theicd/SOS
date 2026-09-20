@@ -36,6 +36,9 @@
   const seenSignalIds = new Map(); // signalId -> tsMs
   const seenWrapIds = new Map(); // outer wrap event id -> tsMs
   const secureOfferCache = new Map(); // peer -> { offer, media, sessionId, wrapId, at }
+  /** In-memory terminal sessions (JS) — supplements Native tombstone for Desktop. */
+  const terminalSessionsJs = new Map(); // sessionId -> { reason, at }
+  const MAX_TERMINAL_SESSIONS_JS = 80;
   const dispatchStats = {
     unwrapCount: 0,
     voiceDispatch: 0,
@@ -351,16 +354,43 @@
     if (!unwrapped || !offer) return;
     const peer = String(unwrapped.sender || '').toLowerCase();
     if (!peer) return;
+    const sid = typeof unwrapped.sessionId === 'string' ? unwrapped.sessionId.trim() : '';
+    if (sid && isCallSessionTerminal(sid)) {
+      try { console.log('CALL_OFFER_CACHE_CLEAR session=' + sid.slice(0, 8)); } catch (_e) {}
+      return;
+    }
     secureOfferCache.set(peer, {
       offer,
       media: unwrapped.media,
-      sessionId: unwrapped.sessionId,
+      sessionId: sid,
       wrapId: unwrapped.wrapId,
       at: Date.now(),
     });
     if (secureOfferCache.size > 32) {
       const first = secureOfferCache.keys().next().value;
       secureOfferCache.delete(first);
+    }
+  }
+
+  function clearSecureOfferCache(sessionId, peerPubkey) {
+    const sid = typeof sessionId === 'string' ? sessionId.trim() : '';
+    const peer = String(peerPubkey || '').toLowerCase();
+    if (sid) {
+      const entries = Array.from(secureOfferCache.entries());
+      for (let i = 0; i < entries.length; i += 1) {
+        const pk = entries[i][0];
+        const hit = entries[i][1];
+        if (hit && String(hit.sessionId || '') === sid) {
+          secureOfferCache.delete(pk);
+          try { console.log('CALL_OFFER_CACHE_CLEAR session=' + sid.slice(0, 8)); } catch (_e) {}
+        }
+      }
+    }
+    if (peer && secureOfferCache.has(peer)) {
+      secureOfferCache.delete(peer);
+      try {
+        console.log('CALL_OFFER_CACHE_CLEAR session=' + (sid ? sid.slice(0, 8) : peer.slice(0, 8)));
+      } catch (_e) {}
     }
   }
 
@@ -373,7 +403,36 @@
       secureOfferCache.delete(peer);
       return null;
     }
+    const sid = hit.sessionId ? String(hit.sessionId) : '';
+    if (sid && isCallSessionTerminal(sid)) {
+      secureOfferCache.delete(peer);
+      try { console.log('CALL_OFFER_CACHE_CLEAR session=' + sid.slice(0, 8)); } catch (_e) {}
+      return null;
+    }
     return hit;
+  }
+
+  function isCallSessionTerminal(sessionId) {
+    const sid = typeof sessionId === 'string' ? sessionId.trim() : '';
+    if (!sid) return false;
+    if (terminalSessionsJs.has(sid)) return true;
+    return isSessionTombstoned(sid);
+  }
+
+  function markCallSessionTerminal(sessionId, reason) {
+    const sid = typeof sessionId === 'string' ? sessionId.trim() : '';
+    if (!sid) return;
+    terminalSessionsJs.set(sid, { reason: String(reason || 'ended'), at: Date.now() });
+    if (terminalSessionsJs.size > MAX_TERMINAL_SESSIONS_JS) {
+      const first = terminalSessionsJs.keys().next().value;
+      terminalSessionsJs.delete(first);
+    }
+    try {
+      console.log('CALL_SESSION_TERMINAL session=' + sid.slice(0, 8)
+        + ' reason=' + String(reason || 'ended'));
+    } catch (_e) {}
+    markSessionTerminalFromJs(sid, 'ENDED');
+    clearSecureOfferCache(sid, '');
   }
 
   function isSessionTombstoned(sessionId) {
@@ -391,8 +450,9 @@
   function authorizeNativeSecureOfferRing(unwrapped, offer) {
     if (!unwrapped || unwrapped.action !== 'offer' || !offer) return false;
     const sessionId = typeof unwrapped.sessionId === 'string' ? unwrapped.sessionId : '';
-    if (sessionId && isSessionTombstoned(sessionId)) {
+    if (sessionId && isCallSessionTerminal(sessionId)) {
       console.log('CALL_SESSION_TOMBSTONE_DROP');
+      try { console.log('CALL_WEB_RECOVERY_DROP reason=terminal-session'); } catch (_e) {}
       return false;
     }
     // Ring once per authenticated session (not per outer wrap / signalId).
@@ -602,8 +662,10 @@
       }
 
       if (unwrapped.action === 'offer') {
-        if (isSessionTombstoned(unwrapped.sessionId)) {
+        if (isCallSessionTerminal(unwrapped.sessionId)) {
           console.log('CALL_SESSION_TOMBSTONE_DROP');
+          try { console.log('CALL_WEB_RECOVERY_DROP reason=terminal-session'); } catch (_e) {}
+          try { console.log('CALL_NATIVE_PENDING_DROP reason=terminal-session'); } catch (_e2) {}
           ackSecureWrapHandledToNative(wrapId);
           return { status: 'dispatched', media: unwrapped.media, action: 'tombstone_drop' };
         }
@@ -618,8 +680,10 @@
         cacheSecureOffer(unwrapped, offer);
         authorizeNativeSecureOfferRing(unwrapped, offer);
         try { console.log('SECURE_VERIFIER_OFFER_AUTH_OK'); } catch (_e) {}
-      } else if (unwrapped.sessionId && isSessionTombstoned(unwrapped.sessionId)) {
+      } else if (unwrapped.sessionId && isCallSessionTerminal(unwrapped.sessionId)) {
         console.log('CALL_SESSION_TOMBSTONE_DROP');
+        try { console.log('CALL_WEB_RECOVERY_DROP reason=terminal-session'); } catch (_e) {}
+        try { console.log('CALL_NATIVE_PENDING_DROP reason=terminal-session'); } catch (_e2) {}
         ackSecureWrapHandledToNative(wrapId);
         return { status: 'dispatched', media: unwrapped.media, action: 'tombstone_drop' };
       }
@@ -1171,18 +1235,20 @@
    * Returns published outer event. Throws CALL_SIGNAL_E2EE_ENCRYPT_FAILED on any failure (publish ZERO).
    */
   /**
-   * Publish to canonical call relays with per-relay truth + quorum for offer/answer.
-   * One successful relay must NOT hide auth-required failures on the rest.
+   * Publish to canonical call relays with per-relay truth.
+   * ok >= 1 = transport success. Multiple relays are redundancy only.
+   * Zero-relay failure uses CALL_SIGNAL_TRANSPORT_FAILED (not encrypt failed).
    */
   async function awaitPoolPublish(pool, relays, event, meta) {
     const action = String((meta && meta.action) || 'unknown');
-    const critical = action === 'offer' || action === 'answer';
     let relayList = Array.isArray(relays) && relays.length ? relays.map(normalizeRelayUrl) : [];
-    // Always prefer the canonical call set (deterministic overlap with Android Native).
     const canonical = getCallSignalRelays();
     if (canonical.length) relayList = canonical.slice();
     if (!relayList.length) {
-      callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', 'no call relays');
+      const err = new Error('CALL_SIGNAL_TRANSPORT_FAILED: no call relays');
+      err.code = 'CALL_SIGNAL_TRANSPORT_FAILED';
+      err.name = 'CallSignalTransportError';
+      throw err;
     }
 
     const issued = pool.publish(relayList, event);
@@ -1190,7 +1256,10 @@
       ? issued
       : (issued && typeof issued.then === 'function' ? [issued] : []);
     if (!pending.length) {
-      callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', 'publish returned no promises');
+      const err = new Error('CALL_SIGNAL_TRANSPORT_FAILED: publish returned no promises');
+      err.code = 'CALL_SIGNAL_TRANSPORT_FAILED';
+      err.name = 'CallSignalTransportError';
+      throw err;
     }
 
     const settled = await Promise.allSettled(pending);
@@ -1217,17 +1286,24 @@
       console.log('CALL_RELAY_PUBLISH_RESULT action=' + action + ' ok=' + ok + ' total=' + settled.length);
     } catch (_e) {}
 
-    if (relayList.length === 1 && ok >= 1) {
-      try { console.log('CALL_RELAY_DEGRADED_SINGLE_RELAY'); } catch (_e) {}
+    if (ok >= 1 && ok < settled.length) {
+      try {
+        console.log('CALL_RELAY_DEGRADED action=' + action + ' ok=' + ok + ' total=' + settled.length);
+      } catch (_e) {}
+    } else if (ok >= 1 && settled.length === 1) {
+      try {
+        console.log('CALL_RELAY_DEGRADED action=' + action + ' ok=1 total=1');
+      } catch (_e) {}
     }
 
-    const eligible = relayList.length;
-    const requiredOk = critical ? Math.min(2, eligible) : Math.min(1, eligible);
-    if (ok < requiredOk || ok <= 0) {
+    if (ok <= 0) {
       try { console.log('CALL_SEND_1059_PUBLISH_FAIL'); } catch (_e) {}
-      callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', 'publish quorum failed ok=' + ok + ' required=' + requiredOk);
+      const err = new Error('CALL_SIGNAL_TRANSPORT_FAILED: publish zero relays');
+      err.code = 'CALL_SIGNAL_TRANSPORT_FAILED';
+      err.name = 'CallSignalTransportError';
+      throw err;
     }
-    return { ok, total: settled.length, requiredOk, action };
+    return { ok, total: settled.length, requiredOk: 1, action };
   }
 
   async function publishGiftWrappedCallSignal(opts) {
@@ -1753,6 +1829,9 @@
       NATIVE_HANDOFF_REV,
       normalizeSessionDescription,
       getCachedSecureOffer,
+      clearSecureOfferCache,
+      markCallSessionTerminal,
+      isCallSessionTerminal,
       getDispatchStats,
       resetDispatchStatsForQa,
       looksLikeLegacyDirectCallSignal,
@@ -1784,6 +1863,9 @@
   App.stopWebSecureCallRecovery = stopWebSecureCallRecovery;
   App.runWebSecureCallRecovery = runWebSecureCallRecovery;
   App.getCallSignalRelays = getCallSignalRelays;
+  App.markCallSessionTerminal = markCallSessionTerminal;
+  App.isCallSessionTerminal = isCallSessionTerminal;
+  App.clearSecureOfferCache = clearSecureOfferCache;
   App.NATIVE_HANDOFF_REV = NATIVE_HANDOFF_REV;
 
   try {

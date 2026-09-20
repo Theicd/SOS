@@ -151,6 +151,8 @@ object SosNativeCallVerifier {
             name
         )
         CallSoundHelper.startRingtone(app)
+        Log.i(TAG, "CALL_NATIVE_OFFER_FASTPATH_RING")
+        SosDebugLog.i("call", "CALL_NATIVE_OFFER_FASTPATH_RING")
         Log.i(TAG, "NATIVE_CALL_RING_AUTHORIZED")
         SosDebugLog.i("call", "NATIVE_CALL_RING_AUTHORIZED")
     }

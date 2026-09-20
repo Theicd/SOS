@@ -123,8 +123,8 @@ record('asset verifier bundles e2ee + nostr',
   && /publishCallSignal/.test(assetE2ee)
   && /__sosSecureVerifierOnly/.test(verifierJs));
 record('QA APK version 1.0.122 / 123',
-  /versionName\s*=\s*"1\.0\.122"/.test(gradle)
-  && /versionCode\s*=\s*123/.test(gradle)
+  /versionName\s*=\s*"1\.0\.123"/.test(gradle)
+  && /versionCode\s*=\s*124/.test(gradle)
   && /shell=122/.test(gradle));
 record('public apk-version is 1.0.122 / 123',
   apkPublic.version === '1.0.122' && Number(apkPublic.versionCode) === 123);

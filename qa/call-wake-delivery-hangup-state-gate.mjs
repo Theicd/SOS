@@ -105,8 +105,8 @@ record('19 video secure disconnect path retained',
 record('20 P2P unchanged file present',
   /MAX_IN_FLIGHT|datachannel/i.test(p2p) && fs.existsSync(path.join(ROOT, 'chat-p2p-datachannel.js')));
 record('QA shell 1.0.122 / 123 / shell=122',
-  /versionName\s*=\s*"1\.0\.122"/.test(gradle)
-  && /versionCode\s*=\s*123/.test(gradle)
+  /versionName\s*=\s*"1\.0\.123"/.test(gradle)
+  && /versionCode\s*=\s*124/.test(gradle)
   && /shell=122/.test(gradle));
 record('public apk-version is 1.0.122 / 123',
   apk.version === '1.0.122' && Number(apk.versionCode) === 123);

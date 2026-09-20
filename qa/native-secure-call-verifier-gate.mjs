@@ -127,8 +127,8 @@ record('26 Blossom unchanged',
   fs.existsSync(path.join(ROOT, 'android-shell/app/src/main/java/com/sos010/app/SosNativeP2pEngine.kt'))
   && !/Blossom|blossom/.test(verifier));
 record('QA shell 1.0.122 / 123 / shell=122',
-  /versionName\s*=\s*"1\.0\.122"/.test(gradle)
-  && /versionCode\s*=\s*123/.test(gradle)
+  /versionName\s*=\s*"1\.0\.123"/.test(gradle)
+  && /versionCode\s*=\s*124/.test(gradle)
   && /shell=122/.test(gradle));
 record('security policy frozen',
   appVer.callSignalGiftWrapRequired === true

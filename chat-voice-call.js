@@ -84,14 +84,21 @@
   };
 
   // Session-scoped terminal guards — survive UI resets / deeplink / decline retries.
-  const terminalBySession = new Map(); // sessionId -> { ended, disconnectSent, missedSent, declined, at }
+  const terminalBySession = new Map(); // sessionId -> { ended, disconnectSent, missedSent, declined, answeredLocally, at }
 
   function getTerminal(sessionId) {
     const sid = String(sessionId || '').trim();
     if (!sid || sid.length < 16) return null;
     let t = terminalBySession.get(sid);
     if (!t) {
-      t = { ended: false, disconnectSent: false, missedSent: false, declined: false, at: Date.now() };
+      t = {
+        ended: false,
+        disconnectSent: false,
+        missedSent: false,
+        declined: false,
+        answeredLocally: false,
+        at: Date.now(),
+      };
       terminalBySession.set(sid, t);
       if (terminalBySession.size > 40) {
         const first = terminalBySession.keys().next().value;
@@ -99,6 +106,50 @@
       }
     }
     return t;
+  }
+
+  function markJsSessionTerminal(sessionId, reason) {
+    const sid = String(sessionId || '').trim();
+    if (!sid) return;
+    const term = getTerminal(sid);
+    if (term) term.ended = true;
+    try {
+      if (typeof App.markCallSessionTerminal === 'function') {
+        App.markCallSessionTerminal(sid, reason || 'ended');
+      } else if (App.CallSignalE2ee && typeof App.CallSignalE2ee.markCallSessionTerminal === 'function') {
+        App.CallSignalE2ee.markCallSessionTerminal(sid, reason || 'ended');
+      }
+    } catch (_e) {}
+    markNativeSessionTerminal(sid, 'ENDED');
+  }
+
+  function isOfferApplyBlocked(sessionId, peerPubkey) {
+    const sid = String(sessionId || state.callSessionId || '').trim();
+    if (!sid) {
+      try { console.log('CALL_STALE_OFFER_APPLY_BLOCK reason=no-active-incoming'); } catch (_e) {}
+      return true;
+    }
+    const term = getTerminal(sid);
+    if (term && term.ended) {
+      try { console.log('CALL_STALE_OFFER_APPLY_BLOCK reason=terminal'); } catch (_e) {}
+      return true;
+    }
+    try {
+      if (typeof App.isCallSessionTerminal === 'function' && App.isCallSessionTerminal(sid)) {
+        try { console.log('CALL_STALE_OFFER_APPLY_BLOCK reason=tombstoned'); } catch (_e) {}
+        return true;
+      }
+      if (App.CallSignalE2ee && typeof App.CallSignalE2ee.isCallSessionTerminal === 'function'
+        && App.CallSignalE2ee.isCallSessionTerminal(sid)) {
+        try { console.log('CALL_STALE_OFFER_APPLY_BLOCK reason=tombstoned'); } catch (_e) {}
+        return true;
+      }
+    } catch (_e) {}
+    if (state.ending) {
+      try { console.log('CALL_STALE_OFFER_APPLY_BLOCK reason=terminal'); } catch (_e) {}
+      return true;
+    }
+    return false;
   }
 
   function markNativeSessionTerminal(sessionId, stateName) {
@@ -558,6 +609,7 @@
     } catch (_) {}
 
     let answerSent = false;
+    let answeredLocally = false;
     try {
       // חלק שיחות קול (chat-voice-call.js) – הגדרת AudioSession לשיחה לפני בקשת מיקרופון (Best Effort) | HYPER CORE TECH
       setCallAudioSessionType();
@@ -574,6 +626,11 @@
       state.isIncoming = true;
       clearIceDisconnectTimer();
 
+      const sid = state.callSessionId || '';
+      if (isOfferApplyBlocked(sid, peerPubkey)) {
+        throw Object.assign(new Error('CALL_STALE_OFFER_APPLY_BLOCK'), { code: 'CALL_STALE_OFFER_APPLY_BLOCK' });
+      }
+
       // קבלת offer (אימות + נרמול {type,sdp} אחרי סריאליזציה מ-Nostr/QA)
       const offerNorm = normalizeSessionDescription(offer);
       if (!offerNorm) {
@@ -583,6 +640,9 @@
       console.log('Applying remote offer', { type: offerNorm.type, sdpLen: offerNorm.sdp?.length });
       await state.peerConnection.setRemoteDescription(offerNorm);
       await flushRemoteCandidates(peerPubkey);
+      answeredLocally = true;
+      const termAns = getTerminal(sid);
+      if (termAns) termAns.answeredLocally = true;
 
       // יצירת answer
       try { console.log('CALL_ANSWER_BUILD_START'); } catch (_) {}
@@ -611,10 +671,25 @@
       }
     } catch (err) {
       console.error('Failed to accept call', err);
+      const sid = state.callSessionId || '';
+      if (answeredLocally || (err && err.code === 'CALL_SIGNAL_TRANSPORT_FAILED')) {
+        try { console.log('CALL_SETUP_FAILED_AFTER_ANSWER'); } catch (_) {}
+      }
+      markJsSessionTerminal(sid, answeredLocally ? 'setup-failed-after-answer' : 'accept-failed');
+      try {
+        if (typeof App.clearSecureOfferCache === 'function') App.clearSecureOfferCache(sid, peerPubkey);
+        else if (App.CallSignalE2ee && App.CallSignalE2ee.clearSecureOfferCache) {
+          App.CallSignalE2ee.clearSecureOfferCache(sid, peerPubkey);
+        }
+      } catch (_) {}
+      try {
+        window.__sosAcceptCancelSession = sid;
+        window.__sosNativePendingAnswer = null;
+        window.__sosAcceptInFlight = false;
+      } catch (_) {}
       if (answerSent) {
-        endCall({ reason: 'start_error' });
+        endCall({ reason: 'start_error', sessionId: sid });
       } else {
-        // ניקוי מקומי בלי disconnect – מאפשר retry אוטומטי מ-APK | HYPER CORE TECH
         try {
           if (state.peerConnection) {
             state.peerConnection.close();
@@ -628,6 +703,15 @@
           }
         } catch (_) {}
         state.isCallActive = false;
+        state.isIncoming = false;
+        // Terminal — do NOT leave room for APK autoAccept resurrection.
+        if (sid) {
+          const term = getTerminal(sid);
+          if (term) {
+            term.ended = true;
+            if (answeredLocally) term.answeredLocally = true;
+          }
+        }
       }
       throw err;
     }
@@ -678,7 +762,7 @@
 
     // חלק שיחות קול (chat-voice-call.js) – זיהוי שיחה נכנסת שלא נענתה (לפני איפוס state) | HYPER CORE TECH
     const wasIncoming = state.isIncoming;
-    const wasAnswered = !!startMs || !!state.callAnswered;
+    const wasAnswered = !!startMs || !!state.callAnswered || !!(term && term.answeredLocally);
     const peer = state.currentPeer;
     const userDeclined = !!(options.declined || (term && term.declined) || window.__sosNativePendingDecline);
     if (peer) noteCallEnded(peer);
@@ -728,9 +812,13 @@
       void publishCallMetric;
     }
 
-    // Missed-call: never on decline; exactly once on unanswered timeout/remote cancel.
+    // Missed-call: never on decline; never after Answer tap; exactly once per session.
     if (wasIncoming && !wasAnswered && peer && !userDeclined) {
-      if (term && term.missedSent) {
+      const answeredLocally = !!(term && term.answeredLocally);
+      if (answeredLocally) {
+        try { console.log('CALL_MISSED_SKIP reason=answered-locally'); } catch (_) {}
+      } else if (term && term.missedSent) {
+        try { console.log('CALL_MISSED_SKIP reason=already-recorded'); } catch (_) {}
         console.log('CALL_MISSED_ONCE');
       } else {
         if (term) term.missedSent = true;
@@ -742,7 +830,16 @@
           App.onVoiceCallMissed(peer);
         }
       }
+    } else if (wasIncoming && wasAnswered && peer) {
+      try { console.log('CALL_MISSED_SKIP reason=answered-locally'); } catch (_) {}
     }
+
+    try {
+      markJsSessionTerminal(sid, endReason(options));
+    } catch (_) {}
+    try {
+      if (typeof App.clearSecureOfferCache === 'function') App.clearSecureOfferCache(sid, peer);
+    } catch (_) {}
 
     // עדכון UI
     if (typeof App.onVoiceCallEnded === 'function') {

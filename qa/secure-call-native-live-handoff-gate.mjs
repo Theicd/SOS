@@ -41,14 +41,14 @@ const state = read('chat-state.js');
 const appVer = JSON.parse(read('app-version.json'));
 
 const verifyFnIdx = watcher.indexOf('private fun verifySecureWrapsNative');
-const verifyFn = verifyFnIdx >= 0 ? watcher.slice(verifyFnIdx, verifyFnIdx + 700) : '';
+const verifyFn = verifyFnIdx >= 0 ? watcher.slice(verifyFnIdx, verifyFnIdx + 1600) : '';
 const handleSecureIdx = watcher.indexOf('private fun handleSecureGiftWrap');
 const handleSecure = handleSecureIdx >= 0 ? watcher.slice(handleSecureIdx, handleSecureIdx + 2200) : '';
 
 // 1 Native answer while hostAlive → notify (not silent return)
 record('1 hostAlive notifies live WebView pending',
   /notifySecurePendingAvailable/.test(verifyFn)
-  && !/JS handles/.test(verifyFn)
+  && /SosNativeCallVerifier\.processPending/.test(verifyFn)
   && /CALL_NATIVE_PENDING_AVAILABLE/.test(main));
 
 // 2-3 candidates / batch use same queue+drain
@@ -137,8 +137,11 @@ record('drain start/ok logs present',
   /CALL_NATIVE_PENDING_DRAIN_START/.test(helper)
   && /CALL_NATIVE_PENDING_DRAIN_OK/.test(helper));
 record('web-miss scenario: Native is sufficient handoff',
-  /do NOT assume/.test(verifyFn) || /Do NOT assume/.test(verifyFn)
-  || /independent Web Relay subscription/.test(verifyFn));
+  /CALL_NATIVE_OFFER_FASTPATH_START/.test(verifyFn)
+  || /do NOT assume/.test(verifyFn)
+  || /Do NOT assume/.test(verifyFn)
+  || /independent Web Relay subscription/.test(verifyFn)
+  || /does not prove the JS 1059 subscription/.test(verifyFn));
 
 console.log(results.join('\n'));
 console.log(

@@ -360,18 +360,22 @@ class SosRelayWatcher(private val appContext: Context) {
     }
 
     private fun verifySecureWrapsNative() {
+        // Offer ring must NOT wait for onPause / hostAlive=false / recovery.
+        // A live WebView does not prove the JS 1059 subscription processed this wrap.
+        Log.i(TAG, "CALL_NATIVE_OFFER_FASTPATH_START")
+        SosDebugLog.i("relay", "CALL_NATIVE_OFFER_FASTPATH_START")
+        try {
+            SosNativeCallVerifier.processPending(appContext)
+            Log.i(TAG, "CALL_NATIVE_OFFER_FASTPATH_OK")
+            SosDebugLog.i("relay", "CALL_NATIVE_OFFER_FASTPATH_OK")
+        } catch (err: Exception) {
+            Log.w(TAG, "native verifier failed: ${err.message}")
+        }
+        // Live WebView still drains answer/candidate via the same pending queue.
         if (MainActivity.isHostAlive) {
-            // Live WebView must drain Native pending queue — do NOT assume
-            // the independent Web Relay subscription also received this 1059.
             Log.i(TAG, "CALL_NATIVE_HANDOFF_REV=2")
             SosDebugLog.i("relay", "CALL_NATIVE_HANDOFF_REV=2")
             MainActivity.notifySecurePendingAvailable(appContext)
-            return
-        }
-        try {
-            SosNativeCallVerifier.processPending(appContext)
-        } catch (err: Exception) {
-            Log.w(TAG, "native verifier failed")
         }
     }
 

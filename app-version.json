@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.20-call-xplat1",
-  "buildTime": "2026-09-20T13:20:00+03:00",
-  "notes": "Cross-platform secure-call reliability: observable Native watchdog, Web Relay catch-up, call-relay quorum. Public APK unchanged 1.0.122/123.",
+  "version": "2026.09.20-call-ring1",
+  "buildTime": "2026-09-20T13:53:00+03:00",
+  "notes": "Native offer fast-path while hostAlive; soft relay transport ok>=1; zombie-session terminal guards. Public APK 1.0.123/124.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,

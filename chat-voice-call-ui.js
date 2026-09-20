@@ -167,7 +167,22 @@
 
   // חלק APK – פענוח EVENT גולמי שנשמר ב-native כשהמסך היה כבוי | HYPER CORE TECH
   async function hydrateOfferFromNativeRawEvent(peerPubkey, pendingRawEventDetail) {
-    if (incomingOffer && incomingOffer.type && incomingOffer.sdp) return incomingOffer;
+    if (incomingOffer && incomingOffer.type && incomingOffer.sdp) {
+      try {
+        const api = App.CallSignalE2ee;
+        const cached = api && typeof api.getCachedSecureOffer === 'function'
+          ? api.getCachedSecureOffer(String(peerPubkey || '').toLowerCase())
+          : null;
+        const sid = cached && cached.sessionId ? String(cached.sessionId) : '';
+        if (sid && typeof App.isCallSessionTerminal === 'function' && App.isCallSessionTerminal(sid)) {
+          incomingOffer = null;
+          incomingOfferPeer = null;
+          console.log('CALL_STALE_OFFER_APPLY_BLOCK reason=tombstoned');
+          return null;
+        }
+      } catch (_) {}
+      return incomingOffer;
+    }
     const peerWanted = String(peerPubkey || '').toLowerCase();
 
     const trySecureUnwrap = async (eventObj) => {
@@ -179,6 +194,11 @@
         if (typeof api.getCachedSecureOffer === 'function') {
           const cached = api.getCachedSecureOffer(peerWanted);
           if (cached && cached.media === 'voice' && cached.offer?.type && cached.offer?.sdp) {
+            if (cached.sessionId && typeof App.isCallSessionTerminal === 'function'
+              && App.isCallSessionTerminal(cached.sessionId)) {
+              console.log('CALL_STALE_OFFER_APPLY_BLOCK reason=tombstoned');
+              return null;
+            }
             incomingOffer = cached.offer;
             incomingOfferPeer = peerWanted || incomingOfferPeer;
             persistIncomingOffer(incomingOfferPeer, cached.offer);
@@ -190,9 +210,14 @@
       if (!App.privateKey || !App.publicKey) return null;
       if (typeof api.dispatchGiftWrappedCallSignal === 'function') {
         const r = await api.dispatchGiftWrappedCallSignal(eventObj);
-        if (r && r.status === 'invalid_offer') return null;
+        if (r && (r.status === 'invalid_offer' || r.action === 'tombstone_drop')) return null;
         const cached = typeof api.getCachedSecureOffer === 'function' ? api.getCachedSecureOffer(peerWanted) : null;
         if (cached && cached.media === 'voice' && cached.offer?.type && cached.offer?.sdp) {
+          if (cached.sessionId && typeof App.isCallSessionTerminal === 'function'
+            && App.isCallSessionTerminal(cached.sessionId)) {
+            console.log('CALL_STALE_OFFER_APPLY_BLOCK reason=tombstoned');
+            return null;
+          }
           incomingOffer = cached.offer;
           incomingOfferPeer = peerWanted || incomingOfferPeer;
           persistIncomingOffer(incomingOfferPeer, cached.offer);
@@ -952,6 +977,20 @@
     const silent = !!opts.silent;
     const peer = String(peerPubkey || '').toLowerCase();
     try {
+      // Terminal / cancelled autoAccept — never resurrect.
+      try {
+        const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : null;
+        const sid = (st && st.callSessionId) || window.__sosAcceptCancelSession || '';
+        if (sid && typeof App.isCallSessionTerminal === 'function' && App.isCallSessionTerminal(sid)) {
+          console.log('CALL_AUTO_ACCEPT_CANCEL reason=terminal session=' + String(sid).slice(0, 8));
+          return false;
+        }
+        if (window.__sosAcceptCancelSession && window.__sosAcceptCancelPeer === peer) {
+          console.log('CALL_AUTO_ACCEPT_CANCEL reason=terminal session='
+            + String(window.__sosAcceptCancelSession).slice(0, 8));
+          return false;
+        }
+      } catch (_) {}
       // כבר בשיחה – לא מאפסים | HYPER CORE TECH
       try {
         const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : null;
@@ -978,6 +1017,18 @@
         if (!silent) alert('עדיין אין הצעת שיחה תקינה. המתן שנייה ונסה שוב.');
         return false;
       }
+      // Re-check terminal after hydrate (cache must not revive dead sessions).
+      try {
+        const api = App.CallSignalE2ee;
+        const cached = api && typeof api.getCachedSecureOffer === 'function' ? api.getCachedSecureOffer(peer) : null;
+        const sid = cached && cached.sessionId ? String(cached.sessionId) : '';
+        if (sid && typeof App.isCallSessionTerminal === 'function' && App.isCallSessionTerminal(sid)) {
+          console.log('CALL_STALE_OFFER_APPLY_BLOCK reason=tombstoned');
+          incomingOffer = null;
+          incomingOfferPeer = null;
+          return false;
+        }
+      } catch (_) {}
       await App.voiceCall.accept(peerPubkey, offer);
       incomingOffer = null;
       incomingOfferPeer = null;
@@ -993,6 +1044,18 @@
       return true;
     } catch (err) {
       console.error('Failed to accept call', err);
+      try {
+        const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : null;
+        const sid = (st && st.callSessionId) || '';
+        window.__sosAcceptCancelSession = sid || window.__sosAcceptCancelSession || 'dead';
+        window.__sosAcceptCancelPeer = peer;
+        window.__sosNativePendingAnswer = null;
+        window.__sosAcceptInFlight = false;
+        incomingOffer = null;
+        incomingOfferPeer = null;
+        clearPersistedIncomingOffer();
+        if (typeof App.clearSecureOfferCache === 'function') App.clearSecureOfferCache(sid, peer);
+      } catch (_) {}
       if (!silent) {
         alert(err.message || 'שגיאה בקבלת השיחה');
         closeCallDialog();
@@ -1448,6 +1511,23 @@
       attempts += 1;
       try {
         if (window.__sosAcceptSucceededPeer === peer) return;
+        if (window.__sosAcceptCancelPeer === peer) {
+          console.log('CALL_AUTO_ACCEPT_CANCEL reason=terminal session='
+            + String(window.__sosAcceptCancelSession || '').slice(0, 8));
+          return;
+        }
+        try {
+          const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : null;
+          const sid = (st && st.callSessionId) || '';
+          if (sid && typeof App.isCallSessionTerminal === 'function' && App.isCallSessionTerminal(sid)) {
+            console.log('CALL_AUTO_ACCEPT_CANCEL reason=terminal session=' + sid.slice(0, 8));
+            window.__sosAcceptCancelPeer = peer;
+            window.__sosAcceptCancelSession = sid;
+            window.__sosNativePendingAnswer = null;
+            window.__sosAcceptInFlight = false;
+            return;
+          }
+        } catch (_) {}
         if (!App.privateKey || !window.NostrTools?.nip04 || !App.pool) {
           if (!nativeUi) updateCallStatus('מתחבר...');
           if (attempts < maxAttempts) {
@@ -1476,8 +1556,15 @@
           } catch (_) {}
           return;
         }
+        // Failed accept that marked terminal — stop forever.
+        if (window.__sosAcceptCancelPeer === peer) {
+          console.log('CALL_AUTO_ACCEPT_CANCEL reason=terminal session='
+            + String(window.__sosAcceptCancelSession || '').slice(0, 8));
+          return;
+        }
       } catch (err) {
         console.warn('[APK] accept attempt failed', err);
+        if (window.__sosAcceptCancelPeer === peer) return;
       }
       if (attempts >= maxAttempts) {
         console.warn('[APK] accept timed out waiting for offer');

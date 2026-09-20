@@ -41,13 +41,15 @@ const store = read('android-shell/app/src/main/java/com/sos010/app/SosPendingCal
 const appVer = JSON.parse(read('app-version.json'));
 
 const verifyFnIdx = watcher.indexOf('private fun verifySecureWrapsNative');
-const verifyFn = verifyFnIdx >= 0 ? watcher.slice(verifyFnIdx, verifyFnIdx + 900) : '';
+const verifyFn = verifyFnIdx >= 0 ? watcher.slice(verifyFnIdx, verifyFnIdx + 1600) : '';
 const notifyIdx = main.indexOf('fun notifySecurePendingAvailable');
 const notifyFn = notifyIdx >= 0 ? main.slice(notifyIdx, notifyIdx + 1200) : '';
 
 // --- Previous handoff still present ---
 record('1 previous handoff: notifySecurePendingAvailable exists',
-  /notifySecurePendingAvailable/.test(verifyFn) && /CALL_NATIVE_PENDING_AVAILABLE/.test(main));
+  /notifySecurePendingAvailable/.test(verifyFn)
+  && /SosNativeCallVerifier\.processPending/.test(verifyFn)
+  && /CALL_NATIVE_PENDING_AVAILABLE/.test(main));
 record('2 previous handoff: reconcilePendingSecureCallSignals exists',
   /function reconcilePendingSecureCallSignals/.test(helper)
   && /App\.reconcilePendingSecureCallSignals\s*=/.test(voiceUi));

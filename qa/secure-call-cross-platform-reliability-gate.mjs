@@ -86,16 +86,17 @@ record('G inner sentAt freshness remains authoritative',
   && /payload\.sentAt/.test(helper));
 
 // H/I/J publish quorum + auth-required
-record('H auth-required one relay + quorum on others',
+record('H auth-required one relay + others may succeed (ok>=1)',
   /CALL_RELAY_AUTH_REQUIRED/.test(helper)
   && /CALL_RELAY_OK relay=/.test(helper)
   && /CALL_RELAY_FAIL relay=/.test(helper)
-  && /requiredOk = critical \? Math\.min\(2/.test(helper));
+  && /if \(ok <= 0\)/.test(helper)
+  && /CALL_SIGNAL_TRANSPORT_FAILED/.test(helper));
 record('I single eligible relay degraded mode',
-  /CALL_RELAY_DEGRADED_SINGLE_RELAY/.test(helper));
+  /CALL_RELAY_DEGRADED action=/.test(helper));
 record('J all relays fail → PUBLISH_FAIL not silent OK',
   /CALL_SEND_1059_PUBLISH_FAIL/.test(helper)
-  && /publish quorum failed/.test(helper)
+  && /CALL_SIGNAL_TRANSPORT_FAILED/.test(helper)
   && /CALL_RELAY_PUBLISH_RESULT/.test(helper));
 
 // K subscription health / multi-relay continue
