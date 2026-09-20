@@ -976,7 +976,10 @@
     const opts = options && typeof options === 'object' ? options : {};
     const silent = !!opts.silent;
     const peer = String(peerPubkey || '').toLowerCase();
+    const flowT0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const flowMs = () => Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - flowT0);
     try {
+      try { console.log('CALL_ACCEPT_FLOW_START'); } catch (_) {}
       // Terminal / cancelled autoAccept — never resurrect.
       try {
         const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : null;
@@ -1009,8 +1012,22 @@
       } catch (_) {}
       if (!window.__sosNativeInCallUi) markUiAutoAnswering();
       await ensureMicReady();
+      try { console.log('CALL_ACCEPT_MIC_READY ms=' + flowMs()); } catch (_) {}
+      try { console.log('CALL_ACCEPT_HYDRATE_START'); } catch (_) {}
+      const hadOffer = !!(incomingOffer && incomingOffer.type && incomingOffer.sdp);
       await hydrateOfferFromNativeRawEvent(peerPubkey, opts.pendingRawEvent);
       restoreIncomingOffer(peerPubkey, null);
+      let hydrateSource = 'other';
+      try {
+        if (hadOffer) hydrateSource = 'pending';
+        else if (incomingOffer && incomingOffer.type && incomingOffer.sdp) {
+          const api = App.CallSignalE2ee;
+          const cached = api && typeof api.getCachedSecureOffer === 'function'
+            ? api.getCachedSecureOffer(peer) : null;
+          hydrateSource = (cached && cached.offer) ? 'cache' : (opts.pendingRawEvent ? 'native' : 'other');
+        }
+      } catch (_) {}
+      try { console.log('CALL_ACCEPT_HYDRATE_OK source=' + hydrateSource + ' ms=' + flowMs()); } catch (_) {}
       const offer = incomingOffer;
       if (!offer || !offer.type || !offer.sdp) {
         if (!window.__sosNativeInCallUi) updateCallStatus('ממתין להצעת שיחה...');
@@ -1462,6 +1479,7 @@
 
     window.__sosAcceptInFlight = true;
     window.__sosAcceptInFlightPeer = peer;
+    try { console.log('CALL_ACCEPT_FLOW_START'); } catch (_) {}
 
     try {
       if (typeof App.initVoiceCall === 'function') {

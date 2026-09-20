@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.20-call-ring1",
-  "buildTime": "2026-09-20T13:53:00+03:00",
-  "notes": "Native offer fast-path while hostAlive; soft relay transport ok>=1; zombie-session terminal guards. Public APK 1.0.123/124.",
+  "version": "2026.09.20-call-conn1",
+  "buildTime": "2026-09-20T17:23:00+03:00",
+  "notes": "Bilateral CALL_CONNECTED (voice+video); accept latency markers; web recovery defer during accept. APK still 1.0.123/124.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,

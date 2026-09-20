@@ -181,11 +181,16 @@ record('39 video skips duplicate answer apply',
   /CALL_ANSWER_APPLY_SKIP reason=already-applied/.test(video));
 
 // --- Bilateral CALL_CONNECTED ---
-record('40 voice CALL_CONNECTED gated on callAnswered',
-  /CALL_CONNECTED_DEFER reason=await-answer/.test(voice)
-  && /if \(!state\.callAnswered\)/.test(voice));
-record('41 video CALL_CONNECTED gated on answer',
-  /CALL_CONNECTED_DEFER reason=await-answer/.test(video));
+record('40 voice CALL_CONNECTED gated via maybeMarkVoiceCallConnected',
+  /function maybeMarkVoiceCallConnected/.test(voice)
+  && /CALL_CONNECTED_DEFER reason=await-answer/.test(voice)
+  && /answer-publish-ok/.test(voice)
+  && /answer-apply-ok/.test(voice));
+record('41 video CALL_CONNECTED gated via answerPublished + maybeMarkVideoCallConnected',
+  /function maybeMarkVideoCallConnected/.test(video)
+  && /answerPublished/.test(video)
+  && /CALL_CONNECTED_DEFER reason=await-answer/.test(video)
+  && /answer-publish-ok/.test(video));
 
 // --- Voice + video shared dispatcher ---
 record('42 shared dispatcher voice+video',

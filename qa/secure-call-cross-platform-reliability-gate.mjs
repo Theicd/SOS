@@ -124,8 +124,17 @@ record('N Native handoff markers remain',
 record('O bilateral CALL_CONNECTED preserved',
   /CALL_CONNECTED_DEFER reason=await-answer/.test(voice)
   && /CALL_CONNECTED_DEFER reason=await-answer/.test(video)
+  && /function maybeMarkVoiceCallConnected/.test(voice)
+  && /function maybeMarkVideoCallConnected/.test(video)
+  && /answerPublished/.test(video)
   && /CALL_ANSWER_APPLY_OK/.test(voice)
   && /CALL_ANSWER_APPLY_OK/.test(video));
+
+// O2 accept latency markers + recovery defer
+record('O2 accept latency markers + recovery defer during accept',
+  /CALL_ACCEPT_FLOW_START/.test(voice)
+  && /CALL_ACCEPT_FLOW_START/.test(video)
+  && /CALL_WEB_RECOVERY_DEFER reason=accept-in-flight/.test(helper));
 
 // Relay overlap Android ↔ Web canonical
 record('relay set: Web CANONICAL matches Android SosRelayWatcher',

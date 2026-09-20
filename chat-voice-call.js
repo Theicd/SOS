@@ -367,6 +367,54 @@
     }
   }
 
+  /**
+   * Idempotent bilateral CALL_CONNECTED for voice.
+   * Requires answer readiness (callAnswered) AND usable WebRTC (ICE/PC connected).
+   */
+  function maybeMarkVoiceCallConnected(peerPubkey, reason) {
+    const why = String(reason || 'unknown');
+    const peer = peerPubkeyOrEmpty(peerPubkey) || peerPubkeyOrEmpty(state.currentPeer);
+    const pc = state.peerConnection;
+    const ice = pc ? String(pc.iceConnectionState || '') : '';
+    const cs = pc ? String(pc.connectionState || '') : '';
+    const answerReady = !!state.callAnswered;
+    const webrtcReady = ice === 'connected' || ice === 'completed' || cs === 'connected';
+    try {
+      console.log('CALL_CONNECTED_CHECK reason=' + why
+        + ' answerReady=' + (answerReady ? 1 : 0)
+        + ' ice=' + (ice || '-')
+        + ' pc=' + (cs || '-'));
+    } catch (_) {}
+    if (state.isCallActive) return false;
+    if (state.ending || !pc) {
+      try { console.log('CALL_CONNECTED_DEFER reason=no-active-call'); } catch (_) {}
+      return false;
+    }
+    if (!answerReady) {
+      try { console.log('CALL_CONNECTED_DEFER reason=await-answer'); } catch (_) {}
+      return false;
+    }
+    if (!webrtcReady) {
+      try { console.log('CALL_CONNECTED_DEFER reason=await-webrtc'); } catch (_) {}
+      return false;
+    }
+    clearIceDisconnectTimer();
+    state.isCallActive = true;
+    if (!state.callStartTimestamp) {
+      state.callStartTimestamp = Date.now();
+      state.callStartTime = state.callStartTimestamp;
+    }
+    const sid = String(state.callSessionId || '');
+    const role = state.isIncoming ? 'callee' : 'caller';
+    try {
+      console.log('CALL_CONNECTED session=' + (sid ? sid.slice(0, 8) : 'none') + ' role=' + role);
+    } catch (_) {}
+    if (typeof App.onVoiceCallConnected === 'function') {
+      try { App.onVoiceCallConnected(peer); } catch (_) {}
+    }
+    return true;
+  }
+
   function isSameCallPeer(peerPubkey) {
     return !!(state.currentPeer && peerPubkeyOrEmpty(state.currentPeer) === peerPubkeyOrEmpty(peerPubkey));
   }
@@ -475,20 +523,7 @@
 
       if (ice === 'connected' || ice === 'completed') {
         clearIceDisconnectTimer();
-        // Bilateral: ICE alone is not enough — caller needs remote answer applied;
-        // callee needs answer published (both tracked via callAnswered).
-        if (!state.callAnswered) {
-          try { console.log('CALL_CONNECTED_DEFER reason=await-answer'); } catch (_) {}
-          return;
-        }
-        state.isCallActive = true;
-        // חלק שיחות קול (chat-voice-call.js) – מסנכרן זמן התחלת שיחה עבור UI (callStartTime) וגם עבור מדדים (callStartTimestamp) | HYPER CORE TECH
-        state.callStartTimestamp = Date.now();
-        state.callStartTime = state.callStartTimestamp;
-        if (typeof App.onVoiceCallConnected === 'function') {
-          App.onVoiceCallConnected(peerPubkey);
-        }
-        console.log('CALL_CONNECTED');
+        maybeMarkVoiceCallConnected(peerPubkey, 'ice-' + ice);
       } else if (ice === 'disconnected') {
         if (state.iceDisconnectTimer || state.ending) return;
         state.iceDisconnectTimer = setTimeout(() => {
@@ -514,6 +549,7 @@
       console.log('Peer connection state:', cs);
       if (cs === 'connected') {
         clearIceDisconnectTimer();
+        maybeMarkVoiceCallConnected(peerPubkey, 'pc-connected');
       } else if (cs === 'failed' || cs === 'closed') {
         clearIceDisconnectTimer();
         if (!state.ending) endCall({ reason: 'peer_connection_closed' });
@@ -608,13 +644,20 @@
       }
     } catch (_) {}
 
+    const flowT0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const flowMs = () => Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - flowT0);
+    try { console.log('CALL_ACCEPT_FLOW_START'); } catch (_) {}
+
     let answerSent = false;
     let answeredLocally = false;
     try {
       // חלק שיחות קול (chat-voice-call.js) – הגדרת AudioSession לשיחה לפני בקשת מיקרופון (Best Effort) | HYPER CORE TECH
       setCallAudioSessionType();
       // קבלת הרשאות מיקרופון
+      try { console.log('CALL_ACCEPT_MEDIA_START'); } catch (_) {}
       await getLocalStream();
+      try { console.log('CALL_ACCEPT_MIC_READY ms=' + flowMs()); } catch (_) {}
+      try { console.log('CALL_ACCEPT_MEDIA_OK ms=' + flowMs()); } catch (_) {}
 
       // יצירת חיבור
       state.currentPeer = peerPubkey;
@@ -637,9 +680,11 @@
         console.error('Invalid offer received', { reason: 'invalid-sdp', type: typeof offer, sdpLength: offer && offer.sdp ? String(offer.sdp).length : 0 });
         throw new Error('ה-offer שהתקבל אינו תקין');
       }
+      try { console.log('CALL_ACCEPT_REMOTE_DESCRIPTION_START'); } catch (_) {}
       console.log('Applying remote offer', { type: offerNorm.type, sdpLen: offerNorm.sdp?.length });
       await state.peerConnection.setRemoteDescription(offerNorm);
       await flushRemoteCandidates(peerPubkey);
+      try { console.log('CALL_ACCEPT_REMOTE_DESCRIPTION_OK ms=' + flowMs()); } catch (_) {}
       answeredLocally = true;
       const termAns = getTerminal(sid);
       if (termAns) termAns.answeredLocally = true;
@@ -649,16 +694,21 @@
       const answer = await state.peerConnection.createAnswer();
       await state.peerConnection.setLocalDescription(answer);
       try { console.log('CALL_ANSWER_LOCAL_SET'); } catch (_) {}
+      try { console.log('CALL_ACCEPT_ANSWER_LOCAL_OK ms=' + flowMs()); } catch (_) {}
       await flushRemoteCandidates(peerPubkey);
 
       // שליחת answer
       try { console.log('CALL_ANSWER_PUBLISH_START'); } catch (_) {}
       await sendSignal(peerPubkey, 'answer', answer);
       try { console.log('CALL_ANSWER_PUBLISH_OK'); } catch (_) {}
+      try { console.log('CALL_ACCEPT_ANSWER_PUBLISH_OK ms=' + flowMs()); } catch (_) {}
       answerSent = true;
       state.callAnswered = true;
+      // Re-evaluate bilateral connected (ICE may already be up before publish).
+      maybeMarkVoiceCallConnected(peerPubkey, 'answer-publish-ok');
 
       console.log('CALL_ACCEPTED');
+      try { console.log('CALL_ACCEPT_FLOW_READY ms=' + flowMs()); } catch (_) {}
       try {
         if (typeof App.reconcilePendingSecureCallSignals === 'function') {
           App.reconcilePendingSecureCallSignals('incoming-accept');
@@ -1062,19 +1112,8 @@
                 App.stopOutgoingAnswerDrainWatchdog('answer-applied');
               }
             } catch (_) {}
-            // If ICE already connected while awaiting answer, declare connected now.
-            try {
-              const ice = state.peerConnection.iceConnectionState;
-              if ((ice === 'connected' || ice === 'completed') && !state.isCallActive) {
-                state.isCallActive = true;
-                state.callStartTimestamp = Date.now();
-                state.callStartTime = state.callStartTimestamp;
-                if (typeof App.onVoiceCallConnected === 'function') {
-                  App.onVoiceCallConnected(peerPubkey);
-                }
-                console.log('CALL_CONNECTED');
-              }
-            } catch (_) {}
+            // Re-evaluate bilateral connected (ICE may already be up).
+            maybeMarkVoiceCallConnected(peerPubkey, 'answer-apply-ok');
             // עוצרים חיוג מיד כשמגיע answer – לא מחכים ל-ICE | HYPER CORE TECH
             if (typeof App.onVoiceCallAnswerReceived === 'function') {
               App.onVoiceCallAnswerReceived(peerPubkey);
@@ -1510,6 +1549,7 @@
       rejectIncoming,
       toggleMute,
       getState: () => ({ ...state }),
+      maybeMarkConnected: maybeMarkVoiceCallConnected,
       subscribe: subscribeToSignals,
       handleSecureSignal,
       markEventProcessed: markCallEventProcessed,

@@ -906,6 +906,7 @@
 
     window.__sosAcceptInFlight = true;
     window.__sosAcceptInFlightPeer = peer;
+    try { console.log('CALL_ACCEPT_FLOW_START'); } catch (_) {}
     window.__sosNativePendingAnswer = {
       peer,
       callType: 'video',
@@ -943,10 +944,22 @@
             return;
           }
         }
+        try { console.log('CALL_ACCEPT_HYDRATE_START'); } catch (_) {}
+        const hydrateT0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
         await hydrateVideoOfferFromNative(
           peer,
           pendingRawEvent || window.__sosNativePendingAnswer?.pendingRawEvent
         );
+        let hydrateSource = 'other';
+        try {
+          if (App.__videoIncomingOffer && App.__videoIncomingOffer.type) {
+            hydrateSource = pendingRawEvent ? 'native' : 'cache';
+          }
+        } catch (_) {}
+        try {
+          const ms = Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - hydrateT0);
+          console.log('CALL_ACCEPT_HYDRATE_OK source=' + hydrateSource + ' ms=' + ms);
+        } catch (_) {}
         if (App.__videoIncomingOffer && App.__videoIncomingOffer.type && App.__videoIncomingOffer.sdp) {
           const ok = await handleAccept(peer, { silent: true });
           if (ok) {

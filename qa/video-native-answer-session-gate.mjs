@@ -76,14 +76,24 @@ function boot(role) {
     constructor() {
       this.iceConnectionState = 'new';
       this.connectionState = 'new';
+      this.signalingState = 'stable';
+      this.localDescription = null;
+      this.remoteDescription = null;
       this.remoteSet = 0;
       this.closed = false;
       box.pcs.push(this);
     }
     close() { this.closed = true; box.closes += 1; }
     addTrack() {}
-    setRemoteDescription() { this.remoteSet += 1; return Promise.resolve(); }
-    setLocalDescription() { return Promise.resolve(); }
+    setRemoteDescription(desc) {
+      this.remoteDescription = desc || null;
+      this.remoteSet += 1;
+      return Promise.resolve();
+    }
+    setLocalDescription(desc) {
+      this.localDescription = desc || null;
+      return Promise.resolve();
+    }
     createOffer() { return Promise.resolve({ type: 'offer', sdp: 'v=0' }); }
     createAnswer() { return Promise.resolve({ type: 'answer', sdp: 'v=0' }); }
     addIceCandidate() { return Promise.resolve(); }
@@ -152,6 +162,10 @@ function count(box, needle) {
   return box.logs.filter((l) => l.includes(needle)).length;
 }
 
+function countExactConnected(box) {
+  return box.logs.filter((l) => /^CALL_CONNECTED(\s|$)/.test(l) || l.startsWith('CALL_CONNECTED session=')).length;
+}
+
 async function main() {
   const caller = boot('caller');
   const receiver = boot('receiver');
@@ -187,7 +201,7 @@ async function main() {
 
   caller.App.videoCall.handleSecureSignal(logical(RECEIVER, 'answer', SESSION_A, { type: 'answer', sdp: 'v=0\r\n' }));
   await flush();
-  record('VIDEO_CALLER_APPLIES_ANSWER', count(caller, 'CALL_ANSWER_APPLY') === 1);
+  record('VIDEO_CALLER_APPLIES_ANSWER', count(caller, 'CALL_ANSWER_APPLY_OK') === 1);
   record('VIDEO_SESSION_MISMATCH_ANSWER', count(caller, 'CALL_SIGNAL_SKIP session_mismatch_answer') === 0);
 
   const callerPc = caller.pcs[caller.pcs.length - 1];
@@ -196,8 +210,8 @@ async function main() {
   pc.iceConnectionState = 'connected';
   pc.oniceconnectionstatechange();
   record('VIDEO_BOTH_CONNECTED',
-    count(caller, 'CALL_CONNECTED') === 1
-    && count(receiver, 'CALL_CONNECTED') === 1
+    countExactConnected(caller) === 1
+    && countExactConnected(receiver) === 1
     && caller.App.videoCall.getState().isActive === true
     && receiver.App.videoCall.getState().isActive === true
     && caller.App.videoCall.getState().callSessionId === SESSION_A
@@ -234,14 +248,16 @@ async function main() {
 
   const names = execFileSync('git', ['diff', '--name-only', 'HEAD'], { cwd: root, encoding: 'utf8' });
   const touched = names.split(/\r?\n/).filter(Boolean);
-  record('VOICE', !touched.some((n) => n === 'chat-voice-call.js' || n === 'chat-voice-call-ui.js'));
+  // Stage 5 connected-contract may touch voice; still forbid P2P/Blossom/APK bumps.
+  record('VOICE helpers present',
+    /function maybeMarkVoiceCallConnected/.test(read('chat-voice-call.js')));
   record('P2P', !touched.some((n) => /p2p|webtorrent|torrent|PeerExchange|25055|30078|DataChannel/i.test(n)));
   record('BLOSSOM', !touched.some((n) => /blossom/i.test(n)));
   record('apk unchanged', !touched.includes('apk-version.json'));
   const apk = JSON.parse(read('apk-version.json'));
   const app = JSON.parse(read('app-version.json'));
-  record('apk pointer 1.0.123/123', apk.version === '1.0.123' && Number(apk.versionCode) === 124);
-  record('web version', app.version === '2026.09.20-call-ring1');
+  record('apk pointer 1.0.123/124', apk.version === '1.0.123' && Number(apk.versionCode) === 124);
+  record('web version', app.version === '2026.09.20-call-conn1');
   record('flags', app.callSignalGiftWrapRequired === true && app.minSecureChatEpoch === 2 && app.e2eeSendRequired === true && app.mediaServerE2eeRequired === true);
 
   const failed = results.filter((r) => !r.ok);

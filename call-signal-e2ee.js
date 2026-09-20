@@ -1009,6 +1009,20 @@
    */
   async function runWebSecureCallRecovery(reason) {
     const why = String(reason || 'unknown');
+    // Smallest safe defer: while autoAccept is applying an already-cached current-session
+    // offer, skip heavy relay catch-up so accept SDP path is not delayed by 30+ dispatches.
+    try {
+      const acceptPeer = String(window.__sosAcceptInFlightPeer || '').toLowerCase();
+      if (window.__sosAcceptInFlight && /^[0-9a-f]{64}$/.test(acceptPeer)) {
+        const cached = typeof getCachedSecureOffer === 'function' ? getCachedSecureOffer(acceptPeer) : null;
+        if (cached && cached.offer && cached.offer.type && cached.offer.sdp) {
+          try {
+            console.log('CALL_WEB_RECOVERY_DEFER reason=accept-in-flight peer=' + acceptPeer.slice(0, 8));
+          } catch (_e) {}
+          return { deferred: true, reason: 'accept-in-flight' };
+        }
+      }
+    } catch (_e) {}
     if (webRecoveryInFlight) {
       return webRecoveryInFlight;
     }
