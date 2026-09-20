@@ -2010,6 +2010,13 @@
           App.reconcilePendingSecureCallSignals('resume');
         }
       } catch (_) {}
+      try {
+        if (typeof App.runWebSecureCallRecovery === 'function') {
+          App.runWebSecureCallRecovery('resume');
+        } else if (App.CallSignalE2ee && typeof App.CallSignalE2ee.runWebSecureCallRecovery === 'function') {
+          App.CallSignalE2ee.runWebSecureCallRecovery('resume');
+        }
+      } catch (_) {}
       ensureLiveCallUiVisible();
     });
   }

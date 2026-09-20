@@ -12,6 +12,18 @@
   const MAX_SIGNAL_SDP_CHARS = 64 * 1024;
   const MAX_SEEN_SIGNAL_IDS = 400;
   const MAX_SEEN_WRAP_IDS = 400;
+  /** Deterministic call-signaling relays — must overlap Android SosRelayWatcher.RELAYS. */
+  const CANONICAL_CALL_RELAYS = [
+    'wss://relay.snort.social',
+    'wss://nos.lol',
+    'wss://nostr-relay.xbytez.io',
+    'wss://nostr-02.uid.ovh',
+  ];
+  const WEB_RECOVERY_MAX_MS = 20000;
+  const WEB_RECOVERY_INTERVAL_MS = 750;
+  const WEB_RECOVERY_QUERY_LIMIT = 48;
+  /** Session-scoped: exclude call relays that reject Gift Wrap publish with auth-required. */
+  const callRelayAuthExcluded = new Set();
 
   const FRESHNESS_SEC = {
     offer: 60,
@@ -37,8 +49,71 @@
   let secureSub = null;
   let secureDispatchChain = Promise.resolve();
   const nativeRingAuthOnce = new Set(); // signalId authorized for Native ring
+  let outgoingAnswerWatchdogTimer = null;
+  let outgoingAnswerWatchdogStartedAt = 0;
+  let outgoingAnswerWatchdogTickN = 0;
+  let webRecoveryTimer = null;
+  let webRecoveryStartedAt = 0;
+  let webRecoveryTickN = 0;
+  let webRecoveryInFlight = null;
+  const OUTGOING_ANSWER_WATCHDOG_MS = 20000;
+  const OUTGOING_ANSWER_WATCHDOG_INTERVAL_MS = 750;
+  const NATIVE_HANDOFF_REV = 2;
 
-  function callSignalFail(code, detail) {    const err = new Error(detail ? String(code) + ': ' + String(detail) : String(code));
+  function relayHostname(url) {
+    try {
+      return new URL(String(url || '')).hostname || '';
+    } catch (_e) {
+      return String(url || '').replace(/^wss?:\/\//i, '').split('/')[0] || '';
+    }
+  }
+
+  function normalizeRelayUrl(url) {
+    return String(url || '').trim().replace(/\/$/, '');
+  }
+
+  /**
+   * Canonical call-signaling relay set shared with Android Native.
+   * Auth-required Gift Wrap failures are excluded for THIS session only (calls, not feed).
+   */
+  function getCallSignalRelays() {
+    const out = [];
+    const seen = new Set();
+    for (let i = 0; i < CANONICAL_CALL_RELAYS.length; i += 1) {
+      const raw = normalizeRelayUrl(CANONICAL_CALL_RELAYS[i]);
+      if (!raw || !raw.startsWith('wss://')) continue;
+      const host = relayHostname(raw);
+      if (callRelayAuthExcluded.has(raw) || (host && callRelayAuthExcluded.has(host))) continue;
+      if (seen.has(raw)) continue;
+      seen.add(raw);
+      out.push(raw);
+    }
+    return out;
+  }
+
+  function classifyRelayPublishError(err) {
+    const msg = String((err && err.message) || err || '').toLowerCase();
+    if (msg.indexOf('auth-required') >= 0 || msg.indexOf('authenticate') >= 0 || msg.indexOf('auth required') >= 0) {
+      return 'auth-required';
+    }
+    if (msg.indexOf('timeout') >= 0) return 'timeout';
+    if (msg.indexOf('socket') >= 0 || msg.indexOf('websocket') >= 0 || msg.indexOf('ws ') >= 0) return 'socket';
+    if (msg.indexOf('rejected') >= 0 || msg.indexOf('blocked') >= 0) return 'rejected';
+    return 'other';
+  }
+
+  function markCallRelayAuthRequired(relayUrl) {
+    const raw = normalizeRelayUrl(relayUrl);
+    const host = relayHostname(raw);
+    if (raw) callRelayAuthExcluded.add(raw);
+    if (host) callRelayAuthExcluded.add(host);
+    try {
+      console.log('CALL_RELAY_AUTH_REQUIRED relay=' + (host || raw || 'unknown'));
+    } catch (_e) {}
+  }
+
+  function callSignalFail(code, detail) {
+    const err = new Error(detail ? String(code) + ': ' + String(detail) : String(code));
     err.code = code || 'CALL_SIGNAL_E2EE_ENCRYPT_FAILED';
     err.name = 'CallSignalE2eeError';
     throw err;
@@ -595,7 +670,11 @@
         else if (typeof secureSub.unsub === 'function') secureSub.unsub();
       } catch (_e) {}
       secureSub = null;
+      try {
+        console.log('CALL_SECURE_SUBSCRIBE_RECONNECT reason=' + String(options.reason || 'force'));
+      } catch (_e2) {}
     }
+    const callRelays = getCallSignalRelays();
     const filters = [
       {
         kinds: [GIFT_WRAP_KIND],
@@ -605,7 +684,8 @@
     ];
     try {
       console.log('CALL_SECURE_SUBSCRIBE kind=1059');
-      secureSub = App.pool.subscribeMany(App.relayUrls, filters, {
+      console.log('CALL_SECURE_SUBSCRIBE_START relays=' + callRelays.length);
+      secureSub = App.pool.subscribeMany(callRelays, filters, {
         onevent: (ev) => {
           if (!ev || ev.kind !== GIFT_WRAP_KIND) return;
           if (!verifyEventSig(ev)) return;
@@ -613,12 +693,22 @@
           enqueueSecureDispatch(ev);
         },
         oneose: () => {
+          console.log('CALL_SECURE_SUBSCRIBE_EOSE');
           console.log('CALL_SECURE_SUBSCRIBE_READY');
           try { reconcilePendingSecureCallSignals('subscribe-ready'); } catch (_e) {}
+          try { runWebSecureCallRecovery('subscribe-ready'); } catch (_e2) {}
         },
       });
+      for (let i = 0; i < callRelays.length; i += 1) {
+        try {
+          console.log('CALL_SECURE_SUBSCRIBE_RELAY_READY relay=' + relayHostname(callRelays[i]));
+        } catch (_e) {}
+      }
       return secureSub;
     } catch (_err) {
+      try {
+        console.log('CALL_SECURE_SUBSCRIBE_ERROR relay=all reason=subscribe-failed');
+      } catch (_e) {}
       console.warn('CALL_SECURE_SUBSCRIBE_FAILED');
       return null;
     }
@@ -669,11 +759,6 @@
 
   let pendingSecureReconcileInFlight = null;
   let pendingSecureReconcileQueued = false;
-  let outgoingAnswerWatchdogTimer = null;
-  let outgoingAnswerWatchdogStartedAt = 0;
-  const OUTGOING_ANSWER_WATCHDOG_MS = 20000;
-  const OUTGOING_ANSWER_WATCHDOG_INTERVAL_MS = 750;
-  const NATIVE_HANDOFF_REV = 2;
 
   function parseNativeSecurePendingQueue(raw) {
     const out = [];
@@ -718,8 +803,6 @@
   /**
    * Idempotent Native→Web secure-call handoff.
    * Peek encrypted pending wraps → same dispatcher → per-wrap ACK.
-   * Does not depend on Web Relay also receiving the same 1059.
-   * Does not depend on a one-shot Native notification.
    */
   async function reconcilePendingSecureCallSignals(reason, optionalQueue) {
     const why = String(reason || 'unknown');
@@ -798,43 +881,229 @@
     return pendingSecureReconcileInFlight;
   }
 
-  function stopOutgoingAnswerDrainWatchdog(reason) {
-    if (!outgoingAnswerWatchdogTimer) return;
-    try { clearInterval(outgoingAnswerWatchdogTimer); } catch (_e) {}
-    outgoingAnswerWatchdogTimer = null;
-    outgoingAnswerWatchdogStartedAt = 0;
+  async function querySecureCallWrapsFromRelays() {
+    const pool = App.pool;
+    const relays = getCallSignalRelays();
+    if (!pool || !App.publicKey || !relays.length) return [];
+    const filter = {
+      kinds: [GIFT_WRAP_KIND],
+      '#p': [App.publicKey],
+      since: Math.floor(Date.now() / 1000) - TWO_DAYS_SEC - 120,
+      limit: WEB_RECOVERY_QUERY_LIMIT,
+    };
     try {
-      console.log('CALL_NATIVE_PENDING_WATCHDOG_STOP reason=' + String(reason || 'done'));
+      console.log('CALL_WEB_RECOVERY_QUERY relays=' + relays.length);
     } catch (_e) {}
+    let events = [];
+    try {
+      if (typeof pool.querySync === 'function') {
+        const res = await pool.querySync(relays, filter);
+        if (Array.isArray(res)) events = res;
+      } else if (typeof pool.list === 'function') {
+        const res = await pool.list(relays, [filter]);
+        if (Array.isArray(res)) events = res;
+      } else {
+        events = await new Promise((resolve) => {
+          const collected = [];
+          let done = false;
+          const finish = () => {
+            if (done) return;
+            done = true;
+            try {
+              if (sub && typeof sub.close === 'function') sub.close();
+              else if (sub && typeof sub.unsub === 'function') sub.unsub();
+            } catch (_e) {}
+            resolve(collected);
+          };
+          let sub = null;
+          try {
+            sub = pool.subscribeMany(relays, [filter], {
+              onevent: (ev) => {
+                if (ev) collected.push(ev);
+              },
+              oneose: () => finish(),
+            });
+          } catch (_e) {
+            finish();
+            return;
+          }
+          setTimeout(finish, 2500);
+        });
+      }
+    } catch (err) {
+      try {
+        console.log('CALL_WEB_RECOVERY_ERROR reason=' + classifyRelayPublishError(err));
+      } catch (_e) {}
+      return [];
+    }
+    return Array.isArray(events) ? events : [];
   }
 
   /**
-   * While an outgoing call waits for remote answer, keep draining Native pending
-   * wraps even if the one-shot Native→JS notification was missed.
+   * Desktop/Web catch-up: pull kind-1059 addressed to local pubkey from call relays
+   * and feed the SAME dispatcher. Outer created_at may be randomized up to ~2 days.
+   */
+  async function runWebSecureCallRecovery(reason) {
+    const why = String(reason || 'unknown');
+    if (webRecoveryInFlight) {
+      return webRecoveryInFlight;
+    }
+    webRecoveryInFlight = (async () => {
+      try {
+        if (!App.privateKey || !App.publicKey || !App.pool) {
+          try { console.log('CALL_WEB_RECOVERY_ERROR reason=not-ready'); } catch (_e) {}
+          return { deferred: true, reason: 'not-ready' };
+        }
+        const events = await querySecureCallWrapsFromRelays();
+        try {
+          console.log('CALL_WEB_RECOVERY_RESULT events=' + events.length);
+        } catch (_e) {}
+        if (!events.length) {
+          try { console.log('CALL_WEB_RECOVERY_EMPTY'); } catch (_e2) {}
+          return { empty: true, reason: why, count: 0 };
+        }
+        let dispatched = 0;
+        for (let i = 0; i < events.length; i += 1) {
+          const ev = events[i];
+          if (!ev || ev.kind !== GIFT_WRAP_KIND) continue;
+          if (!verifyEventSig(ev)) continue;
+          if (getPTag(ev) !== String(App.publicKey || '').toLowerCase()) continue;
+          try {
+            const result = await enqueueSecureDispatch(ev);
+            const action = result && result.action ? String(result.action) : '';
+            const status = result && result.status ? String(result.status) : '';
+            if (status === 'dispatched' || status === 'duplicate' || status === 'invalid_offer' || status === 'pending_candidate') {
+              try {
+                console.log('CALL_WEB_RECOVERY_DISPATCH action=' + (action || status));
+              } catch (_e) {}
+              dispatched += 1;
+            }
+          } catch (_e) {}
+        }
+        return { ok: true, reason: why, count: events.length, dispatched };
+      } catch (err) {
+        try {
+          console.log('CALL_WEB_RECOVERY_ERROR reason=' + classifyRelayPublishError(err));
+        } catch (_e) {}
+        return { error: true, reason: why };
+      } finally {
+        webRecoveryInFlight = null;
+      }
+    })();
+    return webRecoveryInFlight;
+  }
+
+  function stopWebSecureCallRecovery(reason) {
+    if (!webRecoveryTimer && !webRecoveryStartedAt) return;
+    try { clearInterval(webRecoveryTimer); } catch (_e) {}
+    webRecoveryTimer = null;
+    webRecoveryStartedAt = 0;
+    webRecoveryTickN = 0;
+    try {
+      console.log('CALL_WEB_RECOVERY_STOP reason=' + String(reason || 'done'));
+    } catch (_e) {}
+  }
+
+  function startWebSecureCallRecovery(options) {
+    const opts = options || {};
+    const why = String(opts.reason || 'outgoing-await-answer');
+    stopWebSecureCallRecovery('restart');
+    webRecoveryStartedAt = Date.now();
+    webRecoveryTickN = 0;
+    try {
+      console.log('CALL_WEB_RECOVERY_START reason=' + why);
+    } catch (_e) {}
+    const tick = () => {
+      webRecoveryTickN += 1;
+      const elapsedMs = Date.now() - webRecoveryStartedAt;
+      try {
+        console.log('CALL_WEB_RECOVERY_TICK n=' + webRecoveryTickN + ' elapsedMs=' + elapsedMs);
+      } catch (_e) {}
+      try {
+        if (typeof opts.shouldStop === 'function' && opts.shouldStop()) {
+          stopWebSecureCallRecovery('answer-applied');
+          return;
+        }
+      } catch (_e) {}
+      if (elapsedMs > WEB_RECOVERY_MAX_MS) {
+        stopWebSecureCallRecovery('timeout');
+        return;
+      }
+      try { runWebSecureCallRecovery(why); } catch (_e) {}
+    };
+    tick();
+    webRecoveryTimer = setInterval(tick, WEB_RECOVERY_INTERVAL_MS);
+  }
+
+  function stopOutgoingAnswerDrainWatchdog(reason) {
+    const why = String(reason || 'done');
+    if (outgoingAnswerWatchdogTimer) {
+      try { clearInterval(outgoingAnswerWatchdogTimer); } catch (_e) {}
+      outgoingAnswerWatchdogTimer = null;
+      outgoingAnswerWatchdogStartedAt = 0;
+      outgoingAnswerWatchdogTickN = 0;
+      try {
+        console.log('CALL_NATIVE_PENDING_WATCHDOG_STOP reason=' + why);
+      } catch (_e) {}
+    }
+    try { stopWebSecureCallRecovery(why); } catch (_e) {}
+  }
+
+  /**
+   * While an outgoing call waits for remote answer:
+   * 1) Native pending peek/drain (Android)
+   * 2) Web Relay catch-up (Desktop + Android WebView)
+   * Every tick is observable — never silent.
    */
   function startOutgoingAnswerDrainWatchdog(options) {
     const opts = options || {};
     stopOutgoingAnswerDrainWatchdog('restart');
     outgoingAnswerWatchdogStartedAt = Date.now();
+    outgoingAnswerWatchdogTickN = 0;
     try {
       console.log('CALL_NATIVE_PENDING_WATCHDOG_START intervalMs=' + OUTGOING_ANSWER_WATCHDOG_INTERVAL_MS
         + ' maxMs=' + OUTGOING_ANSWER_WATCHDOG_MS);
     } catch (_e) {}
-    const tick = () => {
+    try {
+      startWebSecureCallRecovery({
+        reason: 'outgoing-await-answer',
+        shouldStop: opts.shouldStop,
+      });
+    } catch (_e) {}
+    const tick = async () => {
+      outgoingAnswerWatchdogTickN += 1;
+      const elapsedMs = Date.now() - outgoingAnswerWatchdogStartedAt;
+      try {
+        console.log('CALL_NATIVE_PENDING_WATCHDOG_TICK n=' + outgoingAnswerWatchdogTickN
+          + ' elapsedMs=' + elapsedMs);
+      } catch (_e) {}
       try {
         if (typeof opts.shouldStop === 'function' && opts.shouldStop()) {
-          stopOutgoingAnswerDrainWatchdog('answered-or-ended');
+          stopOutgoingAnswerDrainWatchdog('answer-applied');
           return;
         }
       } catch (_e) {}
-      if (Date.now() - outgoingAnswerWatchdogStartedAt > OUTGOING_ANSWER_WATCHDOG_MS) {
+      if (elapsedMs > OUTGOING_ANSWER_WATCHDOG_MS) {
         stopOutgoingAnswerDrainWatchdog('timeout');
         return;
       }
-      try { reconcilePendingSecureCallSignals('outgoing-await-answer'); } catch (_e) {}
+      try {
+        if (pendingSecureReconcileInFlight) {
+          try {
+            console.log('CALL_NATIVE_PENDING_WATCHDOG_DEFER reason=in-flight');
+          } catch (_e) {}
+          return;
+        }
+        await reconcilePendingSecureCallSignals('outgoing-await-answer');
+      } catch (err) {
+        try {
+          console.log('CALL_NATIVE_PENDING_WATCHDOG_ERROR reason='
+            + String((err && err.message) || err || 'unknown').slice(0, 80));
+        } catch (_e) {}
+      }
     };
     tick();
-    outgoingAnswerWatchdogTimer = setInterval(tick, OUTGOING_ANSWER_WATCHDOG_INTERVAL_MS);
+    outgoingAnswerWatchdogTimer = setInterval(() => { tick(); }, OUTGOING_ANSWER_WATCHDOG_INTERVAL_MS);
   }
 
   function getDispatchStats() {
@@ -901,22 +1170,64 @@
    * Build + publish one gift-wrapped call signal.
    * Returns published outer event. Throws CALL_SIGNAL_E2EE_ENCRYPT_FAILED on any failure (publish ZERO).
    */
-  async function awaitPoolPublish(pool, relays, event) {
-    const relayList = Array.isArray(relays) ? relays : [];
+  /**
+   * Publish to canonical call relays with per-relay truth + quorum for offer/answer.
+   * One successful relay must NOT hide auth-required failures on the rest.
+   */
+  async function awaitPoolPublish(pool, relays, event, meta) {
+    const action = String((meta && meta.action) || 'unknown');
+    const critical = action === 'offer' || action === 'answer';
+    let relayList = Array.isArray(relays) && relays.length ? relays.map(normalizeRelayUrl) : [];
+    // Always prefer the canonical call set (deterministic overlap with Android Native).
+    const canonical = getCallSignalRelays();
+    if (canonical.length) relayList = canonical.slice();
+    if (!relayList.length) {
+      callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', 'no call relays');
+    }
+
     const issued = pool.publish(relayList, event);
-    // nostr-tools SimplePool.publish returns Promise[] — await alone is a silent no-op.
     const pending = Array.isArray(issued)
       ? issued
       : (issued && typeof issued.then === 'function' ? [issued] : []);
     if (!pending.length) {
       callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', 'publish returned no promises');
     }
+
     const settled = await Promise.allSettled(pending);
-    const ok = settled.filter((r) => r && r.status === 'fulfilled').length;
-    if (ok <= 0) {
-      callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', 'publish zero relays');
+    let ok = 0;
+    for (let i = 0; i < settled.length; i += 1) {
+      const r = settled[i];
+      const relay = relayList[i] || relayList[relayList.length - 1] || '';
+      const host = relayHostname(relay) || 'unknown';
+      if (r && r.status === 'fulfilled') {
+        ok += 1;
+        try { console.log('CALL_RELAY_OK relay=' + host); } catch (_e) {}
+      } else {
+        const reason = classifyRelayPublishError(r && r.reason);
+        if (reason === 'auth-required') {
+          markCallRelayAuthRequired(relay);
+        }
+        try {
+          console.log('CALL_RELAY_FAIL relay=' + host + ' reason=' + reason);
+        } catch (_e) {}
+      }
     }
-    return { ok, total: settled.length };
+
+    try {
+      console.log('CALL_RELAY_PUBLISH_RESULT action=' + action + ' ok=' + ok + ' total=' + settled.length);
+    } catch (_e) {}
+
+    if (relayList.length === 1 && ok >= 1) {
+      try { console.log('CALL_RELAY_DEGRADED_SINGLE_RELAY'); } catch (_e) {}
+    }
+
+    const eligible = relayList.length;
+    const requiredOk = critical ? Math.min(2, eligible) : Math.min(1, eligible);
+    if (ok < requiredOk || ok <= 0) {
+      try { console.log('CALL_SEND_1059_PUBLISH_FAIL'); } catch (_e) {}
+      callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', 'publish quorum failed ok=' + ok + ' required=' + requiredOk);
+    }
+    return { ok, total: settled.length, requiredOk, action };
   }
 
   async function publishGiftWrappedCallSignal(opts) {
@@ -1011,7 +1322,7 @@
       console.log('CALL_SEND_1059_PUBLISH_START');
     } catch (_e) {}
     try {
-      await awaitPoolPublish(pool, Array.isArray(relays) ? relays : [], wrap);
+      await awaitPoolPublish(pool, Array.isArray(relays) ? relays : getCallSignalRelays(), wrap, { action });
     } catch (pubErr) {
       try { console.log('CALL_SEND_1059_PUBLISH_FAIL'); } catch (_e) {}
       if (pubErr && pubErr.code) throw pubErr;
@@ -1434,6 +1745,11 @@
       reconcilePendingSecureCallSignals,
       startOutgoingAnswerDrainWatchdog,
       stopOutgoingAnswerDrainWatchdog,
+      startWebSecureCallRecovery,
+      stopWebSecureCallRecovery,
+      runWebSecureCallRecovery,
+      getCallSignalRelays,
+      CANONICAL_CALL_RELAYS,
       NATIVE_HANDOFF_REV,
       normalizeSessionDescription,
       getCachedSecureOffer,
@@ -1464,6 +1780,10 @@
   App.reconcilePendingSecureCallSignals = reconcilePendingSecureCallSignals;
   App.startOutgoingAnswerDrainWatchdog = startOutgoingAnswerDrainWatchdog;
   App.stopOutgoingAnswerDrainWatchdog = stopOutgoingAnswerDrainWatchdog;
+  App.startWebSecureCallRecovery = startWebSecureCallRecovery;
+  App.stopWebSecureCallRecovery = stopWebSecureCallRecovery;
+  App.runWebSecureCallRecovery = runWebSecureCallRecovery;
+  App.getCallSignalRelays = getCallSignalRelays;
   App.NATIVE_HANDOFF_REV = NATIVE_HANDOFF_REV;
 
   try {
@@ -1478,11 +1798,13 @@
       try { ensureSecureCallSubscription(); } catch (_e) {}
       try { refreshCallSignalGiftWrapPolicy({ skipFetch: false }); } catch (_e2) {}
       try { reconcilePendingSecureCallSignals('pool-ready'); } catch (_e3) {}
+      try { runWebSecureCallRecovery('pool-ready'); } catch (_e4) {}
     };
   } else {
     App.notifyPoolReady = function(_pool) {
       try { ensureSecureCallSubscription(); } catch (_e) {}
       try { reconcilePendingSecureCallSignals('pool-ready'); } catch (_e2) {}
+      try { runWebSecureCallRecovery('pool-ready'); } catch (_e3) {}
     };
   }
   try {
@@ -1494,6 +1816,15 @@
   try {
     setTimeout(() => {
       try { reconcilePendingSecureCallSignals('js-bridge-ready'); } catch (_e) {}
+      try { runWebSecureCallRecovery('js-bridge-ready'); } catch (_e2) {}
     }, 0);
+  } catch (_e) {}
+  try {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      try { ensureSecureCallSubscription({ force: true, reason: 'visibility' }); } catch (_e) {}
+      try { reconcilePendingSecureCallSignals('visibility'); } catch (_e2) {}
+      try { runWebSecureCallRecovery('visibility'); } catch (_e3) {}
+    });
   } catch (_e) {}
 })(window);

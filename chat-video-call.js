@@ -309,7 +309,9 @@
         data,
         sessionId,
         pool: App.pool,
-        relays: App.relayUrls,
+        relays: (App.CallSignalE2ee && typeof App.CallSignalE2ee.getCallSignalRelays === 'function')
+          ? App.CallSignalE2ee.getCallSignalRelays()
+          : App.relayUrls,
         senderPubkey: App.publicKey,
         senderPrivateKey: App.privateKey,
         roomId: getRoomId(peer),
@@ -1170,6 +1172,18 @@
     state.signalSubscription = null;
     state.lastSignalReceivedAt = now;
     subscribeToSignals({ since, force: true });
+    try {
+      if (App.CallSignalE2ee && typeof App.CallSignalE2ee.ensureSecureCallSubscription === 'function') {
+        App.CallSignalE2ee.ensureSecureCallSubscription({ force: true, reason: String(reason || 'resubscribe') });
+      }
+    } catch (_) {}
+    try {
+      if (typeof App.runWebSecureCallRecovery === 'function') {
+        App.runWebSecureCallRecovery('resubscribe');
+      } else if (App.CallSignalE2ee && typeof App.CallSignalE2ee.runWebSecureCallRecovery === 'function') {
+        App.CallSignalE2ee.runWebSecureCallRecovery('resubscribe');
+      }
+    } catch (_) {}
   }
 
   // חלק שיחות וידאו (chat-video-call.js) – keepalive קל: מוודא subscription חי ומרענן אחרי שקט ממושך | HYPER CORE TECH
