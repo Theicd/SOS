@@ -539,6 +539,143 @@
     return `<button type="button" class="${cls}" title="הורד" aria-label="הורד ${safeName}" data-filename="${safeName}" data-download-url="${safeSrc}" data-file-id="${safeFileId}" data-cache-key="${safeCacheKey}" onclick="event.preventDefault();event.stopPropagation();if(window.NostrApp&&typeof NostrApp.downloadChatMediaFromButton==='function')NostrApp.downloadChatMediaFromButton(this);"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
   }
 
+  function findChatMessageForDownload(messageId) {
+    const want = String(messageId || '');
+    if (!want || !App.chatState) return null;
+    const index = App.chatState.messageIndex;
+    if (index && typeof index.get === 'function') {
+      const hit = index.get(want);
+      const entry = hit && App.chatState.conversations ? App.chatState.conversations.get(hit.key) : null;
+      const direct = entry && Array.isArray(entry.messages)
+        ? entry.messages.find((item) => item && item.id === want)
+        : null;
+      if (direct) return direct;
+    }
+    let found = null;
+    if (App.chatState.conversations && typeof App.chatState.conversations.forEach === 'function') {
+      App.chatState.conversations.forEach((entry) => {
+        if (found || !entry || !Array.isArray(entry.messages)) return;
+        found = entry.messages.find((item) => {
+          if (!item) return false;
+          if (item.id === want) return true;
+          const att = item.attachment;
+          if (!att) return false;
+          return att.logicalMessageId === want || att.clientMessageId === want || att.attachmentId === want;
+        }) || null;
+      });
+    }
+    return found;
+  }
+
+  function documentErrorIsIntegrity(err) {
+    const code = String((err && (err.code || err.message)) || '');
+    return /HASH|SIZE|MAC|TAG|AUTH|DECRYPT|INTEGRITY|BAD_DESCRIPTOR|CIPHER|MISMATCH/i.test(code);
+  }
+
+  function logDocumentSource(token) {
+    try { console.log(token); } catch (_) {}
+  }
+
+  async function saveResolvedDocumentBlob(blob, name, mime) {
+    if (!blob || !blob.size) return false;
+    const typed = (!blob.type || blob.type === 'application/octet-stream') && mime
+      ? new Blob([blob], { type: mime })
+      : blob;
+    const url = URL.createObjectURL(typed);
+    try {
+      return await downloadChatMedia(url, name);
+    } finally {
+      setTimeout(() => {
+        try { URL.revokeObjectURL(url); } catch (_) {}
+      }, 4000);
+    }
+  }
+
+  async function downloadChatAttachment(messageId) {
+    const message = findChatMessageForDownload(messageId);
+    const att = message && message.attachment && typeof message.attachment === 'object' ? message.attachment : null;
+    if (!att) {
+      logDocumentSource('DOCUMENT_DURABLE_SOURCE_UNAVAILABLE');
+      return false;
+    }
+    const name = (att.media && att.media.filename) || att.name || 'sos-file';
+    const mime = (att.media && att.media.mime) || (att.type !== 'encrypted-media' ? att.type : '') || 'application/octet-stream';
+    const cacheKey = chatP2PCacheKey(att) || chatP2PCacheKey(message.id);
+    const encrypted = att.type === 'encrypted-media';
+
+    const liveUrl = String(att.url || att.dataUrl || '');
+    if (liveUrl.startsWith('blob:') || liveUrl.startsWith('data:')) {
+      try {
+        const resp = await fetch(liveUrl);
+        if (resp.ok) {
+          const live = await resp.blob();
+          if (live && live.size > 0) {
+            if (cacheKey) persistChatP2PMedia(cacheKey, live, { name, type: mime }).catch(() => {});
+            logDocumentSource('DOCUMENT_SOURCE_LOCAL_CACHE');
+            return saveResolvedDocumentBlob(live, name, mime);
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (cacheKey) {
+      try {
+        const cached = await loadChatP2PMediaBlob(cacheKey);
+        if (cached && cached.size > 0) {
+          logDocumentSource('DOCUMENT_SOURCE_LOCAL_CACHE');
+          return saveResolvedDocumentBlob(cached, name, mime);
+        }
+      } catch (_) {}
+    }
+
+    if (encrypted) {
+      try {
+        if (typeof App.resolveServerMediaAttachment !== 'function') {
+          logDocumentSource('DOCUMENT_DURABLE_SOURCE_UNAVAILABLE');
+          return false;
+        }
+        const result = await App.resolveServerMediaAttachment(att, {
+          messageId: att.clientMessageId || att.logicalMessageId || message.id,
+          sender: message.from,
+          recipient: message.to,
+        });
+        const blob = result && result.blob;
+        const src = result && result.objectUrl ? String(result.objectUrl) : '';
+        if (!blob || !blob.size || src.startsWith('http://') || src.startsWith('https://')) {
+          logDocumentSource('DOCUMENT_DURABLE_SOURCE_UNAVAILABLE');
+          return false;
+        }
+        if (cacheKey) persistChatP2PMedia(cacheKey, blob, { name, type: mime || blob.type }).catch(() => {});
+        logDocumentSource('DOCUMENT_SOURCE_BLOSSOM_ENCRYPTED');
+        logDocumentSource('DOCUMENT_BLOSSOM_DECRYPT_OK');
+        return saveResolvedDocumentBlob(blob, name, mime || blob.type);
+      } catch (err) {
+        if (documentErrorIsIntegrity(err)) {
+          logDocumentSource('DOCUMENT_DOWNLOAD_INTEGRITY_FAILED');
+          return false;
+        }
+        logDocumentSource('DOCUMENT_DURABLE_SOURCE_UNAVAILABLE');
+        return false;
+      }
+    }
+
+    if (att.magnetURI && typeof App.downloadTorrentFile === 'function') {
+      logDocumentSource('DOCUMENT_SOURCE_P2P');
+      App.downloadTorrentFile(att.magnetURI, name);
+      return true;
+    }
+    logDocumentSource('DOCUMENT_DURABLE_SOURCE_UNAVAILABLE');
+    return false;
+  }
+
+  function buildSecureDocumentDownloadButton(messageId, name, className) {
+    const id = String(messageId || '').replace(/"/g, '');
+    if (!id) return '';
+    const cls = className || 'chat-file-bubble__download';
+    const safeName = escapeAttr(name || 'קובץ');
+    return `<button type="button" class="${cls}" data-chat-secure-download="1" data-message-id="${id}" data-filename="${safeName}" title="הורד" aria-label="הורד"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
+  }
+
   function buildAttachmentDownloadHtml(attachment, className) {
     if (!attachment) return '';
     const name = attachment.name || 'קובץ';
@@ -550,6 +687,12 @@
       fileId: attachment.fileId || '',
       cacheKey: attachment.cacheKey || chatP2PCacheKey(attachment) || '',
     };
+    if (attachment.type === 'encrypted-media') {
+      const local = src && (src.startsWith('blob:') || src.startsWith('data:')) ? src : '';
+      if (local) return buildMediaDownloadButton(local, name, cls, meta);
+      const secureId = attachment.logicalMessageId || attachment.clientMessageId || attachment.attachmentId || '';
+      return buildSecureDocumentDownloadButton(secureId, name, cls);
+    }
     // עדיפות לקובץ מקומי — כפתור כמו מדיה; magnet רק כשאין src | HYPER CORE TECH
     if (src && !src.startsWith('magnet:')) {
       return buildMediaDownloadButton(src, name, cls, meta);
@@ -3132,6 +3275,11 @@
     if (name.includes('voice') || name.includes('ptt') || name.includes('voicemessage')) return false;
     if (typeof attachment.duration === 'number' && attachment.duration > 0) return false;
     if (/\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|amr|caf)(\?|$)/i.test(name)) return false;
+    if (attachment.type === 'encrypted-media' && attachment.resource && attachment.resource.transport === 'blossom') {
+      const plain = String((attachment.media && attachment.media.mime) || '').toLowerCase();
+      if (plain.startsWith('image/') || plain.startsWith('video/') || plain.startsWith('audio/')) return false;
+      return true;
+    }
     // קובץ כללי: PDF, ZIP, TXT, DOC וכו'
     return !!(attachment.name || attachment.magnetURI || attachment.url || attachment.dataUrl);
   }
@@ -3259,6 +3407,7 @@
     reflowLockedChatMedia,
     downloadChatMedia,
     downloadChatMediaFromButton,
+    downloadChatAttachment,
     resolveLiveChatDownloadSrc,
     getFileIcon,
     buildAttachmentDownloadHtml,

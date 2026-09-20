@@ -2018,9 +2018,12 @@
   }
 
   // חלק זיהוי סוג קובץ (chat-p2p-file.js) – בודק אם קובץ נתמך ע"י Blossom (מדיה בלבד) | HYPER CORE TECH
-  function isBlossomSupported(mimeType) {
+  function isBlossomSupported(mimeType, fileName) {
+    if (typeof App.isPrivateChatServerFileSupported === 'function') {
+      return App.isPrivateChatServerFileSupported(mimeType, fileName);
+    }
     if (!mimeType) return false;
-    const m = mimeType.toLowerCase();
+    const m = String(mimeType).toLowerCase();
     return m.startsWith('image/') || m.startsWith('video/') || m.startsWith('audio/');
   }
 
@@ -2031,10 +2034,9 @@
       const fileName = transfer.file?.name || 'קובץ';
       const fileSize = transfer.file?.size || 0;
       // חלק דיבאג fallback (chat-p2p-file.js) – רישום מסלול נבחר ומאפייני הקובץ | HYPER CORE TECH
-      mediaDebugLog('fallback-check', { fileId: transfer.fileId, name: fileName, size: fileSize, mime, blossomSupported: isBlossomSupported(mime) });
+      mediaDebugLog('fallback-check', { fileId: transfer.fileId, name: fileName, size: fileSize, mime, blossomSupported: isBlossomSupported(mime, fileName) });
 
-      // חלק ניתוב ל-WebTorrent (chat-p2p-file.js) – קבצים שלא נתמכים ע"י Blossom מועברים דרך WebTorrent | HYPER CORE TECH
-      if (!isBlossomSupported(mime)) {
+      if (!isBlossomSupported(mime, fileName)) {
         mediaDebugLog('fallback-to-torrent', { fileId: transfer.fileId, name: fileName, size: fileSize, mime });
         console.log('[CHAT/P2P] 🧲 קובץ לא-נתמך Blossom, מעביר דרך WebTorrent P2P', { attachmentType: mime, size: fileSize });
         logFileTransport(transfer.peerPubkey, 'relay-fallback');
@@ -2214,6 +2216,9 @@
               : '[url]'
             : undefined,
         });
+        if (isEncryptedDescriptor && !/^(image|audio|video)\//i.test(String(mime || ''))) {
+          console.log('DOCUMENT_BLOSSOM_UPLOAD_OK');
+        }
         mediaDebugLog('blossom-upload-success', {
           fileId: transfer.fileId,
           name: fileName,

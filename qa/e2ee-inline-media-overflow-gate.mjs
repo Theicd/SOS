@@ -598,8 +598,10 @@ async function main() {
     text: '📎 notes.bin',
     skipPolicyFetch: true,
   });
-  record('generic overflow → GENERIC_ALTERNATE_REQUIRED', resGen.route === 'GENERIC_ALTERNATE_REQUIRED');
-  record('generic overflow no Blossom upload', rt.counts().serverFallbackCalls === 0 && rt.counts().legacyUploadCalls === 0);
+  record('generic overflow → SECURE encrypted Blossom',
+    resGen.route === 'SECURE_BLOB_REQUIRED' && resGen.attachment?.type === 'encrypted-media');
+  record('generic overflow secure upload=1 plaintext=0',
+    rt.counts().serverFallbackCalls === 1 && rt.counts().legacyUploadCalls === 0);
 
   // Voice-sized webm near physical cliff
   rt.reset();

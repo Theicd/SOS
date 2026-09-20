@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.20-read-p2p1",
-  "buildTime": "2026-09-20T02:27:00+03:00",
-  "notes": "P2P file read receipts share one boundary id. Public APK unchanged 1.0.122/123.",
+  "version": "2026.09.20-doc-blossom1",
+  "buildTime": "2026-09-20T03:23:00+03:00",
+  "notes": "Private documents use encrypted Blossom when P2P is unavailable. Public APK unchanged 1.0.122/123.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,

@@ -530,10 +530,38 @@
     );
   }
 
+  function isPrivateChatServerFileSupported(mime, name) {
+    const m = String(mime || '').split(';')[0].trim().toLowerCase();
+    const n = String(name || '').toLowerCase();
+    if (m === 'text/html' || m === 'image/svg+xml' || /javascript|ecmascript/.test(m)) return false;
+    if (isPrivateChatMediaAttachmentType(mime, name)) return true;
+    if (
+      m === 'text/plain' ||
+      m === 'text/csv' ||
+      m === 'text/rtf' ||
+      m === 'text/log' ||
+      m === 'application/rtf' ||
+      m === 'application/pdf' ||
+      m === 'application/msword' ||
+      m === 'application/vnd.ms-excel' ||
+      m === 'application/vnd.ms-powerpoint' ||
+      m === 'application/zip' ||
+      m === 'application/x-zip-compressed' ||
+      m === 'application/x-rar-compressed' ||
+      m === 'application/x-7z-compressed' ||
+      m === 'application/octet-stream' ||
+      m.startsWith('application/vnd.openxmlformats-officedocument.')
+    ) {
+      return true;
+    }
+    return /\.(txt|pdf|docx?|xlsx?|pptx?|csv|rtf|log|zip|rar|7z)$/i.test(n);
+  }
+
   /**
    * Hotfix: legacy inline size may still exceed NIP-44 after dataURL/JSON/E3B wrapping.
    * Classify the exact candidate; never use ENCRYPT_FAILURE as flow control.
-   * Media → encrypted server fallback. Generic → caller uses existing non-Blossom alternate.
+   * Media and allowed private-chat files → encrypted server fallback.
+   * Disallowed types stay on the existing non-Blossom alternate.
    */
   async function resolveInlineAttachmentForE2ee(options) {
     const opts = options && typeof options === 'object' ? options : {};
@@ -605,8 +633,8 @@
     // SECURE_BLOB_REQUIRED
     const mime = attachment.type || opts.mimeType || opts.mime || '';
     const name = attachment.name || opts.fileName || opts.filename || '';
-    const mediaOk = isPrivateChatMediaAttachmentType(mime, name);
-    if (!mediaOk) {
+    const fileOk = isPrivateChatServerFileSupported(mime, name);
+    if (!fileOk) {
       return {
         route: 'GENERIC_ALTERNATE_REQUIRED',
         reason: 'e2ee-inline-overflow-generic',
@@ -711,6 +739,7 @@
 
   App.resolveInlineAttachmentForE2ee = resolveInlineAttachmentForE2ee;
   App.isPrivateChatMediaAttachmentType = isPrivateChatMediaAttachmentType;
+  App.isPrivateChatServerFileSupported = isPrivateChatServerFileSupported;
 
   function getAttachmentPlainMime(attachment) {
     if (!attachment || typeof attachment !== 'object') return '';

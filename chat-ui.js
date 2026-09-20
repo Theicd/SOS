@@ -1383,9 +1383,13 @@
     bubble.setAttribute('data-chat-from', String(message.from || App.publicKey || '').toLowerCase());
 
     // בנייה מלאה בסיום — בלי מד התקדמות | HYPER CORE TECH
-    const downloadHtml = blobUrl
+    const encryptedDurable = !!(a && a.type === 'encrypted-media' && a.resource && a.resource.transport === 'blossom');
+    const localOnly = blobUrl && (String(blobUrl).startsWith('blob:') || String(blobUrl).startsWith('data:')) ? blobUrl : '';
+    const downloadHtml = encryptedDurable
+      ? `<button type="button" class="chat-file-bubble__download" data-chat-secure-download="1" data-message-id="${String(message.id || '').replace(/"/g, '')}" data-filename="${App.escapeHtml ? App.escapeHtml(label) : label}" title="הורד" aria-label="הורד"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`
+      : (localOnly
       ? (() => {
-          const safeUrl = App.escapeHtml ? App.escapeHtml(blobUrl) : String(blobUrl).replace(/"/g, '&quot;');
+          const safeUrl = App.escapeHtml ? App.escapeHtml(localOnly) : String(localOnly).replace(/"/g, '&quot;');
           const safeName = App.escapeHtml ? App.escapeHtml(label) : label;
           return `<button type="button" class="chat-file-bubble__download" data-download-url="${safeUrl}" data-filename="${safeName}" title="הורד" aria-label="הורד"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
         })()
@@ -1395,7 +1399,7 @@
             const safeName = App.escapeHtml ? App.escapeHtml(label) : label;
             return `<button type="button" class="chat-file-bubble__download torrent-bubble__download-btn" data-magnet="${safeMagnet}" data-filename="${safeName}" title="הורד" aria-label="הורד"><i class="fa-solid fa-download" aria-hidden="true"></i></button>`;
           })()
-        : '');
+        : ''));
 
     // תמיד content נפרד — אחרת className על הבועה עצמה מוחק את chat-message--file-card-transfer | HYPER CORE TECH
     let content = bubble.querySelector('.chat-message__content');
@@ -2583,6 +2587,20 @@
       return;
     }
 
+    const secureDownloadBtn = event.target.closest('[data-chat-secure-download]');
+    if (secureDownloadBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeAllChatMessageMenus();
+      const messageId = secureDownloadBtn.getAttribute('data-message-id')
+        || secureDownloadBtn.closest('[data-message-id]')?.getAttribute('data-message-id')
+        || '';
+      if (messageId && typeof App.downloadChatAttachment === 'function') {
+        App.downloadChatAttachment(messageId);
+      }
+      return;
+    }
+
     const fileDownloadBtn = event.target.closest(
       '.torrent-bubble__download-btn, .chat-file-bubble__download[data-download-url], .chat-file-bubble__download[data-magnet], .chat-message__media-download--side[data-magnet], .chat-message__media-download--side[data-download-url]'
     );
@@ -2590,10 +2608,15 @@
       event.preventDefault();
       event.stopPropagation();
       const fileName = fileDownloadBtn.getAttribute('data-filename') || 'file';
-      const localUrl =
-        fileDownloadBtn.getAttribute('data-download-url') ||
-        '';
+      const localUrl = fileDownloadBtn.getAttribute('data-download-url') || '';
       const magnetURI = fileDownloadBtn.getAttribute('data-magnet') || '';
+      const messageId = fileDownloadBtn.getAttribute('data-message-id')
+        || fileDownloadBtn.closest('[data-message-id]')?.getAttribute('data-message-id')
+        || '';
+      if (messageId && typeof App.downloadChatAttachment === 'function' && !magnetURI) {
+        App.downloadChatAttachment(messageId);
+        return;
+      }
       const blobFromMagnet =
         !localUrl && magnetURI && typeof App.getTorrentBlob === 'function'
           ? App.getTorrentBlob(magnetURI)?.url
