@@ -240,12 +240,18 @@
     }
 
     try {
+      const gumT0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      const gumMs = () => Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - gumT0);
+      try { console.log('CALL_ACCEPT_GUM_START'); } catch (_) {}
       if (typeof App.ensureNativeMediaPermissions === 'function') {
+        try { console.log('CALL_ACCEPT_GUM_PERM_START'); } catch (_) {}
         const ok = await App.ensureNativeMediaPermissions(false);
+        try { console.log('CALL_ACCEPT_GUM_PERM_OK ms=' + gumMs()); } catch (_) {}
         if (!ok) {
           throw new Error('לא ניתן לגשת למיקרופון. אנא אשר הרשאות באפליקציה.');
         }
       }
+      try { console.log('CALL_ACCEPT_GUM_GET_START'); } catch (_) {}
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -254,7 +260,13 @@
         },
         video: false
       });
+      try { console.log('CALL_ACCEPT_GUM_GET_OK ms=' + gumMs()); } catch (_) {}
       state.localStream = stream;
+      try {
+        const tracks = stream.getAudioTracks ? stream.getAudioTracks() : [];
+        if (tracks && tracks.length) console.log('CALL_ACCEPT_GUM_TRACK_READY ms=' + gumMs());
+      } catch (_) {}
+      try { console.log('CALL_ACCEPT_GUM_OK ms=' + gumMs()); } catch (_) {}
       return stream;
     } catch (err) {
       console.error('Failed to get local stream', err);
@@ -408,6 +420,13 @@
     const role = state.isIncoming ? 'callee' : 'caller';
     try {
       console.log('CALL_CONNECTED session=' + (sid ? sid.slice(0, 8) : 'none') + ' role=' + role);
+    } catch (_) {}
+    try {
+      if (window.SosCallColdBoot && typeof window.SosCallColdBoot.release === 'function') {
+        window.SosCallColdBoot.release('connected');
+      } else if (typeof App.releaseCallColdBoot === 'function') {
+        App.releaseCallColdBoot('connected');
+      }
     } catch (_) {}
     if (typeof App.onVoiceCallConnected === 'function') {
       try { App.onVoiceCallConnected(peer); } catch (_) {}
@@ -781,6 +800,11 @@
     if (term) term.ended = true;
     console.log('CALL_ENDING reason=' + endReason(options));
     console.log('CALL_END_ONCE');
+    try {
+      if (window.SosCallColdBoot && typeof window.SosCallColdBoot.release === 'function') {
+        window.SosCallColdBoot.release(options && options.failed ? 'failed' : 'ended');
+      }
+    } catch (_) {}
     try {
       if (typeof App.stopOutgoingAnswerDrainWatchdog === 'function') {
         App.stopOutgoingAnswerDrainWatchdog('call-end');

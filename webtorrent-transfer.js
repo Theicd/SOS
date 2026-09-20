@@ -109,8 +109,26 @@
   }
 
   // חלק אתחול (webtorrent-transfer.js) – יצירת WebTorrent client | HYPER CORE TECH
+  let webtorrentColdDeferred = false;
   function initClient() {
     if (client) return client;
+
+    try {
+      const cold = window.SosCallColdBoot;
+      if (cold && typeof cold.shouldDefer === 'function' && cold.shouldDefer('webtorrent')) {
+        if (!webtorrentColdDeferred && typeof cold.defer === 'function') {
+          webtorrentColdDeferred = true;
+          cold.defer('webtorrent', () => {
+            webtorrentColdDeferred = false;
+            initClient();
+          });
+        }
+        return null;
+      }
+      if (cold && typeof cold.markEntry === 'function' && !cold.markEntry('webtorrent')) {
+        return client;
+      }
+    } catch (_) {}
     
     if (typeof WebTorrent === 'undefined') {
       console.error('[TORRENT] WebTorrent library not loaded');

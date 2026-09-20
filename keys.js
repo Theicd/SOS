@@ -110,6 +110,9 @@
 
     App.privateKey = privateKey;
     App.publicKey = publicKey;
+    try {
+      console.log('CALL_REQUIRED_IDENTITY_BOOTSTRAP ok=1 deferred=0');
+    } catch (_) {}
     return { privateKey, publicKey };
   }
 

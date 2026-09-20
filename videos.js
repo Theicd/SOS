@@ -9186,6 +9186,35 @@ async function init() {
     app.buildCoreFeedFilters = buildVideoFeedFilters;
   }
 
+  try {
+    const cold = window.SosCallColdBoot;
+    if (cold && typeof cold.detectFromPage === 'function' && cold.detectFromPage()) {
+      cold.enable('videos-init');
+    }
+    if (cold && typeof cold.isActive === 'function' && cold.isActive()) {
+      try { console.log('CALL_COLD_BOOT_DEFER subsystem=feed-hydrate'); } catch (_) {}
+      try {
+        document.body.classList.add('sos-call-active');
+        window.__sosIncomingCallActive = true;
+        document.documentElement.setAttribute('data-sos-deeplink', '1');
+      } catch (_) {}
+      setFeedWarmupPaused(true);
+      try { releaseBootLoading('call-cold-boot'); } catch (_) {}
+      if (typeof cold.defer === 'function') {
+        cold.defer('feed-hydrate', () => {
+          try {
+            if (cold.markEntry && !cold.markEntry('feed-hydrate')) return;
+          } catch (_) {}
+          loadVideos().catch((err) => console.warn('[videos] deferred loadVideos failed', err));
+        });
+        cold.defer('periodic-refresh', () => {
+          try { startPeriodicRefresh(); } catch (_) {}
+        });
+      }
+      return;
+    }
+  } catch (_) {}
+
   // שחזור תגובות מקאש מקומי לפני רינדור/בועות | HYPER CORE TECH
   if (typeof app.restoreCommentsFromStorage === 'function' && !app.commentsRestored) {
     try {
@@ -9268,6 +9297,12 @@ document.addEventListener('visibilitychange', () => {
     // אם עברה יותר מדקה מאז שהדף היה מוסתר - בדוק פוסטים חדשים
     if (elapsed > REFRESH_THRESHOLD_MS) {
       console.log('[videos] Page became visible after', Math.round(elapsed / 1000), 'seconds, checking for new posts');
+      try {
+        if (window.SosCallColdBoot && typeof window.SosCallColdBoot.isActive === 'function'
+            && window.SosCallColdBoot.isActive()) {
+          return;
+        }
+      } catch (_) {}
       // טעינת פוסטים חדשים ברקע ללא הצגת מסך טעינה
       loadVideos().catch(err => console.warn('[videos] Background refresh failed', err));
     }
@@ -9293,6 +9328,12 @@ function startPeriodicRefresh() {
   if (periodicRefreshInterval) return;
   periodicRefreshInterval = setInterval(() => {
     if (document.visibilityState === 'visible' && state.firstCardRendered) {
+      try {
+        if (window.SosCallColdBoot && typeof window.SosCallColdBoot.isActive === 'function'
+            && window.SosCallColdBoot.isActive()) {
+          return;
+        }
+      } catch (_) {}
       console.log('[videos] Periodic refresh check');
       loadVideos().catch(err => console.warn('[videos] Periodic refresh failed', err));
     }

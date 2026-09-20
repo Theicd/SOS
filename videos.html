@@ -2122,6 +2122,8 @@
     <!-- חלק תלויות כלליות (videos.html) – סדר טעינה זהה לעמודים הראשיים | HYPER CORE TECH -->
     <!-- חלק מובייל (videos.html) – תיקון גובה viewport באייפון | HYPER CORE TECH -->
     <script src="./mobile-viewport-fix.js"></script>
+    <!-- חלק Call-cold boot (videos.html) – עדיפות שיחה לפני פיד/קאש/P2P | HYPER CORE TECH -->
+    <script src="./call-cold-boot.js?v=20260920cold2"></script>
     <script src="./key-storage.js" defer></script>
     <script src="./config.js" defer></script>
     <script src="./key-utils.js" defer></script>
@@ -3484,11 +3486,34 @@
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
     <script>if(window.pdfjsLib){window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';}</script>
 
-    <!-- חלק WebTorrent (videos.html) – ספריית WebTorrent והעברת קבצים גדולים P2P | HYPER CORE TECH -->
-    <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
-    <script src="./webtorrent-transfer.js?v=20260916sec18"></script>
+    <!-- חלק WebTorrent (videos.html) – נטען מיד, או נדחה ב-call-cold עד CALL_CONNECTED | HYPER CORE TECH -->
+    <script>
+    (function loadWebTorrentStackWhenAllowed() {
+      function injectStack() {
+        if (window.__sosWebTorrentStackLoading || window.__sosWebTorrentStackLoaded) return;
+        window.__sosWebTorrentStackLoading = true;
+        var s1 = document.createElement('script');
+        s1.src = 'https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js';
+        s1.onload = function () {
+          var s2 = document.createElement('script');
+          s2.src = './webtorrent-transfer.js?v=20260920cold2';
+          s2.onload = function () { window.__sosWebTorrentStackLoaded = true; };
+          document.head.appendChild(s2);
+        };
+        document.head.appendChild(s1);
+      }
+      try {
+        var cold = window.SosCallColdBoot;
+        if (cold && typeof cold.shouldDefer === 'function' && cold.shouldDefer('webtorrent')) {
+          if (typeof cold.defer === 'function') cold.defer('webtorrent', injectStack);
+          return;
+        }
+      } catch (_) {}
+      injectStack();
+    })();
+    </script>
 
-    <script>window.addEventListener('load',function(){var App=window.NostrApp||(window.NostrApp={});console.log('[VIDEOS] Page loaded, initializing notifications');setTimeout(function(){console.log('[VIDEOS] Initializing notifications system');try{App=window.NostrApp||(window.NostrApp={});if(typeof App.publicKey==='string'&&App.publicKey&&!App.notificationsRestored){console.log('[VIDEOS] Restoring notifications from localStorage for pubkey:',App.publicKey.slice(0,8));if(typeof App.restoreNotificationsFromStorage==='function'){App.restoreNotificationsFromStorage();App.notificationsRestored=true;console.log('[VIDEOS] Notifications restored, count:',App.notifications&&App.notifications.length||0);}else{console.warn('[VIDEOS] restoreNotificationsFromStorage not available');}}else{console.log('[VIDEOS] Skip restore - publicKey:',!!App.publicKey,'notificationsRestored:',!!App.notificationsRestored);}if(typeof App.setupNotificationUI==='function'){console.log('[VIDEOS] Calling setupNotificationUI');App.setupNotificationUI();console.log('[VIDEOS] setupNotificationUI completed');}else{console.warn('[VIDEOS] setupNotificationUI not available');}}catch(e){console.error('[VIDEOS] Notification setup error:',e);}},300);try{if(typeof window.openCompose!=='function'){window.openCompose=function(){var innerApp=window.NostrApp||{};if(typeof innerApp.openCompose==='function'){innerApp.openCompose();}else{console.warn('[VIDEOS] openCompose not available');}};}}catch(e){console.warn('[VIDEOS] Failed to bind openCompose fallback',e);}var attempts=0;function ensureChatReady(){if(App._videosChatBootstrapped){return;}if(!App.pool||!Array.isArray(App.relayUrls)||!App.relayUrls.length){if(attempts++<25){setTimeout(ensureChatReady,400);return;}}if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();App._videosChatBootstrapped=true;}if(typeof App.bootstrapChatConversation==='function'){App.bootstrapChatConversation();}}ensureChatReady();var triviaButton=document.getElementById('videosTriviaLauncher');if(triviaButton){triviaButton.addEventListener('click',function(){if(typeof window.NostrApp?.openTriviaGame==='function'){window.NostrApp.openTriviaGame();}else{console.warn('[VIDEOS] Trivia game not ready');}});}var doomButton=document.getElementById('videosDoomLauncher');if(doomButton){doomButton.addEventListener('click',function(){console.log('[VIDEOS] Doom Multiplayer button clicked');window.open('./doom-multiplayer.html','doomGame','width=1200,height=800');});}});</script>
+    <script>window.addEventListener('load',function(){var App=window.NostrApp||(window.NostrApp={});try{var cold=window.SosCallColdBoot;if(cold&&typeof cold.detectFromPage==='function'&&cold.detectFromPage()){cold.enable(cold.detectSource?cold.detectSource():'videos-load');}if(cold&&typeof cold.isActive==='function'&&cold.isActive()){try{if(typeof App.publicKey==='string'&&App.publicKey&&typeof App.privateKey==='string'&&App.privateKey){console.log('CALL_REQUIRED_IDENTITY_BOOTSTRAP ok=1 deferred=0');}else{console.log('CALL_REQUIRED_IDENTITY_BOOTSTRAP pending=1 deferred=0');}}catch(e){}if(typeof cold.defer==='function'){cold.defer('notifications-restore',function(){try{if(typeof App.publicKey==='string'&&App.publicKey&&!App.notificationsRestored&&typeof App.restoreNotificationsFromStorage==='function'){App.restoreNotificationsFromStorage();App.notificationsRestored=true;}if(typeof App.setupNotificationUI==='function'){App.setupNotificationUI();}}catch(e){console.error('[VIDEOS] deferred notification setup error:',e);}});cold.defer('full-chat-history-bootstrap',function(){try{if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();App._videosChatBootstrapped=true;}if(typeof App.bootstrapChatConversation==='function'){App.bootstrapChatConversation();}}catch(e){}});}return;}}catch(e){}console.log('[VIDEOS] Page loaded, initializing notifications');setTimeout(function(){console.log('[VIDEOS] Initializing notifications system');try{App=window.NostrApp||(window.NostrApp={});if(typeof App.publicKey==='string'&&App.publicKey&&!App.notificationsRestored){console.log('[VIDEOS] Restoring notifications from localStorage for pubkey:',App.publicKey.slice(0,8));if(typeof App.restoreNotificationsFromStorage==='function'){App.restoreNotificationsFromStorage();App.notificationsRestored=true;console.log('[VIDEOS] Notifications restored, count:',App.notifications&&App.notifications.length||0);}else{console.warn('[VIDEOS] restoreNotificationsFromStorage not available');}}else{console.log('[VIDEOS] Skip restore - publicKey:',!!App.publicKey,'notificationsRestored:',!!App.notificationsRestored);}if(typeof App.setupNotificationUI==='function'){console.log('[VIDEOS] Calling setupNotificationUI');App.setupNotificationUI();console.log('[VIDEOS] setupNotificationUI completed');}else{console.warn('[VIDEOS] setupNotificationUI not available');}}catch(e){console.error('[VIDEOS] Notification setup error:',e);}},300);try{if(typeof window.openCompose!=='function'){window.openCompose=function(){var innerApp=window.NostrApp||{};if(typeof innerApp.openCompose==='function'){innerApp.openCompose();}else{console.warn('[VIDEOS] openCompose not available');}};}}catch(e){console.warn('[VIDEOS] Failed to bind openCompose fallback',e);}var attempts=0;function ensureChatReady(){if(App._videosChatBootstrapped){return;}if(!App.pool||!Array.isArray(App.relayUrls)||!App.relayUrls.length){if(attempts++<25){setTimeout(ensureChatReady,400);return;}}if(typeof App.bootstrapChatContacts==='function'){App.bootstrapChatContacts();App._videosChatBootstrapped=true;}if(typeof App.bootstrapChatConversation==='function'){App.bootstrapChatConversation();}}ensureChatReady();var triviaButton=document.getElementById('videosTriviaLauncher');if(triviaButton){triviaButton.addEventListener('click',function(){if(typeof window.NostrApp?.openTriviaGame==='function'){window.NostrApp.openTriviaGame();}else{console.warn('[VIDEOS] Trivia game not ready');}});}var doomButton=document.getElementById('videosDoomLauncher');if(doomButton){doomButton.addEventListener('click',function(){console.log('[VIDEOS] Doom Multiplayer button clicked');window.open('./doom-multiplayer.html','doomGame','width=1200,height=800');});}});</script>
       <script type="module" src="./loadnug/loadnug-controller.js?v=20260822a"></script>
 </body>
 </html>

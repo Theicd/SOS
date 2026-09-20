@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v871'; // cold-answer Web compatibility; APK 1.0.123 still supported
+  const CACHE_NAME = 'sos-cache-v872'; // Stage 5D R2 cold-answer latency; APK 1.0.124 Web compatible
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -14,6 +14,7 @@
     './chat-e2ee.js',
     './chat-secure-epoch.js',
     './call-signal-e2ee.js',
+    './call-cold-boot.js',
     './chat-service.js',
     './media-file-e2ee.js',
     './media-server-e2ee.js',

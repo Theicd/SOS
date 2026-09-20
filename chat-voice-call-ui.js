@@ -308,12 +308,11 @@
     try {
       if (typeof App.nativeRequestMediaPermissions === 'function') {
         App.nativeRequestMediaPermissions(false);
-      }
-    } catch (_) {}
-    try {
-      const bridge = window.SosNativeShell;
-      if (bridge && typeof bridge.requestMediaPermissions === 'function') {
-        bridge.requestMediaPermissions(false);
+      } else {
+        const bridge = window.SosNativeShell;
+        if (bridge && typeof bridge.requestMediaPermissions === 'function') {
+          bridge.requestMediaPermissions(false);
+        }
       }
     } catch (_) {}
     // קצר מאוד – הרשאות אמורות להיות מוכנות מחימום בזמן צלצול | HYPER CORE TECH

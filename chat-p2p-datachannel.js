@@ -836,11 +836,33 @@
   function status(p){ const s=getPS(p.toLowerCase()); return s?s.status:'idle'; }
 
   let initDone=false;
-  function init(){ if(initDone||App.guestMode||!App.publicKey) return; initDone=true; if(App.pool) subscribe(); startKeep(); hookMeshReceiver(); notifyWebViewP2pReady(); console.log('[DC] ✅ initialized'); }
+  function init(){
+    if(initDone||App.guestMode||!App.publicKey) return;
+    try {
+      const cold = window.SosCallColdBoot;
+      if (cold && typeof cold.markEntry === 'function' && !cold.markEntry('p2p-dc')) return;
+    } catch (_) {}
+    initDone=true;
+    if(App.pool) subscribe();
+    startKeep();
+    hookMeshReceiver();
+    notifyWebViewP2pReady();
+    console.log('[DC] ✅ initialized');
+  }
 
   let lazyDone=false;
   function lazyInit(){
-    if(lazyDone) return; lazyDone=true;
+    if(lazyDone) return;
+    try {
+      const cold = window.SosCallColdBoot;
+      if (cold && typeof cold.shouldDefer === 'function' && cold.shouldDefer('p2p-dc')) {
+        if (typeof cold.defer === 'function') {
+          cold.defer('p2p-dc', () => { lazyDone=false; lazyInit(); });
+        }
+        return;
+      }
+    } catch (_) {}
+    lazyDone=true;
     if(App.publicKey&&!App.guestMode){ init(); }
     else { const c=setInterval(()=>{ if(App.publicKey&&!App.guestMode){clearInterval(c);init();} },2000); }
   }

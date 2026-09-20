@@ -929,7 +929,14 @@
       if (typeof App.initVideoCall === 'function') App.initVideoCall({ lookbackSec: 90 });
     } catch (_) {}
     try {
-      if (typeof App.nativeRequestMediaPermissions === 'function') App.nativeRequestMediaPermissions(true);
+      if (typeof App.nativeRequestMediaPermissions === 'function') {
+        App.nativeRequestMediaPermissions(true);
+      } else {
+        const bridge = window.SosNativeShell;
+        if (bridge && typeof bridge.requestMediaPermissions === 'function') {
+          bridge.requestMediaPermissions(true);
+        }
+      }
     } catch (_) {}
 
     window.__sosAcceptInFlight = true;

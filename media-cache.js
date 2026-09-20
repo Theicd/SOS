@@ -496,6 +496,17 @@
 
   async function init() {
     try {
+      const cold = window.SosCallColdBoot;
+      if (cold && typeof cold.shouldDefer === 'function' && cold.shouldDefer('media-cache-scan')) {
+        try { mediaCacheReadyResolve(); } catch (_) {}
+        if (typeof cold.defer === 'function') {
+          cold.defer('media-cache-scan', () => { init(); });
+        }
+        return;
+      }
+      if (cold && typeof cold.markEntry === 'function' && !cold.markEntry('media-cache-scan')) {
+        return;
+      }
       const database = await openDB();
       if (!database) {
         console.warn('Media cache unavailable on init — will retry on demand', {

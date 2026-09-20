@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.20-call-coldanswer1",
-  "buildTime": "2026-09-20T18:34:35+03:00",
-  "notes": "Backward-compatible Web half of locked-screen Native Answer handoff. Existing APK 1.0.123 remains supported. New Native adoption APIs will be used by APK 1.0.124 when available.",
+  "version": "2026.09.21-call-coldlatency1",
+  "buildTime": "2026-09-21T00:22:11+03:00",
+  "notes": "Stage 5D R2 cold-answer latency optimization. Early call-cold boot priority defers nonessential feed/WebTorrent/media-cache/P2P startup while preserving immediate identity, NIP-44/NIP-59, CallSignalE2ee and WebRTC call core. Compatible with public APK 1.0.124.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,

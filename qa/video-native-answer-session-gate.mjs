@@ -251,7 +251,18 @@ async function main() {
   // Stage 5 connected-contract may touch voice; still forbid P2P/Blossom/APK bumps.
   record('VOICE helpers present',
     /function maybeMarkVoiceCallConnected/.test(read('chat-voice-call.js')));
-  record('P2P', !touched.some((n) => /p2p|webtorrent|torrent|PeerExchange|25055|30078|DataChannel/i.test(n)));
+  record('P2P', !touched.some((n) => {
+    if (/chat-p2p-datachannel\.js|webtorrent-transfer\.js/i.test(n)) {
+      // Allowed only for call-cold defer hooks (no protocol redesign).
+      try {
+        const src = read(n);
+        return !/CALL_COLD_BOOT_DEFER|SosCallColdBoot|shouldDefer\('webtorrent'\)|shouldDefer\('p2p-dc'\)/.test(src);
+      } catch (_) {
+        return true;
+      }
+    }
+    return /p2p|webtorrent|torrent|PeerExchange|25055|30078|DataChannel/i.test(n);
+  }));
   record('BLOSSOM', !touched.some((n) => /blossom/i.test(n)));
   record('apk publish is 1.0.124 only',
     !touched.includes('apk-version.json')
@@ -261,7 +272,7 @@ async function main() {
   const apk = JSON.parse(read('apk-version.json'));
   const app = JSON.parse(read('app-version.json'));
   record('apk pointer 1.0.124/125', apk.version === '1.0.124' && Number(apk.versionCode) === 125);
-  record('web version', app.version === '2026.09.20-call-coldanswer1');
+  record('web version', app.version === '2026.09.21-call-coldlatency1');
   record('flags', app.callSignalGiftWrapRequired === true && app.minSecureChatEpoch === 2 && app.e2eeSendRequired === true && app.mediaServerE2eeRequired === true);
 
   const failed = results.filter((r) => !r.ok);

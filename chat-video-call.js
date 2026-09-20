@@ -140,8 +140,13 @@
 
   // חלק שיחות וידאו – קבלת סטרים מקומי (אודיו+וידאו)
   async function getLocalStream(videoConstraints) {
+    const gumT0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const gumMs = () => Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - gumT0);
+    try { console.log('CALL_ACCEPT_GUM_START'); } catch (_) {}
     if (typeof App.ensureNativeMediaPermissions === 'function') {
+      try { console.log('CALL_ACCEPT_GUM_PERM_START'); } catch (_) {}
       const ok = await App.ensureNativeMediaPermissions(true);
+      try { console.log('CALL_ACCEPT_GUM_PERM_OK ms=' + gumMs()); } catch (_) {}
       if (!ok) {
         throw new Error('לא ניתן לגשת למצלמה/מיקרופון. אנא אשר הרשאות באפליקציה.');
       }
@@ -150,14 +155,18 @@
       audio: true,
       video: buildVideoConstraints(videoConstraints)
     };
+    try { console.log('CALL_ACCEPT_GUM_GET_START'); } catch (_) {}
     state.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    try { console.log('CALL_ACCEPT_GUM_GET_OK ms=' + gumMs()); } catch (_) {}
     // חלק שיחות וידאו (chat-video-call.js) – שמירת deviceId/facingMode בפועל כדי לשפר החלפת מצלמה במובייל | HYPER CORE TECH
     try {
       const vt = state.localStream.getVideoTracks()[0];
       const st = vt && typeof vt.getSettings === 'function' ? vt.getSettings() : null;
       if (st && st.deviceId) state.videoDeviceId = st.deviceId;
       if (st && st.facingMode) state.facingMode = st.facingMode;
+      if (vt) console.log('CALL_ACCEPT_GUM_TRACK_READY ms=' + gumMs());
     } catch {}
+    try { console.log('CALL_ACCEPT_GUM_OK ms=' + gumMs()); } catch (_) {}
     return state.localStream;
   }
 
@@ -260,6 +269,13 @@
     const role = state.isIncoming ? 'callee' : 'caller';
     try {
       console.log('CALL_CONNECTED session=' + (sid ? sid.slice(0, 8) : 'none') + ' role=' + role);
+    } catch (_) {}
+    try {
+      if (window.SosCallColdBoot && typeof window.SosCallColdBoot.release === 'function') {
+        window.SosCallColdBoot.release('connected');
+      } else if (typeof App.releaseCallColdBoot === 'function') {
+        App.releaseCallColdBoot('connected');
+      }
     } catch (_) {}
     if (typeof App.onVideoCallConnected === 'function') {
       try { App.onVideoCallConnected(peer); } catch (_) {}
@@ -671,6 +687,11 @@
     if (term) term.ended = true;
     console.log('CALL_ENDING reason=' + endReason(options));
     console.log('CALL_END_ONCE');
+    try {
+      if (window.SosCallColdBoot && typeof window.SosCallColdBoot.release === 'function') {
+        window.SosCallColdBoot.release(options && options.failed ? 'failed' : 'ended');
+      }
+    } catch (_) {}
     try {
       if (typeof App.stopOutgoingAnswerDrainWatchdog === 'function') {
         App.stopOutgoingAnswerDrainWatchdog('call-end');
