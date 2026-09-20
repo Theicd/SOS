@@ -369,6 +369,13 @@ class MainActivity : AppCompatActivity() {
                 webView.resumeTimers()
             } catch (_: Exception) {
             }
+            try {
+                webView.evaluateJavascript(
+                    "window.dispatchEvent(new Event('sos-native-pause'));",
+                    null
+                )
+            } catch (_: Exception) {
+            }
         }
         startKeepAliveService()
         if (openedFromCallIntent ||

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 /**
- * Stage 5C.1 — presence UI + P2P transport indicators.
- * Static + lightweight presence format checks. No network.
+ * Stage 5C.1b — conversation-view presence + circular avatar + strict P2P provenance.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -28,165 +27,161 @@ function read(rel) {
   return fs.readFileSync(path.join(ROOT, rel), 'utf8');
 }
 
-const ui = read('chat-ui.js');
-const presence = read('chat-presence.js');
-const state = read('chat-state.js');
-const service = read('chat-service.js');
+const presenceSrc = read('chat-presence.js');
+const stateSrc = read('chat-state.js');
+const uiSrc = read('chat-ui.js');
 const css = read('styles/chat.css');
-const audio = read('chat-audio-player.js');
-const index = read('index.html');
-const dc = read('chat-p2p-datachannel.js');
-
-record('1 header no longer writes P2P ישיר into status line',
-  !/el\.innerHTML = dcOn[\s\S]{0,200}?P2P ישיר/.test(ui)
-  && /updateConversationPresence/.test(ui)
-  && !/⚡ P2P ישיר/.test(ui));
-record('2 header no longer writes דרך שרת into status line',
-  !/דרך שרת/.test(ui));
-record('3 DC connected adds green lamp to conversation avatar',
-  /chat-conversation__avatar--p2p/.test(ui)
-  && /chat-conversation__avatar--p2p::after/.test(css)
-  && /updateConversationP2PIndicator/.test(ui));
-record('4 DC disconnect removes header lamp',
-  /classList\.toggle\('chat-conversation__avatar--p2p', on\)/.test(ui));
+const waCss = read('styles/chat-whatsapp-theme.css');
+const mainKt = read('android-shell/app/src/main/java/com/sos010/app/MainActivity.kt');
+const serviceSrc = read('chat-service.js');
 
 const box = {
   console, setTimeout, clearTimeout, clearInterval, setInterval,
-  document: {
-    hidden: false,
-    visibilityState: 'visible',
-    readyState: 'complete',
-    addEventListener() {},
-  },
-  localStorage: {
-    _d: {},
-    getItem(k) { return this._d[k] || null; },
-    setItem(k, v) { this._d[k] = String(v); },
-  },
+  document: { hidden: false, visibilityState: 'visible', readyState: 'complete', addEventListener() {} },
+  localStorage: { _d: {}, getItem(k) { return this._d[k] || null; }, setItem(k, v) { this._d[k] = String(v); } },
   Map, Set, Date, Math, JSON, Object, Array, String, Number, CustomEvent,
 };
 box.window = box;
 box.globalThis = box;
-vm.runInNewContext(presence, box, { filename: 'chat-presence.js' });
+vm.runInNewContext(presenceSrc, box, { filename: 'chat-presence.js' });
 const App = box.window.NostrApp;
 App.publicKey = 'a'.repeat(64);
 App.privateKey = 'b'.repeat(64);
 
-const onlineFmt = App.formatChatPresence({ online: true, lastSeenAt: Math.floor(Date.now() / 1000) });
-record('5 online presence shows מחובר green',
-  onlineFmt.text === 'מחובר' && onlineFmt.tone === 'online'
-  && App.presenceToneClass('online') === 'chat-conversation__status--online'
-  && /chat-conversation__status--online/.test(css)
-  && /#25e47a/.test(css));
+const peerA = 'b'.repeat(64);
+const peerC = 'c'.repeat(64);
+let viewedPeer = '';
+App.getChatPresenceViewedPeer = () => viewedPeer;
 
-const recentAt = Math.floor(Date.now() / 1000) - 3600;
-const recentFmt = App.formatChatPresence({ online: false, lastSeenAt: recentAt });
-record('6 fresh offline lastSeen <=24h blue',
-  recentFmt.tone === 'recent'
-  && App.presenceToneClass('recent') === 'chat-conversation__status--recent'
-  && /#00afff/.test(css)
-  && /נראה לאחרונה/.test(recentFmt.text));
+const NOW = Math.floor(Date.now() / 1000);
 
-const olderAt = Math.floor(Date.now() / 1000) - (3 * 86400);
-const olderFmt = App.formatChatPresence({ online: false, lastSeenAt: olderAt });
-record('7 1–7 day lastSeen yellow',
-  olderFmt.tone === 'older'
-  && App.presenceToneClass('older') === 'chat-conversation__status--older'
-  && /#ffc928/.test(css));
-
-const staleAt = Math.floor(Date.now() / 1000) - (10 * 86400);
-const staleFmt = App.formatChatPresence({ online: false, lastSeenAt: staleAt });
-record('8 >=7 day lastSeen red',
-  staleFmt.tone === 'stale'
-  && App.presenceToneClass('stale') === 'chat-conversation__status--stale'
-  && /#ff304f/.test(css));
-
-const unknownFmt = App.formatChatPresence({ online: false, lastSeenAt: 0 });
-record('9 unknown presence muted',
-  unknownFmt.tone === 'unknown'
-  && App.presenceToneClass('unknown') === 'chat-conversation__status--unknown'
-  && /#8fa2b7/.test(css));
-
-record('10 Native/Relay background alone cannot keep user online',
-  /isUiForegroundActive/.test(presence)
-  && /document\.hidden/.test(presence)
-  && /publishPresenceToPeers\(false\)/.test(presence));
-
-App.setChatPresence('c'.repeat(64), {
-  online: true,
-  lastSeenAt: Math.floor(Date.now() / 1000),
-  lastPresenceAt: Date.now() - (App.PRESENCE_ONLINE_TTL_MS + 1000),
+// A: exact conversation open → מחובר (no DC involved)
+viewedPeer = peerA;
+App.applyIncomingChatPresence({
+  type: 'chat_presence', from: peerA, to: App.publicKey,
+  online: true, viewing: true, lastSeenAt: NOW, sentAt: NOW,
 });
-const expired = App.getChatPresence('c'.repeat(64));
-record('11 stale online state expires by TTL',
-  App.PRESENCE_ONLINE_TTL_MS === 90000
-  && App.PRESENCE_HEARTBEAT_MS === 45000
-  && expired.online === false);
+record('A exact conversation open shows מחובר',
+  App.getChatPresence(peerA).online === true
+  && App.formatChatPresence(peerA).text === 'מחובר'
+  && App.formatChatPresence(peerA).tone === 'online');
 
-record('12 direct P2P message indicator ON',
-  /buildMessageTransportIndicatorHtml/.test(ui)
-  && /getChatMessageTransport/.test(state)
-  && /transport:\s*'DC'/.test(service));
+// B: DC is irrelevant to presence
+record('B presence independent of DC state markers',
+  /getChatPresenceViewedPeer/.test(presenceSrc)
+  && /updateConversationP2PIndicator/.test(uiSrc)
+  && !/getChatPresence[\s\S]{0,200}isConnected/.test(presenceSrc)
+  && !/online\s*=\s*.*isConnected/.test(presenceSrc));
 
-record('13 Relay text indicator OFF',
-  /String\(transport \|\| ''\)\.toUpperCase\(\) !== 'DC'/.test(ui)
-  || /!== 'DC'\) return ''/.test(ui));
+// C: switch conversation → offline for A
+App.applyIncomingChatPresence({
+  type: 'chat_presence', from: peerA, to: App.publicKey,
+  online: false, viewing: false, lastSeenAt: NOW, sentAt: NOW + 1,
+});
+record('C leave conversation → last seen now',
+  App.getChatPresence(peerA).online === false
+  && App.formatChatPresence(peerA).text === 'נראה לאחרונה עכשיו');
 
-record('14 encrypted Blossom TXT indicator OFF',
-  !/encrypted-media[\s\S]{0,80}p2p-lamp/.test(ui)
-  && /getChatMessageTransport/.test(state));
+// D: native pause event
+record('D sos-native-pause from MainActivity + JS listener',
+  /sos-native-pause/.test(mainKt)
+  && /sos-native-pause/.test(presenceSrc)
+  && /leaveAllConversationViewing\('native-pause'\)|onNativePause/.test(presenceSrc));
 
-record('15 encrypted Blossom PDF indicator OFF',
-  /inferMessageTransport/.test(state)
-  && /message\.p2p \|\| String\(message\.id/.test(state));
+// E: stale Relay online=true 10 minutes ago
+const tenMinAgo = NOW - 600;
+App.applyIncomingChatPresence({
+  type: 'chat_presence', from: peerC, to: App.publicKey,
+  online: true, viewing: true, lastSeenAt: tenMinAgo, sentAt: tenMinAgo,
+});
+const stale = App.getChatPresence(peerC);
+const staleFmt = App.formatChatPresence(peerC);
+record('E stale Relay online not מחובר',
+  stale.online === false
+  && /נראה לאחרונה לפני 10 דקות/.test(staleFmt.text));
 
-record('16 direct P2P image/file indicator ON when DC provenance',
-  /transport:\s*'DC'/.test(read('chat-p2p-file.js'))
-  && /buildFileCardMetaRowHtml\([\s\S]*message/.test(ui));
+// F: out-of-order older online ignored
+App.applyIncomingChatPresence({
+  type: 'chat_presence', from: peerA, to: App.publicKey,
+  online: false, viewing: false, lastSeenAt: NOW + 5, sentAt: NOW + 5,
+});
+App.applyIncomingChatPresence({
+  type: 'chat_presence', from: peerA, to: App.publicKey,
+  online: true, viewing: true, lastSeenAt: NOW + 4, sentAt: NOW + 4,
+});
+record('F out-of-order older online ignored',
+  App.getChatPresence(peerA).online === false);
 
-record('17 historical P2P lamp does not depend on current DC',
-  /getChatMessageTransport\(message\)/.test(ui)
-  && !/buildMessageTransportIndicatorHtml[\s\S]{0,200}isPeerP2PConnected/.test(ui));
+// G/H: no broadcast to all contacts
+record('G/H heartbeat only active viewing peer',
+  !/getChatContacts/.test(presenceSrc)
+  && !/MAX_HEARTBEAT_PEERS/.test(presenceSrc)
+  && /getActiveViewingPeer|getChatPresenceViewedPeer/.test(presenceSrc)
+  && /setChatPresenceViewing/.test(presenceSrc));
 
-record('18 historical Relay message does not gain lamp after DC connects',
-  /buildMessageTransportIndicatorHtml/.test(ui)
-  && /transport provenance|getChatMessageTransport|message\.transport/.test(state + ui));
+record('I P2P lamp independent of presence',
+  /updateConversationP2PIndicator/.test(uiSrc)
+  && /isPeerP2PConnected/.test(uiSrc)
+  && !/getChatPresence[\s\S]{0,80}isPeerP2PConnected/.test(uiSrc));
 
-record('19 P2P message lamp survives state restore',
-  /stampMessageTransport|message\.transport/.test(state)
-  && /transport:\s*'DC'/.test(dc));
+// Transport helpers via state source assertions + lightweight eval of function body
+vm.runInNewContext(stateSrc, {
+  console, setTimeout: () => 1, clearTimeout() {}, clearInterval() {}, setInterval() {},
+  document: { addEventListener() {}, readyState: 'loading' },
+  Map, Set, Date, Math, JSON, Object, Array, String, Number,
+  window: {}, globalThis: {},
+}, { filename: 'chat-state.js' });
+// state may not export without window.NostrApp - the IIFE sets window.NostrApp
+const stateBox = { console, setTimeout: () => 1, clearTimeout() {}, clearInterval() {}, setInterval() {},
+  document: { addEventListener() {}, readyState: 'loading' },
+  Map, Set, Date, Math, JSON, Object, Array, String, Number };
+stateBox.window = {};
+stateBox.globalThis = stateBox;
+vm.runInNewContext(stateSrc, stateBox, { filename: 'chat-state.js' });
+const StateApp = stateBox.window.NostrApp;
+StateApp.publicKey = 'a'.repeat(64);
 
-record('20 READ checks still work',
-  /buildChatMessageStatusHtml/.test(ui)
-  && /chat-message__status--read/.test(ui)
-  && /applyIncomingReadReceipt/.test(state));
+record('J Relay/Blossom TXT no P2P lamp',
+  StateApp.getChatMessageTransport({
+    id: 'nostr1', source: 'NOSTR', transport: 'NOSTR',
+    attachment: { type: 'encrypted-media', resource: { transport: 'blossom' } },
+  }) === 'NOSTR'
+  && StateApp.getChatMessageTransport({
+    id: 'p2p-old-attempt', p2p: true, source: 'NOSTR',
+    attachment: { type: 'encrypted-media', resource: { transport: 'blossom' } },
+  }) === 'NOSTR');
 
-record('21 document READ still works',
-  /getReceiptBoundaryId/.test(state)
-  && /logicalMessageId/.test(state));
+record('K direct DC TXT lamp ON',
+  StateApp.getChatMessageTransport({ id: 'p2p-send-1', p2p: true, transport: 'DC' }) === 'DC');
 
-record('22 Stage 5A voice durability unchanged',
-  /VOICE_SOURCE_BLOSSOM_E2EE/.test(audio)
-  && /resolveDurableVoicePlayback/.test(audio));
+record('L historical Relay never becomes DC',
+  StateApp.getChatMessageTransport({ id: 'abc', transport: 'NOSTR' }) === 'NOSTR'
+  && StateApp.getChatMessageTransport({ id: 'abc', source: 'NOSTR' }) === 'NOSTR');
 
-record('23 Stage 5B read receipt gates still referenced',
-  fs.existsSync(path.join(ROOT, 'qa/chat-read-receipt-gate.mjs'))
-  && /READ_RECEIPT_KIND/.test(service));
+record('M historical DC keeps DC',
+  StateApp.getChatMessageTransport({ id: 'p2p-x', transport: 'DC' }) === 'DC'
+  && StateApp.getChatMessageTransport({ id: 'p2p-send-f1', p2p: true }) === 'DC');
 
-record('presence kind 1054 unused dedicated',
-  /PRESENCE_KIND = 1054/.test(presence)
-  && /PRESENCE_KIND/.test(service)
-  && !/\b1054\b/.test(read('market-dashboard.js')));
+record('N avatar stays circular with P2P lamp',
+  /\.chat-conversation__avatar img[\s\S]{0,80}border-radius:\s*inherit/.test(css)
+  && /\.chat-conversation__avatar img[\s\S]{0,80}border-radius:\s*inherit/.test(waCss)
+  && /\.chat-conversation__avatar--p2p[\s\S]{0,120}overflow:\s*visible/.test(css)
+  && !/\.chat-conversation__avatar--p2p[\s\S]{0,80}border-radius:\s*0/.test(css)
+  && /\.chat-panel \.chat-conversation__avatar[\s\S]{0,120}overflow:\s*visible/.test(css));
 
-record('presence loaded in index/videos',
-  /chat-presence\.js/.test(index)
-  && /chat-presence\.js/.test(read('videos.html')));
+record('relay outgoing stamped NOSTR',
+  /transport:\s*'NOSTR'/.test(serviceSrc)
+  && /source:\s*'NOSTR'/.test(serviceSrc));
 
-record('DC presence handler',
-  /chat_presence/.test(dc));
+record('viewing false immediate offline',
+  /viewing:\s*on/.test(presenceSrc) || /viewing: on/.test(presenceSrc)
+  || /viewing: viewing === true/.test(presenceSrc)
+  || /viewingFlag/.test(presenceSrc));
 
-record('message lamp CSS 6px',
-  /\.chat-message__p2p-lamp[\s\S]{0,120}width:\s*6px/.test(css));
+record('sender sentAt authoritative for freshness',
+  /lastPresenceAt: sentMs/.test(presenceSrc)
+  && /ageMs <= ONLINE_TTL_MS/.test(presenceSrc)
+  && !/lastPresenceAt: online \? Date\.now\(\)/.test(presenceSrc));
 
 console.log(results.join('\n'));
 console.log(

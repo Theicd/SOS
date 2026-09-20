@@ -6548,6 +6548,7 @@
     if (elements.conversationStatus) {
       updateConversationDCStatus(peerPubkey);
     }
+    syncLocalPresenceViewing(peerPubkey);
     // ספינר כרמז ברקע בלבד — טקסט/מערכת מוצגים מיד; מדיה ממשיכה להופיע כשמוכנה | HYPER CORE TECH
     setConversationHistoryLoading(true, 'טוען...');
     const peerForRender = peerPubkey;
@@ -6672,8 +6673,27 @@
   App.getActiveChatPeer = function getActiveChatPeer() {
     return state.activeContact || null;
   };
+  App.getChatPresenceViewedPeer = function getChatPresenceViewedPeer() {
+    if (!state.activeContact) return '';
+    if (!elements.panel || elements.panel.hasAttribute('hidden')) return '';
+    if (!elements.panel.classList.contains('chat-panel--conversation')) return '';
+    try {
+      if (doc.hidden || doc.visibilityState === 'hidden') return '';
+    } catch (_) {}
+    if (elements.conversationHeader && elements.conversationHeader.hasAttribute('hidden')) return '';
+    return String(state.activeContact).toLowerCase();
+  };
   App.updateConversationPresence = updateConversationPresence;
   App.updateConversationP2PIndicator = updateConversationP2PIndicator;
+
+  function syncLocalPresenceViewing(peerPubkey) {
+    try {
+      if (typeof App.setChatPresenceViewing !== 'function') return;
+      if (peerPubkey) App.setChatPresenceViewing(peerPubkey, true);
+      else if (typeof App.leaveChatPresenceViewing === 'function') App.leaveChatPresenceViewing('ui-leave');
+      else App.setChatPresenceViewing('', false);
+    } catch (_) {}
+  }
 
   // חלק P2P ברשימה (chat-ui.js) – מסגרת ירוקה סביב אווטאר כשיש DataChannel פעיל | HYPER CORE TECH
   let _contactsP2PTimer = null;
@@ -6713,6 +6733,7 @@
         console.log('[CHAT/PERSIST] CLOSE_THREAD peer=' + String(prevPeer).slice(0, 8) + ' messageCount=' + count);
         if (typeof App.flushChatPersist === 'function') App.flushChatPersist();
       } catch (_) {}
+      syncLocalPresenceViewing(null);
     }
     state.activeContact = null;
     try { setConversationHistoryLoading(false); } catch (_) {}

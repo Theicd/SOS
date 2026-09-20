@@ -1116,7 +1116,8 @@ body.chat-overlay-open::before {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  overflow: hidden;
+  /* Lamp may render outside; image clips itself via border-radius */
+  overflow: visible;
   border: 1px solid var(--border);
   position: relative;
 }
@@ -1125,9 +1126,11 @@ body.chat-overlay-open::before {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: inherit;
+  display: block;
 }
 
-/* מנורת P2P על אווטאר כותרת השיחה — אותו סגנון כמו ברשימת אנשי קשר */
+/* מנורת P2P על אווטאר כותרת — בלי לשנות צורת האווטאר/תמונה */
 .chat-conversation__avatar--p2p {
   overflow: visible;
   border-color: var(--border);
@@ -2468,8 +2471,17 @@ body.chat-media-modal-open {
     height: 40px;
     border-radius: 50%;
     background-color: #667781;
-    overflow: hidden;
+    overflow: visible;
     border: none;
+    position: relative;
+  }
+
+  .chat-panel .chat-conversation__avatar img {
+    border-radius: inherit;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
 
   .chat-panel .chat-conversation__meta {

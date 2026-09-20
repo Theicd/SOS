@@ -325,13 +325,31 @@
   function inferMessageTransport(message) {
     if (!message) return 'LOCAL';
     const explicit = String(message.transport || '').toUpperCase();
-    if (explicit === 'DC' || explicit === 'MESH' || explicit === 'NOSTR' || explicit === 'LOCAL') {
-      return explicit;
-    }
-    if (message.p2p || String(message.id || '').startsWith('p2p-')) return 'DC';
-    if (message.emergency || String(message.id || '').startsWith('em-')) return 'MESH';
-    if (String(message.id || '').startsWith('temp-')) return 'LOCAL';
-    if (message.source) return String(message.source).toUpperCase();
+    const source = String(message.source || '').toUpperCase();
+    const id = String(message.id || '');
+    const att = message.attachment && typeof message.attachment === 'object' ? message.attachment : null;
+    const blossomRelay = !!(
+      att
+      && att.type === 'encrypted-media'
+      && att.resource
+      && String(att.resource.transport || '').toLowerCase() === 'blossom'
+    );
+
+    // Strong persisted authorities first — never let legacy p2p flags override Relay/Blossom.
+    if (explicit === 'NOSTR' || explicit === 'MESH' || explicit === 'LOCAL') return explicit;
+    if (source === 'NOSTR') return 'NOSTR';
+    if (blossomRelay && explicit !== 'DC') return 'NOSTR';
+
+    if (explicit === 'DC') return 'DC';
+    if (source === 'DC' || source === 'P2P') return 'DC';
+
+    // Ambiguous historical: prefer no false P2P lamp.
+    if (blossomRelay) return 'NOSTR';
+    if (message.emergency || id.startsWith('em-')) return 'MESH';
+    if (id.startsWith('temp-')) return 'LOCAL';
+    if (message.p2p === true && id.startsWith('p2p-') && !blossomRelay) return 'DC';
+    if (id.startsWith('p2p-') && !blossomRelay && !source) return 'DC';
+    if (source) return source;
     return 'NOSTR';
   }
 
@@ -343,7 +361,7 @@
     if (!message || typeof message !== 'object') return message;
     if (!message.transport) {
       const t = inferMessageTransport(message);
-      if (t === 'DC' || t === 'MESH') message.transport = t;
+      if (t === 'DC' || t === 'MESH' || t === 'NOSTR') message.transport = t;
     }
     return message;
   }

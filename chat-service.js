@@ -743,6 +743,8 @@
       // חלק סטטוס הודעות (chat-service.js) – סטטוס שליחה: sending -> sent | HYPER CORE TECH
       status: 'sending',
       e2ee: e2eeSendRequired === true,
+      source: 'NOSTR',
+      transport: 'NOSTR',
     };
     if (relayLogicalMessageId) {
       outgoingMessage.logicalMessageId = relayLogicalMessageId;
@@ -1383,6 +1385,8 @@
       attachment: parsedPayload.attachment || null,
       createdAt: eventTs,
       direction: isSelfMessage ? 'outgoing' : 'incoming',
+      source: 'NOSTR',
+      transport: 'NOSTR',
     };
     if (logicalMessageId) {
       normalizedMessage.logicalMessageId = logicalMessageId;

@@ -1,6 +1,8 @@
 /**
- * Stage 5C.1 — private chat presence (ONLINE / LAST SEEN).
- * Peer-scoped, authenticated, E2EE on Relay. Not P2P transport state.
+ * Stage 5C.1b — conversation-view presence (ONLINE / LAST SEEN).
+ * Peer-scoped, authenticated, E2EE on Relay.
+ * "מחובר" = peer has THIS exact conversation open in foreground UI.
+ * Independent from DataChannel / P2P lamp.
  */
 (function initChatPresence(window) {
   const App = window.NostrApp || (window.NostrApp = {});
@@ -9,15 +11,17 @@
   const PRESENCE_TYPE = 'chat_presence';
   const HEARTBEAT_MS = 45000;
   const ONLINE_TTL_MS = 90000;
+  const CLOCK_SKEW_MS = 120000;
   const DAY_MS = 86400000;
   const WEEK_MS = 7 * DAY_MS;
-  const MAX_HEARTBEAT_PEERS = 40;
 
-  /** peer -> { online, lastSeenAt (sec), lastPresenceAt (ms) } */
+  /** peer -> { online, viewing, lastSeenAt (sec), lastPresenceAt (ms sender), lastPresenceSentAt (sec) } */
   const presenceByPeer = new Map();
   let heartbeatTimer = null;
   let started = false;
   let listeners = [];
+  /** Local peer we currently claim to be viewing */
+  let localViewingPeer = '';
 
   function nowSec() {
     return Math.floor(Date.now() / 1000);
@@ -41,29 +45,54 @@
     return true;
   }
 
+  /** Exact open conversation peer, only when chat conversation UI is actively viewed. */
+  function getActiveViewingPeer() {
+    if (!isUiForegroundActive()) return '';
+    try {
+      if (typeof App.getChatPresenceViewedPeer === 'function') {
+        return normalizePeer(App.getChatPresenceViewedPeer());
+      }
+    } catch (_) {}
+    return '';
+  }
+
   function getPresence(peerPubkey) {
     const peer = normalizePeer(peerPubkey);
-    if (!peer) return { peer: '', online: false, lastSeenAt: 0, lastPresenceAt: 0 };
+    if (!peer) {
+      return { peer: '', online: false, viewing: false, lastSeenAt: 0, lastPresenceAt: 0, lastPresenceSentAt: 0 };
+    }
     const row = presenceByPeer.get(peer);
-    if (!row) return { peer, online: false, lastSeenAt: 0, lastPresenceAt: 0 };
+    if (!row) {
+      return { peer, online: false, viewing: false, lastSeenAt: 0, lastPresenceAt: 0, lastPresenceSentAt: 0 };
+    }
     const fresh = row.lastPresenceAt > 0 && (Date.now() - row.lastPresenceAt) <= ONLINE_TTL_MS;
-    const online = !!(row.online && fresh);
+    const online = !!(row.online && row.viewing && fresh);
     return {
       peer,
       online,
+      viewing: online,
       lastSeenAt: Number(row.lastSeenAt) || 0,
       lastPresenceAt: Number(row.lastPresenceAt) || 0,
+      lastPresenceSentAt: Number(row.lastPresenceSentAt) || 0,
     };
   }
 
   function setPresence(peerPubkey, patch) {
     const peer = normalizePeer(peerPubkey);
     if (!peer) return null;
-    const prev = presenceByPeer.get(peer) || { online: false, lastSeenAt: 0, lastPresenceAt: 0 };
+    const prev = presenceByPeer.get(peer) || {
+      online: false,
+      viewing: false,
+      lastSeenAt: 0,
+      lastPresenceAt: 0,
+      lastPresenceSentAt: 0,
+    };
     const next = {
       online: patch.online != null ? !!patch.online : !!prev.online,
+      viewing: patch.viewing != null ? !!patch.viewing : !!prev.viewing,
       lastSeenAt: Number(patch.lastSeenAt != null ? patch.lastSeenAt : prev.lastSeenAt) || 0,
       lastPresenceAt: Number(patch.lastPresenceAt != null ? patch.lastPresenceAt : prev.lastPresenceAt) || 0,
+      lastPresenceSentAt: Number(patch.lastPresenceSentAt != null ? patch.lastPresenceSentAt : prev.lastPresenceSentAt) || 0,
     };
     presenceByPeer.set(peer, next);
     notifyPresence(peer);
@@ -108,9 +137,6 @@
     return d.getTime();
   }
 
-  /**
-   * @returns {{ text: string, tone: 'online'|'recent'|'older'|'stale'|'unknown' }}
-   */
   function formatChatPresence(peerPresence) {
     const row = peerPresence && typeof peerPresence === 'object'
       ? peerPresence
@@ -175,9 +201,10 @@
       presenceByPeer.forEach((row, peer) => {
         out[peer] = {
           lastSeenAt: Number(row.lastSeenAt) || 0,
-          // Never persist online=true — must depend on TTL freshness.
           online: false,
+          viewing: false,
           lastPresenceAt: 0,
+          lastPresenceSentAt: Number(row.lastPresenceSentAt) || 0,
         };
       });
       localStorage.setItem(key, JSON.stringify(out));
@@ -196,45 +223,26 @@
         if (!row) return;
         presenceByPeer.set(normalizePeer(peer), {
           online: false,
+          viewing: false,
           lastSeenAt: Number(row.lastSeenAt) || 0,
           lastPresenceAt: 0,
+          lastPresenceSentAt: Number(row.lastPresenceSentAt) || 0,
         });
       });
     } catch (_) {}
   }
 
-  function listHeartbeatPeers() {
-    const peers = [];
-    const seen = new Set();
-    const push = (pk) => {
-      const p = normalizePeer(pk);
-      if (!p || p.length !== 64 || seen.has(p)) return;
-      if (p === String(App.publicKey || '').toLowerCase()) return;
-      seen.add(p);
-      peers.push(p);
-    };
-    try {
-      if (typeof App.getActiveChatPeer === 'function') push(App.getActiveChatPeer());
-    } catch (_) {}
-    try {
-      if (App.chatUiState && App.chatUiState.activeContact) push(App.chatUiState.activeContact);
-    } catch (_) {}
-    try {
-      const contacts = typeof App.getChatContacts === 'function' ? App.getChatContacts() : [];
-      (contacts || []).forEach((c) => push(c && c.pubkey));
-    } catch (_) {}
-    return peers.slice(0, MAX_HEARTBEAT_PEERS);
-  }
-
-  function buildPresencePayload(toPeer, online) {
+  function buildPresencePayload(toPeer, viewing) {
     const self = String(App.publicKey || '').toLowerCase();
     const to = normalizePeer(toPeer);
     const at = nowSec();
+    const on = viewing === true;
     return {
       type: PRESENCE_TYPE,
       from: self,
       to,
-      online: online === true,
+      online: on,
+      viewing: on,
       lastSeenAt: at,
       sentAt: at,
     };
@@ -258,6 +266,7 @@
       const body = {
         type: PRESENCE_TYPE,
         online: payload.online === true,
+        viewing: payload.viewing === true,
         lastSeenAt: Number(payload.lastSeenAt) || nowSec(),
         sentAt: Number(payload.sentAt) || nowSec(),
       };
@@ -280,7 +289,6 @@
       }
       const tags = [['p', payload.to], ['t', 'yalachat']];
       if (App.NETWORK_TAG) tags.push(['t', App.NETWORK_TAG]);
-      if (App.CHAT_TAG) tags.push(['t', String(App.CHAT_TAG)]);
       const signed = App.finalizeEvent({
         kind: PRESENCE_KIND,
         pubkey: App.publicKey,
@@ -302,13 +310,59 @@
     return sendPresenceOverNostr(payload);
   }
 
-  async function publishPresenceToPeers(online) {
-    if (!App.publicKey || !App.privateKey || App.guestMode) return;
-    const peers = listHeartbeatPeers();
-    for (let i = 0; i < peers.length; i += 1) {
-      const payload = buildPresencePayload(peers[i], online === true);
-      try { await transmitPresence(payload); } catch (_) {}
+  async function sendViewingState(peer, viewing) {
+    const p = normalizePeer(peer);
+    if (!p || !App.publicKey || App.guestMode) return false;
+    const payload = buildPresencePayload(p, viewing === true);
+    try {
+      return await transmitPresence(payload);
+    } catch (_) {
+      return false;
     }
+  }
+
+  /**
+   * Enter/leave exact conversation view.
+   * Sends viewing=false to previous peer, viewing=true only to the new peer.
+   */
+  async function setLocalConversationViewing(peerPubkey, viewing) {
+    const peer = normalizePeer(peerPubkey);
+    if (viewing === true) {
+      if (!peer || !isUiForegroundActive()) {
+        if (localViewingPeer) {
+          const prev = localViewingPeer;
+          localViewingPeer = '';
+          await sendViewingState(prev, false);
+        }
+        return false;
+      }
+      if (localViewingPeer && localViewingPeer !== peer) {
+        const prev = localViewingPeer;
+        localViewingPeer = peer;
+        await sendViewingState(prev, false);
+        await sendViewingState(peer, true);
+        return true;
+      }
+      localViewingPeer = peer;
+      await sendViewingState(peer, true);
+      return true;
+    }
+    // viewing false
+    const target = peer || localViewingPeer;
+    if (localViewingPeer && (!peer || localViewingPeer === peer)) {
+      localViewingPeer = '';
+    }
+    if (target) await sendViewingState(target, false);
+    return true;
+  }
+
+  async function leaveAllConversationViewing(reason) {
+    if (!localViewingPeer) {
+      const viewed = getActiveViewingPeer();
+      if (viewed) return setLocalConversationViewing(viewed, false);
+      return false;
+    }
+    return setLocalConversationViewing(localViewingPeer, false);
   }
 
   function applyIncomingPresence(raw) {
@@ -319,12 +373,31 @@
     if (!from || from === self) return false;
     const to = normalizePeer(raw.to);
     if (to && to !== self) return false;
-    const lastSeenAt = Number(raw.lastSeenAt || raw.sentAt) || nowSec();
-    const online = raw.online === true;
+
+    const sentAt = Number(raw.sentAt || raw.lastSeenAt) || 0;
+    if (!sentAt || !Number.isFinite(sentAt)) return false;
+    const sentMs = sentAt * 1000;
+    const ageMs = Date.now() - sentMs;
+    if (ageMs < -CLOCK_SKEW_MS) return false;
+
+    const prev = presenceByPeer.get(from);
+    const prevSent = Number(prev && prev.lastPresenceSentAt) || 0;
+    if (prevSent && sentAt < prevSent) return false;
+
+    const viewingFlag = raw.viewing === true;
+    const onlineFlag = raw.online === true;
+    // Require both online+viewing for מחובר. Explicit viewing=false wins immediately.
+    const wantsOnline = onlineFlag && viewingFlag;
+    const fresh = ageMs <= ONLINE_TTL_MS;
+    const online = wantsOnline && fresh && ageMs >= -CLOCK_SKEW_MS;
+    const lastSeenAt = Number(raw.lastSeenAt || sentAt) || sentAt;
+
     setPresence(from, {
       online,
+      viewing: online,
       lastSeenAt,
-      lastPresenceAt: online ? Date.now() : 0,
+      lastPresenceAt: sentMs,
+      lastPresenceSentAt: sentAt,
     });
     return true;
   }
@@ -359,8 +432,9 @@
       from: String(event.pubkey || '').toLowerCase(),
       to: '',
       online: body.online === true,
+      viewing: body.viewing === true,
       lastSeenAt: Number(body.lastSeenAt || body.sentAt || event.created_at) || nowSec(),
-      sentAt: Number(body.sentAt || event.created_at) || nowSec(),
+      sentAt: Number(body.sentAt || body.lastSeenAt || event.created_at) || nowSec(),
     };
   }
 
@@ -376,6 +450,7 @@
       if (!row.online) return;
       if (row.lastPresenceAt && (now - row.lastPresenceAt) > ONLINE_TTL_MS) {
         row.online = false;
+        row.viewing = false;
         presenceByPeer.set(peer, row);
         notifyPresence(peer);
       }
@@ -384,8 +459,20 @@
 
   async function heartbeatTick() {
     tickExpireOnline();
-    if (!isUiForegroundActive()) return;
-    await publishPresenceToPeers(true);
+    if (!isUiForegroundActive()) {
+      if (localViewingPeer) await leaveAllConversationViewing('heartbeat-background');
+      return;
+    }
+    const viewed = getActiveViewingPeer();
+    if (!viewed) {
+      if (localViewingPeer) await leaveAllConversationViewing('heartbeat-no-view');
+      return;
+    }
+    if (localViewingPeer !== viewed) {
+      await setLocalConversationViewing(viewed, true);
+      return;
+    }
+    await sendViewingState(viewed, true);
   }
 
   function onVisibilityChange() {
@@ -393,8 +480,11 @@
       heartbeatTick();
       return;
     }
-    // Leaving foreground: stop claiming online. TTL + lastSeen from last heartbeat.
-    publishPresenceToPeers(false);
+    leaveAllConversationViewing('visibility-hidden');
+  }
+
+  function onNativePause() {
+    leaveAllConversationViewing('native-pause');
   }
 
   function startChatPresence() {
@@ -408,6 +498,9 @@
       window.addEventListener('sos-native-resume', () => {
         if (isUiForegroundActive()) heartbeatTick();
       });
+    } catch (_) {}
+    try {
+      window.addEventListener('sos-native-pause', onNativePause);
     } catch (_) {}
     heartbeatTimer = setInterval(() => {
       heartbeatTick();
@@ -429,7 +522,9 @@
     applyIncomingChatPresence: applyIncomingPresence,
     handleIncomingPresenceEvent,
     presenceFromRelayEvent,
-    publishChatPresenceNow: publishPresenceToPeers,
+    setChatPresenceViewing: setLocalConversationViewing,
+    leaveChatPresenceViewing: leaveAllConversationViewing,
+    getLocalChatPresenceViewingPeer: () => localViewingPeer,
     subscribeChatPresence: subscribePresence,
     isChatPresenceForegroundActive: isUiForegroundActive,
   });
