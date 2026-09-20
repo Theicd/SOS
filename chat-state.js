@@ -324,11 +324,28 @@
 
   function inferMessageTransport(message) {
     if (!message) return 'LOCAL';
+    const explicit = String(message.transport || '').toUpperCase();
+    if (explicit === 'DC' || explicit === 'MESH' || explicit === 'NOSTR' || explicit === 'LOCAL') {
+      return explicit;
+    }
     if (message.p2p || String(message.id || '').startsWith('p2p-')) return 'DC';
     if (message.emergency || String(message.id || '').startsWith('em-')) return 'MESH';
     if (String(message.id || '').startsWith('temp-')) return 'LOCAL';
     if (message.source) return String(message.source).toUpperCase();
     return 'NOSTR';
+  }
+
+  function getChatMessageTransport(message) {
+    return inferMessageTransport(message);
+  }
+
+  function stampMessageTransport(message) {
+    if (!message || typeof message !== 'object') return message;
+    if (!message.transport) {
+      const t = inferMessageTransport(message);
+      if (t === 'DC' || t === 'MESH') message.transport = t;
+    }
+    return message;
   }
 
   function persistLog(event, extra) {
@@ -910,6 +927,8 @@
   }
 
   function appendMessageToConversation(message) {
+    if (!message || typeof message !== 'object') return;
+    stampMessageTransport(message);
     const { from, to, content, createdAt } = message;
     // מדיה בלי כיתוב (תמונה/וידאו) מגיעה עם content ריק + attachment — חייבים לאפשר | HYPER CORE TECH
     const hasAttachment = !!(message && message.attachment);
@@ -950,6 +969,15 @@
       }
       if (existing && !existing.receiptMessageId && message.receiptMessageId) {
         existing.receiptMessageId = message.receiptMessageId;
+        merged = true;
+      }
+      if (existing && !existing.transport && message.transport) {
+        existing.transport = message.transport;
+        merged = true;
+      }
+      if (existing && existing.p2p !== true && message.p2p === true) {
+        existing.p2p = true;
+        if (!existing.transport) existing.transport = 'DC';
         merged = true;
       }
       if (existing && message.attachment && typeof message.attachment === 'object') {
@@ -1710,6 +1738,8 @@
     buildChatReadReceiptId,
     normalizeReceiptBoundaryId,
     getReceiptBoundaryId,
+    getChatMessageTransport,
+    inferMessageTransport,
     retryInboundReadReceipt,
     getChatContacts: getContactsSnapshot,
     getChatMessages: getConversationMessages,

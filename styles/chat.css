@@ -1118,12 +1118,63 @@ body.chat-overlay-open::before {
   font-weight: 700;
   overflow: hidden;
   border: 1px solid var(--border);
+  position: relative;
 }
 
 .chat-conversation__avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* מנורת P2P על אווטאר כותרת השיחה — אותו סגנון כמו ברשימת אנשי קשר */
+.chat-conversation__avatar--p2p {
+  overflow: visible;
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.chat-conversation__avatar--p2p::after {
+  content: '';
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #25e47a;
+  border: 2px solid #000;
+  box-shadow: 0 0 6px rgba(37, 228, 122, 0.75);
+  inset-inline-start: 0;
+  bottom: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.chat-conversation__status--online {
+  color: #25e47a !important;
+}
+.chat-conversation__status--recent {
+  color: #00afff !important;
+}
+.chat-conversation__status--older {
+  color: #ffc928 !important;
+}
+.chat-conversation__status--stale {
+  color: #ff304f !important;
+}
+.chat-conversation__status--unknown {
+  color: #8fa2b7 !important;
+}
+
+.chat-message__p2p-lamp {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #25e47a;
+  box-shadow: 0 0 4px rgba(37, 228, 122, 0.7);
+  flex-shrink: 0;
+  vertical-align: middle;
+  margin-inline-end: 4px;
 }
 
 /* חלק צ'אט – טעינת היסטוריה בשורת הסטטוס (טקסט + ספינר באותה שורה) | HYPER CORE TECH */

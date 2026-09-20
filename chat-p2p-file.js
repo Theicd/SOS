@@ -934,6 +934,7 @@
           direction: 'outgoing',
           status: 'sent',
           p2p: true,
+          transport: 'DC',
         });
         qaNote('chat-append', { fileId });
         if (typeof App.markChatConversationRead === 'function') {
@@ -1976,6 +1977,7 @@
               caption: String(transfer.caption || '').trim() || undefined,
             },
             p2p: true,
+            transport: 'DC',
             createdAt,
           });
           console.log('[CHAT/P2P] 💬 הודעת צ\'אט נוצרה למקבל עם cacheKey יציב', { hasPoster: !!posterDataUrl, hasCaption: !!transfer.caption });

@@ -565,7 +565,7 @@
       const p2pMsg = { id: p2pId, content: serialization.displayText || '', attachment: serialization.attachment || null, createdAt: p2pTs };
       const sent = App.dataChannel.send(peerPubkey, p2pMsg);
       if (sent) {
-        const p2pOutgoing = { id: p2pId, from: App.publicKey, to: peerPubkey, content: p2pMsg.content, attachment: p2pMsg.attachment, createdAt: p2pTs, direction: 'outgoing', status: 'sent', p2p: true };
+        const p2pOutgoing = { id: p2pId, from: App.publicKey, to: peerPubkey, content: p2pMsg.content, attachment: p2pMsg.attachment, createdAt: p2pTs, direction: 'outgoing', status: 'sent', p2p: true, transport: 'DC' };
         // חלק מניעת כפילות (chat-service.js) – מחליף temp optimistic במקום append נוסף | HYPER CORE TECH
         if (clientTempId && typeof App.replaceOutgoingTempMessage === 'function') {
           App.replaceOutgoingTempMessage(clientTempId, p2pOutgoing);
@@ -1617,6 +1617,7 @@
       baseFilter([5], { '#p': [normalizedSelf], '#t': [CHAT_TAG] }),
       // חלק אישורי קריאה (chat-service.js) – האזנה לאישורי קריאה נכנסים | HYPER CORE TECH
       baseFilter([READ_RECEIPT_KIND], { '#p': [normalizedSelf], '#t': [CHAT_TAG] }),
+      baseFilter([PRESENCE_KIND], { '#p': [normalizedSelf], '#t': [CHAT_TAG] }),
     ];
 
     if (App.NETWORK_TAG) {
@@ -1626,6 +1627,7 @@
         baseFilter([5], { '#t': [App.NETWORK_TAG], authors: [normalizedSelf] }),
         baseFilter([5], { '#t': [App.NETWORK_TAG], '#p': [normalizedSelf] }),
         baseFilter([READ_RECEIPT_KIND], { '#t': [App.NETWORK_TAG], '#p': [normalizedSelf] }),
+        baseFilter([PRESENCE_KIND], { '#t': [App.NETWORK_TAG], '#p': [normalizedSelf] }),
       );
     }
 
@@ -1641,6 +1643,14 @@
         // חלק אישורי קריאה (chat-service.js) – טיפול באישורי קריאה נכנסים | HYPER CORE TECH
         if (event.kind === READ_RECEIPT_KIND) {
           handleIncomingReadReceipt(event);
+          return;
+        }
+        if (event.kind === PRESENCE_KIND) {
+          try {
+            if (typeof App.handleIncomingPresenceEvent === 'function') {
+              App.handleIncomingPresenceEvent(event);
+            }
+          } catch (_) {}
           return;
         }
         handleIncomingChatEvent(event);
@@ -1968,6 +1978,7 @@
 
   // חלק אישורי קריאה (chat-service.js) – שליחת אישור קריאה לצד השני כשפותחים שיחה | HYPER CORE TECH
   const READ_RECEIPT_KIND = 1051; // kind מיוחד לאישורי קריאה
+  const PRESENCE_KIND = typeof App.PRESENCE_KIND === 'number' ? App.PRESENCE_KIND : 1054;
   const inFlightReceiptIds = new Set();
 
   function buildReadReceipt(peerPubkey, lastReadTs, lastReadMessageId) {

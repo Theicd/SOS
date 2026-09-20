@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v863'; // secure call Native→Web pending handoff; public APK 1.0.122
+  const CACHE_NAME = 'sos-cache-v864'; // chat presence + P2P UI lamps; public APK 1.0.122
   const PRECACHE_URLS = [
     './',
     './videos.html',

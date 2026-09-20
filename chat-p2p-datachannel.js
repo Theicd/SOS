@@ -608,6 +608,15 @@
         if(typeof App.handleIncomingReadReceipt==='function') App.handleIncomingReadReceipt(m);
         return;
       }
+      if(m.type==='chat_presence'){
+        if(typeof App.applyIncomingChatPresence==='function'){
+          try{
+            m.from = m.from || peer;
+            App.applyIncomingChatPresence(m);
+          }catch(_){}
+        }
+        return;
+      }
       if (m.type === 'request' || m.type === 'metadata' || m.type === 'complete' || m.type === 'error') {
         if (typeof App.handleFeedMediaControlMessage === 'function') {
           const s = getPS(peer.toLowerCase());
@@ -675,7 +684,7 @@
       if(typeof App.appendChatMessage==='function') App.appendChatMessage({
         id: m.id||('p2p-'+Date.now()+'-'+Math.random().toString(36).slice(2,6)),
         from:peer, to:App.publicKey, content, attachment,
-        createdAt:m.createdAt||Math.floor(Date.now()/1000), direction:'incoming', p2p:true
+        createdAt:m.createdAt||Math.floor(Date.now()/1000), direction:'incoming', p2p:true, transport:'DC'
       });
     } catch(e){ console.warn('[DC] parse:',e); }
   }

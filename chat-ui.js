@@ -626,7 +626,12 @@
     const hideMeta = !textHtml;
     const metaRowHtml = hideMeta
       ? ''
-      : `<div class="chat-message__meta-row"><span class="chat-message__meta">${formatMessageTime(messageTimestamp)}</span>${statusHtml}</div>`;
+      : buildMessageMetaRowHtml(message, {
+        timeLabel: formatMessageTime(messageTimestamp),
+        isOutgoing,
+        statusHtml,
+        timeClass: 'chat-message__meta',
+      });
     const sideDownloadHtml = buildChatMediaSideDownloadHtml(a, a.url || a.dataUrl || '', a.name || '');
     const sideActionsHtml = buildChatSideActionsHtml({
       isOutgoing,
@@ -1046,6 +1051,7 @@
     const footer = wrap?.querySelector?.('.chat-media-upload__footer');
     if (footer) {
       footer.innerHTML = `
+        ${buildMessageTransportIndicatorHtml(message)}
         <span class="chat-media-upload__time">${timeLabel}</span>
         <span class="chat-media-upload__ring-slot">${statusHtml}</span>
       `;
@@ -1072,7 +1078,12 @@
       if (captionText) {
         wrap?.querySelector?.('.chat-media-upload__footer')?.remove();
         let meta = content.querySelector(':scope > .chat-message__meta-row');
-        const metaHtml = `<div class="chat-message__meta-row"><span class="chat-message__meta">${timeLabel}</span>${statusHtml}</div>`;
+        const metaHtml = buildMessageMetaRowHtml(message, {
+          timeLabel,
+          isOutgoing: true,
+          statusHtml,
+          timeClass: 'chat-message__meta',
+        });
         if (meta) meta.outerHTML = metaHtml;
         else content.insertAdjacentHTML('beforeend', metaHtml);
       }
@@ -1337,6 +1348,32 @@
   }
   App.buildChatMessageStatusHtml = buildChatMessageStatusHtml;
 
+  function buildMessageTransportIndicatorHtml(message) {
+    const transport = typeof App.getChatMessageTransport === 'function'
+      ? App.getChatMessageTransport(message)
+      : '';
+    if (String(transport || '').toUpperCase() !== 'DC') return '';
+    return '<span class="chat-message__p2p-lamp" title="הועבר ישירות P2P" aria-label="הודעה הועברה ישירות P2P"></span>';
+  }
+  App.buildMessageTransportIndicatorHtml = buildMessageTransportIndicatorHtml;
+
+  function buildMessageMetaRowHtml(message, options) {
+    const opts = options || {};
+    const messageTimestamp = (message && message.createdAt) || Math.floor(Date.now() / 1000);
+    const timeLabel = opts.timeLabel || formatMessageTime(messageTimestamp);
+    const isOutgoing = opts.isOutgoing != null
+      ? !!opts.isOutgoing
+      : !!(message && (message.direction === 'outgoing' || message.from?.toLowerCase?.() === App.publicKey?.toLowerCase?.()));
+    const statusHtml = opts.statusHtml != null
+      ? opts.statusHtml
+      : (isOutgoing ? buildChatMessageStatusHtml((message && message.status) || 'sent') : '');
+    const lampHtml = opts.includeTransport === false ? '' : buildMessageTransportIndicatorHtml(message);
+    const timeClass = opts.timeClass || 'chat-message__meta';
+    const rowClass = opts.rowClass || 'chat-message__meta-row';
+    return `<div class="${rowClass}">${lampHtml}<span class="${timeClass}">${timeLabel}</span>${statusHtml || ''}</div>`;
+  }
+  App.buildMessageMetaRowHtml = buildMessageMetaRowHtml;
+
   function settleFileCardBubble(bubble, message) {
     if (!bubble || !message) return false;
     const isOutgoing =
@@ -1422,7 +1459,7 @@
           ${downloadHtml}
         </div>
       </div>
-      ${buildFileCardMetaRowHtml({ nowLabel: timeLabel, statusHtml })}
+      ${buildFileCardMetaRowHtml({ nowLabel: timeLabel, statusHtml, message })}
     `;
 
     // צד: ⋮ + מחיקה מעל / הורדה מתחת | HYPER CORE TECH
@@ -1759,9 +1796,11 @@
     return `<div class="chat-file-bubble__icon"><i class="${cls}" aria-hidden="true"></i></div>`;
   }
 
-  function buildFileCardMetaRowHtml({ nowLabel, statusHtml }) {
+  function buildFileCardMetaRowHtml({ nowLabel, statusHtml, message }) {
+    const lampHtml = message ? buildMessageTransportIndicatorHtml(message) : '';
     return `
       <div class="chat-message__meta-row chat-file-card__meta">
+        ${lampHtml}
         <span class="chat-message__time">${nowLabel}</span>
         ${statusHtml ? `<span class="chat-message__status-slot">${statusHtml}</span>` : ''}
       </div>
@@ -5503,9 +5542,12 @@
             ${avatarHtmlTorrent}
             <div class="chat-message__content chat-message__content--has-attachment" data-chat-message="${message.id}">
               ${mediaHtml}
-              <div class="chat-message__meta-row">
-                <span class="chat-message__time">${formatMessageTime(message.createdAt || Math.floor(Date.now() / 1000))}</span>
-              </div>
+              ${buildMessageMetaRowHtml(message, {
+                timeLabel: formatMessageTime(message.createdAt || Math.floor(Date.now() / 1000)),
+                isOutgoing: false,
+                statusHtml: '',
+                timeClass: 'chat-message__time',
+              })}
             </div>
             ${sideActionsHtml}
           `;
@@ -5563,6 +5605,7 @@
               </div>
             </div>
             <div class="chat-message__meta-row">
+              ${buildMessageTransportIndicatorHtml(message)}
               <span class="chat-message__time">${formatMessageTime(message.createdAt || Math.floor(Date.now() / 1000))}</span>
               <span class="chat-message__status-slot">${isOutgoing ? buildChatMessageStatusHtml(message.status || 'sent') : ''}</span>
             </div>
@@ -5977,12 +6020,12 @@
         !youtubeHtml &&
         !linkPreviewHtml;
       const hideMetaForMedia = hideMetaForAudio || hideMetaForVideo || hideMetaForImage;
-      const metaRowHtml = hideMetaForMedia ? '' : `
-          <div class="chat-message__meta-row">
-            <span class="chat-message__meta">${formatMessageTime(messageTimestamp)}</span>
-            ${statusHtml}
-          </div>
-      `;
+      const metaRowHtml = hideMetaForMedia ? '' : buildMessageMetaRowHtml(message, {
+        timeLabel: formatMessageTime(messageTimestamp),
+        isOutgoing,
+        statusHtml,
+        timeClass: 'chat-message__meta',
+      });
 
       // מדיה (עם/בלי כיתוב) — מסתירים את כל הבועה עד שהמדיה מוכנה; חושפים יחד | HYPER CORE TECH
       const pendingVisualMedia =
@@ -6042,7 +6085,7 @@
       if (hideMetaForAudio && contentEl) {
         const metaSlot = contentEl.querySelector('.chat-audio-whatsapp__meta-slot');
         if (metaSlot) {
-          metaSlot.innerHTML = `<span class="chat-audio-whatsapp__msg-time">${formatMessageTime(messageTimestamp)}</span>${statusHtml}`;
+          metaSlot.innerHTML = `${buildMessageTransportIndicatorHtml(message)}<span class="chat-audio-whatsapp__msg-time">${formatMessageTime(messageTimestamp)}</span>${statusHtml}`;
         }
         // חלק הזרקת תמונת פרופיל לנגן (chat-ui.js) – הזרקת avatar לתוך נגן האודיו | HYPER CORE TECH
         const avatarSlot = contentEl.querySelector('.chat-audio-whatsapp__avatar-slot');
@@ -6226,7 +6269,7 @@
     if (contentEl) {
       const metaSlot = contentEl.querySelector('.chat-audio-whatsapp__meta-slot');
       if (metaSlot) {
-        metaSlot.innerHTML = `<span class="chat-audio-whatsapp__msg-time">${formatMessageTime(messageTimestamp)}</span>${statusHtml}`;
+        metaSlot.innerHTML = `${buildMessageTransportIndicatorHtml(message)}<span class="chat-audio-whatsapp__msg-time">${formatMessageTime(messageTimestamp)}</span>${statusHtml}`;
       }
       const avatarSlot = contentEl.querySelector('.chat-audio-whatsapp__avatar-slot');
       if (avatarSlot) {
@@ -6374,10 +6417,12 @@
         ${textHtml}
         ${youtubeHtml}
         ${linkPreviewHtml}
-        <div class="chat-message__meta-row">
-          <span class="chat-message__meta">${formatMessageTime(messageTimestamp)}</span>
-          ${statusHtml}
-        </div>
+        ${buildMessageMetaRowHtml(message, {
+          timeLabel: formatMessageTime(messageTimestamp),
+          isOutgoing,
+          statusHtml,
+          timeClass: 'chat-message__meta',
+        })}
       </div>
       ${!isOutgoing ? sideActionsHtml : ''}
     `;
@@ -6556,29 +6601,79 @@
     } catch (_) {}
   }
 
-  // חלק סטטוס P2P (chat-ui.js) – עדכון תצוגת מצב DC בכותרת שיחה + רענון כל 3 שניות | HYPER CORE TECH
-  let _dcStatusTimer = null;
-  function updateConversationDCStatus(peerPubkey) {
-    if (_dcStatusTimer) { clearInterval(_dcStatusTimer); _dcStatusTimer = null; }
+  // חלק סטטוס (chat-ui.js) – נוכחות מתחת לשם; מנורת P2P על האווטאר בלבד | HYPER CORE TECH
+  let _headerStatusTimer = null;
+  function clearConversationStatusTone(el) {
+    if (!el || !el.classList) return;
+    el.classList.remove(
+      'chat-conversation__status--online',
+      'chat-conversation__status--recent',
+      'chat-conversation__status--older',
+      'chat-conversation__status--stale',
+      'chat-conversation__status--unknown'
+    );
+  }
+
+  function updateConversationPresence(peerPubkey) {
     const el = elements.conversationStatus;
     if (!el) return;
+    if (elements.conversationHeader?.classList.contains('is-loading-history')) return;
+    if (el.classList.contains('chat-conversation__status--loading')) return;
+    const pk = peerPubkey || state.activeContact;
+    if (!pk) {
+      clearConversationStatusTone(el);
+      el.textContent = '';
+      return;
+    }
+    const presence = typeof App.getChatPresence === 'function' ? App.getChatPresence(pk) : null;
+    const formatted = typeof App.formatChatPresence === 'function'
+      ? App.formatChatPresence(presence || pk)
+      : { text: '', tone: 'unknown' };
+    clearConversationStatusTone(el);
+    const toneClass = typeof App.presenceToneClass === 'function'
+      ? App.presenceToneClass(formatted.tone)
+      : 'chat-conversation__status--unknown';
+    el.classList.add(toneClass);
+    el.textContent = formatted.text || '';
+    el.removeAttribute('title');
+  }
+
+  function updateConversationP2PIndicator(peerPubkey) {
+    const pk = peerPubkey || state.activeContact;
+    const avatar = elements.conversationAvatar;
+    if (!avatar) return;
+    const on = !!(pk && isPeerP2PConnected(pk));
+    avatar.classList.toggle('chat-conversation__avatar--p2p', on);
+    avatar.setAttribute('data-p2p', on ? '1' : '0');
+    const baseTitle = (avatar.getAttribute('title') || '')
+      .replace(/\s*·\s*P2P ישיר\s*$/u, '')
+      .trim();
+    avatar.title = on ? `${baseTitle || 'משתמש'} · P2P ישיר` : baseTitle;
+    refreshContactsP2PIndicators();
+  }
+
+  function updateConversationDCStatus(peerPubkey) {
+    if (_headerStatusTimer) { clearInterval(_headerStatusTimer); _headerStatusTimer = null; }
     const update = () => {
-      // לא לדרוס את שורת "טוען..." | HYPER CORE TECH
       if (elements.conversationHeader?.classList.contains('is-loading-history')) return;
-      if (el.classList.contains('chat-conversation__status--loading')) return;
+      const el = elements.conversationStatus;
+      if (el && el.classList.contains('chat-conversation__status--loading')) return;
       const pk = peerPubkey || state.activeContact;
-      if (!pk) { el.textContent = 'פעיל ברשת'; return; }
-      const dcOn = isPeerP2PConnected(pk);
-      el.innerHTML = dcOn
-        ? '<span style="color:#25D366" title="חיבור ישיר P2P פעיל — הודעות עוברות ישירות">⚡ P2P ישיר</span>'
-        : '<span title="הודעות עוברות דרך שרת relay">☁️ דרך שרת</span>';
-      refreshContactsP2PIndicators();
+      updateConversationPresence(pk);
+      updateConversationP2PIndicator(pk);
     };
     update();
-    _dcStatusTimer = setInterval(() => {
-      if (state.activeContact) update(); else { clearInterval(_dcStatusTimer); _dcStatusTimer = null; }
+    _headerStatusTimer = setInterval(() => {
+      if (state.activeContact) update();
+      else { clearInterval(_headerStatusTimer); _headerStatusTimer = null; }
     }, 3000);
   }
+
+  App.getActiveChatPeer = function getActiveChatPeer() {
+    return state.activeContact || null;
+  };
+  App.updateConversationPresence = updateConversationPresence;
+  App.updateConversationP2PIndicator = updateConversationP2PIndicator;
 
   // חלק P2P ברשימה (chat-ui.js) – מסגרת ירוקה סביב אווטאר כשיש DataChannel פעיל | HYPER CORE TECH
   let _contactsP2PTimer = null;
@@ -7254,6 +7349,22 @@
     subscribeTransferProgress();
     ensureChatStickScrollWiring();
     ensureContactsP2PStatusWiring();
+    try {
+      if (typeof App.subscribeChatPresence === 'function') {
+        App.subscribeChatPresence((snap) => {
+          if (!snap || !snap.peer) return;
+          if (state.activeContact && String(state.activeContact).toLowerCase() === String(snap.peer).toLowerCase()) {
+            updateConversationPresence(snap.peer);
+          }
+        });
+      }
+      window.addEventListener('sos-chat-presence', (ev) => {
+        const peer = ev && ev.detail && ev.detail.peer;
+        if (peer && state.activeContact && String(state.activeContact).toLowerCase() === String(peer).toLowerCase()) {
+          updateConversationPresence(peer);
+        }
+      });
+    } catch (_) {}
     // רישום SW והאזנה להודעות ממנו (בקשת הרשאות רק בלחיצה על פאנל הצ'אט)
     registerChatServiceWorkerIfSupported();
     initChatServiceWorkerMessageHandling();
