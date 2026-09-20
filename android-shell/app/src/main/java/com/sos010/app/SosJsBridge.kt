@@ -510,6 +510,16 @@ class SosJsBridge(
         }
     }
 
+    /** Count of opaque secure wraps currently queued (peek, non-destructive). */
+    @JavascriptInterface
+    fun peekPendingSecureWrapCount(): Int {
+        return try {
+            SosPendingCallStore.peekSecureWrapCount(context.applicationContext)
+        } catch (_: Exception) {
+            0
+        }
+    }
+
     /** Verifier-only identity bootstrap from Native session store (no plaintext logs). */
     @JavascriptInterface
     fun getVerifierSessionJson(): String {

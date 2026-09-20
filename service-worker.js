@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v865'; // presence viewing semantics + circular P2P avatar; public APK 1.0.122
+  const CACHE_NAME = 'sos-cache-v866'; // foreground outgoing answer drain watchdog; public APK 1.0.122
   const PRECACHE_URLS = [
     './',
     './videos.html',

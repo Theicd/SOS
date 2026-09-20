@@ -1205,6 +1205,25 @@
     return App.prepareSecureCallEventFromNative(optionalQueue);
   };
 
+  App.startOutgoingAnswerDrainWatchdog = function startOutgoingAnswerDrainWatchdog(options) {
+    const api = App.CallSignalE2ee;
+    if (api && typeof api.startOutgoingAnswerDrainWatchdog === 'function') {
+      return api.startOutgoingAnswerDrainWatchdog(options);
+    }
+  };
+
+  App.stopOutgoingAnswerDrainWatchdog = function stopOutgoingAnswerDrainWatchdog(reason) {
+    const api = App.CallSignalE2ee;
+    if (api && typeof api.stopOutgoingAnswerDrainWatchdog === 'function') {
+      return api.stopOutgoingAnswerDrainWatchdog(reason);
+    }
+  };
+
+  try {
+    const rev = (App.CallSignalE2ee && App.CallSignalE2ee.NATIVE_HANDOFF_REV) || App.NATIVE_HANDOFF_REV || 2;
+    console.log('CALL_NATIVE_HANDOFF_REV=' + rev);
+  } catch (_) {}
+
   App.prepareSecureCallEventFromNative = async function prepareSecureCallEventFromNative(pendingRawEvent) {
     try {
       if (typeof App.initVoiceCall === 'function') App.initVoiceCall({});

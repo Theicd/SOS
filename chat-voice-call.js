@@ -422,6 +422,12 @@
 
       if (ice === 'connected' || ice === 'completed') {
         clearIceDisconnectTimer();
+        // Bilateral: ICE alone is not enough — caller needs remote answer applied;
+        // callee needs answer published (both tracked via callAnswered).
+        if (!state.callAnswered) {
+          try { console.log('CALL_CONNECTED_DEFER reason=await-answer'); } catch (_) {}
+          return;
+        }
         state.isCallActive = true;
         // חלק שיחות קול (chat-voice-call.js) – מסנכרן זמן התחלת שיחה עבור UI (callStartTime) וגם עבור מדדים (callStartTimestamp) | HYPER CORE TECH
         state.callStartTimestamp = Date.now();
@@ -513,6 +519,13 @@
           App.reconcilePendingSecureCallSignals('outgoing-start');
         }
       } catch (_) {}
+      try {
+        if (typeof App.startOutgoingAnswerDrainWatchdog === 'function') {
+          App.startOutgoingAnswerDrainWatchdog({
+            shouldStop: () => !!(state.callAnswered || state.ending || !state.peerConnection),
+          });
+        }
+      } catch (_) {}
 
       // עדכון UI
       if (typeof App.onVoiceCallStarted === 'function') {
@@ -570,12 +583,16 @@
       await flushRemoteCandidates(peerPubkey);
 
       // יצירת answer
+      try { console.log('CALL_ANSWER_BUILD_START'); } catch (_) {}
       const answer = await state.peerConnection.createAnswer();
       await state.peerConnection.setLocalDescription(answer);
+      try { console.log('CALL_ANSWER_LOCAL_SET'); } catch (_) {}
       await flushRemoteCandidates(peerPubkey);
 
       // שליחת answer
+      try { console.log('CALL_ANSWER_PUBLISH_START'); } catch (_) {}
       await sendSignal(peerPubkey, 'answer', answer);
+      try { console.log('CALL_ANSWER_PUBLISH_OK'); } catch (_) {}
       answerSent = true;
       state.callAnswered = true;
 
@@ -628,6 +645,11 @@
     if (term) term.ended = true;
     console.log('CALL_ENDING reason=' + endReason(options));
     console.log('CALL_END_ONCE');
+    try {
+      if (typeof App.stopOutgoingAnswerDrainWatchdog === 'function') {
+        App.stopOutgoingAnswerDrainWatchdog('call-end');
+      }
+    } catch (_) {}
 
     // שליחת אירוע disconnect – חשוב await כדי שדחייה מ-APK תגיע לצד השני | HYPER CORE TECH
     if (state.currentPeer && !options.remoteDisconnect) {
@@ -918,16 +940,42 @@
         case 'answer':
           if (blockWrongSession(preParsed, 'answer')) break;
           // תשובה לשיחה יוצאת
+          try { console.log('CALL_ANSWER_RX'); } catch (_) {}
           if (state.peerConnection && state.currentPeer === peerPubkey) {
+            if (state.callAnswered) {
+              try { console.log('CALL_ANSWER_APPLY_SKIP reason=already-applied'); } catch (_) {}
+              break;
+            }
+            try { console.log('CALL_ANSWER_SESSION_OK'); } catch (_) {}
             const answerData = normalizeSessionDescription(data);
             if (!answerData) {
               console.error('CALL_SIGNAL_REJECT invalid_answer');
               return;
             }
+            try { console.log('CALL_ANSWER_APPLY_START'); } catch (_) {}
             console.log('CALL_ANSWER_APPLY');
             await state.peerConnection.setRemoteDescription(answerData);
             await flushRemoteCandidates(peerPubkey);
             state.callAnswered = true;
+            try { console.log('CALL_ANSWER_APPLY_OK'); } catch (_) {}
+            try {
+              if (typeof App.stopOutgoingAnswerDrainWatchdog === 'function') {
+                App.stopOutgoingAnswerDrainWatchdog('answer-applied');
+              }
+            } catch (_) {}
+            // If ICE already connected while awaiting answer, declare connected now.
+            try {
+              const ice = state.peerConnection.iceConnectionState;
+              if ((ice === 'connected' || ice === 'completed') && !state.isCallActive) {
+                state.isCallActive = true;
+                state.callStartTimestamp = Date.now();
+                state.callStartTime = state.callStartTimestamp;
+                if (typeof App.onVoiceCallConnected === 'function') {
+                  App.onVoiceCallConnected(peerPubkey);
+                }
+                console.log('CALL_CONNECTED');
+              }
+            } catch (_) {}
             // עוצרים חיוג מיד כשמגיע answer – לא מחכים ל-ICE | HYPER CORE TECH
             if (typeof App.onVoiceCallAnswerReceived === 'function') {
               App.onVoiceCallAnswerReceived(peerPubkey);
@@ -1246,6 +1294,11 @@
         oneose: () => {
           state.lastSignalReceivedAt = Date.now();
           console.log('CALL_SUBSCRIBE_READY');
+          try {
+            if (typeof App.reconcilePendingSecureCallSignals === 'function') {
+              App.reconcilePendingSecureCallSignals('subscribe-ready-legacy');
+            }
+          } catch (_) {}
         }
       });
       state.signalSubscription = sub;

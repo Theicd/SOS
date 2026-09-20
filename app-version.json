@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.20-presence2",
-  "buildTime": "2026-09-20T06:00:00+03:00",
-  "notes": "Presence only when exact conversation is viewed; circular avatar with P2P lamp; strict DC message provenance. Public APK unchanged 1.0.122/123.",
+  "version": "2026.09.20-call-drain1",
+  "buildTime": "2026-09-20T12:24:00+03:00",
+  "notes": "Foreground outgoing answer drain watchdog for Native 1059 pending queue; HANDOFF_REV=2. Public APK unchanged 1.0.122/123.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,

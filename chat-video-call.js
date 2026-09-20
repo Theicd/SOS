@@ -183,6 +183,23 @@
 
     pc.oniceconnectionstatechange = () => {
       if (pc.iceConnectionState === 'connected') {
+        // Bilateral: ICE alone is not enough.
+        // Callee: answer published (answeredLocally). Caller: remote answer applied.
+        let ready = false;
+        if (state.isIncoming) {
+          ready = !!state.answeredLocally;
+        } else {
+          try {
+            const rd = state.pc && state.pc.remoteDescription;
+            ready = !!(rd && rd.type === 'answer');
+          } catch (_) {
+            ready = false;
+          }
+        }
+        if (!ready) {
+          try { console.log('CALL_CONNECTED_DEFER reason=await-answer'); } catch (_) {}
+          return;
+        }
         state.isActive = true;
         state.callStartTimestamp = Date.now();
         console.log('CALL_CONNECTED');
@@ -488,6 +505,21 @@
           App.reconcilePendingSecureCallSignals('outgoing-start');
         }
       } catch (_) {}
+      try {
+        if (typeof App.startOutgoingAnswerDrainWatchdog === 'function') {
+          App.startOutgoingAnswerDrainWatchdog({
+            shouldStop: () => {
+              if (state.ending || !state.pc) return true;
+              try {
+                const rd = state.pc.remoteDescription;
+                return !!(rd && rd.type === 'answer');
+              } catch (_) {
+                return false;
+              }
+            },
+          });
+        }
+      } catch (_) {}
       if (typeof App.onVideoCallStarted === 'function') App.onVideoCallStarted(peerPubkey, false);
     } catch (err) {
       state.outboundStarting = false;
@@ -531,10 +563,14 @@
     if (!offerNorm) throw new Error('offer וידאו אינו תקין');
     await state.pc.setRemoteDescription(offerNorm);
     await flushRemoteCandidates(peer);
+    try { console.log('CALL_ANSWER_BUILD_START'); } catch (_) {}
     const answer = await state.pc.createAnswer();
     await state.pc.setLocalDescription(answer);
+    try { console.log('CALL_ANSWER_LOCAL_SET'); } catch (_) {}
     await flushRemoteCandidates(peer);
+    try { console.log('CALL_ANSWER_PUBLISH_START'); } catch (_) {}
     await sendSignal(peer, 'v-answer', answer);
+    try { console.log('CALL_ANSWER_PUBLISH_OK'); } catch (_) {}
     state.answeredLocally = true;
     console.log('CALL_ACCEPTED');
     try {
@@ -559,6 +595,11 @@
     if (term) term.ended = true;
     console.log('CALL_ENDING reason=' + endReason(options));
     console.log('CALL_END_ONCE');
+    try {
+      if (typeof App.stopOutgoingAnswerDrainWatchdog === 'function') {
+        App.stopOutgoingAnswerDrainWatchdog('call-end');
+      }
+    } catch (_) {}
     const peer = state.currentPeer;
     const startMs = state.callStartTimestamp;
     const durationSeconds = startMs ? (Date.now() - startMs) / 1000 : 0;
@@ -974,15 +1015,39 @@
       }
       case 'v-answer': {
         if (!state.pc || state.currentPeer !== peer) break;
+        try { console.log('CALL_ANSWER_RX'); } catch (_) {}
         if (state.isIncoming) {
           console.log('CALL_SIGNAL_SKIP answer_as_callee');
           break;
         }
+        try {
+          const rd = state.pc.remoteDescription;
+          if (rd && rd.type === 'answer') {
+            try { console.log('CALL_ANSWER_APPLY_SKIP reason=already-applied'); } catch (_) {}
+            break;
+          }
+        } catch (_) {}
+        try { console.log('CALL_ANSWER_SESSION_OK'); } catch (_) {}
         const answerData = normalizeVideoSessionDescription(data);
         if (answerData) {
+          try { console.log('CALL_ANSWER_APPLY_START'); } catch (_) {}
           console.log('CALL_ANSWER_APPLY');
           await state.pc.setRemoteDescription(answerData);
           await flushRemoteCandidates(peer);
+          try { console.log('CALL_ANSWER_APPLY_OK'); } catch (_) {}
+          try {
+            if (typeof App.stopOutgoingAnswerDrainWatchdog === 'function') {
+              App.stopOutgoingAnswerDrainWatchdog('answer-applied');
+            }
+          } catch (_) {}
+          try {
+            if (state.pc.iceConnectionState === 'connected' && !state.isActive) {
+              state.isActive = true;
+              state.callStartTimestamp = Date.now();
+              console.log('CALL_CONNECTED');
+              if (typeof App.onVideoCallConnected === 'function') App.onVideoCallConnected(peer);
+            }
+          } catch (_) {}
         } else {
           console.error('CALL_SIGNAL_REJECT invalid_answer');
         }
@@ -1192,6 +1257,11 @@
         oneose: () => {
           state.lastSignalReceivedAt = Date.now();
           console.log('CALL_SUBSCRIBE_READY');
+          try {
+            if (typeof App.reconcilePendingSecureCallSignals === 'function') {
+              App.reconcilePendingSecureCallSignals('subscribe-ready-legacy');
+            }
+          } catch (_) {}
         }
       });
       state.signalSubscription = sub;

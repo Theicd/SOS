@@ -363,6 +363,8 @@ class SosRelayWatcher(private val appContext: Context) {
         if (MainActivity.isHostAlive) {
             // Live WebView must drain Native pending queue — do NOT assume
             // the independent Web Relay subscription also received this 1059.
+            Log.i(TAG, "CALL_NATIVE_HANDOFF_REV=2")
+            SosDebugLog.i("relay", "CALL_NATIVE_HANDOFF_REV=2")
             MainActivity.notifySecurePendingAvailable(appContext)
             return
         }

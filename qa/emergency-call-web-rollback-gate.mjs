@@ -97,10 +97,11 @@ record('H no android-shell changes in this rollback',
   && execSync('git diff --cached --name-only -- android-shell', { cwd: ROOT, encoding: 'utf8' }).trim() === '');
 record('H public APK is 1.0.122 / 123',
   apkVer.version === '1.0.122' && Number(apkVer.versionCode) === 123);
-record('I SW sos-cache-v865',
-  /sos-cache-v865/.test(sw));
-record('I web version presence2 or later',
-  String(appVer.version || '').includes('presence2')
+record('I SW sos-cache-v866',
+  /sos-cache-v866/.test(sw));
+record('I web version call-drain1 or later',
+  String(appVer.version || '').includes('call-drain1')
+  || String(appVer.version || '').includes('presence2')
   || String(appVer.version || '').includes('presence1')
   || String(appVer.version || '').includes('call-handoff1')
   || String(appVer.version || '').includes('read-blossom1')
@@ -112,8 +113,8 @@ record('I web version presence2 or later',
   || String(appVer.version || '').includes('video-session-adopt1')
   || String(appVer.version || '').includes('native-call-verify1'));
 record('I call script cache-busters present',
-  /call-signal-e2ee\.js\?v=20260920handoff1/.test(videos)
-  && /chat-voice-call\.js\?v=20260920handoff1/.test(videos)
+  /call-signal-e2ee\.js\?v=20260920drain1/.test(videos)
+  && /chat-voice-call\.js\?v=20260920drain1/.test(videos)
   && /chat-deeplink\.js\?v=20260918/.test(videos));
 
 // J P2P / Blossom / 30078 unchanged vs HEAD for those files

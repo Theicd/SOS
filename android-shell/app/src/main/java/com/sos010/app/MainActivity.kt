@@ -2555,6 +2555,7 @@ class MainActivity : AppCompatActivity() {
         /**
          * Live MainActivity already up: encrypted pending wraps are available.
          * Notify WebView to peek → dispatch → ACK. Never ring for answer/candidate.
+         * Retries: correctness must not depend on a single evaluateJavascript delivery.
          */
         fun notifySecurePendingAvailable(context: Context) {
             val app = context.applicationContext
@@ -2563,14 +2564,21 @@ class MainActivity : AppCompatActivity() {
             } catch (_: Exception) {
                 0
             }
+            android.util.Log.i(TAG, "CALL_NATIVE_HANDOFF_REV=2")
+            SosDebugLog.i("call", "CALL_NATIVE_HANDOFF_REV=2")
             android.util.Log.i(TAG, "CALL_NATIVE_PENDING_AVAILABLE count=$count")
             SosDebugLog.i("call", "CALL_NATIVE_PENDING_AVAILABLE count=$count")
             if (count <= 0) return
-            hostRef?.get()?.runOnUiThread {
-                try {
-                    hostRef?.get()?.injectLiveSecurePendingReconcile("native-pending")
-                } catch (_: Exception) {
-                }
+            val delays = longArrayOf(0L, 400L, 1000L, 2000L)
+            delays.forEach { delayMs ->
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    try {
+                        hostRef?.get()?.injectLiveSecurePendingReconcile(
+                            if (delayMs == 0L) "native-pending" else "native-pending-retry"
+                        )
+                    } catch (_: Exception) {
+                    }
+                }, delayMs)
             }
         }
 

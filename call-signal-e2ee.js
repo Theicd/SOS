@@ -669,6 +669,11 @@
 
   let pendingSecureReconcileInFlight = null;
   let pendingSecureReconcileQueued = false;
+  let outgoingAnswerWatchdogTimer = null;
+  let outgoingAnswerWatchdogStartedAt = 0;
+  const OUTGOING_ANSWER_WATCHDOG_MS = 20000;
+  const OUTGOING_ANSWER_WATCHDOG_INTERVAL_MS = 750;
+  const NATIVE_HANDOFF_REV = 2;
 
   function parseNativeSecurePendingQueue(raw) {
     const out = [];
@@ -691,10 +696,30 @@
     return out;
   }
 
+  function peekNativePendingSecureWraps() {
+    let items = [];
+    let bridgeCount = -1;
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.peekPendingSecureWrapCount === 'function') {
+        bridgeCount = Number(bridge.peekPendingSecureWrapCount()) || 0;
+      }
+      if (bridge && typeof bridge.peekPendingSecureWraps === 'function') {
+        items = parseNativeSecurePendingQueue(bridge.peekPendingSecureWraps());
+      } else if (bridge && typeof bridge.drainPendingSecureWraps === 'function') {
+        items = parseNativeSecurePendingQueue(bridge.drainPendingSecureWraps());
+      } else if (bridge && typeof bridge.getIncomingCallRawEvent === 'function') {
+        items = parseNativeSecurePendingQueue(bridge.getIncomingCallRawEvent());
+      }
+    } catch (_e) {}
+    return { items, bridgeCount };
+  }
+
   /**
    * Idempotent Native→Web secure-call handoff.
    * Peek encrypted pending wraps → same dispatcher → per-wrap ACK.
    * Does not depend on Web Relay also receiving the same 1059.
+   * Does not depend on a one-shot Native notification.
    */
   async function reconcilePendingSecureCallSignals(reason, optionalQueue) {
     const why = String(reason || 'unknown');
@@ -714,19 +739,30 @@
         }
 
         let items = parseNativeSecurePendingQueue(optionalQueue);
+        let bridgeCount = -1;
         if (!items.length) {
+          const peeked = peekNativePendingSecureWraps();
+          items = peeked.items;
+          bridgeCount = peeked.bridgeCount;
+        } else {
           try {
             const bridge = window.SosNativeShell;
-            if (bridge && typeof bridge.peekPendingSecureWraps === 'function') {
-              items = parseNativeSecurePendingQueue(bridge.peekPendingSecureWraps());
-            } else if (bridge && typeof bridge.drainPendingSecureWraps === 'function') {
-              items = parseNativeSecurePendingQueue(bridge.drainPendingSecureWraps());
-            } else if (bridge && typeof bridge.getIncomingCallRawEvent === 'function') {
-              items = parseNativeSecurePendingQueue(bridge.getIncomingCallRawEvent());
+            if (bridge && typeof bridge.peekPendingSecureWrapCount === 'function') {
+              bridgeCount = Number(bridge.peekPendingSecureWrapCount()) || 0;
             }
           } catch (_e) {}
         }
-        if (!items.length) return { empty: true, reason: why };
+
+        try {
+          console.log('CALL_NATIVE_PENDING_PEEK reason=' + why + ' count=' + items.length);
+        } catch (_e) {}
+        if (bridgeCount > 0 && items.length === 0) {
+          try {
+            console.log('CALL_NATIVE_PENDING_QUEUE_MISMATCH reason=' + why
+              + ' bridgeCount=' + bridgeCount + ' parsedCount=0');
+          } catch (_e) {}
+        }
+        if (!items.length) return { empty: true, reason: why, count: 0 };
 
         try {
           console.log('CALL_NATIVE_PENDING_DRAIN_START reason=' + why + ' count=' + items.length);
@@ -742,10 +778,8 @@
         }
         let remaining = 0;
         try {
-          const bridge = window.SosNativeShell;
-          if (bridge && typeof bridge.peekPendingSecureWraps === 'function') {
-            remaining = parseNativeSecurePendingQueue(bridge.peekPendingSecureWraps()).length;
-          }
+          const peeked = peekNativePendingSecureWraps();
+          remaining = peeked.items.length;
         } catch (_e) {}
         try {
           console.log('CALL_NATIVE_PENDING_DRAIN_OK handled=' + handled + ' remaining=' + remaining);
@@ -762,6 +796,45 @@
       }
     })();
     return pendingSecureReconcileInFlight;
+  }
+
+  function stopOutgoingAnswerDrainWatchdog(reason) {
+    if (!outgoingAnswerWatchdogTimer) return;
+    try { clearInterval(outgoingAnswerWatchdogTimer); } catch (_e) {}
+    outgoingAnswerWatchdogTimer = null;
+    outgoingAnswerWatchdogStartedAt = 0;
+    try {
+      console.log('CALL_NATIVE_PENDING_WATCHDOG_STOP reason=' + String(reason || 'done'));
+    } catch (_e) {}
+  }
+
+  /**
+   * While an outgoing call waits for remote answer, keep draining Native pending
+   * wraps even if the one-shot Native→JS notification was missed.
+   */
+  function startOutgoingAnswerDrainWatchdog(options) {
+    const opts = options || {};
+    stopOutgoingAnswerDrainWatchdog('restart');
+    outgoingAnswerWatchdogStartedAt = Date.now();
+    try {
+      console.log('CALL_NATIVE_PENDING_WATCHDOG_START intervalMs=' + OUTGOING_ANSWER_WATCHDOG_INTERVAL_MS
+        + ' maxMs=' + OUTGOING_ANSWER_WATCHDOG_MS);
+    } catch (_e) {}
+    const tick = () => {
+      try {
+        if (typeof opts.shouldStop === 'function' && opts.shouldStop()) {
+          stopOutgoingAnswerDrainWatchdog('answered-or-ended');
+          return;
+        }
+      } catch (_e) {}
+      if (Date.now() - outgoingAnswerWatchdogStartedAt > OUTGOING_ANSWER_WATCHDOG_MS) {
+        stopOutgoingAnswerDrainWatchdog('timeout');
+        return;
+      }
+      try { reconcilePendingSecureCallSignals('outgoing-await-answer'); } catch (_e) {}
+    };
+    tick();
+    outgoingAnswerWatchdogTimer = setInterval(tick, OUTGOING_ANSWER_WATCHDOG_INTERVAL_MS);
   }
 
   function getDispatchStats() {
@@ -1359,6 +1432,9 @@
       ensureSecureCallSubscription,
       drainPendingSecureWrapsFromNative,
       reconcilePendingSecureCallSignals,
+      startOutgoingAnswerDrainWatchdog,
+      stopOutgoingAnswerDrainWatchdog,
+      NATIVE_HANDOFF_REV,
       normalizeSessionDescription,
       getCachedSecureOffer,
       getDispatchStats,
@@ -1385,6 +1461,14 @@
   App.isCallSignalGiftWrapRequired = isCallSignalGiftWrapRequired;
   App.isCallPrivacySignalingActive = isCallPrivacySignalingActive;
   App.resolveCallSignalSecurityDecision = resolveCallSignalSecurityDecision;
+  App.reconcilePendingSecureCallSignals = reconcilePendingSecureCallSignals;
+  App.startOutgoingAnswerDrainWatchdog = startOutgoingAnswerDrainWatchdog;
+  App.stopOutgoingAnswerDrainWatchdog = stopOutgoingAnswerDrainWatchdog;
+  App.NATIVE_HANDOFF_REV = NATIVE_HANDOFF_REV;
+
+  try {
+    console.log('CALL_NATIVE_HANDOFF_REV=' + NATIVE_HANDOFF_REV);
+  } catch (_e) {}
 
   // Shared secure 1059 subscription — one unwrap for voice+video.
   if (typeof App.notifyPoolReady === 'function') {
@@ -1393,10 +1477,12 @@
       prevNotify(pool);
       try { ensureSecureCallSubscription(); } catch (_e) {}
       try { refreshCallSignalGiftWrapPolicy({ skipFetch: false }); } catch (_e2) {}
+      try { reconcilePendingSecureCallSignals('pool-ready'); } catch (_e3) {}
     };
   } else {
     App.notifyPoolReady = function(_pool) {
       try { ensureSecureCallSubscription(); } catch (_e) {}
+      try { reconcilePendingSecureCallSignals('pool-ready'); } catch (_e2) {}
     };
   }
   try {
@@ -1404,5 +1490,10 @@
   } catch (_e) {}
   try {
     refreshCallSignalGiftWrapPolicy({ skipFetch: false });
+  } catch (_e) {}
+  try {
+    setTimeout(() => {
+      try { reconcilePendingSecureCallSignals('js-bridge-ready'); } catch (_e) {}
+    }, 0);
   } catch (_e) {}
 })(window);
