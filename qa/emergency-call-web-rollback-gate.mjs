@@ -95,8 +95,8 @@ record('G call push incoming path not active for production send',
 record('H no android-shell changes in this rollback',
   execSync('git diff --name-only HEAD -- android-shell', { cwd: ROOT, encoding: 'utf8' }).trim() === ''
   && execSync('git diff --cached --name-only -- android-shell', { cwd: ROOT, encoding: 'utf8' }).trim() === '');
-record('H public APK is 1.0.123 / 124',
-  apkVer.version === '1.0.123' && Number(apkVer.versionCode) === 124);
+record('H public APK is 1.0.124 / 125',
+  apkVer.version === '1.0.124' && Number(apkVer.versionCode) === 125);
 record('I SW sos-cache-v871',
   /sos-cache-v871/.test(sw));
 record('I web version call-coldanswer1 or later',

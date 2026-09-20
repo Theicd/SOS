@@ -253,10 +253,14 @@ async function main() {
     /function maybeMarkVoiceCallConnected/.test(read('chat-voice-call.js')));
   record('P2P', !touched.some((n) => /p2p|webtorrent|torrent|PeerExchange|25055|30078|DataChannel/i.test(n)));
   record('BLOSSOM', !touched.some((n) => /blossom/i.test(n)));
-  record('apk unchanged', !touched.includes('apk-version.json'));
+  record('apk publish is 1.0.124 only',
+    !touched.includes('apk-version.json')
+    || (JSON.parse(read('apk-version.json')).version === '1.0.124'
+      && Number(JSON.parse(read('apk-version.json')).versionCode) === 125
+      && String(JSON.parse(read('apk-version.json')).file) === 'SOS-1.0.124.apk'));
   const apk = JSON.parse(read('apk-version.json'));
   const app = JSON.parse(read('app-version.json'));
-  record('apk pointer 1.0.123/124', apk.version === '1.0.123' && Number(apk.versionCode) === 124);
+  record('apk pointer 1.0.124/125', apk.version === '1.0.124' && Number(apk.versionCode) === 125);
   record('web version', app.version === '2026.09.20-call-coldanswer1');
   record('flags', app.callSignalGiftWrapRequired === true && app.minSecureChatEpoch === 2 && app.e2eeSendRequired === true && app.mediaServerE2eeRequired === true);
 

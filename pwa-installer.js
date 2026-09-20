@@ -201,7 +201,7 @@
   }
 
   // PUBLIC STABLE install target (initial Android install) — the one tracked APK on the site.
-  const NATIVE_APK_VERSION = '1.0.123';
+  const NATIVE_APK_VERSION = '1.0.124';
   const NATIVE_APK_FILE = `SOS-${NATIVE_APK_VERSION}.apk`;
   const NATIVE_APK_URL = (typeof localStorage !== 'undefined' && localStorage.getItem('sos_apk_url'))
     || `https://sos010.com/downloads/${NATIVE_APK_FILE}`;

@@ -133,17 +133,17 @@ record('session tombstone store present',
 record('DECLINE_CANCEL_KEEPFRONT present', /DECLINE_CANCEL_KEEPFRONT/.test(main) || /DECLINE_CANCEL_KEEPFRONT/.test(bridge));
 record('VERIFY_ONLY_IDLE_SHUTDOWN present', /VERIFY_ONLY_IDLE_SHUTDOWN/.test(main));
 record('SW cache v871', /sos-cache-v871/.test(read('service-worker.js')));
-record('public APK is 1.0.123',
-  JSON.parse(read('apk-version.json')).version === '1.0.123'
-  && Number(JSON.parse(read('apk-version.json')).versionCode) === 124);
+record('public APK is 1.0.124',
+  JSON.parse(read('apk-version.json')).version === '1.0.124'
+  && Number(JSON.parse(read('apk-version.json')).versionCode) === 125);
 record('session-terminal WEB ACK restored for fastwake',
   /ackSecureWrapHandledToNative/.test(read('call-signal-e2ee.js')));
 record('QA shell version 1.0.124 / 125',
   /versionName\s*=\s*"1\.0\.124"/.test(read('android-shell/app/build.gradle.kts'))
   && /versionCode\s*=\s*125/.test(read('android-shell/app/build.gradle.kts')));
-record('public APK pointer is 1.0.123',
-  JSON.parse(read('apk-version.json')).version === '1.0.123'
-  && Number(JSON.parse(read('apk-version.json')).versionCode) === 124);
+record('public APK pointer is 1.0.124',
+  JSON.parse(read('apk-version.json')).version === '1.0.124'
+  && Number(JSON.parse(read('apk-version.json')).versionCode) === 125);
 record('minimal verifier asset present',
   fs.existsSync(path.join(ROOT, 'android-shell/app/src/main/assets/secure-call-verifier/index.html')));
 

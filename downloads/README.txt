@@ -1,10 +1,10 @@
 ﻿downloads/ contains the ONE current production APK.
 
 Current file:
-downloads/SOS-1.0.122.apk
+downloads/SOS-1.0.124.apk
 
 Public download:
-https://sos010.com/downloads/SOS-1.0.122.apk
+https://sos010.com/downloads/SOS-1.0.124.apk
 
 This APK is intentionally tracked so a GitHub Download ZIP of the repository
 contains the complete project, including the Android APK.

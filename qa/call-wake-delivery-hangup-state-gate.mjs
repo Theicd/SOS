@@ -107,8 +107,8 @@ record('20 P2P unchanged file present',
 record('QA shell 1.0.124 / 125',
   /versionName\s*=\s*"1\.0\.124"/.test(gradle)
   && /versionCode\s*=\s*125/.test(gradle));
-record('public apk-version is 1.0.123 / 124',
-  apk.version === '1.0.123' && Number(apk.versionCode) === 124);
+record('public apk-version is 1.0.124 / 125',
+  apk.version === '1.0.124' && Number(apk.versionCode) === 125);
 record('fallback logs present',
   /SECURE_VERIFIER_FALLBACK_SEND/.test(notify)
   && /SECURE_VERIFIER_FALLBACK_SENT/.test(notify)

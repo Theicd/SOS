@@ -1,5 +1,5 @@
-﻿# Track the current production APK and optional QA APKs.
-# Production pointer remains apk-version.json (currently SOS-1.0.123.apk only).
+﻿# Track exactly one production APK in this folder.
+# Ignore every other APK. When releasing a new version, change the exception
+# to the new filename and delete the previous SOS-*.apk.
 *.apk
-!SOS-1.0.123.apk
-!SOS-1.0.124-QA.apk
+!SOS-1.0.124.apk

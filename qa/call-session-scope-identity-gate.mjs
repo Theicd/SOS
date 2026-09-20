@@ -531,7 +531,7 @@ async function main() {
 
   const apk = JSON.parse(read('apk-version.json'));
   const app = JSON.parse(read('app-version.json'));
-  record('APK pointer unchanged 1.0.123/123', apk.version === '1.0.123' && Number(apk.versionCode) === 124);
+  record('APK pointer 1.0.124/125', apk.version === '1.0.124' && Number(apk.versionCode) === 125);
   record('web version call-coldanswer1', app.version === '2026.09.20-call-coldanswer1');
   record('SW v871', /sos-cache-v871/.test(read('service-worker.js')));
   record('security flags frozen',
