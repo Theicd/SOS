@@ -483,6 +483,11 @@
       state.outboundStarting = false;
       state.answeredLocally = true;
       console.log('CALL_STARTED');
+      try {
+        if (typeof App.reconcilePendingSecureCallSignals === 'function') {
+          App.reconcilePendingSecureCallSignals('outgoing-start');
+        }
+      } catch (_) {}
       if (typeof App.onVideoCallStarted === 'function') App.onVideoCallStarted(peerPubkey, false);
     } catch (err) {
       state.outboundStarting = false;
@@ -532,6 +537,11 @@
     await sendSignal(peer, 'v-answer', answer);
     state.answeredLocally = true;
     console.log('CALL_ACCEPTED');
+    try {
+      if (typeof App.reconcilePendingSecureCallSignals === 'function') {
+        App.reconcilePendingSecureCallSignals('incoming-accept');
+      }
+    } catch (_) {}
     if (typeof App.onVideoCallStarted === 'function') App.onVideoCallStarted(peer, true);
   }
 

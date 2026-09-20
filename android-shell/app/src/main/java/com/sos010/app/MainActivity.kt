@@ -339,6 +339,8 @@ class MainActivity : AppCompatActivity() {
                 injectPendingDeepLink()
                 injectPendingCallAction()
                 injectWarmForCall()
+                injectSecureWrapProcessing()
+                injectLiveSecurePendingReconcile("resume")
                 injectWarmForP2p()
             }
             injectNativeFilePickScript()
@@ -885,7 +887,9 @@ class MainActivity : AppCompatActivity() {
                 if (App.CallSignalE2ee && typeof App.CallSignalE2ee.ensureSecureCallSubscription === 'function') {
                   App.CallSignalE2ee.ensureSecureCallSubscription();
                 }
-                if (typeof App.prepareSecureCallEventFromNative === 'function') {
+                if (typeof App.reconcilePendingSecureCallSignals === 'function') {
+                  App.reconcilePendingSecureCallSignals('secure-wrap-inject', $rawEventJs);
+                } else if (typeof App.prepareSecureCallEventFromNative === 'function') {
                   App.prepareSecureCallEventFromNative($rawEventJs);
                 }
               } catch (e) {}
@@ -904,24 +908,48 @@ class MainActivity : AppCompatActivity() {
         }
         mainHandler.postDelayed({
             if (!this::webView.isInitialized) return@postDelayed
-            val more = SosPendingCallStore.peekSecureWraps(applicationContext).toString()
-            if (more == "[]") return@postDelayed
-            val moreJs = JSONObject.quote(more)
-            val retry = """
-                (function(){
-                  try {
-                    var App = window.NostrApp || {};
-                    if (typeof App.prepareSecureCallEventFromNative === 'function') {
-                      App.prepareSecureCallEventFromNative($moreJs);
-                    }
-                  } catch (e) {}
-                })();
-            """.trimIndent()
-            try {
-                webView.evaluateJavascript(retry, null)
-            } catch (_: Exception) {
-            }
+            injectLiveSecurePendingReconcile("secure-wrap-retry")
         }, 1200L)
+    }
+
+    /**
+     * Live host: Native already queued encrypted 1059 — tell JS to peek/drain.
+     * Never rings by itself; only offer auth in JS may ring.
+     */
+    private fun injectLiveSecurePendingReconcile(reason: String) {
+        if (!this::webView.isInitialized) return
+        if (!webPageReady) {
+            warmForSecureWrapPending = true
+            return
+        }
+        val count = try {
+            SosPendingCallStore.peekSecureWrapCount(applicationContext)
+        } catch (_: Exception) {
+            0
+        }
+        if (count <= 0) return
+        val reasonJs = JSONObject.quote(reason)
+        val js = """
+            (function(){
+              try {
+                var App = window.NostrApp || {};
+                if (typeof App.initVoiceCall === 'function') App.initVoiceCall({});
+                if (typeof App.initVideoCall === 'function') App.initVideoCall({});
+                if (typeof App.reconcilePendingSecureCallSignals === 'function') {
+                  App.reconcilePendingSecureCallSignals($reasonJs);
+                } else if (typeof App.prepareSecureCallEventFromNative === 'function') {
+                  App.prepareSecureCallEventFromNative();
+                }
+              } catch (e) {}
+            })();
+        """.trimIndent()
+        try {
+            webView.evaluateJavascript(js, null)
+            Log.i(TAG, "CALL_NATIVE_PENDING_INJECT reason=$reason count=$count")
+            SosDebugLog.i("call", "CALL_NATIVE_PENDING_INJECT reason=$reason count=$count")
+        } catch (err: Exception) {
+            Log.w(TAG, "secure pending reconcile inject failed: ${err.message}")
+        }
     }
 
     private fun injectWarmForCall() {
@@ -2514,6 +2542,28 @@ class MainActivity : AppCompatActivity() {
                 SosDebugLog.i("call", "warmSecureWrap fail ${err.message}")
                 SecureCallWakeActivity.clearLaunchInFlight()
                 SosRelayWatcher.clearSecureWarmInFlight()
+            }
+        }
+
+        /**
+         * Live MainActivity already up: encrypted pending wraps are available.
+         * Notify WebView to peek → dispatch → ACK. Never ring for answer/candidate.
+         */
+        fun notifySecurePendingAvailable(context: Context) {
+            val app = context.applicationContext
+            val count = try {
+                SosPendingCallStore.peekSecureWrapCount(app)
+            } catch (_: Exception) {
+                0
+            }
+            android.util.Log.i(TAG, "CALL_NATIVE_PENDING_AVAILABLE count=$count")
+            SosDebugLog.i("call", "CALL_NATIVE_PENDING_AVAILABLE count=$count")
+            if (count <= 0) return
+            hostRef?.get()?.runOnUiThread {
+                try {
+                    hostRef?.get()?.injectLiveSecurePendingReconcile("native-pending")
+                } catch (_: Exception) {
+                }
             }
         }
 

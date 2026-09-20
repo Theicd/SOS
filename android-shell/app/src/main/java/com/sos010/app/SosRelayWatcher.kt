@@ -361,7 +361,9 @@ class SosRelayWatcher(private val appContext: Context) {
 
     private fun verifySecureWrapsNative() {
         if (MainActivity.isHostAlive) {
-            Log.i(TAG, "SECURE_WAKE hostAlive – JS handles")
+            // Live WebView must drain Native pending queue — do NOT assume
+            // the independent Web Relay subscription also received this 1059.
+            MainActivity.notifySecurePendingAvailable(appContext)
             return
         }
         try {

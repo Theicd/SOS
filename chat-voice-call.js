@@ -508,6 +508,11 @@
       }
 
       console.log('CALL_STARTED');
+      try {
+        if (typeof App.reconcilePendingSecureCallSignals === 'function') {
+          App.reconcilePendingSecureCallSignals('outgoing-start');
+        }
+      } catch (_) {}
 
       // עדכון UI
       if (typeof App.onVoiceCallStarted === 'function') {
@@ -575,6 +580,11 @@
       state.callAnswered = true;
 
       console.log('CALL_ACCEPTED');
+      try {
+        if (typeof App.reconcilePendingSecureCallSignals === 'function') {
+          App.reconcilePendingSecureCallSignals('incoming-accept');
+        }
+      } catch (_) {}
 
       // עדכון UI
       if (typeof App.onVoiceCallStarted === 'function') {

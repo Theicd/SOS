@@ -1185,6 +1185,26 @@
   };
 
   // Opaque Native wake: drain pending queue through THE SAME authoritative dispatcher.
+  App.reconcilePendingSecureCallSignals = async function reconcilePendingSecureCallSignals(reason, optionalQueue) {
+    try {
+      if (typeof App.initVoiceCall === 'function') App.initVoiceCall({});
+      if (typeof App.initVideoCall === 'function') App.initVideoCall({});
+    } catch (_) {}
+    const api = App.CallSignalE2ee;
+    if (!api) {
+      try { console.log('CALL_NATIVE_PENDING_DRAIN_DEFER reason=not-ready'); } catch (_) {}
+      return { deferred: true, reason: 'not-ready' };
+    }
+    try {
+      if (api.ensureSecureCallSubscription) api.ensureSecureCallSubscription();
+    } catch (_) {}
+    if (typeof api.reconcilePendingSecureCallSignals === 'function') {
+      return api.reconcilePendingSecureCallSignals(reason, optionalQueue);
+    }
+    // Fallback for older helper builds.
+    return App.prepareSecureCallEventFromNative(optionalQueue);
+  };
+
   App.prepareSecureCallEventFromNative = async function prepareSecureCallEventFromNative(pendingRawEvent) {
     try {
       if (typeof App.initVoiceCall === 'function') App.initVoiceCall({});
@@ -1198,6 +1218,13 @@
     try {
       if (api.ensureSecureCallSubscription) api.ensureSecureCallSubscription();
     } catch (_) {}
+
+    if (typeof api.reconcilePendingSecureCallSignals === 'function') {
+      const result = await api.reconcilePendingSecureCallSignals('native-prepare', pendingRawEvent);
+      const any = !!(result && (result.handled > 0 || result.ok));
+      if (any) console.log('CALL_SECURE_WAKE drained');
+      return any;
+    }
 
     const parseQueue = (raw) => {
       const out = [];
@@ -1958,7 +1985,14 @@
       } catch (_) {}
     };
     document.addEventListener('visibilitychange', ensureLiveCallUiVisible);
-    window.addEventListener('sos-native-resume', ensureLiveCallUiVisible);
+    window.addEventListener('sos-native-resume', () => {
+      try {
+        if (typeof App.reconcilePendingSecureCallSignals === 'function') {
+          App.reconcilePendingSecureCallSignals('resume');
+        }
+      } catch (_) {}
+      ensureLiveCallUiVisible();
+    });
   }
 
   // אתחול כשהדף נטען

@@ -562,6 +562,7 @@
       }
 
       await routeSecureSignal(unwrapped);
+      try { console.log('CALL_SECURE_SIGNAL_DISPATCH action=' + String(unwrapped.action || '')); } catch (_e) {}
       ackSecureWrapHandledToNative(wrapId);
       return { status: 'dispatched', media: unwrapped.media, action: unwrapped.action, signalId: unwrapped.signalId };
     } catch (_err) {
@@ -613,6 +614,7 @@
         },
         oneose: () => {
           console.log('CALL_SECURE_SUBSCRIBE_READY');
+          try { reconcilePendingSecureCallSignals('subscribe-ready'); } catch (_e) {}
         },
       });
       return secureSub;
@@ -644,6 +646,15 @@
       const result = await dispatchGiftWrappedCallSignal(ev);
       results.push(result);
       if (dispatchStats.nativeRingAuth > beforeAuth) anyRingAuth = true;
+      const status = result && result.status ? String(result.status) : '';
+      const action = result && result.action ? String(result.action) : '';
+      if (status === 'duplicate') {
+        try { console.log('CALL_NATIVE_PENDING_DUPLICATE'); } catch (_e) {}
+      } else if (status === 'dispatched' || status === 'invalid_offer' || status === 'pending_candidate') {
+        try {
+          console.log('CALL_NATIVE_PENDING_DISPATCH action=' + (action || status));
+        } catch (_e) {}
+      }
       // Temporary failures: restore encrypted wrap so process restart can recover.
       if (shouldRequeueSecureWrap(result)) {
         requeueSecureWrapToNative(ev);
@@ -654,6 +665,103 @@
       setTimeout(() => requestVerifyOnlyIdleShutdown(), 1500);
     }
     return results;
+  }
+
+  let pendingSecureReconcileInFlight = null;
+  let pendingSecureReconcileQueued = false;
+
+  function parseNativeSecurePendingQueue(raw) {
+    const out = [];
+    if (!raw) return out;
+    try {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (Array.isArray(parsed)) {
+        for (let i = 0; i < parsed.length; i += 1) out.push(parsed[i]);
+        return out;
+      }
+      if (parsed && parsed.event) {
+        out.push(parsed);
+        return out;
+      }
+      if (parsed && parsed.kind === GIFT_WRAP_KIND) {
+        out.push(parsed);
+        return out;
+      }
+    } catch (_e) {}
+    return out;
+  }
+
+  /**
+   * Idempotent Native→Web secure-call handoff.
+   * Peek encrypted pending wraps → same dispatcher → per-wrap ACK.
+   * Does not depend on Web Relay also receiving the same 1059.
+   */
+  async function reconcilePendingSecureCallSignals(reason, optionalQueue) {
+    const why = String(reason || 'unknown');
+    if (pendingSecureReconcileInFlight) {
+      pendingSecureReconcileQueued = true;
+      return pendingSecureReconcileInFlight;
+    }
+    pendingSecureReconcileInFlight = (async () => {
+      try {
+        if (!App.privateKey || !App.publicKey) {
+          try { console.log('CALL_NATIVE_PENDING_DRAIN_DEFER reason=not-ready'); } catch (_e) {}
+          return { deferred: true, reason: 'not-ready' };
+        }
+        if (typeof dispatchGiftWrappedCallSignal !== 'function') {
+          try { console.log('CALL_NATIVE_PENDING_DRAIN_DEFER reason=not-ready'); } catch (_e) {}
+          return { deferred: true, reason: 'not-ready' };
+        }
+
+        let items = parseNativeSecurePendingQueue(optionalQueue);
+        if (!items.length) {
+          try {
+            const bridge = window.SosNativeShell;
+            if (bridge && typeof bridge.peekPendingSecureWraps === 'function') {
+              items = parseNativeSecurePendingQueue(bridge.peekPendingSecureWraps());
+            } else if (bridge && typeof bridge.drainPendingSecureWraps === 'function') {
+              items = parseNativeSecurePendingQueue(bridge.drainPendingSecureWraps());
+            } else if (bridge && typeof bridge.getIncomingCallRawEvent === 'function') {
+              items = parseNativeSecurePendingQueue(bridge.getIncomingCallRawEvent());
+            }
+          } catch (_e) {}
+        }
+        if (!items.length) return { empty: true, reason: why };
+
+        try {
+          console.log('CALL_NATIVE_PENDING_DRAIN_START reason=' + why + ' count=' + items.length);
+        } catch (_e) {}
+
+        const results = await drainPendingSecureWrapsFromNative(items);
+        let handled = 0;
+        for (let i = 0; i < results.length; i += 1) {
+          const r = results[i];
+          if (!r) continue;
+          const st = String(r.status || '');
+          if (st === 'dispatched' || st === 'duplicate' || st === 'invalid_offer') handled += 1;
+        }
+        let remaining = 0;
+        try {
+          const bridge = window.SosNativeShell;
+          if (bridge && typeof bridge.peekPendingSecureWraps === 'function') {
+            remaining = parseNativeSecurePendingQueue(bridge.peekPendingSecureWraps()).length;
+          }
+        } catch (_e) {}
+        try {
+          console.log('CALL_NATIVE_PENDING_DRAIN_OK handled=' + handled + ' remaining=' + remaining);
+        } catch (_e) {}
+        return { ok: true, handled, remaining, reason: why, results };
+      } finally {
+        pendingSecureReconcileInFlight = null;
+        if (pendingSecureReconcileQueued) {
+          pendingSecureReconcileQueued = false;
+          setTimeout(() => {
+            try { reconcilePendingSecureCallSignals('coalesce'); } catch (_e) {}
+          }, 0);
+        }
+      }
+    })();
+    return pendingSecureReconcileInFlight;
   }
 
   function getDispatchStats() {
@@ -1250,6 +1358,7 @@
       enqueueSecureDispatch,
       ensureSecureCallSubscription,
       drainPendingSecureWrapsFromNative,
+      reconcilePendingSecureCallSignals,
       normalizeSessionDescription,
       getCachedSecureOffer,
       getDispatchStats,
