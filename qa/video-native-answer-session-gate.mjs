@@ -257,7 +257,7 @@ async function main() {
   const apk = JSON.parse(read('apk-version.json'));
   const app = JSON.parse(read('app-version.json'));
   record('apk pointer 1.0.123/124', apk.version === '1.0.123' && Number(apk.versionCode) === 124);
-  record('web version', app.version === '2026.09.20-call-conn1');
+  record('web version', app.version === '2026.09.20-call-inflight1');
   record('flags', app.callSignalGiftWrapRequired === true && app.minSecureChatEpoch === 2 && app.e2eeSendRequired === true && app.mediaServerE2eeRequired === true);
 
   const failed = results.filter((r) => !r.ok);

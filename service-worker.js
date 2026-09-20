@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v869'; // bilateral CALL_CONNECTED + accept latency; APK 1.0.123
+  const CACHE_NAME = 'sos-cache-v870'; // fix stale reconcile inFlight + Native priority; APK 1.0.123
   const PRECACHE_URLS = [
     './',
     './videos.html',

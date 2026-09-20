@@ -97,10 +97,11 @@ record('H no android-shell changes in this rollback',
   && execSync('git diff --cached --name-only -- android-shell', { cwd: ROOT, encoding: 'utf8' }).trim() === '');
 record('H public APK is 1.0.123 / 124',
   apkVer.version === '1.0.123' && Number(apkVer.versionCode) === 124);
-record('I SW sos-cache-v869',
-  /sos-cache-v869/.test(sw));
-record('I web version call-conn1 or later',
-  String(appVer.version || '').includes('call-conn1')
+record('I SW sos-cache-v870',
+  /sos-cache-v870/.test(sw));
+record('I web version call-inflight1 or later',
+  String(appVer.version || '').includes('call-inflight1')
+  || String(appVer.version || '').includes('call-conn1')
   || String(appVer.version || '').includes('call-ring1')
   || String(appVer.version || '').includes('call-drain1')
   || String(appVer.version || '').includes('presence2')
@@ -115,7 +116,7 @@ record('I web version call-conn1 or later',
   || String(appVer.version || '').includes('video-session-adopt1')
   || String(appVer.version || '').includes('native-call-verify1'));
 record('I call script cache-busters present',
-  /call-signal-e2ee\.js\?v=20260920conn1/.test(videos)
+  /call-signal-e2ee\.js\?v=20260920inflight1/.test(videos)
   && /chat-voice-call\.js\?v=20260920conn1/.test(videos)
   && /chat-deeplink\.js\?v=20260918/.test(videos));
 

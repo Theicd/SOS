@@ -121,8 +121,8 @@ record('secure queue MAX 32', /MAX_SECURE_WRAPS\s*=\s*32|maxSecure.*=\s*32|32/.t
 record('policy remains callSignalGiftWrapRequired true', appVer.callSignalGiftWrapRequired === true);
 record('APK QA version 1.0.123 / 124',
   /versionName\s*=\s*"1\.0\.123"/.test(gradle) && /versionCode\s*=\s*124/.test(gradle));
-record('production web version call-conn1',
-  String(appVer.version || '').includes('call-conn1'));
+record('production web version call-inflight1',
+  String(appVer.version || '').includes('call-inflight1'));
 record('durable handled store present',
   fs.existsSync(path.join(ROOT, 'android-shell/app/src/main/java/com/sos010/app/SosSecureWrapHandledStore.kt')));
 record('SECURE_WAKE_REPLAY_DROP log', /SECURE_WAKE_REPLAY_DROP/.test(watcher));
@@ -132,7 +132,7 @@ record('session tombstone store present',
   fs.existsSync(path.join(ROOT, 'android-shell/app/src/main/java/com/sos010/app/SosSecureCallSessionStore.kt')));
 record('DECLINE_CANCEL_KEEPFRONT present', /DECLINE_CANCEL_KEEPFRONT/.test(main) || /DECLINE_CANCEL_KEEPFRONT/.test(bridge));
 record('VERIFY_ONLY_IDLE_SHUTDOWN present', /VERIFY_ONLY_IDLE_SHUTDOWN/.test(main));
-record('SW cache v869', /sos-cache-v869/.test(read('service-worker.js')));
+record('SW cache v870', /sos-cache-v870/.test(read('service-worker.js')));
 record('public APK is 1.0.123',
   JSON.parse(read('apk-version.json')).version === '1.0.123'
   && Number(JSON.parse(read('apk-version.json')).versionCode) === 124);

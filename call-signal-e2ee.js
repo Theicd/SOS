@@ -867,6 +867,8 @@
   /**
    * Idempotent Native→Web secure-call handoff.
    * Peek encrypted pending wraps → same dispatcher → per-wrap ACK.
+   * Ownership is identity-safe: never leave a settled Promise stuck in
+   * pendingSecureReconcileInFlight (sync empty/not-ready paths used to).
    */
   async function reconcilePendingSecureCallSignals(reason, optionalQueue) {
     const why = String(reason || 'unknown');
@@ -874,75 +876,79 @@
       pendingSecureReconcileQueued = true;
       return pendingSecureReconcileInFlight;
     }
-    pendingSecureReconcileInFlight = (async () => {
-      try {
-        if (!App.privateKey || !App.publicKey) {
-          try { console.log('CALL_NATIVE_PENDING_DRAIN_DEFER reason=not-ready'); } catch (_e) {}
-          return { deferred: true, reason: 'not-ready' };
-        }
-        if (typeof dispatchGiftWrappedCallSignal !== 'function') {
-          try { console.log('CALL_NATIVE_PENDING_DRAIN_DEFER reason=not-ready'); } catch (_e) {}
-          return { deferred: true, reason: 'not-ready' };
-        }
-
-        let items = parseNativeSecurePendingQueue(optionalQueue);
-        let bridgeCount = -1;
-        if (!items.length) {
-          const peeked = peekNativePendingSecureWraps();
-          items = peeked.items;
-          bridgeCount = peeked.bridgeCount;
-        } else {
-          try {
-            const bridge = window.SosNativeShell;
-            if (bridge && typeof bridge.peekPendingSecureWrapCount === 'function') {
-              bridgeCount = Number(bridge.peekPendingSecureWrapCount()) || 0;
-            }
-          } catch (_e) {}
-        }
-
-        try {
-          console.log('CALL_NATIVE_PENDING_PEEK reason=' + why + ' count=' + items.length);
-        } catch (_e) {}
-        if (bridgeCount > 0 && items.length === 0) {
-          try {
-            console.log('CALL_NATIVE_PENDING_QUEUE_MISMATCH reason=' + why
-              + ' bridgeCount=' + bridgeCount + ' parsedCount=0');
-          } catch (_e) {}
-        }
-        if (!items.length) return { empty: true, reason: why, count: 0 };
-
-        try {
-          console.log('CALL_NATIVE_PENDING_DRAIN_START reason=' + why + ' count=' + items.length);
-        } catch (_e) {}
-
-        const results = await drainPendingSecureWrapsFromNative(items);
-        let handled = 0;
-        for (let i = 0; i < results.length; i += 1) {
-          const r = results[i];
-          if (!r) continue;
-          const st = String(r.status || '');
-          if (st === 'dispatched' || st === 'duplicate' || st === 'invalid_offer') handled += 1;
-        }
-        let remaining = 0;
-        try {
-          const peeked = peekNativePendingSecureWraps();
-          remaining = peeked.items.length;
-        } catch (_e) {}
-        try {
-          console.log('CALL_NATIVE_PENDING_DRAIN_OK handled=' + handled + ' remaining=' + remaining);
-        } catch (_e) {}
-        return { ok: true, handled, remaining, reason: why, results };
-      } finally {
-        pendingSecureReconcileInFlight = null;
-        if (pendingSecureReconcileQueued) {
-          pendingSecureReconcileQueued = false;
-          setTimeout(() => {
-            try { reconcilePendingSecureCallSignals('coalesce'); } catch (_e) {}
-          }, 0);
-        }
+    const run = (async () => {
+      if (!App.privateKey || !App.publicKey) {
+        try { console.log('CALL_NATIVE_PENDING_DRAIN_DEFER reason=not-ready'); } catch (_e) {}
+        return { deferred: true, reason: 'not-ready' };
       }
+      if (typeof dispatchGiftWrappedCallSignal !== 'function') {
+        try { console.log('CALL_NATIVE_PENDING_DRAIN_DEFER reason=not-ready'); } catch (_e) {}
+        return { deferred: true, reason: 'not-ready' };
+      }
+
+      let items = parseNativeSecurePendingQueue(optionalQueue);
+      let bridgeCount = -1;
+      if (!items.length) {
+        const peeked = peekNativePendingSecureWraps();
+        items = peeked.items;
+        bridgeCount = peeked.bridgeCount;
+      } else {
+        try {
+          const bridge = window.SosNativeShell;
+          if (bridge && typeof bridge.peekPendingSecureWrapCount === 'function') {
+            bridgeCount = Number(bridge.peekPendingSecureWrapCount()) || 0;
+          }
+        } catch (_e) {}
+      }
+
+      try {
+        console.log('CALL_NATIVE_PENDING_PEEK reason=' + why + ' count=' + items.length);
+      } catch (_e) {}
+      if (bridgeCount > 0 && items.length === 0) {
+        try {
+          console.log('CALL_NATIVE_PENDING_QUEUE_MISMATCH reason=' + why
+            + ' bridgeCount=' + bridgeCount + ' parsedCount=0');
+        } catch (_e) {}
+      }
+      if (!items.length) return { empty: true, reason: why, count: 0 };
+
+      try {
+        console.log('CALL_NATIVE_PENDING_DRAIN_START reason=' + why + ' count=' + items.length);
+      } catch (_e) {}
+
+      const results = await drainPendingSecureWrapsFromNative(items);
+      let handled = 0;
+      for (let i = 0; i < results.length; i += 1) {
+        const r = results[i];
+        if (!r) continue;
+        const st = String(r.status || '');
+        if (st === 'dispatched' || st === 'duplicate' || st === 'invalid_offer') handled += 1;
+      }
+      let remaining = 0;
+      try {
+        const peeked = peekNativePendingSecureWraps();
+        remaining = peeked.items.length;
+      } catch (_e) {}
+      try {
+        console.log('CALL_NATIVE_PENDING_DRAIN_OK handled=' + handled + ' remaining=' + remaining);
+      } catch (_e) {}
+      return { ok: true, handled, remaining, reason: why, results };
     })();
-    return pendingSecureReconcileInFlight;
+
+    pendingSecureReconcileInFlight = run;
+    try {
+      return await run;
+    } finally {
+      if (pendingSecureReconcileInFlight === run) {
+        pendingSecureReconcileInFlight = null;
+      }
+      if (pendingSecureReconcileQueued) {
+        pendingSecureReconcileQueued = false;
+        setTimeout(() => {
+          try { reconcilePendingSecureCallSignals('coalesce'); } catch (_e) {}
+        }, 0);
+      }
+    }
   }
 
   async function querySecureCallWrapsFromRelays() {
@@ -1006,6 +1012,7 @@
   /**
    * Desktop/Web catch-up: pull kind-1059 addressed to local pubkey from call relays
    * and feed the SAME dispatcher. Outer created_at may be randomized up to ~2 days.
+   * Identity-safe inFlight ownership (same class of bug as Native reconcile).
    */
   async function runWebSecureCallRecovery(reason) {
     const why = String(reason || 'unknown');
@@ -1023,52 +1030,99 @@
         }
       }
     } catch (_e) {}
+    // Native-first while outgoing call awaits answer: do not start another 48-event
+    // historical recovery pass when Native already has pending wraps.
+    try {
+      const outgoingAwait = why === 'outgoing-await-answer' || !!outgoingAnswerWatchdogTimer;
+      if (outgoingAwait) {
+        const peeked = peekNativePendingSecureWraps();
+        const n = (peeked.items && peeked.items.length) || 0;
+        const bc = Number(peeked.bridgeCount) || 0;
+        if (n > 0 || bc > 0) {
+          try {
+            console.log('CALL_WEB_RECOVERY_DEFER reason=native-pending-priority count='
+              + Math.max(n, bc));
+          } catch (_e) {}
+          try { reconcilePendingSecureCallSignals('native-priority'); } catch (_e2) {}
+          return { deferred: true, reason: 'native-pending-priority' };
+        }
+      }
+    } catch (_e) {}
     if (webRecoveryInFlight) {
       return webRecoveryInFlight;
     }
-    webRecoveryInFlight = (async () => {
+    const run = (async () => {
+      if (!App.privateKey || !App.publicKey || !App.pool) {
+        try { console.log('CALL_WEB_RECOVERY_ERROR reason=not-ready'); } catch (_e) {}
+        return { deferred: true, reason: 'not-ready' };
+      }
+      const events = await querySecureCallWrapsFromRelays();
       try {
-        if (!App.privateKey || !App.publicKey || !App.pool) {
-          try { console.log('CALL_WEB_RECOVERY_ERROR reason=not-ready'); } catch (_e) {}
-          return { deferred: true, reason: 'not-ready' };
+        console.log('CALL_WEB_RECOVERY_RESULT events=' + events.length);
+      } catch (_e) {}
+      if (!events.length) {
+        try { console.log('CALL_WEB_RECOVERY_EMPTY'); } catch (_e2) {}
+        return { empty: true, reason: why, count: 0 };
+      }
+      // Re-check Native before enqueueing a historical backlog.
+      try {
+        const outgoingAwait = why === 'outgoing-await-answer' || !!outgoingAnswerWatchdogTimer;
+        if (outgoingAwait) {
+          const peeked = peekNativePendingSecureWraps();
+          const n = (peeked.items && peeked.items.length) || 0;
+          const bc = Number(peeked.bridgeCount) || 0;
+          if (n > 0 || bc > 0) {
+            try {
+              console.log('CALL_WEB_RECOVERY_DEFER reason=native-pending-priority count='
+                + Math.max(n, bc));
+            } catch (_e) {}
+            try { await reconcilePendingSecureCallSignals('native-priority'); } catch (_e2) {}
+            return { deferred: true, reason: 'native-pending-priority', count: events.length };
+          }
         }
-        const events = await querySecureCallWrapsFromRelays();
+      } catch (_e) {}
+      let dispatched = 0;
+      let skippedKnown = 0;
+      for (let i = 0; i < events.length; i += 1) {
+        const ev = events[i];
+        if (!ev || ev.kind !== GIFT_WRAP_KIND) continue;
+        const wrapId = typeof ev.id === 'string' ? ev.id : '';
+        // Skip already-seen outer wrap IDs before enqueue — avoids starving the
+        // serialized dispatch chain with historical CALL_WEB_RECOVERY_DISPATCH duplicate.
+        if (wrapId && seenWrapIds.has(wrapId)) {
+          skippedKnown += 1;
+          continue;
+        }
+        if (!verifyEventSig(ev)) continue;
+        if (getPTag(ev) !== String(App.publicKey || '').toLowerCase()) continue;
         try {
-          console.log('CALL_WEB_RECOVERY_RESULT events=' + events.length);
+          const result = await enqueueSecureDispatch(ev);
+          const action = result && result.action ? String(result.action) : '';
+          const status = result && result.status ? String(result.status) : '';
+          if (status === 'dispatched' || status === 'duplicate' || status === 'invalid_offer' || status === 'pending_candidate') {
+            try {
+              console.log('CALL_WEB_RECOVERY_DISPATCH action=' + (action || status));
+            } catch (_e) {}
+            dispatched += 1;
+          }
         } catch (_e) {}
-        if (!events.length) {
-          try { console.log('CALL_WEB_RECOVERY_EMPTY'); } catch (_e2) {}
-          return { empty: true, reason: why, count: 0 };
-        }
-        let dispatched = 0;
-        for (let i = 0; i < events.length; i += 1) {
-          const ev = events[i];
-          if (!ev || ev.kind !== GIFT_WRAP_KIND) continue;
-          if (!verifyEventSig(ev)) continue;
-          if (getPTag(ev) !== String(App.publicKey || '').toLowerCase()) continue;
-          try {
-            const result = await enqueueSecureDispatch(ev);
-            const action = result && result.action ? String(result.action) : '';
-            const status = result && result.status ? String(result.status) : '';
-            if (status === 'dispatched' || status === 'duplicate' || status === 'invalid_offer' || status === 'pending_candidate') {
-              try {
-                console.log('CALL_WEB_RECOVERY_DISPATCH action=' + (action || status));
-              } catch (_e) {}
-              dispatched += 1;
-            }
-          } catch (_e) {}
-        }
-        return { ok: true, reason: why, count: events.length, dispatched };
-      } catch (err) {
+      }
+      if (skippedKnown > 0) {
         try {
-          console.log('CALL_WEB_RECOVERY_ERROR reason=' + classifyRelayPublishError(err));
+          console.log('CALL_WEB_RECOVERY_SKIP_KNOWN n=' + skippedKnown);
         } catch (_e) {}
-        return { error: true, reason: why };
-      } finally {
+      }
+      return { ok: true, reason: why, count: events.length, dispatched, skippedKnown };
+    })();
+
+    webRecoveryInFlight = run;
+    try {
+      return await run;
+    } finally {
+      if (webRecoveryInFlight === run) {
         webRecoveryInFlight = null;
       }
-    })();
-    return webRecoveryInFlight;
+    }
   }
 
   function stopWebSecureCallRecovery(reason) {
@@ -1838,6 +1892,8 @@
       startWebSecureCallRecovery,
       stopWebSecureCallRecovery,
       runWebSecureCallRecovery,
+      isPendingSecureReconcileInFlight: () => !!pendingSecureReconcileInFlight,
+      getPendingSecureReconcileInFlight: () => pendingSecureReconcileInFlight,
       getCallSignalRelays,
       CANONICAL_CALL_RELAYS,
       NATIVE_HANDOFF_REV,
