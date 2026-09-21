@@ -112,6 +112,18 @@ function load(options = {}) {
   const idb = options.idb || null;
   const gen = { n: 0 };
   const listeners = [];
+  const pageName = String(options.page || 'index.html');
+  const moduleNames = options.modules || [
+    'key-storage.js',
+    'identity-storage-bootstrap.js',
+    'auth-guard.js',
+    'config.js',
+    'keys.js',
+    'app.js',
+    'identity-lifecycle.js',
+    'account.js',
+    'key-viewer.js',
+  ];
   const ctx = {
     console: { log() {}, warn() {}, error() {} },
     setTimeout,
@@ -130,6 +142,11 @@ function load(options = {}) {
         addEventListener(_type, fn) { listeners.push(fn); },
       },
     },
+    location: {
+      pathname: '/' + pageName,
+      href: 'http://127.0.0.1/' + pageName,
+      replace() {},
+    },
     window: null,
     localStorage,
     sessionStorage,
@@ -141,17 +158,7 @@ function load(options = {}) {
   ctx.window = ctx;
   const version = 'browser-secure-cutover-v1';
   ctx.SOSIdentityStorageGeneration = {};
-  [
-    'key-storage.js',
-    'identity-storage-bootstrap.js',
-    'auth-guard.js',
-    'config.js',
-    'keys.js',
-    'app.js',
-    'identity-lifecycle.js',
-    'account.js',
-    'key-viewer.js',
-  ].forEach((name) => {
+  moduleNames.forEach((name) => {
     ctx.SOSIdentityStorageGeneration[name] = version;
   });
   if (options.generationPatch && options.generationPatch.mismatch) {
@@ -159,6 +166,11 @@ function load(options = {}) {
   }
   if (options.generationPatch && options.generationPatch.omit) {
     delete ctx.SOSIdentityStorageGeneration[options.generationPatch.omit];
+  }
+  if (options.generationPatch && options.generationPatch.extra) {
+    Object.keys(options.generationPatch.extra).forEach((name) => {
+      ctx.SOSIdentityStorageGeneration[name] = options.generationPatch.extra[name];
+    });
   }
   ctx.NostrApp = {
     validateIdentityPair(priv, expected) {
@@ -332,11 +344,13 @@ async function main() {
   });
   await lossNext.ctx.SOSKeyStorage.ready;
   record('M_BLOB_LOSS_RECOVERY',
-    lossNext.ctx.SOSKeyStorage.getProviderState() === 'WEB_SECURE_RECOVERY_REQUIRED'
+    lossNext.ctx.SOSKeyStorage.readPrivateKeyHex() === k1.hex
     && lossNext.localStorage.getItem('nostr_private_key') === k1.hex
-    && markerOf(lossNext.localStorage).state !== 'verified'
+    && lossNext.ctx.SOSKeyStorage.getProviderState() === 'WEB_SECURE_COPY_VERIFIED'
     && markerOf(lossNext.localStorage).state !== 'complete'
-    && lossNext.gen.n === 0);
+    && lossNext.ctx.SOSKeyStorage.canDeleteBrowserLegacySecret() === false
+    && lossNext.gen.n === 0
+    && !!lossNext.idb.blob());
 
   const keyLossIdb = makeIdb();
   const keyLossBoot = load({
@@ -374,12 +388,12 @@ async function main() {
     persisted: false,
   });
   await persistNext.ctx.SOSKeyStorage.ready;
-  const persistCheck = await persistNext.ctx.SOSKeyStorage.evaluateBootNPlusOneCutover();
-  record('O_PERSISTED_FALSE_BLOCKS',
-    markerOf(persistNext.localStorage).state === 'pending'
-    && persistCheck.state === 'WEB_SECURE_CUTOVER_BLOCKED'
-    && persistCheck.reasons.indexOf('STORAGE_NOT_PERSISTED') !== -1
-    && persistNext.localStorage.getItem('nostr_private_key') === k1.hex);
+  const persistMarker = markerOf(persistNext.localStorage);
+  record('O_PERSISTED_FALSE_ALLOWS_VERIFIED',
+    persistMarker && persistMarker.state === 'verified'
+    && persistNext.localStorage.getItem('nostr_private_key') === k1.hex
+    && persistNext.ctx.SOSKeyStorage.canDeleteBrowserLegacySecret() === false
+    && persistNext.ctx.SOSKeyStorage.readPrivateKeyHex() === k1.hex);
 
   const genBoot = load({
     localStorage: makeStorage([['nostr_private_key', k1.hex]]),
@@ -560,9 +574,47 @@ async function main() {
     persisted: false,
   });
   await ephemeral.ctx.SOSKeyStorage.ready;
-  record('Z_PRIVATE_NO_PENDING',
-    !ephemeral.localStorage.getItem(MARKER)
-    && ephemeral.ctx.SOSKeyStorage.readPrivateKeyHex() === k1.hex);
+  const ephemeralMarker = markerOf(ephemeral.localStorage);
+  const ephemeralEnv = await ephemeral.ctx.SOSKeyStorage.isBrowserCutoverEnvironmentSafe();
+  record('Z_PERSISTED_FALSE_ALLOWS_PENDING',
+    ephemeralMarker && ephemeralMarker.state === 'pending'
+    && ephemeral.localStorage.getItem('nostr_private_key') === k1.hex
+    && ephemeral.ctx.SOSKeyStorage.readPrivateKeyHex() === k1.hex
+    && ephemeral.ctx.SOSKeyStorage.canDeleteBrowserLegacySecret() === false
+    && ephemeralEnv.reasons.indexOf('STORAGE_NOT_PERSISTED') === -1);
+
+  const futureBlocked = await ephemeral.ctx.SOSKeyStorage.evaluateFutureBrowserLegacyDeleteEligibility();
+  const futureAllowedPersist = load({
+    localStorage: makeStorage([['nostr_private_key', k1.hex]]),
+    idb: makeIdb(),
+    controller: true,
+    persisted: true,
+  });
+  await futureAllowedPersist.ctx.SOSKeyStorage.ready;
+  const futureStillBlocked = await futureAllowedPersist.ctx.SOSKeyStorage.evaluateFutureBrowserLegacyDeleteEligibility();
+  record('AN_FUTURE_DELETE_REQUIRES_PERSISTENCE',
+    futureBlocked.persistenceRequired === true
+    && futureBlocked.eligible === false
+    && futureBlocked.persisted === false
+    && futureBlocked.reasons.indexOf('STORAGE_NOT_PERSISTED') !== -1
+    && futureStillBlocked.eligible === false
+    && futureStillBlocked.persisted === true
+    && futureStillBlocked.reasons.indexOf('STORAGE_NOT_PERSISTED') === -1
+    && futureStillBlocked.reasons.indexOf('DELETE_FLAG_FALSE') !== -1
+    && futureAllowedPersist.ctx.SOSKeyStorage.canDeleteBrowserLegacySecret() === false
+    && futureAllowedPersist.localStorage.getItem('nostr_private_key') === k1.hex);
+
+  const empty = load({
+    localStorage: makeStorage(),
+    idb: makeIdb(),
+    controller: true,
+    persisted: false,
+  });
+  await empty.ctx.SOSKeyStorage.ready;
+  record('AO_BOTH_ABSENT_GUEST',
+    empty.ctx.SOSKeyStorage.readPrivateKeyRaw() === ''
+    && empty.gen.n === 0
+    && !empty.localStorage.getItem(MARKER));
 
   const src = read('key-storage.js');
   const start = src.indexOf('/* CUTOVER_I1_START */');
@@ -592,6 +644,156 @@ async function main() {
     && /const BROWSER_SECURE_CUTOVER_DELETE_LEGACY = false/.test(src)
     && /function canDeleteBrowserLegacySecret\(\) \{\s*return false;\s*\}/.test(src)
     && src.includes('localStorage.setItem(LS, pair.priv)'));
+
+  const videosModules = [
+    'key-storage.js',
+    'identity-storage-bootstrap.js',
+    'config.js',
+    'keys.js',
+    'identity-lifecycle.js',
+    'account.js',
+    'key-viewer.js',
+    'app.js',
+  ];
+  const videosOk = load({
+    page: 'videos.html',
+    modules: videosModules,
+    localStorage: makeStorage([['nostr_private_key', k1.hex]]),
+    idb: makeIdb(),
+    controller: true,
+    persisted: true,
+  });
+  await videosOk.ctx.SOSKeyStorage.ready;
+  const videosGen = videosOk.ctx.SOSKeyStorage.verifyIdentityStorageCodeGeneration();
+  const videosMarker = markerOf(videosOk.localStorage);
+  record('AE_VIDEOS_GENERATION_OK_WITHOUT_AUTH_GUARD',
+    videosGen.result === 'CODE_GENERATION_OK'
+    && videosGen.page === 'videos.html'
+    && videosModules.indexOf('auth-guard.js') === -1
+    && videosMarker && videosMarker.state === 'pending'
+    && videosOk.localStorage.getItem('nostr_private_key') === k1.hex);
+
+  const videosMissing = load({
+    page: 'videos.html',
+    modules: videosModules.filter((name) => name !== 'app.js'),
+    localStorage: makeStorage([['nostr_private_key', k1.hex]]),
+    idb: makeIdb(),
+    controller: true,
+    persisted: true,
+  });
+  await videosMissing.ctx.SOSKeyStorage.ready;
+  const missingGen = videosMissing.ctx.SOSKeyStorage.verifyIdentityStorageCodeGeneration();
+  record('AF_VIDEOS_MISSING_MODULE_INCOMPLETE',
+    missingGen.result === 'CODE_GENERATION_INCOMPLETE'
+    && missingGen.missing.indexOf('app.js') !== -1
+    && !videosMissing.localStorage.getItem(MARKER)
+    && videosMissing.localStorage.getItem('nostr_private_key') === k1.hex);
+
+  const videosMismatch = load({
+    page: 'videos.html',
+    modules: videosModules,
+    generationPatch: { mismatch: 'app.js' },
+    localStorage: makeStorage([['nostr_private_key', k1.hex]]),
+    idb: makeIdb(),
+    controller: true,
+    persisted: true,
+  });
+  await videosMismatch.ctx.SOSKeyStorage.ready;
+  const mismatchGen = videosMismatch.ctx.SOSKeyStorage.verifyIdentityStorageCodeGeneration();
+  record('AG_VIDEOS_WRONG_GENERATION_MISMATCH',
+    mismatchGen.result === 'CODE_GENERATION_MISMATCH'
+    && mismatchGen.mismatch.indexOf('app.js') !== -1
+    && !videosMismatch.localStorage.getItem(MARKER));
+
+  const videosMixed = load({
+    page: 'videos.html',
+    modules: videosModules,
+    generationPatch: { extra: { 'auth-guard.js': 'old-cache' } },
+    localStorage: makeStorage([['nostr_private_key', k1.hex]]),
+    idb: makeIdb(),
+    controller: true,
+    persisted: true,
+  });
+  await videosMixed.ctx.SOSKeyStorage.ready;
+  const mixedGen = videosMixed.ctx.SOSKeyStorage.verifyIdentityStorageCodeGeneration();
+  record('AH_VIDEOS_MIXED_GENERATION_FAILS',
+    mixedGen.result === 'CODE_GENERATION_MISMATCH'
+    && mixedGen.mismatch.indexOf('auth-guard.js') !== -1
+    && !videosMixed.localStorage.getItem(MARKER));
+
+  const indexNoGuard = load({
+    page: 'index.html',
+    modules: videosModules,
+    localStorage: makeStorage([['nostr_private_key', k1.hex]]),
+    idb: makeIdb(),
+    controller: true,
+    persisted: true,
+  });
+  await indexNoGuard.ctx.SOSKeyStorage.ready;
+  const indexGen = indexNoGuard.ctx.SOSKeyStorage.verifyIdentityStorageCodeGeneration();
+  record('AI_INDEX_REQUIRES_AUTH_GUARD',
+    indexGen.result === 'CODE_GENERATION_INCOMPLETE'
+    && indexGen.missing.indexOf('auth-guard.js') !== -1
+    && !indexNoGuard.localStorage.getItem(MARKER));
+
+  const profileNoGuard = load({
+    page: 'profile.html',
+    modules: ['key-storage.js', 'identity-storage-bootstrap.js', 'app.js', 'config.js', 'keys.js'],
+    localStorage: makeStorage([['nostr_private_key', k1.hex]]),
+    idb: makeIdb(),
+    controller: true,
+    persisted: true,
+  });
+  await profileNoGuard.ctx.SOSKeyStorage.ready;
+  const profileGen = profileNoGuard.ctx.SOSKeyStorage.verifyIdentityStorageCodeGeneration();
+  record('AJ_PROFILE_REQUIRES_AUTH_GUARD',
+    profileGen.result === 'CODE_GENERATION_INCOMPLETE'
+    && profileGen.missing.indexOf('auth-guard.js') !== -1);
+
+  const viewerNoGuard = load({
+    page: 'profile-viewer.html',
+    modules: ['key-storage.js', 'identity-storage-bootstrap.js', 'config.js', 'keys.js'],
+    localStorage: makeStorage([['nostr_private_key', k1.hex]]),
+    idb: makeIdb(),
+    controller: true,
+    persisted: true,
+  });
+  await viewerNoGuard.ctx.SOSKeyStorage.ready;
+  const viewerGen = viewerNoGuard.ctx.SOSKeyStorage.verifyIdentityStorageCodeGeneration();
+  record('AK_PROFILE_VIEWER_REQUIRES_AUTH_GUARD',
+    viewerGen.result === 'CODE_GENERATION_INCOMPLETE'
+    && viewerGen.missing.indexOf('auth-guard.js') !== -1);
+
+  const unknown = load({
+    page: 'unknown-page.html',
+    modules: videosModules,
+    localStorage: makeStorage([['nostr_private_key', k1.hex]]),
+    idb: makeIdb(),
+    controller: true,
+    persisted: true,
+  });
+  await unknown.ctx.SOSKeyStorage.ready;
+  const unknownGen = unknown.ctx.SOSKeyStorage.verifyIdentityStorageCodeGeneration();
+  record('AL_UNDECLARED_PAGE_INCOMPLETE',
+    unknownGen.result === 'CODE_GENERATION_INCOMPLETE'
+    && unknownGen.missing.indexOf('UNDECLARED_PAGE') !== -1
+    && !unknown.localStorage.getItem(MARKER));
+
+  const rewritten = load({
+    page: 'index.html',
+    modules: videosModules,
+    localStorage: makeStorage([['nostr_private_key', k1.hex]]),
+    idb: makeIdb(),
+    controller: true,
+    persisted: true,
+  });
+  rewritten.ctx.document = {
+    body: { classList: { contains(name) { return name === 'videos-page'; } } },
+  };
+  const rewrittenGen = rewritten.ctx.SOSKeyStorage.verifyIdentityStorageCodeGeneration();
+  record('AM_VIDEOS_URL_REWRITE_USES_VIDEOS_SET',
+    rewrittenGen.result === 'CODE_GENERATION_OK'
+    && rewrittenGen.page === 'videos.html');
 
   const failed = results.filter((row) => !row.ok);
   console.log('---');

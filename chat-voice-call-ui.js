@@ -783,7 +783,9 @@
     if (voiceCallServiceWorkerRegisterAttempted) return;
     voiceCallServiceWorkerRegisterAttempted = true;
     try {
-      const p = navigator.serviceWorker.register('./service-worker.js?v=747', { scope: './', updateViaCache: 'none' });
+      const owner = window.SOSServiceWorker;
+      if (!owner || typeof owner.register !== 'function') return;
+      const p = owner.register();
       if (p && typeof p.catch === 'function') p.catch(() => {});
     } catch {}
   }

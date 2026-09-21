@@ -45,6 +45,86 @@
     'account.js',
     'key-viewer.js',
   ];
+  const IDENTITY_PAGE_MODULE_SETS = {
+    'index.html': [
+      'key-storage.js',
+      'identity-storage-bootstrap.js',
+      'auth-guard.js',
+      'config.js',
+      'keys.js',
+      'identity-lifecycle.js',
+      'account.js',
+      'key-viewer.js',
+      'app.js',
+    ],
+    'videos.html': [
+      'key-storage.js',
+      'identity-storage-bootstrap.js',
+      'config.js',
+      'keys.js',
+      'identity-lifecycle.js',
+      'account.js',
+      'key-viewer.js',
+      'app.js',
+    ],
+    'auth.html': [
+      'key-storage.js',
+      'identity-storage-bootstrap.js',
+      'config.js',
+      'app.js',
+      'keys.js',
+    ],
+    'profile.html': [
+      'key-storage.js',
+      'identity-storage-bootstrap.js',
+      'auth-guard.js',
+      'app.js',
+      'config.js',
+      'keys.js',
+    ],
+    'profile-viewer.html': [
+      'key-storage.js',
+      'identity-storage-bootstrap.js',
+      'auth-guard.js',
+      'config.js',
+      'keys.js',
+    ],
+    'dating.html': [
+      'key-storage.js',
+      'identity-storage-bootstrap.js',
+      'config.js',
+      'keys.js',
+    ],
+    'storage.html': [
+      'key-storage.js',
+      'identity-storage-bootstrap.js',
+      'config.js',
+      'keys.js',
+      'identity-lifecycle.js',
+      'app.js',
+      'account.js',
+      'key-viewer.js',
+    ],
+    'p2p-standby.html': [
+      'key-storage.js',
+      'identity-storage-bootstrap.js',
+      'config.js',
+      'keys.js',
+      'app.js',
+    ],
+    'hexgl-multiplayer.html': [
+      'key-storage.js',
+      'identity-storage-bootstrap.js',
+    ],
+    'nzp-multiplayer.html': [
+      'key-storage.js',
+      'identity-storage-bootstrap.js',
+    ],
+    'doom-multiplayer.html': [
+      'key-storage.js',
+      'identity-storage-bootstrap.js',
+    ],
+  };
   const IDENTITY_STORAGE_DEPLOY_FILES = REQUIRED_IDENTITY_MODULES.concat([
     'index.html',
     'videos.html',
@@ -527,7 +607,7 @@
       browserSecureActivated = true;
       return;
     }
-    if (secure.corrupt || (!secure.ok && migratedMarker)) {
+    if (secure.corrupt) {
       providerState = WEB_SECURE_RECOVERY_REQUIRED;
       memoryPriv = '';
       memoryPub = '';
@@ -623,23 +703,73 @@
     return safe;
   }
 
+  let storagePersistenceRequested = false;
+  let storagePersistedObserved = false;
+
   function noteSecureBootVerified() {
     browserSecureBootVerified = true;
+    requestStoragePersistenceOnce();
+  }
+
+  function requestStoragePersistenceOnce() {
     try {
+      if (storagePersistenceRequested) return;
       if (isSessionOnly() || nativeBridge() || isUncapableNativeShell()) return;
       const storage = window.navigator && window.navigator.storage;
       if (!storage || typeof storage.persist !== 'function') return;
-      Promise.resolve(storage.persist()).catch(() => {});
+      storagePersistenceRequested = true;
+      Promise.resolve(storage.persist()).then(() => storagePersistedState()).then((state) => {
+        storagePersistedObserved = state.ok === true;
+      }).catch(() => {
+        storagePersistedObserved = false;
+      });
     } catch (_e) {}
   }
 
+  function identityEntryPageName() {
+    try {
+      const body = window.document && window.document.body;
+      if (body && body.classList && body.classList.contains('videos-page')) return 'videos.html';
+    } catch (_e) {}
+    let path = '';
+    try {
+      path = String(window.location && window.location.pathname || '');
+    } catch (_e2) {
+      path = '';
+    }
+    const parts = path.split('/').filter(Boolean);
+    const leaf = parts.length ? parts[parts.length - 1] : 'index.html';
+    if (!leaf || leaf.indexOf('.') === -1) return 'index.html';
+    return String(leaf).toLowerCase();
+  }
+
+  function expectedIdentityModulesForPage(pageName) {
+    const page = String(pageName || identityEntryPageName());
+    const set = IDENTITY_PAGE_MODULE_SETS[page];
+    return set ? set.slice() : null;
+  }
+
   function verifyIdentityStorageCodeGeneration() {
+    const page = identityEntryPageName();
+    const expected = IDENTITY_PAGE_MODULE_SETS[page];
     const reg = window.SOSIdentityStorageGeneration || {};
-    const missing = REQUIRED_IDENTITY_MODULES.filter((name) => reg[name] == null || reg[name] === '');
-    if (missing.length) return { result: 'CODE_GENERATION_INCOMPLETE', missing };
-    const mismatch = REQUIRED_IDENTITY_MODULES.filter((name) => reg[name] !== SOS_IDENTITY_STORAGE_CODE_VERSION);
-    if (mismatch.length) return { result: 'CODE_GENERATION_MISMATCH', mismatch };
-    return { result: 'CODE_GENERATION_OK' };
+    if (!expected) {
+      return { result: 'CODE_GENERATION_INCOMPLETE', page, missing: ['UNDECLARED_PAGE'] };
+    }
+    const missing = expected.filter((name) => reg[name] == null || reg[name] === '');
+    if (missing.length) return { result: 'CODE_GENERATION_INCOMPLETE', page, missing };
+    const mismatch = expected.filter((name) => reg[name] !== SOS_IDENTITY_STORAGE_CODE_VERSION);
+    const extraMismatch = Object.keys(reg).filter((name) => {
+      return expected.indexOf(name) === -1 && reg[name] !== SOS_IDENTITY_STORAGE_CODE_VERSION;
+    });
+    if (mismatch.length || extraMismatch.length) {
+      return {
+        result: 'CODE_GENERATION_MISMATCH',
+        page,
+        mismatch: mismatch.concat(extraMismatch),
+      };
+    }
+    return { result: 'CODE_GENERATION_OK', page };
   }
 
   async function storagePersistedState() {
@@ -662,8 +792,6 @@
     if (gen.result !== 'CODE_GENERATION_OK') reasons.push(gen.result);
     if (!controllerAtBoot) reasons.push('NO_CONTROLLER_AT_BOOT');
     if (controllerChangedMidPage) reasons.push('CONTROLLER_CHANGED');
-    const persisted = await storagePersistedState();
-    if (!persisted.ok) reasons.push(persisted.reason);
     if (isSessionOnly()) reasons.push('SESSION_ONLY');
     else if (nativeBridge()) reasons.push('ANDROID_NATIVE');
     else if (isUncapableNativeShell()) reasons.push('OLD_APK');
@@ -687,6 +815,20 @@
 
   function canDeleteBrowserLegacySecret() {
     return false;
+  }
+
+  async function evaluateFutureBrowserLegacyDeleteEligibility() {
+    const persisted = await storagePersistedState();
+    const reasons = [];
+    if (persisted.ok !== true) reasons.push('STORAGE_NOT_PERSISTED');
+    if (BROWSER_SECURE_CUTOVER_DELETE_LEGACY !== true) reasons.push('DELETE_FLAG_FALSE');
+    reasons.push('DESTRUCTIVE_CUTOVER_DISABLED');
+    return {
+      eligible: false,
+      persistenceRequired: true,
+      persisted: persisted.ok === true,
+      reasons,
+    };
   }
 
   async function evaluateBrowserSecureCutoverEligibility() {
@@ -829,8 +971,6 @@
       reasons.push('MARKER_CODE_MISMATCH');
     }
     if (!controllerAtBoot || controllerChangedMidPage) reasons.push('CONTROLLER_UNSAFE');
-    const persisted = await storagePersistedState();
-    if (!persisted.ok) reasons.push(persisted.reason);
     const unique = [];
     reasons.forEach((reason) => {
       if (unique.indexOf(reason) === -1) unique.push(reason);
@@ -1065,12 +1205,16 @@
     WEB_SECURE_UNAVAILABLE,
     SOS_IDENTITY_STORAGE_CODE_VERSION,
     REQUIRED_IDENTITY_MODULES,
+    IDENTITY_PAGE_MODULE_SETS,
     IDENTITY_STORAGE_DEPLOY_FILES,
+    identityEntryPageName,
+    expectedIdentityModulesForPage,
     verifyIdentityStorageCodeGeneration,
     evaluateBrowserSecureCutoverEligibility,
     isBrowserCutoverEnvironmentSafe,
     markBrowserCutoverPendingIfEnabled,
     canDeleteBrowserLegacySecret,
+    evaluateFutureBrowserLegacyDeleteEligibility,
     verifyFreshSecureReopen,
     evaluateBootNPlusOneCutover,
     classifyBrowserIdentityFailure,
@@ -1088,6 +1232,9 @@
         controllerChangedMidPage,
         currentBootId,
         codeVersion: SOS_IDENTITY_STORAGE_CODE_VERSION,
+        storagePersistenceRequested,
+        storagePersisted: storagePersistedObserved === true,
+        browserLegacyDeletePerformed,
       };
     },
   };

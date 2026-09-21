@@ -78,10 +78,13 @@
       return null;
     }
     try {
-      const registration = await navigator.serviceWorker.register('./service-worker.js?v=846', {
-        scope: './',
-        updateViaCache: 'none',
-      });
+      const owner = window.SOSServiceWorker;
+      if (!owner || typeof owner.register !== 'function') {
+        console.warn('[PWA] Service Worker owner missing');
+        return null;
+      }
+      const registration = await owner.register();
+      if (!registration) return null;
       console.log('[PWA] Service Worker נרשם בהצלחה', registration.scope);
       
       // התקנה ראשונה בלבד — בלי כרטיסיית עדכון | HYPER CORE TECH
