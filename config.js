@@ -1,4 +1,7 @@
 (function initConfig(window) {
+  const reg = window.SOSIdentityStorageGeneration || (window.SOSIdentityStorageGeneration = {});
+  reg['config.js'] = 'browser-secure-cutover-v1';
+  window.SOS_IDENTITY_STORAGE_CODE_VERSION = 'browser-secure-cutover-v1';
   if (!window.NostrTools) {
     console.error('NostrTools not loaded before config.js');
     return;
@@ -278,10 +281,19 @@
   App.metadataPublishQueued = false;
   App.profile = profile;
   App.profileCache = App.profileCache || new Map();
-  App.privateKey =
-    window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function'
-      ? window.SOSKeyStorage.readPrivateKeyRaw()
-      : window.localStorage.getItem('nostr_private_key');
+  function applyStoredPrivateKey() {
+    App.privateKey =
+      window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function'
+        ? window.SOSKeyStorage.readPrivateKeyRaw()
+        : '';
+  }
+  applyStoredPrivateKey();
+  try {
+    const identityReady = window.SOSIdentityStorageReady || (window.SOSKeyStorage && window.SOSKeyStorage.ready);
+    if (identityReady && typeof identityReady.then === 'function') {
+      identityReady.then(function () { applyStoredPrivateKey(); });
+    }
+  } catch (_e) {}
   App.communityKeyBase64 = window.localStorage.getItem('nostr_community_key') || '';
   App.communityPassphrase =
     window.localStorage.getItem('nostr_community_passphrase') || App.COMMUNITY_CONTEXT;

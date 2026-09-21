@@ -1063,19 +1063,13 @@
   }
 
   function init() {
-    // Bootstrap למפתחות ו-Pool - נדרש כדי שכפתור העוקב יעבוד
+    // Bootstrap למפתחות ו-Pool - טעינה/אימות בלבד, בלי יצירת זהות שקטה
     if (typeof App.ensureKeys === 'function') {
       try {
         App.ensureKeys();
       } catch (err) {
         console.warn('[VIEWER] ensureKeys failed', err);
       }
-    }
-    if (!App.privateKey) {
-      App.privateKey =
-        window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function'
-          ? window.SOSKeyStorage.readPrivateKeyRaw()
-          : window.localStorage.getItem('nostr_private_key') || '';
     }
     ensurePool();
 

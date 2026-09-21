@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v872'; // Stage 5D R2 cold-answer latency; APK 1.0.124 Web compatible
+  const CACHE_NAME = 'sos-cache-v873'; // I2 pending package only. Delete flag stays false. Not deployed by packaging.
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -50,6 +50,23 @@
     './icons/chat-desktop-cyber-bg.png',
     './native-shell-bridge.js',
     './manifest.webmanifest',
+    './index.html',
+    './storage.html',
+    './profile.html',
+    './profile-viewer.html',
+    './dating.html',
+    './p2p-standby.html',
+    './doom-multiplayer.html',
+    './hexgl-multiplayer.html',
+    './key-storage.js?pkg=873',
+    './identity-storage-bootstrap.js?pkg=873',
+    './auth-guard.js?pkg=873',
+    './config.js?pkg=873',
+    './keys.js?pkg=873',
+    './app.js?pkg=873',
+    './identity-lifecycle.js?pkg=873',
+    './account.js?pkg=873',
+    './key-viewer.js?pkg=873',
   ];
 
   async function networkFirstThenCache(request, isNavigate) {

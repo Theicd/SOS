@@ -272,52 +272,202 @@
     App.showLocalNotification.__sosNativePatched = true;
   }
 
-  function syncPubkeyToNative(options) {
-    if (!isNativeShell()) return;
-    const bridge = getBridge();
-    const pubkey = (App.publicKey || localStorage.getItem('sos_pubkey') || localStorage.getItem('nostr_pubkey') || '').trim();
-    if (!pubkey || pubkey.length !== 64) return;
-    const normalized = pubkey.toLowerCase();
-    const force = !!(options && options.force);
+  function readWebPrivateKeyRaw() {
+    let priv = '';
     try {
-      if (bridge && typeof bridge.setUserPubkey === 'function') {
-        if (!force && App._nativeSyncedPubkey === normalized) {
+      if (window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function') {
+        priv = String(window.SOSKeyStorage.readPrivateKeyRaw() || '').trim();
+      }
+    } catch (_) {}
+    if (!priv) {
+      try {
+        priv = String(App.privateKey || '').trim();
+      } catch (_) {}
+    }
+    return priv;
+  }
+
+  function parseNativeIdentityStatus(bridge) {
+    if (!bridge || typeof bridge.getNativeIdentityStatusJson !== 'function') {
+      return { hasIdentity: false, valid: false, pubkey: '', state: 'NATIVE_IDENTITY_EMPTY', available: false };
+    }
+    try {
+      const raw = bridge.getNativeIdentityStatusJson();
+      const parsed = typeof raw === 'string' ? JSON.parse(raw || '{}') : (raw || {});
+      return {
+        hasIdentity: !!parsed.hasIdentity,
+        valid: !!parsed.valid,
+        pubkey: String(parsed.pubkey || '').trim().toLowerCase(),
+        state: String(parsed.state || ''),
+        available: true,
+      };
+    } catch (_) {
+      return { hasIdentity: false, valid: false, pubkey: '', state: 'NATIVE_IDENTITY_EMPTY', available: false };
+    }
+  }
+
+  function logReconcile(state) {
+    try {
+      console.log('IDENTITY_RECONCILE state=' + state);
+    } catch (_) {}
+  }
+
+  function logSyncResult(result) {
+    try {
+      console.log('IDENTITY_SYNC_NATIVE result=' + String(result || ''));
+    } catch (_) {}
+  }
+
+  /**
+   * Stage 5E-C: deterministic Web↔Native identity reconciliation.
+   * Never generates keys. Never revives Native priv into Web. Never overwrites mismatch.
+   */
+  function reconcileIdentityWithNative(options) {
+    if (!isNativeShell()) return { state: 'BROWSER' };
+    if (window.SOSKeyStorage && typeof window.SOSKeyStorage.isSessionOnly === 'function' && window.SOSKeyStorage.isSessionOnly()) {
+      logReconcile('SESSION_ONLY_NO_DURABLE_NATIVE');
+      return { state: 'SESSION_ONLY' };
+    }
+    const bridge = getBridge();
+    const force = !!(options && options.force);
+
+    // Validate Web identity pair (load-only; no generation)
+    let webOk = false;
+    let webPriv = '';
+    let webPub = '';
+    try {
+      if (typeof App.ensureKeys === 'function') {
+        App.ensureKeys();
+      }
+    } catch (_) {}
+    webPriv = readWebPrivateKeyRaw();
+    webPub = String(App.publicKey || '').trim().toLowerCase();
+    if (typeof App.validateIdentityPair === 'function' && webPriv) {
+      const pair = App.validateIdentityPair(webPriv, webPub || null);
+      if (pair && pair.ok) {
+        webOk = true;
+        webPriv = pair.privateKey;
+        webPub = pair.publicKey;
+      } else if (webPriv) {
+        webOk = false;
+      }
+    } else if (webPriv && /^[0-9a-fA-F]{64}$/.test(webPriv) && webPub.length === 64) {
+      // Fallback if validateIdentityPair unavailable
+      webOk = true;
+      webPriv = webPriv.toLowerCase();
+    } else if (!webPriv && !webPub) {
+      webOk = false;
+    }
+
+    const native = parseNativeIdentityStatus(bridge);
+    const webEmpty = !webPriv && !webPub;
+    const nativeEmpty = !native.hasIdentity || native.state === 'NATIVE_IDENTITY_EMPTY';
+
+    // G neither
+    if (webEmpty && nativeEmpty) {
+      logReconcile('IDENTITY_NEW_USER');
+      App._identityReconcileState = 'IDENTITY_NEW_USER';
+      return { state: 'IDENTITY_NEW_USER' };
+    }
+
+    // F web invalid
+    if (!webEmpty && !webOk) {
+      logReconcile('IDENTITY_WEB_INVALID');
+      App._identityReconcileState = 'IDENTITY_WEB_INVALID';
+      return { state: 'IDENTITY_WEB_INVALID' };
+    }
+
+    // E native invalid (and web valid or not)
+    if (native.hasIdentity && !native.valid && !nativeEmpty) {
+      if (webOk) {
+        logReconcile('IDENTITY_NATIVE_INVALID');
+        App._identityReconcileState = 'IDENTITY_NATIVE_INVALID';
+        return { state: 'IDENTITY_NATIVE_INVALID' };
+      }
+    }
+
+    // C native only — do NOT hydrate Web private key
+    if (webEmpty && native.valid) {
+      logReconcile('IDENTITY_NATIVE_ONLY');
+      try { console.log('IDENTITY_RECOVERY_REQUIRED'); } catch (_) {}
+      App._identityReconcileState = 'IDENTITY_NATIVE_ONLY';
+      return { state: 'IDENTITY_NATIVE_ONLY' };
+    }
+
+    // A / D when both valid
+    if (webOk && native.valid) {
+      if (native.pubkey === webPub) {
+        if (!force && App._nativeSyncedPubkey === webPub && App._nativeSyncedPrivkey === webPriv) {
           App._nativeSyncSkipped = (App._nativeSyncSkipped || 0) + 1;
           if (App._nativeSyncSkipped === 1 || App._nativeSyncSkipped % 30 === 0) {
-            console.log('[NATIVE-SHELL] SYNC_SKIPPED_SAME', { n: App._nativeSyncSkipped });
+            try { console.log('[NATIVE-SHELL] SYNC_SKIPPED_SAME', { n: App._nativeSyncSkipped }); } catch (_) {}
           }
-        } else {
-          bridge.setUserPubkey(pubkey);
-          App._nativeSyncedPubkey = normalized;
-          console.log('[NATIVE-SHELL] SYNC_APPLIED', { pubkey: normalized.slice(0, 8) });
         }
+        logReconcile('IDENTITY_OK');
+        App._identityReconcileState = 'IDENTITY_OK';
+        App._nativeSyncedPubkey = webPub;
+        App._nativeSyncedPrivkey = webPriv;
+        try {
+          if (bridge && typeof bridge.setP2pStandbyEnabled === 'function') bridge.setP2pStandbyEnabled(true);
+          if (bridge && typeof bridge.keepAlive === 'function') bridge.keepAlive();
+        } catch (_) {}
+        syncContactsToNative();
+        syncP2pPeersToNative();
+        return { state: 'IDENTITY_OK' };
       }
-      // מפתח פרטי ל-P2P Native אחרי סגירת כרטיסייה | HYPER CORE TECH
-      let priv = '';
-      try {
-        if (window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function') {
-          priv = String(window.SOSKeyStorage.readPrivateKeyRaw() || '').trim();
-        }
-      } catch (_) {}
-      if (!priv) {
-        try { priv = String(localStorage.getItem('nostr_private_key') || App.privateKey || '').trim(); } catch (_) {}
-      }
-      if (priv && /^[0-9a-fA-F]{64}$/.test(priv) && bridge && typeof bridge.setUserPrivkey === 'function') {
-        const privNorm = priv.toLowerCase();
-        if (force || App._nativeSyncedPrivkey !== privNorm) {
-          bridge.setUserPrivkey(privNorm);
-          App._nativeSyncedPrivkey = privNorm;
-        }
-      }
-      if (bridge && typeof bridge.setP2pStandbyEnabled === 'function') {
-        bridge.setP2pStandbyEnabled(true);
-      }
-      if (bridge && typeof bridge.keepAlive === 'function') bridge.keepAlive();
-    } catch (err) {
-      console.warn('[NATIVE-SHELL] setUserPubkey failed', err);
+      // D mismatch — block overwrite
+      logReconcile('IDENTITY_MISMATCH');
+      App._identityReconcileState = 'IDENTITY_MISMATCH';
+      return { state: 'IDENTITY_MISMATCH' };
     }
-    syncContactsToNative();
-    syncP2pPeersToNative();
+
+    // B WEB_ONLY — atomic sync
+    if (webOk && nativeEmpty) {
+      logReconcile('IDENTITY_WEB_ONLY');
+      App._identityReconcileState = 'IDENTITY_WEB_ONLY';
+      let syncResult = 'SYNC_IDENTITY_REJECT_INVALID';
+      try {
+        if (bridge && typeof bridge.syncUserIdentity === 'function') {
+          syncResult = String(bridge.syncUserIdentity(webPub, webPriv) || '');
+        } else if (bridge && typeof bridge.setUserPubkey === 'function' && typeof bridge.setUserPrivkey === 'function') {
+          // Legacy APK without syncUserIdentity: stage both via hardened bridges
+          bridge.setUserPubkey(webPub);
+          bridge.setUserPrivkey(webPriv);
+          syncResult = 'SYNC_IDENTITY_OK';
+        }
+      } catch (err) {
+        console.warn('[NATIVE-SHELL] syncUserIdentity failed', err);
+        syncResult = 'SYNC_IDENTITY_REJECT_INVALID';
+      }
+      logSyncResult(syncResult);
+      if (syncResult === 'SYNC_IDENTITY_OK' || syncResult === 'SYNC_IDENTITY_SAME') {
+        App._nativeSyncedPubkey = webPub;
+        App._nativeSyncedPrivkey = webPriv;
+        try { console.log('[NATIVE-SHELL] SYNC_APPLIED', { pubkey: webPub.slice(0, 8) }); } catch (_) {}
+        try {
+          if (bridge && typeof bridge.setP2pStandbyEnabled === 'function') bridge.setP2pStandbyEnabled(true);
+          if (bridge && typeof bridge.keepAlive === 'function') bridge.keepAlive();
+        } catch (_) {}
+        syncContactsToNative();
+        syncP2pPeersToNative();
+      }
+      return { state: 'IDENTITY_WEB_ONLY', syncResult };
+    }
+
+    // Fallback: native invalid alone
+    if (native.hasIdentity && !native.valid) {
+      logReconcile('IDENTITY_NATIVE_INVALID');
+      App._identityReconcileState = 'IDENTITY_NATIVE_INVALID';
+      return { state: 'IDENTITY_NATIVE_INVALID' };
+    }
+
+    logReconcile('IDENTITY_RECOVERY_REQUIRED');
+    App._identityReconcileState = 'IDENTITY_RECOVERY_REQUIRED';
+    return { state: 'IDENTITY_RECOVERY_REQUIRED' };
+  }
+
+  function syncPubkeyToNative(options) {
+    return reconcileIdentityWithNative(options);
   }
 
   // חלק קאש אנשי קשר (native-shell-bridge.js) – שם+תמונה להתראות רקע | HYPER CORE TECH
@@ -643,6 +793,8 @@
     syncContactsToNative,
     syncP2pPeersToNative,
     setP2pTransferActiveNative,
+    syncPubkeyToNative,
+    reconcileIdentityWithNative,
   });
 
   if (document.readyState === 'loading') {

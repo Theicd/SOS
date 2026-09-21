@@ -87,20 +87,12 @@
 
   // חלק אתחול ליבה (profile-view.js) – דואג שמפתחות ופרופיל יהיו זמינים לפני טעינה
   function ensureBootstrap() {
+    // Load/validate only — never auto-generate identity on profile open
     if (typeof App.ensureKeys === 'function') {
-      App.ensureKeys();
-    }
-    if (!App.privateKey) {
-      App.privateKey =
-        window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function'
-          ? window.SOSKeyStorage.readPrivateKeyRaw()
-          : window.localStorage.getItem('nostr_private_key') || '';
-    }
-    if (!App.publicKey && App.privateKey && typeof getPublicKey === 'function') {
       try {
-        App.publicKey = getPublicKey(App.privateKey);
+        App.ensureKeys();
       } catch (err) {
-        console.warn('Failed deriving public key inside profile page', err);
+        console.warn('Failed ensuring existing keys inside profile page', err);
       }
     }
     if (!App.profile) {

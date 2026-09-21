@@ -1,4 +1,7 @@
 (function bootstrapApp(window) {
+  const reg = window.SOSIdentityStorageGeneration || (window.SOSIdentityStorageGeneration = {});
+  reg['app.js'] = 'browser-secure-cutover-v1';
+  window.SOS_IDENTITY_STORAGE_CODE_VERSION = 'browser-secure-cutover-v1';
   const App = window.NostrApp || (window.NostrApp = {});
   const tools = window.NostrTools;
   if (!tools) {
@@ -97,34 +100,52 @@
   // מצב אורח - NostrApp (app.js) – זיהוי אם המשתמש עובד כאורח או כמשתמש מחובר | HYPER CORE TECH
   // קוד זה אחראי לזהות האם המשתמש עובד כאורח (בלי מפתח) או כמשתמש מחובר
   // =======================
-  (function initGuestMode() {
+  function bootGuestIdentity() {
     try {
       const storedKey =
         window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function'
           ? window.SOSKeyStorage.readPrivateKeyRaw()
-          : window.localStorage.getItem('nostr_private_key');
+          : '';
 
       if (storedKey && typeof storedKey === 'string' && storedKey.trim().length > 0) {
-        // יש מפתח שמור - מצב משתמש מחובר
-        App.guestMode = false;
         App.privateKey = storedKey;
         if (typeof App.ensureKeys === 'function') {
-          App.ensureKeys();
+          const identity = App.ensureKeys();
+          if (identity && identity.ok === true) {
+            App.guestMode = false;
+          } else {
+            App.guestMode = true;
+            App.privateKey = null;
+            App.publicKey = null;
+          }
+        } else {
+          App.guestMode = false;
         }
       } else {
-        // אין מפתח שמור - מצב אורח מלא
         App.guestMode = true;
         App.privateKey = null;
         App.publicKey = null;
+        if (typeof App.ensureKeys === 'function') {
+          try { App.ensureKeys(); } catch (_e) {}
+        }
       }
+      try { publishLoginActivity(); } catch (_e2) {}
+      if (typeof App.loadOwnProfileMetadata === 'function') App.loadOwnProfileMetadata();
+      if (typeof App.subscribeOwnProfileMetadata === 'function') App.subscribeOwnProfileMetadata();
     } catch (e) {
-      // במקרה של שגיאה נקבע כברירת מחדל מצב אורח
       console.error('Guest mode init failed, falling back to guest:', e);
       App.guestMode = true;
       App.privateKey = null;
       App.publicKey = null;
     }
-  })();
+  }
+  try {
+    const identityReady = window.SOSIdentityStorageReady || (window.SOSKeyStorage && window.SOSKeyStorage.ready);
+    if (identityReady && typeof identityReady.then === 'function') identityReady.then(bootGuestIdentity);
+    else bootGuestIdentity();
+  } catch (_bootErr) {
+    bootGuestIdentity();
+  }
 
   App.profile = App.profile || {
     name: 'משתמש אנונימי',
@@ -176,7 +197,6 @@
     if (typeof App.notifyPoolReady === 'function') {
       App.notifyPoolReady(App.pool);
     }
-    publishLoginActivity();
     const connectionStatus = document.getElementById('connection-status');
     if (connectionStatus) {
       connectionStatus.textContent = 'Pool initialized. Connecting to relays...';
@@ -195,15 +215,7 @@
     App.renderProfile();
   }
 
-  if (typeof App.loadOwnProfileMetadata === 'function') {
-    // חלק Bootstrap (app.js) – מושך נתוני פרופיל מעודכנים מהריליים אם קיימים
-    App.loadOwnProfileMetadata();
-  }
-
-  if (typeof App.subscribeOwnProfileMetadata === 'function') {
-    // חלק Bootstrap (app.js) – מאזין לעדכונים שוטפים של פרטי הפרופיל מהריליים
-    App.subscribeOwnProfileMetadata();
-  }
+  // loadOwnProfileMetadata / subscribeOwnProfileMetadata run after SOSIdentityStorageReady inside bootGuestIdentity.
 
   // חלק HOME FEED – הפעלת מצב טעינה מוקדם למניעת גלילה לפני טעינת הסט הראשון
   try {

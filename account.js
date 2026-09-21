@@ -1,4 +1,7 @@
 (function initAccount(window) {
+  const reg = window.SOSIdentityStorageGeneration || (window.SOSIdentityStorageGeneration = {});
+  reg['account.js'] = 'browser-secure-cutover-v1';
+  window.SOS_IDENTITY_STORAGE_CODE_VERSION = 'browser-secure-cutover-v1';
   const App = window.NostrApp || (window.NostrApp = {});
   const modal = document.getElementById('accountModal');
   if (!modal) {
@@ -25,11 +28,17 @@
   function ensurePrivateKey() {
     try {
       if (typeof App.ensureKeys === 'function') {
-        App.ensureKeys();
+        const result = App.ensureKeys();
+        // Guest / invalid: never auto-create identity from account modal
+        if (!result || result.ok !== true) {
+          return result || { ok: false, state: App.IDENTITY_NEW_USER || 'IDENTITY_NEW_USER' };
+        }
+        return result;
       }
     } catch (err) {
       console.error('ensureKeys failed', err);
     }
+    return { ok: false, state: App.IDENTITY_NEW_USER || 'IDENTITY_NEW_USER' };
   }
 
   function encodePrivateKey(privateKey) {
@@ -70,15 +79,22 @@
   }
 
   function openAccount() {
-    ensurePrivateKey();
-    const privateKey = App.privateKey || '';
+    const identity = ensurePrivateKey();
+    const privateKey = identity && identity.ok ? (App.privateKey || '') : '';
     if (exportTextarea) {
-      exportTextarea.value = encodePrivateKey(privateKey);
+      exportTextarea.value = privateKey ? encodePrivateKey(privateKey) : '';
     }
     if (importTextarea) {
       importTextarea.value = '';
     }
     resetStatus();
+    if (!identity || identity.ok !== true) {
+      if (identity && identity.state === (App.IDENTITY_INVALID || 'IDENTITY_INVALID')) {
+        setStatus('המפתח השמור אינו תקין. ייבאו מפתח גיבוי או צרו חשבון מחדש.', 'error');
+      } else if (identity && identity.state === (App.IDENTITY_RECOVERY_REQUIRED || 'IDENTITY_RECOVERY_REQUIRED')) {
+        setStatus('נדרש שחזור זהות. ייבאו את המפתח הפרטי שלכם.', 'error');
+      }
+    }
     modal.classList.add('is-visible');
     modal.setAttribute('aria-hidden', 'false');
   }
@@ -122,25 +138,74 @@
   function applyImportedKey(privateKey) {
     if (!privateKey) {
       setStatus('המפתח אינו תקין.', 'error');
-      return;
+      return false;
+    }
+    // Two-phase Stage 5E-D: prepare (no mutate) → commit (atomic switch)
+    if (typeof App.prepareAccountSwitch === 'function' && typeof App.commitAccountSwitch === 'function') {
+      const prepared = App.prepareAccountSwitch(privateKey);
+      if (!prepared || !prepared.ok) {
+        setStatus('המפתח אינו תקין. הזהות הקיימת לא שונתה.', 'error');
+        return false;
+      }
+      const committed = App.commitAccountSwitch(prepared, { reload: true });
+      if (!committed || !committed.ok) {
+        if (committed && committed.state === 'IDENTITY_RECOVERY_REQUIRED') {
+          setStatus('מעבר חשבון נכשל — נדרש שחזור זהות.', 'error');
+        } else {
+          setStatus('המפתח אינו תקין. הזהות הקיימת לא שונתה.', 'error');
+        }
+        return false;
+      }
+      setStatus('המפתח נטען בהצלחה. מומלץ לרענן את העמוד.');
+      return true;
+    }
+
+    // Legacy fallback (pre-lifecycle): validate before write
+    let normalized = null;
+    try {
+      if (typeof App.normalizePrivateKey === 'function') {
+        normalized = App.normalizePrivateKey(privateKey, { persist: false });
+      } else if (/^[0-9a-fA-F]{64}$/.test(String(privateKey).trim())) {
+        normalized = String(privateKey).trim().toLowerCase();
+      }
+    } catch (_e) {
+      normalized = null;
+    }
+    if (!normalized || !/^[0-9a-f]{64}$/.test(normalized)) {
+      setStatus('המפתח אינו תקין. הזהות הקיימת לא שונתה.', 'error');
+      return false;
     }
     try {
-      if (window.SOSKeyStorage && typeof window.SOSKeyStorage.writePrivateKeyRaw === 'function') {
-        window.SOSKeyStorage.writePrivateKeyRaw(privateKey);
-      } else {
-        window.localStorage.setItem('nostr_private_key', privateKey);
+      const getPublicKey = App.getPublicKey || window.NostrTools?.getPublicKey;
+      if (typeof getPublicKey === 'function') {
+        getPublicKey(normalized);
       }
-      App.privateKey = privateKey;
+    } catch (_err) {
+      setStatus('המפתח אינו תקין. הזהות הקיימת לא שונתה.', 'error');
+      return false;
+    }
+
+    try {
+      if (window.SOSKeyStorage && typeof window.SOSKeyStorage.writePrivateKeyRaw === 'function') {
+        window.SOSKeyStorage.writePrivateKeyRaw(normalized);
+      }
+      App.privateKey = normalized;
       if (typeof App.ensureKeys === 'function') {
-        App.ensureKeys();
+        const result = App.ensureKeys();
+        if (!result || result.ok !== true) {
+          setStatus('המפתח אינו תקין. הזהות הקיימת לא שונתה.', 'error');
+          return false;
+        }
       }
       setStatus('המפתח נטען בהצלחה. מומלץ לרענן את העמוד.');
       if (typeof App.loadFeed === 'function') {
         App.loadFeed();
       }
+      return true;
     } catch (err) {
       console.error('Failed to apply private key', err);
       setStatus('שגיאה בטעינת המפתח.', 'error');
+      return false;
     }
   }
 

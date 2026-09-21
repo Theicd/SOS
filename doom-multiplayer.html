@@ -651,6 +651,8 @@
   
   <iframe id="gameFrame" src="./yet-another-doom-clone-master/doom.html"></iframe>
 
+  <script src="./key-storage.js?pkg=873"></script>
+  <script src="./identity-storage-bootstrap.js?pkg=873"></script>
   <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.min.js"></script>
   <script>
     // SOS Doom Multiplayer - Nostr Integration
@@ -1250,7 +1252,9 @@
         log('Connecting to Nostr...');
         
         // Try to get keys from localStorage (same key names as main app)
-        const storedPrivKey = localStorage.getItem('nostr_private_key');
+        const storedPrivKey = (window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function')
+          ? window.SOSKeyStorage.readPrivateKeyRaw()
+          : '';
         const storedPubKey = localStorage.getItem('nostr_public_key');
         
         log('Stored keys found:', !!storedPrivKey, !!storedPubKey);

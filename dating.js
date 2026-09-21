@@ -136,20 +136,12 @@
         App.profile = {};
       }
     }
+    // Load/validate only — never auto-generate identity on dating open
     if (typeof App.ensureKeys === 'function') {
-      App.ensureKeys();
-    }
-    if (!App.privateKey) {
-      App.privateKey =
-        window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function'
-          ? window.SOSKeyStorage.readPrivateKeyRaw()
-          : window.localStorage.getItem('nostr_private_key') || '';
-    }
-    if (!App.publicKey && App.privateKey && typeof tools.getPublicKey === 'function') {
       try {
-        App.publicKey = tools.getPublicKey(App.privateKey);
+        App.ensureKeys();
       } catch (err) {
-        console.warn('Dating: failed deriving public key', err);
+        console.warn('Dating: ensureKeys failed', err);
       }
     }
     if (!App.getInitials) {

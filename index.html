@@ -103,7 +103,6 @@
     <link rel="stylesheet" href="./styles/logo.css">
     <!-- חלק מובייל (index.html) – תיקון גובה viewport באייפון | HYPER CORE TECH -->
     <script src="./mobile-viewport-fix.js"></script>
-    <script src="./auth-guard.js"></script>
     <style>
       /* חלק רקעים (index.html) – סגנון גלריה ופריטים */
       .compose-dialog__toolbar { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
@@ -858,15 +857,18 @@
         </article>
     </section>
     <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
-    <script src="./key-storage.js"></script>
-    <script src="./config.js"></script>
+    <script src="./key-storage.js?pkg=873"></script>
+    <script src="./identity-storage-bootstrap.js?pkg=873"></script>
+    <script src="./auth-guard.js?pkg=873"></script>
+    <script src="./config.js?pkg=873"></script>
     <script src="./secure-channel.js"></script>
     <script src="./key-utils.js"></script>
     <script src="./utils.js"></script>
-    <script src="./keys.js"></script>
+    <script src="./keys.js?pkg=873"></script>
+    <script src="./identity-lifecycle.js?pkg=873"></script>
     <script src="./profile.js"></script>
-    <script src="./account.js"></script>
-    <script src="./key-viewer.js"></script>
+    <script src="./account.js?pkg=873"></script>
+    <script src="./key-viewer.js?pkg=873"></script>
     <script src="./media.js"></script>
     <script src="./post-actions.js"></script>
     <!-- חלק צ'אט (index.html) – טוען את לוגיקת מצב, שירות וממשק המסנג'ר -->
@@ -939,7 +941,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@3.3.0/dist/chartjs-chart-financial.min.js"></script>
     <script src="./market-dashboard.js"></script>
     <script src="./contract-dashboard-v2.js"></script>
-    <script src="./app.js"></script>
+    <script src="./app.js?pkg=873"></script>
 
 </body>
 </html>

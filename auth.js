@@ -4,10 +4,6 @@
   function storeNostrPrivateKey(hex) {
     if (window.SOSKeyStorage && typeof window.SOSKeyStorage.writePrivateKeyRaw === 'function') {
       window.SOSKeyStorage.writePrivateKeyRaw(hex);
-    } else {
-      try {
-        window.localStorage.setItem('nostr_private_key', hex);
-      } catch (_e) {}
     }
   }
 
@@ -924,16 +920,26 @@
       if (!preparedPrivateKey) {
         throw new Error('Missing prepared key');
       }
-      storeNostrPrivateKey(preparedPrivateKey);
-      App.privateKey = preparedPrivateKey;
-      if (typeof App.ensureKeys === 'function') {
-        const { publicKey } = App.ensureKeys() || {};
-        if (publicKey) {
-          App.publicKey = publicKey;
-          // עדכון מנוי Push עם ה-pubkey החדש | HYPER CORE TECH
-          if (typeof App.updateSubscriptionWithPubkey === 'function') {
-            App.updateSubscriptionWithPubkey(publicKey);
-          }
+      let publicKey = null;
+      if (typeof App.createNewIdentityExplicit === 'function') {
+        const created = App.createNewIdentityExplicit({ privateKeyHex: preparedPrivateKey });
+        if (!created || created.ok !== true) {
+          throw new Error('Explicit identity create failed');
+        }
+        publicKey = created.publicKey || App.publicKey;
+      } else {
+        storeNostrPrivateKey(preparedPrivateKey);
+        App.privateKey = preparedPrivateKey;
+        if (typeof App.ensureKeys === 'function') {
+          const { publicKey: pk } = App.ensureKeys() || {};
+          publicKey = pk;
+        }
+      }
+      if (publicKey) {
+        App.publicKey = publicKey;
+        // עדכון מנוי Push עם ה-pubkey החדש | HYPER CORE TECH
+        if (typeof App.updateSubscriptionWithPubkey === 'function') {
+          App.updateSubscriptionWithPubkey(publicKey);
         }
       }
 
@@ -1041,10 +1047,58 @@
       return;
     }
     try {
-      storeNostrPrivateKey(privateKey);
-      App.privateKey = privateKey;
+      if (typeof App.switchAccountFromRawKey === 'function') {
+        const switched = App.switchAccountFromRawKey(privateKey, { reload: false });
+        if (!switched || !switched.ok) {
+          setImportStatus(
+            switched && switched.state === 'IDENTITY_RECOVERY_REQUIRED'
+              ? 'מעבר חשבון נכשל — נדרש שחזור זהות.'
+              : 'לא זוהה מפתח פרטי חוקי.',
+            'error'
+          );
+          return;
+        }
+        setImportStatus('הקוד אומת. מעבירים אתכם ללוח הראשי...');
+        setTimeout(() => {
+          try {
+            const params = new URLSearchParams(window.location.search);
+            const redirect = params.get('redirect');
+            if (redirect) {
+              window.location.href = decodeURIComponent(redirect);
+            } else {
+              window.location.replace('videos.html');
+            }
+          } catch (e) {
+            window.location.replace('videos.html');
+          }
+        }, 600);
+        return;
+      }
+      // Validate before write — do not alter existing identity on invalid import
+      let normalized = privateKey;
+      if (typeof App.normalizePrivateKey === 'function') {
+        normalized = App.normalizePrivateKey(privateKey, { persist: false });
+      }
+      if (!normalized || !/^[0-9a-f]{64}$/.test(normalized)) {
+        setImportStatus('לא זוהה מפתח פרטי חוקי.', 'error');
+        return;
+      }
+      try {
+        const getPublicKey = App.getPublicKey || window.NostrTools?.getPublicKey;
+        if (typeof getPublicKey === 'function') getPublicKey(normalized);
+      } catch (_e) {
+        setImportStatus('לא זוהה מפתח פרטי חוקי.', 'error');
+        return;
+      }
+
+      storeNostrPrivateKey(normalized);
+      App.privateKey = normalized;
       if (typeof App.ensureKeys === 'function') {
-        App.ensureKeys();
+        const result = App.ensureKeys();
+        if (!result || result.ok !== true) {
+          setImportStatus('לא זוהה מפתח פרטי חוקי.', 'error');
+          return;
+        }
       }
       setImportStatus('הקוד אומת. מעבירים אתכם ללוח הראשי...');
       setTimeout(() => {

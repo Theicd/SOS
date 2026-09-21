@@ -9,10 +9,6 @@
   function storeNostrPrivateKeyGuest(hex) {
     if (window.SOSKeyStorage && typeof window.SOSKeyStorage.writePrivateKeyRaw === 'function') {
       window.SOSKeyStorage.writePrivateKeyRaw(hex);
-    } else {
-      try {
-        window.localStorage.setItem('nostr_private_key', hex);
-      } catch (_e) {}
     }
   }
 
@@ -453,10 +449,46 @@
         }
 
         try {
-          storeNostrPrivateKeyGuest(privateKey);
-          App.privateKey = privateKey;
+          if (typeof App.switchAccountFromRawKey === 'function') {
+            var switchedLogin = App.switchAccountFromRawKey(privateKey, { reload: false });
+            if (!switchedLogin || !switchedLogin.ok) {
+              setStatus('loginStatus',
+                switchedLogin && switchedLogin.state === 'IDENTITY_RECOVERY_REQUIRED'
+                  ? 'שחזור זהות נדרש'
+                  : 'המפתח לא תקין',
+                true);
+              return;
+            }
+            App.guestMode = false;
+            setStatus('loginStatus', 'מתחבר...', false);
+            setTimeout(function() {
+              window.location.reload();
+            }, 500);
+            return;
+          }
+          var normalizedLogin = privateKey;
+          if (typeof App.normalizePrivateKey === 'function') {
+            normalizedLogin = App.normalizePrivateKey(privateKey, { persist: false });
+          }
+          if (!normalizedLogin || !/^[0-9a-f]{64}$/.test(normalizedLogin)) {
+            setStatus('loginStatus', 'המפתח לא תקין', true);
+            return;
+          }
+          try {
+            var getPk = App.getPublicKey || (window.NostrTools && window.NostrTools.getPublicKey);
+            if (typeof getPk === 'function') getPk(normalizedLogin);
+          } catch (_deriveErr) {
+            setStatus('loginStatus', 'המפתח לא תקין', true);
+            return;
+          }
+          storeNostrPrivateKeyGuest(normalizedLogin);
+          App.privateKey = normalizedLogin;
           if (typeof App.ensureKeys === 'function') {
-            App.ensureKeys();
+            var loginResult = App.ensureKeys();
+            if (!loginResult || loginResult.ok !== true) {
+              setStatus('loginStatus', 'המפתח לא תקין', true);
+              return;
+            }
           }
           App.guestMode = false;
           setStatus('loginStatus', 'מתחבר...', false);
@@ -777,7 +809,13 @@
             // זמנית שמים מפתח כדי ש-markInviteUsed יוכל לחתום
             App.privateKey = signupData.privateKey;
             if (typeof App.ensureKeys === 'function') {
-              App.ensureKeys();
+              var inviteKeyResult = App.ensureKeys();
+              if (!inviteKeyResult || inviteKeyResult.ok !== true) {
+                setStatus('keyStatus', 'ההרשמה נעצרה: מפתח לא תקין.', true);
+                btnFinalConnect.disabled = false;
+                updateFinalConnectState();
+                return;
+              }
             }
             var usedResult = await App.markInviteUsed({
               code: signupData.inviteCode,
@@ -793,15 +831,27 @@
           }
 
           setStatus('keyStatus', 'שומר נתונים...', false);
-          storeNostrPrivateKeyGuest(signupData.privateKey);
-          App.privateKey = signupData.privateKey;
-          
-          if (typeof App.ensureKeys === 'function') {
-            var result = App.ensureKeys();
-            if (result && result.publicKey) {
-              App.publicKey = result.publicKey;
-              if (typeof App.updateSubscriptionWithPubkey === 'function') {
-                App.updateSubscriptionWithPubkey(result.publicKey);
+          if (typeof App.createNewIdentityExplicit === 'function') {
+            var created = App.createNewIdentityExplicit({ privateKeyHex: signupData.privateKey });
+            if (!created || created.ok !== true) {
+              setStatus('keyStatus', 'שגיאה בשמירת זהות חדשה', true);
+              btnFinalConnect.disabled = false;
+              updateFinalConnectState();
+              return;
+            }
+            if (created.publicKey && typeof App.updateSubscriptionWithPubkey === 'function') {
+              App.updateSubscriptionWithPubkey(created.publicKey);
+            }
+          } else {
+            storeNostrPrivateKeyGuest(signupData.privateKey);
+            App.privateKey = signupData.privateKey;
+            if (typeof App.ensureKeys === 'function') {
+              var result = App.ensureKeys();
+              if (result && result.publicKey) {
+                App.publicKey = result.publicKey;
+                if (typeof App.updateSubscriptionWithPubkey === 'function') {
+                  App.updateSubscriptionWithPubkey(result.publicKey);
+                }
               }
             }
           }

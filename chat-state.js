@@ -386,6 +386,29 @@
     return `nostr_chat_${pubkey}`;
   }
 
+  /** Stage 5E-D: detach in-memory chat/runtime for logout or account switch. */
+  function clearChatRuntimeIdentity() {
+    try {
+      chatState.contacts.clear();
+      chatState.conversations.clear();
+      chatState.messageIndex.clear();
+      chatState.pendingReadReceipts.clear();
+      chatState.readWatermarks.clear();
+      chatState.pendingInboundReceipts.clear();
+      chatState.seenReceiptIds = [];
+      chatState.unreadTotal = 0;
+      chatState.lastSyncTs = 0;
+      if (chatState.disappearingTimers) chatState.disappearingTimers.clear();
+      restoredStorageKey = null;
+      restoreInFlight = null;
+      restoreInFlightStorageKey = null;
+      try { notify('contacts', []); } catch (_) {}
+      try { notify('unread', 0); } catch (_) {}
+    } catch (err) {
+      console.warn('[CHAT] clearChatRuntimeIdentity failed', err);
+    }
+  }
+
   function notify(type, payload) {
     const bucket = chatState.listeners[type];
     if (!bucket) return;
@@ -1765,6 +1788,7 @@
     resolveCallContact,
     paintCallContact,
     chatStorageKey: getStorageKey,
+    clearChatRuntimeIdentity,
     setChatLastSyncTs: setLastSyncTs,
     getChatLastSyncTs: getLastSyncTs,
     getChatRetentionCutoffTs,

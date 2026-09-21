@@ -1,4 +1,7 @@
 (function initKeyViewer(window) {
+  const reg = window.SOSIdentityStorageGeneration || (window.SOSIdentityStorageGeneration = {});
+  reg['key-viewer.js'] = 'browser-secure-cutover-v1';
+  window.SOS_IDENTITY_STORAGE_CODE_VERSION = 'browser-secure-cutover-v1';
   const App = window.NostrApp || (window.NostrApp = {});
 
   const modal = document.getElementById('keyModal');
@@ -16,15 +19,20 @@
   function ensureKeys() {
     if (typeof App.ensureKeys === 'function') {
       try {
-        App.ensureKeys();
+        return App.ensureKeys();
       } catch (err) {
         console.error('ensureKeys failed', err);
+        return { ok: false, state: App.IDENTITY_RECOVERY_REQUIRED || 'IDENTITY_RECOVERY_REQUIRED' };
       }
     }
+    return { ok: false, state: App.IDENTITY_NEW_USER || 'IDENTITY_NEW_USER' };
   }
 
   function getDisplayKey() {
-    ensureKeys();
+    const identity = ensureKeys();
+    if (!identity || identity.ok !== true) {
+      return null;
+    }
     const privateKey = App.privateKey;
     if (!privateKey) {
       return null;
@@ -60,11 +68,10 @@
   }
 
   function clearCredentials() {
+    // Deprecated thin clear — prefer App.logoutIdentity for atomic Web+Native logout
     try {
       if (window.SOSKeyStorage && typeof window.SOSKeyStorage.clearPrivateKey === 'function') {
         window.SOSKeyStorage.clearPrivateKey();
-      } else {
-        window.localStorage.removeItem('nostr_private_key');
       }
       window.localStorage.removeItem('nostr_profile');
     } catch (err) {
@@ -97,9 +104,20 @@
     if (!confirmed) {
       return;
     }
-    clearCredentials();
     closeKeyViewer();
-    // חזרה לדף הווידאו במצב אורח | HYPER CORE TECH
+    if (typeof App.logoutIdentity === 'function') {
+      const result = App.logoutIdentity({ redirect: true, redirectUrl: 'videos.html' });
+      if (!result || result.ok !== true) {
+        setStatus('התנתקות נכשלה — נדרש שחזור זהות.', 'error');
+        try {
+          modal.style.display = 'flex';
+          modal.setAttribute('aria-hidden', 'false');
+        } catch (_e) {}
+      }
+      return;
+    }
+    // Fallback without lifecycle module
+    clearCredentials();
     window.location.replace('videos.html');
   }
 

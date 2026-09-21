@@ -505,7 +505,9 @@
       if (!preparedPrivateKey) {
         throw new Error('Missing prepared key');
       }
-      window.localStorage.setItem('nostr_private_key', preparedPrivateKey);
+      if (window.SOSKeyStorage && typeof window.SOSKeyStorage.writePrivateKeyRaw === 'function') {
+        window.SOSKeyStorage.writePrivateKeyRaw(preparedPrivateKey);
+      }
       App.privateKey = preparedPrivateKey;
       if (typeof App.ensureKeys === 'function') {
         const { publicKey } = App.ensureKeys() || {};
@@ -607,7 +609,9 @@
       return;
     }
     try {
-      window.localStorage.setItem('nostr_private_key', privateKey);
+      if (window.SOSKeyStorage && typeof window.SOSKeyStorage.writePrivateKeyRaw === 'function') {
+        window.SOSKeyStorage.writePrivateKeyRaw(privateKey);
+      }
       App.privateKey = privateKey;
       if (typeof App.ensureKeys === 'function') {
         App.ensureKeys();
