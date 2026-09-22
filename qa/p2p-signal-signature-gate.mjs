@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
-import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools';
+import { finalizeEvent, generateSecretKey, getEventHash, getPublicKey, verifyEvent } from 'nostr-tools';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -138,7 +138,8 @@ function loadHarness() {
   context.window = context;
   context.NostrApp = App;
   context.NostrTools = {
-    verifyEvent: hostVerifyEvent,
+    verifyEvent: (ev) => hostVerifyEvent(JSON.parse(JSON.stringify(ev))),
+    getEventHash: (ev) => getEventHash(JSON.parse(JSON.stringify(ev))),
     finalizeEvent,
     generateSecretKey,
     getPublicKey,
@@ -158,6 +159,9 @@ function loadHarness() {
   context.window.NostrRTC_ICE = App.RTC_ICE_SERVERS;
 
   vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'nostr-event-integrity.js'), 'utf8'), context, {
+    filename: 'nostr-event-integrity.js',
+  });
   vm.runInContext(fs.readFileSync(DC_PATH, 'utf8'), context, { filename: 'chat-p2p-datachannel.js' });
   if (!App.dataChannel || typeof App.dataChannel.init !== 'function') {
     throw new Error('dataChannel module did not load');

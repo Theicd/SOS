@@ -482,21 +482,15 @@
     for(const c of buf){ try{await s.pc.addIceCandidate(new RTCIceCandidate(c));}catch{} }
   }
 
-  // חלק אבטחה (chat-p2p-datachannel.js) – אימות חתימת Nostr לסיגנל ריליי 25055 לפני כל שינוי מצב | HYPER CORE TECH
+  // חלק אבטחה (chat-p2p-datachannel.js) – strict hash+sig לסיגנל ריליי 25055 | HYPER CORE TECH
   function verifyIncomingP2pRelayEvent(event) {
     let idLabel = '';
     try {
       idLabel = event && event.id ? String(event.id).slice(0, 8) : '';
-      if (!event || typeof event !== 'object') {
-        console.warn('[SO-CALL SECURITY] rejected invalid P2P signal kind=25055 id=' + idLabel);
-        return false;
-      }
-      const tools = window.NostrTools;
-      if (!tools || typeof tools.verifyEvent !== 'function') {
-        console.warn('[SO-CALL SECURITY] rejected invalid P2P signal kind=25055 id=' + idLabel);
-        return false;
-      }
-      if (tools.verifyEvent(event) !== true) {
+      const strict = (typeof App.strictVerifyNostrEvent === 'function')
+        ? App.strictVerifyNostrEvent
+        : (window.NostrEventIntegrity && window.NostrEventIntegrity.strictVerifyNostrEvent);
+      if (typeof strict !== 'function' || strict(event) !== true) {
         console.warn('[SO-CALL SECURITY] rejected invalid P2P signal kind=25055 id=' + idLabel);
         return false;
       }

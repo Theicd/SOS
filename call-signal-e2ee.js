@@ -193,9 +193,12 @@
 
   function verifyEventSig(event) {
     try {
-      if (window.NostrTools && typeof window.NostrTools.verifyEvent === 'function') {
-        const host = JSON.parse(JSON.stringify(event));
-        return !!window.NostrTools.verifyEvent(host);
+      const AppRef = window.NostrApp || {};
+      if (typeof AppRef.strictVerifyNostrEvent === 'function') {
+        return AppRef.strictVerifyNostrEvent(event) === true;
+      }
+      if (window.NostrEventIntegrity && typeof window.NostrEventIntegrity.strictVerifyNostrEvent === 'function') {
+        return window.NostrEventIntegrity.strictVerifyNostrEvent(event) === true;
       }
     } catch (_e) {}
     return false;

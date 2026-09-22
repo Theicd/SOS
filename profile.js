@@ -1671,6 +1671,9 @@
         if (!event?.content) {
           return;
         }
+        if (typeof App.strictVerifyNostrEvent === 'function' && App.strictVerifyNostrEvent(event) !== true) {
+          return;
+        }
         // חלק פרופיל (profile.js) – בדיקת timestamp למניעת דריסת שינויים חדשים בנתונים ישנים
         const lastLocalUpdate = App.profile.lastUpdateTimestamp || 0;
         const eventTimestamp = event.created_at || 0;

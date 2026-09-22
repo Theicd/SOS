@@ -118,14 +118,17 @@
 
   function verifyEventSafe(event) {
     try {
-      const tools = window.NostrTools;
-      if (tools && typeof tools.verifyEvent === 'function') {
-        return tools.verifyEvent(event);
+      const AppRef = window.NostrApp || {};
+      if (typeof AppRef.strictVerifyNostrEvent === 'function') {
+        return AppRef.strictVerifyNostrEvent(event) === true;
+      }
+      if (window.NostrEventIntegrity && typeof window.NostrEventIntegrity.strictVerifyNostrEvent === 'function') {
+        return window.NostrEventIntegrity.strictVerifyNostrEvent(event) === true;
       }
     } catch (err) {
       return false;
     }
-    return true;
+    return false;
   }
 
   async function putEvent(event, source) {

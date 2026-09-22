@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
-import { finalizeEvent, generateSecretKey, getPublicKey, verifyEvent } from 'nostr-tools';
+import { finalizeEvent, generateSecretKey, getEventHash, getPublicKey, verifyEvent } from 'nostr-tools';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -113,6 +113,20 @@ function loadHarness(options = {}) {
     updateChatMessageStatus(id, status) {
       statusUpdates.push({ id, status });
     },
+    applyIncomingReadReceipt(payload) {
+      const id = String(payload && payload.lastReadMessageId || '');
+      if (id) {
+        statusUpdates.push({ id, status: 'read' });
+        return { applied: true };
+      }
+      const ts = Number(payload && payload.lastReadAt) || 0;
+      seededMessages.forEach((m) => {
+        if (m && m.direction === 'outgoing' && Number(m.createdAt || 0) <= ts) {
+          statusUpdates.push({ id: m.id, status: 'read' });
+        }
+      });
+      return { applied: true };
+    },
     getChatLastSyncTs() {
       return 0;
     },
@@ -186,12 +200,22 @@ function loadHarness(options = {}) {
     hidden: false,
   };
   context.NostrApp = App;
-  context.NostrTools = { verifyEvent: hostVerifyEvent, finalizeEvent, generateSecretKey, getPublicKey };
+  context.NostrTools = {
+    verifyEvent: (ev) => hostVerifyEvent(JSON.parse(JSON.stringify(ev))),
+    getEventHash: (ev) => getEventHash(JSON.parse(JSON.stringify(ev))),
+    finalizeEvent,
+    generateSecretKey,
+    getPublicKey,
+  };
+  context.window = context;
   context.window.NostrApp = App;
   context.window.NostrTools = context.NostrTools;
   context.window.localStorage = localStorage;
 
   vm.createContext(context);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'nostr-event-integrity.js'), 'utf8'), context, {
+    filename: 'nostr-event-integrity.js',
+  });
   vm.runInContext(fs.readFileSync(CHAT_SERVICE_PATH, 'utf8'), context, { filename: 'chat-service.js' });
   if (typeof App.subscribeToChatEvents !== 'function') {
     throw new Error('chat-service.js did not export subscribeToChatEvents');
@@ -292,8 +316,8 @@ async function main() {
     recipientInOnevent > verifyInOnevent && recipientInOnevent < handleInOnevent,
   );
   record(
-    'source uses NostrTools.verifyEvent',
-    source.includes('window.NostrTools') && source.includes('verifyEvent'),
+    'source uses strictVerifyNostrEvent',
+    source.includes('strictVerifyNostrEvent'),
   );
 
   const chat = loadHarness();

@@ -1300,12 +1300,10 @@
         console.warn('[SO-CALL SECURITY] rejected invalid voice-call signal kind=25050 id=' + idLabel);
         return false;
       }
-      const tools = window.NostrTools;
-      if (!tools || typeof tools.verifyEvent !== 'function') {
-        console.warn('[SO-CALL SECURITY] rejected invalid voice-call signal kind=25050 id=' + idLabel);
-        return false;
-      }
-      if (tools.verifyEvent(event) !== true) {
+      const strict = (typeof App.strictVerifyNostrEvent === 'function')
+        ? App.strictVerifyNostrEvent
+        : (window.NostrEventIntegrity && window.NostrEventIntegrity.strictVerifyNostrEvent);
+      if (typeof strict !== 'function' || strict(event) !== true) {
         console.warn('[SO-CALL SECURITY] rejected invalid voice-call signal kind=25050 id=' + idLabel);
         return false;
       }

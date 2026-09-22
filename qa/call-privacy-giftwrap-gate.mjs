@@ -107,9 +107,9 @@ function loadHelper() {
     TextDecoder,
     NostrApp: App,
     NostrTools: {
-      finalizeEvent,
-      getEventHash,
-      verifyEvent,
+      finalizeEvent: (draft, sk) => finalizeEvent(JSON.parse(JSON.stringify(draft)), sk),
+      getEventHash: (ev) => getEventHash(JSON.parse(JSON.stringify(ev))),
+      verifyEvent: (ev) => verifyEvent(JSON.parse(JSON.stringify(ev))),
       generateSecretKey,
       getPublicKey,
       utils,
@@ -126,6 +126,7 @@ function loadHelper() {
   sandbox.window.localStorage = sandbox.localStorage;
 
   vm.createContext(sandbox);
+  vm.runInContext(read('nostr-event-integrity.js'), sandbox, { filename: 'nostr-event-integrity.js' });
   vm.runInContext(read('call-signal-e2ee.js'), sandbox, { filename: 'call-signal-e2ee.js' });
   return { App: sandbox.NostrApp, alice, bob, published, sandbox };
 }
