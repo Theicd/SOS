@@ -282,6 +282,25 @@
   App.profile = profile;
   App.profileCache = App.profileCache || new Map();
   function applyStoredPrivateKey() {
+    // F2B: skip page K hydrate when Worker authoritative flag is ON (non-native, non-session).
+    try {
+      const flagOn =
+        window.SOS_CRYPTO_WORKER_AUTHORITATIVE === true ||
+        window.__SOS_CRYPTO_WORKER_AUTHORITATIVE__ === true ||
+        (window.localStorage && window.localStorage.getItem('SOS_CRYPTO_WORKER_AUTHORITATIVE') === '1');
+      const isNative =
+        window.SosNativeShell &&
+        typeof window.SosNativeShell.isNativeShell === 'function' &&
+        window.SosNativeShell.isNativeShell() === true;
+      const sessionOnly =
+        window.SOSKeyStorage &&
+        typeof window.SOSKeyStorage.isSessionOnly === 'function' &&
+        window.SOSKeyStorage.isSessionOnly();
+      if (flagOn && !isNative && !sessionOnly) {
+        App.privateKey = null;
+        return;
+      }
+    } catch (_eFlag) {}
     App.privateKey =
       window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function'
         ? window.SOSKeyStorage.readPrivateKeyRaw()

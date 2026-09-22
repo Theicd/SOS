@@ -56,12 +56,12 @@
   }
   
   function isGuestMode() {
-    return !App.publicKey || !App.privateKey;
+    return !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey();
   }
   
   function getEffectiveKeys() {
-    if (App.publicKey && App.privateKey) {
-      return { publicKey: App.publicKey, privateKey: App.privateKey, isGuest: false };
+    if (App.publicKey && App.SosCryptoSigner?.hasIdentityKey()) {
+      return { publicKey: App.publicKey, hasSigner: true, isGuest: false };
     }
     const guest = getOrCreateGuestKeys();
     return guest || { publicKey: null, privateKey: null, isGuest: true };
@@ -740,12 +740,12 @@
       p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'plaintext too large');
     }
     const recipient = requireP2pHexPubkey(recipientPubkey, 'P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED');
-    const privBytes = requireP2pHexPriv(senderPrivateKeyHex);
-    const nip44 = getP2pNip44();
     let ct;
     try {
-      const conversationKey = nip44.getConversationKey(privBytes, recipient);
-      ct = nip44.encrypt(plaintext, conversationKey);
+      if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.nip44P2pEncrypt !== 'function') {
+        p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'signer unavailable');
+      }
+      ct = await Promise.resolve(App.SosCryptoSigner.nip44P2pEncrypt(plaintext, recipient));
     } catch (err) {
       if (err && err.code === 'P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED') throw err;
       p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', err && err.message ? err.message : 'encrypt failed');
@@ -774,11 +774,11 @@
       p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_DECRYPT_FAILED', 'unsupported envelope');
     }
     const sender = requireP2pHexPubkey(senderPubkey, 'P2P_PRIVATE_SIGNAL_DECRYPT_FAILED');
-    const privBytes = requireP2pHexPriv(localPrivateKeyHex);
-    const nip44 = getP2pNip44();
     try {
-      const conversationKey = nip44.getConversationKey(privBytes, sender);
-      const plain = nip44.decrypt(env.ct, conversationKey);
+      if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.nip44P2pDecrypt !== 'function') {
+        p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_DECRYPT_FAILED', 'signer unavailable');
+      }
+      const plain = await Promise.resolve(App.SosCryptoSigner.nip44P2pDecrypt(env.ct, sender));
       if (typeof plain !== 'string' || !plain) {
         p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_DECRYPT_FAILED', 'empty plaintext');
       }
@@ -793,13 +793,13 @@
     // PRIVATE 30078 only: mandatory NIP-44. ZERO plaintext fallback.
     void SIGNAL_ENCRYPTION_ENABLED; // legacy flag intentionally unused for private path
     const keys = getEffectiveKeys();
-    if (!keys || !keys.privateKey) {
+    if (!keys || !(keys.hasSigner || App.SosCryptoSigner?.hasIdentityKey())) {
       p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'missing local private key');
     }
     if (!peerPubkey) {
       p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'missing recipient');
     }
-    const wire = await encryptPrivateP2pSignalPayload(payload, peerPubkey, keys.privateKey);
+    const wire = await encryptPrivateP2pSignalPayload(payload, peerPubkey, null);
     return { content: wire, encrypted: true };
   }
 
@@ -809,9 +809,9 @@
       return null;
     }
     if (looksLikePrivateP2pSignalEnvelope(rawContent)) {
-      if (!keys || !keys.privateKey) return null;
+      if (!keys || !(keys.hasSigner || App.SosCryptoSigner?.hasIdentityKey())) return null;
       try {
-        const plain = await decryptPrivateP2pSignalPayload(rawContent, senderPubkey, keys.privateKey);
+        const plain = await decryptPrivateP2pSignalPayload(rawContent, senderPubkey, null);
         return { plaintext: plain, legacy: false, encrypted: true };
       } catch (_err) {
         try {
@@ -1065,7 +1065,7 @@
     const relays = getP2PRelays();
     const keys = getEffectiveKeys();
     
-    if (!relays.length || !App.pool || !keys.publicKey || !keys.privateKey) {
+    if (!relays.length || !App.pool || !keys.publicKey || !(keys.hasSigner || App.SosCryptoSigner?.hasIdentityKey())) {
       return;
     }
 
@@ -1086,10 +1086,14 @@
 
       // שימוש ב-App.finalizeEvent או חתימה ידנית לאורחים
       let signedEvent;
-      if (App.finalizeEvent) {
-        signedEvent = App.finalizeEvent(event, keys.privateKey);
-      } else if (window.NostrTools && window.NostrTools.finalizeEvent) {
-        signedEvent = window.NostrTools.finalizeEvent(event, keys.privateKey);
+      if (keys.isGuest && keys.privateKey) {
+        if (App.finalizeEvent) {
+          signedEvent = App.finalizeEvent(event, keys.privateKey);
+        } else if (window.NostrTools && window.NostrTools.finalizeEvent) {
+          signedEvent = window.NostrTools.finalizeEvent(event, keys.privateKey);
+        }
+      } else if (App.SosCryptoSigner && typeof App.SosCryptoSigner.signP2pFile === 'function') {
+        signedEvent = await Promise.resolve(App.SosCryptoSigner.signP2pFile(event));
       }
       
       if (signedEvent) {
@@ -1544,7 +1548,7 @@
       }
 
       // פרסום לרשת - תומך גם באורחים
-      if (!App.pool || !keys.publicKey || !keys.privateKey) {
+      if (!App.pool || !keys.publicKey || !(keys.hasSigner || keys.privateKey || App.SosCryptoSigner?.hasIdentityKey())) {
         p2pStats.shares.failed++;
         return { success: false, published: false };
       }
@@ -1594,10 +1598,14 @@
 
       // תמיכה בחתימה גם לאורחים
       let signed;
-      if (App.finalizeEvent) {
-        signed = App.finalizeEvent(event, keys.privateKey);
-      } else if (window.NostrTools && window.NostrTools.finalizeEvent) {
-        signed = window.NostrTools.finalizeEvent(event, keys.privateKey);
+      if (keys.isGuest && keys.privateKey) {
+        if (App.finalizeEvent) {
+          signed = App.finalizeEvent(event, keys.privateKey);
+        } else if (window.NostrTools && window.NostrTools.finalizeEvent) {
+          signed = window.NostrTools.finalizeEvent(event, keys.privateKey);
+        }
+      } else if (App.SosCryptoSigner && typeof App.SosCryptoSigner.signP2pFile === 'function') {
+        signed = await Promise.resolve(App.SosCryptoSigner.signP2pFile(event));
       }
       
       if (!signed) {
@@ -2938,9 +2946,9 @@
         return ok;
       };
 
-      if (!App.pool || !keys.publicKey || !keys.privateKey) {
+      if (!App.pool || !keys.publicKey || !(keys.hasSigner || App.SosCryptoSigner?.hasIdentityKey())) {
         if (tryRelay()) return;
-        throw new Error('Missing pool or keys');
+        p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'missing local private key');
       }
 
       await throttleSignals();
@@ -2970,10 +2978,8 @@
       };
 
       let signed;
-      if (App.finalizeEvent) {
-        signed = App.finalizeEvent(event, keys.privateKey);
-      } else if (window.NostrTools && window.NostrTools.finalizeEvent) {
-        signed = window.NostrTools.finalizeEvent(event, keys.privateKey);
+      if (App.SosCryptoSigner && typeof App.SosCryptoSigner.signP2pFile === 'function') {
+        signed = await Promise.resolve(App.SosCryptoSigner.signP2pFile(event));
       }
       
       const relays = getP2PRelays();
@@ -4261,7 +4267,7 @@
     function tryInit() {
       const keys = getEffectiveKeys();
       const hasPool = App.pool;
-      const hasKeys = keys.publicKey && keys.privateKey;
+      const hasKeys = keys.publicKey && (keys.hasSigner || keys.privateKey || App.SosCryptoSigner?.hasIdentityKey());
       
       if (hasPool && hasKeys) {
         // אם אורח - נשתמש במפתחות הזמניים

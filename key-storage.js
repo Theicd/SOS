@@ -1191,6 +1191,16 @@
     isSessionOnly,
     getSecurityDesignNotes,
     getProviderState() { return providerState; },
+    getPublicKeyHint() {
+      if (memoryPub && /^[0-9a-f]{64}$/i.test(memoryPub)) return String(memoryPub).toLowerCase();
+      try {
+        const marker = readCutoverMarker();
+        if (marker && marker.publicKey && /^[0-9a-f]{64}$/i.test(marker.publicKey)) {
+          return String(marker.publicKey).toLowerCase();
+        }
+      } catch (_e) {}
+      return '';
+    },
     decideWebNativeSecure,
     initialize,
     ready: null,

@@ -1,8 +1,9 @@
+/* __F2B_AWAIT_WRAPPED__ */
 ;(function initChatE2EEWrapper(window) {
   // חלק צ'אט הצפנה (chat-e2ee-wrapper.js) – מעטפת הצפנה שקופה למסרונים/מצורפים, מינימום נגיעה בקבצים קיימים | HYPER CORE TECH
   const App = window.NostrApp || (window.NostrApp = {});
   const nip04 = window.NostrTools?.nip04;
-  if (!nip04 || !App.privateKey) {
+  if (!nip04 || !App.SosCryptoSigner?.hasIdentityKey()) {
     console.warn('E2EE wrapper skipped: nip04/privateKey missing');
     return;
   }
@@ -13,7 +14,7 @@
   async function encryptForPeer(peerPubkey, plaintext) {
     if (!peerPubkey || !plaintext) return null;
     try {
-      return await nip04.encrypt(App.privateKey, peerPubkey, plaintext);
+      return await await Promise.resolve(App.SosCryptoSigner.nip04Encrypt(peerPubkey, plaintext));
     } catch (err) {
       console.warn('encryptForPeer failed', err);
       return null;
@@ -23,7 +24,7 @@
   async function decryptFromPeer(peerPubkey, ciphertext) {
     if (!peerPubkey || !ciphertext) return null;
     try {
-      return await nip04.decrypt(App.privateKey, peerPubkey, ciphertext);
+      return await await Promise.resolve(App.SosCryptoSigner.nip04Decrypt(peerPubkey, ciphertext));
     } catch (err) {
       console.warn('decryptFromPeer failed', err);
       return null;

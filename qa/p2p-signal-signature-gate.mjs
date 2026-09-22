@@ -67,7 +67,7 @@ function loadHarness() {
 
   const App = {
     publicKey: selfPk,
-    privateKey: selfSk,
+    privateKey: typeof selfSk === 'string' ? selfSk : Buffer.from(selfSk).toString('hex'),
     guestMode: false,
     relayUrls: ['wss://example.invalid'],
     RTC_ICE_SERVERS: [{ urls: 'stun:stun.l.google.com:19302' }],
@@ -161,6 +161,10 @@ function loadHarness() {
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'nostr-event-integrity.js'), 'utf8'), context, {
     filename: 'nostr-event-integrity.js',
+  });
+  App.finalizeEvent = (draft, key) => finalizeEvent(JSON.parse(JSON.stringify(draft)), key);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'sos-crypto-signer.js'), 'utf8'), context, {
+    filename: 'sos-crypto-signer.js',
   });
   vm.runInContext(fs.readFileSync(DC_PATH, 'utf8'), context, { filename: 'chat-p2p-datachannel.js' });
   if (!App.dataChannel || typeof App.dataChannel.init !== 'function') {

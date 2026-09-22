@@ -1,3 +1,4 @@
+/* __F2B_AWAIT_WRAPPED__ */
 // מנגנון הזמנות הצטרפות בוואטסאפ (invite-service.js) | HYPER CORE TECH
 (function initInviteService(window) {
   const App = window.NostrApp || (window.NostrApp = {});
@@ -181,7 +182,7 @@
   }
 
   async function createInvite() {
-    if (!App.privateKey || App.guestMode) {
+    if (!App.SosCryptoSigner?.hasIdentityKey() || App.guestMode) {
       throw new Error('רק משתמש מחובר יכול להזמין');
     }
     if (!App.pool || !Array.isArray(App.relayUrls) || !App.relayUrls.length) {
@@ -208,7 +209,7 @@
       tags,
       content: JSON.stringify({ v: 1, type: 'invite' }),
     };
-    const event = App.finalizeEvent(draft, App.privateKey);
+    const event = await Promise.resolve(App.SosCryptoSigner.signInviteEvent(draft));
     await App.pool.publish(App.relayUrls, event);
 
     const inviteUrl = buildInviteUrl(code);
@@ -222,7 +223,7 @@
   }
 
   async function markInviteUsed({ code, inviterPubkey }) {
-    if (!App.privateKey || typeof App.finalizeEvent !== 'function') {
+    if (!App.SosCryptoSigner?.hasIdentityKey() || typeof App.SosCryptoSigner.signInviteEvent !== 'function') {
       return { ok: false, error: 'missing-key' };
     }
     if (!App.pool || !Array.isArray(App.relayUrls) || !App.relayUrls.length) {
@@ -243,7 +244,7 @@
       content: JSON.stringify({ v: 1, type: 'invite-used' }),
     };
     try {
-      const event = App.finalizeEvent(draft, App.privateKey);
+      const event = await Promise.resolve(App.SosCryptoSigner.signInviteEvent(draft));
       await App.pool.publish(App.relayUrls, event);
       return { ok: true, event };
     } catch (err) {

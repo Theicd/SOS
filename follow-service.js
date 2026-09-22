@@ -1,3 +1,4 @@
+/* __F2B_AWAIT_WRAPPED__ */
 ;(function initFollowService(window) {
   const App = window.NostrApp || (window.NostrApp = {});
   // חלק ניהול עוקבים (follow-service.js) – הגדרת kind ייעודי ושמירתו ב-App לשימוש מודולים אחרים
@@ -278,7 +279,7 @@
       const isSelf = target && target === normalizePubkey(App.publicKey);
       const isFollowing = followState.followingSet.has(target);
       const isPending = followState.pendingTargets.has(target);
-      button.disabled = isSelf || isPending || !App.publicKey || !App.privateKey;
+      button.disabled = isSelf || isPending || !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey();
       button.classList.toggle('is-following', isFollowing);
       button.setAttribute('aria-pressed', isFollowing ? 'true' : 'false');
       const icon = button.querySelector('i');
@@ -435,7 +436,7 @@
   async function toggleFollow(targetPubkey, meta = {}) {
     const target = normalizePubkey(targetPubkey);
     const current = normalizePubkey(App.publicKey);
-    if (!target || !App.pool || !App.privateKey || typeof App.finalizeEvent !== 'function') {
+    if (!target || !App.pool || !App.SosCryptoSigner?.hasIdentityKey() || typeof App.SosCryptoSigner.signFollowEvent !== 'function') {
       console.warn('Follow service: missing prerequisites for toggle');
       return;
     }
@@ -489,7 +490,7 @@
         tags,
         content: JSON.stringify(payload),
       };
-      const event = App.finalizeEvent(draft, App.privateKey);
+      const event = await Promise.resolve(App.SosCryptoSigner.signFollowEvent(draft));
       await App.pool.publish(App.relayUrls, event);
       applyFollowEvent(event);
     } catch (err) {

@@ -1,3 +1,4 @@
+/* __F2B_AWAIT_WRAPPED__ */
 // חלק שידור חי (live-stream-ui.js) – סטודיו מסודר + כרטיס פיד רק אחרי וידאו מאומת | HYPER CORE TECH
 (function initLiveStreamUI(window){
   const App = window.NostrApp || (window.NostrApp = {});
@@ -877,7 +878,7 @@
     const msg = String(text || '').trim();
     const rid = roomId || activeChatRoomId;
     if (!msg || !rid) return false;
-    if (!App.pool || !App.publicKey || !App.privateKey || typeof App.finalizeEvent !== 'function') return false;
+    if (!App.pool || !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey() || typeof App.SosCryptoSigner.signLiveEvent !== 'function') return false;
     try {
       const id = resolveLocalIdentity();
       // תמונת data: גדולה לא נשלחת — שם חובה; הצופים משלימים מתמונת פרופיל | HYPER CORE TECH
@@ -897,7 +898,7 @@
         tags: [['type', 'live-chat'], ['r', rid]],
         content
       };
-      const signed = App.finalizeEvent(ev, App.privateKey);
+      const signed = await Promise.resolve(App.SosCryptoSigner.signLiveEvent(ev));
       await App.pool.publish(App.relayUrls, signed);
       // שמירה מקומית אצל משדר לשליחה ב־P2P לצופים חדשים | HYPER CORE TECH
       try {
@@ -923,7 +924,7 @@
   App.publishLiveLike = async function(roomId) {
     const rid = roomId || activeChatRoomId;
     if (!rid) return false;
-    if (!App.pool || !App.publicKey || !App.privateKey || typeof App.finalizeEvent !== 'function') return false;
+    if (!App.pool || !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey() || typeof App.SosCryptoSigner.signLiveEvent !== 'function') return false;
     try {
       const ev = {
         kind: 25051,
@@ -932,7 +933,7 @@
         tags: [['type', 'live-like'], ['r', rid]],
         content: JSON.stringify({ roomId: rid, at: Date.now() })
       };
-      const signed = App.finalizeEvent(ev, App.privateKey);
+      const signed = await Promise.resolve(App.SosCryptoSigner.signLiveEvent(ev));
       await App.pool.publish(App.relayUrls, signed);
       return true;
     } catch (e) {

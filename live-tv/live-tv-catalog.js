@@ -1,3 +1,4 @@
+/* __F2B_AWAIT_WRAPPED__ */
 // חלק קטלוג LIVE TV (live-tv-catalog.js) – ערוצים מקובץ curated + הסתרת מנהל + סינון לא-פעילים | HYPER CORE TECH
 (function initLiveTvCatalog(window) {
   const App = window.NostrApp || (window.NostrApp = {});
@@ -126,7 +127,7 @@
 
   async function publishHiddenList() {
     if (!isAdminViewer()) return;
-    if (!App.pool || typeof App.finalizeEvent !== 'function' || !App.privateKey || !App.publicKey) return;
+    if (!App.pool || typeof App.SosCryptoSigner?.signLiveTvEvent !== 'function' || !App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey) return;
     const list = Array.from(hiddenIds);
     const draft = {
       kind: HIDDEN_KIND,
@@ -139,7 +140,7 @@
       content: JSON.stringify({ version: 1, hidden: list }),
     };
     try {
-      const event = App.finalizeEvent(draft, App.privateKey);
+      const event = await Promise.resolve(App.SosCryptoSigner.signLiveTvEvent(draft));
       await App.pool.publish(App.relayUrls || [], event);
       console.log('[LIVE-TV] published hidden list', { count: list.length });
     } catch (err) {

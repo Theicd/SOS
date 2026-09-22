@@ -1,3 +1,4 @@
+/* __F2B_AWAIT_WRAPPED__ */
 ;(function initFeed(window) {
   const App = window.NostrApp || (window.NostrApp = {});
   App.deletedEventIds = App.deletedEventIds || new Set(); // חלק פיד (feed.js) – שומר מזהים של פוסטים שנמחקו כדי שלא להציגם
@@ -3664,7 +3665,7 @@
 
   async function postComment(parentId, content) {
     // חלק פיד (feed.js) – מפרסם תגובת kind 1 עם תגיות root/commit כדי שכל הרשת תראה אותה
-    if (!parentId || !content || !App.publicKey || !App.privateKey || !App.pool) {
+    if (!parentId || !content || !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey() || !App.pool) {
       throw new Error('Missing required context for posting comment');
     }
 
@@ -3680,7 +3681,7 @@
       ],
       content,
     };
-    const event = App.finalizeEvent(draft, App.privateKey);
+    const event = draft.kind === 5 ? await Promise.resolve(App.SosCryptoSigner.signDelete(draft)) : await Promise.resolve(App.SosCryptoSigner.signFeedEvent(draft));
     await App.pool.publish(App.relayUrls, event);
     registerComment(event, parentId);
   }
@@ -4242,7 +4243,7 @@ async function loadFeed() {
     if (payload.originalId) {
       draft.tags.push(['e', payload.originalId, '', 'replaces']);
     }
-    const event = App.finalizeEvent(draft, App.privateKey);
+    const event = draft.kind === 5 ? await Promise.resolve(App.SosCryptoSigner.signDelete(draft)) : await Promise.resolve(App.SosCryptoSigner.signFeedEvent(draft));
 
     try {
       await App.pool.publish(App.relayUrls, event);
@@ -4282,7 +4283,7 @@ async function loadFeed() {
       tags: [['e', eventId], ['t', App.NETWORK_TAG]],
       content: '+',
     };
-    const event = App.finalizeEvent(draft, App.privateKey);
+    const event = draft.kind === 5 ? await Promise.resolve(App.SosCryptoSigner.signDelete(draft)) : await Promise.resolve(App.SosCryptoSigner.signFeedEvent(draft));
 
     try {
       await App.pool.publish(App.relayUrls, event);
@@ -4302,7 +4303,7 @@ async function loadFeed() {
       tags: [['e', eventId], ['t', App.NETWORK_TAG]],
       content: '',
     };
-    const event = App.finalizeEvent(draft, App.privateKey);
+    const event = draft.kind === 5 ? await Promise.resolve(App.SosCryptoSigner.signDelete(draft)) : await Promise.resolve(App.SosCryptoSigner.signFeedEvent(draft));
 
     try {
       await App.pool.publish(App.relayUrls, event);
@@ -4415,7 +4416,7 @@ async function loadFeed() {
     if (meta && meta.publishState === 'confirmed' && !(options && options.force)) {
       return true;
     }
-    if (!App.pool || typeof App.finalizeEvent !== 'function' || !App.publicKey || !App.privateKey) {
+    if (!App.pool || typeof App.SosCryptoSigner?.signDelete !== 'function' || !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey()) {
       logDeleteLifecycle('PUBLISH_FAIL', { id: eventId, reason: 'no-pool-or-keys' });
       markDeletionPublishState(eventId, 'failed');
       scheduleDeletionPublishRetry(eventId);
@@ -4433,7 +4434,7 @@ async function loadFeed() {
     };
     let event;
     try {
-      event = App.finalizeEvent(draft, App.privateKey);
+      event = draft.kind === 5 ? await Promise.resolve(App.SosCryptoSigner.signDelete(draft)) : await Promise.resolve(App.SosCryptoSigner.signFeedEvent(draft));
     } catch (err) {
       logDeleteLifecycle('PUBLISH_FAIL', { id: eventId, reason: 'finalize' });
       markDeletionPublishState(eventId, 'failed');
@@ -4890,7 +4891,7 @@ async function loadFeed() {
     if (!commentId) {
       return;
     }
-    if (!App.publicKey || !App.privateKey) {
+    if (!App.publicKey || !App.SosCryptoSigner?.hasIdentityKey()) {
       console.warn('Missing keys for comment deletion');
       return;
     }

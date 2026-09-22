@@ -47,7 +47,7 @@
     const tags = [['t', verb], ['expiration', String(now + 24*3600)]];
     if(sha256 && (verb === 'upload' || verb === 'delete')) tags.push(['x', sha256]);
     const draft = { kind: 24242, content, tags, created_at: now, pubkey: App.publicKey };
-    return App.finalizeEvent(draft, App.privateKey);
+    return App.SosCryptoSigner.signBlossomAuth(draft);
   }
 
   async function getServers(){
@@ -82,7 +82,7 @@
       console.error('[BLOSSOM] ❌ חסר publicKey');
       throw new Error('missing-publicKey');
     }
-    if (!App.privateKey) {
+    if (!App.SosCryptoSigner?.hasIdentityKey()) {
       console.error('[BLOSSOM] missing signer');
       throw new Error('missing-privateKey');
     }
@@ -499,7 +499,7 @@
       blossomSecureFail('MEDIA_E2EE_SIZE_MISMATCH', 'prepared blob size mismatch');
     }
 
-    if (!App.publicKey || !App.privateKey || typeof App.finalizeEvent !== 'function') {
+    if (!App.publicKey || !App.SosCryptoSigner?.hasIdentityKey() || typeof App.SosCryptoSigner.signBlossomAuth !== 'function') {
       blossomSecureFail('BLOSSOM_AUTH_UNAVAILABLE', 'missing signer');
     }
 
@@ -825,7 +825,7 @@
     if (!/^[0-9a-f]{64}$/.test(objectSha256)) {
       return { ok: false, reason: 'missing-hash' };
     }
-    if (!App.publicKey || !App.privateKey || typeof App.finalizeEvent !== 'function') {
+    if (!App.publicKey || !App.SosCryptoSigner?.hasIdentityKey() || typeof App.SosCryptoSigner.signBlossomAuth !== 'function') {
       return { ok: false, reason: 'missing-signer' };
     }
     const fetchFn = getFetch(options.fetchImpl);

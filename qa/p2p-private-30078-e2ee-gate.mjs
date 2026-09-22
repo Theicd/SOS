@@ -139,6 +139,7 @@ function loadP2pRuntime(overrides = {}) {
     `,
     sandbox,
   );
+  vm.runInContext(read('sos-crypto-signer.js'), sandbox, { filename: 'sos-crypto-signer.js' });
   vm.runInContext(read('p2p-video-sharing.js'), sandbox, { filename: 'p2p-video-sharing.js' });
 
   return { App: sandbox.NostrApp, alice, bob, published, sandbox };
@@ -247,7 +248,11 @@ async function run() {
       record('FILE-OFFER fileId OUTER LEAK ZERO', !outer.includes('test-private-file-1'));
     }
     record(msg.type + ' outer is NIP44 envelope', App.looksLikePrivateP2pSignalEnvelope(outer));
+    App.publicKey = bob.pk;
+    App.privateKey = bob.hex;
     const plain = await App.decryptPrivateP2pSignalPayload(outer, alice.pk, bob.hex);
+    App.publicKey = alice.pk;
+    App.privateKey = alice.hex;
     const parsed = JSON.parse(plain);
     record(msg.type + ' decrypt recovers type', parsed && parsed.type === msg.type);
     if (msg.type === 'file-offer') {
@@ -312,11 +317,15 @@ async function run() {
     const ev = published[published.length - 1];
     let wrongOk = false;
     try {
+      App.publicKey = carol.pk;
+      App.privateKey = carol.hex;
       await App.decryptPrivateP2pSignalPayload(ev.content, alice.pk, carol.hex);
       wrongOk = true;
     } catch (_e) {
       wrongOk = false;
     }
+    App.publicKey = alice.pk;
+    App.privateKey = alice.hex;
     record('WRONG RECIPIENT decrypt REJECT', wrongOk === false);
   }
 
@@ -329,11 +338,15 @@ async function run() {
     env.ct = env.ct.slice(0, -4) + 'AAAA';
     let tamperOk = false;
     try {
+      App.publicKey = bob.pk;
+      App.privateKey = bob.hex;
       await App.decryptPrivateP2pSignalPayload(JSON.stringify(env), alice.pk, bob.hex);
       tamperOk = true;
     } catch (_e) {
       tamperOk = false;
     }
+    App.publicKey = alice.pk;
+    App.privateKey = alice.hex;
     record('TAMPERED CIPHERTEXT REJECT', tamperOk === false);
   }
 

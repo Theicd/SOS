@@ -115,7 +115,7 @@
   }
 
   function canSignal(p) {
-    return canUseMesh(p) || !!(App.pool && App.publicKey && App.privateKey);
+    return canUseMesh(p) || !!(App.pool && App.publicKey && App.SosCryptoSigner?.hasIdentityKey());
   }
 
   function notifyWebViewP2pReady() {
@@ -168,12 +168,13 @@
   async function sendSig(p, type, data) {
     if(!isValidPeerKey(p)) return;
     if (await sendMeshSig(p, type, data)) return;
-    if(!App.pool||!App.publicKey||!App.privateKey) return;
+    if(!App.pool||!App.publicKey||!App.SosCryptoSigner?.hasIdentityKey()) return;
     try {
       const raw=data?JSON.stringify(data):'';
-      const enc=raw?await NostrTools.nip04.encrypt(App.privateKey,p,raw):'';
+      const enc=raw?await Promise.resolve(App.SosCryptoSigner.nip04Encrypt(p,raw)):'';
       const ev={kind:SIG_KIND,pubkey:App.publicKey,created_at:Math.floor(Date.now()/1000),tags:[['type',type],['p',p.toLowerCase()],['r',roomId(p)]],content:enc};
-      const signed=App.finalizeEvent(ev,App.privateKey);
+      if (typeof App.SosCryptoSigner.signP2pSignal !== 'function') return;
+      const signed=await Promise.resolve(App.SosCryptoSigner.signP2pSignal(ev));
       await new Promise(r=>setTimeout(r,80));
       const pub=App.pool.publish(App.relayUrls,signed);
       if(Array.isArray(pub)) Promise.allSettled(pub).catch(()=>{});
@@ -543,7 +544,8 @@
     if (event.content) {
       if (typeof event.content === 'string' && event.content.length > 524288) return;
       try {
-        const d = await NostrTools.nip04.decrypt(App.privateKey, peer, event.content);
+        if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.nip04Decrypt !== 'function') return;
+        const d = await Promise.resolve(App.SosCryptoSigner.nip04Decrypt(peer, event.content));
         data = d ? JSON.parse(d) : null;
       } catch (e) {
         return;

@@ -1,3 +1,4 @@
+/* __F2B_AWAIT_WRAPPED__ */
 (function initDatingPage(window) {
   // חלק הכרויות (dating.js) – אתחול בסיסי, מבנים וטבלת השמות
   const App = window.NostrApp || (window.NostrApp = {});
@@ -450,7 +451,7 @@
     renderCurrentCandidate();
   };
   async function handleLike() {
-    if (!state.current || !App.publicKey || !App.privateKey || !App.pool) {
+    if (!state.current || !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey() || !App.pool) {
       return;
     }
     state.likesOut.add(state.current.pubkey);
@@ -481,7 +482,7 @@
       ],
       content: JSON.stringify({ message: 'like', ts: now }),
     };
-    const event = App.finalizeEvent(draft, App.privateKey);
+    const event = await Promise.resolve(App.SosCryptoSigner.signDatingEvent(draft));
     await App.pool.publish(App.relayUrls, event);
   }
   function registerMatch(candidate) {

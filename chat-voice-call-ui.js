@@ -1,3 +1,4 @@
+/* __F2B_AWAIT_WRAPPED__ */
 // חלק שיחות קול (chat-voice-call-ui.js) – ממשק משתמש לשיחות קוליות בסגנון וואטסאפ
 (function initChatVoiceCallUI(window) {
   const App = window.NostrApp || (window.NostrApp = {});
@@ -207,7 +208,7 @@
           }
         }
       } catch (_) {}
-      if (!App.privateKey || !App.publicKey) return null;
+      if (!App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey) return null;
       if (typeof api.dispatchGiftWrappedCallSignal === 'function') {
         const r = await api.dispatchGiftWrappedCallSignal(eventObj);
         if (r && (r.status === 'invalid_offer' || r.action === 'tombstone_drop')) return null;
@@ -236,13 +237,12 @@
       // LEGACY_READ_ONLY: NIP-04 direct 25050
       const peer = String(eventObj.pubkey || '').toLowerCase();
       if (peerWanted && peer && peer !== peerWanted) return null;
-      if (!eventObj.content || !App.privateKey || !window.NostrTools?.nip04) return null;
+      if (!eventObj.content || !App.SosCryptoSigner?.hasIdentityKey() || !window.NostrTools?.nip04) return null;
       try {
-        const decrypted = await window.NostrTools.nip04.decrypt(
-          App.privateKey,
+        const decrypted = await await Promise.resolve(App.SosCryptoSigner.nip04Decrypt(
           peer,
           eventObj.content
-        );
+        ));
         let offer = decrypted ? JSON.parse(decrypted) : null;
         if (offer && offer.offer && !offer.type && !offer.sdp) offer = offer.offer;
         if (!offer?.type || !offer?.sdp) return null;
@@ -1377,7 +1377,7 @@
 
     const api = App.CallSignalE2ee;
     if (!api || typeof api.dispatchGiftWrappedCallSignal !== 'function') return false;
-    if (!App.privateKey || !App.publicKey) return false;
+    if (!App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey) return false;
 
     try {
       if (api.ensureSecureCallSubscription) api.ensureSecureCallSubscription();
@@ -1613,7 +1613,7 @@
             return;
           }
         } catch (_) {}
-        if (!App.privateKey || !window.NostrTools?.nip04 || !App.pool) {
+        if (!App.SosCryptoSigner?.hasIdentityKey() || !window.NostrTools?.nip04 || !App.pool) {
           if (!nativeUi) updateCallStatus('מתחבר...');
           if (attempts < maxAttempts) {
             setTimeout(tryAccept, 250);

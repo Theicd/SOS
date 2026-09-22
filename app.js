@@ -65,9 +65,9 @@
       !App.pool ||
       !Array.isArray(App.relayUrls) ||
       App.relayUrls.length === 0 ||
-      !App.privateKey ||
+      !App.SosCryptoSigner?.hasIdentityKey() ||
       !App.publicKey ||
-      typeof App.finalizeEvent !== 'function'
+      typeof App.SosCryptoSigner.signLoginMetric !== 'function'
     ) {
       scheduleLoginMetricRetry();
       return;
@@ -87,7 +87,7 @@
     };
 
     try {
-      const signed = App.finalizeEvent(event, App.privateKey);
+      const signed = await Promise.resolve(App.SosCryptoSigner.signLoginMetric(event));
       await App.pool.publish(App.relayUrls, signed);
       App._loginMetricPublished = true;
     } catch (error) {
@@ -102,6 +102,60 @@
   // =======================
   function bootGuestIdentity() {
     try {
+      // F2B: Worker-authoritative durable browser path — never hydrate App.privateKey.
+      const flagOn =
+        window.SOS_CRYPTO_WORKER_AUTHORITATIVE === true ||
+        window.__SOS_CRYPTO_WORKER_AUTHORITATIVE__ === true ||
+        (typeof localStorage !== 'undefined' && localStorage.getItem('SOS_CRYPTO_WORKER_AUTHORITATIVE') === '1');
+      const isNative =
+        window.SosNativeShell &&
+        typeof window.SosNativeShell.isNativeShell === 'function' &&
+        window.SosNativeShell.isNativeShell() === true;
+      const sessionOnly =
+        window.SOSKeyStorage &&
+        typeof window.SOSKeyStorage.isSessionOnly === 'function' &&
+        window.SOSKeyStorage.isSessionOnly();
+
+      if (flagOn && !isNative && !sessionOnly && App.SosCryptoWorkerVault) {
+        Promise.resolve(App.SosCryptoWorkerVault.tryActivateAuthoritative())
+          .then(function (res) {
+            if (res && res.ok) {
+              App.privateKey = null;
+              if (res.meta && res.meta.pubkey) App.publicKey = res.meta.pubkey;
+              App.guestMode = false;
+              try {
+                publishLoginActivity();
+              } catch (_e2) {}
+              if (typeof App.loadOwnProfileMetadata === 'function') App.loadOwnProfileMetadata();
+              if (typeof App.subscribeOwnProfileMetadata === 'function') App.subscribeOwnProfileMetadata();
+              try {
+                App._topBarAuthUiReady = true;
+                if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
+              } catch (_syncErr) {}
+              return;
+            }
+            // Flag ON but ineligible: fail closed for this path — do not hydrate K.
+            try {
+              console.warn('[F2B] worker auth unavailable code=' + ((res && res.code) || 'unknown'));
+            } catch (_w) {}
+            App.privateKey = null;
+            // Fall through only for guest UI; crypto remains blocked without K/worker.
+            App.guestMode = true;
+            try {
+              App._topBarAuthUiReady = true;
+              if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
+            } catch (_syncErr2) {}
+          })
+          .catch(function (err) {
+            try {
+              console.warn('[F2B] worker auth boot failed', err && err.message);
+            } catch (_e) {}
+            App.privateKey = null;
+            App.guestMode = true;
+          });
+        return;
+      }
+
       const storedKey =
         window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function'
           ? window.SOSKeyStorage.readPrivateKeyRaw()
@@ -126,10 +180,14 @@
         App.privateKey = null;
         App.publicKey = null;
         if (typeof App.ensureKeys === 'function') {
-          try { App.ensureKeys(); } catch (_e) {}
+          try {
+            App.ensureKeys();
+          } catch (_e) {}
         }
       }
-      try { publishLoginActivity(); } catch (_e2) {}
+      try {
+        publishLoginActivity();
+      } catch (_e2) {}
       if (typeof App.loadOwnProfileMetadata === 'function') App.loadOwnProfileMetadata();
       if (typeof App.subscribeOwnProfileMetadata === 'function') App.subscribeOwnProfileMetadata();
     } catch (e) {
@@ -268,7 +326,7 @@
   // פונקציה זו משמשת כל הכפתורים של לייק, תגובה, עקוב, פרסום ועוד
   // =======================
   App.requireAuth = function(requirementText, onAuthenticated) {
-    const hasKey = !!App.privateKey && typeof App.privateKey === 'string';
+    const hasKey = !!(App.SosCryptoSigner && App.SosCryptoSigner.hasIdentityKey());
 
     if (hasKey && App.guestMode === false) {
       // כבר מחובר - אפשר להמשיך

@@ -627,12 +627,42 @@
         ackSecureWrapHandledToNative(wrapId);
         return { status: 'duplicate', reason: 'wrap_id' };
       }
-      if (!App.privateKey || !App.publicKey) {
+      if (!App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey) {
         if (wrapId) seenWrapIds.delete(wrapId);
         return { status: 'reject', reason: 'no_keys' };
       }
       dispatchStats.unwrapCount += 1;
-      const unwrapped = await unwrapGiftWrappedCallSignal(wrapEvent, App.privateKey, App.publicKey);
+      let unwrapped = null;
+      if (App.SosCryptoSigner.isWorkerAuthoritative && App.SosCryptoSigner.isWorkerAuthoritative()) {
+        try {
+          const logical = await App.SosCryptoSigner.unwrapCallGiftwrap(wrapEvent, App.publicKey);
+          if (logical) {
+            unwrapped = {
+              media: logical.media,
+              action: logical.action,
+              wireType: toWireType(logical.media, logical.action),
+              data: logical.data,
+              sender: logical.sender,
+              recipient: logical.recipient,
+              sessionId: logical.sessionId,
+              signalId: logical.signalId,
+              sentAt: logical.sentAt,
+              wrapId: logical.wrapId || wrapId,
+            };
+            if (unwrapped.signalId && rememberSignalId(unwrapped.signalId)) {
+              unwrapped = null; // replay
+            }
+          }
+        } catch (_e) {
+          unwrapped = null;
+        }
+      } else {
+        unwrapped = await unwrapGiftWrappedCallSignal(
+          wrapEvent,
+          App.SosCryptoSigner.f1CryptoModuleSessionKeyHex(),
+          App.publicKey,
+        );
+      }
       if (!unwrapped) {
         // unwrap already claimed signalId on success; failure may be replay
         dispatchStats.replayReject += 1;
@@ -880,7 +910,7 @@
       return pendingSecureReconcileInFlight;
     }
     const run = (async () => {
-      if (!App.privateKey || !App.publicKey) {
+      if (!App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey) {
         try { console.log('CALL_NATIVE_PENDING_DRAIN_DEFER reason=not-ready'); } catch (_e) {}
         return { deferred: true, reason: 'not-ready' };
       }
@@ -1055,7 +1085,7 @@
       return webRecoveryInFlight;
     }
     const run = (async () => {
-      if (!App.privateKey || !App.publicKey || !App.pool) {
+      if (!App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey || !App.pool) {
         try { console.log('CALL_WEB_RECOVERY_ERROR reason=not-ready'); } catch (_e) {}
         return { deferred: true, reason: 'not-ready' };
       }
@@ -1386,7 +1416,18 @@
     const pool = opts && opts.pool;
     const relays = opts && opts.relays;
     const senderPubkey = opts && opts.senderPubkey;
-    const senderPrivateKey = opts && opts.senderPrivateKey;
+    const workerAuth =
+      App.SosCryptoSigner &&
+      typeof App.SosCryptoSigner.isWorkerAuthoritative === 'function' &&
+      App.SosCryptoSigner.isWorkerAuthoritative();
+    let senderPrivateKey = opts && opts.senderPrivateKey;
+    if (!senderPrivateKey && !workerAuth) {
+      senderPrivateKey =
+        App.SosCryptoSigner && typeof App.SosCryptoSigner.f1CryptoModuleSessionKeyHex === 'function'
+          ? App.SosCryptoSigner.f1CryptoModuleSessionKeyHex()
+          : '';
+    }
+
 
     if (media !== 'voice' && media !== 'video') {
       callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', 'bad media');
@@ -1396,7 +1437,6 @@
     }
     const recipient = requireHexPubkey(peerPubkey);
     const sender = requireHexPubkey(senderPubkey);
-    const senderSk = requirePrivBytes(senderPrivateKey);
     const action = normalizeAction(media, type);
     if (!FRESHNESS_SEC[action]) {
       callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', 'bad action');
@@ -1430,13 +1470,28 @@
       };
       const rumor = { ...rumorUnsigned, id: getEventHash(rumorUnsigned) };
 
-      const sealDraft = {
-        kind: SEAL_KIND,
-        created_at: randomizedPastCreatedAt(),
-        tags: [],
-        content: nip44EncryptJson(rumor, senderSk, recipient),
-      };
-      const seal = finalizeEvent(sealDraft, senderSk);
+      let seal;
+      if (workerAuth) {
+        const sealContent = await App.SosCryptoSigner.nip44CallEncryptJson(rumor, recipient);
+        seal = await Promise.resolve(
+          App.SosCryptoSigner.signCallSeal({
+            kind: SEAL_KIND,
+            created_at: randomizedPastCreatedAt(),
+            tags: [],
+            content: sealContent,
+            pubkey: sender,
+          }),
+        );
+      } else {
+        const senderSk = requirePrivBytes(senderPrivateKey);
+        const sealDraft = {
+          kind: SEAL_KIND,
+          created_at: randomizedPastCreatedAt(),
+          tags: [],
+          content: nip44EncryptJson(rumor, senderSk, recipient),
+        };
+        seal = finalizeEvent(sealDraft, senderSk);
+      }
       if (!verifyEventSig(seal)) {
         callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', 'seal signature invalid');
       }
@@ -1785,7 +1840,11 @@
     const pool = opts && opts.pool;
     const relays = opts && opts.relays;
     const senderPubkey = opts && opts.senderPubkey;
-    const senderPrivateKey = opts && opts.senderPrivateKey;
+    const senderPrivateKey = (opts && opts.senderPrivateKey)
+      || (App.SosCryptoSigner && typeof App.SosCryptoSigner.f1CryptoModuleSessionKeyHex === 'function'
+        ? App.SosCryptoSigner.f1CryptoModuleSessionKeyHex()
+        : '');
+
     if (media !== 'voice' && media !== 'video') {
       callSignalFail('CALL_SIGNAL_LEGACY_SEND_FAILED', 'bad media');
     }

@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.22-nostr-integrity-879",
-  "buildTime": "2026-09-22T05:48:45+03:00",
-  "notes": "Security hotfix: strict Nostr event integrity (hash bound to content + sig). Package 879 / sos-cache-v879. browserSecureCutoverDeleteLegacy remains false.",
+  "version": "2026.09.22-crypto-worker-dark-880",
+  "buildTime": "2026-09-22T14:50:00+03:00",
+  "notes": "Dark release: F1 signer facade + F2A/F2B Worker vault infrastructure. Package 880 / sos-cache-v880. SOS_CRYPTO_WORKER_AUTHORITATIVE remains default OFF. browserSecureCutoverDeleteLegacy remains false. No legacy key deletion.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,

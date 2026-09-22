@@ -134,6 +134,9 @@ function loadE2eeWithAttachmentInspector() {
   context.window.localStorage = localStorage;
 
   vm.createContext(context);
+  App.finalizeEvent = (draft, key) => finalizeEvent(JSON.parse(JSON.stringify(draft)), key);
+  App.hexToBytes = utils.hexToBytes;
+  vm.runInContext(read('sos-crypto-signer.js'), context, { filename: 'sos-crypto-signer.js' });
   vm.runInContext(read('chat-service.js'), context, { filename: 'chat-service.js' });
   if (typeof App.inspectIncomingChatAttachment !== 'function') {
     throw new Error('inspectIncomingChatAttachment missing after chat-service load');
@@ -241,7 +244,8 @@ const e2eeSrc = read('chat-e2ee.js');
 
 record(
   'live_path_encrypt_gated_by_isE2eeSendRequired',
-  chatServiceSrc.includes('isE2eeSendRequired') && chatServiceSrc.includes('encryptPrivateChatPayload'),
+  chatServiceSrc.includes('isE2eeSendRequired') &&
+    (chatServiceSrc.includes('encryptPrivateChatPayload') || chatServiceSrc.includes('nip44ChatEncrypt')),
 );
 record(
   'live_path_no_encrypt_in_chat-file-transfer-service',

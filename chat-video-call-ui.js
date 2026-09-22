@@ -1,3 +1,4 @@
+/* __F2B_AWAIT_WRAPPED__ */
 // חלק שיחות וידאו (chat-video-call-ui.js) – UI לשיחות וידאו בסגנון וואטסאפ
 (function initChatVideoCallUI(window){
   // שייך: שכבת UI לוידאו – דיאלוג, כפתורים, חיבור ל-App.videoCall
@@ -641,7 +642,7 @@
               return App.__videoIncomingOffer;
             }
           }
-          if (!App.privateKey || !App.publicKey) return null;
+          if (!App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey) return null;
           if (typeof api.dispatchGiftWrappedCallSignal === 'function') {
             await api.dispatchGiftWrappedCallSignal(eventObj);
             const cached2 = typeof api.getCachedSecureOffer === 'function' ? api.getCachedSecureOffer(peerWanted) : null;
@@ -666,9 +667,9 @@
       const typeTag = Array.isArray(eventObj.tags) ? eventObj.tags.find((t) => t && t[0] === 'type') : null;
       const sigType = typeTag && typeTag[1] ? String(typeTag[1]) : '';
       if (sigType && sigType !== 'v-offer') return null;
-      if (!eventObj.content || !App.privateKey || !window.NostrTools?.nip04) return null;
+      if (!eventObj.content || !App.SosCryptoSigner?.hasIdentityKey() || !window.NostrTools?.nip04) return null;
       try {
-        const decrypted = await window.NostrTools.nip04.decrypt(App.privateKey, peer, eventObj.content);
+        const decrypted = await await Promise.resolve(window.App.SosCryptoSigner.nip04Decrypt( peer, eventObj.content);
         let offer = decrypted ? JSON.parse(decrypted) : null;
         if (offer && offer.offer && !offer.type && !offer.sdp) offer = offer.offer;
         if (!offer?.type || !offer?.sdp) return null;
@@ -981,7 +982,7 @@
       attempts += 1;
       try {
         if (window.__sosAcceptSucceededPeer === peer) return;
-        if (!App.privateKey || !window.NostrTools?.nip04) {
+        if (!App.SosCryptoSigner?.hasIdentityKey() || !window.NostrTools?.nip04) {
           if (attempts < maxAttempts) {
             setTimeout(tryAccept, 250);
             return;

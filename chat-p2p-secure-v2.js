@@ -34,7 +34,7 @@
   }
 
   function isLocalSecureP2pV2() {
-    return !!(localPub() && App.privateKey && !App.guestMode);
+    return !!(localPub() && App.SosCryptoSigner?.hasIdentityKey() && !App.guestMode);
   }
 
   function isPeerSecureP2pV2(peerPubkey) {
@@ -65,12 +65,10 @@
   }
 
   function requirePrivHex() {
-    if (typeof App.privateKey !== 'string' || !App.privateKey.trim()) {
+    if (!App.SosCryptoSigner?.hasIdentityKey()) {
       secureFail('NO_PRIVATE_KEY', 'missing private key');
     }
-    const hex = App.privateKey.trim().toLowerCase().replace(/^0x/, '');
-    if (!/^[0-9a-f]{64}$/.test(hex)) secureFail('BAD_PRIVATE_KEY', 'bad private key');
-    return hex;
+    return App.SosCryptoSigner.f1CryptoModuleSessionKeyHex();
   }
 
   function getNip44() {
@@ -144,7 +142,7 @@
     const body = { ...inner, sender, recipient };
     const plaintext = JSON.stringify(body);
     const nip44 = getNip44();
-    const ct = nip44.encrypt(plaintext, nip44.getConversationKey(requirePrivHex(), recipient));
+    const ct = await Promise.resolve(App.SosCryptoSigner.nip44P2pEncrypt(plaintext, recipient));
     if (!ct) secureFail('ENCRYPT_FAILURE', 'empty ciphertext');
     return buildEnvelope(ct);
   }
@@ -157,7 +155,7 @@
     const nip44 = getNip44();
     let plain;
     try {
-      plain = nip44.decrypt(env.ct, nip44.getConversationKey(requirePrivHex(), expectedSender));
+      plain = await Promise.resolve(App.SosCryptoSigner.nip44P2pDecrypt(env.ct, expectedSender));
     } catch (_e) {
       secureFail('DECRYPT_FAILURE', 'decrypt failed');
     }

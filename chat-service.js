@@ -1,3 +1,4 @@
+/* __F2B_AWAIT_WRAPPED__ */
   // חלק קאש תמונות (chat-service.js) – שמירת תמונות פרופיל ב-localStorage כ-DataURL כדי להימנע ממשיכות חוזרות | HYPER CORE TECH
   function avatarCacheKey(url) {
     return url ? `avatar_cache_${btoa(url)}` : null;
@@ -501,8 +502,8 @@
     if (!pool) {
       return { ok: false, error: 'pool-unavailable' };
     }
-    if (typeof App.finalizeEvent !== 'function') {
-      console.warn('finalizeEvent missing on App – cannot publish chat message');
+    if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.signChatEvent !== 'function') {
+      console.warn('SosCryptoSigner missing on App – cannot publish chat message');
       return { ok: false, error: 'finalize-missing' };
     }
 
@@ -635,11 +636,11 @@
     let wireContent = serialization.rawContent || '';
     let relayLogicalMessageId = '';
     if (e2eeSendRequired) {
-      if (!App.privateKey || !App.publicKey) {
+      if (!App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey) {
         try { console.warn('[E2EE/SEND] blocked reason=e2ee-key-unavailable'); } catch (_e) {}
         return { ok: false, error: 'e2ee-key-unavailable' };
       }
-      if (typeof App.encryptPrivateChatPayload !== 'function') {
+      if (typeof App.SosCryptoSigner.nip44ChatEncrypt !== 'function') {
         try { console.warn('[E2EE/SEND] blocked reason=e2ee-unavailable'); } catch (_e) {}
         return { ok: false, error: 'e2ee-unavailable' };
       }
@@ -670,7 +671,7 @@
       if (
         packedAttachment &&
         packedAttachment.type === 'encrypted-media' &&
-        typeof App.assertEncryptedBlossomFitsE3b === 'function'
+        typeof App.assertEncryptedBlossomFitsE3b === 'async function'
       ) {
         try {
           App.assertEncryptedBlossomFitsE3b({
@@ -696,8 +697,7 @@
       }
       let envelope;
       try {
-        envelope = App.encryptPrivateChatPayload({
-          senderPrivateKeyHex: App.privateKey,
+        envelope = await Promise.resolve(App.SosCryptoSigner.nip44ChatEncrypt({
           senderPubkey: App.publicKey,
           recipientPubkey: peerNorm,
           payload: {
@@ -708,7 +708,7 @@
             text: packedText,
             attachment: packedAttachment,
           },
-        });
+        }));
       } catch (encErr) {
         try {
           console.warn(
@@ -742,7 +742,7 @@
     }
 
     const draft = buildChatDraft(peerNorm, wireContent);
-    const event = App.finalizeEvent(draft, App.privateKey);
+    const event = await Promise.resolve(App.SosCryptoSigner.signChatEvent(draft));
 
     const outgoingMessage = {
       id: event.id,
@@ -826,8 +826,8 @@
     if (!pool) {
       return { ok: false, error: 'pool-unavailable' };
     }
-    if (typeof App.finalizeEvent !== 'function') {
-      console.warn('finalizeEvent missing on App – cannot delete chat message');
+    if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.signDelete !== 'function') {
+      console.warn('SosCryptoSigner missing on App – cannot delete chat message');
       return { ok: false, error: 'finalize-missing' };
     }
     const normalizedPeer = peerPubkey.toLowerCase();
@@ -845,7 +845,7 @@
     if (App.NETWORK_TAG) {
       draft.tags.push(['t', App.NETWORK_TAG]);
     }
-    const event = App.finalizeEvent(draft, App.privateKey);
+    const event = await Promise.resolve(App.SosCryptoSigner.signDelete(draft));
     try {
       await pool.publish(App.relayUrls, event);
       App.removeChatMessage(normalizedPeer, messageId);
@@ -961,7 +961,7 @@
   }
 
   function flushPendingE2eeEvents() {
-    if (!App.privateKey || !App.publicKey || !pendingE2eeEvents.size) return;
+    if (!App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey || !pendingE2eeEvents.size) return;
     if (flushPendingE2eeEvents._busy) return;
     flushPendingE2eeEvents._busy = true;
     try {
@@ -1020,12 +1020,12 @@
    * logicalMessageId = inner messageId (metadata only; does not replace event.id)
    * Self-authored Relay echo/history: crypto peer = validated p-tag recipient (not event.pubkey).
    */
-  function resolveIncomingE2eeChatPayload(event) {
-    if (typeof App.decryptPrivateChatPayload !== 'function') {
+  async function resolveIncomingE2eeChatPayload(event) {
+    if (typeof App.SosCryptoSigner?.nip44ChatDecrypt !== 'function') {
       logE2eeReject('E2EE_MODULE_UNAVAILABLE', event);
       return { ok: false, retryable: true, reason: 'E2EE_MODULE_UNAVAILABLE' };
     }
-    if (!App.privateKey || !App.publicKey) {
+    if (!App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey) {
       logE2eeReject('E2EE_DECRYPT_UNAVAILABLE', event);
       return { ok: false, retryable: true, reason: 'E2EE_DECRYPT_UNAVAILABLE' };
     }
@@ -1069,7 +1069,7 @@
         ? App.normalizeHexPubkey(event.pubkey)
         : String(event.pubkey || '').trim().toLowerCase();
     const local =
-      typeof App.normalizeHexPubkey === 'function'
+      typeof App.normalizeHexPubkey === 'async function'
         ? App.normalizeHexPubkey(App.publicKey)
         : String(App.publicKey || '').trim().toLowerCase();
     if (!author || !local) {
@@ -1092,14 +1092,13 @@
     }
 
     try {
-      const payload = App.decryptPrivateChatPayload({
-        localPrivateKeyHex: App.privateKey,
+      const payload = await Promise.resolve(App.SosCryptoSigner.nip44ChatDecrypt({
         localPubkey: App.publicKey,
         eventAuthorPubkey: event.pubkey,
         encryptedEnvelope: envelope,
         selfAuthored,
         intendedRecipientPubkey: intendedRecipient,
-      });
+      }));
       try {
         if (selfAuthored) {
           console.log(
@@ -1134,7 +1133,7 @@
       return;
     }
     // Retry E2EE events that arrived before local key was ready.
-    if (App.privateKey && App.publicKey && pendingE2eeEvents.size) {
+    if (App.SosCryptoSigner?.hasIdentityKey() && App.publicKey && pendingE2eeEvents.size) {
       flushPendingE2eeEvents();
     }
     const eventTs = typeof event.created_at === 'number' ? event.created_at : Math.floor(Date.now() / 1000);
@@ -1213,7 +1212,7 @@
 
     if (isE2eeContent) {
       // Recognized sos-e2ee → never legacy-fallback on failure.
-      const resolved = resolveIncomingE2eeChatPayload(event);
+      const resolved = await resolveIncomingE2eeChatPayload(event);
       if (!resolved.ok) {
         if (resolved.retryable) {
           queuePendingE2eeEvent(event);
@@ -1652,7 +1651,7 @@
         chatLastSignalAt = Date.now();
         // חלק אישורי קריאה (chat-service.js) – טיפול באישורי קריאה נכנסים | HYPER CORE TECH
         if (event.kind === READ_RECEIPT_KIND) {
-          handleIncomingReadReceipt(event);
+          Promise.resolve(handleIncomingReadReceipt(event)).catch(() => {});
           return;
         }
         if (event.kind === PRESENCE_KIND) {
@@ -2016,7 +2015,7 @@
       if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
     } catch (_) {}
     const pool = ensurePoolReady();
-    return !!(pool && App.privateKey && typeof App.finalizeEvent === 'function');
+    return !!(pool && App.SosCryptoSigner?.hasIdentityKey() && typeof App.SosCryptoSigner.signReadReceipt === 'function');
   }
 
   function sendReceiptOverDc(receipt) {
@@ -2043,7 +2042,7 @@
   async function sendReceiptOverNostr(receipt) {
     const pool = ensurePoolReady();
     if (!pool || !receipt || App.guestMode) return false;
-    if (typeof App.finalizeEvent !== 'function' || !App.privateKey) return false;
+    if (!App.SosCryptoSigner?.hasIdentityKey() || typeof App.SosCryptoSigner.signReadReceipt !== 'function') return false;
     const tags = [
       ['p', receipt.to],
       ['t', CHAT_TAG],
@@ -2058,10 +2057,9 @@
     let content = JSON.stringify(receiptBody);
     const mustEncrypt = typeof App.isE2eeSendRequired === 'function' && App.isE2eeSendRequired() === true;
     if (mustEncrypt) {
-      if (!App.privateKey || !App.publicKey || typeof App.encryptPrivateChatPayload !== 'function') return false;
+      if (!App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey || typeof App.SosCryptoSigner.nip44ChatEncrypt !== 'function') return false;
       try {
-        const envelope = App.encryptPrivateChatPayload({
-          senderPrivateKeyHex: App.privateKey,
+        const envelope = await Promise.resolve(App.SosCryptoSigner.nip44ChatEncrypt({
           senderPubkey: App.publicKey,
           recipientPubkey: receipt.to,
           payload: {
@@ -2072,20 +2070,20 @@
             text: content,
             attachment: null,
           },
-        });
+        }));
         content = JSON.stringify(envelope);
       } catch (_encErr) {
         return false;
       }
     }
     try {
-      const signed = App.finalizeEvent({
+      const signed = await Promise.resolve(App.SosCryptoSigner.signReadReceipt({
         kind: READ_RECEIPT_KIND,
         pubkey: App.publicKey,
         created_at: Math.floor(Date.now() / 1000),
         tags,
         content,
-      }, App.privateKey);
+      }));
       const results = pool.publish(App.relayUrls, signed);
       await Promise.allSettled(results);
       return true;
@@ -2133,18 +2131,17 @@
   }
   
   // חלק אישורי קריאה (chat-service.js) – טיפול באישור קריאה נכנס - מעדכן סטטוס הודעות ל"נקרא" | HYPER CORE TECH
-  function readReceiptFromRelayEvent(event) {
+  async function readReceiptFromRelayEvent(event) {
     const raw = String(event.content || '');
     const encrypted = typeof App.looksLikeSosE2eeEnvelope === 'function' && App.looksLikeSosE2eeEnvelope(raw);
     if (encrypted) {
-      if (typeof App.decryptPrivateChatPayload !== 'function' || !App.privateKey || !App.publicKey) return null;
+      if (typeof App.SosCryptoSigner?.nip44ChatDecrypt !== 'function' || !App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey) return null;
       try {
-        const inner = App.decryptPrivateChatPayload({
-          localPrivateKeyHex: App.privateKey,
+        const inner = await Promise.resolve(App.SosCryptoSigner.nip44ChatDecrypt({
           localPubkey: App.publicKey,
           eventAuthorPubkey: event.pubkey,
           encryptedEnvelope: raw,
-        });
+        }));
         return JSON.parse(String(inner && inner.text ? inner.text : '{}'));
       } catch (_err) {
         console.warn('[SECURITY/PARSE_REJECT] kind=1051 reason=decrypt-failed');
@@ -2163,7 +2160,7 @@
     }
   }
 
-  function handleIncomingReadReceipt(event) {
+  async function handleIncomingReadReceipt(event) {
     if (!event) return;
     const self = App.publicKey?.toLowerCase?.() || '';
     let sender = '';
@@ -2181,7 +2178,7 @@
       sender = event.pubkey?.toLowerCase?.() || '';
       const pTag = event.tags?.find?.(t => Array.isArray(t) && t[0] === 'p');
       recipient = pTag?.[1]?.toLowerCase?.() || '';
-      const data = readReceiptFromRelayEvent(event);
+      const data = await readReceiptFromRelayEvent(event);
       if (!data) return;
       lastReadAt = Number(data.lastReadAt) || 0;
       lastReadMessageId = String(data.lastReadMessageId || '');

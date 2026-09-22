@@ -1,3 +1,4 @@
+/* __F2B_AWAIT_WRAPPED__ */
 (function initCompose(window) {
   const App = window.NostrApp || (window.NostrApp = {});
 
@@ -1736,7 +1737,7 @@
       };
 
       setStatus('מפרסם...');
-      const signed = app.finalizeEvent(event, app.privateKey);
+      const signed = await Promise.resolve(app.SosCryptoSigner.signFeedEvent(event));
       await app.pool.publish(app.relayUrls, signed);
 
       // עדכון UI

@@ -77,7 +77,12 @@ ctx.window.NostrTools = NT;
 ctx.NostrApp.publicKey = alicePk;
 ctx.NostrApp.privateKey = aliceHex;
 ctx.NostrApp.guestMode = false;
+ctx.NostrApp.hexToBytes = utils && utils.hexToBytes ? utils.hexToBytes : hexToBytes;
+ctx.NostrApp.finalizeEvent = (draft, key) => NT.finalizeEvent(JSON.parse(JSON.stringify(draft)), key);
 
+vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'sos-crypto-signer.js'), 'utf8'), ctx, {
+  filename: 'sos-crypto-signer.js',
+});
 vm.runInNewContext(sec, ctx, { filename: 'chat-p2p-secure-v2.js' });
 const P2 = ctx.NostrApp.P2pSecureV2;
 record('module exports P2pSecureV2', !!P2);

@@ -96,6 +96,7 @@ function loadHarness(options = {}) {
     chatState: { contacts: new Map() },
     _chatServiceBootstrapped: true,
     publicKey: selfPk,
+    privateKey: typeof selfSk === 'string' ? selfSk : Buffer.from(selfSk).toString('hex'),
     relayUrls: ['wss://example.invalid'],
     ensureChatContact(pubkey) {
       contacts.push(String(pubkey || ''));
@@ -215,6 +216,11 @@ function loadHarness(options = {}) {
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'nostr-event-integrity.js'), 'utf8'), context, {
     filename: 'nostr-event-integrity.js',
+  });
+  // Minimal finalizeEvent on App for any residual paths
+  App.finalizeEvent = (draft, key) => finalizeEvent(JSON.parse(JSON.stringify(draft)), key);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'sos-crypto-signer.js'), 'utf8'), context, {
+    filename: 'sos-crypto-signer.js',
   });
   vm.runInContext(fs.readFileSync(CHAT_SERVICE_PATH, 'utf8'), context, { filename: 'chat-service.js' });
   if (typeof App.subscribeToChatEvents !== 'function') {

@@ -1,3 +1,4 @@
+/* __F2B_AWAIT_WRAPPED__ */
 // חלק שידור חי (live-stream.js) – ליבה: שידור/צפייה מרובים מעל תשתית Nostr + WebRTC
 // שייך: מודול לוגי מרכזי, תפקידים: 'broadcaster' (משדר), 'relay' (צופה-מגשר), 'viewer' (צופה)
 // מגבלות: קוד עד 350 שורות, הערות ברורות, מינימום תלות בשרתים – שימוש ברשת הקיימת
@@ -75,11 +76,11 @@
 
   // עזר: שליחת אותות דרך Nostr kind 25056 (ייעודי ל־Live) | HYPER CORE TECH
   async function sendSignal(to, type, data){
-    if(!App.pool || !App.publicKey || !App.privateKey) return;
+    if(!App.pool || !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey()) return;
     const payload = data ? JSON.stringify(data) : '';
-    const content = payload ? await NT.nip04.encrypt(App.privateKey, to, payload) : '';
+    const content = payload ? await await Promise.resolve(App.SosCryptoSigner.nip04Encrypt(to, payload)) : '';
     const ev = { kind: LIVE_SIGNAL_KIND, pubkey: App.publicKey, created_at: Math.floor(Date.now()/1000), tags: [ ['type', type], ['p', to], ['r', state.roomId||''] ], content };
-    const signed = App.finalizeEvent(ev, App.privateKey);
+    const signed = await Promise.resolve(App.SosCryptoSigner.signLiveEvent(ev));
     await App.pool.publish(App.relayUrls, signed);
   }
 
@@ -499,7 +500,7 @@
         state.hostPicture = picture;
         const content = JSON.stringify({ roomId: state.roomId, owner: App.publicKey, slug, title, name, picture });
         const ev = { kind: 25051, pubkey: App.publicKey, created_at: Math.floor(Date.now()/1000), tags: [['type','live-post'], ['r', state.roomId], ['title', title.slice(0, 80)]], content };
-        const signed = App.finalizeEvent(ev, App.privateKey); await App.pool.publish(App.relayUrls, signed);
+        const signed = await Promise.resolve(App.SosCryptoSigner.signLiveEvent(ev)); await App.pool.publish(App.relayUrls, signed);
       }
     } catch {}
     await announceStatus();
@@ -784,9 +785,9 @@
       }
     } catch (_) {}
     // ללא #p — מטא בלבד; לא 25050 / לא 30078 | HYPER CORE TECH
-    if(!App.pool || !App.publicKey || !App.privateKey) return;
+    if(!App.pool || !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey()) return;
     const ev = { kind: 25051, pubkey: App.publicKey, created_at: Math.floor(Date.now()/1000), tags: [['type','live-status'], ['r', state.roomId]], content: JSON.stringify(payload) };
-    const signed = App.finalizeEvent(ev, App.privateKey); await App.pool.publish(App.relayUrls, signed);
+    const signed = await Promise.resolve(App.SosCryptoSigner.signLiveEvent(ev)); await App.pool.publish(App.relayUrls, signed);
   }
 
   // האזנה לאירועי live — רק אירועים שמיועדים אלינו (#p) | HYPER CORE TECH
@@ -805,7 +806,7 @@
       }
       return;
     }
-    let data = null; if(ev.content){ try{ const dec = await NT.nip04.decrypt(App.privateKey, from, ev.content); data = dec? JSON.parse(dec):null; }catch{} }
+    let data = null; if(ev.content){ try{ const dec = await await Promise.resolve(App.SosCryptoSigner.nip04Decrypt(from, ev.content)); data = dec? JSON.parse(dec):null; }catch{} }
     switch(type){
       case 'live-join': if(state.role==='broadcaster' && normKey(from)!==normKey(App.publicKey)) await handleJoin(from, data); break;
       case 'live-invite': if(normKey(from)===normKey(state.broadcaster) || (data && data.parent)){
@@ -900,7 +901,7 @@
       const endedRoom = state.roomId;
       const wasBroadcaster = state.role === 'broadcaster';
       // מודיעים לצופים שהשידור נגמר — לפני ניקוי החדר | HYPER CORE TECH
-      if (wasBroadcaster && endedRoom && App.pool && App.publicKey && App.privateKey) {
+      if (wasBroadcaster && endedRoom && App.pool && App.publicKey && App.SosCryptoSigner?.hasIdentityKey()) {
         try {
           const payload = { roomId: endedRoom, ended: true, owner: App.publicKey };
           const ev = {
@@ -910,7 +911,7 @@
             tags: [['type', 'live-end'], ['r', endedRoom]],
             content: JSON.stringify(payload)
           };
-          const signed = App.finalizeEvent(ev, App.privateKey);
+          const signed = await Promise.resolve(App.SosCryptoSigner.signLiveEvent(ev));
           await App.pool.publish(App.relayUrls, signed);
         } catch (_) {}
       }

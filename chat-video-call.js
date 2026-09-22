@@ -346,7 +346,7 @@
 
   // Shared cutover: publishCallSignal picks ONE transport (legacy 25050 XOR gift-wrap 1059).
   async function sendSignal(peer, type, data) {
-    if (!App.pool || !App.publicKey || !App.privateKey) {
+    if (!App.pool || !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey()) {
       console.error('CALL_SIGNAL_E2EE_ENCRYPT_FAILED: pool or keys unavailable');
       throw Object.assign(new Error('CALL_SIGNAL_E2EE_ENCRYPT_FAILED'), { code: 'CALL_SIGNAL_E2EE_ENCRYPT_FAILED' });
     }
@@ -370,7 +370,10 @@
           ? App.CallSignalE2ee.getCallSignalRelays()
           : App.relayUrls,
         senderPubkey: App.publicKey,
-        senderPrivateKey: App.privateKey,
+        senderPrivateKey:
+          App.SosCryptoSigner && typeof App.SosCryptoSigner.isWorkerAuthoritative === 'function' && App.SosCryptoSigner.isWorkerAuthoritative()
+            ? undefined
+            : App.SosCryptoSigner.f1CryptoModuleSessionKeyHex(),
         roomId: getRoomId(peer),
       });
       return published;
@@ -1035,7 +1038,7 @@
       if (typeof event.content === 'string' && event.content.length > 524288) return;
       try {
         // LEGACY_READ_ONLY: NIP-04 decrypt for already-deployed clients.
-        const dec = await NostrTools.nip04.decrypt(App.privateKey, peer, event.content);
+        const dec = await App.SosCryptoSigner.nip04Decrypt(peer, event.content);
         data = dec ? JSON.parse(dec) : null;
       } catch (err) {
         console.warn('CALL_SIGNAL_HANDLE_FAILED');

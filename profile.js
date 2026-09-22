@@ -1441,7 +1441,7 @@
       content,
     };
 
-    const event = App.finalizeEvent(draft, App.privateKey);
+    const event = App.SosCryptoSigner.signProfileEvent(draft);
 
     try {
       await App.pool.publish(App.relayUrls, event);

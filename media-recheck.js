@@ -1,3 +1,4 @@
+/* __F2B_AWAIT_WRAPPED__ */
 // חלק מדיה (media-recheck.js) – בדיקה תקופתית של זמינות URLs ויצירת mirrors אוטומטית
 // שייך: SOS2 מדיה, רץ ברקע ובודק URLs שנפלו
 (function initMediaRecheck(window) {
@@ -180,7 +181,7 @@
         content: `🔄 Media unavailable: ${failedUrl.slice(0, 50)}...\nPlease re-upload if you have the original file.`,
       };
       
-      const event = App.finalizeEvent(draft, App.privateKey);
+      const event = await Promise.resolve(App.SosCryptoSigner.signMediaRecheck(draft));
       await App.pool.publish(App.relayUrls, event);
       
       console.log('✓ Re-upload request sent to author');
@@ -196,7 +197,7 @@
   async function publishMirrorUpdate(eventId, mirrorUrl, hash) {
     try {
       // בדיקה שיש לנו את כל הכלים הנדרשים
-      if (!App.pool || !App.publicKey || !App.privateKey) {
+      if (!App.pool || !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey()) {
         console.warn('Cannot publish mirror: pool or keys not available');
         return false;
       }
@@ -225,7 +226,7 @@
       };
 
       // חתימה ופרסום
-      const event = App.finalizeEvent(draft, App.privateKey);
+      const event = await Promise.resolve(App.SosCryptoSigner.signMediaRecheck(draft));
       await App.pool.publish(App.relayUrls, event);
 
       console.log('✓ Mirror published to network:', {

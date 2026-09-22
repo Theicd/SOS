@@ -1,3 +1,4 @@
+/* __F2B_AWAIT_WRAPPED__ */
 /**
  * Stage 5C.1b — conversation-view presence (ONLINE / LAST SEEN).
  * Peer-scoped, authenticated, E2EE on Relay.
@@ -260,9 +261,9 @@
   async function sendPresenceOverNostr(payload) {
     try {
       if (!payload || App.guestMode) return false;
-      if (!App.pool || !App.privateKey || !App.publicKey || typeof App.finalizeEvent !== 'function') return false;
+      if (!App.pool || !App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey || typeof App.SosCryptoSigner.signPresence !== 'function') return false;
       const mustEncrypt = typeof App.isE2eeSendRequired !== 'function' || App.isE2eeSendRequired() === true;
-      if (mustEncrypt && typeof App.encryptPrivateChatPayload !== 'function') return false;
+      if (mustEncrypt && typeof App.SosCryptoSigner?.nip44ChatEncrypt !== 'function') return false;
       const body = {
         type: PRESENCE_TYPE,
         online: payload.online === true,
@@ -272,8 +273,7 @@
       };
       let content = JSON.stringify(body);
       if (mustEncrypt) {
-        const envelope = App.encryptPrivateChatPayload({
-          senderPrivateKeyHex: App.privateKey,
+        const envelope = await Promise.resolve(App.SosCryptoSigner.nip44ChatEncrypt({
           senderPubkey: App.publicKey,
           recipientPubkey: payload.to,
           payload: {
@@ -284,18 +284,18 @@
             text: content,
             attachment: null,
           },
-        });
+        }));
         content = JSON.stringify(envelope);
       }
       const tags = [['p', payload.to], ['t', 'yalachat']];
       if (App.NETWORK_TAG) tags.push(['t', App.NETWORK_TAG]);
-      const signed = App.finalizeEvent({
+      const signed = await Promise.resolve(App.SosCryptoSigner.signPresence({
         kind: PRESENCE_KIND,
         pubkey: App.publicKey,
         created_at: Math.floor(Date.now() / 1000),
         tags,
         content,
-      }, App.privateKey);
+      }));
       const results = App.pool.publish(App.relayUrls, signed);
       await Promise.allSettled(results || []);
       return true;
@@ -402,20 +402,19 @@
     return true;
   }
 
-  function presenceFromRelayEvent(event) {
+  async function presenceFromRelayEvent(event) {
     if (!event || event.kind !== PRESENCE_KIND) return null;
     const raw = String(event.content || '');
     let body = null;
     const encrypted = typeof App.looksLikeSosE2eeEnvelope === 'function' && App.looksLikeSosE2eeEnvelope(raw);
     if (encrypted) {
-      if (typeof App.decryptPrivateChatPayload !== 'function' || !App.privateKey || !App.publicKey) return null;
+      if (typeof App.SosCryptoSigner?.nip44ChatDecrypt !== 'function' || !App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey) return null;
       try {
-        const dec = App.decryptPrivateChatPayload({
-          localPrivateKeyHex: App.privateKey,
+        const dec = await Promise.resolve(App.SosCryptoSigner.nip44ChatDecrypt({
           localPubkey: App.publicKey,
           eventAuthorPubkey: event.pubkey,
           encryptedEnvelope: raw,
-        });
+        }));
         const text = dec && dec.text;
         body = typeof text === 'string' ? JSON.parse(text) : null;
       } catch (_) {
@@ -438,8 +437,8 @@
     };
   }
 
-  function handleIncomingPresenceEvent(event) {
-    const payload = presenceFromRelayEvent(event);
+  async function handleIncomingPresenceEvent(event) {
+    const payload = await presenceFromRelayEvent(event);
     if (!payload) return false;
     return applyIncomingPresence(payload);
   }

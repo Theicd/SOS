@@ -225,6 +225,9 @@ function loadRuntime(overrides = {}) {
   context.window.localStorage = localStorage;
 
   vm.createContext(context);
+  App.finalizeEvent = (draft, key) => finalizeEvent(JSON.parse(JSON.stringify(draft)), key);
+  App.hexToBytes = utils.hexToBytes;
+  vm.runInContext(read('sos-crypto-signer.js'), context, { filename: 'sos-crypto-signer.js' });
   // Load chat-service first for attachment inspectors used by e2ee.
   vm.runInContext(read('chat-service.js'), context, { filename: 'chat-service.js' });
 

@@ -1,3 +1,4 @@
+/* __F2B_AWAIT_WRAPPED__ */
 // חלק משחק טריוויה – מודול רשת מבוזר עבור SOS Network
 ;(function initTriviaGame(window, document) {
   const App = window.NostrApp || (window.NostrApp = {});
@@ -553,13 +554,13 @@
   }
 
   // חלק פרסום – הודעות סטטוס ללובי Nostr
-  function publishStatus(type, extra = {}) {
-    if (!App.pool || typeof App.finalizeEvent !== 'function' || !App.privateKey) return;
+  async function publishStatus(type, extra = {}) {
+    if (!App.pool || typeof App.SosCryptoSigner?.signGameEvent !== 'function' || !App.SosCryptoSigner?.hasIdentityKey()) return;
     const relays = Array.isArray(App.relayUrls) ? App.relayUrls.filter(Boolean) : [];
     if (relays.length === 0) return;
     const timestamp = now();
     const payload = { type, name: App.profile?.name || 'שחקן', seeking: state.seeking, room: state.roomId, inTrivia: state.inTrivia || false, playing: state.matchActive || false, timestamp, ...extra };
-    const event = App.finalizeEvent({ kind: CFG.KIND_STATUS, created_at: timestamp, tags: [['t', CFG.TAG]], content: JSON.stringify(payload) }, App.privateKey);
+    const event = await Promise.resolve(App.SosCryptoSigner.signGameEvent({ kind: CFG.KIND_STATUS, created_at: timestamp, tags: [['t', CFG.TAG]], content: JSON.stringify(payload), pubkey: App.publicKey }));
     try {
       const result = App.pool.publish(relays, event);
       if (result && typeof result.catch === 'function') {
@@ -573,13 +574,13 @@
   }
 
   // חלק פרסום – הודעות משחק בין היריבים
-  function publishMatch(type, extra = {}) {
-    if (!App.pool || !state.roomId || typeof App.finalizeEvent !== 'function' || !App.privateKey) return;
+  async function publishMatch(type, extra = {}) {
+    if (!App.pool || !state.roomId || typeof App.SosCryptoSigner?.signGameEvent !== 'function' || !App.SosCryptoSigner?.hasIdentityKey()) return;
     const relays = Array.isArray(App.relayUrls) ? App.relayUrls.filter(Boolean) : [];
     if (relays.length === 0) return;
     const timestamp = now();
     const payload = { type, room: state.roomId, round: state.round, ...extra };
-    const event = App.finalizeEvent({ kind: CFG.KIND_MATCH, created_at: timestamp, tags: [['t', CFG.TAG], ['room', state.roomId]], content: JSON.stringify(payload) }, App.privateKey);
+    const event = await Promise.resolve(App.SosCryptoSigner.signGameEvent({ kind: CFG.KIND_MATCH, created_at: timestamp, tags: [['t', CFG.TAG], ['room', state.roomId]], content: JSON.stringify(payload), pubkey: App.publicKey }));
     try {
       const result = App.pool.publish(relays, event);
       if (result && typeof result.catch === 'function') {

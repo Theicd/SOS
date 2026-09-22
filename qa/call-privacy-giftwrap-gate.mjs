@@ -127,6 +127,7 @@ function loadHelper() {
 
   vm.createContext(sandbox);
   vm.runInContext(read('nostr-event-integrity.js'), sandbox, { filename: 'nostr-event-integrity.js' });
+  vm.runInContext(read('sos-crypto-signer.js'), sandbox, { filename: 'sos-crypto-signer.js' });
   vm.runInContext(read('call-signal-e2ee.js'), sandbox, { filename: 'call-signal-e2ee.js' });
   return { App: sandbox.NostrApp, alice, bob, published, sandbox };
 }

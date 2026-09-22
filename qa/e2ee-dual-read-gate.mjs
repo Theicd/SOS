@@ -184,6 +184,9 @@ function loadDualReadHarness(options = {}) {
   context.window.localStorage = localStorage;
 
   vm.createContext(context);
+  App.finalizeEvent = (draft, key) => finalizeEvent(JSON.parse(JSON.stringify(draft)), key);
+  App.hexToBytes = utils.hexToBytes;
+  vm.runInContext(read('sos-crypto-signer.js'), context, { filename: 'sos-crypto-signer.js' });
   vm.runInContext(read('chat-service.js'), context, { filename: 'chat-service.js' });
 
   // Load E2EE in host realm; bind decrypt into App used by chat-service context.
