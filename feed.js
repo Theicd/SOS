@@ -4276,22 +4276,52 @@ async function loadFeed() {
   }
 
   async function likePost(eventId) {
+    if (!eventId || !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey()) {
+      return null;
+    }
+    if (typeof App.SosCryptoSigner.signReactionEvent !== 'function') {
+      console.warn('likePost: signReactionEvent unavailable');
+      return null;
+    }
+    const me = String(App.publicKey).toLowerCase();
+    const likeSet = App.likesByEventId instanceof Map ? App.likesByEventId.get(eventId) : null;
+    const alreadyLiked = !!(likeSet && likeSet.has(me));
+    const content = alreadyLiked ? '-' : '+';
     const draft = {
       kind: 7,
       pubkey: App.publicKey,
       created_at: Math.floor(Date.now() / 1000),
-      tags: [['e', eventId], ['t', App.NETWORK_TAG]],
-      content: '+',
+      tags: [
+        ['e', eventId],
+        ['t', App.NETWORK_TAG],
+      ],
+      content,
     };
-    const event = draft.kind === 5 ? await Promise.resolve(App.SosCryptoSigner.signDelete(draft)) : await Promise.resolve(App.SosCryptoSigner.signFeedEvent(draft));
+    let event;
+    try {
+      event = await Promise.resolve(App.SosCryptoSigner.signReactionEvent(draft));
+    } catch (err) {
+      console.error('Like sign error', err);
+      return null;
+    }
 
     try {
       await App.pool.publish(App.relayUrls, event);
-      console.log('Liked event');
       registerLike(event);
+      return event;
     } catch (e) {
       console.error('Like publish error', e);
+      return null;
     }
+  }
+
+  /** Explicit unlike helper — same typed kind 7 with content '-' */
+  async function unlikePost(eventId) {
+    if (!eventId || !App.publicKey) return null;
+    const me = String(App.publicKey).toLowerCase();
+    const likeSet = App.likesByEventId instanceof Map ? App.likesByEventId.get(eventId) : null;
+    if (!likeSet || !likeSet.has(me)) return null;
+    return likePost(eventId);
   }
 
   async function sharePost(eventId) {
@@ -4989,6 +5019,7 @@ async function loadFeed() {
     loadFeed,
     publishPost,
     likePost,
+    unlikePost,
     sharePost,
     registerShare,
     updateShareIndicator,

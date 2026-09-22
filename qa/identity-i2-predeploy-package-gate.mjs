@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PKG = '881';
-const CACHE = 'sos-cache-v881';
+const CACHE = 'sos-cache-v882';
 const GEN = 'browser-secure-cutover-v1';
 const MODULES = [
   'key-storage.js',

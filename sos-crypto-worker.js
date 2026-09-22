@@ -27,6 +27,7 @@
     SIGN_PRESENCE: { kinds: [1054], requireRecipientP: true },
     SIGN_DELETE: { kinds: [5] },
     SIGN_FEED: { kinds: [1] },
+    SIGN_REACTION: { kinds: [7] },
     SIGN_FOLLOW: { kinds: [40010] },
     SIGN_INVITE: { kinds: [37378, 37379] },
     SIGN_EMAIL_REGISTRY: { kinds: [37377] },
@@ -635,6 +636,8 @@
         return signTyped('SIGN_DELETE', params && params.draft);
       case 'SIGN_FEED':
         return signTyped('SIGN_FEED', params && params.draft);
+      case 'SIGN_REACTION':
+        return signTyped('SIGN_REACTION', params && params.draft);
       case 'SIGN_FOLLOW':
         return signTyped('SIGN_FOLLOW', params && params.draft);
       case 'SIGN_INVITE':

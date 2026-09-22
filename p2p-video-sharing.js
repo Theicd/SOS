@@ -1,70 +1,67 @@
 (function initP2PVideoSharing(window) {
   const App = window.NostrApp || (window.NostrApp = {});
 
-  // חלק Guest P2P (p2p-video-sharing.js) – יצירת מפתח זמני לאורחים | HYPER CORE TECH
-  const GUEST_KEY_STORAGE = 'p2p_guest_keys';
-  let guestKeys = null;
-  
-  function getOrCreateGuestKeys() {
-    if (guestKeys) return guestKeys;
-    
-    // ניסיון לטעון מפתח קיים מ-localStorage
+  // חלק Guest P2P (p2p-video-sharing.js) – AC0: guest K via GuestP2PKeyVault only | HYPER CORE TECH
+  const GUEST_KEY_STORAGE = 'p2p_guest_keys'; // legacy key name — never write plaintext again
+
+  function guestVault() {
+    return App.GuestP2PKeyVault || window.SosGuestP2PKeyVault || null;
+  }
+
+  async function ensureGuestVaultReady() {
+    const v = guestVault();
+    if (!v || typeof v.ensureReady !== 'function') return null;
     try {
-      const stored = localStorage.getItem(GUEST_KEY_STORAGE);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        // בדיקה שהמפתח לא פג תוקף (7 ימים)
-        if (parsed.created && Date.now() - parsed.created < 7 * 24 * 60 * 60 * 1000) {
-          guestKeys = parsed;
-          return guestKeys;
-        }
-      }
-    } catch (e) {}
-    
-    // יצירת מפתח חדש
-    try {
-      // שימוש ב-nostr-tools אם זמין
-      if (window.NostrTools && window.NostrTools.generateSecretKey) {
-        const sk = window.NostrTools.generateSecretKey();
-        const pk = window.NostrTools.getPublicKey(sk);
-        guestKeys = {
-          privateKey: Array.from(sk).map(b => b.toString(16).padStart(2, '0')).join(''),
-          publicKey: pk,
-          created: Date.now(),
-          isGuest: true
-        };
-      } else {
-        // Fallback - יצירת מפתח פשוט
-        const randomBytes = new Uint8Array(32);
-        crypto.getRandomValues(randomBytes);
-        guestKeys = {
-          privateKey: Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join(''),
-          publicKey: 'guest_' + Array.from(randomBytes.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(''),
-          created: Date.now(),
-          isGuest: true
-        };
-      }
-      
-      // שמירה ב-localStorage
-      localStorage.setItem(GUEST_KEY_STORAGE, JSON.stringify(guestKeys));
-      console.log('%c🔑 P2P: נוצר מפתח אורח זמני', 'color: #FF9800');
-      return guestKeys;
-    } catch (e) {
-      console.warn('P2P: לא ניתן ליצור מפתח אורח', e);
+      return await v.ensureReady();
+    } catch (_e) {
       return null;
     }
   }
-  
+
+  function getOrCreateGuestKeys() {
+    // Sync meta only — never returns privateKey (AC0)
+    const v = guestVault();
+    if (v && typeof v.getMetaSync === 'function') {
+      const meta = v.getMetaSync();
+      if (meta && meta.publicKey) {
+        return { publicKey: meta.publicKey, isGuest: true, guestVault: true };
+      }
+    }
+    // Kick async ensure; callers that need signing must await ensureGuestVaultReady / signGuestP2p
+    if (v && typeof v.ensureReady === 'function') {
+      Promise.resolve(v.ensureReady()).catch(function () {});
+    }
+    // Purge any leftover plaintext localStorage without reading K into page state
+    try {
+      if (v && typeof v.purgeLegacyPlaintext === 'function') v.purgeLegacyPlaintext();
+      else window.localStorage.removeItem(GUEST_KEY_STORAGE);
+    } catch (_e) {}
+    return null;
+  }
+
   function isGuestMode() {
     return !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey();
   }
-  
+
   function getEffectiveKeys() {
     if (App.publicKey && App.SosCryptoSigner?.hasIdentityKey()) {
       return { publicKey: App.publicKey, hasSigner: true, isGuest: false };
     }
     const guest = getOrCreateGuestKeys();
-    return guest || { publicKey: null, privateKey: null, isGuest: true };
+    return guest || { publicKey: null, isGuest: true };
+  }
+
+  async function signGuestOrRegisteredP2p(event, keys) {
+    if (keys && keys.isGuest) {
+      const v = guestVault();
+      if (!v || typeof v.signP2pEvent !== 'function') return null;
+      await ensureGuestVaultReady();
+      return v.signP2pEvent(event);
+    }
+    if (App.SosCryptoSigner && typeof App.SosCryptoSigner.signP2pFile === 'function') {
+      return Promise.resolve(App.SosCryptoSigner.signP2pFile(event));
+    }
+    return null;
   }
 
   // חלק P2P (p2p-video-sharing.js) – סינון ריליים בעייתיים כדי למנוע דרישות POW עודפות | HYPER CORE TECH
@@ -1084,14 +1081,10 @@
         content: JSON.stringify({ online: true, files: state.availableFiles.size, isGuest: keys.isGuest })
       };
 
-      // שימוש ב-App.finalizeEvent או חתימה ידנית לאורחים
+      // AC0: guest signs via GuestP2PKeyVault; registered via typed signer
       let signedEvent;
-      if (keys.isGuest && keys.privateKey) {
-        if (App.finalizeEvent) {
-          signedEvent = App.finalizeEvent(event, keys.privateKey);
-        } else if (window.NostrTools && window.NostrTools.finalizeEvent) {
-          signedEvent = window.NostrTools.finalizeEvent(event, keys.privateKey);
-        }
+      if (keys.isGuest) {
+        signedEvent = await signGuestOrRegisteredP2p(event, keys);
       } else if (App.SosCryptoSigner && typeof App.SosCryptoSigner.signP2pFile === 'function') {
         signedEvent = await Promise.resolve(App.SosCryptoSigner.signP2pFile(event));
       }
@@ -1548,7 +1541,7 @@
       }
 
       // פרסום לרשת - תומך גם באורחים
-      if (!App.pool || !keys.publicKey || !(keys.hasSigner || keys.privateKey || App.SosCryptoSigner?.hasIdentityKey())) {
+      if (!App.pool || !keys.publicKey || !(keys.hasSigner || keys.guestVault || App.SosCryptoSigner?.hasIdentityKey())) {
         p2pStats.shares.failed++;
         return { success: false, published: false };
       }
@@ -1596,14 +1589,10 @@
         content: '',
       };
 
-      // תמיכה בחתימה גם לאורחים
+      // AC0: guest via vault; registered via typed signer
       let signed;
-      if (keys.isGuest && keys.privateKey) {
-        if (App.finalizeEvent) {
-          signed = App.finalizeEvent(event, keys.privateKey);
-        } else if (window.NostrTools && window.NostrTools.finalizeEvent) {
-          signed = window.NostrTools.finalizeEvent(event, keys.privateKey);
-        }
+      if (keys.isGuest) {
+        signed = await signGuestOrRegisteredP2p(event, keys);
       } else if (App.SosCryptoSigner && typeof App.SosCryptoSigner.signP2pFile === 'function') {
         signed = await Promise.resolve(App.SosCryptoSigner.signP2pFile(event));
       }
@@ -4230,7 +4219,18 @@
     getTabId: () => state.tabId,         // מזהה הלשונית
     // חלק Guest P2P – API לבדיקת מצב אורח | HYPER CORE TECH
     isGuestP2P: isGuestMode,             // האם במצב אורח
-    getGuestKeys: () => state.guestKeys, // קבלת מפתחות אורח
+    getGuestKeys: () => {
+      // AC0: metadata only — never privateKey
+      const meta = guestVault() && guestVault().getMetaSync ? guestVault().getMetaSync() : null;
+      if (meta && meta.publicKey) return { publicKey: meta.publicKey, isGuest: true };
+      return state.guestKeys || null;
+    },
+    clearGuestP2PKeys: () => {
+      try {
+        if (guestVault() && typeof guestVault().clear === 'function') guestVault().clear();
+      } catch (_e) {}
+      state.guestKeys = null;
+    },
     // חלק סטטיסטיקות – API לקבלת סטטיסטיקות P2P | HYPER CORE TECH
     getP2PStats,                         // קבלת כל הסטטיסטיקות לממשק
     recordP2PDownload,                   // רישום cache/blossom/p2p מנתיבים חיצוניים
@@ -4250,7 +4250,11 @@
   async function init() {
     console.log(`%c🔧 P2P.js גרסה: ${P2P_VERSION}`, 'color: #9C27B0; font-weight: bold');
     log('info', '🚀 מערכת P2P Video Sharing מאותחלת...');
-    
+
+    // AC0: prepare guest vault (migrates/purges legacy plaintext) before first P2P use
+    if (isGuestMode()) {
+      await ensureGuestVaultReady();
+    }
     // הפעלת Leader Election למניעת כפילויות בין לשוניות
     setupLeaderElection();
     
@@ -4267,14 +4271,16 @@
     function tryInit() {
       const keys = getEffectiveKeys();
       const hasPool = App.pool;
-      const hasKeys = keys.publicKey && (keys.hasSigner || keys.privateKey || App.SosCryptoSigner?.hasIdentityKey());
-      
+      const hasKeys =
+        keys.publicKey &&
+        (keys.hasSigner || keys.guestVault || App.SosCryptoSigner?.hasIdentityKey());
+
       if (hasPool && hasKeys) {
         // אם אורח - נשתמש במפתחות הזמניים
         if (keys.isGuest) {
           log('info', '👤 מצב אורח - משתמש במפתח זמני לשיתוף P2P');
-          // שמירת המפתחות הזמניים ב-App לשימוש בפונקציות אחרות
-          state.guestKeys = keys;
+          // AC0: store pubkey metadata only
+          state.guestKeys = { publicKey: keys.publicKey, isGuest: true };
         }
         
         listenForP2PSignals();

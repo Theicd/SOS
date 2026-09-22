@@ -148,7 +148,11 @@
 
   function publishReaction(commentId, commentAuthor, reaction) {
     if (!commentId || !App.pool || !Array.isArray(App.relayUrls)) return;
-    const kind = 7;
+    if (!App.publicKey || !App.SosCryptoSigner?.hasIdentityKey()) return;
+    if (typeof App.SosCryptoSigner.signReactionEvent !== 'function') {
+      console.warn('publishReaction: signReactionEvent unavailable');
+      return;
+    }
     const content = reaction ? reaction : '-';
     const tags = [['e', commentId]];
     if (commentAuthor) {
@@ -157,15 +161,16 @@
     if (App.NETWORK_TAG) {
       tags.push(['t', App.NETWORK_TAG]);
     }
-    const ev = {
-      kind,
+    const draft = {
+      kind: 7,
+      pubkey: App.publicKey,
       created_at: Math.floor(Date.now() / 1000),
       content,
       tags,
     };
-    if (typeof App.signAndPublishEvent === 'function') {
-      App.signAndPublishEvent(ev).catch((err) => console.warn('publishReaction failed', err));
-    }
+    Promise.resolve(App.SosCryptoSigner.signReactionEvent(draft))
+      .then((ev) => App.pool.publish(App.relayUrls, ev))
+      .catch((err) => console.warn('publishReaction failed', err && err.message));
   }
 
   function toggleCommentReaction(commentId, commentAuthor, reaction) {

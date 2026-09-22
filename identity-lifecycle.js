@@ -166,6 +166,16 @@
     // Guest P2P identity is separate from account — reset on logout so it cannot linger as confusion
     try { window.localStorage.removeItem('p2p_guest_keys'); } catch (_e5) {}
     try {
+      if (App.GuestP2PKeyVault && typeof App.GuestP2PKeyVault.clear === 'function') {
+        App.GuestP2PKeyVault.clear();
+      } else if (window.SosGuestP2PKeyVault && typeof window.SosGuestP2PKeyVault.clear === 'function') {
+        window.SosGuestP2PKeyVault.clear();
+      }
+    } catch (_e5b) {}
+    try {
+      if (typeof App.clearGuestP2PKeys === 'function') App.clearGuestP2PKeys();
+    } catch (_e5c) {}
+    try {
       App._nativeSyncedPubkey = null;
       App._nativeSyncedPrivkey = null;
       App._identityReconcileState = null;

@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v881'; // I2 pending package only. Delete flag stays false. Not deployed by packaging.
+  const CACHE_NAME = 'sos-cache-v882'; // I2 pending package only. Delete flag stays false. Not deployed by packaging.
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -18,6 +18,8 @@
     './sos-crypto-signer.js',
     './sos-crypto-worker.js',
     './sos-crypto-worker-vault.js',
+    './guest-p2p-key-vault.js',
+    './p2p-video-sharing.js',
     './vendor/nostr.bundle.min.js',
     './call-cold-boot.js',
     './chat-service.js',
@@ -63,16 +65,16 @@
     './p2p-standby.html',
     './doom-multiplayer.html',
     './hexgl-multiplayer.html',
-    './key-storage.js?pkg=881',
-    './identity-storage-bootstrap.js?pkg=881',
-    './auth-guard.js?pkg=881',
-    './config.js?pkg=881',
-    './keys.js?pkg=881',
-    './app.js?pkg=881',
-    './identity-lifecycle.js?pkg=881',
-    './account.js?pkg=881',
-    './key-viewer.js?pkg=881',
-    './sw-register.js?pkg=881',
+    './key-storage.js?pkg=882',
+    './identity-storage-bootstrap.js?pkg=882',
+    './auth-guard.js?pkg=882',
+    './config.js?pkg=882',
+    './keys.js?pkg=882',
+    './app.js?pkg=882',
+    './identity-lifecycle.js?pkg=882',
+    './account.js?pkg=882',
+    './key-viewer.js?pkg=882',
+    './sw-register.js?pkg=882',
   ];
 
   async function networkFirstThenCache(request, isNavigate) {
