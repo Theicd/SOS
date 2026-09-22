@@ -138,6 +138,10 @@
       App.privateKey = null;
       App.publicKey = null;
     }
+    try {
+      App._topBarAuthUiReady = true;
+      if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
+    } catch (_syncErr) {}
   }
   try {
     const identityReady = window.SOSIdentityStorageReady || (window.SOSKeyStorage && window.SOSKeyStorage.ready);

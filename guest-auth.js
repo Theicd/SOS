@@ -6,6 +6,58 @@
 (function initGuestAuthModal() {
   var App = window.NostrApp || (window.NostrApp = {});
 
+  // Top-bar auth UI — fail-closed until IDENTITY_OK; no raw-K reads | HYPER CORE TECH
+  App._topBarAuthUiReady = App._topBarAuthUiReady === true;
+
+  function isAuthenticatedTopBarUi() {
+    if (App.guestMode !== false) return false;
+    var st = String(App.identityState || '');
+    if (
+      st === (App.IDENTITY_NEW_USER || 'IDENTITY_NEW_USER') ||
+      st === (App.IDENTITY_RECOVERY_REQUIRED || 'IDENTITY_RECOVERY_REQUIRED') ||
+      st === (App.IDENTITY_INVALID || 'IDENTITY_INVALID') ||
+      /MISMATCH|INVALID|RECOVERY/i.test(st)
+    ) {
+      return false;
+    }
+    if (st && st !== (App.IDENTITY_OK || 'IDENTITY_OK')) return false;
+    var pub = String(App.publicKey || '').trim();
+    return /^[0-9a-f]{64}$/i.test(pub);
+  }
+
+  function syncTopBarAuthUi() {
+    var profile = document.getElementById('topBarProfile');
+    var guestBtn = document.getElementById('guestLoginButton');
+    var authed = isAuthenticatedTopBarUi();
+    var ready = App._topBarAuthUiReady === true;
+
+    if (profile) {
+      if (authed) {
+        profile.hidden = false;
+        try { profile.style.removeProperty('display'); } catch (_e) {}
+      } else {
+        profile.hidden = true;
+        var menu = document.getElementById('topBarProfileMenu');
+        var pbtn = document.getElementById('topBarProfileButton');
+        if (menu) menu.hidden = true;
+        if (pbtn) pbtn.setAttribute('aria-expanded', 'false');
+      }
+    }
+
+    if (guestBtn) {
+      if (!ready || authed) {
+        guestBtn.hidden = true;
+        guestBtn.style.display = 'none';
+      } else {
+        guestBtn.hidden = false;
+        guestBtn.style.display = 'inline-flex';
+      }
+    }
+  }
+
+  App.isAuthenticatedTopBarUi = isAuthenticatedTopBarUi;
+  App.syncTopBarAuthUi = syncTopBarAuthUi;
+
   function storeNostrPrivateKeyGuest(hex) {
     if (window.SOSKeyStorage && typeof window.SOSKeyStorage.writePrivateKeyRaw === 'function') {
       window.SOSKeyStorage.writePrivateKeyRaw(hex);
@@ -460,6 +512,7 @@
               return;
             }
             App.guestMode = false;
+            try { if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi(); } catch (_s) {}
             setStatus('loginStatus', 'מתחבר...', false);
             setTimeout(function() {
               window.location.reload();
@@ -491,6 +544,7 @@
             }
           }
           App.guestMode = false;
+          try { if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi(); } catch (_s) {}
           setStatus('loginStatus', 'מתחבר...', false);
           setTimeout(function() {
             window.location.reload();
@@ -866,6 +920,7 @@
           window.localStorage.setItem('nostr_profile', JSON.stringify(profile));
 
           App.guestMode = false;
+          try { if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi(); } catch (_s) {}
           setStatus('keyStatus', 'מפרסם פרופיל...', false);
 
           if (typeof App.publishProfileMetadata === 'function') {
@@ -898,7 +953,7 @@
         var menu = document.getElementById('topBarProfileMenu');
         if (menu) menu.hidden = true;
 
-        if (App.guestMode || !App.privateKey) {
+        if (App.guestMode || !App.privateKey || (typeof App.isAuthenticatedTopBarUi === 'function' && !App.isAuthenticatedTopBarUi())) {
           if (typeof App.openAuthPrompt === 'function') {
             App.openAuthPrompt('כדי להזמין חברים צריך להתחבר.');
           }
@@ -936,11 +991,11 @@
       });
     } catch (_) {}
 
-    // הצגת כפתור "התחבר"/"הירשם" מתחלף רק במצב אורח | HYPER CORE TECH
+    // הצגת כפתור "התחבר"/"הירשם" + הסתרת תפריט פרופיל — syncTopBarAuthUi | HYPER CORE TECH
     try {
-      var isGuest = !!(App.guestMode === true || !App.privateKey);
-      if (guestLoginButton && isGuest) {
-        guestLoginButton.style.display = 'inline-flex';
+      var guestLoginButton = document.getElementById('guestLoginButton');
+      if (guestLoginButton && guestLoginButton.dataset.guestBound !== '1') {
+        guestLoginButton.dataset.guestBound = '1';
         guestLoginButton.addEventListener('click', function () {
           var inviteCode = typeof App.getInviteCodeFromLocation === 'function'
             ? App.getInviteCodeFromLocation()
@@ -956,7 +1011,6 @@
           }
         });
 
-        // החלפת טקסט עדינה כל 4 שניות | HYPER CORE TECH
         var words = guestLoginButton.querySelectorAll('.guest-login-btn__word');
         if (words.length >= 2) {
           var wordIndex = 0;
@@ -978,16 +1032,33 @@
           }
         }
       }
-    } catch (e) {
-      console.warn('Guest login button init failed:', e);
-    }
 
-    // הסתרת תפריט הפרופיל במצב אורח – כפתור המשחקים נשאר גלוי בטופ־בר | HYPER CORE TECH
-    try {
-      var topBarProfile = document.getElementById('topBarProfile');
-      if (topBarProfile && App.guestMode === true) {
-        topBarProfile.style.display = 'none';
+      // Fail-closed until identity boot marks ready
+      syncTopBarAuthUi();
+
+      function markReadyAndSync() {
+        App._topBarAuthUiReady = true;
+        syncTopBarAuthUi();
       }
+
+      try {
+        var identityReady = window.SOSIdentityStorageReady || (window.SOSKeyStorage && window.SOSKeyStorage.ready);
+        if (identityReady && typeof identityReady.then === 'function') {
+          identityReady.then(function () {
+            // After storage ready; bootGuestIdentity in app.js may still be mid-flight — sync again shortly
+            markReadyAndSync();
+            setTimeout(syncTopBarAuthUi, 0);
+            setTimeout(syncTopBarAuthUi, 50);
+          }).catch(function () {
+            markReadyAndSync();
+          });
+        } else {
+          markReadyAndSync();
+        }
+      } catch (_readyErr) {
+        markReadyAndSync();
+      }
+
       var gamesQuickBtn = document.getElementById('gamesToggleTop');
       if (gamesQuickBtn) {
         gamesQuickBtn.style.display = '';
@@ -999,7 +1070,7 @@
         liveTvQuickBtn.hidden = false;
       }
     } catch (e) {
-      console.warn('Profile menu hide failed:', e);
+      console.warn('Top-bar auth UI sync failed:', e);
     }
   });
 })();

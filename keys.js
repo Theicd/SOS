@@ -44,6 +44,9 @@
         console.log('IDENTITY_RECOVERY_REQUIRED');
       } catch (_e2) {}
     }
+    try {
+      if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
+    } catch (_syncUi) {}
   }
 
   function encodeBytesToHex(bytesLike) {

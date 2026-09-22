@@ -105,6 +105,13 @@ body:has(.videos-feed) #guestLoginButton {
   overflow: hidden;
 }
 
+/* Fail-closed: display:flex על פרופיל/אורח לא ידרוס [hidden] לפני AUTH | HYPER CORE TECH */
+body:has(.videos-feed) #topBarProfile[hidden],
+body:has(.videos-feed) .top-bar__profile[hidden],
+body:has(.videos-feed) #guestLoginButton[hidden] {
+  display: none !important;
+}
+
 body:has(.videos-feed) #guestLoginButton:active {
   background: rgba(45, 136, 255, 0.25) !important;
 }
@@ -343,10 +350,19 @@ body:has(.videos-feed) .top-bar {
     flex-direction: row !important;
   }
 
-  body:has(.videos-feed) #guestLoginButton {
-    margin-left: 4px !important; /* צמצום מרווח שמאלי כדי לא לדחוף החוצה | HYPER CORE TECH */
-    padding: 4px 10px !important; /* הקטנת padding אופקי לשמירה בתוך המסך | HYPER CORE TECH */
-    font-size: 10px !important; /* קמצוץ טקסט במובייל | HYPER CORE TECH */
+/* Fail-closed: display:flex על .top-bar__profile לא ידרוס [hidden] לפני AUTH | HYPER CORE TECH */
+body:has(.videos-feed) #topBarProfile[hidden],
+body:has(.videos-feed) .top-bar__profile[hidden] {
+  display: none !important;
+}
+body:has(.videos-feed) #guestLoginButton[hidden] {
+  display: none !important;
+}
+
+body:has(.videos-feed) #guestLoginButton {
+  margin-left: 4px !important; /* צמצום מרווח שמאלי כדי לא לדחוף החוצה | HYPER CORE TECH */
+  padding: 4px 10px !important; /* הקטנת padding אופקי לשמירה בתוך המסך | HYPER CORE TECH */
+  font-size: 10px !important; /* קמצוץ טקסט במובייל | HYPER CORE TECH */
   }
 }
 
@@ -3748,6 +3764,10 @@ body.global-stop .videos-feed__play-overlay {
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  body:has(.videos-feed) .top-bar .top-bar__actions .top-bar__profile[hidden] {
+    display: none !important;
   }
 
   body:has(.videos-feed) .top-bar .top-bar__actions .top-bar__avatar,

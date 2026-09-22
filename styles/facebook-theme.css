@@ -325,6 +325,12 @@ button {
   display: none;
 }
 
+/* Fail-closed: .top-bar__profile display:flex לא ידרוס [hidden] | HYPER CORE TECH */
+.top-bar__profile[hidden],
+#topBarProfile[hidden] {
+  display: none !important;
+}
+
 /* חלק תפריט פרופיל (facebook-theme.css) – סגנון לכפתורים שבתפריט הנפתח */
 .top-bar__dropdown-item {
   display: flex;

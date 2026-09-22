@@ -201,6 +201,10 @@
     App.guestMode = true;
     App.identityState = App.IDENTITY_NEW_USER || 'IDENTITY_NEW_USER';
     logTransition('LOGOUT_COMPLETE');
+    try {
+      App._topBarAuthUiReady = true;
+      if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
+    } catch (_syncUi) {}
 
     if (opts.redirect !== false) {
       try {
@@ -368,6 +372,10 @@
       App.identityState = App.IDENTITY_OK || 'IDENTITY_OK';
       App._accountSwitchInProgress = false;
       logTransition('SWITCH_COMPLETE');
+      try {
+        App._topBarAuthUiReady = true;
+        if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
+      } catch (_syncUi) {}
 
       if (opts.reload !== false) {
         try {

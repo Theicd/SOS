@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.21-call-coldlatency1",
-  "buildTime": "2026-09-21T00:22:11+03:00",
-  "notes": "Stage 5D R2 cold-answer latency optimization. Early call-cold boot priority defers nonessential feed/WebTorrent/media-cache/P2P startup while preserving immediate identity, NIP-44/NIP-59, CallSignalE2ee and WebRTC call core. Compatible with public APK 1.0.124.",
+  "version": "2026.09.22-guest-auth-ui-877",
+  "buildTime": "2026-09-22T03:11:34+03:00",
+  "notes": "Guest top-bar auth UI: hide account/profile menu until IDENTITY_OK. Package 877 / sos-cache-v877. No identity/E2EE/P2P/call security changes. browserSecureCutoverDeleteLegacy remains false.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,
