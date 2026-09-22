@@ -352,33 +352,26 @@
   App.ENCRYPTED_CHANNEL_KIND = 4;
   App.COMMUNITY_CONTEXT = 'yalacommunity';
 
-  // חלק קונפיגורציה (config.js) – מגדיר מפתחות מנהלים שיכולים למחוק פוסטים בכל הרשת מתוך הלקוח
+  // AC1: adminSourceKeys are PUBLIC keys only. Never treat 64-hex as private K.
   const adminSourceKeys = ['8c60929899e0009f199b3865a7a5e7ba483fec60ff3c926169d0a4588ada256a'];
+  App.adminSourceKeys = adminSourceKeys.slice();
   App.adminPublicKeys = App.adminPublicKeys || new Set();
   adminSourceKeys.forEach((rawKey) => {
     if (typeof rawKey !== 'string') {
       return;
     }
-    const trimmed = rawKey.trim().toLowerCase();
-    if (!trimmed) {
+    const trimmed = rawKey.trim().toLowerCase().replace(/^0x/, '');
+    if (!trimmed || !/^[0-9a-f]{64}$/i.test(trimmed)) {
       return;
     }
-    // חלק קונפיגורציה (config.js) – אם התקבל מפתח פרטי, מפיקים ממנו את המפתח הציבורי לצורך הרשאות
-    if (trimmed.length === 64) {
-      App.adminPublicKeys.add(trimmed);
-      if (typeof App.getPublicKey === 'function') {
-        try {
-          const derived = App.getPublicKey(hexToBytes(trimmed));
-          if (typeof derived === 'string' && derived.length === 64) {
-            App.adminPublicKeys.add(derived.toLowerCase());
-          }
-        } catch (err) {
-          console.warn('Admin key derivation failed', err);
-        }
-      }
-    }
+    App.adminPublicKeys.add(trimmed);
   });
   console.log('[CONFIG] adminPublicKeys:', Array.from(App.adminPublicKeys));
+  if (App.AccessControl && typeof App.AccessControl.refreshAuthorityFromLegacy === 'function') {
+    try {
+      App.AccessControl.refreshAuthorityFromLegacy();
+    } catch (_acErr) {}
+  }
 
   window.NostrApp = App;
 })(window);
