@@ -38,6 +38,7 @@
     SIGN_LIVE_TV: { kinds: [30078] },
     SIGN_LOGIN_METRIC: { kinds: [1050] },
     SIGN_MEDIA_RECHECK: { kinds: [1] },
+    SIGN_GROUP_CONTROL: { kinds: [39001] },
   };
 
   /** @type {'UNINITIALIZED'|'LOADING'|'READY'|'UNAVAILABLE'|'RECOVERY_REQUIRED'|'CRASHED'} */
@@ -658,6 +659,8 @@
         return signTyped('SIGN_LOGIN_METRIC', params && params.draft);
       case 'SIGN_MEDIA_RECHECK':
         return signTyped('SIGN_MEDIA_RECHECK', params && params.draft);
+      case 'SIGN_GROUP_CONTROL':
+        return signTyped('SIGN_GROUP_CONTROL', params && params.draft);
       case 'NIP44_CHAT_ENCRYPT':
         return nip44ChatEncrypt(params);
       case 'NIP44_CHAT_DECRYPT':

@@ -1,8 +1,8 @@
 /**
- * AC1 — Central authorization foundation.
+ * AC1/AC2 — Central authorization foundation + signed-control provider hook.
  * Deny-by-default capability API. Principal = pubkey (P) only.
- * No raw K / nsec. No AC2 signed control state yet.
- * SOS_ACCESS_CONTROL_V2 defaults OFF — does not change invite/moderation/membership behavior.
+ * No raw K / nsec. SOS_ACCESS_CONTROL_V2 defaults OFF (legacy provider).
+ * When V2=true (QA only): SignedGroupControlProvider; invalid/missing → fail closed.
  */
 (function initAccessControl(window) {
   'use strict';
@@ -152,8 +152,68 @@
     return getAuthoritySnapshot();
   }
 
+  /**
+   * AC2 provider — reads GroupControlState verified store only.
+   * Never trusts localStorage flags / UI. Cache must already be revalidated by GroupControlState.
+   */
+  const SignedGroupControlProvider = {
+    name: 'SignedGroupControlProvider',
+    buildSnapshot() {
+      const GCS = App.GroupControlState || window.SosGroupControlState;
+      if (!GCS || typeof GCS.getVerifiedControlState !== 'function') {
+        return Object.freeze({
+          groupId: resolveGroupId(),
+          epoch: 0,
+          rootAdminPubkey: '',
+          capabilitiesByPubkey: Object.freeze({}),
+          invitePolicy: null,
+          blockedPubkeys: Object.freeze([]),
+          membershipEpoch: 0,
+          source: 'signed-group-control-missing',
+          verified: false,
+          controlStatus: 'MISSING',
+        });
+      }
+      const status = typeof GCS.getStatus === 'function' ? GCS.getStatus() : 'MISSING';
+      const state = GCS.getVerifiedControlState();
+      if (!state || status !== 'VERIFIED' || state.verified !== true) {
+        return Object.freeze({
+          groupId: resolveGroupId(),
+          epoch: 0,
+          rootAdminPubkey: '',
+          capabilitiesByPubkey: Object.freeze({}),
+          invitePolicy: null,
+          blockedPubkeys: Object.freeze([]),
+          membershipEpoch: 0,
+          source: 'signed-group-control-invalid',
+          verified: false,
+          controlStatus: status || 'INVALID',
+        });
+      }
+      const caps = Object.create(null);
+      Object.keys(state.capabilities || {}).forEach((pk) => {
+        caps[pk] = Object.freeze((state.capabilities[pk] || []).slice());
+      });
+      return Object.freeze({
+        groupId: state.groupId,
+        epoch: state.controlEpoch,
+        rootAdminPubkey: state.rootAdminPubkey,
+        capabilitiesByPubkey: Object.freeze(caps),
+        invitePolicy: state.invitePolicy,
+        blockedPubkeys: Object.freeze((state.blockedPubkeys || []).slice()),
+        membershipEpoch: state.membershipEpoch || 0,
+        source: 'signed-group-control',
+        verified: true,
+        controlStatus: 'VERIFIED',
+      });
+    },
+  };
+
   function activeSnapshot() {
     if (qaOverlay) return qaOverlay;
+    if (window[FLAG_KEY] === true) {
+      return SignedGroupControlProvider.buildSnapshot();
+    }
     if (!authoritySnapshot) refreshAuthorityFromLegacy();
     return authoritySnapshot;
   }
@@ -347,6 +407,7 @@
     isHex64Pubkey,
     resolveGroupId,
     LegacyRootAuthorityProvider,
+    SignedGroupControlProvider,
     refreshAuthorityFromLegacy,
     getAuthoritySnapshot,
     hasCapability,

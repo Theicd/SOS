@@ -35,6 +35,7 @@
     SIGN_LIVE_TV: { kinds: [30078] },
     SIGN_LOGIN_METRIC: { kinds: [1050] },
     SIGN_MEDIA_RECHECK: { kinds: [1] },
+    SIGN_GROUP_CONTROL: { kinds: [39001] },
   };
 
   let forcedBackend = null; // 'MAIN_THREAD' | 'WORKER_VAULT' | null(auto)
@@ -364,6 +365,7 @@
     signLiveTvEvent: (d) => signTyped('SIGN_LIVE_TV', d),
     signLoginMetric: (d) => signTyped('SIGN_LOGIN_METRIC', d),
     signMediaRecheck: (d) => signTyped('SIGN_MEDIA_RECHECK', d),
+    signGroupControlEvent: (d) => signTyped('SIGN_GROUP_CONTROL', d),
     nip44ChatEncrypt,
     nip44ChatDecrypt,
     nip44P2pEncrypt,
