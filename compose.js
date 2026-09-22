@@ -1713,7 +1713,10 @@
         stopAnim();
         return;
       }
-      if (!app.privateKey || !app.publicKey || typeof app.finalizeEvent !== 'function') {
+      if (
+        !(app.SosCryptoSigner && app.SosCryptoSigner.hasIdentityKey()) ||
+        !app.publicKey
+      ) {
         setStatus('חסר מפתח או חתימה. היכנס/י לחשבון ונסה שוב.', 'error');
         stopAnim();
         return;

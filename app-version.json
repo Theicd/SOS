@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.22-crypto-worker-dark-880",
-  "buildTime": "2026-09-22T14:50:00+03:00",
-  "notes": "Dark release: F1 signer facade + F2A/F2B Worker vault infrastructure. Package 880 / sos-cache-v880. SOS_CRYPTO_WORKER_AUTHORITATIVE remains default OFF. browserSecureCutoverDeleteLegacy remains false. No legacy key deletion.",
+  "version": "2026.09.22-f5a-881",
+  "buildTime": "2026-09-22T22:30:00+03:00",
+  "notes": "F5A: Worker-authoritative browser identity create/boot (opt-in). Package 881 / sos-cache-v881. SOS_CRYPTO_WORKER_AUTHORITATIVE remains default OFF. browserSecureCutoverDeleteLegacy remains false. No legacy key deletion. No F5B/F7/F8.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,

@@ -651,8 +651,8 @@
   
   <iframe id="gameFrame" src="./yet-another-doom-clone-master/doom.html"></iframe>
 
-  <script src="./key-storage.js?pkg=880"></script>
-  <script src="./identity-storage-bootstrap.js?pkg=880"></script>
+  <script src="./key-storage.js?pkg=881"></script>
+  <script src="./identity-storage-bootstrap.js?pkg=881"></script>
   <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.7.2/lib/nostr.bundle.min.js"></script>
   <script>
     // SOS Doom Multiplayer - Nostr Integration
@@ -1251,40 +1251,19 @@
       async function connectNostr() {
         log('Connecting to Nostr...');
         
-        // Try to get keys from localStorage (same key names as main app)
-        const storedPrivKey = (window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function')
-          ? window.SOSKeyStorage.readPrivateKeyRaw()
-          : '';
-        const storedPubKey = localStorage.getItem('nostr_public_key');
-        
-        log('Stored keys found:', !!storedPrivKey, !!storedPubKey);
-        
-        if (storedPrivKey && storedPrivKey.length === 64) {
-          // Convert hex string to Uint8Array for nostr-tools v2
-          state.privateKey = hexToBytes(storedPrivKey);
-          try {
-            state.publicKey = window.NostrTools.getPublicKey(state.privateKey);
-            log('Derived pubkey from privkey');
-          } catch (e) {
-            log('getPublicKey error:', e);
-            state.publicKey = storedPubKey;
-          }
-        } else if (storedPubKey) {
+        // F5A: never pull raw K from opener/storage into child window.
+        const storedPubKey =
+          (openerApp && openerApp.publicKey) ||
+          localStorage.getItem('nostr_public_key') ||
+          '';
+        state.privateKey = null;
+        if (storedPubKey) {
           state.publicKey = storedPubKey;
-        }
-        
-        // Also try opener
-        if (!state.publicKey && openerApp.publicKey) {
-          state.publicKey = openerApp.publicKey;
-          state.privateKey = openerApp.privateKey;
-          log('Got keys from opener');
-        }
-        
-        if (!state.publicKey) {
-          // Generate temporary keys for this session
+          log('Using parent/public metadata only (no raw K)');
+        } else {
           state.privateKey = window.NostrTools.generateSecretKey();
           state.publicKey = window.NostrTools.getPublicKey(state.privateKey);
-          log('Generated temporary keys');
+          log('Generated anonymous ephemeral keys');
         }
         
         // Create pool

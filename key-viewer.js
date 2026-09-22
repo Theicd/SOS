@@ -33,10 +33,19 @@
     if (!identity || identity.ok !== true) {
       return null;
     }
-    const privateKey = App.privateKey;
-    if (!privateKey) {
+    // F5A: normal key-viewer must NOT read App.privateKey / raw K.
+    // Explicit recovery/export remains deferred (trusted UI boundary).
+    if (
+      App.SosCryptoSigner &&
+      typeof App.SosCryptoSigner.isWorkerAuthoritative === 'function' &&
+      App.SosCryptoSigner.isWorkerAuthoritative()
+    ) {
       return null;
     }
+    if (!App.privateKey) {
+      return null;
+    }
+    const privateKey = App.privateKey;
     if (typeof App.encodePrivateKey === 'function') {
       try {
         return App.encodePrivateKey(privateKey);
@@ -48,6 +57,22 @@
   }
 
   function openKeyViewer() {
+    // F5A normal view: public metadata only when Worker authoritative
+    if (
+      App.SosCryptoSigner &&
+      typeof App.SosCryptoSigner.isWorkerAuthoritative === 'function' &&
+      App.SosCryptoSigner.isWorkerAuthoritative()
+    ) {
+      const pub = App.publicKey || '';
+      const fp = pub ? pub.slice(0, 8) + '…' + pub.slice(-8) : '';
+      textarea.value = pub
+        ? 'PUBLIC_KEY=' + pub + (fp ? '\nFINGERPRINT=' + fp : '') + '\n\n(ייצוא מפתח פרטי דורש ממשק אמון נפרד — F5B)'
+        : '';
+      setStatus(pub ? 'תצוגת מטא-דאטה בלבד (ללא מפתח פרטי).' : 'אין זהות פעילה.', pub ? 'info' : 'error');
+      modal.style.display = 'flex';
+      modal.setAttribute('aria-hidden', 'false');
+      return;
+    }
     const key = getDisplayKey();
     if (!key) {
       textarea.value = '';

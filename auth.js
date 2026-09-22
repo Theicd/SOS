@@ -700,13 +700,6 @@
   }
 
   async function publishEmailRegistry(emailHash, signingKeyHex) {
-    const privateKeyHex = (signingKeyHex || App.identityAdminPrivateKey || '').trim().toLowerCase();
-    if (!privateKeyHex || privateKeyHex.length !== 64) {
-      return { ok: false, error: 'missing-signing-key' };
-    }
-    if (typeof App.finalizeEvent !== 'function') {
-      return { ok: false, error: 'missing-finalize' };
-    }
     const pool = ensureRegistryPool();
     const createdAt = Math.floor(Date.now() / 1000);
     const tags = [
@@ -721,7 +714,29 @@
       created_at: createdAt,
       tags,
       content: JSON.stringify({ hash: emailHash, issued_at: createdAt }),
+      pubkey: App.publicKey || undefined,
     };
+    // F5A: prefer typed signer (Worker or MAIN) — never require page to pass K when identity ready
+    if (App.SosCryptoSigner && typeof App.SosCryptoSigner.signEmailRegistry === 'function' && App.SosCryptoSigner.hasIdentityKey()) {
+      try {
+        if (!draft.pubkey) draft.pubkey = App.SosCryptoSigner.currentPubkey?.() || App.publicKey;
+        const event = await Promise.resolve(App.SosCryptoSigner.signEmailRegistry(draft));
+        const relays = Array.isArray(App.relayUrls) && App.relayUrls.length > 0 ? [...App.relayUrls] : [];
+        await pool.publish(relays, event);
+        return { ok: true, relays, pubkey: event.pubkey };
+      } catch (err) {
+        console.warn('Email hash publish via signer failed', err);
+        return { ok: false, error: err?.message || 'publish-failed' };
+      }
+    }
+    // Legacy MAIN_THREAD path (explicit signingKeyHex or admin key)
+    const privateKeyHex = (signingKeyHex || App.identityAdminPrivateKey || '').trim().toLowerCase();
+    if (!privateKeyHex || privateKeyHex.length !== 64) {
+      return { ok: false, error: 'missing-signing-key' };
+    }
+    if (typeof App.finalizeEvent !== 'function') {
+      return { ok: false, error: 'missing-finalize' };
+    }
     const event = App.finalizeEvent(draft, privateKeyHex);
     const relays = Array.isArray(App.relayUrls) && App.relayUrls.length > 0 ? [...App.relayUrls] : [];
     try {

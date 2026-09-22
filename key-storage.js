@@ -221,6 +221,30 @@
     }
   }
 
+  /** F5A: Worker-authoritative requested (LS/global). */
+  function workerAuthoritativeRequested() {
+    try {
+      if (window.SOS_CRYPTO_WORKER_AUTHORITATIVE === true || window.__SOS_CRYPTO_WORKER_AUTHORITATIVE__ === true) {
+        return true;
+      }
+      if (typeof localStorage !== 'undefined' && localStorage.getItem('SOS_CRYPTO_WORKER_AUTHORITATIVE') === '1') {
+        return true;
+      }
+    } catch (_e) {}
+    return false;
+  }
+
+  /**
+   * F5A: durable browser Worker-auth page must not hold raw K in memoryPriv / LS mirror.
+   * Native + session-only excluded.
+   */
+  function workerAuthPageOwnsNoRawK() {
+    if (!workerAuthoritativeRequested()) return false;
+    if (isSessionOnly()) return false;
+    if (nativeBridge() || isUncapableNativeShell()) return false;
+    return true;
+  }
+
   function browserPrimitives() {
     try {
       const fail = window.__sosBrowserSecureForceFail;
@@ -566,6 +590,10 @@
     if (providerState === WEB_SECURE_MISMATCH || providerState === WEB_SECURE_RECOVERY_REQUIRED) {
       return false;
     }
+    // F5A: page must not seal/hydrate raw K while Worker-authoritative is requested.
+    if (workerAuthPageOwnsNoRawK()) {
+      return false;
+    }
     const pair = validatePair(privHex, null);
     if (!pair || !pair.pub) return false;
     const existingMarker = readCutoverMarker();
@@ -595,6 +623,33 @@
 
   async function bootBrowserSecure() {
     browserSecureBootVerified = false;
+    // F5A: Worker-authoritative page bootstrap — metadata only, never decrypt K into memoryPriv.
+    // WORKER_MODE_BROWSERSECURE_MEMORY_PRIV=false
+    if (workerAuthPageOwnsNoRawK()) {
+      memoryPriv = '';
+      try {
+        const blob = await idbGet('identity_blob', 'current');
+        if (blob && isHex64(blob.pubkey)) {
+          memoryPub = String(blob.pubkey).trim().toLowerCase();
+          providerState = WEB_SECURE_ACTIVE;
+          browserSecureActivated = true;
+          noteSecureBootVerified();
+          return;
+        }
+        if (blob && blob.version === 1 && blob.ciphertext) {
+          // Blob present; Worker decrypts. Page keeps no K.
+          memoryPub = '';
+          providerState = WEB_SECURE_ACTIVE;
+          browserSecureActivated = true;
+          noteSecureBootVerified();
+          return;
+        }
+      } catch (_eBlob) {}
+      providerState = WEB_SECURE_NONE;
+      memoryPub = '';
+      browserSecureActivated = true;
+      return;
+    }
     const legacyRaw = readLegacyPlaintext();
     const legacyPair = isHex64(legacyRaw) ? validatePair(legacyRaw, null) : null;
     const secure = await readSecureIdentity();
@@ -1068,6 +1123,10 @@
 
   function readPrivateKeyRaw() {
     try {
+      // F5A defense-in-depth: Worker-auth page never returns raw K (even before vault guard).
+      if (workerAuthPageOwnsNoRawK()) {
+        return '';
+      }
       const provider = activeProviderName();
       if (provider === PROVIDER_SESSION_ONLY) {
         return window.sessionStorage.getItem(SS) || '';
@@ -1093,6 +1152,10 @@
   function writePrivateKeyRaw(str) {
     if (str == null || typeof str !== 'string') return false;
     try {
+      // F5A: Worker-auth page must not accept/write raw K (no legacy mirror recreation).
+      if (workerAuthPageOwnsNoRawK()) {
+        return false;
+      }
       const provider = activeProviderName();
       if (provider === PROVIDER_SESSION_ONLY) {
         window.sessionStorage.setItem(SS, str);
@@ -1151,6 +1214,11 @@
     }
   }
 
+  /** F5A: drop in-page memory copy of K without deleting durable BrowserSecure IDB */
+  function dropPageMemoryPrivateKey() {
+    memoryPriv = '';
+  }
+
   function getSecurityDesignNotes() {
     return {
       stage: '5E-E2B2B-I1',
@@ -1182,6 +1250,7 @@
     writePrivateKeyRaw,
     writePrivateKeyHex,
     clearPrivateKey,
+    dropPageMemoryPrivateKey,
     SESSION_ONLY_FLAG: FLAG,
     PROVIDER_LEGACY,
     PROVIDER_NATIVE_SECURE,
@@ -1245,8 +1314,11 @@
         storagePersistenceRequested,
         storagePersisted: storagePersistedObserved === true,
         browserLegacyDeletePerformed,
+        WORKER_AUTH_PAGE_OWNS_NO_RAW_K: workerAuthPageOwnsNoRawK(),
       };
     },
+    workerAuthoritativeRequested,
+    workerAuthPageOwnsNoRawK,
   };
   window.SOSKeyStorage.ready = initialize();
   window.SOSIdentityStorageReady = window.SOSKeyStorage.ready;

@@ -226,6 +226,11 @@
     App.guestMode = false;
     App.identityState = 'IDENTITY_OK';
     App.workerVaultState = boot.meta;
+    try {
+      if (window.SOSKeyStorage && typeof window.SOSKeyStorage.dropPageMemoryPrivateKey === 'function') {
+        window.SOSKeyStorage.dropPageMemoryPrivateKey();
+      }
+    } catch (_drop) {}
     installRawKReadGuard();
     try {
       console.log('[F2B] WORKER_VAULT_AUTHORITATIVE=true fp=' + (boot.meta && boot.meta.fingerprint));
@@ -337,6 +342,82 @@
     authoritative = false;
   }
 
+  async function ensureWorkerSpawned() {
+    if (worker) return true;
+    const pre = eligibilityPrecheck();
+    if (!pre.ok) {
+      const err = new Error(pre.code || 'WORKER_VAULT_UNAVAILABLE');
+      err.code = pre.code || 'WORKER_VAULT_UNAVAILABLE';
+      throw err;
+    }
+    worker = new Worker('./sos-crypto-worker.js');
+    worker.onmessage = onWorkerMessage;
+    worker.onerror = onWorkerError;
+    return true;
+  }
+
+  /**
+   * F5A — create identity inside Worker. Never hydrates App.privateKey.
+   * Returns metadata only. Rejects stale createNonce mismatch.
+   */
+  async function createBrowserIdentity(options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    if (isAndroidNative()) {
+      return { ok: false, code: 'ANDROID_WORKER_CUTOVER_EXCLUDED' };
+    }
+    if (isSessionOnly()) {
+      return { ok: false, code: 'SESSION_ONLY_WORKER_CUTOVER' };
+    }
+    const createNonce =
+      typeof opts.createNonce === 'string' && opts.createNonce
+        ? opts.createNonce
+        : 'c' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+    try {
+      await ensureWorkerSpawned();
+      const meta = await rpc('CREATE_BROWSER_IDENTITY', { createNonce });
+      if (!meta || meta.vaultState !== 'READY' || !meta.pubkey) {
+        return { ok: false, code: 'CREATE_FAILED', meta };
+      }
+      if (meta.createNonce && meta.createNonce !== createNonce) {
+        return { ok: false, code: 'STALE_CREATE_REJECTED', meta };
+      }
+      ready = true;
+      lastMeta = meta;
+      App.privateKey = null;
+      App.publicKey = meta.pubkey;
+      App.guestMode = false;
+      App.identityState = 'IDENTITY_OK';
+      App.workerVaultState = meta;
+      // Optionally activate authoritative when flag ON
+      if (flagEnabled()) {
+        authoritative = true;
+        installRawKReadGuard();
+        try {
+          console.log('[F5A] CREATE_BROWSER_IDENTITY ok WORKER_VAULT_AUTHORITATIVE=true');
+        } catch (_e) {}
+      } else {
+        try {
+          console.log('[F5A] CREATE_BROWSER_IDENTITY ok (flag off — MAIN_THREAD may hydrate later)');
+        } catch (_e2) {}
+      }
+      return {
+        ok: true,
+        meta,
+        createNonce,
+        CREATE_FLOW_WORKER_GENERATES_K: true,
+        CREATE_FLOW_PAGE_K_PRESENT: false,
+        CREATE_FLOW_WORKER_TO_PAGE_K: false,
+        WORKER_VAULT_AUTHORITATIVE: authoritative,
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        code: (err && err.code) || 'CREATE_FAILED',
+        message: err && err.message ? String(err.message).slice(0, 160) : 'create failed',
+      };
+    }
+  }
+
   App.SosCryptoWorkerVault = {
     mode: 'shadow-or-authoritative',
     FLAG,
@@ -344,6 +425,7 @@
     init,
     tryActivateAuthoritative,
     deactivateAuthoritative,
+    createBrowserIdentity,
     isReady,
     isAuthoritative,
     getIdentityMeta,

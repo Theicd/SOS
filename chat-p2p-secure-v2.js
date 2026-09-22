@@ -68,6 +68,10 @@
     if (!App.SosCryptoSigner?.hasIdentityKey()) {
       secureFail('NO_PRIVATE_KEY', 'missing private key');
     }
+    // F5A: never pull raw K in Worker-authoritative mode (dead path; encrypt uses nip44P2pEncrypt)
+    if (App.SosCryptoSigner.isWorkerAuthoritative && App.SosCryptoSigner.isWorkerAuthoritative()) {
+      secureFail('WORKER_AUTH_NO_PAGE_K', 'raw session key blocked in worker mode');
+    }
     return App.SosCryptoSigner.f1CryptoModuleSessionKeyHex();
   }
 

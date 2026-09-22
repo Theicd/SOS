@@ -29,9 +29,10 @@
     SIGN_FEED: { kinds: [1] },
     SIGN_FOLLOW: { kinds: [40010] },
     SIGN_INVITE: { kinds: [37378, 37379] },
+    SIGN_EMAIL_REGISTRY: { kinds: [37377] },
     SIGN_BLOSSOM_AUTH: { kinds: [24242] },
     SIGN_DATING: { kinds: [40001] },
-    SIGN_GAME: { kinds: [33051, 33052] },
+    SIGN_GAME: { kinds: [33051, 33052, 33201, 33202, 33203, 33211] },
     SIGN_LIVE: { kinds: [25051, 25056] },
     SIGN_LIVE_TV: { kinds: [30078] },
     SIGN_LOGIN_METRIC: { kinds: [1050] },
@@ -46,6 +47,8 @@
   let loadErrorCode = '';
   let NT = null;
   let chatE2eeReady = false;
+  let createInFlight = false;
+  let lastCreateNonce = '';
 
   function fail(code, message) {
     const err = new Error(message || code);
@@ -123,6 +126,197 @@
           };
         }),
     );
+  }
+
+  function idbPut(storeName, key, value) {
+    return openDb().then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const tx = db.transaction(storeName, 'readwrite');
+          const req = tx.objectStore(storeName).put(value, key);
+          req.onsuccess = () => {
+            try {
+              db.close();
+            } catch (_e) {}
+            resolve(true);
+          };
+          req.onerror = () => {
+            try {
+              db.close();
+            } catch (_e) {}
+            reject(req.error || new Error('idb_put'));
+          };
+        }),
+    );
+  }
+
+  function idbDelete(storeName, key) {
+    return openDb().then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          try {
+            const tx = db.transaction(storeName, 'readwrite');
+            const req = tx.objectStore(storeName).delete(key);
+            req.onsuccess = () => {
+              try {
+                db.close();
+              } catch (_e) {}
+              resolve(true);
+            };
+            req.onerror = () => {
+              try {
+                db.close();
+              } catch (_e) {}
+              reject(req.error || new Error('idb_delete'));
+            };
+          } catch (err) {
+            try {
+              db.close();
+            } catch (_e2) {}
+            reject(err);
+          }
+        }),
+    );
+  }
+
+  function bytesToHex(bytes) {
+    const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes || []);
+    let out = '';
+    for (let i = 0; i < arr.length; i++) out += arr[i].toString(16).padStart(2, '0');
+    return out;
+  }
+
+  /**
+   * F5A — create durable browser identity entirely inside Worker.
+   * Never returns K. Atomic: refuse if valid identity already exists.
+   */
+  async function createBrowserIdentity(params) {
+    const nonce = params && typeof params.createNonce === 'string' ? params.createNonce.slice(0, 128) : '';
+    if (createInFlight) fail('CREATE_IN_FLIGHT', 'create already in progress');
+    createInFlight = true;
+    try {
+      loadNostrTools();
+      if (vaultState === 'READY' && isHex64(sessionPrivHex) && isHex64(sessionPubHex)) {
+        fail('CREATE_ALREADY_EXISTS', 'vault already has identity');
+      }
+      // Refuse silent second generation over a decryptable blob
+      try {
+        const existingBlob = await idbGet('identity_blob', 'current');
+        if (existingBlob && existingBlob.version === 1 && existingBlob.iv && existingBlob.ciphertext) {
+          const wrapExisting = await idbGet('wrapping_key', 'v1');
+          if (wrapExisting) {
+            try {
+              const plain = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv: existingBlob.iv, additionalData: aadBytes() },
+                wrapExisting,
+                existingBlob.ciphertext,
+              );
+              const priv = new TextDecoder().decode(plain).trim().toLowerCase();
+              if (isHex64(priv)) {
+                const derived = String(NT.getPublicKey(priv) || '')
+                  .trim()
+                  .toLowerCase();
+                if (isHex64(derived)) {
+                  fail('CREATE_ALREADY_EXISTS', 'secure identity already present');
+                }
+              }
+            } catch (_dec) {
+              // corrupt blob — do not accept; require recovery, no silent overwrite
+              vaultState = 'RECOVERY_REQUIRED';
+              loadErrorCode = 'RECOVERY_REQUIRED';
+              fail('RECOVERY_REQUIRED', 'corrupt identity present; create refused');
+            }
+          }
+        }
+      } catch (preErr) {
+        if (preErr && preErr.code) throw preErr;
+      }
+
+      if (typeof NT.generateSecretKey !== 'function') {
+        fail('CREATE_FAILED', 'generateSecretKey unavailable');
+      }
+      const sk = NT.generateSecretKey();
+      const priv = bytesToHex(sk).toLowerCase();
+      if (!isHex64(priv)) fail('CREATE_FAILED', 'generated key invalid');
+      const pub = String(NT.getPublicKey(priv) || '')
+        .trim()
+        .toLowerCase();
+      if (!isHex64(pub)) fail('CREATE_FAILED', 'pubkey derive failed');
+
+      let wrap = await idbGet('wrapping_key', 'v1');
+      if (!wrap) {
+        wrap = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+        await idbPut('wrapping_key', 'v1', wrap);
+        const wrapAgain = await idbGet('wrapping_key', 'v1');
+        if (!wrapAgain) fail('CREATE_FAILED', 'wrapping key persist failed');
+        wrap = wrapAgain;
+      }
+
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv, additionalData: aadBytes() },
+        wrap,
+        new TextEncoder().encode(priv),
+      );
+      const blob = {
+        version: 1,
+        iv,
+        ciphertext,
+        pubkey: pub,
+        migratedAt: Date.now(),
+        createdBy: 'CREATE_BROWSER_IDENTITY',
+      };
+      await idbPut('identity_blob', 'current', blob);
+      try {
+        await idbPut('metadata', 'provider', { identity_storage_provider: 'browser-secure-v1' });
+      } catch (_e) {}
+
+      // Reread + verify before accepting
+      const wrap2 = await idbGet('wrapping_key', 'v1');
+      const blob2 = await idbGet('identity_blob', 'current');
+      if (!wrap2 || !blob2 || blob2.version !== 1) {
+        try {
+          await idbDelete('identity_blob', 'current');
+        } catch (_d) {}
+        fail('CREATE_VERIFY_FAILED', 'reread missing');
+      }
+      let plain2;
+      try {
+        plain2 = await crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: blob2.iv, additionalData: aadBytes() },
+          wrap2,
+          blob2.ciphertext,
+        );
+      } catch (_e2) {
+        try {
+          await idbDelete('identity_blob', 'current');
+        } catch (_d2) {}
+        fail('CREATE_VERIFY_FAILED', 'decrypt verify failed');
+      }
+      const priv2 = new TextDecoder().decode(plain2).trim().toLowerCase();
+      const pub2 = String(NT.getPublicKey(priv2) || '')
+        .trim()
+        .toLowerCase();
+      if (priv2 !== priv || pub2 !== pub || String(blob2.pubkey || '').toLowerCase() !== pub) {
+        try {
+          await idbDelete('identity_blob', 'current');
+        } catch (_d3) {}
+        fail('CREATE_VERIFY_FAILED', 'mismatch after write');
+      }
+
+      sessionPrivHex = priv2;
+      sessionPubHex = pub2;
+      vaultGeneration += 1;
+      vaultState = 'READY';
+      loadErrorCode = '';
+      lastCreateNonce = nonce;
+      const meta = identityMeta();
+      meta.createNonce = nonce;
+      meta.created = true;
+      return meta;
+    } finally {
+      createInFlight = false;
+    }
   }
 
   function loadNostrTools() {
@@ -395,7 +589,10 @@
       'SIGN_ANY',
       'DECRYPT_ANY',
       'GET_KEY',
+      'GET_K',
       'EXPORT_KEY',
+      'EXPORT_RAW_K',
+      'READ_PRIVATE_KEY',
       'RUN_ARBITRARY_CRYPTO',
       'signRaw',
       'signAnything',
@@ -414,6 +611,8 @@
         return loadVaultFromSecureIdb();
       case 'GET_IDENTITY_META':
         return identityMeta();
+      case 'CREATE_BROWSER_IDENTITY':
+        return createBrowserIdentity(params || {});
       case 'SIGN_CHAT_EVENT':
         return signTyped('SIGN_CHAT_EVENT', params && params.draft);
       case 'SIGN_PROFILE_EVENT':
@@ -440,6 +639,8 @@
         return signTyped('SIGN_FOLLOW', params && params.draft);
       case 'SIGN_INVITE':
         return signTyped('SIGN_INVITE', params && params.draft);
+      case 'SIGN_EMAIL_REGISTRY':
+        return signTyped('SIGN_EMAIL_REGISTRY', params && params.draft);
       case 'SIGN_BLOSSOM_AUTH':
         return signTyped('SIGN_BLOSSOM_AUTH', params && params.draft);
       case 'SIGN_DATING':

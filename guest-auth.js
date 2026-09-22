@@ -97,6 +97,36 @@
     return Array.from(secretKey, function(b) { return ('0' + b.toString(16)).slice(-2); }).join('');
   }
 
+  /** F5A — authenticated without reading raw K */
+  function isAuthenticatedIdentity() {
+    if (App.guestMode === true) return false;
+    if (App.SosCryptoSigner && typeof App.SosCryptoSigner.isWorkerAuthoritative === 'function' && App.SosCryptoSigner.isWorkerAuthoritative()) {
+      return !!(App.publicKey && App.SosCryptoSigner.hasIdentityKey());
+    }
+    if (App.publicKey && App.SosCryptoSigner && App.SosCryptoSigner.hasIdentityKey()) return true;
+    return !!(App.publicKey && App.privateKey);
+  }
+
+  function shouldUseWorkerCreate() {
+    try {
+      if (window.SosNativeShell && typeof window.SosNativeShell.isNativeShell === 'function' && window.SosNativeShell.isNativeShell() === true) {
+        return false;
+      }
+      if (window.SOSKeyStorage && typeof window.SOSKeyStorage.isSessionOnly === 'function' && window.SOSKeyStorage.isSessionOnly()) {
+        return false;
+      }
+      if (!window.SosCryptoWorkerVault || typeof window.SosCryptoWorkerVault.createBrowserIdentity !== 'function') {
+        return false;
+      }
+      var pre = window.SosCryptoWorkerVault.eligibilityPrecheck && window.SosCryptoWorkerVault.eligibilityPrecheck();
+      if (pre && pre.ok === false) return false;
+      // Prefer Worker create whenever Worker is available (BrowserSecure path).
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
   function encodeKeyForDisplay(hexKey) {
     if (typeof App.encodePrivateKey === 'function') {
       try {
@@ -293,6 +323,8 @@
       name: '',
       avatarDataUrl: '',
       privateKey: '',
+      workerCreate: false,
+      createNonce: '',
       inviteCode: '',
       invitePhone: '',
       invitePhoneHash: '',
@@ -628,8 +660,8 @@
         : '') || readInviteCodeFallback();
       if (!code) return false;
 
-      // אורח = אין מפתח מקומי (גם אם guestMode עדיין לא אותחל)
-      var isGuest = !App.privateKey || App.guestMode === true;
+      // אורח = אין זהות מאומתת (בלי לקרוא raw K)
+      var isGuest = !isAuthenticatedIdentity();
       if (!isGuest) return false;
 
       if (signupInviteCodeInput) {
@@ -743,12 +775,24 @@
       });
     }
 
-    // יצירת והצגת מפתח
+    // יצירת והצגת מפתח / F5A Worker vault create (ללא K בעמוד)
     function generateAndShowKey() {
       try {
+        if (shouldUseWorkerCreate()) {
+          signupData.privateKey = '';
+          signupData.workerCreate = true;
+          signupData.createNonce = 'c' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+          if (generatedKeyDisplay) {
+            generatedKeyDisplay.value = 'WORKER_VAULT_CREATE — המפתח נוצר בכספת מאובטחת ולא מוצג בעמוד. ייצוא מאובטח יגיע בשלב מאוחר יותר.';
+            generatedKeyDisplay.readOnly = true;
+          }
+          setStatus('keyStatus', 'זהות חדשה תיווצר בכספת Worker ללא חשיפת מפתח בעמוד.', false);
+          return;
+        }
         var privateKeyHex = generatePrivateKeyHex();
         var displayValue = encodeKeyForDisplay(privateKeyHex);
         signupData.privateKey = privateKeyHex;
+        signupData.workerCreate = false;
         generatedKeyDisplay.value = displayValue;
         setStatus('keyStatus', '', false);
       } catch (e) {
@@ -808,8 +852,12 @@
           updateFinalConnectState();
           return;
         }
-        if (!signupData.privateKey) {
+        if (!signupData.workerCreate && !signupData.privateKey) {
           setStatus('keyStatus', 'אין מפתח', true);
+          return;
+        }
+        if (signupData.workerCreate && !signupData.createNonce) {
+          setStatus('keyStatus', 'חסר אסימון יצירה מאובטח', true);
           return;
         }
         if (!signupData.emailHash) {
@@ -847,9 +895,46 @@
             signupData.inviterPubkey = inviteCheck.inviterPubkey || signupData.inviterPubkey;
           }
 
+          // F5A: Worker create BEFORE email/invite signing — no page K
+          if (signupData.workerCreate) {
+            setStatus('keyStatus', 'יוצר זהות מאובטחת בכספת...', false);
+            var createdW = await window.SosCryptoWorkerVault.createBrowserIdentity({
+              createNonce: signupData.createNonce
+            });
+            if (!createdW || !createdW.ok) {
+              setStatus('keyStatus', 'יצירת זהות נכשלה: ' + ((createdW && (createdW.code || createdW.message)) || 'שגיאה'), true);
+              btnFinalConnect.disabled = false;
+              updateFinalConnectState();
+              return;
+            }
+            if (createdW.createNonce && createdW.createNonce !== signupData.createNonce) {
+              setStatus('keyStatus', 'תשובת יצירה לא תואמת (stale) — נדחה.', true);
+              btnFinalConnect.disabled = false;
+              updateFinalConnectState();
+              return;
+            }
+            App.privateKey = null;
+            if (createdW.meta && createdW.meta.pubkey) {
+              App.publicKey = createdW.meta.pubkey;
+              if (typeof App.updateSubscriptionWithPubkey === 'function') {
+                App.updateSubscriptionWithPubkey(createdW.meta.pubkey);
+              }
+            }
+            App.guestMode = false;
+            App.identityState = 'IDENTITY_OK';
+            try {
+              if (window.SosCryptoWorkerVault.flagEnabled && window.SosCryptoWorkerVault.flagEnabled()) {
+                await window.SosCryptoWorkerVault.tryActivateAuthoritative();
+              }
+            } catch (_act) {}
+          }
+
           // לפני שמירה מקומית — רושמים מייל ברשת כדי למנוע כפילויות | HYPER CORE TECH
           setStatus('keyStatus', 'רושם את המייל ברשת...', false);
-          var emailReg = await publishAndVerifyEmailRegistry(signupData.emailHash, signupData.privateKey);
+          var emailReg = await publishAndVerifyEmailRegistry(
+            signupData.emailHash,
+            signupData.workerCreate ? null : signupData.privateKey
+          );
           if (!emailReg.ok) {
             setStatus('keyStatus', 'לא ניתן להשלים הרשמה: ' + (emailReg.error || 'רישום מייל נכשל'), true);
             btnFinalConnect.disabled = false;
@@ -860,15 +945,16 @@
           // סימון הזמנה כמשומשת (לפני reload)
           if (signupData.inviteCode && typeof App.markInviteUsed === 'function') {
             setStatus('keyStatus', 'מסמן את ההזמנה כמשומשת...', false);
-            // זמנית שמים מפתח כדי ש-markInviteUsed יוכל לחתום
-            App.privateKey = signupData.privateKey;
-            if (typeof App.ensureKeys === 'function') {
-              var inviteKeyResult = App.ensureKeys();
-              if (!inviteKeyResult || inviteKeyResult.ok !== true) {
-                setStatus('keyStatus', 'ההרשמה נעצרה: מפתח לא תקין.', true);
-                btnFinalConnect.disabled = false;
-                updateFinalConnectState();
-                return;
+            if (!signupData.workerCreate) {
+              App.privateKey = signupData.privateKey;
+              if (typeof App.ensureKeys === 'function') {
+                var inviteKeyResult = App.ensureKeys();
+                if (!inviteKeyResult || inviteKeyResult.ok !== true) {
+                  setStatus('keyStatus', 'ההרשמה נעצרה: מפתח לא תקין.', true);
+                  btnFinalConnect.disabled = false;
+                  updateFinalConnectState();
+                  return;
+                }
               }
             }
             var usedResult = await App.markInviteUsed({
@@ -885,7 +971,9 @@
           }
 
           setStatus('keyStatus', 'שומר נתונים...', false);
-          if (typeof App.createNewIdentityExplicit === 'function') {
+          if (signupData.workerCreate) {
+            App.privateKey = null;
+          } else if (typeof App.createNewIdentityExplicit === 'function') {
             var created = App.createNewIdentityExplicit({ privateKeyHex: signupData.privateKey });
             if (!created || created.ok !== true) {
               setStatus('keyStatus', 'שגיאה בשמירת זהות חדשה', true);
@@ -953,7 +1041,7 @@
         var menu = document.getElementById('topBarProfileMenu');
         if (menu) menu.hidden = true;
 
-        if (App.guestMode || !App.privateKey || (typeof App.isAuthenticatedTopBarUi === 'function' && !App.isAuthenticatedTopBarUi())) {
+        if (App.guestMode || !isAuthenticatedIdentity() || (typeof App.isAuthenticatedTopBarUi === 'function' && !App.isAuthenticatedTopBarUi())) {
           if (typeof App.openAuthPrompt === 'function') {
             App.openAuthPrompt('כדי להזמין חברים צריך להתחבר.');
           }

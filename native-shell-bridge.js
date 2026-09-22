@@ -273,6 +273,16 @@
   }
 
   function readWebPrivateKeyRaw() {
+    // F5A: browser Worker-authoritative must not surface raw K via bridge helpers
+    try {
+      if (
+        App.SosCryptoSigner &&
+        typeof App.SosCryptoSigner.isWorkerAuthoritative === 'function' &&
+        App.SosCryptoSigner.isWorkerAuthoritative()
+      ) {
+        return '';
+      }
+    } catch (_) {}
     let priv = '';
     try {
       if (window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function') {
@@ -285,6 +295,18 @@
       } catch (_) {}
     }
     return priv;
+  }
+
+  /** Browser must not call native raw-K APIs */
+  function browserBlockedFromNativeRawK() {
+    try {
+      if (!(window.SosNativeShell && typeof window.SosNativeShell.isNativeShell === 'function' && window.SosNativeShell.isNativeShell() === true)) {
+        return true;
+      }
+    } catch (_) {
+      return true;
+    }
+    return false;
   }
 
   function parseNativeIdentityStatus(bridge) {

@@ -102,7 +102,8 @@
   // =======================
   function bootGuestIdentity() {
     try {
-      // F2B: Worker-authoritative durable browser path — never hydrate App.privateKey.
+      // F2B/F5A: Worker-authoritative durable browser path — never hydrate App.privateKey.
+      // Intent is decided BEFORE any raw-K read. Flag ON must never fall through to MAIN_THREAD hydrate.
       const flagOn =
         window.SOS_CRYPTO_WORKER_AUTHORITATIVE === true ||
         window.__SOS_CRYPTO_WORKER_AUTHORITATIVE__ === true ||
@@ -116,43 +117,66 @@
         typeof window.SOSKeyStorage.isSessionOnly === 'function' &&
         window.SOSKeyStorage.isSessionOnly();
 
-      if (flagOn && !isNative && !sessionOnly && App.SosCryptoWorkerVault) {
-        Promise.resolve(App.SosCryptoWorkerVault.tryActivateAuthoritative())
-          .then(function (res) {
-            if (res && res.ok) {
-              App.privateKey = null;
-              if (res.meta && res.meta.pubkey) App.publicKey = res.meta.pubkey;
-              App.guestMode = false;
-              try {
-                publishLoginActivity();
-              } catch (_e2) {}
-              if (typeof App.loadOwnProfileMetadata === 'function') App.loadOwnProfileMetadata();
-              if (typeof App.subscribeOwnProfileMetadata === 'function') App.subscribeOwnProfileMetadata();
-              try {
-                App._topBarAuthUiReady = true;
-                if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
-              } catch (_syncErr) {}
+      if (flagOn && !isNative && !sessionOnly) {
+        // WORKER_AUTH_BOOT_CAN_FALL_THROUGH_TO_MAIN=false
+        // WORKER_AUTH_RAW_K_FALLBACK=false
+        App.privateKey = null;
+        function finishWorkerBootOk(res) {
+          App.privateKey = null;
+          if (res && res.meta && res.meta.pubkey) App.publicKey = res.meta.pubkey;
+          App.guestMode = false;
+          App.identityState = 'IDENTITY_OK';
+          try {
+            publishLoginActivity();
+          } catch (_e2) {}
+          if (typeof App.loadOwnProfileMetadata === 'function') App.loadOwnProfileMetadata();
+          if (typeof App.subscribeOwnProfileMetadata === 'function') App.subscribeOwnProfileMetadata();
+          try {
+            App._topBarAuthUiReady = true;
+            if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
+          } catch (_syncErr) {}
+        }
+        function finishWorkerBootFail(code) {
+          try {
+            console.warn('[F5A] worker auth boot fail-closed code=' + (code || 'WORKER_VAULT_UNAVAILABLE'));
+          } catch (_w) {}
+          App.privateKey = null;
+          App.guestMode = true;
+          App.identityState = code || 'WORKER_VAULT_UNAVAILABLE';
+          try {
+            App._topBarAuthUiReady = true;
+            if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
+          } catch (_syncErr2) {}
+        }
+        function tryActivateVault(attempt) {
+          const vault = App.SosCryptoWorkerVault || window.SosCryptoWorkerVault;
+          if (!vault || typeof vault.tryActivateAuthoritative !== 'function') {
+            if (attempt < 40) {
+              App.identityState = 'WORKER_VAULT_INITIALIZING';
+              setTimeout(function () {
+                tryActivateVault(attempt + 1);
+              }, 50);
               return;
             }
-            // Flag ON but ineligible: fail closed for this path — do not hydrate K.
-            try {
-              console.warn('[F2B] worker auth unavailable code=' + ((res && res.code) || 'unknown'));
-            } catch (_w) {}
-            App.privateKey = null;
-            // Fall through only for guest UI; crypto remains blocked without K/worker.
-            App.guestMode = true;
-            try {
-              App._topBarAuthUiReady = true;
-              if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
-            } catch (_syncErr2) {}
-          })
-          .catch(function (err) {
-            try {
-              console.warn('[F2B] worker auth boot failed', err && err.message);
-            } catch (_e) {}
-            App.privateKey = null;
-            App.guestMode = true;
-          });
+            finishWorkerBootFail('WORKER_VAULT_UNAVAILABLE');
+            return;
+          }
+          Promise.resolve(vault.tryActivateAuthoritative())
+            .then(function (res) {
+              if (res && res.ok) {
+                finishWorkerBootOk(res);
+                return;
+              }
+              finishWorkerBootFail((res && res.code) || 'WORKER_VAULT_UNAVAILABLE');
+            })
+            .catch(function (err) {
+              try {
+                console.warn('[F5A] worker auth boot failed', err && err.message);
+              } catch (_e) {}
+              finishWorkerBootFail('WORKER_VAULT_UNAVAILABLE');
+            });
+        }
+        tryActivateVault(0);
         return;
       }
 

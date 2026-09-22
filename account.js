@@ -79,6 +79,25 @@
   }
 
   function openAccount() {
+    const workerAuth =
+      App.SosCryptoSigner &&
+      typeof App.SosCryptoSigner.isWorkerAuthoritative === 'function' &&
+      App.SosCryptoSigner.isWorkerAuthoritative();
+    if (workerAuth) {
+      // F5A: account modal normal view — public metadata only; export deferred
+      const pub = App.publicKey || '';
+      if (exportTextarea) {
+        exportTextarea.value = pub
+          ? 'PUBLIC_KEY=' + pub + '\n(ייצוא nsec דורש ממשק אמון — F5B)'
+          : '';
+      }
+      if (importTextarea) importTextarea.value = '';
+      resetStatus();
+      setStatus('מצב Worker: ייצוא/ייבוא מפתח גולמי מושעה עד F5B.', 'info');
+      modal.classList.add('is-visible');
+      modal.setAttribute('aria-hidden', 'false');
+      return;
+    }
     const identity = ensurePrivateKey();
     const privateKey = identity && identity.ok ? (App.privateKey || '') : '';
     if (exportTextarea) {

@@ -26,9 +26,10 @@
     SIGN_FEED: { kinds: [1] },
     SIGN_FOLLOW: { kinds: [40010] },
     SIGN_INVITE: { kinds: [37378, 37379] },
+    SIGN_EMAIL_REGISTRY: { kinds: [37377] },
     SIGN_BLOSSOM_AUTH: { kinds: [24242] },
     SIGN_DATING: { kinds: [40001] },
-    SIGN_GAME: { kinds: [33051, 33052] },
+    SIGN_GAME: { kinds: [33051, 33052, 33201, 33202, 33203, 33211] },
     SIGN_LIVE: { kinds: [25051, 25056] },
     SIGN_LIVE_TV: { kinds: [30078] },
     SIGN_LOGIN_METRIC: { kinds: [1050] },
@@ -353,6 +354,7 @@
     signFeedEvent: (d) => signTyped('SIGN_FEED', d),
     signFollowEvent: (d) => signTyped('SIGN_FOLLOW', d),
     signInviteEvent: (d) => signTyped('SIGN_INVITE', d),
+    signEmailRegistry: (d) => signTyped('SIGN_EMAIL_REGISTRY', d),
     signBlossomAuth: (d) => signTyped('SIGN_BLOSSOM_AUTH', d),
     signDatingEvent: (d) => signTyped('SIGN_DATING', d),
     signGameEvent: (d) => signTyped('SIGN_GAME', d),
@@ -375,8 +377,25 @@
     OP_SPECS,
   };
 
+  /** Child-window / game bridge — typed only; never exposes raw K */
+  async function signEventForOpener(draft) {
+    if (!draft || typeof draft !== 'object') fail('MALFORMED_DRAFT', 'draft required');
+    const kind = draft.kind;
+    if (kind === 33201 || kind === 33202 || kind === 33203 || kind === 33211 || kind === 33051 || kind === 33052) {
+      return signTyped('SIGN_GAME', draft);
+    }
+    fail('KIND_NOT_ALLOWED', 'opener signEvent kind not allowed');
+  }
+  api.signEvent = signEventForOpener;
+
   App.SosCryptoSigner = api;
   root.SosCryptoSigner = api;
+  // Convenience for game popups: opener.NostrApp.signEvent
+  if (typeof App.signEvent !== 'function') {
+    App.signEvent = function (draft) {
+      return signEventForOpener(draft);
+    };
+  }
 
   try {
     console.log('[SOS-CRYPTO-SIGNER] F1/F2B facade loaded');
