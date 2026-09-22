@@ -1048,6 +1048,11 @@
           return;
         }
 
+        if (typeof App.canCreateInviteUi === 'function' && !App.canCreateInviteUi()) {
+          alert('אין הרשאה ליצור הזמנה');
+          return;
+        }
+
         btnOpenInviteFriend.disabled = true;
         try {
           if (typeof App.createInvite !== 'function') {

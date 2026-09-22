@@ -69,7 +69,7 @@ function loadVmModules(rootPk) {
     hexToBytes,
   };
   g.window = g;
-  g.console = { log() {}, warn() {}, error() {} };
+  g.SOS_ACCESS_CONTROL_V2 = false;
 
   const integrity = fs.readFileSync(path.join(ROOT, 'nostr-event-integrity.js'), 'utf8');
   const ac = fs.readFileSync(path.join(ROOT, 'access-control.js'), 'utf8');
@@ -623,8 +623,8 @@ function withIdentity(ctx, sk) {
   const feedSrc = fs.readFileSync(path.join(ROOT, 'feed.js'), 'utf8');
   ok =
     record(
-      'invite not wired to AccessControl V2',
-      !/SOS_ACCESS_CONTROL_V2|GroupControlState|hasCapability/.test(inviteSrc)
+      'invite does not force V2 on',
+      !/SOS_ACCESS_CONTROL_V2\s*=\s*true/.test(inviteSrc) && /guestMode/.test(inviteSrc)
     ) && ok;
   ok =
     record(

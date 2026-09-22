@@ -30,6 +30,7 @@
     SIGN_REACTION: { kinds: [7] },
     SIGN_FOLLOW: { kinds: [40010] },
     SIGN_INVITE: { kinds: [37378, 37379] },
+    SIGN_INVITE_REVOKE: { kinds: [37380] },
     SIGN_EMAIL_REGISTRY: { kinds: [37377] },
     SIGN_BLOSSOM_AUTH: { kinds: [24242] },
     SIGN_DATING: { kinds: [40001] },
@@ -643,6 +644,8 @@
         return signTyped('SIGN_FOLLOW', params && params.draft);
       case 'SIGN_INVITE':
         return signTyped('SIGN_INVITE', params && params.draft);
+      case 'SIGN_INVITE_REVOKE':
+        return signTyped('SIGN_INVITE_REVOKE', params && params.draft);
       case 'SIGN_EMAIL_REGISTRY':
         return signTyped('SIGN_EMAIL_REGISTRY', params && params.draft);
       case 'SIGN_BLOSSOM_AUTH':
