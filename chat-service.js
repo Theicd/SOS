@@ -560,10 +560,22 @@
     // P2P_DC_TRANSPORT_SECURITY: WebRTC DTLS. E3B does not redesign DC schema; plaintext here
     // is NOT relay plaintext. Kind 1050 relay content is encrypted when e2eeSendRequired.
     if (!forceRelay && App.dataChannel && typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(peerPubkey)) {
+      if (App.P2pSecureV2 && typeof App.P2pSecureV2.waitForPeerCapability === 'function') {
+        try {
+          await App.P2pSecureV2.waitForPeerCapability(peerPubkey, 1500);
+        } catch (_capWait) {}
+      }
       const p2pId = 'p2p-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
       const p2pTs = Math.floor(Date.now() / 1000);
       const p2pMsg = { id: p2pId, content: serialization.displayText || '', attachment: serialization.attachment || null, createdAt: p2pTs };
-      const sent = App.dataChannel.send(peerPubkey, p2pMsg);
+      let sent = false;
+      if (typeof App.dataChannel.send === 'function') {
+        try {
+          sent = !!(await App.dataChannel.send(peerPubkey, p2pMsg));
+        } catch (_sendErr) {
+          sent = false;
+        }
+      }
       if (sent) {
         const p2pOutgoing = { id: p2pId, from: App.publicKey, to: peerPubkey, content: p2pMsg.content, attachment: p2pMsg.attachment, createdAt: p2pTs, direction: 'outgoing', status: 'sent', p2p: true, transport: 'DC' };
         // חלק מניעת כפילות (chat-service.js) – מחליף temp optimistic במקום append נוסף | HYPER CORE TECH

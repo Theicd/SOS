@@ -142,27 +142,32 @@
   // חלק signaling (chat-p2p-datachannel.js) – שליחת אותות דרך ריליי | HYPER CORE TECH
   function roomId(p) { const a=(App.publicKey||'').toLowerCase(),b=(p||'').toLowerCase(); return a<b?`dc:${a}:${b}`:`dc:${b}:${a}`; }
 
-  function sendMeshSig(p, type, data) {
+  async function sendMeshSig(p, type, data) {
     try {
       const b = window.AndroidBridge;
       if (!b || typeof b.sendWebRTCSignal !== 'function') return false;
       const affinity = getPS(p)?.sigTransport === 'MESH';
       if (!affinity && !canUseMesh(p)) return false;
-      const signal = { type: type, data: data, fromPubkey: String(App.publicKey || '').toLowerCase() };
-      const sent = b.sendWebRTCSignal(p, JSON.stringify(signal));
+      if (!App.P2pSecureV2 || !App.P2pSecureV2.isLocalSecureP2pV2() || !App.P2pSecureV2.isPeerSecureP2pV2(p)) {
+        return false;
+      }
+      const wire = await App.P2pSecureV2.encryptMeshSignal(p, type, data);
+      const sent = b.sendWebRTCSignal(p, wire);
       if (sent === true || sent === 'true') {
         const s = ensPS(p);
         s.sigTransport = 'MESH';
-        console.log(`[P2P-SIG] SEND type=${type} peer=${String(p).slice(0,8)} transport=MESH`);
+        console.log(`[P2P-SIG] SEND type=${type} peer=${String(p).slice(0,8)} transport=MESH_SECURE`);
         return true;
       }
-    } catch (_) {}
+    } catch (e) {
+      console.warn('[DC] secure mesh sig failed:', e && e.message ? e.message : e);
+    }
     return false;
   }
 
   async function sendSig(p, type, data) {
     if(!isValidPeerKey(p)) return;
-    if (sendMeshSig(p, type, data)) return;
+    if (await sendMeshSig(p, type, data)) return;
     if(!App.pool||!App.publicKey||!App.privateKey) return;
     try {
       const raw=data?JSON.stringify(data):'';
@@ -232,8 +237,18 @@
     pc.onicecandidate=(ev)=>{ if(s.pc!==pc) return; qICE(k,ev.candidate||null); };
     // חלק ניתוב ערוצים (chat-p2p-datachannel.js) – ערוץ file-transfer מנותב למערכת קבצים, sos-chat לצ'אט | HYPER CORE TECH
     pc.ondatachannel=(ev)=>{ if(s.pc!==pc) return; const ch=ev.channel; if(ch.label==='file-transfer'){console.log(`[DC] 📥 file DC from ${k.slice(0,8)}`);if(typeof App.onFileDataChannel==='function')App.onFileDataChannel(k,ch);return;} console.log(`[DC] 📥 chat DC ${k.slice(0,8)}`); wireDC(k,ch); };
-    pc.oniceconnectionstatechange=()=>{ if(s.pc!==pc) return; console.log(`[P2P-ICE] peer=${k.slice(0,8)} state=${pc.iceConnectionState}`); if(['disconnected','failed','closed'].includes(pc.iceConnectionState)){cleanup(k);maybeReconn(k);} };
-    pc.onconnectionstatechange=()=>{ if(s.pc!==pc) return; console.log(`[P2P-PC] peer=${k.slice(0,8)} state=${pc.connectionState}`); if(['disconnected','failed','closed'].includes(pc.connectionState)){cleanup(k);maybeReconn(k);} };
+    pc.oniceconnectionstatechange=()=>{ if(s.pc!==pc) return; console.log(`[P2P-ICE] peer=${k.slice(0,8)} state=${pc.iceConnectionState}`); if(['disconnected','failed','closed'].includes(pc.iceConnectionState)){
+      let activeXfer=false;
+      try{ activeXfer = typeof App.hasActiveChatFileTransfer==='function' && App.hasActiveChatFileTransfer(k); }catch{}
+      console.warn(`[P2P-ICE] cleanup-on-${pc.iceConnectionState} peer=${k.slice(0,8)} ACTIVE_TRANSFER=${activeXfer}`);
+      cleanup(k);maybeReconn(k);
+    } };
+    pc.onconnectionstatechange=()=>{ if(s.pc!==pc) return; console.log(`[P2P-PC] peer=${k.slice(0,8)} state=${pc.connectionState}`); if(['disconnected','failed','closed'].includes(pc.connectionState)){
+      let activeXfer=false;
+      try{ activeXfer = typeof App.hasActiveChatFileTransfer==='function' && App.hasActiveChatFileTransfer(k); }catch{}
+      console.warn(`[P2P-PC] cleanup-on-${pc.connectionState} peer=${k.slice(0,8)} ACTIVE_TRANSFER=${activeXfer}`);
+      cleanup(k);maybeReconn(k);
+    } };
     return pc;
   }
 
@@ -580,7 +595,7 @@
   }
 
   // חלק הודעות P2P (chat-p2p-datachannel.js) – קבלה ושליחה + keepalive ping/pong | HYPER CORE TECH
-  const CHAT_FILE_TYPES = ['file-complete-ack','file-resend-request','file-ready','file-offer','chunk-meta','chunk-ack','ack','file-resend-failed'];
+  const CHAT_FILE_TYPES = ['file-complete-ack','file-resend-request','file-ready','file-offer','p2p-secure-file-offer','chunk-meta','chunk-ack','ack','file-resend-failed'];
 
   function onMsg(peer,raw) {
     try {
@@ -604,6 +619,47 @@
       // חלק keepalive handler (chat-p2p-datachannel.js) – מגיב ל-ping ב-pong, מתעלם מ-pong | HYPER CORE TECH
       if(m.type==='ping'){ const s=getPS(peer.toLowerCase()); if(s&&s.dc&&s.dc.readyState==='open'){try{s.dc.send(JSON.stringify({type:'pong',ts:Date.now()}));}catch{}} return; }
       if(m.type==='pong') return;
+      if (m.type === 'p2p-secure-capability') {
+        if (App.P2pSecureV2 && typeof App.P2pSecureV2.handleCapabilityMessage === 'function') {
+          App.P2pSecureV2.handleCapabilityMessage(peer, m);
+        }
+        return;
+      }
+      if (m.type === 'p2p-secure-text') {
+        if (!App.P2pSecureV2 || typeof App.P2pSecureV2.decryptChatTextFromDc !== 'function') {
+          console.warn('[SECURITY/PARSE_REJECT] kind=dc type=p2p-secure-text reason=no_module');
+          return;
+        }
+        App.P2pSecureV2.decryptChatTextFromDc(peer, m).then((dec) => {
+          const content = typeof dec.content === 'string' ? dec.content : '';
+          let attachment = dec.attachment == null ? null : dec.attachment;
+          if (attachment != null && typeof App.inspectIncomingChatAttachment === 'function') {
+            const inspected = App.inspectIncomingChatAttachment(attachment);
+            if (!inspected || inspected.ok !== true) {
+              console.warn('[SECURITY/PARSE_REJECT] kind=dc type=p2p-secure-text reason=bad_attachment');
+              return;
+            }
+          }
+          console.log(`[DC] 📩 P2P ← ${peer.slice(0,8)} secure`);
+          notifyIncomingMessage(peer, dec);
+          if (typeof App.appendChatMessage === 'function') {
+            App.appendChatMessage({
+              id: dec.id || ('p2p-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)),
+              from: peer,
+              to: App.publicKey,
+              content,
+              attachment,
+              createdAt: dec.createdAt || Math.floor(Date.now() / 1000),
+              direction: 'incoming',
+              p2p: true,
+              transport: 'DC',
+            });
+          }
+        }).catch((e) => {
+          console.warn('[SECURITY/PARSE_REJECT] kind=dc type=p2p-secure-text reason=' + (e && e.code ? e.code : 'decrypt_failed'));
+        });
+        return;
+      }
       if(m.type==='chat_read_receipt'){
         if(typeof App.handleIncomingReadReceipt==='function') App.handleIncomingReadReceipt(m);
         return;
@@ -646,6 +702,9 @@
         return;
       }
       if(m.type!=='chat-text') return;
+      try {
+        console.warn('[P2P-SECURE-V2] LEGACY_INBOUND_DTLS_ONLY peer=' + peer.slice(0, 8));
+      } catch (_legacyLog) {}
       // Stage 14 — parity with relay chat parse bounds (wire format unchanged) | HYPER CORE TECH
       if (m.id != null && (typeof m.id !== 'string' || m.id.length > DC_CHAT_ID_MAX)) {
         console.warn('[SECURITY/PARSE_REJECT] kind=dc type=chat-text reason=bad_id');
@@ -701,14 +760,21 @@
     }
   }
 
-  function send(peer,msg) {
-    const s=getPS(peer.toLowerCase());
-    if(!s||!s.dc||s.dc.readyState!=='open') return false;
+  async function send(peer, msg) {
+    const s = getPS(peer.toLowerCase());
+    if (!s || !s.dc || s.dc.readyState !== 'open') return false;
+    if (!App.P2pSecureV2 || !App.P2pSecureV2.isLocalSecureP2pV2() || !App.P2pSecureV2.isPeerSecureP2pV2(peer)) {
+      return false;
+    }
     try {
-      s.dc.send(JSON.stringify({type:'chat-text',id:msg.id,content:msg.content,attachment:msg.attachment||null,createdAt:msg.createdAt}));
-      console.log(`[DC] 📤 P2P → ${peer.slice(0,8)}`);
+      const wire = await App.P2pSecureV2.encryptChatTextForDc(peer, msg);
+      s.dc.send(JSON.stringify(wire));
+      console.log(`[DC] 📤 P2P → ${peer.slice(0, 8)} secure`);
       return true;
-    } catch(e){ console.warn('[DC] send:',e); return false; }
+    } catch (e) {
+      console.warn('[DC] secure send failed:', e && e.message ? e.message : e);
+      return false;
+    }
   }
 
   // חלק reconnect (chat-p2p-datachannel.js) – חיבור מחדש אוטומטי | HYPER CORE TECH
@@ -880,14 +946,21 @@
     await connect(peer);
   }
 
-  function ingestLocalSignal(fromIp, signal, fromPubkey) {
+  async function ingestLocalSignal(fromIp, signal, fromPubkey) {
     try {
-      const sig = typeof signal === 'string' ? JSON.parse(signal) : signal;
+      let sig = typeof signal === 'string' ? JSON.parse(signal) : signal;
       if (!sig) return;
-      const type = String(sig.type || '');
-      if (!type.startsWith('dc-')) return;
       const peer = String(fromPubkey || sig.fromPubkey || '').toLowerCase();
       if (!isValidPeerKey(peer)) return;
+      if (sig.type === 'p2p-secure-mesh-signal') {
+        if (!App.P2pSecureV2 || typeof App.P2pSecureV2.decryptMeshSignal !== 'function') {
+          console.warn('[SECURITY/PARSE_REJECT] kind=mesh type=p2p-secure-mesh-signal reason=no_module');
+          return;
+        }
+        sig = await App.P2pSecureV2.decryptMeshSignal(peer, sig);
+      }
+      const type = String(sig.type || '');
+      if (!type.startsWith('dc-')) return;
       const data = sig.data !== undefined ? sig.data : (sig.payload !== undefined ? sig.payload : null);
       ensPS(peer).sigTransport = 'MESH';
       console.log(`[P2P-SIG] RX type=${type} peer=${peer.slice(0,8)} transport=MESH`);
@@ -896,7 +969,7 @@
       else if (type === 'dc-answer' && data && data.type && data.sdp) onAnswer(peer, data);
       else if (type === 'dc-candidates' && Array.isArray(data)) onCands(peer, data);
     } catch (e) {
-      console.warn('[DC] mesh sig:', e);
+      console.warn('[DC] mesh sig:', e && e.code ? e.code : e);
     }
   }
 

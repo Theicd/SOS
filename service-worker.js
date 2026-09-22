@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v877'; // I2 pending package only. Delete flag stays false. Not deployed by packaging.
+  const CACHE_NAME = 'sos-cache-v878'; // I2 pending package only. Delete flag stays false. Not deployed by packaging.
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -58,16 +58,16 @@
     './p2p-standby.html',
     './doom-multiplayer.html',
     './hexgl-multiplayer.html',
-    './key-storage.js?pkg=877',
-    './identity-storage-bootstrap.js?pkg=877',
-    './auth-guard.js?pkg=877',
-    './config.js?pkg=877',
-    './keys.js?pkg=877',
-    './app.js?pkg=877',
-    './identity-lifecycle.js?pkg=877',
-    './account.js?pkg=877',
-    './key-viewer.js?pkg=877',
-    './sw-register.js?pkg=877',
+    './key-storage.js?pkg=878',
+    './identity-storage-bootstrap.js?pkg=878',
+    './auth-guard.js?pkg=878',
+    './config.js?pkg=878',
+    './keys.js?pkg=878',
+    './app.js?pkg=878',
+    './identity-lifecycle.js?pkg=878',
+    './account.js?pkg=878',
+    './key-viewer.js?pkg=878',
+    './sw-register.js?pkg=878',
   ];
 
   async function networkFirstThenCache(request, isNavigate) {

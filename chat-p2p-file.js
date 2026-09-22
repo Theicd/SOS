@@ -1094,10 +1094,41 @@
 
       if (transfer.nextChunkToSend === 0 && !transfer._dcOfferSent) {
         try {
-          const dcOffer = JSON.stringify({ type: 'file-offer', fileId, name: file.name, size: file.size, mimeType: file.type, keyStr: transfer.keyStr, totalChunks, createdAt: Math.floor((transfer.startTime || Date.now()) / 1000), caption: transfer.caption || undefined });
-          channel.send(dcOffer);
-          transfer._dcOfferSent = true;
-          console.log('[CHAT/P2P] ⚡ file-offer נשלח דרך DC (fast path, לפני chunks)');
+          const offerPlain = {
+            type: 'file-offer',
+            fileId,
+            name: file.name,
+            size: file.size,
+            mimeType: file.type,
+            keyStr: transfer.keyStr,
+            totalChunks,
+            createdAt: Math.floor((transfer.startTime || Date.now()) / 1000),
+            caption: transfer.caption || undefined,
+          };
+          if (
+            App.P2pSecureV2 &&
+            App.P2pSecureV2.isLocalSecureP2pV2() &&
+            App.P2pSecureV2.isPeerSecureP2pV2(peerKey) &&
+            typeof App.P2pSecureV2.encryptFileOfferForDc === 'function'
+          ) {
+            App.P2pSecureV2.encryptFileOfferForDc(peerKey, offerPlain).then((wire) => {
+              try {
+                if (transfer.completed) return;
+                const ch = transfer.channel || channel;
+                if (!ch || ch.readyState !== 'open') return;
+                ch.send(JSON.stringify(wire));
+                transfer._dcOfferSent = true;
+                console.log('[CHAT/P2P] secure file-offer sent via DC (fast path)');
+              } catch (e) {
+                console.warn('[CHAT/P2P] secure file-offer via DC failed:', e.message);
+              }
+            }).catch((e) => {
+              console.warn('[CHAT/P2P] secure file-offer encrypt failed:', e && e.message ? e.message : e);
+            });
+          } else if (!App.P2pSecureV2 || !App.P2pSecureV2.isPeerSecureP2pV2(peerKey)) {
+            // Key delivery: encrypted Nostr 30078 only (no LEGACY_DTLS_KEY_EXCHANGE).
+            transfer._dcOfferSent = true;
+          }
         } catch (e) { console.warn('[CHAT/P2P] file-offer via DC failed:', e.message); }
       }
 
@@ -1190,10 +1221,25 @@
       if (typeof data === 'string') {
         preferDataChannel(peerKey, sourceChannel);
         const msg = JSON.parse(data);
-        if (msg.type === 'file-offer') {
-          // חלק file-offer via DC (chat-p2p-file.js) – קבלת metadata דרך DC (fast path, לפני chunks) | HYPER CORE TECH
-          console.log('[CHAT/P2P] ⚡ file-offer התקבל דרך DC!', msg.fileId, msg.mimeType || 'unknown', msg.size || 0);
+        if (msg.type === 'p2p-secure-file-offer') {
+          if (!App.P2pSecureV2 || typeof App.P2pSecureV2.decryptFileOfferFromDc !== 'function') {
+            console.warn('[SECURITY/PARSE_REJECT] kind=dc type=p2p-secure-file-offer reason=no_module');
+            return;
+          }
+          App.P2pSecureV2.decryptFileOfferFromDc(peerKey, msg).then((offer) => {
+            console.log('[CHAT/P2P] secure file-offer received via DC', offer.fileId, offer.mimeType || 'unknown', offer.size || 0);
+            handleP2PFileOffer(peerKey, offer);
+          }).catch((e) => {
+            console.warn('[SECURITY/PARSE_REJECT] kind=dc type=p2p-secure-file-offer reason=' + (e && e.code ? e.code : 'decrypt_failed'));
+          });
+        } else if (msg.type === 'file-offer') {
+          if (msg.keyStr) {
+            console.warn('[SECURITY/PARSE_REJECT] kind=dc type=file-offer reason=legacy_plaintext_key_rejected');
+            return;
+          }
+          console.log('[CHAT/P2P] file-offer via DC (no keyStr)', msg.fileId);
           handleP2PFileOffer(peerKey, msg);
+        } else if (msg.type === 'chunk-meta') {
         } else if (msg.type === 'chunk-meta') {
           const transfer = activeTransfers.get(msg.fileId);
           if (transfer) {

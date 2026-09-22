@@ -1,9 +1,9 @@
 {
-  "version": "2026.09.22-guest-auth-ui-877",
-  "buildTime": "2026-09-22T03:11:34+03:00",
-  "notes": "Guest top-bar auth UI: hide account/profile menu until IDENTITY_OK. Package 877 / sos-cache-v877. No identity/E2EE/P2P/call security changes. browserSecureCutoverDeleteLegacy remains false.",
-  "minSecureChatEpoch": 2,
-  "e2eeSendRequired": true,
-  "mediaServerE2eeRequired": true,
-  "callSignalGiftWrapRequired": true
+    "version":  "2026.09.22-secure-p2p-v2-878",
+    "buildTime":  "2026-09-22T03:11:34+03:00",
+    "notes":  "Secure P2P v2: NIP-44 app-layer E2EE for direct P2P text/file-key/mesh. Package 878 / sos-cache-v878. browserSecureCutoverDeleteLegacy remains false.",
+    "minSecureChatEpoch":  2,
+    "e2eeSendRequired":  true,
+    "mediaServerE2eeRequired":  true,
+    "callSignalGiftWrapRequired":  true
 }
