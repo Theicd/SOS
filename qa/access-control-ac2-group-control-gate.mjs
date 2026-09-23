@@ -392,8 +392,17 @@ function withIdentity(ctx, sk) {
   const signed2b = finalizeEvent(GCS.buildSignDraft(alt2, rootPk), rootSk);
   const conflict = GCS.acceptControlEvent(signed2b);
   report.SAME_EPOCH_CONFLICT_AUTO_ACCEPTED = conflict.ok === true;
-  ok = record('same-epoch conflict rejected', conflict.ok === false && conflict.status === 'CONFLICT') && ok;
-  ok = record('prior verified retained after conflict', GCS.getControlEpoch() === 2) && ok;
+  ok =
+    record(
+      'same-epoch conflict rejected',
+      conflict.ok === false &&
+        (conflict.status === 'CONTROL_CONFLICT' || conflict.status === 'CONFLICT') &&
+        conflict.code === 'SAME_EPOCH_CONFLICT'
+    ) && ok;
+  // Hardened: tip frozen at prior unique epoch (1), not first-seen epoch-2 winner
+  ok = record('prior verified retained after conflict', GCS.getControlEpoch() === 1) && ok;
+  report.CONTROL_CONFLICT_FAILS_CLOSED = conflict.ok === false;
+  report.CONTROL_CONFLICT_TIP_FROZEN_AT_PRIOR_EPOCH = GCS.getControlEpoch() === 1;
 
   // Root change rejected
   const rootChange = GCS.parseAndValidateRecord(

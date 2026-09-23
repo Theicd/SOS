@@ -69,7 +69,24 @@
   /** @type {{ event: object, record: object, status: string } | null} */
   let verified = null;
   /** @type {string} */
-  let storeStatus = 'MISSING'; // MISSING | VERIFIED | INVALID | STALE | CONFLICT | WRONG_GROUP | BAD_ISSUER
+  let storeStatus = 'MISSING'; // MISSING | VERIFIED | INVALID | STALE | CONFLICT | CONTROL_CONFLICT | WRONG_GROUP | BAD_ISSUER
+
+  /** All strict-valid control events for this group (authority via reconstruct, not first-seen). */
+  const controlEvents = new Map();
+  /** @type {object[]} */
+  let conflictCandidates = [];
+
+  const CONTROL_CONFLICT_FAILS_CLOSED = true;
+  const CONTROL_CONFLICT_CANDIDATES_RETAINED = true;
+  const CONTROL_CONFLICT_RESOLUTION_DETERMINISTIC = true;
+  const CONTROL_RECONSTRUCTION_ORDER_INDEPENDENT = true;
+  const ROOT_CAN_RESOLVE_CONTROL_CONFLICT = true;
+  const DELEGATED_ADMIN_CAN_RESOLVE_CONTROL_CONFLICT = false;
+  const CURRENT_CONTROL_CONFLICT_RECOVERY_MODEL =
+    'Event-set + deterministic reconstruct: unique exact_+1 chain from epoch 1; ' +
+    '≥2 distinct valid states at same epoch → CONTROL_CONFLICT (tip frozen at prior epoch); ' +
+    'ROOT_ADMIN issues RESOLVE_CONTROL_CONFLICT at conflictEpoch+1 referencing candidate event ids; ' +
+    'no first-seen / created_at / arrival-order winner.';
 
   function isHex64(s) {
     return typeof s === 'string' && /^[0-9a-f]{64}$/i.test(s.trim());
@@ -257,6 +274,28 @@
       }
     });
 
+    let resolution = null;
+    if (raw.resolution != null) {
+      if (typeof raw.resolution !== 'object') {
+        throw Object.assign(new Error('BAD_RESOLUTION'), { code: 'BAD_RESOLUTION' });
+      }
+      if (raw.resolution.type !== 'RESOLVE_CONTROL_CONFLICT') {
+        throw Object.assign(new Error('BAD_RESOLUTION_TYPE'), { code: 'BAD_RESOLUTION_TYPE' });
+      }
+      const conflictEpoch = Number(raw.resolution.conflictEpoch);
+      if (!Number.isInteger(conflictEpoch) || conflictEpoch < 1) {
+        throw Object.assign(new Error('BAD_RESOLUTION_EPOCH'), { code: 'BAD_RESOLUTION_EPOCH' });
+      }
+      const ids = Array.isArray(raw.resolution.conflictingEventIds)
+        ? raw.resolution.conflictingEventIds.map((x) => String(x || '').toLowerCase()).filter(Boolean)
+        : [];
+      resolution = Object.freeze({
+        type: 'RESOLVE_CONTROL_CONFLICT',
+        conflictEpoch,
+        conflictingEventIds: Object.freeze(ids.slice().sort()),
+      });
+    }
+
     return deepFreeze({
       schema: SCHEMA_NAME,
       version: SCHEMA_VERSION,
@@ -273,6 +312,7 @@
       }),
       createdAt: raw.createdAt,
       membershipRoot: typeof raw.membershipRoot === 'string' ? raw.membershipRoot : null,
+      resolution,
     });
   }
 
@@ -301,6 +341,13 @@
       createdAt: record.createdAt,
     };
     if (record.membershipRoot) obj.membershipRoot = record.membershipRoot;
+    if (record.resolution) {
+      obj.resolution = {
+        type: record.resolution.type,
+        conflictEpoch: record.resolution.conflictEpoch,
+        conflictingEventIds: (record.resolution.conflictingEventIds || []).slice().sort(),
+      };
+    }
     return JSON.stringify(obj);
   }
 
@@ -397,9 +444,28 @@
       return true;
     }
 
-    // Epoch: prefer exact +1; allow any strictly greater only if documented — AC2 chooses exact +1
-    if (next.controlEpoch !== prev.controlEpoch + 1) {
+    // Epoch: prefer exact +1; root conflict resolution may advance conflictEpoch+1 from frozen tip
+    const isRootResolve =
+      next.resolution &&
+      next.resolution.type === 'RESOLVE_CONTROL_CONFLICT' &&
+      issuer === (prev ? prev.rootAdminPubkey : next.rootAdminPubkey);
+
+    if (isRootResolve && prev) {
+      const cEpoch = Number(next.resolution.conflictEpoch);
+      if (cEpoch !== prev.controlEpoch + 1) {
+        throw Object.assign(new Error('BAD_RESOLUTION_EPOCH'), { code: 'BAD_RESOLUTION_EPOCH' });
+      }
+      if (next.controlEpoch !== cEpoch + 1) {
+        throw Object.assign(new Error('BAD_EPOCH_STEP'), { code: 'BAD_EPOCH_STEP' });
+      }
+      if (issuer !== prev.rootAdminPubkey) {
+        throw Object.assign(new Error('ROOT_RESOLVE_REQUIRED'), { code: 'ROOT_RESOLVE_REQUIRED' });
+      }
+    } else if (next.controlEpoch !== prev.controlEpoch + 1) {
       throw Object.assign(new Error('BAD_EPOCH_STEP'), { code: 'BAD_EPOCH_STEP' });
+    }
+    if (next.resolution && !isRootResolve) {
+      throw Object.assign(new Error('ROOT_RESOLVE_REQUIRED'), { code: 'ROOT_RESOLVE_REQUIRED' });
     }
     if (next.groupId !== prev.groupId) {
       throw Object.assign(new Error('GROUP_CHANGED'), { code: 'GROUP_CHANGED' });
@@ -462,12 +528,6 @@
     return CACHE_PREFIX + String(groupId || resolveGroupId());
   }
 
-  function persistCache(event) {
-    try {
-      window.localStorage.setItem(cacheKey(resolveGroupId()), JSON.stringify(event));
-    } catch (_e) {}
-  }
-
   function loadCacheRaw() {
     try {
       const raw = window.localStorage.getItem(cacheKey(resolveGroupId()));
@@ -482,8 +542,222 @@
     storeStatus = status;
   }
 
+  function contentFingerprint(record) {
+    return serializeRecord(record);
+  }
+
+  function candidateMeta(event, record) {
+    return Object.freeze({
+      eventId: String(event.id || ''),
+      issuerPubkey: normalizePubkey(event.pubkey),
+      controlEpoch: record.controlEpoch,
+      stateHash: contentFingerprint(record),
+      createdAt: event.created_at,
+      resolutionType: record.resolution ? record.resolution.type : null,
+    });
+  }
+
+  function freezeEvent(event, issuer) {
+    return Object.freeze({
+      id: event.id,
+      pubkey: issuer,
+      created_at: event.created_at,
+      kind: event.kind,
+      tags: JSON.parse(JSON.stringify(event.tags)),
+      content: event.content,
+      sig: event.sig,
+    });
+  }
+
+  function reconstructControlState() {
+    conflictCandidates = [];
+    const rows = [];
+    controlEvents.forEach((row) => rows.push(row));
+    if (!rows.length) {
+      verified = null;
+      setStatus('MISSING');
+      return { ok: false, status: 'MISSING', code: 'NO_EVENTS' };
+    }
+
+    let tipRecord = null;
+    let tipEvent = null;
+    let epoch = 0;
+
+    // Max epoch present
+    let maxEpoch = 0;
+    rows.forEach((r) => {
+      if (r.record.controlEpoch > maxEpoch) maxEpoch = r.record.controlEpoch;
+    });
+
+    for (let e = 1; e <= maxEpoch; e++) {
+      const atEpoch = rows.filter((r) => r.record.controlEpoch === e);
+      if (atEpoch.length === 0) {
+        // Gap — stop (fail closed). Higher events unapplied.
+        break;
+      }
+
+      // Root resolve at this epoch supersedes forks at conflictEpoch = e-1 when tip is e-2
+      const rootResolves = atEpoch.filter(
+        (r) =>
+          r.record.resolution &&
+          r.record.resolution.type === 'RESOLVE_CONTROL_CONFLICT' &&
+          normalizePubkey(r.event.pubkey) === normalizePubkey(r.record.rootAdminPubkey)
+      );
+
+      let chosen = null;
+      if (rootResolves.length > 0) {
+        const uniq = [];
+        const seen = new Set();
+        rootResolves.forEach((r) => {
+          const fp = contentFingerprint(r.record);
+          if (!seen.has(fp)) {
+            seen.add(fp);
+            uniq.push(r);
+          }
+        });
+        if (uniq.length > 1) {
+          conflictCandidates = Object.freeze(uniq.map((r) => candidateMeta(r.event, r.record)));
+          // Keep prior tip
+          if (tipRecord) {
+            verified = { event: tipEvent, record: tipRecord, status: 'VERIFIED' };
+          }
+          setStatus('CONTROL_CONFLICT');
+          return {
+            ok: false,
+            status: 'CONTROL_CONFLICT',
+            code: 'ROOT_RESOLVE_CONFLICT',
+            conflictCandidates,
+            record: tipRecord,
+            event: tipEvent,
+          };
+        }
+        // Validate resolve against tip
+        try {
+          authorizeTransition(tipRecord, uniq[0].record, uniq[0].event.pubkey);
+          chosen = uniq[0];
+        } catch (err) {
+          // invalid resolve — ignore for chain
+          chosen = null;
+        }
+      }
+
+      if (!chosen) {
+        const valid = [];
+        const seenFp = new Set();
+        atEpoch.forEach((r) => {
+          if (r.record.resolution) return; // non-chosen resolves already handled
+          try {
+            authorizeTransition(tipRecord, r.record, r.event.pubkey);
+            const fp = contentFingerprint(r.record);
+            if (seenFp.has(fp)) return;
+            seenFp.add(fp);
+            valid.push(r);
+          } catch (_e) {
+            /* unauthorized / illegal */
+          }
+        });
+        if (valid.length === 0) break;
+        if (valid.length > 1) {
+          conflictCandidates = Object.freeze(valid.map((r) => candidateMeta(r.event, r.record)));
+          // Look ahead: ROOT may resolve at conflictEpoch+1 referencing candidates.
+          // Do not pick by arrival/created_at/event-id; only explicit RESOLVE_CONTROL_CONFLICT.
+          const resolveEpoch = e + 1;
+          const resolvesAtNext = rows.filter(
+            (r) =>
+              r.record.controlEpoch === resolveEpoch &&
+              r.record.resolution &&
+              r.record.resolution.type === 'RESOLVE_CONTROL_CONFLICT' &&
+              Number(r.record.resolution.conflictEpoch) === e &&
+              normalizePubkey(r.event.pubkey) === normalizePubkey(r.record.rootAdminPubkey)
+          );
+          const uniqResolves = [];
+          const seenResolveFp = new Set();
+          resolvesAtNext.forEach((r) => {
+            const fp = contentFingerprint(r.record);
+            if (!seenResolveFp.has(fp)) {
+              seenResolveFp.add(fp);
+              uniqResolves.push(r);
+            }
+          });
+          if (uniqResolves.length === 1) {
+            try {
+              authorizeTransition(tipRecord, uniqResolves[0].record, uniqResolves[0].event.pubkey);
+              tipRecord = uniqResolves[0].record;
+              tipEvent = uniqResolves[0].event;
+              epoch = resolveEpoch;
+              conflictCandidates = Object.freeze([]);
+              // Skip the resolve epoch on next iteration (already applied).
+              e = resolveEpoch;
+              continue;
+            } catch (_resolveErr) {
+              /* invalid resolve — fall through to fail-closed conflict */
+            }
+          } else if (uniqResolves.length > 1) {
+            conflictCandidates = Object.freeze(
+              uniqResolves.map((r) => candidateMeta(r.event, r.record))
+            );
+            if (tipRecord) {
+              verified = { event: tipEvent, record: tipRecord, status: 'VERIFIED' };
+            } else {
+              verified = null;
+            }
+            setStatus('CONTROL_CONFLICT');
+            return {
+              ok: false,
+              status: 'CONTROL_CONFLICT',
+              code: 'ROOT_RESOLVE_CONFLICT',
+              conflictCandidates,
+              record: tipRecord,
+              event: tipEvent,
+            };
+          }
+          if (tipRecord) {
+            verified = { event: tipEvent, record: tipRecord, status: 'VERIFIED' };
+          } else {
+            verified = null;
+          }
+          setStatus('CONTROL_CONFLICT');
+          return {
+            ok: false,
+            status: 'CONTROL_CONFLICT',
+            code: 'SAME_EPOCH_CONFLICT',
+            conflictCandidates,
+            record: tipRecord,
+            event: tipEvent,
+          };
+        }
+        chosen = valid[0];
+      }
+
+      tipRecord = chosen.record;
+      tipEvent = chosen.event;
+      epoch = e;
+    }
+
+    if (!tipRecord) {
+      verified = null;
+      setStatus('MISSING');
+      return { ok: false, status: 'MISSING', code: 'NO_TIP' };
+    }
+    verified = { event: tipEvent, record: tipRecord, status: 'VERIFIED' };
+    setStatus('VERIFIED');
+    conflictCandidates = Object.freeze([]);
+    return { ok: true, status: 'VERIFIED', record: tipRecord, event: tipEvent, controlEpoch: epoch };
+  }
+
+  function persistEventSet() {
+    try {
+      const rows = [];
+      controlEvents.forEach((row) => rows.push({ event: row.event }));
+      window.localStorage.setItem(
+        cacheKey(resolveGroupId()),
+        JSON.stringify({ v: 2, rows, updatedAt: Date.now() })
+      );
+    } catch (_e) {}
+  }
+
   /**
-   * Accept a signed GROUP_CONTROL event. Fail closed.
+   * Accept a signed GROUP_CONTROL event. Fail closed. Order-independent via reconstruct.
    * @returns {{ ok: boolean, status: string, record?: object, event?: object, code?: string }}
    */
   function acceptControlEvent(event, options) {
@@ -515,7 +789,6 @@
         return { ok: false, status: 'WRONG_GROUP', code: 'CROSS_GROUP' };
       }
 
-      // d-tag binding (parameterized-replaceable stream key = groupId)
       const dTags = Array.isArray(event.tags)
         ? event.tags.filter((t) => Array.isArray(t) && t[0] === 'd')
         : [];
@@ -542,60 +815,93 @@
       }
 
       const issuer = normalizePubkey(event.pubkey);
-      const prev = verified && verified.record ? verified.record : null;
+      const frozen = freezeEvent(event, issuer);
+      const eventId = String(event.id);
+      controlEvents.set(eventId, { event: frozen, record });
 
-      if (prev) {
-        if (record.controlEpoch < prev.controlEpoch) {
-          setStatus('STALE');
-          return { ok: false, status: 'STALE', code: 'STALE_EPOCH' };
-        }
-        if (record.controlEpoch === prev.controlEpoch) {
-          if (verified.event && verified.event.id === event.id) {
-            return { ok: true, status: 'VERIFIED', record: prev, event: verified.event };
-          }
-          // Same epoch different content → conflict, fail closed; keep prior verified authority.
-          return { ok: false, status: 'CONFLICT', code: 'SAME_EPOCH_CONFLICT' };
-        }
-        if (record.controlEpoch > prev.controlEpoch + 1 && !opts.allowEpochSkip) {
-          // AC2 rule: prefer exact +1
-          setStatus('INVALID');
-          return { ok: false, status: 'INVALID', code: 'BAD_EPOCH_STEP' };
-        }
+      const prevTipId = verified && verified.event ? String(verified.event.id) : '';
+      const prevEpoch = verified && verified.record ? verified.record.controlEpoch : 0;
+      const result = reconstructControlState();
+      if (opts.persist !== false) persistEventSet();
+
+      if (result.status === 'CONTROL_CONFLICT' || result.status === 'CONFLICT') {
+        return {
+          ok: false,
+          status: 'CONTROL_CONFLICT',
+          code: result.code || 'SAME_EPOCH_CONFLICT',
+          conflictCandidates: result.conflictCandidates || getConflictCandidates(),
+          record: result.record || null,
+          event: result.event || null,
+        };
+      }
+      if (!result.ok) {
+        return { ok: false, status: result.status || storeStatus, code: result.code || 'REJECTED' };
       }
 
-      authorizeTransition(prev, record, issuer);
-
-      // Do not allow new state to invent issuer authority that wasn't in previous (already checked)
-      verified = {
-        event: Object.freeze({
-          id: event.id,
-          pubkey: issuer,
-          created_at: event.created_at,
-          kind: event.kind,
-          tags: JSON.parse(JSON.stringify(event.tags)),
-          content: event.content,
-          sig: event.sig,
-        }),
-        record,
-        status: 'VERIFIED',
+      const tipId = result.event ? String(result.event.id) : '';
+      // Exact replay of current tip
+      if (tipId === eventId && prevTipId === eventId) {
+        return { ok: true, status: 'VERIFIED', record: result.record, event: result.event, code: 'REPLAY_IDEMPOTENT' };
+      }
+      // New tip advanced to this event
+      if (tipId === eventId) {
+        return { ok: true, status: 'VERIFIED', record: result.record, event: result.event };
+      }
+      // Event stored but not applied (unauthorized, skipped epoch, stale, etc.)
+      const code =
+        record.controlEpoch < prevEpoch
+          ? 'STALE_EPOCH'
+          : record.controlEpoch > prevEpoch + 1
+            ? 'BAD_EPOCH_STEP'
+            : 'NOT_APPLIED';
+      if (code === 'STALE_EPOCH') setStatus('STALE');
+      else if (code === 'BAD_EPOCH_STEP') setStatus(prevTipId ? 'VERIFIED' : storeStatus);
+      return {
+        ok: false,
+        status: code === 'STALE_EPOCH' ? 'STALE' : 'INVALID',
+        code,
+        record: result.record,
+        event: result.event,
       };
-      setStatus('VERIFIED');
-      if (opts.persist !== false) persistCache(verified.event);
-      return { ok: true, status: 'VERIFIED', record, event: verified.event };
     } catch (e) {
       const code = (e && e.code) || 'REJECTED';
       if (code === 'BAD_ISSUER' || code === 'ROOT_MISMATCH') setStatus('BAD_ISSUER');
       else if (code === 'STALE_EPOCH') setStatus('STALE');
-      else if (code === 'SAME_EPOCH_CONFLICT') setStatus('CONFLICT');
+      else if (code === 'SAME_EPOCH_CONFLICT') setStatus('CONTROL_CONFLICT');
       else if (code === 'CROSS_GROUP' || code === 'GROUP_CHANGED') setStatus('WRONG_GROUP');
       else setStatus('INVALID');
       return { ok: false, status: storeStatus, code };
     }
   }
 
+  function ingestControlEvents(eventList, options) {
+    const list = Array.isArray(eventList) ? eventList : [];
+    const outcomes = [];
+    list.forEach((ev) => {
+      const r = acceptControlEvent(ev, Object.assign({}, options || {}, { persist: false }));
+      outcomes.push({ eventId: ev && ev.id, ok: r.ok, status: r.status, code: r.code });
+    });
+    if ((options || {}).persist !== false) persistEventSet();
+    reconstructControlState();
+    return outcomes;
+  }
+
+  function getConflictCandidates() {
+    return Object.freeze((conflictCandidates || []).slice());
+  }
+
+  function mutationsBlockedByConflict() {
+    return storeStatus === 'CONTROL_CONFLICT' || storeStatus === 'CONFLICT';
+  }
+
   function clearVerified() {
     verified = null;
+    controlEvents.clear();
+    conflictCandidates = [];
     setStatus('MISSING');
+    try {
+      window.localStorage.removeItem(cacheKey(resolveGroupId()));
+    } catch (_e) {}
   }
 
   function revalidateFromCache() {
@@ -604,15 +910,36 @@
       clearVerified();
       return { ok: false, status: 'MISSING', code: 'NO_CACHE' };
     }
-    // Cache is not authority — must fully re-accept
     clearVerified();
+    // v2 event-set cache
+    if (cached && cached.v === 2 && Array.isArray(cached.rows)) {
+      const events = cached.rows.map((r) => r && r.event).filter(Boolean);
+      ingestControlEvents(events, { persist: false });
+      if (storeStatus === 'VERIFIED') {
+        persistEventSet();
+        return { ok: true, status: 'VERIFIED', record: verified && verified.record, event: verified && verified.event };
+      }
+      if (storeStatus === 'CONTROL_CONFLICT') {
+        return {
+          ok: false,
+          status: 'CONTROL_CONFLICT',
+          code: 'SAME_EPOCH_CONFLICT',
+          conflictCandidates: getConflictCandidates(),
+        };
+      }
+      try {
+        window.localStorage.removeItem(cacheKey(resolveGroupId()));
+      } catch (_e) {}
+      return { ok: false, status: storeStatus, code: 'CACHE_REJECTED' };
+    }
+    // legacy single-event cache
     const result = acceptControlEvent(cached, { persist: false });
-    if (!result.ok) {
+    if (!result.ok && result.status !== 'CONTROL_CONFLICT') {
       try {
         window.localStorage.removeItem(cacheKey(resolveGroupId()));
       } catch (_e) {}
     } else if (result.ok) {
-      persistCache(result.event);
+      persistEventSet();
     }
     return result;
   }
@@ -719,8 +1046,15 @@
     DELEGABLE_BY_PERMISSION_MANAGER,
     CAPABILITY_DELEGATION_MODEL,
     MEMBERSHIP_CONTROL_MODEL_PROPOSAL,
+    CURRENT_CONTROL_CONFLICT_RECOVERY_MODEL,
+    ROOT_CAN_RESOLVE_CONTROL_CONFLICT,
+    DELEGATED_ADMIN_CAN_RESOLVE_CONTROL_CONFLICT,
+    CONTROL_CONFLICT_FAILS_CLOSED,
+    CONTROL_CONFLICT_CANDIDATES_RETAINED,
+    CONTROL_CONFLICT_RESOLUTION_DETERMINISTIC,
+    CONTROL_RECONSTRUCTION_ORDER_INDEPENDENT,
     CONTROL_ORDERING_SOURCE: 'controlEpoch',
-    CONTROL_EPOCH_RULE: 'exact_+1',
+    CONTROL_EPOCH_RULE: 'exact_+1 (root RESOLVE_CONTROL_CONFLICT may advance conflictEpoch+1 from frozen tip)',
     RELAY_IS_AUTHORITY: false,
     AUDIT_LOG_SEPARATE_FROM_CONTROL_STATE: true,
     CONTROL_STATE_SERVER_CONSUMABLE: true,
@@ -731,6 +1065,8 @@
     buildSignDraft,
     signControlRecord,
     acceptControlEvent,
+    ingestControlEvents,
+    reconstructControlState,
     clearVerified,
     revalidateFromCache,
     getVerifiedControlState,
@@ -740,6 +1076,8 @@
     isBlocked,
     getGroupSettings,
     getStatus,
+    getConflictCandidates,
+    mutationsBlockedByConflict,
     legacyRootPubkey,
     resolveGroupId,
     normalizePubkey,

@@ -359,12 +359,20 @@ async function setCaps(g, rootSk, capsByPubkey, invitePolicy) {
   ok = record('localStorage cannot self-grant', IP.canCreateInvite(normalPk).ok === false) && ok;
   report.LOCAL_CLIENT_CAN_SELF_GRANT_INVITE = IP.canCreateInvite(normalPk).ok === true;
 
-  // Cache forge policy
+  // Cache forge policy (v2 event-set cache — tamper content without resigning)
   await bootstrapControl(g, rootSk, 'ADMINS_ONLY');
   const cached = JSON.parse(g.localStorage.getItem('sos_group_control_v1_israel-network'));
-  const body = JSON.parse(cached.content);
-  body.invitePolicy = 'EVERYONE';
-  cached.content = JSON.stringify(body);
+  if (cached && cached.v === 2 && Array.isArray(cached.rows) && cached.rows[0] && cached.rows[0].event) {
+    const ev = cached.rows[0].event;
+    const body = JSON.parse(ev.content);
+    body.invitePolicy = 'EVERYONE';
+    ev.content = JSON.stringify(body);
+    cached.rows[0].event = ev;
+  } else if (cached && cached.content) {
+    const body = JSON.parse(cached.content);
+    body.invitePolicy = 'EVERYONE';
+    cached.content = JSON.stringify(body);
+  }
   g.localStorage.setItem('sos_group_control_v1_israel-network', JSON.stringify(cached));
   GCS.clearVerified();
   GCS.revalidateFromCache();
