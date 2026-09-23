@@ -1,9 +1,9 @@
 {
     "callSignalGiftWrapRequired":  true,
-    "version":  "2026.09.23-ac7-889",
-    "buildTime":  "2026-09-23T06:00:00+03:00",
+    "version":  "2026.09.23-ac8-890",
+    "buildTime":  "2026-09-23T06:45:00+03:00",
     "e2eeSendRequired":  true,
     "minSecureChatEpoch":  2,
     "mediaServerE2eeRequired":  true,
-    "notes":  "AC7 dark: verified member directory + block/unblock/remove management UI behind SOS_ACCESS_CONTROL_V2 default OFF. Package 889 / sos-cache-v889. Admin Settings and Member Directory hidden when V2 OFF. No production GROUP_CONTROL bootstrap. No production membership bootstrap. No real member mutations. No AC8. No F5B4. No legacy key deletion."
+    "notes":  "AC8 dark: guest explicit allowlist + strict kind-30078 schema + V2-strict network binding (legacy networkless only when V2 OFF). Package 890 / sos-cache-v890. ACCESS_CONTROL_V2 remains default OFF. No GROUP_CONTROL/membership bootstrap. No AC9/F5B4. Guest custody unchanged (AC0 session vault). No identity rotation / legacy registered key delete."
 }

@@ -73,7 +73,7 @@ function record(name, ok) {
   const localStorage = storeApi(lsMap);
   const sessionStorage = storeApi(ssMap);
 
-  // Seed legacy plaintext
+  // Seed legacy plaintext then load vault — AC8 boot purge must drop it immediately
   localStorage.setItem(
     'p2p_guest_keys',
     JSON.stringify({ privateKey: privHex, publicKey: pk, created: Date.now(), isGuest: true })
@@ -91,6 +91,8 @@ function record(name, ok) {
     Object,
     Promise,
     Error,
+    Math,
+    Set,
     window: null,
     localStorage,
     sessionStorage,
@@ -100,6 +102,7 @@ function record(name, ok) {
       finalizeEvent,
     },
     NostrApp: {
+      NETWORK_TAG: 'israel-network',
       finalizeEvent: (d, k) => finalizeEvent(JSON.parse(JSON.stringify(d)), k),
     },
   };
@@ -109,11 +112,19 @@ function record(name, ok) {
   context.window.NostrTools = context.NostrTools;
   context.window.NostrApp = context.NostrApp;
   context.window.crypto = crypto;
+  context.window.SOS_ACCESS_CONTROL_V2 = false;
 
+  const gacSrc = fs.readFileSync(path.join(ROOT, 'guest-access-control.js'), 'utf8');
+  const schemaSrc = fs.readFileSync(path.join(ROOT, 'guest-p2p-schema.js'), 'utf8');
+  vm.runInNewContext(gacSrc, context, { filename: 'guest-access-control.js' });
+  vm.runInNewContext(schemaSrc, context, { filename: 'guest-p2p-schema.js' });
   vm.runInNewContext(vaultSrc, context, { filename: 'guest-p2p-key-vault.js' });
+
+  // AC8: boot purge runs at vault load
+  const bootPurged = localStorage.getItem('p2p_guest_keys') === null;
   const V = context.NostrApp.GuestP2PKeyVault;
   const meta = await V.ensureReady();
-  note('migrated pub fp=' + (meta.fingerprint || '').slice(0, 20));
+  note('guest pub fp=' + (meta.fingerprint || '').slice(0, 20));
 
   const legacyGone = localStorage.getItem('p2p_guest_keys') === null;
   const registeredKept = localStorage.getItem('nostr_private_key') === 'aa'.repeat(32);
@@ -132,9 +143,13 @@ function record(name, ok) {
     created_at: Math.floor(Date.now() / 1000),
     tags: [
       ['d', 'p2p-heartbeat'],
+      ['t', 'p2p-heartbeat'],
+      ['app', 'sos-p2p-video'],
+      ['expires', String(Date.now() + 180000)],
       ['guest', 'true'],
+      ['network', 'israel-network'],
     ],
-    content: '{}',
+    content: JSON.stringify({ online: true, files: 0, isGuest: true }),
   });
   const signOk = !!(signed && signed.sig && signed.pubkey === meta.publicKey);
 
@@ -165,6 +180,7 @@ function record(name, ok) {
   report.REGISTERED_IDENTITY_STORAGE_UNTOUCHED = registeredKept;
 
   ok =
+    record('boot purge legacy', bootPurged) &&
     record('legacy purged', legacyGone) &&
     record('registered kept', registeredKept) &&
     record('session blob', sessionHasBlob) &&

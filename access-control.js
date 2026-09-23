@@ -243,6 +243,12 @@
     const pk = normalizePubkey(pubkey);
     if (!pk) return false;
     try {
+      const GAC = App.GuestAccessControl || window.SosGuestAccessControl;
+      if (GAC && typeof GAC.classifyPrincipal === 'function') {
+        return GAC.classifyPrincipal(pk) === 'GUEST_P2P';
+      }
+    } catch (_g) {}
+    try {
       const V = App.GuestP2PKeyVault || window.SosGuestP2PKeyVault;
       if (V && typeof V.getMetaSync === 'function') {
         const meta = V.getMetaSync();

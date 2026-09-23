@@ -1,8 +1,10 @@
 /**
- * AC0 — Guest P2P key authority.
+ * AC0/AC8 — Guest P2P key authority.
  * Raw guest K stays in module closure (and AES-GCM sessionStorage blob for reload).
  * Never localStorage plaintext. No GET_GUEST_K / export. Not registered identity.
- * Same-origin XSS can still attack sessionStorage wrap material — documented honestly.
+ * AC8: strict 30078 schema via GuestP2PSchema; boot purge of legacy LS only.
+ * Same-origin XSS can still attack sessionStorage wrap material — F5B, not AC8.
+ * AC8_CLAIMS_XSS_ISOLATION=false. Custody architecture unchanged (no Worker migration).
  */
 (function initGuestP2PKeyVault(window) {
   const App = window.NostrApp || (window.NostrApp = {});
@@ -10,6 +12,11 @@
   const SESSION_BLOB = 'sos_guest_p2p_vault_v1';
   const SESSION_WRAP = 'sos_guest_p2p_wrap_v1';
   const AAD = 'SOS|guest-p2p|v1';
+
+  // AC8: boot-time purge of ONLY legacy plaintext guest key entry (no registered storage).
+  try {
+    window.localStorage.removeItem(LEGACY_LS);
+  } catch (_bootPurge) {}
 
   /** @type {string} */
   let privHex = '';
@@ -206,25 +213,44 @@
       window.sessionStorage.removeItem(SESSION_WRAP);
     } catch (_e) {}
     purgeLegacyPlaintext();
+    try {
+      const S = App.GuestP2PSchema || window.SosGuestP2PSchema;
+      if (S && typeof S.clearGuestReplayCache === 'function') S.clearGuestReplayCache();
+    } catch (_e2) {}
     return { ok: true };
   }
 
   function assertGuestP2pDraft(draft) {
-    if (!draft || typeof draft !== 'object') throw Object.assign(new Error('MALFORMED_DRAFT'), { code: 'MALFORMED_DRAFT' });
-    if (draft.kind !== 30078) {
-      throw Object.assign(new Error('KIND_NOT_ALLOWED'), { code: 'KIND_NOT_ALLOWED' });
+    const S = App.GuestP2PSchema || window.SosGuestP2PSchema;
+    if (S && typeof S.assertGuest30078ForSign === 'function') {
+      S.assertGuest30078ForSign(draft);
+      return;
     }
-    if (typeof draft.content !== 'string') {
-      throw Object.assign(new Error('BAD_CONTENT'), { code: 'BAD_CONTENT' });
-    }
-    if (!Array.isArray(draft.tags)) {
-      throw Object.assign(new Error('BAD_TAGS'), { code: 'BAD_TAGS' });
-    }
+    // Fail closed if schema module missing (AC8)
+    throw Object.assign(new Error('GUEST_SCHEMA_UNAVAILABLE'), { code: 'GUEST_SCHEMA_UNAVAILABLE' });
   }
 
   async function signP2pEvent(draft) {
     await ensureReady();
     if (!privHex) throw Object.assign(new Error('GUEST_VAULT_EMPTY'), { code: 'GUEST_VAULT_EMPTY' });
+    // AC8: GuestAccessControl public-signal capability (deny-by-default)
+    try {
+      const GAC = App.GuestAccessControl || window.SosGuestAccessControl;
+      if (GAC && typeof GAC.canGuestAction === 'function' && !GAC.canGuestAction('P2P_SIGNAL_PUBLIC_30078')) {
+        throw Object.assign(new Error('GUEST_CAPABILITY_DENIED'), { code: 'GUEST_CAPABILITY_DENIED' });
+      }
+      if (GAC && typeof GAC.canUseGroupP2P === 'function') {
+        const gate = GAC.canUseGroupP2P(pubHex, { signalClass: 'PUBLIC_AVAILABILITY' });
+        if (!gate || gate.ok !== true) {
+          throw Object.assign(new Error((gate && gate.code) || 'GUEST_P2P_DENIED'), {
+            code: (gate && gate.code) || 'GUEST_P2P_DENIED',
+          });
+        }
+      }
+    } catch (e) {
+      if (e && e.code) throw e;
+      throw e;
+    }
     assertGuestP2pDraft(draft);
     const copy = {
       kind: draft.kind,

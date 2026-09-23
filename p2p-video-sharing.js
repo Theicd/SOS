@@ -43,6 +43,45 @@
     return !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey();
   }
 
+  function guestSchema() {
+    return App.GuestP2PSchema || window.SosGuestP2PSchema || null;
+  }
+
+  function guestAccess() {
+    return App.GuestAccessControl || window.SosGuestAccessControl || null;
+  }
+
+  function resolveP2pNetworkTag() {
+    const S = guestSchema();
+    if (S && typeof S.resolveNetworkTag === 'function') return S.resolveNetworkTag();
+    if (typeof App.NETWORK_TAG === 'string' && App.NETWORK_TAG.trim()) return App.NETWORK_TAG.trim();
+    return 'israel-network';
+  }
+
+  function withGuestNetworkTag(tags) {
+    const S = guestSchema();
+    if (S && typeof S.ensureNetworkTagOnTags === 'function') {
+      return S.ensureNetworkTagOnTags(tags, resolveP2pNetworkTag());
+    }
+    const net = resolveP2pNetworkTag();
+    const out = Array.isArray(tags) ? tags.slice() : [];
+    out.push(['network', net]);
+    return out;
+  }
+
+  function assertGroupP2PAllowed(keys, ctx) {
+    const GAC = guestAccess();
+    if (!GAC || typeof GAC.canUseGroupP2P !== 'function') {
+      // Fail open only when V2 off and module missing; fail closed when V2 on
+      if (window.SOS_ACCESS_CONTROL_V2 === true) {
+        return { ok: false, code: 'GUEST_ACCESS_UNAVAILABLE' };
+      }
+      return { ok: true, code: 'NO_GAC_V2_OFF' };
+    }
+    const pk = keys && keys.publicKey ? keys.publicKey : App.publicKey;
+    return GAC.canUseGroupP2P(pk, ctx || {});
+  }
+
   function getEffectiveKeys() {
     if (App.publicKey && App.SosCryptoSigner?.hasIdentityKey()) {
       return { publicKey: App.publicKey, hasSigner: true, isGuest: false };
@@ -850,7 +889,39 @@
         recentPrivateSignalIds.delete(keys[i]);
       }
     }
+    // AC8: also persist id in session-scoped guest replay cache (no secrets)
+    try {
+      const S = guestSchema();
+      if (S && typeof S.rememberGuestEventId === 'function') {
+        if (S.rememberGuestEventId(eventId, MAX_P2P_PRIVATE_SIGNAL_AGE_SEC)) {
+          return true;
+        }
+      }
+    } catch (_e) {}
     return false;
+  }
+
+  /**
+   * AC8: validate public guest/registered heartbeat & file-availability shapes.
+   * V2 OFF: exact legacy shapes without network tag accepted (Package 889 compat).
+   * V2 ON: missing network tag rejected (strict group binding).
+   */
+  function validateIncomingPublicP2p30078(event) {
+    const S = guestSchema();
+    if (!S || typeof S.validateGuest30078 !== 'function') return true; // schema not loaded: do not hard-break discovery
+    const draft = {
+      kind: event.kind,
+      created_at: event.created_at,
+      tags: event.tags,
+      content: typeof event.content === 'string' ? event.content : '',
+    };
+    const v2On = window.SOS_ACCESS_CONTROL_V2 === true;
+    const result = S.validateGuest30078(draft, {
+      direction: 'receive',
+      allowLegacyNoNetwork: !v2On,
+      networkTag: resolveP2pNetworkTag(),
+    });
+    return !!(result && result.ok);
   }
 
   function isPrivateSignalEventFresh(event) {
@@ -1062,7 +1133,15 @@
     const relays = getP2PRelays();
     const keys = getEffectiveKeys();
     
-    if (!relays.length || !App.pool || !keys.publicKey || !(keys.hasSigner || App.SosCryptoSigner?.hasIdentityKey())) {
+    if (!relays.length || !App.pool || !keys.publicKey || !(keys.hasSigner || keys.guestVault || App.SosCryptoSigner?.hasIdentityKey())) {
+      return;
+    }
+
+    const p2pGate = assertGroupP2PAllowed(keys, {
+      signalClass: keys.isGuest ? 'PUBLIC_AVAILABILITY' : 'PUBLIC_AVAILABILITY',
+    });
+    if (!p2pGate || p2pGate.ok !== true) {
+      log('warn', 'Heartbeat denied by group P2P policy', { code: p2pGate && p2pGate.code });
       return;
     }
 
@@ -1071,14 +1150,16 @@
         kind: FILE_AVAILABILITY_KIND,
         pubkey: keys.publicKey,
         created_at: Math.floor(Date.now() / 1000),
-        tags: [
-          ['d', 'p2p-heartbeat'],
-          ['t', 'p2p-heartbeat'],
-          ['app', P2P_APP_TAG],
-          ['expires', String(Date.now() + HEARTBEAT_INTERVAL * 3)], // תוקף ל-3 דקות
-          keys.isGuest ? ['guest', 'true'] : null // סימון אורח
-        ].filter(Boolean),
-        content: JSON.stringify({ online: true, files: state.availableFiles.size, isGuest: keys.isGuest })
+        tags: withGuestNetworkTag(
+          [
+            ['d', 'p2p-heartbeat'],
+            ['t', 'p2p-heartbeat'],
+            ['app', P2P_APP_TAG],
+            ['expires', String(Date.now() + HEARTBEAT_INTERVAL * 3)], // תוקף ל-3 דקות
+            keys.isGuest ? ['guest', 'true'] : null // סימון אורח
+          ].filter(Boolean)
+        ),
+        content: JSON.stringify({ online: true, files: state.availableFiles.size, isGuest: !!keys.isGuest })
       };
 
       // AC0: guest signs via GuestP2PKeyVault; registered via typed signer
@@ -1546,6 +1627,13 @@
         return { success: false, published: false };
       }
 
+      const availGate = assertGroupP2PAllowed(keys, { signalClass: 'PUBLIC_AVAILABILITY' });
+      if (!availGate || availGate.ok !== true) {
+        p2pStats.shares.failed++;
+        log('warn', 'Availability publish denied by group P2P policy', { code: availGate && availGate.code });
+        return { success: false, published: false };
+      }
+
       const now = Date.now();
       const manifestEntry = state.availabilityManifest?.[hash];
       if (manifestEntry && typeof manifestEntry.lastPublished === 'number') {
@@ -1577,15 +1665,17 @@
         kind: FILE_AVAILABILITY_KIND,
         pubkey: keys.publicKey,
         created_at: createdAt,
-        tags: [
-          ['d', `${P2P_APP_TAG}:file:${hash}`],
-          ['x', hash],
-          ['t', 'p2p-file'],
-          ['size', String(blob.size)],
-          ['mime', mimeType],
-          ['expires', String(expiresAt)],
-          keys.isGuest ? ['guest', 'true'] : null // סימון אורח
-        ].filter(Boolean),
+        tags: withGuestNetworkTag(
+          [
+            ['d', `${P2P_APP_TAG}:file:${hash}`],
+            ['x', hash],
+            ['t', 'p2p-file'],
+            ['size', String(blob.size)],
+            ['mime', mimeType],
+            ['expires', String(expiresAt)],
+            keys.isGuest ? ['guest', 'true'] : null // סימון אורח
+          ].filter(Boolean)
+        ),
         content: '',
       };
 
@@ -1756,6 +1846,21 @@
 
             const tTag = event.tags.find(t => t[0] === 't');
             const tagType = tTag ? tTag[1] : '';
+
+            // AC8: reject cross-group / unknown public 30078 shapes (legacy-no-network still ok)
+            if (tagType === 'p2p-heartbeat' || tagType === 'p2p-file') {
+              if (!validateIncomingPublicP2p30078(event)) {
+                return;
+              }
+              if (event.id) {
+                const S = guestSchema();
+                if (S && typeof S.rememberGuestEventId === 'function') {
+                  if (S.rememberGuestEventId(event.id, MAX_P2P_PRIVATE_SIGNAL_AGE_SEC)) {
+                    return;
+                  }
+                }
+              }
+            }
             
             if (tagType === 'p2p-heartbeat') {
               // heartbeat - peer אקטיבי
@@ -2938,6 +3043,15 @@
       if (!App.pool || !keys.publicKey || !(keys.hasSigner || App.SosCryptoSigner?.hasIdentityKey())) {
         if (tryRelay()) return;
         p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'missing local private key');
+      }
+
+      // AC8: registered private group P2P must pass membership gate when V2 on
+      const privGate = assertGroupP2PAllowed(keys, {
+        signalClass: 'PEER_TARGETED_PRIVATE',
+        requireRegistered: true,
+      });
+      if (!privGate || privGate.ok !== true) {
+        p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', (privGate && privGate.code) || 'MEMBERSHIP_DENIED');
       }
 
       await throttleSignals();
