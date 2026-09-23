@@ -201,6 +201,15 @@
       return { ok: false, error: 'קוד הזמנה לא תקין' };
     }
 
+    const MS = App.MembershipState || window.SosMembershipState;
+    if (MS && typeof MS.isV2 === 'function' && MS.isV2() && App.publicKey) {
+      if (typeof MS.ensureCache === 'function') MS.ensureCache();
+      const gated = MS.canPerformMemberAction(App.publicKey, 'invite_redeem');
+      if (!gated.ok) {
+        return { ok: false, error: 'אין הרשאת חברות למימוש הזמנה', code: gated.code };
+      }
+    }
+
     let inviteEvent;
     try {
       inviteEvent = await findInviteEvent(normalizedCode);
@@ -279,6 +288,15 @@
     }
     if (!App.pool || !Array.isArray(App.relayUrls) || !App.relayUrls.length) {
       throw new Error('אין חיבור לריליים');
+    }
+
+    const MS = App.MembershipState || window.SosMembershipState;
+    if (MS && typeof MS.isV2 === 'function' && MS.isV2()) {
+      if (typeof MS.ensureCache === 'function') MS.ensureCache();
+      const gated = MS.canPerformMemberAction(App.publicKey, 'invite_create');
+      if (!gated.ok) {
+        throw new Error('אין הרשאת חברות ליצירת הזמנה');
+      }
     }
 
     const P = policy();

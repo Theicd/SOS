@@ -294,6 +294,17 @@
   function hasCapability(pubkey, capability) {
     const tok = capabilityAllowedToken(capability);
     if (!tok) return false;
+    const pk = normalizePubkey(pubkey);
+    if (!pk) return false;
+    // AC5: BLOCKED/REMOVED/UNKNOWN members cannot use delegated capabilities under V2.
+    // Root remains effective without depending on a mutable membership tip.
+    if (window[FLAG_KEY] === true && tok !== CAPABILITY.ROOT_ADMIN) {
+      const MS = App.MembershipState || window.SosMembershipState;
+      if (MS && typeof MS.membershipAllowsDelegatedCapability === 'function') {
+        if (MS.ensureCache) MS.ensureCache();
+        if (!MS.membershipAllowsDelegatedCapability(pk)) return false;
+      }
+    }
     const caps = capsForPrincipal(pubkey);
     return caps.indexOf(tok) !== -1;
   }

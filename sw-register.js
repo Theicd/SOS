@@ -3,7 +3,7 @@
  * Every caller must use this URL and scope. Do not register service-worker.js elsewhere.
  */
 (function initSOSServiceWorkerRegistration(window) {
-  const SCRIPT_URL = './service-worker.js?pkg=886';
+  const SCRIPT_URL = './service-worker.js?pkg=887';
   const SCOPE = './';
   let pending = null;
 

@@ -153,6 +153,15 @@
       console.warn('publishReaction: signReactionEvent unavailable');
       return;
     }
+    const MS = App.MembershipState || window.SosMembershipState;
+    if (MS && typeof MS.isV2 === 'function' && MS.isV2()) {
+      if (typeof MS.ensureCache === 'function') MS.ensureCache();
+      const gated = MS.canPerformMemberAction(App.publicKey, 'reaction');
+      if (!gated.ok) {
+        console.warn('publishReaction denied by membership', gated.code);
+        return;
+      }
+    }
     const content = reaction ? reaction : '-';
     const tags = [['e', commentId]];
     if (commentAuthor) {

@@ -4308,6 +4308,17 @@ async function loadFeed() {
       return;
     }
 
+    const MS = App.MembershipState || window.SosMembershipState;
+    if (MS && typeof MS.isV2 === 'function' && MS.isV2()) {
+      if (typeof MS.ensureCache === 'function') MS.ensureCache();
+      const gated = MS.canPerformMemberAction(App.publicKey, 'post_create');
+      if (!gated.ok) {
+        console.warn('Post denied by membership policy', gated.code);
+        App.setComposeStatus?.('אין הרשאת חברות לפרסום', 'error');
+        return;
+      }
+    }
+
     // קריטי: דחיסת וידאו לפני בניית payload גם אם הפרסום הגיע מ-feed | HYPER CORE TECH
     if (typeof App.ensureVideoReadyForPublish === 'function') {
       try {
