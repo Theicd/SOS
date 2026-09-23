@@ -155,12 +155,36 @@
   }
 
   function handleImportSuccess(data, eventOrigin) {
+    // Origin is mandatory — programmatic/XSS confirmation without trusted signer origin fails closed.
+    const origin = String(eventOrigin || '');
+    if (!origin || !ALLOWED_SIGNER_ORIGINS.includes(origin)) {
+      return { ok: false, code: 'UNEXPECTED_ORIGIN' };
+    }
     if (!data || data.type !== 'IMPORT_SUCCESS' || !data.ok) return { ok: false, code: 'NOT_SUCCESS' };
     if (Number(data.protocol) !== PROTOCOL) return { ok: false, code: 'BAD_PROTOCOL' };
+    // Never accept secret-bearing payloads on the success channel
+    try {
+      const keys = data && typeof data === 'object' ? Object.keys(data) : [];
+      for (let i = 0; i < keys.length; i++) {
+        if (/priv|nsec|seed|rawKey|privateKey|^k$/i.test(keys[i])) {
+          return { ok: false, code: 'SECRET_FIELD_FORBIDDEN' };
+        }
+      }
+      if (data.privateKey || data.nsec || data.k || data.seed) {
+        return { ok: false, code: 'SECRET_FIELD_FORBIDDEN' };
+      }
+    } catch (_e) {
+      return { ok: false, code: 'MALFORMED' };
+    }
     const sessionId = String(data.sessionId || '');
     const pending = pendingBySession.get(sessionId);
     if (!pending) return { ok: false, code: 'UNKNOWN_SESSION' };
     if (pending.completed) return { ok: false, code: 'IMPORT_SUCCESS_REPLAY' };
+    // Bound session age (replay/expired)
+    if (pending.createdAt && Date.now() - pending.createdAt > 15 * 60 * 1000) {
+      pendingBySession.delete(sessionId);
+      return { ok: false, code: 'SESSION_EXPIRED' };
+    }
     const returned = normalizePubkey(data.pubkey);
     if (returned !== pending.expectedPubkey) {
       return { ok: false, code: 'APP_IMPORT_SUCCESS_PUBKEY_MISMATCH' };
@@ -177,7 +201,7 @@
         new CustomEvent('sos-signer-import-success', { detail: { status, sessionId } })
       );
     } catch (_e) {}
-    return { ok: true, status, appPubkeyChanged: false };
+    return { ok: true, status, appPubkeyChanged: false, rawKReturned: false, nsecReturned: false };
   }
 
   function onMessage(event) {
