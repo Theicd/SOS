@@ -1,5 +1,5 @@
 /**
- * SosCryptoWorker — F2A browser Worker key vault (SHADOW only).
+ * SosCryptoWorker ג€” F2A browser Worker key vault (SHADOW only).
  * Loads K from IndexedDB sos_identity_secure inside Worker. Never returns K to page.
  * Authoritative signer remains main-thread SosCryptoSigner until F2B cutover.
  * HYPER CORE TECH
@@ -31,6 +31,7 @@
     SIGN_FOLLOW: { kinds: [40010] },
     SIGN_INVITE: { kinds: [37378, 37379] },
     SIGN_INVITE_REVOKE: { kinds: [37380] },
+    SIGN_MODERATION_ACTION: { kinds: [39002] },
     SIGN_EMAIL_REGISTRY: { kinds: [37377] },
     SIGN_BLOSSOM_AUTH: { kinds: [24242] },
     SIGN_DATING: { kinds: [40001] },
@@ -71,7 +72,7 @@
   function fingerprint(pub) {
     const p = String(pub || '').toLowerCase();
     if (!isHex64(p)) return '';
-    return p.slice(0, 8) + '…' + p.slice(-8);
+    return p.slice(0, 8) + 'ג€¦' + p.slice(-8);
   }
 
   function hexToBytes(hex) {
@@ -190,7 +191,7 @@
   }
 
   /**
-   * F5A — create durable browser identity entirely inside Worker.
+   * F5A ג€” create durable browser identity entirely inside Worker.
    * Never returns K. Atomic: refuse if valid identity already exists.
    */
   async function createBrowserIdentity(params) {
@@ -224,7 +225,7 @@
                 }
               }
             } catch (_dec) {
-              // corrupt blob — do not accept; require recovery, no silent overwrite
+              // corrupt blob ג€” do not accept; require recovery, no silent overwrite
               vaultState = 'RECOVERY_REQUIRED';
               loadErrorCode = 'RECOVERY_REQUIRED';
               fail('RECOVERY_REQUIRED', 'corrupt identity present; create refused');
@@ -646,6 +647,8 @@
         return signTyped('SIGN_INVITE', params && params.draft);
       case 'SIGN_INVITE_REVOKE':
         return signTyped('SIGN_INVITE_REVOKE', params && params.draft);
+      case 'SIGN_MODERATION_ACTION':
+        return signTyped('SIGN_MODERATION_ACTION', params && params.draft);
       case 'SIGN_EMAIL_REGISTRY':
         return signTyped('SIGN_EMAIL_REGISTRY', params && params.draft);
       case 'SIGN_BLOSSOM_AUTH':
@@ -742,7 +745,7 @@
     } catch (_e) {
       fail('CALL_UNWRAP_FAILED', 'payload JSON');
     }
-    // Return logical signal only — never K / conversation secrets.
+    // Return logical signal only ג€” never K / conversation secrets.
     return {
       media: payload && payload.media,
       action: payload && payload.action,

@@ -1,7 +1,7 @@
 {
-  "version": "2026.09.23-ac3-885",
-  "buildTime": "2026-09-23T02:15:00+03:00",
-  "notes": "AC3 dark: signed invite policy enforcement (kinds 37378/9/80) behind SOS_ACCESS_CONTROL_V2 default OFF. Package 885 / sos-cache-v885. No production GROUP_CONTROL bootstrap. No live invite policy change. No AC4. No admin UI. No F5B4. No legacy key deletion. Known limit: invite double-redeem not strongly serialized without authoritative gateway.",
+  "version": "2026.09.23-ac4-886",
+  "buildTime": "2026-09-23T03:30:00+03:00",
+  "notes": "AC4 dark: delegated group moderation (kind 39002) behind SOS_ACCESS_CONTROL_V2 default OFF. Package 886 / sos-cache-v886. No production GROUP_CONTROL bootstrap. No live delegated moderation activation. Persistence model remains current_verified_control_state (activation blocker, not dark-release blocker). No AC5. No admin UI. No F5B4. No legacy key deletion.",
   "minSecureChatEpoch": 2,
   "e2eeSendRequired": true,
   "mediaServerE2eeRequired": true,

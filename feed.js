@@ -2505,9 +2505,54 @@
     return applyDeletion(eventId, { source: 'local', deleter: App.publicKey || '', publishState: 'pending' });
   }
 
+  function moderationPolicy() {
+    return App.ModerationPolicy || window.SosModerationPolicy || null;
+  }
+
+  function resolveTargetAuthorPubkey(eventId, fallbackEvent) {
+    if (fallbackEvent && typeof fallbackEvent.pubkey === 'string') {
+      return fallbackEvent.pubkey.toLowerCase();
+    }
+    if (eventId && App.eventAuthorById instanceof Map) {
+      const a = App.eventAuthorById.get(eventId);
+      if (typeof a === 'string' && a) return a.toLowerCase();
+    }
+    if (eventId && App.postsById instanceof Map) {
+      const ev = App.postsById.get(eventId);
+      if (ev && typeof ev.pubkey === 'string') return ev.pubkey.toLowerCase();
+    }
+    return '';
+  }
+
+  function resolveTargetEvent(eventId) {
+    if (!eventId) return null;
+    if (App.postsById instanceof Map && App.postsById.has(eventId)) {
+      return App.postsById.get(eventId);
+    }
+    if (App.commentsByParent instanceof Map) {
+      let found = null;
+      App.commentsByParent.forEach((map) => {
+        if (found || !(map instanceof Map) || !map.has(eventId)) return;
+        found = map.get(eventId);
+      });
+      if (found) return found;
+    }
+    const author = resolveTargetAuthorPubkey(eventId);
+    if (!author) return null;
+    return { id: eventId, kind: 1, pubkey: author };
+  }
+
   function canViewerDeleteComment(comment) {
     if (!comment || typeof App.publicKey !== 'string' || !App.publicKey) {
       return false;
+    }
+    const MP = moderationPolicy();
+    if (MP && typeof MP.canViewerRemoveContent === 'function') {
+      const author =
+        (typeof comment.pubkey === 'string' && comment.pubkey.toLowerCase()) ||
+        App.eventAuthorById?.get?.(comment.id)?.toLowerCase?.() ||
+        '';
+      return MP.canViewerRemoveContent(App.publicKey, author, comment.kind != null ? comment.kind : 1).ok === true;
     }
     const viewer = App.publicKey.toLowerCase();
     const isAdmin =
@@ -2518,6 +2563,18 @@
       App.eventAuthorById?.get?.(comment.id)?.toLowerCase?.() ||
       '';
     return Boolean(author && author === viewer);
+  }
+
+  function canViewerDeletePost(eventId) {
+    if (!eventId || typeof App.publicKey !== 'string' || !App.publicKey) return false;
+    const MP = moderationPolicy();
+    const author = resolveTargetAuthorPubkey(eventId);
+    if (MP && typeof MP.canViewerRemoveContent === 'function') {
+      return MP.canViewerRemoveContent(App.publicKey, author, 1).ok === true;
+    }
+    const viewer = App.publicKey.toLowerCase();
+    if (author && author === viewer) return true;
+    return App.adminPublicKeys instanceof Set && App.adminPublicKeys.has(viewer);
   }
 
   function logDeletionDebug(msg, extra = {}) {
@@ -2543,28 +2600,43 @@
     }
     const adminKeys = App.adminPublicKeys || new Set();
     const eventPubkey = typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
-    const isAdmin = eventPubkey && adminKeys.has(eventPubkey);
+    const MP = moderationPolicy();
+    const v2 = !!(MP && MP.isV2 && MP.isV2());
+    const isAdmin = !v2 && eventPubkey && adminKeys.has(eventPubkey);
     let anyNew = false;
     event.tags.forEach((tag) => {
       if (!Array.isArray(tag)) return;
       const [type, value] = tag;
       if ((type === 'e' || type === 'a') && value) {
         const author = App.eventAuthorById?.get(value)?.toLowerCase?.();
-        // חלק פיד (feed.js) – מאפשר מחיקה אם:
-        // 1. המוחק הוא אדמין, או
-        // 2. המוחק הוא המחבר המקורי
-        // לא סומכים על מחיקה כשהמחבר עדיין לא ידוע (מונע קיצוץ פיד ב־boot) | HYPER CORE TECH
-        if (!isAdmin && author && author !== eventPubkey) {
-          logDeletionDebug('rejected deletion (not admin/not author)', {
-            eventId: value,
-            eventPubkey,
-            author,
-          });
-          return;
-        }
-        if (!isAdmin && !author) {
-          // בלי לוג חוזר לכל ריליי — מספיק silent defer אחרי seed authors | HYPER CORE TECH
-          return;
+        // V2: kind 5 only for AUTHOR_DELETE (same pubkey). Cross-author → kind 39002.
+        if (v2) {
+          if (author && author !== eventPubkey) {
+            logDeletionDebug('rejected kind5 cross-author under V2 (use group moderation)', {
+              eventId: value,
+              eventPubkey,
+              author,
+            });
+            return;
+          }
+          if (!author) return;
+        } else {
+          // חלק פיד (feed.js) – מאפשר מחיקה אם:
+          // 1. המוחק הוא אדמין, או
+          // 2. המוחק הוא המחבר המקורי
+          // לא סומכים על מחיקה כשהמחבר עדיין לא ידוע (מונע קיצוץ פיד ב־boot) | HYPER CORE TECH
+          if (!isAdmin && author && author !== eventPubkey) {
+            logDeletionDebug('rejected deletion (not admin/not author)', {
+              eventId: value,
+              eventPubkey,
+              author,
+            });
+            return;
+          }
+          if (!isAdmin && !author) {
+            // בלי לוג חוזר לכל ריליי — מספיק silent defer אחרי seed authors | HYPER CORE TECH
+            return;
+          }
         }
         const isNew = applyDeletion(value, {
           source: 'incoming',
@@ -2572,6 +2644,7 @@
           deleter: eventPubkey,
           createdAt: event.created_at,
           publishState: 'confirmed',
+          reason: v2 ? 'author' : isAdmin ? 'admin' : 'author',
         });
         if (isNew) {
           anyNew = true;
@@ -2579,7 +2652,7 @@
             eventId: value,
             byAdmin: isAdmin,
             author: author || '(unknown)',
-            reason: isAdmin ? 'admin' : 'author',
+            reason: v2 ? 'author' : isAdmin ? 'admin' : 'author',
           });
         }
       }
@@ -2592,6 +2665,44 @@
       });
     }
     return anyNew;
+  }
+
+  function registerModeration(event) {
+    const MP = moderationPolicy();
+    if (!MP || typeof MP.validateModerationEvent !== 'function') return false;
+    if (!MP.isV2 || !MP.isV2()) return false;
+    if (!(App._seenModerationEventIds instanceof Set)) {
+      App._seenModerationEventIds = new Set();
+    }
+    if (event && event.id && App._seenModerationEventIds.has(event.id)) return false;
+    if (event && event.id) App._seenModerationEventIds.add(event.id);
+
+    const targetId =
+      (typeof MP.readTag === 'function' && MP.readTag(event, 'd')) ||
+      (typeof MP.readTag === 'function' && MP.readTag(event, 'e')) ||
+      '';
+    const targetEvent = targetId ? resolveTargetEvent(targetId) : null;
+    const verdict = MP.validateModerationEvent(event, targetEvent, null);
+    if (!verdict.ok) {
+      logDeletionDebug('rejected group moderation', { code: verdict.code, id: event && event.id });
+      return false;
+    }
+    const isNew = applyDeletion(verdict.targetEventId, {
+      source: 'moderation',
+      deletionEventId: event.id || '',
+      deleter: verdict.moderatorPubkey,
+      createdAt: event.created_at,
+      publishState: 'confirmed',
+      reason: 'moderation',
+    });
+    if (isNew) {
+      logDeletionDebug('accepted group moderation', {
+        eventId: verdict.targetEventId,
+        by: verdict.moderatorPubkey,
+        mode: verdict.mode,
+      });
+    }
+    return isNew;
   }
 
   function wireShowMore(articleEl, postId) {
@@ -3212,11 +3323,6 @@
       statusEl.classList.remove('is-visible');
     }
 
-    const isAdminUser =
-      App.adminPublicKeys instanceof Set && typeof App.publicKey === 'string'
-        ? App.adminPublicKeys.has(App.publicKey.toLowerCase())
-        : false;
-
     // ניסיון מקדים להביא מטאדאטה של פרופילים בבאטץ' כדי לצמצם עומס ובקשות כושלות
     const uniqueAuthors = Array.from(
       new Set(
@@ -3419,7 +3525,7 @@
 
       const likeCount = App.likesByEventId.get(event.id)?.size || 0;
       const ownPost = event.pubkey === App.publicKey;
-      const canDelete = ownPost || isAdminUser;
+      const canDelete = canViewerDeletePost(event.id);
       const canEdit = ownPost;
       const editButtonHtml = canEdit
         ? `
@@ -3713,6 +3819,12 @@ function buildCoreFeedFilters(sinceTimestamp = 0) {
     delNet.since = Math.floor(Date.now() / 1000) - (2 * 60 * 60);
   }
   filters.push(delNet);
+  // AC4: group moderation tips (V2). Safe to subscribe always; acceptance gated by ModerationPolicy.isV2.
+  const modNet = { kinds: [39002], '#t': [App.NETWORK_TAG], limit: 80 };
+  if (deletionsHydrated) {
+    modNet.since = delNet.since;
+  }
+  filters.push(modNet);
   // בנוסף, מביאים מחיקות ספציפיות מאדמינים (גם אם אין להם תגית רשת)
   if (deletionAuthors.size > 0) {
     const delAuthors = { kinds: [5], authors: Array.from(deletionAuthors), limit: 40 };
@@ -3956,6 +4068,10 @@ async function loadFeed() {
               registerDeletion(event);
               return;
             }
+            if (event.kind === 39002) {
+              registerModeration(event);
+              return;
+            }
             if (event.kind === 7) {
               registerLike(event);
               return;
@@ -4055,6 +4171,10 @@ async function loadFeed() {
             created_at: event.created_at
           });
           registerDeletion(event);
+          return;
+        }
+        if (event.kind === 39002) {
+          registerModeration(event);
           return;
         }
         if (event.kind === 7) {
@@ -4439,12 +4559,70 @@ async function loadFeed() {
     deletionPublishRetryTimers.set(eventId, timer);
   }
 
+  async function publishModerationEvent(eventId, options = {}) {
+    const quiet = !!(options && options.quiet);
+    const MP = moderationPolicy();
+    if (!MP || !eventId) return false;
+    const targetEvent = resolveTargetEvent(eventId);
+    if (!targetEvent) {
+      logDeleteLifecycle('MOD_PUBLISH_FAIL', { id: eventId, reason: 'no-target' });
+      return false;
+    }
+    const auth = MP.canModerateContent(App.publicKey, targetEvent.pubkey, targetEvent.kind);
+    if (!auth.ok) {
+      logDeleteLifecycle('MOD_PUBLISH_FAIL', { id: eventId, reason: auth.code });
+      return false;
+    }
+    if (!App.pool || typeof App.SosCryptoSigner?.signModerationAction !== 'function' || !App.publicKey) {
+      logDeleteLifecycle('MOD_PUBLISH_FAIL', { id: eventId, reason: 'no-pool-or-signer' });
+      return false;
+    }
+    let draft;
+    try {
+      draft = MP.buildModerationDraft(targetEvent, MP.ACTION_HIDE);
+    } catch (err) {
+      logDeleteLifecycle('MOD_PUBLISH_FAIL', { id: eventId, reason: 'draft' });
+      return false;
+    }
+    let event;
+    try {
+      event = await Promise.resolve(App.SosCryptoSigner.signModerationAction(draft));
+    } catch (err) {
+      logDeleteLifecycle('MOD_PUBLISH_FAIL', { id: eventId, reason: 'sign' });
+      return false;
+    }
+    const verdict = MP.validateModerationEvent(event, targetEvent, null);
+    if (!verdict.ok) {
+      logDeleteLifecycle('MOD_PUBLISH_FAIL', { id: eventId, reason: verdict.code });
+      return false;
+    }
+    try {
+      await App.pool.publish(App.relayUrls, event);
+      markDeletionPublishState(eventId, 'confirmed', event.id);
+      logDeleteLifecycle('MOD_PUBLISH_OK', { id: eventId, moderationEventId: event.id });
+      if (!quiet) logDeletionPublish('moderation published', { eventId, moderationEventId: event.id });
+      return true;
+    } catch (err) {
+      markDeletionPublishState(eventId, 'failed', event.id);
+      logDeleteLifecycle('MOD_PUBLISH_FAIL', { id: eventId, reason: err?.message || 'publish' });
+      return false;
+    }
+  }
+
   async function publishDeletionEvent(eventId, options = {}) {
     const quiet = !!(options && options.quiet);
     if (!eventId) return false;
     const meta = App.deletionTombstones.get(eventId);
     if (meta && meta.publishState === 'confirmed' && !(options && options.force)) {
       return true;
+    }
+    const MP = moderationPolicy();
+    const author = resolveTargetAuthorPubkey(eventId);
+    const viewer = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : '';
+    const isOwn = author && viewer && author === viewer;
+    // V2 cross-author → dedicated moderation event (not kind 5)
+    if (MP && MP.isV2 && MP.isV2() && !isOwn) {
+      return publishModerationEvent(eventId, options);
     }
     if (!App.pool || typeof App.SosCryptoSigner?.signDelete !== 'function' || !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey()) {
       logDeleteLifecycle('PUBLISH_FAIL', { id: eventId, reason: 'no-pool-or-keys' });
@@ -4902,6 +5080,11 @@ async function loadFeed() {
     }
     logDeleteLifecycle('CLICK', { id: eventId });
 
+    if (!canViewerDeletePost(eventId)) {
+      console.warn('Post delete denied: not author/moderator', { eventId });
+      return;
+    }
+
     const confirmed = window.confirm('למחוק את הפוסט? פעולה זו אינה ניתנת לשחזור.');
     if (!confirmed) {
       return;
@@ -5044,6 +5227,9 @@ async function loadFeed() {
     handleNotificationForLike,
 
     registerDeletion,
+    registerModeration,
+    canViewerDeletePost,
+    canViewerDeleteComment,
     registerLike,
     updateLikeIndicator,
     removePostElement,

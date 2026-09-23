@@ -11,8 +11,8 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PKG = '885';
-const CACHE = 'sos-cache-v885';
+const PKG = '886';
+const CACHE = 'sos-cache-v886';
 const GEN = 'browser-secure-cutover-v1';
 const MODULES = [
   'key-storage.js',

@@ -5140,12 +5140,19 @@ function renderVideoCard(video) {
   const isAdminUser = currentApp.adminPublicKeys instanceof Set && viewerPubkey
     ? currentApp.adminPublicKeys.has(viewerPubkey)
     : false;
+  const MP = currentApp.ModerationPolicy || window.SosModerationPolicy;
+  const canRemoveViaPolicy =
+    MP && typeof MP.canViewerRemoveContent === 'function'
+      ? MP.canViewerRemoveContent(viewerPubkey, videoOwnerPubkey, 1).ok === true
+      : false;
 
   const canEdit = isSelf;
   // קטלוג LIVE TV – רק מנהל יכול להסיר ערוץ | HYPER CORE TECH
   const canDelete = video.liveCatalog
     ? isAdminUser
-    : (isSelf || isAdminUser);
+    : (typeof currentApp.canViewerDeletePost === 'function'
+        ? currentApp.canViewerDeletePost(video.id)
+        : (isSelf || isAdminUser || canRemoveViaPolicy));
 
   if (isSelf) {
     // חלק תפריט פיד ווידאו (videos.js) – הוספת כפתור שלוש נקודות כמו בפיד הראשי לעריכה/מחיקה של המשתמש | HYPER CORE TECH
@@ -6512,7 +6519,14 @@ async function loadCommentsForPost(eventId) {
     const viewerPk = typeof app?.publicKey === 'string' ? app.publicKey.toLowerCase() : '';
     const isAdmin = viewerPk && app?.adminPublicKeys instanceof Set && app.adminPublicKeys.has(viewerPk);
     const isOwn = viewerPk && authorKey && authorKey === viewerPk;
-    if ((isOwn || isAdmin) && comment?.id) {
+    const MP = app?.ModerationPolicy || window.SosModerationPolicy;
+    const canRemove =
+      typeof app?.canViewerDeleteComment === 'function'
+        ? app.canViewerDeleteComment(comment)
+        : MP && typeof MP.canViewerRemoveContent === 'function'
+          ? MP.canViewerRemoveContent(viewerPk, authorKey, comment?.kind != null ? comment.kind : 1).ok === true
+          : isOwn || isAdmin;
+    if (canRemove && comment?.id) {
       const deleteBtn = document.createElement('button');
       deleteBtn.type = 'button';
       deleteBtn.className = 'videos-comment-delete';

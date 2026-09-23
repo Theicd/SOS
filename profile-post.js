@@ -148,7 +148,11 @@
     const isAdminUser = App.adminPublicKeys instanceof Set && typeof App.publicKey === 'string'
       ? App.adminPublicKeys.has(App.publicKey.toLowerCase())
       : false;
-    const canDelete = !isReply && (isOwn || isAdminUser);
+    const canDelete =
+      !isReply &&
+      (typeof App.canViewerDeletePost === 'function'
+        ? App.canViewerDeletePost(event.id)
+        : isOwn || isAdminUser);
     const deleteButtonHtml = canDelete
       ? `
         <button class="feed-post__action feed-post__action--delete" type="button" data-delete-post="${event.id}">
