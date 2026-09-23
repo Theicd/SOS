@@ -391,7 +391,12 @@
     }
 
     // Re-check base not stale immediately before sign
-    const live = GCS.getVerifiedControlState();
+    const scope =
+      (mutation && (mutation.groupId || mutation.networkTag)) ||
+      (built.record && built.record.groupId) ||
+      (GCS.resolveGroupId && GCS.resolveGroupId());
+    if (GCS.bindStore) GCS.bindStore(scope);
+    const live = GCS.getVerifiedControlState(scope);
     if (!mutation || mutation.type !== MUTATION.RESOLVE_CONTROL_CONFLICT) {
       if (!live || live.eventId !== built.baseEventId) {
         return { ok: false, code: 'STALE_BASE' };
@@ -407,14 +412,14 @@
       }
       const op = P.mapLegacyMutationType(mutation.type);
       if (!op) return { ok: false, code: 'UNKNOWN_MUTATION' };
-      const baseEvent = GCS.getVerifiedControlEvent ? GCS.getVerifiedControlEvent() : null;
+      const baseEvent = GCS.getVerifiedControlEvent ? GCS.getVerifiedControlEvent(scope) : null;
       if (mutation.type !== MUTATION.RESOLVE_CONTROL_CONFLICT && !baseEvent) {
         return { ok: false, code: 'NO_BASE_EVENT' };
       }
       const req = {
         version: 1,
         operation: op,
-        groupId: built.record.groupId,
+        groupId: built.record.groupId || scope,
         baseEvent: baseEvent,
         controlConflict: false,
         actorMembershipStatus: memberStatus(actorPubkey),
@@ -444,7 +449,7 @@
     }
 
     if (options.skipPublish) {
-      const acc = GCS.acceptControlEvent(signed);
+      const acc = GCS.acceptControlEvent(signed, { groupId: scope });
       return { ok: acc.ok, code: acc.code || acc.status, accept: acc, event: signed, built };
     }
 
@@ -457,7 +462,7 @@
       return { ok: false, code: 'PUBLISH_FAILED', error: e && e.message, event: signed, built };
     }
 
-    const acc = GCS.acceptControlEvent(signed);
+    const acc = GCS.acceptControlEvent(signed, { groupId: scope });
     if (!acc.ok) {
       return { ok: false, code: acc.code || 'VERIFY_FAILED', accept: acc, event: signed, built };
     }

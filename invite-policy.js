@@ -48,7 +48,12 @@
     return /^[0-9a-f]{64}$/.test(t) ? t : '';
   }
 
-  function resolveGroupId() {
+  function resolveGroupId(explicit) {
+    if (typeof explicit === 'string' && explicit.trim()) return explicit.trim();
+    const CC = App.CommunityContext || (typeof window !== 'undefined' ? window.SosCommunityContext : null);
+    if (CC && typeof CC.resolveActiveNetworkTag === 'function') {
+      return CC.resolveActiveNetworkTag();
+    }
     if (typeof App.NETWORK_TAG === 'string' && App.NETWORK_TAG.trim()) return App.NETWORK_TAG.trim();
     return 'israel-network';
   }

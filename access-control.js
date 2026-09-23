@@ -92,7 +92,12 @@
     return trimmed;
   }
 
-  function resolveGroupId() {
+  function resolveGroupId(explicit) {
+    if (typeof explicit === 'string' && explicit.trim()) return explicit.trim();
+    const CC = App.CommunityContext || (typeof window !== 'undefined' ? window.SosCommunityContext : null);
+    if (CC && typeof CC.resolveActiveNetworkTag === 'function') {
+      return CC.resolveActiveNetworkTag();
+    }
     if (typeof App.NETWORK_TAG === 'string' && App.NETWORK_TAG.trim()) {
       return App.NETWORK_TAG.trim();
     }
@@ -158,11 +163,12 @@
    */
   const SignedGroupControlProvider = {
     name: 'SignedGroupControlProvider',
-    buildSnapshot() {
+    buildSnapshot(networkTag) {
+      const scope = resolveGroupId(networkTag);
       const GCS = App.GroupControlState || window.SosGroupControlState;
       if (!GCS || typeof GCS.getVerifiedControlState !== 'function') {
         return Object.freeze({
-          groupId: resolveGroupId(),
+          groupId: scope,
           epoch: 0,
           rootAdminPubkey: '',
           capabilitiesByPubkey: Object.freeze({}),
@@ -174,11 +180,11 @@
           controlStatus: 'MISSING',
         });
       }
-      const status = typeof GCS.getStatus === 'function' ? GCS.getStatus() : 'MISSING';
-      const state = GCS.getVerifiedControlState();
+      const status = typeof GCS.getStatus === 'function' ? GCS.getStatus(scope) : 'MISSING';
+      const state = GCS.getVerifiedControlState(scope);
       if (!state || status !== 'VERIFIED' || state.verified !== true) {
         return Object.freeze({
-          groupId: resolveGroupId(),
+          groupId: scope,
           epoch: 0,
           rootAdminPubkey: '',
           capabilitiesByPubkey: Object.freeze({}),
@@ -209,17 +215,21 @@
     },
   };
 
-  function activeSnapshot() {
-    if (qaOverlay) return qaOverlay;
+  function activeSnapshot(networkTag) {
+    const scope = resolveGroupId(networkTag);
+    if (qaOverlay && qaOverlay.groupId === scope) return qaOverlay;
+    if (qaOverlay && !networkTag && qaOverlay.groupId === resolveGroupId()) return qaOverlay;
     if (window[FLAG_KEY] === true) {
-      return SignedGroupControlProvider.buildSnapshot();
+      return SignedGroupControlProvider.buildSnapshot(scope);
     }
-    if (!authoritySnapshot) refreshAuthorityFromLegacy();
+    if (!authoritySnapshot || authoritySnapshot.groupId !== scope) {
+      authoritySnapshot = buildLegacySnapshot();
+    }
     return authoritySnapshot;
   }
 
-  function getAuthoritySnapshot() {
-    const snap = activeSnapshot();
+  function getAuthoritySnapshot(networkTag) {
+    const snap = activeSnapshot(networkTag);
     const capsCopy = Object.create(null);
     const src = snap.capabilitiesByPubkey || {};
     Object.keys(src).forEach((pk) => {
@@ -267,14 +277,15 @@
     return capability;
   }
 
-  function capsForPrincipal(pubkey) {
+  function capsForPrincipal(pubkey, networkTag) {
     const pk = normalizePubkey(pubkey);
     if (!pk) return Object.freeze([]);
     if (isGuestPrincipal(pk)) return Object.freeze([]);
 
-    const snap = activeSnapshot();
-    if (snap.groupId !== resolveGroupId() && snap.source !== 'qa-overlay') {
-      // Authority must be bound to current network group id.
+    const scope = resolveGroupId(networkTag);
+    const snap = activeSnapshot(scope);
+    if (snap.groupId !== scope && snap.source !== 'qa-overlay') {
+      // Authority must be bound to requested network group id.
       return Object.freeze([]);
     }
 
@@ -297,26 +308,28 @@
     return Object.freeze(granted.slice());
   }
 
-  function hasCapability(pubkey, capability) {
+  function hasCapability(pubkey, capability, networkTag) {
     const tok = capabilityAllowedToken(capability);
     if (!tok) return false;
     const pk = normalizePubkey(pubkey);
     if (!pk) return false;
+    const scope = resolveGroupId(networkTag);
     // AC5: BLOCKED/REMOVED/UNKNOWN members cannot use delegated capabilities under V2.
     // Root remains effective without depending on a mutable membership tip.
     if (window[FLAG_KEY] === true && tok !== CAPABILITY.ROOT_ADMIN) {
       const MS = App.MembershipState || window.SosMembershipState;
       if (MS && typeof MS.membershipAllowsDelegatedCapability === 'function') {
+        if (MS.bindMembershipStore) MS.bindMembershipStore(scope);
         if (MS.ensureCache) MS.ensureCache();
         if (!MS.membershipAllowsDelegatedCapability(pk)) return false;
       }
     }
-    const caps = capsForPrincipal(pubkey);
+    const caps = capsForPrincipal(pubkey, scope);
     return caps.indexOf(tok) !== -1;
   }
 
-  function requireCapability(pubkey, capability) {
-    if (!hasCapability(pubkey, capability)) {
+  function requireCapability(pubkey, capability, networkTag) {
+    if (!hasCapability(pubkey, capability, networkTag)) {
       const err = new Error('ACCESS_DENIED');
       err.code = 'ACCESS_DENIED';
       err.capability = capability;
@@ -325,19 +338,19 @@
     return true;
   }
 
-  function can(pubkey, action) {
+  function can(pubkey, action, networkTag) {
     if (typeof action !== 'string' || !Object.prototype.hasOwnProperty.call(ACTION_CAPABILITY_MATRIX, action)) {
       return false;
     }
     const needed = ACTION_CAPABILITY_MATRIX[action];
     for (let i = 0; i < needed.length; i++) {
-      if (hasCapability(pubkey, needed[i])) return true;
+      if (hasCapability(pubkey, needed[i], networkTag)) return true;
     }
     return false;
   }
 
-  function getCapabilities(pubkey) {
-    return capsForPrincipal(pubkey).slice();
+  function getCapabilities(pubkey, networkTag) {
+    return capsForPrincipal(pubkey, networkTag).slice();
   }
 
   /**
@@ -437,6 +450,10 @@
     isGuestPrincipal,
     installQaAuthorityOverlay,
     clearQaAuthorityOverlay,
+    ACCESS_CONTROL_EXPLICIT_SCOPE: true,
+    AUTHORITY_USES_EXPLICIT_COMMUNITY_SCOPE: true,
+    AMBIENT_NETWORK_TAG_IS_AUTHORITY_SOURCE: false,
+    AUTHORITY_SNAPSHOT_MULTI_COMMUNITY_READY: true,
     /** Explicit: guest P2P keys are not control-plane principals. */
     isControlPlaneEligible(pubkey) {
       const pk = normalizePubkey(pubkey);

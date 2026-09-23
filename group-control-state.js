@@ -72,9 +72,55 @@
   let storeStatus = 'MISSING'; // MISSING | VERIFIED | INVALID | STALE | CONFLICT | CONTROL_CONFLICT | WRONG_GROUP | BAD_ISSUER
 
   /** All strict-valid control events for this group (authority via reconstruct, not first-seen). */
-  const controlEvents = new Map();
+  let controlEvents = new Map();
   /** @type {object[]} */
   let conflictCandidates = [];
+
+  /** C0: per-networkTag isolated stores. Active vars mirror the bound scope. */
+  const controlStores = new Map();
+  let boundKey = null;
+
+  function emptyControlStore() {
+    return {
+      verified: null,
+      storeStatus: 'MISSING',
+      controlEvents: new Map(),
+      conflictCandidates: [],
+    };
+  }
+
+  function syncOut() {
+    if (!boundKey) return;
+    controlStores.set(boundKey, {
+      verified: verified,
+      storeStatus: storeStatus,
+      controlEvents: controlEvents,
+      conflictCandidates: conflictCandidates,
+    });
+  }
+
+  function bindStore(networkTag) {
+    const key = String(networkTag || '').trim() || resolveGroupId();
+    if (boundKey === key) return key;
+    if (boundKey) syncOut();
+    if (!controlStores.has(key)) controlStores.set(key, emptyControlStore());
+    const st = controlStores.get(key);
+    verified = st.verified;
+    storeStatus = st.storeStatus;
+    controlEvents = st.controlEvents;
+    conflictCandidates = st.conflictCandidates;
+    boundKey = key;
+    return key;
+  }
+
+  function clearAllStores() {
+    controlStores.clear();
+    boundKey = null;
+    verified = null;
+    storeStatus = 'MISSING';
+    controlEvents = new Map();
+    conflictCandidates = [];
+  }
 
   const CONTROL_CONFLICT_FAILS_CLOSED = true;
   const CONTROL_CONFLICT_CANDIDATES_RETAINED = true;
@@ -98,9 +144,21 @@
     return isHex64(t) ? t : '';
   }
 
-  function resolveGroupId() {
+  function resolveGroupId(explicit) {
+    if (typeof explicit === 'string' && explicit.trim()) return explicit.trim();
+    const CC = App.CommunityContext || (typeof window !== 'undefined' ? window.SosCommunityContext : null);
+    if (CC && typeof CC.resolveActiveNetworkTag === 'function') {
+      return CC.resolveActiveNetworkTag();
+    }
     if (typeof App.NETWORK_TAG === 'string' && App.NETWORK_TAG.trim()) return App.NETWORK_TAG.trim();
     return 'israel-network';
+  }
+
+  function resolveExpectedGroup(options) {
+    const opts = options || {};
+    if (typeof opts.groupId === 'string' && opts.groupId.trim()) return opts.groupId.trim();
+    if (typeof opts.networkTag === 'string' && opts.networkTag.trim()) return opts.networkTag.trim();
+    return resolveGroupId();
   }
 
   function legacyRootPubkey() {
@@ -749,10 +807,12 @@
     try {
       const rows = [];
       controlEvents.forEach((row) => rows.push({ event: row.event }));
+      const gid = boundKey || resolveGroupId();
       window.localStorage.setItem(
-        cacheKey(resolveGroupId()),
+        cacheKey(gid),
         JSON.stringify({ v: 2, rows, updatedAt: Date.now() })
       );
+      syncOut();
     } catch (_e) {}
   }
 
@@ -762,6 +822,12 @@
    */
   function acceptControlEvent(event, options) {
     const opts = options || {};
+    const scopeHint =
+      (typeof opts.groupId === 'string' && opts.groupId.trim()) ||
+      (typeof opts.networkTag === 'string' && opts.networkTag.trim()) ||
+      '';
+    if (scopeHint) bindStore(scopeHint);
+    else bindStore(resolveGroupId());
     try {
       if (!event || typeof event !== 'object') {
         setStatus('INVALID');
@@ -783,9 +849,10 @@
       }
 
       const record = parseAndValidateRecord(event.content);
-      const expectedGroup = resolveGroupId();
+      const expectedGroup = resolveExpectedGroup(opts);
+      bindStore(expectedGroup);
       if (record.groupId !== expectedGroup) {
-        setStatus('WRONG_GROUP');
+        // C0: never poison an existing Community store status on cross-group reject.
         return { ok: false, status: 'WRONG_GROUP', code: 'CROSS_GROUP' };
       }
 
@@ -810,7 +877,6 @@
         return { ok: false, status: 'INVALID', code: 'WRONG_D_TAG' };
       }
       if (dVal !== expectedGroup) {
-        setStatus('WRONG_GROUP');
         return { ok: false, status: 'WRONG_GROUP', code: 'CROSS_GROUP_D_TAG' };
       }
 
@@ -871,6 +937,8 @@
       else if (code === 'CROSS_GROUP' || code === 'GROUP_CHANGED') setStatus('WRONG_GROUP');
       else setStatus('INVALID');
       return { ok: false, status: storeStatus, code };
+    } finally {
+      syncOut();
     }
   }
 
@@ -894,14 +962,16 @@
     return storeStatus === 'CONTROL_CONFLICT' || storeStatus === 'CONFLICT';
   }
 
-  function clearVerified() {
+  function clearVerified(networkTag) {
+    bindStore(resolveGroupId(networkTag));
     verified = null;
     controlEvents.clear();
     conflictCandidates = [];
     setStatus('MISSING');
     try {
-      window.localStorage.removeItem(cacheKey(resolveGroupId()));
+      window.localStorage.removeItem(cacheKey(boundKey || resolveGroupId()));
     } catch (_e) {}
+    syncOut();
   }
 
   function revalidateFromCache() {
@@ -944,7 +1014,8 @@
     return result;
   }
 
-  function getVerifiedControlState() {
+  function getVerifiedControlState(networkTag) {
+    bindStore(resolveGroupId(networkTag));
     if (!verified || !verified.record) return null;
     const r = verified.record;
     const caps = Object.create(null);
@@ -972,7 +1043,8 @@
   }
 
   /** AC9: return frozen signed tip event for typed admin signer base verification. */
-  function getVerifiedControlEvent() {
+  function getVerifiedControlEvent(networkTag) {
+    bindStore(resolveGroupId(networkTag));
     if (!verified || !verified.event) return null;
     try {
       return JSON.parse(JSON.stringify(verified.event));
@@ -1014,7 +1086,9 @@
     });
   }
 
-  function getStatus() {
+  function getStatus(networkTag) {
+    if (networkTag) bindStore(resolveGroupId(networkTag));
+    else if (!boundKey) bindStore(resolveGroupId());
     return storeStatus;
   }
 
@@ -1105,6 +1179,17 @@
     mutationsBlockedByConflict,
     legacyRootPubkey,
     resolveGroupId,
+    resolveExpectedGroup,
+    bindStore,
+    storeFor: (tag) => {
+      bindStore(tag);
+      syncOut();
+      return controlStores.get(String(tag));
+    },
+    clearAllStores,
+    CONTROL_STATE_A_CANNOT_REPLACE_B: true,
+    GROUP_CONTROL_STORE_MULTI_COMMUNITY_READY: true,
+    GROUP_CONTROL_CACHE_NAMESPACED: true,
     normalizePubkey,
   };
 

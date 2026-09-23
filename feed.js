@@ -25,6 +25,34 @@
     App._homeFeedFirstBatchShown = false;
   }
 
+  /** C0: explicit Community networkTag for feed/content. */
+  App.feedByNetworkTag = App.feedByNetworkTag instanceof Map ? App.feedByNetworkTag : new Map();
+
+  function resolveFeedNetworkTag(explicit) {
+    if (typeof explicit === 'string' && explicit.trim()) return explicit.trim();
+    const CC = App.CommunityContext || window.SosCommunityContext;
+    if (CC && typeof CC.snapshot === 'function') {
+      const snap = CC.snapshot();
+      if (snap && snap.networkTag) return snap.networkTag;
+    }
+    if (typeof App.NETWORK_TAG === 'string' && App.NETWORK_TAG.trim()) return App.NETWORK_TAG.trim();
+    return 'israel-network';
+  }
+
+  function feedBucket(networkTag) {
+    const key = resolveFeedNetworkTag(networkTag);
+    if (!App.feedByNetworkTag.has(key)) {
+      App.feedByNetworkTag.set(key, {
+        events: [],
+        postsById: new Map(),
+      });
+    }
+    return App.feedByNetworkTag.get(key);
+  }
+
+  App.resolveFeedNetworkTag = resolveFeedNetworkTag;
+  App.feedBucket = feedBucket;
+
   // חלק פרופילי מגיבים (feed.js) – TTL לאווטארים ופרופילים למניעת פניות חוזרות לריליי | HYPER CORE TECH
   const AVATAR_CACHE_TTL_SECONDS = 86400;
   function profileCacheKey(url) {
@@ -3783,18 +3811,14 @@
       tags: [
         ['e', parentId, App.relayUrls?.[0] || '', 'root'],
         ['e', parentId, App.relayUrls?.[0] || '', 'reply'],
-        ['t', App.NETWORK_TAG],
+        ['t', resolveFeedNetworkTag(App._interactionCommunitySnapshot && App._interactionCommunitySnapshot.networkTag)],
       ],
       content,
     };
-    const event = draft.kind === 5 ? await Promise.resolve(App.SosCryptoSigner.signDelete(draft)) : await Promise.resolve(App.SosCryptoSigner.signFeedEvent(draft));
-    await App.pool.publish(App.relayUrls, event);
-    registerComment(event, parentId);
-  }
 
   // חלק פיד (feed.js) – בניית פילטרים מרכזיים לפיד ולהתרעות | HYPER CORE TECH
 function buildCoreFeedFilters(sinceTimestamp = 0) {
-  const baseFilter = { kinds: [1], '#t': [App.NETWORK_TAG], limit: 200 };
+  const baseFilter = { kinds: [1], '#t': [resolveFeedNetworkTag()], limit: 200 };
   if (sinceTimestamp > 0) baseFilter.since = sinceTimestamp;
   const filters = [baseFilter];
   const viewerKey = typeof App.publicKey === 'string' ? App.publicKey : '';
@@ -3813,14 +3837,14 @@ function buildCoreFeedFilters(sinceTimestamp = 0) {
     });
   }
   // מחיקות: limit נמוך; אחרי hydrate — רק חלון since (שלב 1 ייעול ריליי) | HYPER CORE TECH
-  const delNet = { kinds: [5], '#t': [App.NETWORK_TAG], limit: 80 };
+  const delNet = { kinds: [5], '#t': [resolveFeedNetworkTag()], limit: 80 };
   const deletionsHydrated = App.deletedEventIds instanceof Set && App.deletedEventIds.size > 0;
   if (deletionsHydrated) {
     delNet.since = Math.floor(Date.now() / 1000) - (2 * 60 * 60);
   }
   filters.push(delNet);
   // AC4: group moderation tips (V2). Safe to subscribe always; acceptance gated by ModerationPolicy.isV2.
-  const modNet = { kinds: [39002], '#t': [App.NETWORK_TAG], limit: 80 };
+  const modNet = { kinds: [39002], '#t': [resolveFeedNetworkTag()], limit: 80 };
   if (deletionsHydrated) {
     modNet.since = delNet.since;
   }
@@ -3833,11 +3857,12 @@ function buildCoreFeedFilters(sinceTimestamp = 0) {
     }
     filters.push(delAuthors);
   }
-  filters.push({ kinds: [7], '#t': [App.NETWORK_TAG], limit: 500 });
+  filters.push({ kinds: [7], '#t': [resolveFeedNetworkTag()], limit: 500 });
   if (viewerKey) {
     const datingFilter = { kinds: [DATING_LIKE_KIND], '#p': [viewerKey], limit: 200 };
-    if (App.NETWORK_TAG) {
-      datingFilter['#t'] = [App.NETWORK_TAG];
+    const nt = resolveFeedNetworkTag();
+    if (nt) {
+      datingFilter['#t'] = [nt];
     }
     filters.push(datingFilter);
     const followFilter = { kinds: [FOLLOW_KIND], '#p': [viewerKey], limit: 200 };
@@ -4343,8 +4368,10 @@ async function loadFeed() {
     document.getElementById('connection-status').textContent = 'מפרסם פוסט...';
     App.setComposeStatus?.('מפרסם את הפוסט...');
 
-    // חלק פרסום (feed.js) – מבטיחים שתמיד יצורף תג רשת תקין לפוסט
-    const networkTag = typeof App.NETWORK_TAG === 'string' && App.NETWORK_TAG ? App.NETWORK_TAG : 'israel-network';
+    // חלק פרסום (feed.js) – תג רשת מ־CommunityContext snapshot (לא ambient-only)
+    const networkTag = resolveFeedNetworkTag(
+      App._composeCommunitySnapshot && App._composeCommunitySnapshot.networkTag
+    );
     // ודאות: אם יש dataUrl במדיה והוא לא נכלל ב-content, נוסיף אותו בתחילת התוכן
     try {
       const mediaUrl = App.composeState?.media?.dataUrl;
@@ -4424,7 +4451,7 @@ async function loadFeed() {
       created_at: Math.floor(Date.now() / 1000),
       tags: [
         ['e', eventId],
-        ['t', App.NETWORK_TAG],
+        ['t', resolveFeedNetworkTag(App._interactionCommunitySnapshot && App._interactionCommunitySnapshot.networkTag)],
       ],
       content,
     };
@@ -4455,13 +4482,14 @@ async function loadFeed() {
     return likePost(eventId);
   }
 
-  async function sharePost(eventId) {
+  async function sharePost(eventId, destNetworkTag) {
     if (!eventId) return null;
+    const networkTag = resolveFeedNetworkTag(destNetworkTag);
     const draft = {
       kind: 6,
       pubkey: App.publicKey,
       created_at: Math.floor(Date.now() / 1000),
-      tags: [['e', eventId], ['t', App.NETWORK_TAG]],
+      tags: [['e', eventId], ['t', networkTag]],
       content: '',
     };
     const event = draft.kind === 5 ? await Promise.resolve(App.SosCryptoSigner.signDelete(draft)) : await Promise.resolve(App.SosCryptoSigner.signFeedEvent(draft));
@@ -4647,7 +4675,7 @@ async function loadFeed() {
       created_at: Math.floor(Date.now() / 1000),
       tags: [
         ['e', eventId],
-        ['t', App.NETWORK_TAG],
+        ['t', resolveFeedNetworkTag()],
       ],
       content: '',
     };

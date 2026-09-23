@@ -168,14 +168,30 @@
   const CACHE_PREFIX = 'sos_membership_v2_';
 
   /**
-   * Per-member event set + reconstructed tip.
-   * @type {Map<string, {
-   *   events: Map<string, object>,
-   *   record: object|null,
-   *   conflictCandidates: object[]
-   * }>}
+   * C0: per-networkTag membership maps.
+   * Active `members` mirrors the bound Community scope.
+   * @type {Map<string, Map<string, { events: Map<string, object>, record: object|null, conflictCandidates: object[] }>>}
    */
-  const members = new Map();
+  const membershipStores = new Map();
+  /** @type {Map<string, { events: Map<string, object>, record: object|null, conflictCandidates: object[] }>} */
+  let members = new Map();
+  let membershipBoundKey = null;
+
+  function bindMembershipStore(networkTag) {
+    const key = String(networkTag || '').trim() || resolveGroupId();
+    if (membershipBoundKey === key) return key;
+    if (membershipBoundKey) membershipStores.set(membershipBoundKey, members);
+    if (!membershipStores.has(key)) membershipStores.set(key, new Map());
+    members = membershipStores.get(key);
+    membershipBoundKey = key;
+    return key;
+  }
+
+  function clearAllMembershipStores() {
+    membershipStores.clear();
+    membershipBoundKey = null;
+    members = new Map();
+  }
 
   function isV2() {
     return window.SOS_ACCESS_CONTROL_V2 === true;
@@ -187,7 +203,12 @@
     return /^[0-9a-f]{64}$/.test(t) ? t : '';
   }
 
-  function resolveGroupId() {
+  function resolveGroupId(explicit) {
+    if (typeof explicit === 'string' && explicit.trim()) return explicit.trim();
+    const CC = App.CommunityContext || (typeof window !== 'undefined' ? window.SosCommunityContext : null);
+    if (CC && typeof CC.resolveActiveNetworkTag === 'function') {
+      return CC.resolveActiveNetworkTag();
+    }
     if (typeof App.NETWORK_TAG === 'string' && App.NETWORK_TAG.trim()) return App.NETWORK_TAG.trim();
     return 'israel-network';
   }
@@ -200,13 +221,14 @@
     return App.GroupControlState || window.SosGroupControlState || null;
   }
 
-  function getVerifiedControlOrNull() {
+  function getVerifiedControlOrNull(networkTag) {
     const GCS = getGCS();
     if (!GCS || typeof GCS.getVerifiedControlState !== 'function') return null;
-    if (typeof GCS.getStatus === 'function' && GCS.getStatus() !== 'VERIFIED') return null;
-    const st = GCS.getVerifiedControlState();
+    const scope = networkTag || resolveGroupId();
+    if (typeof GCS.getStatus === 'function' && GCS.getStatus(scope) !== 'VERIFIED') return null;
+    const st = GCS.getVerifiedControlState(scope);
     if (!st || st.verified !== true) return null;
-    if (st.groupId !== resolveGroupId()) return null;
+    if (st.groupId !== scope) return null;
     return st;
   }
 
@@ -367,11 +389,16 @@
    * Structural + crypto + issuer auth validation (chain-independent).
    * Does not require exact_+1 against local tip — reconstruction owns ordering.
    */
-  function validateMembershipEventStructural(event, controlState) {
+  function validateMembershipEventStructural(event, controlState, options) {
     if (!event || event.kind !== MEMBERSHIP_EVENT_KIND) return { ok: false, code: 'BAD_KIND' };
     if (!strictVerify(event)) return { ok: false, code: 'STRICT_VERIFY_FAILED' };
 
-    const groupId = resolveGroupId();
+    const opts = options || {};
+    const groupId =
+      (typeof opts.groupId === 'string' && opts.groupId.trim()) ||
+      (controlState && controlState.groupId) ||
+      resolveGroupId();
+    bindMembershipStore(groupId);
     if (!eventHasNetworkTag(event, groupId)) return { ok: false, code: 'CROSS_GROUP' };
 
     const d = readTag(event, 'd');
@@ -699,11 +726,13 @@
     });
   }
 
-  function getMemberState(pubkey) {
+  function getMemberState(pubkey, networkTag) {
+    if (networkTag) bindMembershipStore(networkTag);
+    else if (!membershipBoundKey) bindMembershipStore(resolveGroupId());
     const pk = normalizePubkey(pubkey);
     if (!pk) return STATUS.UNKNOWN;
     if (!isV2()) return STATUS.UNKNOWN;
-    const state = getVerifiedControlOrNull();
+    const state = getVerifiedControlOrNull(networkTag || membershipBoundKey);
     if (state && pk === normalizePubkey(state.rootAdminPubkey)) {
       return STATUS.ACTIVE;
     }
@@ -889,10 +918,15 @@
     };
   }
 
-  function acceptMembershipEvent(event, controlState) {
-    const v = validateMembershipEventStructural(event, controlState);
+  function acceptMembershipEvent(event, controlState, options) {
+    const scope =
+      (options && options.groupId) ||
+      (controlState && controlState.groupId) ||
+      resolveGroupId();
+    bindMembershipStore(scope);
+    const v = validateMembershipEventStructural(event, controlState, { groupId: scope });
     if (!v.ok) return v;
-    const state = controlState || getVerifiedControlOrNull();
+    const state = controlState || getVerifiedControlOrNull(scope);
     const bucket = ensureMemberBucket(v.memberPubkey);
     // Idempotent store by event id
     bucket.events.set(String(event.id), {
@@ -935,12 +969,13 @@
     return outcomes;
   }
 
-  function clearTips() {
+  function clearTips(networkTag) {
+    bindMembershipStore(resolveGroupId(networkTag));
     members.clear();
     try {
-      localStorage.removeItem(CACHE_PREFIX + resolveGroupId());
+      localStorage.removeItem(CACHE_PREFIX + (membershipBoundKey || resolveGroupId()));
       // Also clear legacy v1 cache key
-      localStorage.removeItem('sos_membership_v1_' + resolveGroupId());
+      localStorage.removeItem('sos_membership_v1_' + (membershipBoundKey || resolveGroupId()));
     } catch (_) {}
   }
 
@@ -1208,6 +1243,11 @@
     strictVerify,
     readTag,
     inBlockedPubkeys,
+    bindMembershipStore,
+    clearAllMembershipStores,
+    MEMBERSHIP_STORE_MULTI_COMMUNITY_READY: true,
+    MEMBERSHIP_CACHE_NAMESPACED: true,
+    MEMBERSHIP_A_CANNOT_APPEAR_IN_B: true,
   };
 
   Object.freeze(api);

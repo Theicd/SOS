@@ -23,16 +23,25 @@
       // Send to relays as usual
       const res = await originalPublish(relays, event);
 
-      // Mirror to emergency network for relevant kinds
+  // Mirror to emergency network for relevant kinds — preserve full event (incl. community tags)
       try {
         if (shouldUseEmergency() && event && typeof App.AndroidBridge?.broadcast === 'function') {
           const kind = event.kind;
-          // Basic filter: posts(1/5), chat(1050), signals(25050), reactions/comments(7)
           const shouldMirror = kind === 1 || kind === 5 || kind === 7 || kind === 1050 || kind === 25050;
           if (shouldMirror) {
             App.AndroidBridge.broadcast({
               type: kind === 1050 ? 'chat' : kind === 25050 ? 'webrtc_signal' : kind === 7 ? 'reaction' : 'post',
               event,
+              // C0: receivers must use event Community binding, not ambient active Community
+              eventNetworkTag: (function () {
+                try {
+                  const tags = event.tags || [];
+                  for (let i = 0; i < tags.length; i++) {
+                    if (Array.isArray(tags[i]) && tags[i][0] === 't' && tags[i][1]) return String(tags[i][1]);
+                  }
+                } catch (_e) {}
+                return null;
+              })(),
               timestamp: event.created_at,
             });
             log(`Mirrored kind ${kind} to emergency network`);

@@ -235,7 +235,6 @@
   }
 
   function signTypedAdminOperationMain(P, op, request, actor) {
-    const groupId = P.resolveNetworkTag(request.groupId);
     let draft;
     if (P.isControlOp(op)) {
       let baseRecord = null;
@@ -243,14 +242,16 @@
         const baseEvent = request.baseEvent;
         if (!baseEvent || !strictVerifyEvent(baseEvent)) fail('BASE_VERIFY_FAILED');
         baseRecord = P.parseControlRecordFromEvent(baseEvent);
-        if (baseRecord.groupId !== groupId) fail('CROSS_GROUP');
       }
+      const groupId = P.resolveNetworkTag(request && request.groupId, baseRecord);
+      if (baseRecord && baseRecord.groupId !== groupId) fail('CROSS_GROUP');
       const next = P.applyControlOperation(op, baseRecord, actor, Object.assign({}, request, { groupId }));
       draft = P.buildControlDraft(next, actor);
     } else if (P.isMemberOp(op)) {
       const baseEvent = request.baseEvent;
       if (!baseEvent || !strictVerifyEvent(baseEvent)) fail('BASE_VERIFY_FAILED');
       const baseControl = P.parseControlRecordFromEvent(baseEvent);
+      const groupId = P.resolveNetworkTag(request && request.groupId, baseControl);
       if (baseControl.groupId !== groupId) fail('CROSS_GROUP');
       let tipBody = null;
       if (request.memberTipEvent) {

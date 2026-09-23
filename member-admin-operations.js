@@ -193,7 +193,13 @@
         const req = {
           version: 1,
           operation,
-          groupId: App.NETWORK_TAG || 'israel-network',
+          groupId:
+            (App.CommunityContext &&
+              App.CommunityContext.snapshot &&
+              App.CommunityContext.snapshot() &&
+              App.CommunityContext.snapshot().networkTag) ||
+            App.NETWORK_TAG ||
+            'israel-network',
           baseEvent,
           targetPubkey: tipPk,
           actorMembershipStatus: ms.getMemberState(normalizePubkey(App.publicKey)),

@@ -31,11 +31,38 @@
   ]);
 
   let modalEl = null;
-  let formBase = null; // { eventId, controlEpoch } snapshot when form opened
+  let formBase = null; // { eventId, controlEpoch, networkTag, communityId } snapshot when form opened
   let pendingHighRisk = null;
+  let formCommunitySnapshot = null;
 
   function isV2() {
     return window.SOS_ACCESS_CONTROL_V2 === true;
+  }
+
+  function captureFormCommunityScope() {
+    const CC = App.CommunityContext || window.SosCommunityContext;
+    if (CC && typeof CC.snapshot === 'function') {
+      formCommunitySnapshot = CC.snapshot();
+    } else {
+      formCommunitySnapshot = Object.freeze({
+        communityId: 'sos010',
+        networkTag: App.NETWORK_TAG || 'israel-network',
+        groupId: App.NETWORK_TAG || 'israel-network',
+        slug: 'sos010',
+        name: 'SOS010',
+      });
+    }
+    return formCommunitySnapshot;
+  }
+
+  function assertFormCommunityNotStale() {
+    if (!formCommunitySnapshot) return { ok: false, code: 'NO_FORM_SCOPE' };
+    const CC = App.CommunityContext || window.SosCommunityContext;
+    const live = CC && CC.snapshot ? CC.snapshot() : null;
+    if (live && live.networkTag !== formCommunitySnapshot.networkTag) {
+      return { ok: false, code: 'STALE_COMMUNITY_FORM', form: formCommunitySnapshot, live };
+    }
+    return { ok: true, scope: formCommunitySnapshot };
   }
 
   function GCS() {
@@ -212,13 +239,22 @@
   }
 
   function snapshotBase() {
+    captureFormCommunityScope();
     const gcs = GCS();
-    const st = gcs && gcs.getVerifiedControlState && gcs.getVerifiedControlState();
+    const scope = formCommunitySnapshot && formCommunitySnapshot.networkTag;
+    if (scope && gcs && gcs.bindStore) gcs.bindStore(scope);
+    const st =
+      gcs && gcs.getVerifiedControlState && gcs.getVerifiedControlState(scope);
     if (!st) {
       formBase = null;
       return null;
     }
-    formBase = { eventId: st.eventId, controlEpoch: st.controlEpoch };
+    formBase = {
+      eventId: st.eventId,
+      controlEpoch: st.controlEpoch,
+      networkTag: st.groupId,
+      communityId: formCommunitySnapshot && formCommunitySnapshot.communityId,
+    };
     return st;
   }
 
@@ -335,8 +371,16 @@
         return;
       }
     }
+    // C0: community switch while form open → stale, never mutate new community
+    const scopeCheck = assertFormCommunityNotStale();
+    if (!scopeCheck.ok) {
+      setMsg('קהילה הוחלפה — טופס ישן נחסם (STALE_COMMUNITY_FORM). לא נחתם.', 'err');
+      return;
+    }
     // Fresh base check — no auto-rebase
-    const live = GCS().getVerifiedControlState();
+    const live = GCS().getVerifiedControlState(
+      formCommunitySnapshot && formCommunitySnapshot.networkTag
+    );
     if (mutation.type !== 'RESOLVE_CONTROL_CONFLICT') {
       if (!formBase || !live || live.eventId !== formBase.eventId) {
         setMsg('המצב השתנה — רענון נדרש (STALE). לא נחתם.', 'err');
@@ -346,8 +390,19 @@
       }
     }
     setMsg('שולח...', '');
-    const result = await mut.applyControlMutation(mutation, actorPubkey(), {
-      baseState: formBase ? { eventId: formBase.eventId, controlEpoch: formBase.controlEpoch, verified: true } : null,
+    const scopedMutation = Object.assign({}, mutation, {
+      groupId: formCommunitySnapshot.networkTag,
+      networkTag: formCommunitySnapshot.networkTag,
+    });
+    const result = await mut.applyControlMutation(scopedMutation, actorPubkey(), {
+      baseState: formBase
+        ? {
+            eventId: formBase.eventId,
+            controlEpoch: formBase.controlEpoch,
+            verified: true,
+            groupId: formBase.networkTag,
+          }
+        : null,
     });
     if (!result.ok) {
       setMsg('נכשל: ' + (result.code || 'ERROR'), 'err');

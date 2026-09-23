@@ -1,9 +1,9 @@
 {
     "callSignalGiftWrapRequired":  true,
-    "version":  "2026.09.23-ac9-891",
-    "buildTime":  "2026-09-23T13:00:00+03:00",
+    "version":  "2026.09.23-c0-892",
+    "buildTime":  "2026-09-23T15:15:00+03:00",
     "e2eeSendRequired":  true,
     "minSecureChatEpoch":  2,
     "mediaServerE2eeRequired":  true,
-    "notes":  "AC9 dark: narrow typed administrative signer (SIGN_ADMIN_TYPED). Broad SIGN_GROUP_CONTROL/SIGN_MEMBERSHIP_STATE removed. Package 891 / sos-cache-v891. ACCESS_CONTROL_V2 remains default OFF. No GROUP_CONTROL/membership bootstrap. No real admin mutations. No AC10/F5B4. No identity rotation / legacy key delete."
+    "notes":  "C0 foundation: multi-community scope (CommunityContext SSoT, AC/membership/control stores Map-by-networkTag, explicit admin signer scope, DM decoupled from active Community). Default Community sos010/israel-network. Package 892 / sos-cache-v892. ACCESS_CONTROL_V2 remains default OFF. No GROUP_CONTROL/membership bootstrap. No Community creation/follow/external/bridge. No F5B4. No identity rotation / legacy key delete."
 }

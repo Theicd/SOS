@@ -510,7 +510,6 @@
     if (!P) fail('ADMIN_POLICY_MISSING', 'AdminSigningPolicy not loaded in worker');
     const op = P.validateRequestEnvelope(request || {});
     const actor = sessionPubHex;
-    const groupId = P.resolveNetworkTag(request && request.groupId);
     function verifyEv(ev) {
       if (!ev || typeof ev !== 'object') return false;
       try {
@@ -525,13 +524,15 @@
       if (op !== P.ADMIN_OP.BOOTSTRAP_GROUP_CONTROL) {
         if (!verifyEv(request.baseEvent)) fail('BASE_VERIFY_FAILED');
         baseRecord = P.parseControlRecordFromEvent(request.baseEvent);
-        if (baseRecord.groupId !== groupId) fail('CROSS_GROUP');
       }
+      const groupId = P.resolveNetworkTag(request && request.groupId, baseRecord);
+      if (baseRecord && baseRecord.groupId !== groupId) fail('CROSS_GROUP');
       const next = P.applyControlOperation(op, baseRecord, actor, Object.assign({}, request, { groupId }));
       draft = P.buildControlDraft(next, actor);
     } else if (P.isMemberOp(op)) {
       if (!verifyEv(request.baseEvent)) fail('BASE_VERIFY_FAILED');
       const baseControl = P.parseControlRecordFromEvent(request.baseEvent);
+      const groupId = P.resolveNetworkTag(request && request.groupId, baseControl);
       if (baseControl.groupId !== groupId) fail('CROSS_GROUP');
       let tipBody = null;
       if (request.memberTipEvent) {

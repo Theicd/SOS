@@ -167,8 +167,13 @@
     if (commentAuthor) {
       tags.push(['p', commentAuthor]);
     }
-    if (App.NETWORK_TAG) {
-      tags.push(['t', App.NETWORK_TAG]);
+    const CC = App.CommunityContext || window.SosCommunityContext;
+    const networkTag =
+      (App._interactionCommunitySnapshot && App._interactionCommunitySnapshot.networkTag) ||
+      (CC && CC.snapshot && CC.snapshot() && CC.snapshot().networkTag) ||
+      App.NETWORK_TAG;
+    if (networkTag) {
+      tags.push(['t', networkTag]);
     }
     const draft = {
       kind: 7,

@@ -97,16 +97,23 @@
     return typeof v === 'string' && /^[0-9a-f]{64}$/i.test(v.trim());
   }
 
-  function resolveNetworkTag(explicit) {
+  function resolveNetworkTag(explicit, baseRecord) {
+    // C0: never use ambient App.NETWORK_TAG as authority.
+    // Prefer explicit request scope, else verified base.groupId, else CommunityContext SSoT.
     if (typeof explicit === 'string' && explicit.trim()) return explicit.trim();
+    if (baseRecord && typeof baseRecord.groupId === 'string' && baseRecord.groupId.trim()) {
+      return baseRecord.groupId.trim();
+    }
     try {
-      const g = typeof global !== 'undefined' ? global : null;
+      const g = typeof globalThis !== 'undefined' ? globalThis : null;
       const App = g && (g.NostrApp || g);
-      if (App && typeof App.NETWORK_TAG === 'string' && App.NETWORK_TAG.trim()) {
-        return App.NETWORK_TAG.trim();
+      const CC = (App && App.CommunityContext) || (g && g.SosCommunityContext);
+      if (CC && typeof CC.snapshot === 'function') {
+        const snap = CC.snapshot();
+        if (snap && snap.networkTag) return snap.networkTag;
       }
     } catch (_e) {}
-    return 'israel-network';
+    fail('EXPLICIT_NETWORK_TAG_REQUIRED');
   }
 
   function sanitizeDisplayName(raw) {
@@ -213,7 +220,7 @@
     if (hasProtoPollution(p)) fail('PROTOTYPE_POLLUTION');
 
     if (operation === ADMIN_OP.BOOTSTRAP_GROUP_CONTROL) {
-      const groupId = resolveNetworkTag(p.groupId);
+      const groupId = resolveNetworkTag(p.groupId, null);
       const displayName = sanitizeDisplayName(p.displayName || 'Community');
       if (!displayName) fail('EMPTY_DISPLAY_NAME');
       const invitePolicy = p.invitePolicy || 'EVERYONE';
@@ -237,7 +244,7 @@
     }
 
     if (!baseRecord) fail('NO_BASE');
-    const expectedGroup = resolveNetworkTag(p.groupId);
+    const expectedGroup = resolveNetworkTag(p.groupId, baseRecord);
     if (baseRecord.groupId !== expectedGroup) fail('CROSS_GROUP');
 
     if (operation === ADMIN_OP.RESOLVE_CONTROL_CONFLICT) {
@@ -368,7 +375,7 @@
     if (!baseControl) fail('NO_BASE_CONTROL');
     const p = params && typeof params === 'object' ? params : {};
     if (hasProtoPollution(p)) fail('PROTOTYPE_POLLUTION');
-    const expectedGroup = resolveNetworkTag(p.groupId);
+    const expectedGroup = resolveNetworkTag(p.groupId, baseControl);
     if (baseControl.groupId !== expectedGroup) fail('CROSS_GROUP');
 
     const memberPubkey = normalizePubkey(p.targetPubkey || p.memberPubkey);
@@ -536,6 +543,8 @@
     MAX_CANDIDATES,
     normalizePubkey,
     resolveNetworkTag,
+    ADMIN_SIGNER_EXPLICIT_COMMUNITY_SCOPE: true,
+    ADMIN_SIGNER_AMBIENT_NETWORK_FALLBACK: false,
     sanitizeDisplayName,
     validateRequestEnvelope,
     parseControlRecordFromEvent,

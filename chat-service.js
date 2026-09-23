@@ -458,9 +458,7 @@
       ['p', normalizedPeer],
       ['t', CHAT_TAG],
     ];
-    if (App.NETWORK_TAG) {
-      tags.push(['t', App.NETWORK_TAG]);
-    }
+    // C0: private DM is GLOBAL SO-CALL — do not bind new messages to active Community.
     const draft = {
       kind: CHAT_KIND,
       pubkey: App.publicKey,
@@ -842,9 +840,7 @@
       ],
       content: '',
     };
-    if (App.NETWORK_TAG) {
-      draft.tags.push(['t', App.NETWORK_TAG]);
-    }
+    // C0: deletes for DMs remain global (CHAT_TAG), not Community-bound.
     const event = await Promise.resolve(App.SosCryptoSigner.signDelete(draft));
     try {
       await pool.publish(App.relayUrls, event);
@@ -2047,7 +2043,7 @@
       ['p', receipt.to],
       ['t', CHAT_TAG],
     ];
-    if (App.NETWORK_TAG) tags.push(['t', App.NETWORK_TAG]);
+    // C0: read receipts for DMs are global identity-to-identity.
     const receiptBody = {
       type: 'chat_read_receipt',
       receiptId: receipt.receiptId,
