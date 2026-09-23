@@ -154,7 +154,14 @@ function staticChecks() {
   record('static lifecycle has NO generateSecretKey', !/generateSecretKey/.test(life));
   record('static lifecycle has NO generateAndStoreKey', !/generateAndStoreKey/.test(life));
   record('static lifecycle has NO createNewIdentityExplicit', !/createNewIdentityExplicit/.test(life));
-  record('static clearUserSession returns JSON result', /fun clearUserSession\(\): String/.test(bridge));
+  // Canonical Native API is void; JS lifecycle accepts optional JSON string OR verifies via status API.
+  record(
+    'static clearUserSession is void (canonical) with JS dual-path',
+    /fun clearUserSession\(\)\s*\{/.test(bridge) &&
+      !/fun clearUserSession\(\):\s*String/.test(bridge) &&
+      /Legacy void clearUserSession/.test(life) &&
+      /readNativeStatus/.test(life)
+  );
   record('static logout uses logoutIdentity', /logoutIdentity/.test(kv));
   record('static account import uses prepare/commit', /prepareAccountSwitch/.test(account) && /commitAccountSwitch/.test(account));
   record('static videos.html loads identity-lifecycle.js', /identity-lifecycle\.js/.test(read('videos.html')));
