@@ -76,6 +76,7 @@
     './keys.js?pkg=892',
     './app.js?pkg=892',
     './identity-lifecycle.js?pkg=892',
+    './signer-outage-isolation.js',
     './isolated-signer-trusted-import.js',
     './account.js?pkg=892',
     './key-viewer.js?pkg=892',

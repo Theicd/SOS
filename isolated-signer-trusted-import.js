@@ -85,6 +85,7 @@
   /**
    * Open trusted import for the currently registered public identity.
    * Does not create a new identity. Does not change App.publicKey.
+   * Circuit-breaker gated; never auto-retries; never blocks app boot.
    */
   function openTrustedImport(opts) {
     opts = opts && typeof opts === 'object' ? opts : {};
@@ -93,13 +94,24 @@
         throw Object.assign(new Error('SECRET_FIELD_FORBIDDEN'), { code: 'SECRET_FIELD_FORBIDDEN' });
       }
     }
+    const Iso = App.SignerOutageIsolation || window.SosSignerOutageIsolation;
+    if (Iso && typeof Iso.canAttemptUserAction === 'function') {
+      const gate = Iso.canAttemptUserAction();
+      if (!gate.ok) {
+        return {
+          ok: false,
+          code: gate.code || 'SIGNER_TEMPORARILY_UNAVAILABLE',
+          urlHasSecret: false,
+          communityIndependent: true,
+        };
+      }
+    }
     const expectedPubkey = normalizePubkey(opts.expectedPubkey || getRegisteredPubkey());
     if (!isHex64(expectedPubkey)) {
       throw Object.assign(new Error('EXPECTED_PUBKEY_REQUIRED'), { code: 'EXPECTED_PUBKEY_REQUIRED' });
     }
     const returnOrigin = location.origin;
     if (!ALLOWED_RETURN_ORIGINS.includes(returnOrigin) && !/^http:\/\/(127\.0\.0\.1|localhost):\d+$/.test(returnOrigin)) {
-      // Allow same-origin production hosts already listed; reject arbitrary
       if (!ALLOWED_RETURN_ORIGINS.includes(returnOrigin)) {
         throw Object.assign(new Error('RETURN_ORIGIN_REJECTED'), { code: 'RETURN_ORIGIN_REJECTED' });
       }
@@ -121,13 +133,24 @@
       createdAt: Date.now(),
       completed: false,
     });
-    window.open(url, 'sos_signer_import', 'noopener,noreferrer,width=480,height=640');
+    let opened = null;
+    try {
+      opened = window.open(url, 'sos_signer_import', 'noopener,noreferrer,width=480,height=640');
+    } catch (_e) {
+      if (Iso && Iso.recordFailure) Iso.recordFailure('OPEN_FAILED');
+      return { ok: false, code: 'OPEN_FAILED', urlHasSecret: false };
+    }
+    if (!opened && Iso && Iso.recordFailure) {
+      // Popup blocked is not necessarily host outage — do not trip circuit aggressively
+    }
+    if (Iso && Iso.recordSuccess) Iso.recordSuccess();
     return {
       ok: true,
       sessionId,
       expectedPubkey,
       urlHasSecret: false,
       communityIndependent: true,
+      APP_BOOT_REQUIRES_SIGNER: false,
     };
   }
 
@@ -171,6 +194,12 @@
     STATUS_KEY,
     DEFAULT_SIGNER_ORIGIN,
     COMMUNITY_INDEPENDENT: true,
+    APP_BOOT_REQUIRES_SIGNER: false,
+    APP_BOOT_WAITS_FOR_SIGNER_NETWORK: false,
+    SIGNER_HEALTH_CHECK_BLOCKS_APP_BOOT: false,
+    F5B4_AUTOMATIC_IMPORT_TRIGGER: false,
+    F5B4_BACKGROUND_IMPORT_TRIGGER: false,
+    F5B4_IMPORT_REQUIRES_EXPLICIT_USER_ACTION: true,
     openTrustedImport,
     handleImportSuccess,
     getStatus: loadStatus,
