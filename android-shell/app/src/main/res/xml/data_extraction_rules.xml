@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  F6A data extraction rules (Android 12+).
+  Keep private identity material off cloud backup and device-to-device transfer.
+  HYPER CORE TECH
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="sos_native_identity_secure_v1.xml" />
+        <exclude domain="sharedpref" path="sos_native_session.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="sos_native_identity_secure_v1.xml" />
+        <exclude domain="sharedpref" path="sos_native_session.xml" />
+    </device-transfer>
+</data-extraction-rules>

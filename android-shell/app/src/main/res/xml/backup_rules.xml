@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  F6A: exclude Keystore-encrypted identity blob from cloud backup / device transfer.
+  Restoring ciphertext without the device Keystore key would yield a misleading/unusable identity.
+  Also exclude legacy sos_native_session (contains plaintext privkey) for the same reason.
+  HYPER CORE TECH
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="sos_native_identity_secure_v1.xml" />
+    <exclude domain="sharedpref" path="sos_native_session.xml" />
+</full-backup-content>
