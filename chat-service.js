@@ -2014,14 +2014,40 @@
     return !!(pool && App.SosCryptoSigner?.hasIdentityKey() && typeof App.SosCryptoSigner.signReadReceipt === 'function');
   }
 
+  // Secure P2P v2: DC receipt identity is the authenticated session peer, not payload.from.
+  // Wire omits free-form `from` so receivers never treat it as authority.
+  function buildDcReadReceiptWire(receipt) {
+    if (!receipt) return null;
+    return {
+      type: 'chat_read_receipt',
+      receiptId: receipt.receiptId,
+      to: receipt.to,
+      lastReadAt: receipt.lastReadAt,
+      lastReadMessageId: receipt.lastReadMessageId || '',
+    };
+  }
+
+  function resolveP2pDcReceiptSender(event, authenticatedPeerPubkey) {
+    const auth = String(authenticatedPeerPubkey || '').toLowerCase();
+    if (!auth || auth.length < 16) {
+      return { ok: false, reason: 'unknown_peer' };
+    }
+    const claimed = String((event && event.from) || '').toLowerCase();
+    if (claimed && claimed !== auth) {
+      return { ok: false, reason: 'from_mismatch' };
+    }
+    return { ok: true, sender: auth };
+  }
+
   function sendReceiptOverDc(receipt) {
     if (!receipt || !App.dataChannel) return false;
     if (typeof App.dataChannel.isConnected === 'function' && !App.dataChannel.isConnected(receipt.to)) return false;
+    const wire = buildDcReadReceiptWire(receipt) || receipt;
     if (typeof App.dataChannel.sendJson === 'function') {
-      return !!App.dataChannel.sendJson(receipt.to, receipt);
+      return !!App.dataChannel.sendJson(receipt.to, wire);
     }
     if (typeof App.dataChannel.send === 'function') {
-      return !!App.dataChannel.send(receipt.to, receipt);
+      return !!App.dataChannel.send(receipt.to, wire);
     }
     return false;
   }
@@ -2156,20 +2182,36 @@
     }
   }
 
-  async function handleIncomingReadReceipt(event) {
+  async function handleIncomingReadReceipt(event, bindOpts) {
     if (!event) return;
     const self = App.publicKey?.toLowerCase?.() || '';
+    const bind = bindOpts && typeof bindOpts === 'object' ? bindOpts : null;
+    const authPeer = bind
+      ? String(bind.authenticatedPeerPubkey || bind.dcPeer || '').toLowerCase()
+      : '';
+    const isP2pDc = !!(bind && (bind.transport === 'p2p-dc' || bind.requireAuthenticatedPeer === true || authPeer));
     let sender = '';
     let recipient = '';
     let lastReadAt = 0;
     let lastReadMessageId = '';
     let receiptId = '';
     if (event.type === 'chat_read_receipt' || (!event.kind && (event.lastReadAt || event.lastReadMessageId))) {
-      sender = String(event.from || '').toLowerCase();
       recipient = String(event.to || '').toLowerCase();
       lastReadAt = Number(event.lastReadAt) || 0;
       lastReadMessageId = String(event.lastReadMessageId || '');
       receiptId = String(event.receiptId || '');
+      if (isP2pDc) {
+        // Control-plane only: O(1) bind to authenticated DC peer. Never trust payload.from.
+        const resolved = resolveP2pDcReceiptSender(event, authPeer);
+        if (!resolved.ok) {
+          console.warn('[SECURITY/PARSE_REJECT] kind=dc type=chat_read_receipt reason=' + resolved.reason);
+          return;
+        }
+        sender = resolved.sender;
+      } else {
+        // Non-DC transports (e.g. emergency mesh) keep prior payload.from binding.
+        sender = String(event.from || '').toLowerCase();
+      }
     } else if (event.kind === READ_RECEIPT_KIND) {
       sender = event.pubkey?.toLowerCase?.() || '';
       const pTag = event.tags?.find?.(t => Array.isArray(t) && t[0] === 'p');
@@ -2282,6 +2324,8 @@
     syncChatHistory,
     sendReadReceipt,
     handleIncomingReadReceipt,
+    resolveP2pDcReceiptSender,
+    buildDcReadReceiptWire,
     drainPendingReadReceipts,
     verifyIncomingChatRelayPayload,
     verifyIncomingChatAttachment,

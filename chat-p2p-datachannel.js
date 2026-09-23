@@ -657,7 +657,10 @@
         return;
       }
       if(m.type==='chat_read_receipt'){
-        if(typeof App.handleIncomingReadReceipt==='function') App.handleIncomingReadReceipt(m);
+        // Secure P2P v2: receipt identity = authenticated DC peer, not payload.from
+        if(typeof App.handleIncomingReadReceipt==='function'){
+          App.handleIncomingReadReceipt(m, { authenticatedPeerPubkey: peer, transport: 'p2p-dc' });
+        }
         return;
       }
       if(m.type==='chat_presence'){
