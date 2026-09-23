@@ -1530,6 +1530,40 @@
     }
   }
 
+  function applyVerifiedIncomingChatRelayEvent(event) {
+    if (!event) return;
+    if (!verifyIncomingChatRelayRecipient(event)) {
+      return;
+    }
+    chatLastSignalAt = Date.now();
+    if (event.kind === READ_RECEIPT_KIND) {
+      Promise.resolve(handleIncomingReadReceipt(event)).catch(() => {});
+      return;
+    }
+    if (event.kind === PRESENCE_KIND) {
+      try {
+        if (typeof App.handleIncomingPresenceEvent === 'function') {
+          App.handleIncomingPresenceEvent(event);
+        }
+      } catch (_) {}
+      return;
+    }
+    handleIncomingChatEvent(event);
+  }
+
+  function ingestIncomingChatRelayEvent(event) {
+    const Integrity = window.NostrEventIntegrity;
+    if (Integrity && typeof Integrity.enqueueStrictVerify === 'function') {
+      Integrity.enqueueStrictVerify(event, { priority: 'high' }).then((result) => {
+        if (!result || result.ok !== true || !result.snapshot) return;
+        applyVerifiedIncomingChatRelayEvent(result.snapshot);
+      }).catch(() => {});
+      return;
+    }
+    if (!verifyIncomingChatRelayEvent(event)) return;
+    applyVerifiedIncomingChatRelayEvent(event);
+  }
+
   // חלק אבטחה (chat-service.js) – אימות נמען מקומי לאירועי ריליי שאינם של המשתמש הנוכחי | HYPER CORE TECH
   function getIncomingChatRelayRecipient(event) {
     const tags = event && Array.isArray(event.tags) ? event.tags : [];
@@ -1638,27 +1672,7 @@
 
     activeSubscription = App.pool.subscribeMany(App.relayUrls, filters, {
       onevent: (event) => {
-        if (!verifyIncomingChatRelayEvent(event)) {
-          return;
-        }
-        if (!verifyIncomingChatRelayRecipient(event)) {
-          return;
-        }
-        chatLastSignalAt = Date.now();
-        // חלק אישורי קריאה (chat-service.js) – טיפול באישורי קריאה נכנסים | HYPER CORE TECH
-        if (event.kind === READ_RECEIPT_KIND) {
-          Promise.resolve(handleIncomingReadReceipt(event)).catch(() => {});
-          return;
-        }
-        if (event.kind === PRESENCE_KIND) {
-          try {
-            if (typeof App.handleIncomingPresenceEvent === 'function') {
-              App.handleIncomingPresenceEvent(event);
-            }
-          } catch (_) {}
-          return;
-        }
-        handleIncomingChatEvent(event);
+        ingestIncomingChatRelayEvent(event);
       },
       oneose: () => {
         chatLastSignalAt = Date.now();

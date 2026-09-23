@@ -172,13 +172,11 @@
     if (typeof App.strictVerifyNostrEvent === 'function') {
       return App.strictVerifyNostrEvent(event) === true;
     }
-    const NT = window.NostrTools;
-    if (!NT || typeof NT.verifyEvent !== 'function') return false;
-    try {
-      return NT.verifyEvent(event) === true;
-    } catch (_e) {
-      return false;
+    if (window.NostrEventIntegrity && typeof window.NostrEventIntegrity.strictVerifyNostrEvent === 'function') {
+      return window.NostrEventIntegrity.strictVerifyNostrEvent(event) === true;
     }
+    // Fail closed — never weak nostr-tools cache-only verify.
+    return false;
   }
 
   async function sha256Hex(value) {

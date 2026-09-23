@@ -131,6 +131,19 @@
     return false;
   }
 
+  function verifyEventSafeAsync(event) {
+    try {
+      const Integrity = window.NostrEventIntegrity;
+      if (Integrity && typeof Integrity.enqueueStrictVerify === 'function') {
+        return Integrity.enqueueStrictVerify(event, { priority: 'normal' }).then((r) => {
+          if (!r || r.ok !== true || !r.snapshot) return null;
+          return r.snapshot;
+        });
+      }
+    } catch (_e) {}
+    return Promise.resolve(verifyEventSafe(event) ? event : null);
+  }
+
   async function putEvent(event, source) {
     const database = await openDB();
     if (!database) return false;
@@ -169,13 +182,14 @@
 
     state.stats.ingested++;
 
-    if (!verifyEventSafe(event)) {
+    const verified = await verifyEventSafeAsync(event);
+    if (!verified) {
       state.stats.invalid++;
       log('warn', '❌ invalid event signature', { id: event.id?.slice?.(0, 12), kind: event.kind });
       return false;
     }
 
-    return putEvent(event, meta.source || 'unknown').then((storedOk) => {
+    return putEvent(verified, meta.source || 'unknown').then((storedOk) => {
       if (!storedOk) {
         log('warn', 'IDB put failed — event still accepted for live feed', { id: event.id?.slice?.(0, 12) });
       }

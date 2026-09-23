@@ -101,13 +101,15 @@
 
   function strictVerify(event) {
     try {
+      if (typeof App.strictVerifyNostrEvent === 'function') return App.strictVerifyNostrEvent(event) === true;
       if (typeof App.verifyEventStrict === 'function') return App.verifyEventStrict(event) === true;
+      if (window.NostrEventIntegrity && typeof window.NostrEventIntegrity.strictVerifyNostrEvent === 'function') {
+        return window.NostrEventIntegrity.strictVerifyNostrEvent(event) === true;
+      }
       if (window.NostrEventIntegrity && typeof window.NostrEventIntegrity.verifyEventStrict === 'function') {
         return window.NostrEventIntegrity.verifyEventStrict(event) === true;
       }
-      if (window.NostrTools && typeof window.NostrTools.verifyEvent === 'function') {
-        return window.NostrTools.verifyEvent(event) === true;
-      }
+      // Fail closed: never accept via weak nostr-tools Symbol(verified) cache alone.
     } catch (_) {}
     return false;
   }

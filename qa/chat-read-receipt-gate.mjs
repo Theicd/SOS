@@ -122,7 +122,7 @@ App.applyIncomingReadReceipt(receipt('V1', NOW + 30));
 record('9 voice message is read by boundary', statusOf('V1') === 'read');
 record('10 playback is not required', !/audio\.play|VOICE_SOURCE_/.test(stateSrc.slice(stateSrc.indexOf('function applyIncomingReadReceipt'), stateSrc.indexOf('function retryInboundReadReceipt'))));
 record('11 encrypted relay receipt, plaintext rejected',
-  /encryptPrivateChatPayload/.test(serviceSrc)
+  /nip44ChatEncrypt/.test(serviceSrc)
   && /plaintext-receipt/.test(serviceSrc)
   && /looksLikeSosE2eeEnvelope/.test(serviceSrc));
 record('12 stage 5A voice resolver remains',

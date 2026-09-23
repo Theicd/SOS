@@ -15,6 +15,7 @@
     './chat-secure-epoch.js',
     './call-signal-e2ee.js',
     './nostr-event-integrity.js',
+    './nostr-verify-worker.js',
     './sos-crypto-signer.js',
     './sos-crypto-worker.js',
     './sos-crypto-worker-vault.js',

@@ -1671,24 +1671,35 @@
         if (!event?.content) {
           return;
         }
+        const Integrity = window.NostrEventIntegrity;
+        const applyProfileEvent = (verified) => {
+          if (!verified || !verified.content) return;
+          const lastLocalUpdate = App.profile.lastUpdateTimestamp || 0;
+          const eventTimestamp = verified.created_at || 0;
+          if (lastLocalUpdate > eventTimestamp) {
+            console.log('Profile metadata: skipping older subscription data', { local: lastLocalUpdate, relay: eventTimestamp });
+            return;
+          }
+          try {
+            const parsed = JSON.parse(verified.content);
+            if (applyMetadataToProfile(parsed, 'subscription', eventTimestamp)) {
+              console.log('Profile metadata: subscription update applied', typeof App.diagProfileLog === 'function' ? App.diagProfileLog(App.publicKey, parsed) : { profileUpdated: true, pubkey: String(App.publicKey || '').slice(0, 8) });
+            }
+          } catch (err) {
+            console.warn('Profile metadata: failed parsing subscription event', err);
+          }
+        };
+        if (Integrity && typeof Integrity.enqueueStrictVerify === 'function') {
+          Integrity.enqueueStrictVerify(event, { priority: 'normal' }).then((result) => {
+            if (!result || result.ok !== true || !result.snapshot) return;
+            applyProfileEvent(result.snapshot);
+          }).catch(() => {});
+          return;
+        }
         if (typeof App.strictVerifyNostrEvent === 'function' && App.strictVerifyNostrEvent(event) !== true) {
           return;
         }
-        // חלק פרופיל (profile.js) – בדיקת timestamp למניעת דריסת שינויים חדשים בנתונים ישנים
-        const lastLocalUpdate = App.profile.lastUpdateTimestamp || 0;
-        const eventTimestamp = event.created_at || 0;
-        if (lastLocalUpdate > eventTimestamp) {
-          console.log('Profile metadata: skipping older subscription data', { local: lastLocalUpdate, relay: eventTimestamp });
-          return;
-        }
-        try {
-          const parsed = JSON.parse(event.content);
-          if (applyMetadataToProfile(parsed, 'subscription', eventTimestamp)) {
-            console.log('Profile metadata: subscription update applied', typeof App.diagProfileLog === 'function' ? App.diagProfileLog(App.publicKey, parsed) : { profileUpdated: true, pubkey: String(App.publicKey || '').slice(0, 8) });
-          }
-        } catch (err) {
-          console.warn('Profile metadata: failed parsing subscription event', err);
-        }
+        applyProfileEvent(event);
       },
     });
 
