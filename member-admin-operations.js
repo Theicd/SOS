@@ -151,18 +151,63 @@
     }
   }
 
-  async function signAndAcceptMembership(draft, opts) {
+  async function signAndAcceptMembership(draftOrReq, opts) {
     const options = opts || {};
     const ms = MS();
     if (!ms) return { ok: false, code: 'NO_MS' };
-    let signed = draft;
+    let signed = draftOrReq;
     if (!options.preSigned) {
       const S = App.SosCryptoSigner;
-      if (!S || typeof S.signMembershipState !== 'function') {
+      const P = App.AdminSigningPolicy || window.SosAdminSigningPolicy;
+      const g = GCS();
+      if (!S || typeof S.signTypedAdminOperation !== 'function' || !P || !g) {
         return { ok: false, code: 'SIGNER_MISSING' };
       }
       try {
-        signed = await Promise.resolve(S.signMembershipState(draft));
+        const baseEvent = g.getVerifiedControlEvent ? g.getVerifiedControlEvent() : null;
+        if (!baseEvent) return { ok: false, code: 'NO_BASE_EVENT' };
+        const transition = options.transition || (draftOrReq && draftOrReq.transition);
+        let operation = null;
+        if (transition === 'GRANT_ACTIVE') operation = 'GRANT_MEMBER_ACTIVE';
+        else if (transition === 'BLOCK') operation = 'BLOCK_MEMBER';
+        else if (transition === 'UNBLOCK') operation = 'UNBLOCK_MEMBER';
+        else if (transition === 'REMOVE') operation = 'REMOVE_MEMBER';
+        else if (transition === 'ROOT_CHECKPOINT') operation = 'RESOLVE_MEMBERSHIP_CONFLICT';
+        else if (transition === 'BOOTSTRAP') operation = 'BOOTSTRAP_MEMBER_ACTIVE';
+        if (!operation && options.operation) operation = options.operation;
+        if (!operation) return { ok: false, code: 'UNKNOWN_TRANSITION' };
+        const memberPubkey =
+          options.memberPubkey ||
+          (draftOrReq && (draftOrReq.memberPubkey || (draftOrReq.tags && draftOrReq.tags.find((t) => t[0] === 'p'))));
+        const target =
+          typeof memberPubkey === 'string'
+            ? memberPubkey
+            : Array.isArray(memberPubkey)
+              ? memberPubkey[1]
+              : '';
+        const tipPk = normalizePubkey(target);
+        let memberTipEvent = options.memberTipEvent || null;
+        if (!memberTipEvent && tipPk && typeof ms.getVerifiedMemberTipEvent === 'function') {
+          memberTipEvent = ms.getVerifiedMemberTipEvent(tipPk);
+        }
+        const req = {
+          version: 1,
+          operation,
+          groupId: App.NETWORK_TAG || 'israel-network',
+          baseEvent,
+          targetPubkey: tipPk,
+          actorMembershipStatus: ms.getMemberState(normalizePubkey(App.publicKey)),
+          controlConflict:
+            typeof g.mutationsBlockedByConflict === 'function' && g.mutationsBlockedByConflict() === true,
+        };
+        if (options.inviteEventId) req.inviteEventId = options.inviteEventId;
+        if (options.status) req.status = options.status;
+        if (options.candidateEventIds) req.candidateEventIds = options.candidateEventIds;
+        if (memberTipEvent) req.memberTipEvent = memberTipEvent;
+        if (ms.getMemberState(tipPk) === 'CONFLICT' && operation !== 'RESOLVE_MEMBERSHIP_CONFLICT') {
+          req.memberConflict = true;
+        }
+        signed = await Promise.resolve(S.signTypedAdminOperation(req));
       } catch (e) {
         return { ok: false, code: 'SIGN_FAILED', error: e && e.message };
       }
@@ -185,18 +230,16 @@
   }
 
   async function applyMembershipTransition(actor, memberPubkey, transition, extra, opts) {
-    const ms = MS();
-    const draft = ms.buildMembershipDraft(
-      Object.assign(
-        {
-          memberPubkey,
-          transition,
-          issuerPubkey: actor,
-        },
-        extra || {}
-      )
-    );
-    return signAndAcceptMembership(draft, opts);
+    const options = Object.assign({}, opts || {}, {
+      transition,
+      memberPubkey,
+      inviteEventId: extra && extra.inviteEventId,
+      status: extra && extra.status,
+      candidateEventIds: extra && extra.candidateEventIds,
+      memberTipEvent: extra && extra.memberTipEvent,
+    });
+    // draft unused — typed signer builds event; pass placeholder for API compat
+    return signAndAcceptMembership({ transition, memberPubkey }, options);
   }
 
   /**
@@ -464,9 +507,34 @@
     return applyMembershipTransition(
       actor,
       target,
-      'RESOLVE_CONFLICT',
-      { status: canonicalStatus },
-      options
+      'ROOT_CHECKPOINT',
+      { status: canonicalStatus, candidateEventIds: candidates },
+      Object.assign({}, options, { status: canonicalStatus, candidateEventIds: candidates })
+    );
+  }
+
+  /**
+   * AC9 — invite-bound GRANT_MEMBER_ACTIVE (narrow typed signer).
+   * Caller must already have validated invite redeem; this only signs/accepts membership.
+   */
+  async function grantMemberActiveFromInvite(memberPubkey, inviteEventId, actorPubkey, opts) {
+    const options = opts || {};
+    if (!isV2()) return { ok: false, code: 'V2_REQUIRED' };
+    const ctrl = controlOkForMemberMutation();
+    if (!ctrl.ok) return ctrl;
+    const actor = normalizePubkey(actorPubkey) || normalizePubkey(App.publicKey);
+    const target = normalizePubkey(memberPubkey);
+    const inviteId = String(inviteEventId || '')
+      .trim()
+      .toLowerCase();
+    if (!actor || !target || !inviteId) return { ok: false, code: 'BAD_ARGS' };
+    if (!actorMayManageMembers(actor, ctrl.control)) return { ok: false, code: 'UNAUTHORIZED' };
+    return applyMembershipTransition(
+      actor,
+      target,
+      'GRANT_ACTIVE',
+      { inviteEventId: inviteId },
+      Object.assign({}, options, { inviteEventId: inviteId })
     );
   }
 
@@ -546,6 +614,7 @@
     resumeUnblock,
     removeMember,
     resolveMembershipConflict,
+    grantMemberActiveFromInvite,
     controlOkForMemberMutation,
     normalizePubkey,
   };

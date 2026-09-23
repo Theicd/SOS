@@ -971,6 +971,16 @@
     });
   }
 
+  /** AC9: return frozen signed tip event for typed admin signer base verification. */
+  function getVerifiedControlEvent() {
+    if (!verified || !verified.event) return null;
+    try {
+      return JSON.parse(JSON.stringify(verified.event));
+    } catch (_e) {
+      return verified.event;
+    }
+  }
+
   function getControlEpoch() {
     return verified && verified.record ? verified.record.controlEpoch : 0;
   }
@@ -1025,11 +1035,25 @@
 
   async function signControlRecord(record) {
     const S = App.SosCryptoSigner;
-    if (!S || typeof S.signGroupControlEvent !== 'function') {
+    if (!S || typeof S.signTypedAdminOperation !== 'function') {
       throw Object.assign(new Error('SIGNER_MISSING'), { code: 'SIGNER_MISSING' });
     }
-    const draft = buildSignDraft(record, App.publicKey || record.rootAdminPubkey);
-    return Promise.resolve(S.signGroupControlEvent(draft));
+    // Bootstrap-only path when no verified tip exists
+    if (!verified || !verified.event) {
+      return Promise.resolve(
+        S.signTypedAdminOperation({
+          version: 1,
+          operation: 'BOOTSTRAP_GROUP_CONTROL',
+          displayName: record.groupSettings && record.groupSettings.displayName,
+          invitePolicy: record.invitePolicy,
+          groupId: record.groupId,
+        })
+      );
+    }
+    throw Object.assign(new Error('USE_TYPED_MUTATION'), {
+      code: 'USE_TYPED_MUTATION',
+      message: 'Use GroupControlMutations.applyControlMutation (AC9)',
+    });
   }
 
   const api = {
@@ -1070,6 +1094,7 @@
     clearVerified,
     revalidateFromCache,
     getVerifiedControlState,
+    getVerifiedControlEvent,
     getControlEpoch,
     getInvitePolicy,
     getCapabilities,

@@ -120,6 +120,7 @@ function loadModules(rootPk) {
   for (const f of [
     'nostr-event-integrity.js',
     'access-control.js',
+    'admin-signing-policy.js',
     'group-control-state.js',
     'sos-crypto-signer.js',
     'membership-state.js',
@@ -302,16 +303,8 @@ async function rootAdvance(g, rootSk, mutator) {
   });
   MS.acceptMembershipEvent(finalizeEvent(blk, rootSk));
 
-  // Wire signer session helper for applyControlMutation skipPublish path
-  g.NostrApp.SosCryptoSigner = {
-    signGroupControlEvent(draft) {
-      const skHex = g.NostrApp.privateKey;
-      return finalizeEvent(JSON.parse(JSON.stringify(draft)), hexToBytes(skHex));
-    },
-    hasIdentityKey() {
-      return !!g.NostrApp.privateKey;
-    },
-  };
+  // AC9: real SosCryptoSigner + AdminSigningPolicy (no broad signGroupControlEvent)
+  g.NostrApp.SosCryptoSigner = g.SosCryptoSigner;
 
   // GROUP_SETTINGS scope
   withId(g, settingsSk);

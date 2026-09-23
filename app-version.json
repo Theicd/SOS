@@ -1,9 +1,9 @@
 {
     "callSignalGiftWrapRequired":  true,
-    "version":  "2026.09.23-ac8-890",
-    "buildTime":  "2026-09-23T06:45:00+03:00",
+    "version":  "2026.09.23-ac9-891",
+    "buildTime":  "2026-09-23T13:00:00+03:00",
     "e2eeSendRequired":  true,
     "minSecureChatEpoch":  2,
     "mediaServerE2eeRequired":  true,
-    "notes":  "AC8 dark: guest explicit allowlist + strict kind-30078 schema + V2-strict network binding (legacy networkless only when V2 OFF). Package 890 / sos-cache-v890. ACCESS_CONTROL_V2 remains default OFF. No GROUP_CONTROL/membership bootstrap. No AC9/F5B4. Guest custody unchanged (AC0 session vault). No identity rotation / legacy registered key delete."
+    "notes":  "AC9 dark: narrow typed administrative signer (SIGN_ADMIN_TYPED). Broad SIGN_GROUP_CONTROL/SIGN_MEMBERSHIP_STATE removed. Package 891 / sos-cache-v891. ACCESS_CONTROL_V2 remains default OFF. No GROUP_CONTROL/membership bootstrap. No real admin mutations. No AC10/F5B4. No identity rotation / legacy key delete."
 }

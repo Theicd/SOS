@@ -29,7 +29,7 @@
     SIGN_INVITE: { kinds: [37378, 37379] },
     SIGN_INVITE_REVOKE: { kinds: [37380] },
     SIGN_MODERATION_ACTION: { kinds: [39002] },
-    SIGN_MEMBERSHIP_STATE: { kinds: [39003] },
+    // AC9: SIGN_MEMBERSHIP_STATE / SIGN_GROUP_CONTROL removed from public surface
     SIGN_EMAIL_REGISTRY: { kinds: [37377] },
     SIGN_BLOSSOM_AUTH: { kinds: [24242] },
     SIGN_DATING: { kinds: [40001] },
@@ -38,7 +38,6 @@
     SIGN_LIVE_TV: { kinds: [30078] },
     SIGN_LOGIN_METRIC: { kinds: [1050] },
     SIGN_MEDIA_RECHECK: { kinds: [1] },
-    SIGN_GROUP_CONTROL: { kinds: [39001] },
   };
 
   let forcedBackend = null; // 'MAIN_THREAD' | 'WORKER_VAULT' | null(auto)
@@ -196,6 +195,96 @@
     const signed = finalizeWithSession(copy);
     maybeShadowSign(op, copy, signed);
     return signed;
+  }
+
+  function policy() {
+    return App.AdminSigningPolicy || root.SosAdminSigningPolicy || null;
+  }
+
+  function strictVerifyEvent(event) {
+    try {
+      if (typeof App.strictVerifyNostrEvent === 'function') {
+        return App.strictVerifyNostrEvent(event) === true;
+      }
+    } catch (_e) {}
+    try {
+      if (NT && typeof NT.verifyEvent === 'function') return NT.verifyEvent(event) === true;
+    } catch (_e2) {}
+    return false;
+  }
+
+  /**
+   * AC9 — narrow typed admin signing. Caller supplies operation + narrow params + signed base.
+   * Actor pubkey always from signing key. Kind/epoch/tags constructed by policy.
+   */
+  function signTypedAdminOperation(request) {
+    const P = policy();
+    if (!P) fail('ADMIN_POLICY_MISSING', 'AdminSigningPolicy required');
+    if (isWorkerAuthoritative()) {
+      return workerRpc('SIGN_ADMIN_TYPED', { request: request || {} });
+    }
+    const op = P.validateRequestEnvelope(request || {});
+    const actor = currentPubkey() || '';
+    if (!actor || !/^[0-9a-f]{64}$/.test(actor)) {
+      // derive from session key when publicKey mirror missing
+      const hex = requireSessionKeyHex();
+      const pub = NT.getPublicKey(hexToBytes(hex));
+      return signTypedAdminOperationMain(P, op, request, String(pub).toLowerCase());
+    }
+    return signTypedAdminOperationMain(P, op, request, actor);
+  }
+
+  function signTypedAdminOperationMain(P, op, request, actor) {
+    const groupId = P.resolveNetworkTag(request.groupId);
+    let draft;
+    if (P.isControlOp(op)) {
+      let baseRecord = null;
+      if (op !== P.ADMIN_OP.BOOTSTRAP_GROUP_CONTROL) {
+        const baseEvent = request.baseEvent;
+        if (!baseEvent || !strictVerifyEvent(baseEvent)) fail('BASE_VERIFY_FAILED');
+        baseRecord = P.parseControlRecordFromEvent(baseEvent);
+        if (baseRecord.groupId !== groupId) fail('CROSS_GROUP');
+      }
+      const next = P.applyControlOperation(op, baseRecord, actor, Object.assign({}, request, { groupId }));
+      draft = P.buildControlDraft(next, actor);
+    } else if (P.isMemberOp(op)) {
+      const baseEvent = request.baseEvent;
+      if (!baseEvent || !strictVerifyEvent(baseEvent)) fail('BASE_VERIFY_FAILED');
+      const baseControl = P.parseControlRecordFromEvent(baseEvent);
+      if (baseControl.groupId !== groupId) fail('CROSS_GROUP');
+      let tipBody = null;
+      if (request.memberTipEvent) {
+        if (!strictVerifyEvent(request.memberTipEvent)) fail('MEMBER_TIP_VERIFY_FAILED');
+        try {
+          tipBody = JSON.parse(request.memberTipEvent.content);
+        } catch (_e) {
+          fail('BAD_MEMBER_TIP');
+        }
+      }
+      const body = P.applyMembershipOperation(
+        op,
+        baseControl,
+        tipBody,
+        actor,
+        Object.assign({}, request, { groupId })
+      );
+      draft = P.buildMembershipDraft(body);
+    } else {
+      fail('UNKNOWN_OP');
+    }
+    // Sign constructed draft via finalize — kind already fixed by policy
+    const copy = {
+      kind: draft.kind,
+      created_at: draft.created_at,
+      tags: draft.tags,
+      content: draft.content,
+      pubkey: actor,
+    };
+    return finalizeWithSession(copy);
+  }
+
+  function broadAdminSignRemoved() {
+    fail('BROAD_ADMIN_SIGN_REMOVED', 'Use signTypedAdminOperation (AC9)');
   }
 
   function getNip44() {
@@ -362,7 +451,10 @@
     signInviteEvent: (d) => signTyped('SIGN_INVITE', d),
     signInviteRevokeEvent: (d) => signTyped('SIGN_INVITE_REVOKE', d),
     signModerationAction: (d) => signTyped('SIGN_MODERATION_ACTION', d),
-    signMembershipState: (d) => signTyped('SIGN_MEMBERSHIP_STATE', d),
+    /** @deprecated AC9 — removed broad membership sign */
+    signMembershipState: function () {
+      return broadAdminSignRemoved();
+    },
     signEmailRegistry: (d) => signTyped('SIGN_EMAIL_REGISTRY', d),
     signBlossomAuth: (d) => signTyped('SIGN_BLOSSOM_AUTH', d),
     signDatingEvent: (d) => signTyped('SIGN_DATING', d),
@@ -371,7 +463,11 @@
     signLiveTvEvent: (d) => signTyped('SIGN_LIVE_TV', d),
     signLoginMetric: (d) => signTyped('SIGN_LOGIN_METRIC', d),
     signMediaRecheck: (d) => signTyped('SIGN_MEDIA_RECHECK', d),
-    signGroupControlEvent: (d) => signTyped('SIGN_GROUP_CONTROL', d),
+    /** @deprecated AC9 — removed broad group-control sign */
+    signGroupControlEvent: function () {
+      return broadAdminSignRemoved();
+    },
+    signTypedAdminOperation,
     nip44ChatEncrypt,
     nip44ChatDecrypt,
     nip44P2pEncrypt,

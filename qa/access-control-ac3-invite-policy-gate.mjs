@@ -78,6 +78,7 @@ function loadModules(rootPk, rootSkHex) {
   for (const f of [
     'nostr-event-integrity.js',
     'access-control.js',
+    'admin-signing-policy.js',
     'group-control-state.js',
     'sos-crypto-signer.js',
     'invite-policy.js',
@@ -85,6 +86,7 @@ function loadModules(rootPk, rootSkHex) {
   ]) {
     vm.runInThisContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), { filename: f });
   }
+  g.NostrApp.SosCryptoSigner = g.SosCryptoSigner;
   return g;
 }
 

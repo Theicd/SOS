@@ -143,7 +143,7 @@
     'REMOVED cannot self-rejoin; new GRANT_ACTIVE (invite-bound or manager grant) → ACTIVE at next revision';
 
   const INVITE_MEMBERSHIP_GRANT_SIGNER_MODEL =
-    'Client-only: ROOT or MANAGE_MEMBERS signs SIGN_MEMBERSHIP_STATE after valid redeem; ' +
+    'Client-only: ROOT or MANAGE_MEMBERS signs GRANT_MEMBER_ACTIVE (AC9 SIGN_ADMIN_TYPED) after valid redeem; ' +
     'no browser system key; if no authorized signer present → no auto-grant';
 
   const MEMBERSHIP_GATED_ACTIONS = Object.freeze([
@@ -1078,6 +1078,33 @@
     });
   }
 
+  /** AC9: signed tip event for typed membership signer revision binding. */
+  function getVerifiedMemberTipEvent(pubkey) {
+    const pk = normalizePubkey(pubkey);
+    const bucket = members.get(memberKey(pk));
+    if (!bucket || !bucket.record) return null;
+    const rev = Number(bucket.record.memberRevision);
+    const status = bucket.record.status;
+    let found = null;
+    bucket.events.forEach((stored) => {
+      if (
+        stored &&
+        stored.meta &&
+        Number(stored.meta.memberRevision) === rev &&
+        stored.meta.status === status &&
+        stored.event
+      ) {
+        found = stored.event;
+      }
+    });
+    if (!found) return null;
+    try {
+      return JSON.parse(JSON.stringify(found));
+    } catch (_e) {
+      return found;
+    }
+  }
+
   let cacheLoaded = false;
   function ensureCache() {
     if (cacheLoaded) return;
@@ -1172,6 +1199,7 @@
     getActiveMemberCount,
     getKnownMemberCount,
     getMemberSnapshot,
+    getVerifiedMemberTipEvent,
     buildGrantFromInvite,
     buildPreexistingMemberCandidates,
     issuerMayTransition,

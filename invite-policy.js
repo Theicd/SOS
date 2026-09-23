@@ -336,10 +336,29 @@
   async function signAndAcceptPolicyChange(nextPolicy, opts) {
     const GCS = getGCS();
     const built = buildPolicyChangeRecord(nextPolicy, opts);
-    if (!GCS || typeof GCS.signControlRecord !== 'function') {
+    const S = App.SosCryptoSigner || window.SosCryptoSigner;
+    const P = App.AdminSigningPolicy || window.SosAdminSigningPolicy;
+    if (!S || typeof S.signTypedAdminOperation !== 'function' || !P || !GCS) {
       throw Object.assign(new Error('SIGNER_MISSING'), { code: 'SIGNER_MISSING' });
     }
-    const event = await GCS.signControlRecord(built.record);
+    const baseEvent = GCS.getVerifiedControlEvent ? GCS.getVerifiedControlEvent() : null;
+    if (!baseEvent) {
+      throw Object.assign(new Error('NO_BASE_EVENT'), { code: 'NO_BASE_EVENT' });
+    }
+    const event = await Promise.resolve(
+      S.signTypedAdminOperation({
+        version: 1,
+        operation: 'SET_INVITE_POLICY',
+        invitePolicy: nextPolicy,
+        groupId: built.record.groupId,
+        baseEvent,
+        actorMembershipStatus:
+          (App.MembershipState &&
+            App.MembershipState.getMemberState &&
+            App.MembershipState.getMemberState(App.publicKey)) ||
+          undefined,
+      })
+    );
     const acc = GCS.acceptControlEvent(event);
     if (!acc.ok) {
       throw Object.assign(new Error(acc.code || 'ACCEPT_FAILED'), { code: acc.code || 'ACCEPT_FAILED' });

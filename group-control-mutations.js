@@ -1,6 +1,6 @@
 /**
  * AC6 — Central GROUP_CONTROL mutation builder (allowlisted diffs only).
- * UI must not construct arbitrary control content. Typed SIGN_GROUP_CONTROL only.
+ * UI must not construct arbitrary control content. Typed SIGN_ADMIN_TYPED only.
  * When V2=false: mutations unavailable (production dark).
  */
 (function initGroupControlMutations(window) {
@@ -401,11 +401,44 @@
     let signed;
     try {
       const S = App.SosCryptoSigner;
-      if (!S || typeof S.signGroupControlEvent !== 'function') {
+      const P = App.AdminSigningPolicy || window.SosAdminSigningPolicy;
+      if (!S || typeof S.signTypedAdminOperation !== 'function' || !P) {
         return { ok: false, code: 'SIGNER_MISSING' };
       }
-      const draft = GCS.buildSignDraft(built.record, normalizePubkey(actorPubkey));
-      signed = await Promise.resolve(S.signGroupControlEvent(draft));
+      const op = P.mapLegacyMutationType(mutation.type);
+      if (!op) return { ok: false, code: 'UNKNOWN_MUTATION' };
+      const baseEvent = GCS.getVerifiedControlEvent ? GCS.getVerifiedControlEvent() : null;
+      if (mutation.type !== MUTATION.RESOLVE_CONTROL_CONFLICT && !baseEvent) {
+        return { ok: false, code: 'NO_BASE_EVENT' };
+      }
+      const req = {
+        version: 1,
+        operation: op,
+        groupId: built.record.groupId,
+        baseEvent: baseEvent,
+        controlConflict: false,
+        actorMembershipStatus: memberStatus(actorPubkey),
+      };
+      if (op === 'SET_GROUP_DISPLAY_NAME') req.displayName = mutation.displayName;
+      if (op === 'SET_INVITE_POLICY') req.invitePolicy = mutation.invitePolicy;
+      if (op === 'GRANT_CAPABILITY' || op === 'REVOKE_CAPABILITY') {
+        req.targetPubkey = mutation.targetPubkey;
+        req.capability = mutation.capability;
+      }
+      if (op === 'ADD_MEMBER_TO_BLOCKLIST' || op === 'REMOVE_MEMBER_FROM_BLOCKLIST') {
+        req.targetPubkey = mutation.targetPubkey;
+      }
+      if (op === 'CLEAN_REMOVED_MEMBER_CAPABILITIES') {
+        req.targetPubkey = mutation.targetPubkey;
+        req.targetMembershipStatus = 'REMOVED';
+      }
+      if (op === 'RESOLVE_CONTROL_CONFLICT') {
+        const candidates = GCS.getConflictCandidates ? GCS.getConflictCandidates() : [];
+        req.candidateEventIds = candidates.map((c) => c.eventId).filter(Boolean);
+        // Use frozen tip as base for resolve
+        req.baseEvent = baseEvent;
+      }
+      signed = await Promise.resolve(S.signTypedAdminOperation(req));
     } catch (e) {
       return { ok: false, code: 'SIGN_FAILED', error: e && e.message };
     }

@@ -168,7 +168,9 @@ function load(v2) {
   for (const f of [
     'nostr-event-integrity.js',
     'access-control.js',
+    'admin-signing-policy.js',
     'group-control-state.js',
+    'sos-crypto-signer.js',
     'membership-state.js',
     'group-control-mutations.js',
     'member-admin-operations.js',
@@ -188,14 +190,9 @@ function withId(g, sk) {
 }
 
 function wireSigner(g, sk) {
-  g.NostrApp.SosCryptoSigner = {
-    signGroupControlEvent(draft) {
-      return finalizeEvent(JSON.parse(JSON.stringify(draft)), sk);
-    },
-    signMembershipState(draft) {
-      return finalizeEvent(JSON.parse(JSON.stringify(draft)), sk);
-    },
-  };
+  withId(g, sk);
+  // Use real SosCryptoSigner + AdminSigningPolicy (AC9)
+  g.NostrApp.SosCryptoSigner = g.SosCryptoSigner;
 }
 
 async function bootControl(g, rootSk) {

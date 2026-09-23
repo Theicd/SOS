@@ -32,7 +32,7 @@
     SIGN_INVITE: { kinds: [37378, 37379] },
     SIGN_INVITE_REVOKE: { kinds: [37380] },
     SIGN_MODERATION_ACTION: { kinds: [39002] },
-    SIGN_MEMBERSHIP_STATE: { kinds: [39003] },
+    // AC9: broad SIGN_MEMBERSHIP_STATE / SIGN_GROUP_CONTROL removed
     SIGN_EMAIL_REGISTRY: { kinds: [37377] },
     SIGN_BLOSSOM_AUTH: { kinds: [24242] },
     SIGN_DATING: { kinds: [40001] },
@@ -41,8 +41,14 @@
     SIGN_LIVE_TV: { kinds: [30078] },
     SIGN_LOGIN_METRIC: { kinds: [1050] },
     SIGN_MEDIA_RECHECK: { kinds: [1] },
-    SIGN_GROUP_CONTROL: { kinds: [39001] },
   };
+
+  // AC9 shared policy (same-origin Worker)
+  try {
+    importScripts('./admin-signing-policy.js');
+  } catch (_importErr) {
+    // Policy may be missing in older caches; SIGN_ADMIN_TYPED will fail closed.
+  }
 
   /** @type {'UNINITIALIZED'|'LOADING'|'READY'|'UNAVAILABLE'|'RECOVERY_REQUIRED'|'CRASHED'} */
   let vaultState = 'UNINITIALIZED';
@@ -497,6 +503,66 @@
     return NT.finalizeEvent(copy, sessionPrivHex);
   }
 
+  function signAdminTyped(request) {
+    requireReady();
+    loadNostrTools();
+    const P = self.SosAdminSigningPolicy;
+    if (!P) fail('ADMIN_POLICY_MISSING', 'AdminSigningPolicy not loaded in worker');
+    const op = P.validateRequestEnvelope(request || {});
+    const actor = sessionPubHex;
+    const groupId = P.resolveNetworkTag(request && request.groupId);
+    function verifyEv(ev) {
+      if (!ev || typeof ev !== 'object') return false;
+      try {
+        return NT.verifyEvent(ev) === true;
+      } catch (_e) {
+        return false;
+      }
+    }
+    let draft;
+    if (P.isControlOp(op)) {
+      let baseRecord = null;
+      if (op !== P.ADMIN_OP.BOOTSTRAP_GROUP_CONTROL) {
+        if (!verifyEv(request.baseEvent)) fail('BASE_VERIFY_FAILED');
+        baseRecord = P.parseControlRecordFromEvent(request.baseEvent);
+        if (baseRecord.groupId !== groupId) fail('CROSS_GROUP');
+      }
+      const next = P.applyControlOperation(op, baseRecord, actor, Object.assign({}, request, { groupId }));
+      draft = P.buildControlDraft(next, actor);
+    } else if (P.isMemberOp(op)) {
+      if (!verifyEv(request.baseEvent)) fail('BASE_VERIFY_FAILED');
+      const baseControl = P.parseControlRecordFromEvent(request.baseEvent);
+      if (baseControl.groupId !== groupId) fail('CROSS_GROUP');
+      let tipBody = null;
+      if (request.memberTipEvent) {
+        if (!verifyEv(request.memberTipEvent)) fail('MEMBER_TIP_VERIFY_FAILED');
+        try {
+          tipBody = JSON.parse(request.memberTipEvent.content);
+        } catch (_e) {
+          fail('BAD_MEMBER_TIP');
+        }
+      }
+      const body = P.applyMembershipOperation(
+        op,
+        baseControl,
+        tipBody,
+        actor,
+        Object.assign({}, request, { groupId })
+      );
+      draft = P.buildMembershipDraft(body);
+    } else {
+      fail('UNKNOWN_OP');
+    }
+    const copy = {
+      kind: draft.kind,
+      created_at: draft.created_at,
+      tags: draft.tags,
+      content: draft.content,
+      pubkey: actor,
+    };
+    return NT.finalizeEvent(copy, sessionPrivHex);
+  }
+
   function getNip44() {
     loadNostrTools();
     const nip44 = NT.nip44;
@@ -651,7 +717,13 @@
       case 'SIGN_MODERATION_ACTION':
         return signTyped('SIGN_MODERATION_ACTION', params && params.draft);
       case 'SIGN_MEMBERSHIP_STATE':
-        return signTyped('SIGN_MEMBERSHIP_STATE', params && params.draft);
+        fail('BROAD_ADMIN_SIGN_REMOVED', 'Use SIGN_ADMIN_TYPED');
+        return null;
+      case 'SIGN_GROUP_CONTROL':
+        fail('BROAD_ADMIN_SIGN_REMOVED', 'Use SIGN_ADMIN_TYPED');
+        return null;
+      case 'SIGN_ADMIN_TYPED':
+        return signAdminTyped(params && params.request);
       case 'SIGN_EMAIL_REGISTRY':
         return signTyped('SIGN_EMAIL_REGISTRY', params && params.draft);
       case 'SIGN_BLOSSOM_AUTH':
@@ -668,8 +740,6 @@
         return signTyped('SIGN_LOGIN_METRIC', params && params.draft);
       case 'SIGN_MEDIA_RECHECK':
         return signTyped('SIGN_MEDIA_RECHECK', params && params.draft);
-      case 'SIGN_GROUP_CONTROL':
-        return signTyped('SIGN_GROUP_CONTROL', params && params.draft);
       case 'NIP44_CHAT_ENCRYPT':
         return nip44ChatEncrypt(params);
       case 'NIP44_CHAT_DECRYPT':

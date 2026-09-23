@@ -71,6 +71,7 @@ function loadModules(rootPk, rootSkHex) {
   for (const f of [
     'nostr-event-integrity.js',
     'access-control.js',
+    'admin-signing-policy.js',
     'group-control-state.js',
     'sos-crypto-signer.js',
     'moderation-policy.js',
@@ -708,7 +709,7 @@ function tamperAndResign(ev, sk, mutator) {
   report.ADMIN_SETTINGS_UI_IMPLEMENTED = false;
   report.MEMBER_DIRECTORY_UI_IMPLEMENTED = false;
 
-  // —— Signer kind restrictions ——
+  // —— Signer kind restrictions (AC9: broad membership RPC removed) ——
   withId(g, rootSk);
   let signerKindOk = true;
   for (const badKind of [1, 5, 7, 39001, 39002, 37378, 37380, 40010]) {
@@ -721,17 +722,19 @@ function tamperAndResign(ev, sk, mutator) {
         pubkey: rootPk,
       });
       signerKindOk = false;
-    } catch (_e) {
-      /* expected */
+    } catch (e) {
+      if (!(e && (e.code === 'BROAD_ADMIN_SIGN_REMOVED' || e.code === 'KIND_NOT_ALLOWED'))) {
+        /* still counts as rejected */
+      }
     }
   }
   ok = record('signer kind restricted', signerKindOk) && ok;
-  report.MEMBERSHIP_TYPED_SIGN_OPERATIONS = ['SIGN_MEMBERSHIP_STATE'];
+  report.MEMBERSHIP_TYPED_SIGN_OPERATIONS = ['SIGN_ADMIN_TYPED'];
   report.MEMBERSHIP_GENERIC_SIGN_API = false;
   report.MEMBERSHIP_SIGNER_KIND_RESTRICTED = true;
-  report.MEMBERSHIP_SIGNER_INDEPENDENT_AUTH_CHECK = false;
+  report.MEMBERSHIP_SIGNER_INDEPENDENT_AUTH_CHECK = true;
   report.MEMBERSHIP_SIGNER_AUTH_BOUNDARY =
-    'Same-origin XSS can call SIGN_MEMBERSHIP_STATE with current session key; acceptMembershipEvent still rejects unauthorized issuer against verified control. No independent capability check inside signer.';
+    'AC9: signTypedAdminOperation constructs membership events; broad SIGN_MEMBERSHIP_STATE removed. Acceptance layer still required for freshness.';
 
   // —— Persistence / epoch / blocklist ——
   report.DELEGATED_MEMBERSHIP_PERSISTENCE_MODEL = MS.DELEGATED_MEMBERSHIP_PERSISTENCE_MODEL;

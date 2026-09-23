@@ -73,10 +73,12 @@ function loadVmModules(rootPk) {
 
   const integrity = fs.readFileSync(path.join(ROOT, 'nostr-event-integrity.js'), 'utf8');
   const ac = fs.readFileSync(path.join(ROOT, 'access-control.js'), 'utf8');
+  const policy = fs.readFileSync(path.join(ROOT, 'admin-signing-policy.js'), 'utf8');
   const gcs = fs.readFileSync(path.join(ROOT, 'group-control-state.js'), 'utf8');
   const signer = fs.readFileSync(path.join(ROOT, 'sos-crypto-signer.js'), 'utf8');
   vm.runInThisContext(integrity, { filename: 'integrity.js' });
   vm.runInThisContext(ac, { filename: 'access-control.js' });
+  vm.runInThisContext(policy, { filename: 'admin-signing-policy.js' });
   vm.runInThisContext(gcs, { filename: 'group-control-state.js' });
   vm.runInThisContext(signer, { filename: 'signer.js' });
   return g;
@@ -143,7 +145,7 @@ function withIdentity(ctx, sk) {
   const S = ctx.NostrApp.SosCryptoSigner;
 
   report.GROUP_CONTROL_SCHEMA_VERSION = GCS.SCHEMA_VERSION;
-  report.GROUP_CONTROL_TYPED_SIGN_OPERATION = 'SIGN_GROUP_CONTROL';
+  report.GROUP_CONTROL_TYPED_SIGN_OPERATION = 'SIGN_ADMIN_TYPED';
   report.CONTROL_EPOCH_RULE = GCS.CONTROL_EPOCH_RULE;
   report.CAPABILITY_DELEGATION_MODEL = GCS.CAPABILITY_DELEGATION_MODEL;
   report.MEMBERSHIP_CONTROL_MODEL_PROPOSAL = GCS.MEMBERSHIP_CONTROL_MODEL_PROPOSAL;
@@ -165,7 +167,15 @@ function withIdentity(ctx, sk) {
   ok = record('displayName distinct', boot.groupSettings.displayName !== boot.groupId) && ok;
   ok = record('displayName from community', boot.groupSettings.displayName === 'yalacommunity') && ok;
 
-  const signed1 = await Promise.resolve(S.signGroupControlEvent(GCS.buildSignDraft(boot, rootPk)));
+  const signed1 = await Promise.resolve(
+    S.signTypedAdminOperation({
+      version: 1,
+      operation: 'BOOTSTRAP_GROUP_CONTROL',
+      displayName: boot.groupSettings.displayName,
+      invitePolicy: boot.invitePolicy,
+      groupId: boot.groupId,
+    })
+  );
   ok = record('root signed event', verifyEvent(signed1) && signed1.kind === 39001) && ok;
 
   let badKindRejected = false;
@@ -180,7 +190,7 @@ function withIdentity(ctx, sk) {
       })
     );
   } catch (e) {
-    badKindRejected = e && e.code === 'KIND_NOT_ALLOWED';
+    badKindRejected = e && (e.code === 'BROAD_ADMIN_SIGN_REMOVED' || e.code === 'KIND_NOT_ALLOWED');
   }
   ok = record('SIGN_GROUP_CONTROL rejects kind 1', badKindRejected) && ok;
   for (const k of [5, 7, 40010, 30078]) {
@@ -196,7 +206,7 @@ function withIdentity(ctx, sk) {
         })
       );
     } catch (e) {
-      rej = e && e.code === 'KIND_NOT_ALLOWED';
+      rej = e && (e.code === 'BROAD_ADMIN_SIGN_REMOVED' || e.code === 'KIND_NOT_ALLOWED');
     }
     ok = record('reject kind ' + k, rej) && ok;
   }
