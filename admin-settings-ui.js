@@ -1,7 +1,7 @@
 /**
  * AC6 — Admin settings / permissions UI foundation.
  * Visibility is NOT authority. Mutations go through GroupControlMutations + SIGN_GROUP_CONTROL.
- * V2 OFF: hidden (no production mutations). No member directory / block-remove UI (AC7).
+ * V2 OFF: hidden (no production mutations). Member directory: AC7 module.
  */
 (function initAdminSettingsUi(window) {
   'use strict';
@@ -477,8 +477,8 @@
     MANAGE_PERMISSIONS_SEMANTICS,
     CAPABILITY_GRANT_TARGET_POLICY,
     ADMIN_UI_VISIBILITY_IS_AUTHORITY: false,
-    MEMBER_DIRECTORY_UI_IMPLEMENTED: false,
-    BLOCK_REMOVE_ADMIN_UI_IMPLEMENTED: false,
+    MEMBER_DIRECTORY_UI_IMPLEMENTED: true,
+    BLOCK_REMOVE_ADMIN_UI_IMPLEMENTED: true,
     open,
     close,
     canSeeAdminEntry,

@@ -14,6 +14,9 @@
     GRANT_CAPABILITY: 'GRANT_CAPABILITY',
     REVOKE_CAPABILITY: 'REVOKE_CAPABILITY',
     RESOLVE_CONTROL_CONFLICT: 'RESOLVE_CONTROL_CONFLICT',
+    ADD_TO_BLOCKLIST: 'ADD_TO_BLOCKLIST',
+    REMOVE_FROM_BLOCKLIST: 'REMOVE_FROM_BLOCKLIST',
+    CLEAR_MEMBER_CAPABILITIES: 'CLEAR_MEMBER_CAPABILITIES',
   });
 
   const DISPLAY_NAME_MAX = 80;
@@ -303,16 +306,64 @@
       else set.delete(cap);
       next.capabilities[target] = Array.from(set).sort();
       if (next.capabilities[target].length === 0) delete next.capabilities[target];
+    } else if (type === MUTATION.ADD_TO_BLOCKLIST || type === MUTATION.REMOVE_FROM_BLOCKLIST) {
+      if (
+        !actorHas(actor, 'MANAGE_BLOCKLIST', base) &&
+        !actorHas(actor, 'MANAGE_MEMBERS', base) &&
+        !actorIsRoot(actor, base)
+      ) {
+        throw Object.assign(new Error('UNAUTHORIZED'), { code: 'UNAUTHORIZED' });
+      }
+      const target = normalizePubkey(mutation.targetPubkey);
+      if (!target) throw Object.assign(new Error('BAD_PUBKEY'), { code: 'BAD_PUBKEY' });
+      if (target === normalizePubkey(base.rootAdminPubkey)) {
+        throw Object.assign(new Error('ROOT_PROTECTED'), { code: 'ROOT_PROTECTED' });
+      }
+      const set = new Set(base.blockedPubkeys || []);
+      if (type === MUTATION.ADD_TO_BLOCKLIST) set.add(target);
+      else set.delete(target);
+      next.blockedPubkeys = Array.from(set).sort();
+    } else if (type === MUTATION.CLEAR_MEMBER_CAPABILITIES) {
+      if (
+        !actorHas(actor, 'MANAGE_PERMISSIONS', base) &&
+        !actorHas(actor, 'MANAGE_ADMINS', base) &&
+        !actorIsRoot(actor, base)
+      ) {
+        throw Object.assign(new Error('UNAUTHORIZED'), { code: 'UNAUTHORIZED' });
+      }
+      const target = normalizePubkey(mutation.targetPubkey);
+      if (!target) throw Object.assign(new Error('BAD_PUBKEY'), { code: 'BAD_PUBKEY' });
+      if (target === normalizePubkey(base.rootAdminPubkey)) {
+        throw Object.assign(new Error('ROOT_PROTECTED'), { code: 'ROOT_PROTECTED' });
+      }
+      delete next.capabilities[target];
     } else {
       throw Object.assign(new Error('UNKNOWN_MUTATION'), { code: 'UNKNOWN_MUTATION' });
     }
 
-    // Immutable fields
+    // Immutable fields (blockedPubkeys / capabilities only when allowlisted above)
     next.groupId = base.groupId;
     next.rootAdminPubkey = base.rootAdminPubkey;
     next.groupSettings.networkTag = base.groupSettings.networkTag;
     next.membershipEpoch = base.membershipEpoch;
-    next.blockedPubkeys = base.blockedPubkeys.slice();
+    if (
+      type !== MUTATION.ADD_TO_BLOCKLIST &&
+      type !== MUTATION.REMOVE_FROM_BLOCKLIST
+    ) {
+      next.blockedPubkeys = (base.blockedPubkeys || []).slice();
+    }
+    if (
+      type !== MUTATION.GRANT_CAPABILITY &&
+      type !== MUTATION.REVOKE_CAPABILITY &&
+      type !== MUTATION.CLEAR_MEMBER_CAPABILITIES &&
+      type !== MUTATION.RESOLVE_CONTROL_CONFLICT
+    ) {
+      // keep capabilities identical for non-cap mutations (already cloned)
+      next.capabilities = cloneRecord(base).capabilities;
+      if (type === MUTATION.SET_GROUP_DISPLAY_NAME || type === MUTATION.SET_INVITE_POLICY) {
+        /* already mutated only allowlisted field */
+      }
+    }
 
     return {
       record: GCS.parseAndValidateRecord(GCS.serializeRecord(next)),

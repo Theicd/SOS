@@ -1,9 +1,9 @@
 {
     "callSignalGiftWrapRequired":  true,
-    "version":  "2026.09.23-ac6-888",
-    "buildTime":  "2026-09-23T05:30:00+03:00",
+    "version":  "2026.09.23-ac7-889",
+    "buildTime":  "2026-09-23T06:00:00+03:00",
     "e2eeSendRequired":  true,
     "minSecureChatEpoch":  2,
     "mediaServerE2eeRequired":  true,
-    "notes":  "AC6 dark: admin settings UI foundation + control-conflict recovery (root RESOLVE_CONTROL_CONFLICT) behind SOS_ACCESS_CONTROL_V2 default OFF. Package 888 / sos-cache-v888. Admin UI hidden when V2 OFF. No production GROUP_CONTROL bootstrap. No production membership bootstrap. No live admin mutations. No AC7. No member directory. No F5B4. No legacy key deletion."
+    "notes":  "AC7 dark: verified member directory + block/unblock/remove management UI behind SOS_ACCESS_CONTROL_V2 default OFF. Package 889 / sos-cache-v889. Admin Settings and Member Directory hidden when V2 OFF. No production GROUP_CONTROL bootstrap. No production membership bootstrap. No real member mutations. No AC8. No F5B4. No legacy key deletion."
 }

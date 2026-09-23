@@ -981,6 +981,36 @@
     return out.sort();
   }
 
+  function getKnownMemberPubkeys() {
+    const out = [];
+    members.forEach((bucket) => {
+      if (bucket && bucket.record && bucket.record.memberPubkey) {
+        out.push(bucket.record.memberPubkey);
+      }
+    });
+    return out.sort();
+  }
+
+  /**
+   * Dual-authority health relative to membership tip + blockedPubkeys.
+   * ACTIVE+listed is fail-closed partial (block phase1 or unblock phase1) — UI offers both recoveries.
+   * @returns {'CONSISTENT'|'PARTIAL_BLOCK'|'PARTIAL_UNBLOCK'|'CONFLICT'|'N_A'}
+   */
+  function getBlocklistConsistency(pubkey) {
+    const pk = normalizePubkey(pubkey);
+    if (!pk) return 'N_A';
+    const st = getMemberState(pk);
+    if (st === STATUS.CONFLICT) return 'CONFLICT';
+    const listed = inBlockedPubkeys(pk);
+    if (st === STATUS.BLOCKED && listed) return 'CONSISTENT';
+    if (st === STATUS.BLOCKED && !listed) return 'PARTIAL_UNBLOCK';
+    if (st === STATUS.ACTIVE && listed) return 'PARTIAL_BLOCK';
+    if (st === STATUS.ACTIVE && !listed) return 'CONSISTENT';
+    if (st === STATUS.REMOVED) return listed ? 'PARTIAL_BLOCK' : 'CONSISTENT';
+    if (listed) return 'PARTIAL_BLOCK';
+    return 'N_A';
+  }
+
   function getActiveMembers() {
     return listByStatus(STATUS.ACTIVE).filter((pk) => membershipAccessAllowed(pk));
   }
@@ -1136,6 +1166,8 @@
     getBlockedMembers,
     getRemovedMembers,
     getConflictMembers,
+    getKnownMemberPubkeys,
+    getBlocklistConsistency,
     getMemberCounts,
     getActiveMemberCount,
     getKnownMemberCount,
