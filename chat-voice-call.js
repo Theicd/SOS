@@ -583,6 +583,14 @@
 
   // חלק שיחות קול (chat-voice-call.js) – התחלת שיחה יוצאת
   async function startCall(peerPubkey) {
+    try {
+      const SA = App.SessionAuthority || (typeof window !== 'undefined' && window.SosSessionAuthority);
+      if (SA && typeof SA.assertSessionForSensitiveOp === 'function') {
+        SA.assertSessionForSensitiveOp('START_VOICE_CALL');
+      }
+    } catch (sessionErr) {
+      throw new Error('השיחה נחסמה: הסשן אינו תקף');
+    }
     if (!isWebRTCSupported()) {
       throw new Error('הדפדפן שלך לא תומך בשיחות קוליות');
     }

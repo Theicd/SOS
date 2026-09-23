@@ -195,6 +195,17 @@
     App.publicKey = publicKey;
     setIdentityState(IDENTITY_OK);
     try {
+      const SA = App.SessionAuthority || (typeof window !== 'undefined' && window.SosSessionAuthority);
+      // Cold-boot / first bind only — never auto-heal a detached stale tab into another account.
+      if (SA && typeof SA.bindCurrentSession === 'function') {
+        const detached = typeof SA.isDetached === 'function' && SA.isDetached();
+        const already = typeof SA.isSessionValid === 'function' && SA.isSessionValid();
+        if (!detached && !already) {
+          SA.bindCurrentSession({ accountPubkey: publicKey, bump: false });
+        }
+      }
+    } catch (_sa) {}
+    try {
       console.log('CALL_REQUIRED_IDENTITY_BOOTSTRAP ok=1 deferred=0');
     } catch (_e) {}
     return {

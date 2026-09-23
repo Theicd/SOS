@@ -530,6 +530,14 @@
 
   // חלק שיחות וידאו – התחלת שיחה יוצאת
   async function start(peerPubkey, opts) {
+    try {
+      const SA = App.SessionAuthority || (typeof window !== 'undefined' && window.SosSessionAuthority);
+      if (SA && typeof SA.assertSessionForSensitiveOp === 'function') {
+        SA.assertSessionForSensitiveOp('START_VIDEO_CALL');
+      }
+    } catch (sessionErr) {
+      throw new Error('השיחה נחסמה: הסשן אינו תקף');
+    }
     if (!isSupported()) throw new Error('הדפדפן לא תומך בוידאו');
     state.outboundStarting = true;
     state.answeredLocally = false;

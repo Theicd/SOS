@@ -53,6 +53,22 @@
     return App.SosCryptoWorkerVault || root.SosCryptoWorkerVault;
   }
 
+  /** Multi-tab session gate — as close as practical to typed authority boundary. */
+  function requireValidSession(opName) {
+    const SA = App.SessionAuthority || root.SosSessionAuthority;
+    if (!SA || typeof SA.assertSessionForSensitiveOp !== 'function') {
+      // Unit/QA harness without session-authority.js: do not block legacy gates.
+      // Production videos.html always loads SessionAuthority before signer use.
+      return;
+    }
+    try {
+      SA.assertSessionForSensitiveOp(opName || 'sign');
+    } catch (err) {
+      const code = (err && err.code) || 'SESSION_REVOKED';
+      fail(code, (err && err.message) || 'session revoked');
+    }
+  }
+
   function isWorkerAuthoritative() {
     if (forcedBackend === 'MAIN_THREAD') return false;
     if (forcedBackend === 'WORKER_VAULT') return true;
@@ -179,6 +195,7 @@
   }
 
   function signTyped(op, draft) {
+    requireValidSession(op);
     validateDraft(op, draft);
     const copy = {
       kind: draft.kind,
@@ -188,6 +205,8 @@
     };
     if (draft.pubkey) copy.pubkey = draft.pubkey;
     else if (App.publicKey) copy.pubkey = App.publicKey;
+    // Re-check immediately before authority use (TOCTOU hardening)
+    requireValidSession(op);
     if (isWorkerAuthoritative()) {
       // DOUBLE_CRYPTO_EXECUTION=false — worker only
       return workerRpc(op, { draft: copy });
@@ -218,8 +237,11 @@
    * Actor pubkey always from signing key. Kind/epoch/tags constructed by policy.
    */
   function signTypedAdminOperation(request) {
+    requireValidSession('SIGN_ADMIN_TYPED');
     const P = policy();
     if (!P) fail('ADMIN_POLICY_MISSING', 'AdminSigningPolicy required');
+    // Final session check at admin authority boundary (TOCTOU)
+    requireValidSession('SIGN_ADMIN_TYPED');
     if (isWorkerAuthoritative()) {
       return workerRpc('SIGN_ADMIN_TYPED', { request: request || {} });
     }
@@ -304,6 +326,7 @@
   }
 
   function nip44ChatEncrypt(args) {
+    requireValidSession('NIP44_CHAT_ENCRYPT');
     if (isWorkerAuthoritative()) {
       return workerRpc('NIP44_CHAT_ENCRYPT', args || {});
     }
@@ -336,6 +359,7 @@
   }
 
   function nip44P2pEncrypt(plaintext, recipientPubkey) {
+    requireValidSession('NIP44_P2P_ENCRYPT');
     if (isWorkerAuthoritative()) {
       return workerRpc('NIP44_P2P_ENCRYPT', { plaintext, recipientPubkey });
     }
@@ -374,6 +398,7 @@
   }
 
   function fileKeyWrap(keyMaterial, recipientPubkey) {
+    requireValidSession('FILE_KEY_WRAP');
     if (typeof keyMaterial !== 'string' || !keyMaterial) fail('BAD_KEY_MATERIAL', 'key material required');
     if (isWorkerAuthoritative()) {
       return workerRpc('FILE_KEY_WRAP', { keyMaterial, recipientPubkey });

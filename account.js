@@ -216,6 +216,17 @@
           return false;
         }
       }
+      try {
+        const SA = App.SessionAuthority || window.SosSessionAuthority;
+        if (SA && typeof SA.revokeSession === 'function') {
+          // Explicit import / switch in this tab — revoke others and rebind.
+          SA.revokeSession({
+            reason: 'key_import',
+            nextAccountPubkey: App.publicKey || '',
+            rebind: true,
+          });
+        }
+      } catch (_sa) {}
       setStatus('המפתח נטען בהצלחה. מומלץ לרענן את העמוד.');
       if (typeof App.loadFeed === 'function') {
         App.loadFeed();

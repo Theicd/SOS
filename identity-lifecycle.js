@@ -208,6 +208,14 @@
     clearPublicIdentityMirrors();
     clearUserScopedCaches(oldPubkey);
 
+    // Multi-tab session revocation: bump persistent generation (does not rotate/delete identity material beyond existing session clear).
+    try {
+      const SA = App.SessionAuthority || window.SosSessionAuthority;
+      if (SA && typeof SA.revokeSession === 'function') {
+        SA.revokeSession({ reason: 'logout', nextAccountPubkey: '', rebind: false });
+      }
+    } catch (_sa) {}
+
     App.guestMode = true;
     App.identityState = App.IDENTITY_NEW_USER || 'IDENTITY_NEW_USER';
     logTransition('LOGOUT_COMPLETE');
@@ -381,6 +389,20 @@
 
       App.identityState = App.IDENTITY_OK || 'IDENTITY_OK';
       App._accountSwitchInProgress = false;
+
+      // Multi-tab: revoke other tabs' Account A authority, rebind THIS tab to Account B.
+      // Does not generate a replacement identity — uses the validated target key only.
+      try {
+        const SA = App.SessionAuthority || window.SosSessionAuthority;
+        if (SA && typeof SA.revokeSession === 'function') {
+          SA.revokeSession({
+            reason: 'account_switch',
+            nextAccountPubkey: prepared.publicKey,
+            rebind: true,
+          });
+        }
+      } catch (_sa) {}
+
       logTransition('SWITCH_COMPLETE');
       try {
         App._topBarAuthUiReady = true;
@@ -398,6 +420,7 @@
         reason: 'SWITCH_COMPLETE',
         publicKey: prepared.publicKey,
         syncResult,
+        ACCOUNT_SWITCH_GENERATES_REPLACEMENT_IDENTITY: false,
       };
     } catch (err) {
       App._accountSwitchInProgress = false;

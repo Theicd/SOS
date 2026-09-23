@@ -127,6 +127,16 @@
           App.guestMode = false;
           App.identityState = 'IDENTITY_OK';
           try {
+            const SA = App.SessionAuthority || window.SosSessionAuthority;
+            if (SA && typeof SA.bindCurrentSession === 'function') {
+              const detached = typeof SA.isDetached === 'function' && SA.isDetached();
+              const already = typeof SA.isSessionValid === 'function' && SA.isSessionValid();
+              if (!detached && !already) {
+                SA.bindCurrentSession({ accountPubkey: App.publicKey, bump: false });
+              }
+            }
+          } catch (_sa) {}
+          try {
             publishLoginActivity();
           } catch (_e2) {}
           if (typeof App.loadOwnProfileMetadata === 'function') App.loadOwnProfileMetadata();

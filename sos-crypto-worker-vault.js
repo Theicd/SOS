@@ -319,6 +319,19 @@
       err.code = 'WORKER_NOT_AUTHORITATIVE';
       throw err;
     }
+    // Session gate at Worker signing boundary (page must hold valid bind)
+    try {
+      const SA = App.SessionAuthority || root.SosSessionAuthority;
+      if (SA && typeof SA.assertSessionForSensitiveOp === 'function') {
+        SA.assertSessionForSensitiveOp('WORKER:' + String(op || 'rpc'));
+      }
+    } catch (sessionErr) {
+      try {
+        deactivateAuthoritative();
+        terminateWorkerOnly();
+      } catch (_t) {}
+      throw sessionErr;
+    }
     return ensureReadyRpc(op, params);
   }
 
@@ -388,6 +401,13 @@
       App.guestMode = false;
       App.identityState = 'IDENTITY_OK';
       App.workerVaultState = meta;
+      try {
+        const SA = App.SessionAuthority || root.SosSessionAuthority;
+        if (SA && typeof SA.bindCurrentSession === 'function') {
+          // New identity create in this tab — bump so other tabs cannot keep old session.
+          SA.bindCurrentSession({ accountPubkey: meta.pubkey, bump: true });
+        }
+      } catch (_sa) {}
       // Optionally activate authoritative when flag ON
       if (flagEnabled()) {
         authoritative = true;
