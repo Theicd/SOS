@@ -1,0 +1,72 @@
+{
+  "gate": "STAGE5_POST_F6I_DEPENDENCY_RECONCILIATION",
+  "status": "PASS",
+  "pass": 25,
+  "fail": 0,
+  "results": [
+    "PASS reconciliation report present",
+    "PASS contradiction marked resolved",
+    "PASS F6I next-item marked inaccurate",
+    "PASS protocol export false",
+    "PASS protocol attestationPrivateKey false",
+    "PASS protocol production host signer.sos010.com",
+    "PASS MIGRATE banned",
+    "PASS READY_FOR_F5B5 false",
+    "PASS READY_FOR_F5B6 false",
+    "PASS READY_FOR_F5B4_PRODUCTION_REVIEW true",
+    "PASS PRODUCTION_DEPLOY mentions CF/DNS",
+    "PASS PRODUCTION_DEPLOY no F5B5/F5B6",
+    "PASS launcher F5B5_EXPORT false",
+    "PASS launcher F5B6_MIGRATION false",
+    "PASS F6 design blocks F5B6 sealed migration",
+    "PASS F6I report F6H blocked",
+    "PASS strong confirm reserved not implemented",
+    "PASS setUserPrivkey present without adjacent isTrustedWebViewUrl in same method",
+    "PASS blossom direct client present",
+    "PASS blossom requires external infra",
+    "PASS V2 activation not ready",
+    "PASS verdict F5B5 cannot start now",
+    "PASS verdict F5B6 model B present",
+    "PASS verdict F6H requires F5B6",
+    "PASS legacy delete still false"
+  ],
+  "invariants": {
+    "F5B5_REQUIRES_F5B4_PRODUCTION_ACCEPTANCE": true,
+    "F5B5_CAN_START_LOCAL_NOW": false,
+    "F5B6_MODEL_B_BLOCKER_PRESENT": true,
+    "F5B6_CAN_START_LOCAL_NOW": false,
+    "F6H_REQUIRES_F5B6": true,
+    "F6H_RUNTIME_CAN_START_NOW": false,
+    "STRONG_DEVICE_CONFIRMATION_CAN_COMPLETE_LOCAL_NOW": false,
+    "STRONG_DEVICE_CONFIRMATION_REQUIRED_BEFORE_F5B4_PRODUCTION": false,
+    "LEGACY_STORE_LOCAL_HARDENING_REMAINING": true,
+    "LEGACY_DELETE_ALLOWED": false,
+    "ALL_POSSIBLE_LOCAL_IMPLEMENTATION_EXHAUSTED": false,
+    "GENUINE_REMAINING_LOCAL_STAGE5_ITEMS": [
+      {
+        "id": "F6_WRITE_PATH_TRUSTED_URL_GUARD",
+        "summary": "Defense-in-depth: add isTrustedWebViewUrl to setUserPrivkey / writeSecureWebIdentity (and related identity write paths currently lacking trust gate while F6D bind has it)",
+        "evidence": "SosJsBridge.kt setUserPrivkey/writeSecureWebIdentity lack isTrustedWebViewUrl; bindNativeSessionAuthority/nativeTypedCryptoRequest trust-gated; F6I secret-surface audit",
+        "blockedByLiveSigner": false,
+        "blockedByModelB": false,
+        "destructive": false,
+        "optionalScaffoldOnly": false
+      }
+    ],
+    "NOT_GENUINE_LOCAL_NOW": [
+      "F5B5 trusted export — blocked by F5B4 production acceptance",
+      "F5B6 sealed migration — Model B authenticated migration pubkey/attestation absent",
+      "F6H runtime migration/recovery — blocked by F5B6",
+      "F6J production rollout — external/live by design",
+      "STRONG_DEVICE_CONFIRM BiometricPrompt wiring — no current runtime consumer; fail-closed reserved for future F5B5/F5B6/F6H intents",
+      "Blossom source-IP gateway — REQUIRES_EXTERNAL_INFRA",
+      "Access Control V2 activation — production blockers remain",
+      "Legacy SosSessionStore plaintext delete — LEGACY_DELETE_ALLOWED=false"
+    ],
+    "NEXT_LOCAL_WORK_ITEM": "F6_WRITE_PATH_TRUSTED_URL_GUARD (optional bounded hardening) OR owner-authorized F5B4 production acceptance",
+    "NEXT_EXTERNAL_DEPENDENCY": "F5B4 production acceptance: live https://signer.sos010.com + CF Pages headers + DNS/TLS + production canary",
+    "READY_TO_TOUCH_CLOUDFLARE": true,
+    "note_ready_cf": "Ready only with explicit owner authorization for F5B4 signer hosting; this audit does not authorize touch"
+  },
+  "generatedAt": "2026-09-24T09:53:00.974Z"
+}
