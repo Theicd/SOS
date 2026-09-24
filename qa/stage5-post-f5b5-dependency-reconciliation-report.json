@@ -1,0 +1,125 @@
+{
+  "gate": "STAGE5_POST_F5B5_DEPENDENCY_RECONCILIATION",
+  "status": "PASS",
+  "ts": "2026-09-24T22:35:00.000Z",
+  "RUNTIME_CODE_CHANGED": false,
+  "SIGNER_DEPLOYED": false,
+  "MAIN_PUSH_EXECUTED": false,
+  "MAIN_DEPLOY_EXECUTED": false,
+  "PACKAGE": 892,
+  "PACKAGE_893_CREATED": false,
+  "ACCESS_CONTROL_V2_CHANGED": false,
+  "MAIN_LOCAL_HEAD": "74992ea151ed5b062b1b6ae97614315592d0a416",
+  "REMOTE_MAIN_HEAD": "610c51490f00d516a767755199ba154009f04631",
+  "postWa6": {
+    "WA6_CLOSED_AT": "ab7aa219933f09ed1bb779e4702da07107e52b3f",
+    "DEPLOYED_SIGNER_COMMIT": "a300a1c0f5b9ceb0a241eac6dcd52cbf36f05c42",
+    "POST_WA6_COMMITS": [
+      {
+        "sha": "27fd13ee81dc71ab31086e9613bbbfa6f6154257",
+        "msg": "fix(signer): map offline pretty URLs for export and enroll shells",
+        "class": "security_fix_runtime_sw",
+        "wa7Covered": true
+      },
+      {
+        "sha": "a300a1c0f5b9ceb0a241eac6dcd52cbf36f05c42",
+        "msg": "fix(signer): network-first navigations under COEP service worker",
+        "class": "security_fix_runtime_sw",
+        "wa7Covered": true
+      }
+    ],
+    "PRE_WA6_FIX_ALREADY_IN_WA6": "dc0daf484a99ecd9abeefceebe798fb48f9643ab",
+    "POST_DEPLOY_QA_ONLY": "e2e05f0545e304a43353d497de077ee7cadcae27 (WA7 gate; not in deployed commit)",
+    "POST_WA6_DEPLOYMENT_DIFF_AUDITED": true,
+    "UNREVIEWED_SECURITY_SEMANTIC_CHANGE_FOUND": false,
+    "note": "Diff ab7aa21..a300a1c is SW-only (pretty-path offline map + network-first navigate + COEP header reattach). No vault/WebAuthn/export crypto change. Covered by WA7 LIVE offline/CSP/canary PASS."
+  },
+  "securityTrack": {
+    "F5B1": "CLOSED",
+    "F5B2": "CLOSED",
+    "F5B3": "CLOSED",
+    "F5B4": "CLOSED",
+    "F5B4R": "CLOSED",
+    "F5B5": "CLOSED",
+    "F5B6_IMPLEMENTABLE_NOW": false,
+    "F5B6_STILL_BLOCKED_BY_MODEL_B": true,
+    "F5B6_EXACT_BLOCKER": "No approved ceremony that binds a destination device public key D to account P and seals identity material to D without MITM. Signer WebAuthn proves user presence on signer.sos010.com for local vault ops; it does not attest a remote Android/desktop Keystore key as the authorized migration target.",
+    "F5B6_REQUIRES_REMOTE_DEVICE_AUTHENTICATION": true,
+    "F5B6_REQUIRES_MIGRATION_TARGET_KEY_ATTESTATION": true,
+    "F5B6_CAN_REUSE_WEBAUTHN_STRONG_CONFIRMATION": false,
+    "F5B6_CAN_REUSE_WEBAUTHN_NOTE": "WebAuthn may later authorize packaging/consent on signer origin, but cannot alone authenticate destination device key D or prevent substitution of D during handoff.",
+    "F5B6_CAN_REUSE_LINKED_DEVICE_KEY_MODEL": true,
+    "F6H_DEPENDS_ON_F5B6": true,
+    "F6H_HAS_OTHER_BLOCKERS": "Recovery UX can use F5B5 visual nsec + F5B4 import as interim; sealed Worker→signer→Android path still needs F5B6",
+    "F6H_IMPLEMENTABLE_NOW": false,
+    "F6J_SCOPE": "Android dark/internal production rollout of F6A–F6I native typed crypto (flags/APK); not Package 893; not F5B6/F6H sealed migration",
+    "F6J_REQUIRES_F5B6": false,
+    "F6J_REQUIRES_F6H": false,
+    "F6J_REQUIRES_PACKAGE_893": false,
+    "F6J_IMPLEMENTABLE_NOW": true
+  },
+  "linkedDevices": {
+    "LINKED_DEVICES_DEPENDENCY_DIRECTION": "PREREQUISITE_FOR_F5B6",
+    "READY_FOR_MD0": true,
+    "reason": "Model B missing primitive is authenticated destination device key D under unchanged account P. QR phone↔desktop pairing that enrolls D is exactly that attestation. WebAuthn on signer does not create D.",
+    "LINKED_DEVICE_SIGNING_MODEL_RECOMMENDATION": "A_delegated_device_protocol_plus_optional_phone_cosign_for_P_authored_Nostr — not C (copy root K to every device)",
+    "ROOT_K_REQUIRED_ON_EVERY_DEVICE": false,
+    "PHONE_REQUIRED_ONLINE_FOR_DESKTOP": "CONDITIONAL — required only for ops that need Schnorr-under-P if desktop holds only D; not for local encrypted sync if capsule unwraps conversation keys",
+    "STANDARD_NOSTR_INTEROP_IMPACT": "Events signed by D are not standard kind authorship as P unless protocol adds device-delegation tags/proof or phone co-signs; copying K to desktop restores interop but expands compromise surface",
+    "RECOVERY_CAPSULE_RECOMMENDED_CONTENT_CLASS": "K_wrapped_to_device_keys_D_i + encrypted_vault_metadata_snapshot + conversation_session_key_material_wrapped — never plaintext nsec",
+    "RECOVERY_CAPSULE_MUST_NOT_STORE_PLAINTEXT_NSEC": true
+  },
+  "accessControl": {
+    "ACCESS_CONTROL_V2_READY_FOR_PRODUCTION": false,
+    "ACCESS_CONTROL_V2_DEFAULT": false,
+    "blockers": {
+      "PRODUCTION_GROUP_CONTROL_BOOTSTRAP": "OPEN",
+      "PRODUCTION_MEMBERSHIP_BOOTSTRAP": "OPEN",
+      "AUTHORITATIVE_ACCESS_GATEWAY": "OPEN",
+      "INVITE_DOUBLE_REDEEM_SERIALIZATION": "OPEN",
+      "DELEGATED_MODERATION_HISTORICAL_PROOF": "OPEN",
+      "DELEGATED_MEMBERSHIP_HISTORICAL_PROOF": "OPEN",
+      "F5B_ISOLATED_SIGNER_STRONG_INTENT": "PARTIAL — F5B5 WebAuthn export closed; admin-intent signer binding still open",
+      "SAME_ORIGIN_ADMIN_INTENT_BOUNDARY": "OPEN",
+      "BLOSSOM_SOURCE_IP_PRIVACY": "OPEN",
+      "MANAGE_ADMINS_SEMANTICS": "OPEN",
+      "MANAGE_PERMISSIONS_SEMANTICS": "OPEN"
+    }
+  },
+  "communities": {
+    "C0": "DEPLOYED",
+    "COMMUNITY_C1_IMPLEMENTABLE_NOW": false,
+    "COMMUNITY_C1_DEPENDS_ON_LINKED_DEVICES": false,
+    "COMMUNITY_C1_DEPENDS_ON_ACCESS_CONTROL_V2": true,
+    "note": "C1+ needs production AC semantics/bootstrap more than Linked Devices; Linked Devices is identity/multi-device, not community graph"
+  },
+  "privacy": {
+    "BLOSSOM_SOURCE_IP_PRIVACY_CLOSED": false,
+    "BLOSSOM_PRIVACY_REQUIRES_EXTERNAL_INFRA": true,
+    "blocksStage5IdentityClose": false,
+    "blocksLinkedDevices": false,
+    "blocksAccessControlActivation": true,
+    "blocksCommunityC1": true
+  },
+  "legacy": {
+    "LEGACY_IDENTITY_DATA_BLOCKS_STAGE5_CLOSE": false,
+    "LEGACY_IDENTITY_DELETION_REQUIRED_BEFORE_LINKED_DEVICES": false,
+    "F8_STILL_NOT_AUTHORIZED": true
+  },
+  "stage5": {
+    "STAGE5_REMAINING_REQUIRED_ITEMS": [
+      "MD0: Linked Devices architecture (device key D, QR pairing, Recovery Capsule class) — unlocks Model B",
+      "F5B6: sealed migration using authenticated destination key D (after MD0)",
+      "F6H: migration/recovery UX wired to F5B6 sealed path (interim F5B5 nsec reveal remains available)",
+      "F6J: Android dark production rollout of F6A–F6I (parallel; not blocked by F5B6)",
+      "Blossom privacy gateway (external infra) — required before AC V2 / C1 privacy claims, not for identity custody close",
+      "Access Control V2 production bootstrap + gateway (separate activation gate; V2 stays OFF)"
+    ],
+    "STAGE5_READY_TO_CLOSE": false
+  },
+  "next": {
+    "NEXT_PHASE": "MD0_LINKED_DEVICES_ARCHITECTURE",
+    "NEXT_PHASE_REASON": "F5B5 WebAuthn closed local strong confirm but does not attest a remote device key. F5B6 Model B still needs authenticated destination key D; Linked Devices QR pairing is that primitive. F6J can run in parallel later but does not resolve the sealed-migration blocker.",
+    "NEXT_PHASE_CAN_START_NOW": true
+  }
+}

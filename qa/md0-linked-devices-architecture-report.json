@@ -1,0 +1,40 @@
+{
+  "gate": "MD0_LINKED_DEVICES_ARCHITECTURE",
+  "status": "PASS",
+  "ts": "2026-09-24T22:50:00.000Z",
+  "designDoc": "docs/security/MD0_LINKED_DEVICES_ARCHITECTURE.md",
+  "RUNTIME_CODE_CHANGED": false,
+  "MAIN_PUSH_EXECUTED": false,
+  "MAIN_DEPLOY_EXECUTED": false,
+  "SIGNER_DEPLOYED": false,
+  "PACKAGE": 892,
+  "PACKAGE_893_CREATED": false,
+  "ACCESS_CONTROL_V2_CHANGED": false,
+  "BASELINE": {
+    "F5B1_F5B5": "CLOSED",
+    "DEPLOYED_SIGNER_COMMIT": "a300a1c0f5b9ceb0a241eac6dcd52cbf36f05c42",
+    "MAIN_LOCAL_HEAD": "74992ea151ed5b062b1b6ae97614315592d0a416",
+    "REMOTE_MAIN_HEAD": "610c51490f00d516a767755199ba154009f04631"
+  },
+  "DEVICE_KEY_MODEL": "sos-device-keys-v1: secp256k1 D_sign + X25519 D_enc per device; generated on-device; Keystore/TPM preferred",
+  "DEVICE_PRIVATE_KEY_EXPORTABLE": "conditional",
+  "DEVICE_AUTHORIZATION_MODEL": "DeviceAuthorization v1 binds P + D_pubs + capabilities + authEpoch; Schnorr-signed by root K",
+  "SELECTED_LINKED_DEVICE_SIGNING_MODEL": "A_delegated_device_protocol + B_optional_phone_cosign_for_standard_P_authorship",
+  "ROOT_K_REQUIRED_ON_EVERY_DEVICE": false,
+  "PAIRING_AUTHORITY_BACKEND_REQUIRED": false,
+  "PAIRING_TRANSPORT_BACKEND_OPTIONAL": true,
+  "RECOVERY_CAPABILITY_SEPARATE_FROM_NORMAL_LINKING": true,
+  "ROOT_K_UNWRAPPED_DURING_NORMAL_DESKTOP_OPERATION": false,
+  "ZERO_TRUSTED_DEVICES_AND_NO_NSEC_RECOVERABLE": false,
+  "F5B6_CAN_USE_MD0_DEVICE_BINDING": true,
+  "F5B6_MODEL_B_BLOCKER_SOLVED_BY_THIS_ARCHITECTURE": true,
+  "F5B6_INSERTION_POINT": "after MD2+MD3",
+  "F6H_INSERTION_POINT": "after F5B6 (UX; MD7 recovery parallel)",
+  "READY_FOR_MD1": true,
+  "OWNER_DECISIONS_REQUIRED": [
+    "recovery_capable_default=false (confirm opt-in)",
+    "MAX_LINKED_DEVICES=8 (confirm)",
+    "standard_Nostr_P_from_desktop=phone_cosign_first (confirm)",
+    "recovery_Hello_every_ceremony=true (confirm)"
+  ]
+}

@@ -9,4 +9,6 @@
     <exclude domain="sharedpref" path="sos_native_identity_secure_v1.xml" />
     <exclude domain="sharedpref" path="sos_native_session.xml" />
     <exclude domain="sharedpref" path="sos_native_session_authority_v1.xml" />
+    <!-- MD1: device identity wrap blobs must not clone across devices via backup -->
+    <exclude domain="sharedpref" path="sos_native_device_identity_v1.xml" />
 </full-backup-content>
