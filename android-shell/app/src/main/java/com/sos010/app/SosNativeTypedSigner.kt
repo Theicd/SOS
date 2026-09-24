@@ -8,7 +8,7 @@ import org.json.JSONObject
  * F6B — Native typed cryptographic signer facade.
  * Uses SosSecureIdentityStore only. Never returns K/nsec.
  * Not wired to WebView (F6C). Session binding hook for F6D.
- * Does not implement admin typed policy (F6E).
+ * Admin typed policy lives in SosNativeAdminPolicy / SosNativeAdminTypedSigner (F6E).
  * HYPER CORE TECH
  */
 object SosNativeTypedSigner {
