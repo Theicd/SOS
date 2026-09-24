@@ -64,7 +64,7 @@ object SosNativeP2pEngine {
     fun ensureStarted(context: Context) {
         appRef = context.applicationContext
         if (!SosSessionStore.isP2pStandbyEnabled(context)) return
-        if (SosSessionStore.getPrivkey(context).length != 64) {
+        if (resolveNativePrivHex(context).length != 64) {
             Log.w(TAG, "no privkey – native P2P idle")
             SosDebugLog.w("p2p", "native idle – no privkey")
             return
@@ -148,7 +148,8 @@ object SosNativeP2pEngine {
         if (!SosP2pOwner.nativeMayHandle()) return
         if (!signalType.startsWith("dc-")) return
         appRef = context.applicationContext
-        val priv = SosSessionStore.getPrivkey(context)
+        // F6F: prefer SosSecureIdentityStore — never pull K into WebView.
+        val priv = resolveNativePrivHex(context)
         if (priv.length != 64) {
             SosDebugLog.w("p2p", "signal drop – no privkey")
             return
@@ -620,8 +621,8 @@ object SosNativeP2pEngine {
 
     private fun publishSig(peer: String, type: String, rawJson: String) {
         val app = appRef ?: return
-        val priv = SosSessionStore.getPrivkey(app)
-        val self = SosSessionStore.getPubkey(app)
+        val priv = resolveNativePrivHex(app)
+        val self = resolveNativePubHex(app)
         if (self.length != 64) return
         if (tryPublishMesh(self, peer, type, rawJson)) return
         if (priv.length != 64) return
@@ -639,6 +640,27 @@ object SosNativeP2pEngine {
                 Log.w(TAG, "publishSig fail: ${err.message}")
             }
         }
+    }
+
+    /**
+     * F6F: identity K from secure store first (native custody).
+     * Legacy SessionStore is transitional continuity only — not exposed to WebView.
+     * Bulk file-chunk path is untouched.
+     */
+    private fun resolveNativePrivHex(context: Context): String {
+        val id = SosSecureIdentityStore.readIdentityForNativeUse(context.applicationContext)
+        if (id != null && SosSecureIdentityStore.isHex64(id.privateKeyHex)) {
+            return id.privateKeyHex
+        }
+        return SosSessionStore.getPrivkey(context)
+    }
+
+    private fun resolveNativePubHex(context: Context): String {
+        val id = SosSecureIdentityStore.readIdentityForNativeUse(context.applicationContext)
+        if (id != null && SosSecureIdentityStore.isHex64(id.publicKeyHex)) {
+            return id.publicKeyHex
+        }
+        return SosSessionStore.getPubkey(context)
     }
 
     private fun tryPublishMesh(self: String, peer: String, type: String, rawJson: String): Boolean {

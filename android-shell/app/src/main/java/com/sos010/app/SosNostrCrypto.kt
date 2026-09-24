@@ -1,6 +1,5 @@
 package com.sos010.app
 
-import android.util.Base64
 import android.util.Log
 import fr.acinq.secp256k1.Hex
 import fr.acinq.secp256k1.Secp256k1
@@ -36,7 +35,9 @@ object SosNostrCrypto {
         val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
         cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "AES"), IvParameterSpec(iv))
         val enc = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
-        return Base64.encodeToString(enc, Base64.NO_WRAP) + "?iv=" + Base64.encodeToString(iv, Base64.NO_WRAP)
+        // java.util.Base64 — works on device (minSdk 26) and JVM unit tests
+        val b64 = java.util.Base64.getEncoder()
+        return b64.encodeToString(enc) + "?iv=" + b64.encodeToString(iv)
     }
 
     fun nip04Decrypt(privHex: String, peerPubHex: String, content: String): String? {
@@ -46,8 +47,9 @@ object SosNostrCrypto {
                 Log.w(TAG, "nip04 bad format (no iv)")
                 return null
             }
-            val data = Base64.decode(parts[0], Base64.DEFAULT)
-            val iv = Base64.decode(parts[1], Base64.DEFAULT)
+            val decoder = java.util.Base64.getDecoder()
+            val data = decoder.decode(parts[0])
+            val iv = decoder.decode(parts[1])
             if (iv.size != 16) {
                 Log.w(TAG, "nip04 bad iv size=${iv.size}")
                 return null

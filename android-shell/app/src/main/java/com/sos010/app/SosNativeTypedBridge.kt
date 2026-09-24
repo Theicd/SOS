@@ -21,11 +21,22 @@ object SosNativeTypedBridge {
     const val MAX_REQUEST_ID_CHARS = 128
 
     val ALLOWED_OPS: Set<String> = setOf(
+        // F6C signing
         "SIGN_CHAT_EVENT",
         "SIGN_CALL_SEAL",
         "SIGN_CALL_GIFTWRAP",
         "SIGN_PRESENCE_EVENT",
         "SIGN_READ_RECEIPT_EVENT",
+        // F6F typed crypto
+        "CHAT_ENCRYPT",
+        "CHAT_DECRYPT",
+        "P2P_SIGNAL_ENCRYPT",
+        "P2P_SIGNAL_DECRYPT",
+        "CALL_SIGNAL_ENCRYPT",
+        "CALL_SIGNAL_DECRYPT",
+        "CALL_GIFTWRAP_UNWRAP",
+        "FILE_KEY_WRAP",
+        "FILE_KEY_UNWRAP",
     )
 
     // Design / QA invariants
@@ -33,6 +44,9 @@ object SosNativeTypedBridge {
     const val GENERIC_SIGN_BRIDGE_OPERATION = false
     const val GENERIC_DECRYPT_BRIDGE_OPERATION = false
     const val GENERIC_ENCRYPT_BRIDGE_OPERATION = false
+    const val F6F_GENERIC_CRYPTO_BRIDGE = false
+    const val NATIVE_BRIDGE_OPERATION_ALLOWLIST_PRESENT = true
+    const val F6C_GENERIC_SIGN_REMAINS_FALSE = true
     const val BRIDGE_REQUEST_SCHEMA_STRICT = true
     const val BRIDGE_RESPONSE_SCHEMA_STRICT = true
     const val BRIDGE_REQUEST_ID_REQUIRED = true
@@ -44,6 +58,27 @@ object SosNativeTypedBridge {
     const val THIRD_PARTY_WEB_CONTENT_CAN_USE_CRYPTO_BRIDGE = false
     const val TYPED_BRIDGE_REQUIRES_VALID_NATIVE_SESSION = true
     const val ALL_F6C_TYPED_OPS_REQUIRE_SESSION_BINDING = true
+    const val ALL_F6F_OPS_REQUIRE_NATIVE_SESSION = true
+
+    private val SIGN_OPS = setOf(
+        "SIGN_CHAT_EVENT",
+        "SIGN_CALL_SEAL",
+        "SIGN_CALL_GIFTWRAP",
+        "SIGN_PRESENCE_EVENT",
+        "SIGN_READ_RECEIPT_EVENT",
+    )
+
+    private val CRYPTO_OPS = setOf(
+        "CHAT_ENCRYPT",
+        "CHAT_DECRYPT",
+        "P2P_SIGNAL_ENCRYPT",
+        "P2P_SIGNAL_DECRYPT",
+        "CALL_SIGNAL_ENCRYPT",
+        "CALL_SIGNAL_DECRYPT",
+        "CALL_GIFTWRAP_UNWRAP",
+        "FILE_KEY_WRAP",
+        "FILE_KEY_UNWRAP",
+    )
 
     data class DispatchResult(
         val json: String,
@@ -54,6 +89,7 @@ object SosNativeTypedBridge {
     /** Testable engine — no Android WebView required. */
     class Engine(
         private val signer: SosNativeTypedSigner.Engine,
+        private val typedCrypto: SosNativeTypedCrypto.Engine? = null,
         private val sessionAuthority: SosNativeSessionAuthority.Engine? = null,
         private val trustedContext: () -> Boolean = { true },
         private val nowSec: () -> Long = { System.currentTimeMillis() / 1000L },
@@ -82,11 +118,14 @@ object SosNativeTypedBridge {
                 .put("operations", JSONArray(ALLOWED_OPS.toList()))
                 .put("returnsPrivateKey", false)
                 .put("returnsNsec", false)
+                .put("returnsConversationKey", false)
                 .put("genericSign", false)
                 .put("genericDecrypt", false)
                 .put("genericEncrypt", false)
+                .put("f6fTypedCrypto", typedCrypto != null)
                 .put("requiresSessionBinding", requireSessionBinding)
                 .put("nativeSessionAuthority", true)
+                .put("nip44Version", SosNativeTypedCrypto.NIP44_VERSION_USED)
                 .toString()
         }
 
@@ -191,6 +230,10 @@ object SosNativeTypedBridge {
                 sessionCapability = capability,
             )
 
+            if (op in CRYPTO_OPS) {
+                return dispatchCrypto(requestId, op, binding, params)
+            }
+
             val signResult = when (op) {
                 "SIGN_CHAT_EVENT" -> {
                     val content = params.optString("content")
@@ -284,6 +327,127 @@ object SosNativeTypedBridge {
             }
         }
 
+        private fun dispatchCrypto(
+            requestId: String,
+            op: String,
+            binding: SosNativeTypedSigner.SessionBinding,
+            params: JSONObject,
+        ): DispatchResult {
+            val crypto = typedCrypto ?: return err(requestId, "TYPED_CRYPTO_UNAVAILABLE")
+            // Reject private-key params on every crypto op
+            if (params.has("privateKey") || params.has("privkey") || params.has("privHex") ||
+                params.has("nsec") || params.has("k") || params.has("conversationKey")
+            ) {
+                return err(requestId, "CALLER_SUPPLIED_PRIVATE_KEY")
+            }
+            val result = when (op) {
+                "CHAT_ENCRYPT" -> {
+                    if (hasDisallowedParamKeys(params, setOf("plaintext", "recipientPubkey", "recipient", "sessionGeneration", "accountPubkey", "sessionCapability"))) {
+                        return err(requestId, "UNEXPECTED_FIELD")
+                    }
+                    crypto.chatEncrypt(
+                        binding,
+                        params.optString("recipientPubkey", params.optString("recipient")),
+                        params.optString("plaintext"),
+                    )
+                }
+                "CHAT_DECRYPT" -> {
+                    if (hasDisallowedParamKeys(params, setOf("ciphertext", "peerPubkey", "senderPubkey", "sessionGeneration", "accountPubkey", "sessionCapability"))) {
+                        return err(requestId, "UNEXPECTED_FIELD")
+                    }
+                    crypto.chatDecrypt(
+                        binding,
+                        params.optString("peerPubkey", params.optString("senderPubkey")),
+                        params.optString("ciphertext"),
+                    )
+                }
+                "P2P_SIGNAL_ENCRYPT" -> {
+                    if (hasDisallowedParamKeys(params, setOf("plaintext", "recipientPubkey", "recipient", "sessionGeneration", "accountPubkey", "sessionCapability"))) {
+                        return err(requestId, "UNEXPECTED_FIELD")
+                    }
+                    crypto.p2pSignalEncrypt(
+                        binding,
+                        params.optString("recipientPubkey", params.optString("recipient")),
+                        params.optString("plaintext"),
+                    )
+                }
+                "P2P_SIGNAL_DECRYPT" -> {
+                    if (hasDisallowedParamKeys(params, setOf("ciphertext", "senderPubkey", "peerPubkey", "sessionGeneration", "accountPubkey", "sessionCapability"))) {
+                        return err(requestId, "UNEXPECTED_FIELD")
+                    }
+                    crypto.p2pSignalDecrypt(
+                        binding,
+                        params.optString("senderPubkey", params.optString("peerPubkey")),
+                        params.optString("ciphertext"),
+                    )
+                }
+                "CALL_SIGNAL_ENCRYPT" -> {
+                    if (hasDisallowedParamKeys(params, setOf("plaintext", "recipientPubkey", "recipient", "sessionGeneration", "accountPubkey", "sessionCapability"))) {
+                        return err(requestId, "UNEXPECTED_FIELD")
+                    }
+                    crypto.callSignalEncrypt(
+                        binding,
+                        params.optString("recipientPubkey", params.optString("recipient")),
+                        params.optString("plaintext"),
+                    )
+                }
+                "CALL_SIGNAL_DECRYPT" -> {
+                    if (hasDisallowedParamKeys(params, setOf("ciphertext", "senderPubkey", "peerPubkey", "sessionGeneration", "accountPubkey", "sessionCapability"))) {
+                        return err(requestId, "UNEXPECTED_FIELD")
+                    }
+                    crypto.callSignalDecrypt(
+                        binding,
+                        params.optString("senderPubkey", params.optString("peerPubkey")),
+                        params.optString("ciphertext"),
+                    )
+                }
+                "FILE_KEY_WRAP" -> {
+                    if (hasDisallowedParamKeys(params, setOf("keyMaterial", "recipientPubkey", "recipient", "sessionGeneration", "accountPubkey", "sessionCapability"))) {
+                        return err(requestId, "UNEXPECTED_FIELD")
+                    }
+                    crypto.fileKeyWrap(
+                        binding,
+                        params.optString("recipientPubkey", params.optString("recipient")),
+                        params.optString("keyMaterial"),
+                    )
+                }
+                "FILE_KEY_UNWRAP" -> {
+                    if (hasDisallowedParamKeys(params, setOf("ciphertext", "senderPubkey", "peerPubkey", "sessionGeneration", "accountPubkey", "sessionCapability"))) {
+                        return err(requestId, "UNEXPECTED_FIELD")
+                    }
+                    crypto.fileKeyUnwrap(
+                        binding,
+                        params.optString("senderPubkey", params.optString("peerPubkey")),
+                        params.optString("ciphertext"),
+                    )
+                }
+                "CALL_GIFTWRAP_UNWRAP" -> {
+                    if (hasDisallowedParamKeys(params, setOf("wrapEvent", "sessionGeneration", "accountPubkey", "sessionCapability"))) {
+                        return err(requestId, "UNEXPECTED_FIELD")
+                    }
+                    val wrap = params.optJSONObject("wrapEvent")
+                        ?: return err(requestId, "MALFORMED_WRAP_EVENT")
+                    crypto.callGiftwrapUnwrap(binding, wrap)
+                }
+                else -> SosNativeTypedCrypto.CryptoResult.Err("UNSUPPORTED_OPERATION")
+            }
+            return when (result) {
+                is SosNativeTypedCrypto.CryptoResult.Ok -> {
+                    val value = scrubSecrets(result.value)
+                    DispatchResult(
+                        JSONObject()
+                            .put("requestId", requestId)
+                            .put("ok", true)
+                            .put("op", op)
+                            .put("result", value)
+                            .toString(),
+                        ok = true,
+                    )
+                }
+                is SosNativeTypedCrypto.CryptoResult.Err -> err(requestId, mapCryptoError(result.code))
+            }
+        }
+
         private fun hasDisallowedParamKeys(params: JSONObject, allowed: Set<String>): Boolean {
             val keys = params.keys()
             while (keys.hasNext()) {
@@ -298,7 +462,21 @@ object SosNativeTypedBridge {
             event.remove("nsec")
             event.remove("k")
             event.remove("secretKey")
+            event.remove("conversationKey")
+            event.remove("sharedSecret")
+            event.remove("ecdh")
             return event
+        }
+
+        private fun mapCryptoError(code: String): String = when (code) {
+            "NO_SECURE_IDENTITY", "INVALID_SECURE_IDENTITY",
+            "MISMATCH_SECURE_IDENTITY", "RECOVERY_REQUIRED_IDENTITY",
+            -> "INVALID_IDENTITY"
+            "SESSION_ACCOUNT_MISMATCH", "SESSION_GENERATION_INVALID",
+            "SESSION_REQUIRED", "SESSION_REVOKED",
+            "SESSION_ACCOUNT_SECURE_IDENTITY_MISMATCH",
+            -> code
+            else -> code.ifBlank { "NATIVE_CRYPTO_FAILED" }
         }
 
         private fun mapSignerError(code: String): String = when (code) {
@@ -348,8 +526,10 @@ object SosNativeTypedBridge {
         nowSec: () -> Long = { System.currentTimeMillis() / 1000L },
         sessionAuthority: SosNativeSessionAuthority.Engine? = null,
         requireSessionBinding: Boolean = false,
+        typedCrypto: SosNativeTypedCrypto.Engine? = null,
     ): Engine = Engine(
         signer = signer,
+        typedCrypto = typedCrypto,
         sessionAuthority = sessionAuthority,
         trustedContext = { trusted },
         nowSec = nowSec,
@@ -360,12 +540,18 @@ object SosNativeTypedBridge {
         val app = context.applicationContext
         val sessionAuth = SosNativeSessionAuthority.production(app)
         val identity = productionIdentityEngine(app)
+        val f6dGate = SosNativeTypedSigner.F6dSessionGate { sessionAuth }
         val signer = SosNativeTypedSigner.engineForTests(
             identity = identity,
-            sessionGate = SosNativeTypedSigner.F6dSessionGate { sessionAuth },
+            sessionGate = f6dGate,
+        )
+        val typedCrypto = SosNativeTypedCrypto.engineForTests(
+            identity = identity,
+            sessionGate = f6dGate,
         )
         return Engine(
             signer = signer,
+            typedCrypto = typedCrypto,
             sessionAuthority = sessionAuth,
             trustedContext = {
                 try {

@@ -35,10 +35,7 @@ object SosNativeCallVerifier {
 
     fun processPending(context: Context) {
         val app = context.applicationContext
-        val priv = SosSessionStore.getPrivkey(app)
-        val self = SosSessionStore.getPubkey(app).ifBlank {
-            if (SosNostrCrypto.isHex64(priv)) SosNostrCrypto.pubkeyFromPriv(priv) else ""
-        }
+        val (priv, self) = resolveNativeIdentity(app)
         if (!SosNostrCrypto.isHex64(priv) || !SosNostrCrypto.isHex64(self)) {
             Log.i(TAG, "NATIVE_GIFTWRAP_KEY_UNAVAILABLE")
             SosDebugLog.i("call", "NATIVE_GIFTWRAP_KEY_UNAVAILABLE")
@@ -180,7 +177,7 @@ object SosNativeCallVerifier {
     }
 
     private fun publishDisconnect(app: Context, recipient: String, media: String, sessionId: String): Boolean {
-        val priv = SosSessionStore.getPrivkey(app)
+        val (priv, _) = resolveNativeIdentity(app)
         if (!SosNostrCrypto.isHex64(priv)) return false
         return try {
             val wrap = buildGiftWrap(
@@ -423,8 +420,7 @@ object SosNativeCallVerifier {
     }
 
     private fun clearSessionWraps(app: Context, sessionId: String) {
-        val priv = SosSessionStore.getPrivkey(app)
-        val self = SosSessionStore.getPubkey(app)
+        val (priv, self) = resolveNativeIdentity(app)
         if (!SosNostrCrypto.isHex64(priv) || !SosNostrCrypto.isHex64(self)) return
         val queue = SosPendingCallStore.peekSecureWraps(app)
         for (i in 0 until queue.length()) {
@@ -496,6 +492,22 @@ object SosNativeCallVerifier {
             }
         }
         throw IllegalStateException("ephemeral")
+    }
+
+    /** F6F: secure store first; legacy SessionStore transitional only (never to WebView). */
+    private fun resolveNativeIdentity(app: Context): Pair<String, String> {
+        val id = SosSecureIdentityStore.readIdentityForNativeUse(app)
+        if (id != null &&
+            SosSecureIdentityStore.isHex64(id.privateKeyHex) &&
+            SosSecureIdentityStore.isHex64(id.publicKeyHex)
+        ) {
+            return id.privateKeyHex to id.publicKeyHex
+        }
+        val priv = SosSessionStore.getPrivkey(app)
+        val self = SosSessionStore.getPubkey(app).ifBlank {
+            if (SosNostrCrypto.isHex64(priv)) SosNostrCrypto.pubkeyFromPriv(priv) else ""
+        }
+        return priv to self
     }
 
     private data class RingMeta(val sessionId: String, val peer: String, val media: String)

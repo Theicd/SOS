@@ -377,10 +377,59 @@
     };
   }
 
+  function tryNativeTypedCrypto(op, params) {
+    const NTC = App.NativeTypedCryptoBridge || root.SosNativeTypedCryptoBridge;
+    if (!NTC || typeof NTC.isAvailable !== 'function' || !NTC.isAvailable()) return null;
+    if (!NTC.hasSessionCapability || !NTC.hasSessionCapability()) return null;
+    try {
+      if (op === 'CHAT_ENCRYPT' && typeof NTC.chatEncrypt === 'function') return NTC.chatEncrypt(params);
+      if (op === 'CHAT_DECRYPT' && typeof NTC.chatDecrypt === 'function') return NTC.chatDecrypt(params);
+      if (op === 'P2P_SIGNAL_ENCRYPT' && typeof NTC.p2pSignalEncrypt === 'function') return NTC.p2pSignalEncrypt(params);
+      if (op === 'P2P_SIGNAL_DECRYPT' && typeof NTC.p2pSignalDecrypt === 'function') return NTC.p2pSignalDecrypt(params);
+      if (op === 'CALL_SIGNAL_ENCRYPT' && typeof NTC.callSignalEncrypt === 'function') return NTC.callSignalEncrypt(params);
+      if (op === 'CALL_SIGNAL_DECRYPT' && typeof NTC.callSignalDecrypt === 'function') return NTC.callSignalDecrypt(params);
+      if (op === 'FILE_KEY_WRAP' && typeof NTC.fileKeyWrap === 'function') return NTC.fileKeyWrap(params);
+      if (op === 'FILE_KEY_UNWRAP' && typeof NTC.fileKeyUnwrap === 'function') return NTC.fileKeyUnwrap(params);
+      if (op === 'CALL_GIFTWRAP_UNWRAP' && typeof NTC.callGiftwrapUnwrap === 'function') {
+        return NTC.callGiftwrapUnwrap(params);
+      }
+    } catch (err) {
+      // Native custody: never fall back to raw K export.
+      if (!sessionKeyHex()) throw err;
+      return null;
+    }
+    return null;
+  }
+
+  function isNativeCustodyWithoutPageK() {
+    const NTC = App.NativeTypedCryptoBridge || root.SosNativeTypedCryptoBridge;
+    return !!(NTC && typeof NTC.isAvailable === 'function' && NTC.isAvailable() && !sessionKeyHex());
+  }
+
   function nip44ChatEncrypt(args) {
     requireValidSession('NIP44_CHAT_ENCRYPT');
     if (isWorkerAuthoritative()) {
       return workerRpc('NIP44_CHAT_ENCRYPT', args || {});
+    }
+    // F6F: native-custodied identity — typed bridge only (no page K).
+    if (isNativeCustodyWithoutPageK()) {
+      const payload = args && args.payload;
+      const recipient = String((args && args.recipientPubkey) || '').toLowerCase();
+      const sender = String((args && args.senderPubkey) || currentPubkey() || '').toLowerCase();
+      let plaintext;
+      if (args && typeof args.plaintext === 'string') {
+        plaintext = args.plaintext;
+      } else if (payload && typeof payload === 'object') {
+        const body = Object.assign({}, payload);
+        if (body.sender == null) body.sender = sender;
+        if (body.recipient == null) body.recipient = recipient;
+        plaintext = JSON.stringify(body);
+      } else {
+        fail('BAD_PLAINTEXT', 'plaintext or payload required');
+      }
+      const native = tryNativeTypedCrypto('CHAT_ENCRYPT', { plaintext: plaintext, recipientPubkey: recipient });
+      if (!native || !native.ct) fail('NATIVE_CRYPTO_FAILED', 'CHAT_ENCRYPT failed');
+      return native;
     }
     if (typeof App.encryptPrivateChatPayload !== 'function') {
       fail('CHAT_E2EE_UNAVAILABLE', 'encryptPrivateChatPayload missing');
@@ -396,6 +445,32 @@
   function nip44ChatDecrypt(args) {
     if (isWorkerAuthoritative()) {
       return workerRpc('NIP44_CHAT_DECRYPT', args || {});
+    }
+    if (isNativeCustodyWithoutPageK()) {
+      const env = args && args.encryptedEnvelope;
+      let ct = '';
+      if (typeof env === 'string') {
+        try {
+          const parsed = JSON.parse(env);
+          ct = parsed && parsed.ct ? String(parsed.ct) : '';
+        } catch (_e) {
+          ct = '';
+        }
+      } else if (env && typeof env === 'object') {
+        ct = String(env.ct || '');
+      }
+      const selfAuthored = !!(args && args.selfAuthored);
+      let peer = String((args && args.eventAuthorPubkey) || '').toLowerCase();
+      if (selfAuthored) {
+        peer = String((args && args.intendedRecipientPubkey) || '').toLowerCase();
+      }
+      const native = tryNativeTypedCrypto('CHAT_DECRYPT', { ciphertext: ct, peerPubkey: peer });
+      if (!native || typeof native.plaintext !== 'string') fail('NATIVE_CRYPTO_FAILED', 'CHAT_DECRYPT failed');
+      try {
+        return JSON.parse(native.plaintext);
+      } catch (_e) {
+        fail('DECRYPT_FAILED', 'invalid plaintext json');
+      }
     }
     if (typeof App.decryptPrivateChatPayload !== 'function') {
       fail('CHAT_E2EE_UNAVAILABLE', 'decryptPrivateChatPayload missing');
@@ -415,6 +490,15 @@
     if (isWorkerAuthoritative()) {
       return workerRpc('NIP44_P2P_ENCRYPT', { plaintext, recipientPubkey });
     }
+    if (isNativeCustodyWithoutPageK()) {
+      // Web P2P signaling over NIP44 for browser path; native shell P2P uses NIP04 in-process.
+      const native = tryNativeTypedCrypto('CALL_SIGNAL_ENCRYPT', {
+        plaintext: String(plaintext),
+        recipientPubkey: String(recipientPubkey || ''),
+      });
+      if (!native || !native.ciphertext) fail('NATIVE_CRYPTO_FAILED', 'encrypt failed');
+      return native.ciphertext;
+    }
     const recipient = String(recipientPubkey || '').toLowerCase();
     if (!/^[0-9a-f]{64}$/.test(recipient)) fail('BAD_RECIPIENT', 'invalid recipient');
     if (typeof plaintext !== 'string') fail('BAD_PLAINTEXT', 'plaintext must be string');
@@ -426,6 +510,14 @@
   function nip44P2pDecrypt(ciphertext, senderPubkey) {
     if (isWorkerAuthoritative()) {
       return workerRpc('NIP44_P2P_DECRYPT', { ciphertext, senderPubkey });
+    }
+    if (isNativeCustodyWithoutPageK()) {
+      const native = tryNativeTypedCrypto('CALL_SIGNAL_DECRYPT', {
+        ciphertext: String(ciphertext),
+        senderPubkey: String(senderPubkey || ''),
+      });
+      if (!native || typeof native.plaintext !== 'string') fail('NATIVE_CRYPTO_FAILED', 'decrypt failed');
+      return native.plaintext;
     }
     const sender = String(senderPubkey || '').toLowerCase();
     if (!/^[0-9a-f]{64}$/.test(sender)) fail('BAD_SENDER', 'invalid sender');
@@ -455,6 +547,14 @@
     if (isWorkerAuthoritative()) {
       return workerRpc('FILE_KEY_WRAP', { keyMaterial, recipientPubkey });
     }
+    if (isNativeCustodyWithoutPageK()) {
+      const native = tryNativeTypedCrypto('FILE_KEY_WRAP', {
+        keyMaterial: String(keyMaterial),
+        recipientPubkey: String(recipientPubkey || ''),
+      });
+      if (!native || !native.ciphertext) fail('NATIVE_CRYPTO_FAILED', 'FILE_KEY_WRAP failed');
+      return native.ciphertext;
+    }
     return nip44P2pEncrypt(keyMaterial, recipientPubkey);
   }
 
@@ -463,12 +563,28 @@
       // Protocol may return file AES material to page chunk crypto — not identity K.
       return workerRpc('FILE_KEY_UNWRAP', { ciphertext, senderPubkey });
     }
+    if (isNativeCustodyWithoutPageK()) {
+      const native = tryNativeTypedCrypto('FILE_KEY_UNWRAP', {
+        ciphertext: String(ciphertext),
+        senderPubkey: String(senderPubkey || ''),
+      });
+      if (!native || typeof native.keyMaterial !== 'string') fail('NATIVE_CRYPTO_FAILED', 'FILE_KEY_UNWRAP failed');
+      return native.keyMaterial;
+    }
     return nip44P2pDecrypt(ciphertext, senderPubkey);
   }
 
   async function nip04Encrypt(peerPubkey, plaintext) {
     if (isWorkerAuthoritative()) {
       return workerRpc('NIP04_ENCRYPT', { peerPubkey, plaintext });
+    }
+    if (isNativeCustodyWithoutPageK()) {
+      const native = tryNativeTypedCrypto('P2P_SIGNAL_ENCRYPT', {
+        plaintext: String(plaintext),
+        recipientPubkey: String(peerPubkey || ''),
+      });
+      if (!native || !native.ciphertext) fail('NATIVE_CRYPTO_FAILED', 'NIP04 encrypt failed');
+      return native.ciphertext;
     }
     if (!NT || !NT.nip04 || typeof NT.nip04.encrypt !== 'function') {
       fail('NIP04_UNAVAILABLE', 'nip04.encrypt missing');
@@ -479,6 +595,14 @@
   async function nip04Decrypt(peerPubkey, ciphertext) {
     if (isWorkerAuthoritative()) {
       return workerRpc('NIP04_DECRYPT', { peerPubkey, ciphertext });
+    }
+    if (isNativeCustodyWithoutPageK()) {
+      const native = tryNativeTypedCrypto('P2P_SIGNAL_DECRYPT', {
+        ciphertext: String(ciphertext),
+        senderPubkey: String(peerPubkey || ''),
+      });
+      if (!native || typeof native.plaintext !== 'string') fail('NATIVE_CRYPTO_FAILED', 'NIP04 decrypt failed');
+      return native.plaintext;
     }
     if (!NT || !NT.nip04 || typeof NT.nip04.decrypt !== 'function') {
       fail('NIP04_UNAVAILABLE', 'nip04.decrypt missing');
@@ -492,6 +616,11 @@
         wrapEvent,
         localPubkey: localPubkey || currentPubkey(),
       });
+    }
+    if (isNativeCustodyWithoutPageK()) {
+      const native = tryNativeTypedCrypto('CALL_GIFTWRAP_UNWRAP', { wrapEvent: wrapEvent });
+      if (!native) fail('NATIVE_CRYPTO_FAILED', 'giftwrap unwrap failed');
+      return native;
     }
     fail('CALL_UNWRAP_MAIN_UNSUPPORTED', 'use call-signal-e2ee unwrap on main thread');
   }

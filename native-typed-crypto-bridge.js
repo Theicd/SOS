@@ -13,6 +13,15 @@
     SIGN_CALL_GIFTWRAP: true,
     SIGN_PRESENCE_EVENT: true,
     SIGN_READ_RECEIPT_EVENT: true,
+    CHAT_ENCRYPT: true,
+    CHAT_DECRYPT: true,
+    P2P_SIGNAL_ENCRYPT: true,
+    P2P_SIGNAL_DECRYPT: true,
+    CALL_SIGNAL_ENCRYPT: true,
+    CALL_SIGNAL_DECRYPT: true,
+    CALL_GIFTWRAP_UNWRAP: true,
+    FILE_KEY_WRAP: true,
+    FILE_KEY_UNWRAP: true,
   };
 
   let seq = 0;
@@ -193,7 +202,8 @@
       err.code = code;
       throw err;
     }
-    if (parsed.result.privkey || parsed.result.privateKey || parsed.result.nsec || parsed.result.k) {
+    if (parsed.result.privkey || parsed.result.privateKey || parsed.result.nsec || parsed.result.k ||
+        parsed.result.conversationKey || parsed.result.sharedSecret || parsed.result.ecdh) {
       const err = new Error('SECRET_IN_RESPONSE');
       err.code = 'SECRET_IN_RESPONSE';
       throw err;
@@ -241,6 +251,68 @@
     }, sessionContext());
   }
 
+  function chatEncrypt(fields) {
+    return request('CHAT_ENCRYPT', {
+      plaintext: String(fields && fields.plaintext != null ? fields.plaintext : ''),
+      recipientPubkey: String(fields && (fields.recipientPubkey || fields.recipient) || ''),
+    }, sessionContext());
+  }
+
+  function chatDecrypt(fields) {
+    return request('CHAT_DECRYPT', {
+      ciphertext: String(fields && fields.ciphertext != null ? fields.ciphertext : ''),
+      peerPubkey: String(fields && (fields.peerPubkey || fields.senderPubkey) || ''),
+    }, sessionContext());
+  }
+
+  function p2pSignalEncrypt(fields) {
+    return request('P2P_SIGNAL_ENCRYPT', {
+      plaintext: String(fields && fields.plaintext != null ? fields.plaintext : ''),
+      recipientPubkey: String(fields && (fields.recipientPubkey || fields.recipient) || ''),
+    }, sessionContext());
+  }
+
+  function p2pSignalDecrypt(fields) {
+    return request('P2P_SIGNAL_DECRYPT', {
+      ciphertext: String(fields && fields.ciphertext != null ? fields.ciphertext : ''),
+      senderPubkey: String(fields && (fields.senderPubkey || fields.peerPubkey) || ''),
+    }, sessionContext());
+  }
+
+  function callSignalEncrypt(fields) {
+    return request('CALL_SIGNAL_ENCRYPT', {
+      plaintext: String(fields && fields.plaintext != null ? fields.plaintext : ''),
+      recipientPubkey: String(fields && (fields.recipientPubkey || fields.recipient) || ''),
+    }, sessionContext());
+  }
+
+  function callSignalDecrypt(fields) {
+    return request('CALL_SIGNAL_DECRYPT', {
+      ciphertext: String(fields && fields.ciphertext != null ? fields.ciphertext : ''),
+      senderPubkey: String(fields && (fields.senderPubkey || fields.peerPubkey) || ''),
+    }, sessionContext());
+  }
+
+  function fileKeyWrap(fields) {
+    return request('FILE_KEY_WRAP', {
+      keyMaterial: String(fields && fields.keyMaterial != null ? fields.keyMaterial : ''),
+      recipientPubkey: String(fields && (fields.recipientPubkey || fields.recipient) || ''),
+    }, sessionContext());
+  }
+
+  function fileKeyUnwrap(fields) {
+    return request('FILE_KEY_UNWRAP', {
+      ciphertext: String(fields && fields.ciphertext != null ? fields.ciphertext : ''),
+      senderPubkey: String(fields && (fields.senderPubkey || fields.peerPubkey) || ''),
+    }, sessionContext());
+  }
+
+  function callGiftwrapUnwrap(fields) {
+    return request('CALL_GIFTWRAP_UNWRAP', {
+      wrapEvent: fields && fields.wrapEvent ? fields.wrapEvent : {},
+    }, sessionContext());
+  }
+
   const api = {
     PROTOCOL_VERSION,
     isAvailable,
@@ -255,6 +327,15 @@
     signReadReceiptEvent,
     signCallSealEvent,
     signCallGiftwrapEvent,
+    chatEncrypt,
+    chatDecrypt,
+    p2pSignalEncrypt,
+    p2pSignalDecrypt,
+    callSignalEncrypt,
+    callSignalDecrypt,
+    fileKeyWrap,
+    fileKeyUnwrap,
+    callGiftwrapUnwrap,
     getPrivkey: undefined,
     NATIVE_PROVIDER_REQUIRES_RAW_K_FROM_BRIDGE: false,
     NATIVE_TYPED_BRIDGE_FAILURE_CAUSES_RAW_K_FALLBACK: false,
