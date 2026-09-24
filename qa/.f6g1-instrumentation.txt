@@ -1,0 +1,7 @@
+connectedDebugAndroidTest SosNativeTrustedConfirmationInstrumentedTest
+Finished 17 tests on Medium_Phone_API_33(AVD) - 12
+Tests run: 17, Failures: 0
+INSTRUMENTATION_SUITE=PASS
+TOTAL_FAIL=0
+BUILD SUCCESSFUL
+ACTUAL_NATIVE_CONFIRMATION_UI_TESTED=true

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug-only F6G.1 host — not shipped in release. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="com.sos010.app.SosTrustedConfirmHostActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SosShell" />
+    </application>
+</manifest>

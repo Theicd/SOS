@@ -21,6 +21,7 @@ android {
         buildConfigField("String", "SOS_START_URL", "\"https://sos010.com/videos.html?shell=124\"")
         buildConfigField("boolean", "HAS_FCM", hasGoogleServices.toString())
         buildConfigField("boolean", "SECURE_CALL_FAST_VERIFIER", "true")
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -79,4 +80,11 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
+
+    // F6G.1 — minimal androidTest (Espresso + ActivityScenario only)
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:rules:1.6.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
+    androidTestImplementation("androidx.test:core-ktx:1.6.1")
 }
