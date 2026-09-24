@@ -250,6 +250,10 @@ class SosJsBridge(
             SosNativeSessionAuthority.production(context.applicationContext).revoke("clearUserSession")
         } catch (_: Exception) {
         }
+        try {
+            SosNativeAdminConfirmationOrchestrator.onLogout()
+        } catch (_: Exception) {
+        }
         SosSessionStore.clear(context.applicationContext)
         SosContactCache.clear(context.applicationContext)
         SosRelayWatcher.stopAll()
@@ -686,6 +690,23 @@ class SosJsBridge(
                 .put("ok", false)
                 .put("errorCode", "NATIVE_CRYPTO_FAILED")
                 .toString()
+        }
+    }
+
+    /**
+     * F6G — request typed admin op once. Native owns confirm+sign.
+     * No approve/cancel JavascriptInterface. No approval token returned.
+     */
+    @JavascriptInterface
+    fun requestNativeAdminTypedOperation(requestJson: String?): String {
+        return try {
+            SosNativeAdminConfirmationOrchestrator.requestTypedAdminOperation(
+                context,
+                webView,
+                requestJson,
+            )
+        } catch (_: Exception) {
+            JSONObject().put("ok", false).put("errorCode", "NATIVE_CONFIRM_FAILED").toString()
         }
     }
 

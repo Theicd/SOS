@@ -98,7 +98,8 @@ class SosNativeAdminSignerTest {
     }
 
     @Test
-    fun cannotBypassConfirmationWithFakeToken() {
+    fun cannotBypassConfirmationWithoutNativeAuthorization() {
+        // WebView cannot construct Authorization — omitting it fails closed.
         val r = adminSigner().attemptTypedAdminSign(
             binding(),
             SosNativeAdminPolicy.TypedAdminRequest(
@@ -107,20 +108,14 @@ class SosNativeAdminSignerTest {
                 params = mapOf("displayName" to "X", "invitePolicy" to "EVERYONE"),
             ),
             verified = null,
-            confirmation = SosNativeAdminTypedSigner.TrustedConfirmation(
-                token = "fake",
-                operation = SosNativeAdminPolicy.AdminOp.BOOTSTRAP_GROUP_CONTROL,
-                communityId = community,
-                valid = true,
-            ),
+            authorization = null,
         )
-        // F6G not available — even "valid" token rejected.
         assertEquals(
             "TRUSTED_CONFIRMATION_REQUIRED",
             (r as SosNativeAdminTypedSigner.AdminSignResult.Err).code,
         )
-        assertFalse(SosNativeAdminTypedSigner.F6G_TRUSTED_CONFIRMATION_AVAILABLE)
-        assertFalse(SosNativeAdminTypedSigner.HIGH_RISK_ADMIN_OP_CAN_SIGN_BEFORE_F6G)
+        assertTrue(SosNativeAdminTypedSigner.F6G_TRUSTED_CONFIRMATION_AVAILABLE)
+        assertFalse(SosNativeAdminTypedSigner.HIGH_RISK_ADMIN_OP_CAN_SIGN_WITHOUT_CONFIRMATION)
         assertFalse(SosNativeAdminTypedSigner.WEBVIEW_CAN_BYPASS_NATIVE_CONFIRMATION)
     }
 
@@ -159,7 +154,7 @@ class SosNativeAdminSignerTest {
     }
 
     @Test
-    fun policyAllowedButSignBlockedUntilF6g() {
+    fun policyAllowedButSignBlockedWithoutNativeConfirm() {
         val eval = adminSigner().evaluatePolicy(
             SosNativeAdminPolicy.TypedAdminRequest(
                 operation = SosNativeAdminPolicy.AdminOp.GRANT_CAPABILITY,

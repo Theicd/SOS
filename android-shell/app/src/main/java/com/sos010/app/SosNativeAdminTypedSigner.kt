@@ -4,9 +4,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * F6E — Typed admin signer: policy + F6D session + secure identity.
+ * F6E/F6G — Typed admin signer: policy + F6D session + secure identity + trusted confirmation.
  * Constructs admin events natively; never accepts arbitrary admin events.
- * High-risk (all) ops require F6G trusted confirmation before private-key use.
+ * High-risk (all) ops require F6G native confirmation Authorization before private-key use.
  * HYPER CORE TECH
  */
 object SosNativeAdminTypedSigner {
@@ -14,8 +14,10 @@ object SosNativeAdminTypedSigner {
     const val NATIVE_TYPED_SIGNER_ADMIN_POLICY_ENFORCED = true
     const val ADMIN_POLICY_CHECK_BEFORE_PRIVATE_KEY_USE = true
     const val ADMIN_POLICY_RECHECK_BEFORE_SIGN = true
-    const val F6G_TRUSTED_CONFIRMATION_AVAILABLE = false
+    const val F6G_TRUSTED_CONFIRMATION_AVAILABLE = true
     const val HIGH_RISK_ADMIN_OP_CAN_SIGN_BEFORE_F6G = false
+    const val HIGH_RISK_ADMIN_OP_CAN_SIGN_WITHOUT_CONFIRMATION = false
+    const val HIGH_RISK_ADMIN_OP_CAN_SIGN_AFTER_VALID_NATIVE_CONFIRMATION = true
     const val WEBVIEW_CAN_BYPASS_NATIVE_CONFIRMATION = false
     const val GENERIC_NATIVE_ADMIN_SIGN_API = false
     const val ARBITRARY_ADMIN_EVENT_SIGNING_EXPOSED = false
@@ -26,14 +28,8 @@ object SosNativeAdminTypedSigner {
     const val ADMIN_SIGNING_PUBKEY_DERIVED_FROM_SECURE_IDENTITY = true
     const val CALLER_CAN_SELECT_ADMIN_PRIVATE_KEY = false
     const val CALLER_CAN_SELECT_ADMIN_PUBKEY = false
-
-    /** Opaque F6G confirmation token — unavailable until F6G. */
-    data class TrustedConfirmation(
-        val token: String = "",
-        val operation: SosNativeAdminPolicy.AdminOp? = null,
-        val communityId: String = "",
-        val valid: Boolean = false,
-    )
+    const val ADMIN_POLICY_RECHECK_AFTER_CONFIRM = true
+    const val CONFIRMATION_BYPASSES_ADMIN_POLICY = false
 
     sealed class AdminSignResult {
         data class Ok(val event: JSONObject) : AdminSignResult()
@@ -46,6 +42,7 @@ object SosNativeAdminTypedSigner {
         private var sessionGate: SosNativeTypedSigner.SessionAuthorityGate =
             SosNativeTypedSigner.DefaultSessionGate,
         private val nowSec: () -> Long = { System.currentTimeMillis() / 1000L },
+        private val nowMs: () -> Long = { System.currentTimeMillis() },
         private val signWithPriv: (privHex: String, kind: Int, tags: JSONArray, content: String, createdAt: Long) -> JSONObject =
             { priv, kind, tags, content, createdAt ->
                 SosNostrCrypto.signEvent(priv, kind, tags, content, createdAt)
@@ -56,9 +53,6 @@ object SosNativeAdminTypedSigner {
             sessionGate = gate
         }
 
-        /**
-         * Policy-only evaluation (no crypto). Safe for bridge scaffolding / tests.
-         */
         fun evaluatePolicy(
             request: SosNativeAdminPolicy.TypedAdminRequest,
             verified: SosNativeAdminPolicy.VerifiedControlSnapshot?,
@@ -69,26 +63,18 @@ object SosNativeAdminTypedSigner {
         }
 
         /**
-         * Attempt typed admin sign. Fail-closed on NATIVE_CONFIRM_REQUIRED until F6G.
-         * Uses SosNativeTypedSigner.Op.SIGN_CHAT_EVENT only as session-gate probe kind —
-         * admin ops do not map to F6B Op enum; session validity is account-scoped.
+         * Requires SosNativeTrustedConfirmation.Authorization from native UI.
+         * WebView cannot construct Authorization.
          */
         fun attemptTypedAdminSign(
             binding: SosNativeTypedSigner.SessionBinding,
             request: SosNativeAdminPolicy.TypedAdminRequest,
             verified: SosNativeAdminPolicy.VerifiedControlSnapshot?,
-            confirmation: TrustedConfirmation = TrustedConfirmation(),
+            authorization: SosNativeTrustedConfirmation.Authorization? = null,
         ): AdminSignResult {
-            // Reject generic / arbitrary surfaces early
-            if (request.completeEvent != null) {
-                return AdminSignResult.Err("ARBITRARY_EVENT_FIELDS")
-            }
-            if (request.kindOverride != null) {
-                return AdminSignResult.Err("CALLER_KIND_OVERRIDE")
-            }
-            if (request.pubkeyOverride != null) {
-                return AdminSignResult.Err("CALLER_PUBKEY_OVERRIDE")
-            }
+            if (request.completeEvent != null) return AdminSignResult.Err("ARBITRARY_EVENT_FIELDS")
+            if (request.kindOverride != null) return AdminSignResult.Err("CALLER_KIND_OVERRIDE")
+            if (request.pubkeyOverride != null) return AdminSignResult.Err("CALLER_PUBKEY_OVERRIDE")
 
             val state = identity.readState()
             when (state) {
@@ -115,29 +101,38 @@ object SosNativeAdminTypedSigner {
                 return AdminSignResult.Err("INVALID_SECURE_IDENTITY")
             }
 
-            // Session check before policy deep work (and again before crypto).
             when (val gate = sessionGate.check(SosNativeTypedSigner.Op.SIGN_CHAT_EVENT, binding, id.publicKeyHex)) {
                 is SosNativeTypedSigner.CheckResult.Err -> return AdminSignResult.Err(gate.code)
                 SosNativeTypedSigner.CheckResult.Ok -> { }
             }
 
-            // Policy evaluation — uses verified snapshot only.
             val eval = policy.evaluate(id.publicKeyHex, request, verified)
             when (eval) {
                 is SosNativeAdminPolicy.PolicyResult.Denied -> return AdminSignResult.Err(eval.code)
                 is SosNativeAdminPolicy.PolicyResult.Allowed -> {
-                    // F6G not available: all ops are NATIVE_CONFIRM_REQUIRED.
                     if (eval.confirmation == SosNativeAdminPolicy.ConfirmClass.NATIVE_CONFIRM_REQUIRED) {
-                        if (!F6G_TRUSTED_CONFIRMATION_AVAILABLE ||
-                            !confirmation.valid ||
-                            confirmation.operation != request.operation ||
-                            confirmation.communityId != request.communityId
-                        ) {
+                        if (authorization == null) {
                             return AdminSignResult.Err("TRUSTED_CONFIRMATION_REQUIRED")
+                        }
+                        val intent = SosNativeTrustedConfirmation.IntentSpec(
+                            requestId = authorization.requestId,
+                            operation = request.operation,
+                            communityId = request.communityId,
+                            accountPubkey = id.publicKeyHex,
+                            sessionCapability = binding.sessionCapability,
+                            params = request.params,
+                            targetPubkey = request.params["targetPubkey"]?.toString()
+                                ?: request.params["memberPubkey"]?.toString()
+                                ?: "",
+                        )
+                        if (!authorization.matches(intent, nowMs())) {
+                            return AdminSignResult.Err("AUTHORIZATION_MISMATCH")
+                        }
+                        if (authorization.accountPubkey != id.publicKeyHex) {
+                            return AdminSignResult.Err("ACCOUNT_SWITCH_DURING_CONFIRM")
                         }
                     }
 
-                    // Recheck policy immediately before private key use.
                     val recheck = policy.evaluate(id.publicKeyHex, request, verified)
                     if (recheck !is SosNativeAdminPolicy.PolicyResult.Allowed) {
                         return AdminSignResult.Err(
@@ -145,13 +140,11 @@ object SosNativeAdminTypedSigner {
                         )
                     }
 
-                    // Final session recheck at signing boundary (TOCTOU).
                     when (val gate2 = sessionGate.check(SosNativeTypedSigner.Op.SIGN_CHAT_EVENT, binding, id.publicKeyHex)) {
                         is SosNativeTypedSigner.CheckResult.Err -> return AdminSignResult.Err(gate2.code)
                         SosNativeTypedSigner.CheckResult.Ok -> { }
                     }
 
-                    // Construct event natively — kind/pubkey from policy + secure identity.
                     val kind = recheck.constructedKind
                     val createdAt = nowSec()
                     val (content, tags) = when (recheck.family) {
@@ -184,15 +177,9 @@ object SosNativeAdminTypedSigner {
                     return try {
                         val signed = signWithPriv(id.privateKeyHex, kind, tags, content, createdAt)
                         val pub = signed.optString("pubkey").lowercase()
-                        if (pub != id.publicKeyHex) {
-                            return AdminSignResult.Err("PUBKEY_DERIVE_MISMATCH")
-                        }
-                        if (signed.optInt("kind") != kind) {
-                            return AdminSignResult.Err("KIND_MISMATCH")
-                        }
-                        if (!verifyEvent(signed)) {
-                            return AdminSignResult.Err("SIGNATURE_VERIFY_FAILED")
-                        }
+                        if (pub != id.publicKeyHex) return AdminSignResult.Err("PUBKEY_DERIVE_MISMATCH")
+                        if (signed.optInt("kind") != kind) return AdminSignResult.Err("KIND_MISMATCH")
+                        if (!verifyEvent(signed)) return AdminSignResult.Err("SIGNATURE_VERIFY_FAILED")
                         signed.remove("privateKey")
                         signed.remove("privkey")
                         signed.remove("nsec")
@@ -205,7 +192,6 @@ object SosNativeAdminTypedSigner {
             }
         }
 
-        /** Documented fail-closed — no generic admin sign API. */
         fun rejectSignAdminEvent(): AdminSignResult =
             AdminSignResult.Err("GENERIC_ADMIN_SIGN_UNAVAILABLE")
 
@@ -223,12 +209,14 @@ object SosNativeAdminTypedSigner {
         identity: SosSecureIdentityStore.Engine,
         sessionGate: SosNativeTypedSigner.SessionAuthorityGate = SosNativeTypedSigner.TestPermissiveSessionGate,
         nowSec: () -> Long = { System.currentTimeMillis() / 1000L },
+        nowMs: () -> Long = { System.currentTimeMillis() },
         verifyEvent: (JSONObject) -> Boolean = { SosNostrCrypto.verifyEvent(it) },
     ): Engine =
         Engine(
             identity = identity,
             sessionGate = sessionGate,
             nowSec = nowSec,
+            nowMs = nowMs,
             verifyEvent = verifyEvent,
         )
 }

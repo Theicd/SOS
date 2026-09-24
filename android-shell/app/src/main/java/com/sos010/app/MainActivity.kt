@@ -139,6 +139,11 @@ class MainActivity : AppCompatActivity() {
         }
         WindowCompat.setDecorFitsSystemWindows(window, true)
         setContentView(R.layout.activity_main)
+        // F6G: bind trusted confirmation UI to this Activity (minimal hook).
+        SosNativeAdminConfirmationOrchestrator.attachActivity(this)
+        if (savedInstanceState != null) {
+            SosNativeAdminConfirmationOrchestrator.onActivityRecreation()
+        }
 
         webView = findViewById(R.id.webView)
         loading = findViewById(R.id.loading)
@@ -374,6 +379,10 @@ class MainActivity : AppCompatActivity() {
         isHostAlive = false
         SosDebugLog.i("life", "onPause")
         SosDebugLog.snapshotFlags("onPause")
+        try {
+            SosNativeAdminConfirmationOrchestrator.onPause()
+        } catch (_: Exception) {
+        }
         if (this::webView.isInitialized) {
             try {
                 webView.resumeTimers()

@@ -87,8 +87,9 @@ record('signing pubkey from secure identity', /ADMIN_SIGNING_PUBKEY_DERIVED_FROM
 record('caller cannot select private key', /CALLER_CAN_SELECT_ADMIN_PRIVATE_KEY\s*=\s*false/.test(sig));
 record('policy before private key', /ADMIN_POLICY_CHECK_BEFORE_PRIVATE_KEY_USE\s*=\s*true/.test(sig));
 record('policy recheck before sign', /ADMIN_POLICY_RECHECK_BEFORE_SIGN\s*=\s*true/.test(sig));
-record('F6G confirmation unavailable', /F6G_TRUSTED_CONFIRMATION_AVAILABLE\s*=\s*false/.test(sig));
-record('TRUSTED_CONFIRMATION_REQUIRED returned', /TRUSTED_CONFIRMATION_REQUIRED/.test(sig));
+record('F6G confirmation available (post-F6G)', /F6G_TRUSTED_CONFIRMATION_AVAILABLE\s*=\s*true/.test(sig));
+record('TRUSTED_CONFIRMATION_REQUIRED still enforced without Authorization', /TRUSTED_CONFIRMATION_REQUIRED/.test(sig));
+record('webview cannot bypass confirm', /WEBVIEW_CAN_BYPASS_NATIVE_CONFIRMATION\s*=\s*false/.test(sig));
 
 const ac9Ops = [
   'SET_GROUP_DISPLAY_NAME',
