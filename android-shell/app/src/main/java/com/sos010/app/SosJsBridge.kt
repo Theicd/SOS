@@ -18,8 +18,16 @@ class SosJsBridge(
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var cachedFcmToken: String = ""
+    @Volatile private var typedBridgeEngine: SosNativeTypedBridge.Engine? = null
     private companion object {
         private const val TAG = "SosJsBridge"
+    }
+
+    private fun typedBridge(): SosNativeTypedBridge.Engine {
+        typedBridgeEngine?.let { return it }
+        val eng = SosNativeTypedBridge.productionEngine(context, webView)
+        typedBridgeEngine = eng
+        return eng
     }
 
     private fun clampText(value: String?, max: Int, fallback: String = ""): String {
@@ -151,7 +159,11 @@ class SosJsBridge(
         SosP2pStandby.ensureStarted(appCtx)
     }
 
-    /** מפתח פרטי ל-P2P Native ברקע (אחרי סגירת כרטיסייה) | HYPER CORE TECH */
+    /**
+     * WRITE-ONLY legacy migration input (F6C).
+     * Stores privkey in native session store for background services.
+     * WebView cannot read K back via any bridge getter.
+     */
     @JavascriptInterface
     fun setUserPrivkey(privkey: String?) {
         val appCtx = context.applicationContext
@@ -159,6 +171,12 @@ class SosJsBridge(
         if (incoming.isEmpty()) return
         if (incoming == SosSessionStore.getPrivkey(appCtx)) return
         SosSessionStore.setPrivkey(appCtx, incoming)
+        // Best-effort seal into secure store (same account). Failures do not expose K.
+        try {
+            val pub = SosNostrCrypto.pubkeyFromPriv(incoming)
+            SosSecureIdentityStore.writeIdentitySameAccount(appCtx, incoming, pub)
+        } catch (_: Exception) {
+        }
     }
 
     @JavascriptInterface
@@ -536,20 +554,165 @@ class SosJsBridge(
         }
     }
 
-    /** Verifier-only identity bootstrap from Native session store (no plaintext logs). */
+    /** Verifier-only public identity bootstrap. F6C: never returns private key material. */
     @JavascriptInterface
     fun getVerifierSessionJson(): String {
         return try {
             val app = context.applicationContext
-            val pub = SosSessionStore.getPubkey(app)
-            val priv = SosSessionStore.getPrivkey(app)
-            if (pub.length != 64 || priv.length != 64) return "{}"
+            val pub = SosSessionStore.getPubkey(app).ifBlank {
+                SosSecureIdentityStore.getPublicIdentityMetadata(app).pubkey
+            }
+            if (pub.length != 64) return "{}"
             JSONObject()
                 .put("pubkey", pub)
-                .put("privkey", priv)
+                .put("typedCrypto", true)
+                .put("nativeTypedCryptoVersion", SosNativeTypedBridge.PROTOCOL_VERSION)
+                .put("privateKeyAvailable", false)
                 .toString()
         } catch (_: Exception) {
             "{}"
+        }
+    }
+
+    /**
+     * F6C capability negotiation — typed crypto bridge v1.
+     * Does not expose secrets.
+     */
+    @JavascriptInterface
+    fun getNativeTypedCryptoCapabilitiesJson(): String {
+        return try {
+            if (!SosNativeTypedBridge.isTrustedWebViewUrl(webView.url)) {
+                return JSONObject()
+                    .put("ok", false)
+                    .put("errorCode", "UNTRUSTED_CONTEXT")
+                    .put("nativeTypedCrypto", false)
+                    .toString()
+            }
+            typedBridge().capabilitiesJson()
+        } catch (_: Exception) {
+            JSONObject().put("ok", false).put("errorCode", "NOT_AVAILABLE").toString()
+        }
+    }
+
+    /**
+     * F6C typed crypto request dispatcher (strict allowlist).
+     * Request/response JSON never contain K/nsec.
+     */
+    @JavascriptInterface
+    fun nativeTypedCryptoRequest(requestJson: String?): String {
+        return try {
+            typedBridge().dispatch(requestJson).json
+        } catch (_: Exception) {
+            JSONObject()
+                .put("ok", false)
+                .put("errorCode", "NATIVE_CRYPTO_FAILED")
+                .toString()
+        }
+    }
+
+    /**
+     * Public identity metadata only (no raw K). Used by NativeSecureProvider F6C.
+     */
+    @JavascriptInterface
+    fun getSecureWebIdentityJson(): String {
+        return try {
+            val app = context.applicationContext
+            val meta = SosSecureIdentityStore.getPublicIdentityMetadata(app)
+            val pub = meta.pubkey.ifBlank { SosSessionStore.getPubkey(app) }
+            if (pub.length != 64) {
+                return JSONObject()
+                    .put("ok", false)
+                    .put("state", "NONE")
+                    .put("privateKeyAvailable", false)
+                    .toString()
+            }
+            JSONObject()
+                .put("ok", true)
+                .put("state", "ACTIVE")
+                .put("pubkey", pub)
+                .put("privateKeyAvailable", false)
+                .put("typedCrypto", true)
+                .put("nativeTypedCryptoVersion", SosNativeTypedBridge.PROTOCOL_VERSION)
+                .toString()
+        } catch (_: Exception) {
+            JSONObject().put("ok", false).put("state", "RECOVERY_REQUIRED").put("privateKeyAvailable", false).toString()
+        }
+    }
+
+    /**
+     * WRITE-ONLY legacy migration into native session store (+ secure seal when possible).
+     * Never returns K. WebView cannot read the key back.
+     */
+    @JavascriptInterface
+    fun writeSecureWebIdentity(pubkey: String?, privkey: String?): String {
+        return try {
+            val app = context.applicationContext
+            val pub = SosSessionStore.normalizeHexPubkey(pubkey)
+            val priv = SosSessionStore.normalizeHexPubkey(privkey)
+            if (pub.length != 64 || priv.length != 64) {
+                return JSONObject().put("ok", false).put("errorCode", "INVALID_REQUEST").toString()
+            }
+            // Persist for background native services (internal). Not readable via bridge.
+            SosSessionStore.setPubkey(app, pub)
+            SosSessionStore.setPrivkey(app, priv)
+            val sealed = SosSecureIdentityStore.writeIdentitySameAccount(app, priv, pub)
+            val ok = sealed is SosSecureIdentityStore.WriteResult.Ok
+            JSONObject()
+                .put("ok", ok)
+                .put("pubkey", pub)
+                .put("privateKeyAvailable", false)
+                .put("typedCrypto", true)
+                .toString()
+        } catch (_: Exception) {
+            JSONObject().put("ok", false).put("errorCode", "NATIVE_CRYPTO_FAILED").toString()
+        }
+    }
+
+    @JavascriptInterface
+    fun getIdentityStorageCapabilitiesJson(): String {
+        return try {
+            JSONObject()
+                .put("nativeSecureWebIdentity", true)
+                .put("version", 1)
+                .put("nativeTypedCrypto", true)
+                .put("nativeTypedCryptoVersion", SosNativeTypedBridge.PROTOCOL_VERSION)
+                .put("returnsPrivateKey", false)
+                .put("writeOnlyImport", true)
+                .toString()
+        } catch (_: Exception) {
+            "{}"
+        }
+    }
+
+    /**
+     * Native-side giftwrap auth without exposing K to WebView (F6C call path).
+     * Uses SosNativeCallVerifier internal authority.
+     */
+    @JavascriptInterface
+    fun nativeAuthenticatePendingSecureWraps(): String {
+        return try {
+            SosNativeCallVerifier.processPending(context.applicationContext)
+            val meta = SosPendingCallStore.getRawEventJson(context.applicationContext)
+            JSONObject()
+                .put("ok", true)
+                .put("processed", true)
+                .put("hasIncoming", meta.isNotBlank() && meta != "{}")
+                .toString()
+        } catch (_: Exception) {
+            JSONObject().put("ok", false).put("errorCode", "NATIVE_CRYPTO_FAILED").toString()
+        }
+    }
+
+    @JavascriptInterface
+    fun nativeSendCallDecline(peer: String?, callType: String?): Boolean {
+        return try {
+            SosNativeCallVerifier.sendDecline(
+                context.applicationContext,
+                peer?.trim().orEmpty(),
+                callType?.trim().orEmpty().ifBlank { "voice" },
+            )
+        } catch (_: Exception) {
+            false
         }
     }
 

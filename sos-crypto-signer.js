@@ -121,7 +121,81 @@
       const v = vault();
       return !!(v && v.isReady() && currentPubkey());
     }
+    const NTC = App.NativeTypedCryptoBridge || root.SosNativeTypedCryptoBridge;
+    if (NTC && typeof NTC.isAvailable === 'function' && NTC.isAvailable() && currentPubkey()) {
+      return true;
+    }
     return !!sessionKeyHex();
+  }
+
+  function findETag(tags) {
+    if (!Array.isArray(tags)) return '';
+    for (let i = 0; i < tags.length; i++) {
+      const t = tags[i];
+      if (Array.isArray(t) && t[0] === 'e' && typeof t[1] === 'string') return t[1].toLowerCase();
+    }
+    return '';
+  }
+
+  const NATIVE_TYPED_OPS = {
+    SIGN_CHAT_EVENT: 'SIGN_CHAT_EVENT',
+    SIGN_CALL_SEAL: 'SIGN_CALL_SEAL',
+    SIGN_CALL_GIFTWRAP: 'SIGN_CALL_GIFTWRAP',
+    SIGN_PRESENCE: 'SIGN_PRESENCE_EVENT',
+    SIGN_READ_RECEIPT: 'SIGN_READ_RECEIPT_EVENT',
+  };
+
+  function tryNativeTypedSign(op, draft) {
+    const mapped = NATIVE_TYPED_OPS[op];
+    if (!mapped) return null;
+    const NTC = App.NativeTypedCryptoBridge || root.SosNativeTypedCryptoBridge;
+    if (!NTC || typeof NTC.isAvailable !== 'function' || !NTC.isAvailable()) return null;
+    const recipient = findPTag(draft.tags);
+    const fields = {
+      content: draft.content,
+      recipientPubkey: recipient,
+      createdAt: draft.created_at,
+      eventIdTag: findETag(draft.tags) || undefined,
+    };
+    if (mapped === 'SIGN_CHAT_EVENT') return NTC.signChatEvent(fields);
+    if (mapped === 'SIGN_PRESENCE_EVENT') return NTC.signPresenceEvent(fields);
+    if (mapped === 'SIGN_READ_RECEIPT_EVENT') return NTC.signReadReceiptEvent(fields);
+    if (mapped === 'SIGN_CALL_SEAL') return NTC.signCallSealEvent(fields);
+    if (mapped === 'SIGN_CALL_GIFTWRAP') return NTC.signCallGiftwrapEvent(fields);
+    return null;
+  }
+
+  function signTyped(op, draft) {
+    requireValidSession(op);
+    validateDraft(op, draft);
+    const copy = {
+      kind: draft.kind,
+      created_at: draft.created_at,
+      tags: draft.tags,
+      content: draft.content,
+    };
+    if (draft.pubkey) copy.pubkey = draft.pubkey;
+    else if (App.publicKey) copy.pubkey = App.publicKey;
+    // Re-check immediately before authority use (TOCTOU hardening)
+    requireValidSession(op);
+    if (isWorkerAuthoritative()) {
+      // DOUBLE_CRYPTO_EXECUTION=false — worker only
+      return workerRpc(op, { draft: copy });
+    }
+    // F6C: prefer native typed bridge for allowlisted ops. Never fall back to native raw-K retrieval.
+    try {
+      const nativeSigned = tryNativeTypedSign(op, copy);
+      if (nativeSigned) return nativeSigned;
+    } catch (nativeErr) {
+      // If page has no local K (native custody), fail closed — do not fetch K from bridge.
+      if (!sessionKeyHex()) {
+        throw nativeErr;
+      }
+      // Browser-custodied identity may continue on main thread.
+    }
+    const signed = finalizeWithSession(copy);
+    maybeShadowSign(op, copy, signed);
+    return signed;
   }
 
   function currentPubkey() {
@@ -192,28 +266,6 @@
     const v = vault();
     if (!v || typeof v.authoritativeRpc !== 'function') fail('WORKER_VAULT_UNAVAILABLE', 'vault bridge missing');
     return v.authoritativeRpc(op, params);
-  }
-
-  function signTyped(op, draft) {
-    requireValidSession(op);
-    validateDraft(op, draft);
-    const copy = {
-      kind: draft.kind,
-      created_at: draft.created_at,
-      tags: draft.tags,
-      content: draft.content,
-    };
-    if (draft.pubkey) copy.pubkey = draft.pubkey;
-    else if (App.publicKey) copy.pubkey = App.publicKey;
-    // Re-check immediately before authority use (TOCTOU hardening)
-    requireValidSession(op);
-    if (isWorkerAuthoritative()) {
-      // DOUBLE_CRYPTO_EXECUTION=false — worker only
-      return workerRpc(op, { draft: copy });
-    }
-    const signed = finalizeWithSession(copy);
-    maybeShadowSign(op, copy, signed);
-    return signed;
   }
 
   function policy() {

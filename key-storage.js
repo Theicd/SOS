@@ -204,6 +204,8 @@
       const raw = bridge.getIdentityStorageCapabilitiesJson();
       const parsed = typeof raw === 'string' ? JSON.parse(raw || '{}') : (raw || {});
       if (!parsed || parsed.nativeSecureWebIdentity !== true || Number(parsed.version) < 1) return null;
+      // F6C: refuse bridges that still advertise raw-K return for identity get.
+      if (parsed.returnsPrivateKey === true) return null;
       return bridge;
     } catch (_e) {
       return null;
@@ -322,11 +324,20 @@
           pub: '',
         };
       }
-      const pair = validatePair(parsed.privkey, parsed.pubkey);
-      if (!pair || !pair.pub) {
+      // F6C: never accept privkey/nsec from native bridge responses.
+      if (parsed.privkey || parsed.privateKey || parsed.nsec || parsed.k || parsed.secretKey) {
         return { ok: false, state: WEB_SECURE_RECOVERY_REQUIRED, priv: '', pub: '' };
       }
-      return { ok: true, state: WEB_SECURE_ACTIVE, priv: pair.priv, pub: pair.pub };
+      const pub = String(parsed.pubkey || '').trim().toLowerCase();
+      if (!isHex64(pub)) {
+        return { ok: false, state: WEB_SECURE_RECOVERY_REQUIRED, priv: '', pub: '' };
+      }
+      // Pubkey-only native custody + typed crypto (no raw K in WebView).
+      if (parsed.typedCrypto === true || parsed.privateKeyAvailable === false) {
+        return { ok: true, state: WEB_SECURE_ACTIVE, priv: '', pub: pub, typedOnly: true };
+      }
+      // Legacy shells that returned K are refused (F6C fail-closed).
+      return { ok: false, state: WEB_SECURE_RECOVERY_REQUIRED, priv: '', pub: '' };
     } catch (_e) {
       return { ok: false, state: WEB_SECURE_RECOVERY_REQUIRED, priv: '', pub: '' };
     }
@@ -372,11 +383,17 @@
       return false;
     }
     if (!parsed || parsed.ok !== true) return false;
+    // F6C: write is one-way. Do not expect K back from getSecureWebIdentityJson.
+    if (parsed.privkey || parsed.privateKey || parsed.nsec) return false;
     const again = readNativeIdentity();
-    if (!again.ok || again.priv !== pair.priv || again.pub !== pair.pub) return false;
-    memoryPriv = again.priv;
+    if (!again.ok || again.pub !== pair.pub) return false;
+    // Typed-only native: do not keep raw K in provider memory after successful write.
+    memoryPriv = '';
     memoryPub = again.pub;
     providerState = WEB_SECURE_ACTIVE;
+    try {
+      if (window.NostrApp) window.NostrApp.publicKey = again.pub;
+    } catch (_e2) {}
     return true;
   }
 
@@ -387,6 +404,27 @@
     }
     const legacy = readLegacyPlaintext();
     const native = readNativeIdentity();
+
+    // F6C typed-only native custody: pubkey metadata, no K in WebView.
+    if (native.ok && native.typedOnly && isHex64(native.pub)) {
+      memoryPriv = '';
+      memoryPub = native.pub;
+      providerState = WEB_SECURE_ACTIVE;
+      try {
+        if (window.NostrApp) window.NostrApp.publicKey = native.pub;
+      } catch (_e0) {}
+      if (isHex64(legacy)) {
+        // One-way import of matching legacy into native store, then delete web plaintext.
+        // Do not keep K in memory after write.
+        const copied = writeNativeSecure(legacy);
+        if (copied) {
+          removeWebPlaintext();
+          try { console.log('WEB_NATIVE_SECURE_CUTOVER legacy_web_deleted=1 verified=1 typed=1'); } catch (_e) {}
+        }
+      }
+      return '';
+    }
+
     const decision = decideWebNativeSecure(native.ok, legacy, native.priv, native.state);
     if (decision.state === WEB_SECURE_MISMATCH || decision.recovery && !decision.use) {
       memoryPriv = '';
@@ -396,13 +434,16 @@
     }
     if (decision.deleteLegacy) {
       const again = readNativeIdentity();
-      if (!again.ok || again.priv !== decision.use) {
-        providerState = WEB_SECURE_RECOVERY_REQUIRED;
-        return '';
+      if (!again.ok || (again.priv && again.priv !== decision.use)) {
+        // typed-only: pubkey match is enough when decision.use was empty
+        if (!(again.ok && again.typedOnly && again.pub)) {
+          providerState = WEB_SECURE_RECOVERY_REQUIRED;
+          return '';
+        }
       }
       removeWebPlaintext();
       try { console.log('WEB_NATIVE_SECURE_CUTOVER legacy_web_deleted=1 verified=1'); } catch (_e) {}
-      memoryPriv = again.priv;
+      memoryPriv = again.priv || '';
       memoryPub = again.pub;
       providerState = WEB_SECURE_ACTIVE;
       return memoryPriv;
@@ -420,7 +461,7 @@
         return String(legacy).trim().toLowerCase();
       }
       const again = readNativeIdentity();
-      if (again.ok && again.priv === String(legacy).trim().toLowerCase()) {
+      if (again.ok && (again.typedOnly || again.priv === String(legacy).trim().toLowerCase())) {
         removeWebPlaintext();
         try { console.log('WEB_NATIVE_SECURE_CUTOVER legacy_web_deleted=1 verified=1'); } catch (_e2) {}
       }

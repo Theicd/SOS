@@ -83,8 +83,8 @@ record('manifest references data_extraction_rules', /dataExtractionRules="@xml\/
 // Legacy still present; WebView raw path still present (expected until F6B/C)
 record('legacy SosSessionStore privkey still present', /KEY_PRIVKEY|"privkey"/.test(sess) && /fun getPrivkey/.test(sess));
 record(
-  'webview getVerifierSessionJson still exposes privkey (documented gap)',
-  /fun getVerifierSessionJson/.test(br) && /put\("privkey"/.test(br)
+  'webview getVerifierSessionJson no longer exposes privkey (F6C)',
+  /fun getVerifierSessionJson/.test(br) && !/put\("privkey"/.test(br)
 );
 record(
   'F6A did not add new WebView raw-K getter',

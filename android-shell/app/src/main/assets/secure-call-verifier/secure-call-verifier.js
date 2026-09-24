@@ -29,10 +29,13 @@
       const raw = bridge.getVerifierSessionJson();
       const obj = typeof raw === 'string' ? JSON.parse(raw || '{}') : (raw || {});
       const pub = String(obj.pubkey || '').trim().toLowerCase();
-      const priv = String(obj.privkey || '').trim().toLowerCase();
-      if (!/^[0-9a-f]{64}$/.test(pub) || !/^[0-9a-f]{64}$/.test(priv)) return false;
+      // F6C: never accept privkey from bridge (even if legacy shell still sends it).
+      if (obj.privkey || obj.privateKey || obj.nsec || obj.k) {
+        try { console.warn('SECURE_VERIFIER_REFUSED_RAW_K'); } catch (_e) {}
+      }
+      if (!/^[0-9a-f]{64}$/.test(pub)) return false;
       App.publicKey = pub;
-      App.privateKey = priv;
+      App.privateKey = '';
       return true;
     } catch (_e) {
       return false;
@@ -75,11 +78,43 @@
 
   async function processPendingWraps() {
     const api = App.CallSignalE2ee;
-    if (!api || typeof api.drainPendingSecureWrapsFromNative !== 'function') {
+    // F6C: prefer native authentication — no WebView raw-K unwrap.
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.nativeAuthenticatePendingSecureWraps === 'function') {
+        log('SECURE_VERIFIER_NATIVE_AUTH');
+        const raw = bridge.nativeAuthenticatePendingSecureWraps();
+        const parsed = typeof raw === 'string' ? JSON.parse(raw || '{}') : (raw || {});
+        if (parsed && parsed.ok === true) {
+          let anyOffer = !!parsed.hasIncoming;
+          try {
+            if (bridge.getIncomingCallRawEvent) {
+              const metaRaw = bridge.getIncomingCallRawEvent();
+              if (metaRaw) {
+                const meta = JSON.parse(metaRaw);
+                if (meta && meta.peer) {
+                  lastOfferPeer = String(meta.peer).toLowerCase();
+                  anyOffer = true;
+                }
+                if (meta && meta.callType) lastOfferMedia = meta.callType === 'video' ? 'video' : 'voice';
+              }
+            }
+          } catch (_e) {}
+          if (anyOffer) {
+            log('SECURE_VERIFIER_RING_AUTH');
+            return true;
+          }
+        }
+      }
+    } catch (_e) {}
+
+    // Legacy JS unwrap path only if page already holds a browser-local key (never from native bridge).
+    if (!App.privateKey || !App.publicKey) {
+      log('SECURE_VERIFIER_F6F_REQUIRED');
       log('SECURE_VERIFIER_NO_VALID_OFFER');
       return false;
     }
-    if (!App.privateKey || !App.publicKey) {
+    if (!api || typeof api.drainPendingSecureWrapsFromNative !== 'function') {
       log('SECURE_VERIFIER_NO_VALID_OFFER');
       return false;
     }
@@ -112,7 +147,6 @@
       }
     }
 
-    // Capture last authenticated offer metadata from cache for decline.
     try {
       const stats = api.getDispatchStats && api.getDispatchStats();
       if (stats && stats.nativeRingAuth > 0) {
@@ -123,7 +157,6 @@
 
     try {
       const bridge = window.SosNativeShell;
-      // Prefer Native-bound peer after notifySecureCallOfferVerified.
       if (bridge && typeof bridge.getIncomingCallRawEvent === 'function') {
         const metaRaw = bridge.getIncomingCallRawEvent();
         if (metaRaw) {
@@ -144,6 +177,21 @@
     if (declineSent) return;
     const pk = String(peer || lastOfferPeer || '').toLowerCase();
     if (!/^[0-9a-f]{64}$/.test(pk)) return;
+    // F6C: prefer native decline (no WebView K).
+    try {
+      const bridge = window.SosNativeShell;
+      if (bridge && typeof bridge.nativeSendCallDecline === 'function') {
+        declineSent = true;
+        const ok = bridge.nativeSendCallDecline(pk, media === 'video' ? 'video' : 'voice');
+        if (ok) {
+          log('CALL_DISCONNECT_ONCE');
+          return;
+        }
+        declineSent = false;
+      }
+    } catch (_e) {
+      declineSent = false;
+    }
     if (!ensurePool() || !App.privateKey || !App.publicKey) return;
     const api = App.CallSignalE2ee;
     if (!api || typeof api.publishCallSignal !== 'function') return;

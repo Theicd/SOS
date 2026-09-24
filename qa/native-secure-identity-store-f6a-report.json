@@ -43,7 +43,7 @@
     "PASS manifest references backup_rules",
     "PASS manifest references data_extraction_rules",
     "PASS legacy SosSessionStore privkey still present",
-    "PASS webview getVerifierSessionJson still exposes privkey (documented gap)",
+    "PASS webview getVerifierSessionJson no longer exposes privkey (F6C)",
     "PASS F6A did not add new WebView raw-K getter",
     "PASS IncomingCallActivity still present",
     "PASS SosSecureCallSessionStore still present",

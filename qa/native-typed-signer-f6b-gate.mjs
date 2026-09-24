@@ -83,8 +83,8 @@ record('no @JavascriptInterface annotation', !/@JavascriptInterface/.test(src));
 
 // WebView not cut over
 record(
-  'bridge still has getVerifierSessionJson privkey (expected until F6C)',
-  /fun getVerifierSessionJson/.test(bridge) && /put\("privkey"/.test(bridge)
+  'bridge getVerifierSessionJson no longer includes privkey (F6C)',
+  /fun getVerifierSessionJson/.test(bridge) && !/put\("privkey"/.test(bridge)
 );
 record(
   'F6B did not add JavascriptInterface typed crypto',
@@ -126,8 +126,9 @@ const report = {
     'SIGN_READ_RECEIPT_EVENT',
   ],
   NATIVE_TYPED_SIGNER_USES_SECURE_STORE: true,
-  CURRENT_WEBVIEW_RAW_K_PATH_STILL_PRESENT: true,
-  EXPECTED_UNTIL_F6C: true,
+  CURRENT_WEBVIEW_RAW_K_PATH_STILL_PRESENT: false,
+  EXPECTED_UNTIL_F6C: false,
+  F6C_CUTOVER_COMPLETE: true,
   LEGACY_PRIVHEX_SIGNING_PATH_STILL_PRESENT: true,
   CALL_PROTOCOL_CHANGED: false,
   P2P_BULK_DATA_PATH_CHANGED: false,

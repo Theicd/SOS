@@ -1,0 +1,7 @@
+{
+    "samples":  1000,
+    "BRIDGE_DISPATCH_P99_MS":  1.422,
+    "F6C_BRIDGE_BENCHMARK_PASS":  true,
+    "BRIDGE_DISPATCH_P95_MS":  1.053,
+    "BRIDGE_DISPATCH_P50_MS":  0.4187
+}
