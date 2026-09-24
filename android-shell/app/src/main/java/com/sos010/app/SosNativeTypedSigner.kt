@@ -29,6 +29,8 @@ object SosNativeTypedSigner {
     data class SessionBinding(
         val sessionGeneration: Long,
         val accountPubkey: String = "",
+        /** F6D opaque capability — required for production crypto. */
+        val sessionCapability: String = "",
     )
 
     sealed class CheckResult {
@@ -37,15 +39,32 @@ object SosNativeTypedSigner {
     }
 
     /**
-     * F6D extension point — production will enforce F7 generation/account.
-     * F6B default: require binding object; optional account match when provided.
+     * F6D session gate — validates opaque capability against SosNativeSessionAuthority.
+     * Caller-supplied generation/account are NOT authority.
      */
     fun interface SessionAuthorityGate {
         fun check(op: Op, binding: SessionBinding, identityPubkey: String): CheckResult
     }
 
-    /** F6B default gate — does not invent session authority; prepares F6D. */
-    object DefaultSessionGate : SessionAuthorityGate {
+    /**
+     * Production F6D gate. Rechecks immediately before crypto.
+     * Injected Engine for tests; production uses SosNativeSessionAuthority.production.
+     */
+    class F6dSessionGate(
+        private val authority: () -> SosNativeSessionAuthority.Engine,
+    ) : SessionAuthorityGate {
+        override fun check(op: Op, binding: SessionBinding, identityPubkey: String): CheckResult {
+            return when (
+                val r = authority().validateForCrypto(binding.sessionCapability, identityPubkey)
+            ) {
+                is SosNativeSessionAuthority.ValidateResult.Ok -> CheckResult.Ok
+                is SosNativeSessionAuthority.ValidateResult.Err -> CheckResult.Err(r.code)
+            }
+        }
+    }
+
+    /** Test-only permissive gate (F6B crypto tests). Production uses F6dSessionGate. */
+    object TestPermissiveSessionGate : SessionAuthorityGate {
         override fun check(op: Op, binding: SessionBinding, identityPubkey: String): CheckResult {
             if (binding.sessionGeneration < 0L) {
                 return CheckResult.Err("SESSION_GENERATION_INVALID")
@@ -54,10 +73,12 @@ object SosNativeTypedSigner {
             if (acct.isNotEmpty() && acct != identityPubkey) {
                 return CheckResult.Err("SESSION_ACCOUNT_MISMATCH")
             }
-            // Community must never select key — ignore any community fields by not accepting them.
             return CheckResult.Ok
         }
     }
+
+    /** @deprecated Use F6dSessionGate in production. Kept as alias to TestPermissive for older test wiring. */
+    object DefaultSessionGate : SessionAuthorityGate by TestPermissiveSessionGate
 
     sealed class SignResult {
         data class Ok(val event: JSONObject) : SignResult()
@@ -267,8 +288,14 @@ object SosNativeTypedSigner {
                 return SignResult.Err("INVALID_SECURE_IDENTITY")
             }
 
+            // Final session recheck immediately before crypto (TOCTOU hardening).
             when (val gate = sessionGate.check(op, binding, id.publicKeyHex)) {
                 is CheckResult.Err -> return SignResult.Err(gate.code)
+                CheckResult.Ok -> { }
+            }
+            // Second check at authority boundary — same gate, intentional double-check.
+            when (val gate2 = sessionGate.check(op, binding, id.publicKeyHex)) {
+                is CheckResult.Err -> return SignResult.Err(gate2.code)
                 CheckResult.Ok -> { }
             }
 
@@ -328,18 +355,18 @@ object SosNativeTypedSigner {
     // —— Production Context API (native-only; not exposed to WebView bridge) ——
 
     @Volatile
-    private var productionSessionGate: SessionAuthorityGate = DefaultSessionGate
+    private var productionSessionGate: SessionAuthorityGate? = null
 
     fun setProductionSessionGate(gate: SessionAuthorityGate) {
         productionSessionGate = gate
     }
 
     private fun engine(context: Context): Engine {
-        // Reuse store engine path via temporary sealed API: write through Context helpers.
-        // Identity reads go through SosSecureIdentityStore Context methods.
+        val gate = productionSessionGate
+            ?: F6dSessionGate { SosNativeSessionAuthority.production(context.applicationContext) }
         return Engine(
             identity = identityEngineAdapter(context),
-            sessionGate = productionSessionGate,
+            sessionGate = gate,
         )
     }
 

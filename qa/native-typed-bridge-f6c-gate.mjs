@@ -141,9 +141,22 @@ try {
         returnsPrivateKey: false,
         operations: ['SIGN_CHAT_EVENT'],
       }),
+    bindNativeSessionAuthority: (raw) => {
+      const req = JSON.parse(raw);
+      return JSON.stringify({
+        ok: true,
+        generation: req.generation,
+        accountPubkey: req.accountPubkey,
+        sessionCapability: 'f6c-test-capability-0001',
+      });
+    },
+    revokeNativeSessionAuthority: () => JSON.stringify({ ok: true, revoked: true }),
+    revalidateNativeSessionAuthority: () =>
+      JSON.stringify({ ok: true, active: true, capabilityAvailable: false }),
     nativeTypedCryptoRequest: (raw) => {
       const req = JSON.parse(raw);
       if (req.op !== 'SIGN_CHAT_EVENT') return JSON.stringify({ ok: false, errorCode: 'UNSUPPORTED_OPERATION' });
+      if (!req.sessionCapability) return JSON.stringify({ ok: false, errorCode: 'SESSION_REQUIRED' });
       return JSON.stringify({
         ok: true,
         requestId: req.requestId,
@@ -159,6 +172,7 @@ try {
   vm.runInContext(js, ctx);
   const api = ctx.SosNativeTypedCryptoBridge;
   record('JS capability negotiation available', api && api.isAvailable() === true);
+  api.bindNativeSession({ generation: 1, accountPubkey: 'aa'.repeat(32) });
   const signed = api.signChatEvent({ content: 'x', recipientPubkey: 'bb'.repeat(32) });
   record('JS typed sign returns event', signed && signed.kind === 1050 && !signed.privkey);
   let calledGetPriv = false;

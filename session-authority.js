@@ -164,12 +164,33 @@
   function revalidateFromPersistent(reason) {
     if (boundGeneration == null) {
       // Never had a bind — still not valid for sensitive ops
+      try {
+        const NTC = App.NativeTypedCryptoBridge || root.SosNativeTypedCryptoBridge;
+        if (NTC && typeof NTC.revalidateNativeSession === 'function') {
+          NTC.revalidateNativeSession();
+        }
+      } catch (_e0) {}
       return { ok: false, code: 'SESSION_UNBOUND', reason: String(reason || 'revalidate') };
     }
     if (isSessionValid()) {
+      try {
+        const NTC = App.NativeTypedCryptoBridge || root.SosNativeTypedCryptoBridge;
+        if (NTC && typeof NTC.revalidateNativeSession === 'function') {
+          const native = NTC.revalidateNativeSession();
+          if (native && native.active === false && typeof NTC.clearCapability === 'function') {
+            NTC.clearCapability();
+          }
+        }
+      } catch (_e1) {}
       return { ok: true, generation: boundGeneration, account: boundAccount };
     }
     detachLocalAuthority(reason || 'STALE_GENERATION');
+    try {
+      const NTC = App.NativeTypedCryptoBridge || root.SosNativeTypedCryptoBridge;
+      if (NTC && typeof NTC.revokeNativeSession === 'function') {
+        NTC.revokeNativeSession('STALE_GENERATION');
+      }
+    } catch (_e2) {}
     return { ok: false, code: 'SESSION_REVOKED', reason: lastDetachReason };
   }
 
@@ -200,6 +221,13 @@
       App._sessionGeneration = gen;
     } catch (_e) {}
     log('SESSION_AUTHORITY_BOUND gen=' + gen + ' account=' + (account ? account.slice(0, 8) : 'none'));
+    // F6D: sync native typed-crypto session binding (opaque capability; no K).
+    try {
+      const NTC = App.NativeTypedCryptoBridge || root.SosNativeTypedCryptoBridge;
+      if (NTC && typeof NTC.bindNativeSession === 'function') {
+        NTC.bindNativeSession({ generation: gen, accountPubkey: account });
+      }
+    } catch (_eNative) {}
     return { ok: true, generation: gen, account: account };
   }
 
@@ -229,12 +257,27 @@
         App._sessionGeneration = next;
       } catch (_e) {}
       log('SESSION_AUTHORITY_REVOKED_REBOUND gen=' + next + ' reason=' + reason);
+      try {
+        const NTC = App.NativeTypedCryptoBridge || root.SosNativeTypedCryptoBridge;
+        if (NTC && typeof NTC.revokeNativeSession === 'function') {
+          NTC.revokeNativeSession(reason);
+        }
+        if (NTC && typeof NTC.bindNativeSession === 'function') {
+          NTC.bindNativeSession({ generation: next, accountPubkey: nextAccount });
+        }
+      } catch (_eNative) {}
     } else {
       detachLocalAuthority(reason);
       // Ensure unbound after logout even if detach cleared bind
       boundGeneration = null;
       boundAccount = '';
       log('SESSION_AUTHORITY_REVOKED gen=' + next + ' reason=' + reason);
+      try {
+        const NTC = App.NativeTypedCryptoBridge || root.SosNativeTypedCryptoBridge;
+        if (NTC && typeof NTC.revokeNativeSession === 'function') {
+          NTC.revokeNativeSession(reason);
+        }
+      } catch (_eNative2) {}
     }
 
     postHint({

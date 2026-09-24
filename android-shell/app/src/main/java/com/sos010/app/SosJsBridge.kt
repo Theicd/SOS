@@ -245,9 +245,88 @@ class SosJsBridge(
 
     @JavascriptInterface
     fun clearUserSession() {
+        // F6D: revoke native typed-crypto session before clearing legacy session prefs.
+        try {
+            SosNativeSessionAuthority.production(context.applicationContext).revoke("clearUserSession")
+        } catch (_: Exception) {
+        }
         SosSessionStore.clear(context.applicationContext)
         SosContactCache.clear(context.applicationContext)
         SosRelayWatcher.stopAll()
+    }
+
+    /**
+     * F6D — bind native typed-crypto session to current web session claims.
+     * Returns opaque capability once. No getCurrentCapability getter.
+     * Account must match secure identity pubkey.
+     */
+    @JavascriptInterface
+    fun bindNativeSessionAuthority(requestJson: String?): String {
+        return try {
+            if (!SosNativeTypedBridge.isTrustedWebViewUrl(webView.url)) {
+                return JSONObject().put("ok", false).put("errorCode", "UNTRUSTED_CONTEXT").toString()
+            }
+            val req = JSONObject(requestJson ?: "{}")
+            val gen = when {
+                req.has("generation") -> req.optLong("generation", -1L)
+                req.has("sessionGeneration") -> req.optLong("sessionGeneration", -1L)
+                else -> -1L
+            }
+            val account = req.optString("accountPubkey", req.optString("account"))
+            val prev = req.optString("previousCapability", req.optString("sessionCapability"))
+            when (
+                val r = SosNativeSessionAuthority.production(context.applicationContext)
+                    .bind(gen, account, prev)
+            ) {
+                is SosNativeSessionAuthority.BindResult.Ok ->
+                    JSONObject()
+                        .put("ok", true)
+                        .put("generation", r.generation)
+                        .put("accountPubkey", r.accountPubkey)
+                        .put("sessionCapability", r.capability)
+                        .put("privateKeyAvailable", false)
+                        .toString()
+                is SosNativeSessionAuthority.BindResult.Err ->
+                    JSONObject().put("ok", false).put("errorCode", r.code).toString()
+            }
+        } catch (_: Exception) {
+            JSONObject().put("ok", false).put("errorCode", "NATIVE_CRYPTO_FAILED").toString()
+        }
+    }
+
+    /**
+     * F6D — revoke native session (logout / account switch). Never returns capability.
+     */
+    @JavascriptInterface
+    fun revokeNativeSessionAuthority(requestJson: String?): String {
+        return try {
+            val req = try {
+                JSONObject(requestJson ?: "{}")
+            } catch (_: Exception) {
+                JSONObject()
+            }
+            val reason = req.optString("reason", "revoke")
+            SosNativeSessionAuthority.production(context.applicationContext).revoke(reason)
+            JSONObject()
+                .put("ok", true)
+                .put("revoked", true)
+                .put("active", false)
+                .toString()
+        } catch (_: Exception) {
+            JSONObject().put("ok", false).put("errorCode", "NATIVE_CRYPTO_FAILED").toString()
+        }
+    }
+
+    /**
+     * F6D — public revalidate only (no capability). Used on resume.
+     */
+    @JavascriptInterface
+    fun revalidateNativeSessionAuthority(): String {
+        return try {
+            SosNativeSessionAuthority.production(context.applicationContext).revalidatePublicJson().toString()
+        } catch (_: Exception) {
+            JSONObject().put("ok", false).put("active", false).put("errorCode", "NOT_AVAILABLE").toString()
+        }
     }
 
     @JavascriptInterface

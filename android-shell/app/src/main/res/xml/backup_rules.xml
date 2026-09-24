@@ -8,4 +8,5 @@
 <full-backup-content>
     <exclude domain="sharedpref" path="sos_native_identity_secure_v1.xml" />
     <exclude domain="sharedpref" path="sos_native_session.xml" />
+    <exclude domain="sharedpref" path="sos_native_session_authority_v1.xml" />
 </full-backup-content>

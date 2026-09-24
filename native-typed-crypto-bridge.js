@@ -1,6 +1,7 @@
 /**
- * F6C — WebView client for native typed crypto bridge.
+ * F6C/F6D — WebView client for native typed crypto bridge.
  * Never requests/stores raw K from native. Fail closed — no raw-K fallback.
+ * Holds opaque session capability in memory only after successful bind.
  * HYPER CORE TECH
  */
 (function initNativeTypedCryptoBridge(root) {
@@ -16,6 +17,8 @@
 
   let seq = 0;
   let capsCache = null;
+  /** Opaque capability from bindNativeSessionAuthority — never logged. */
+  let sessionCapability = '';
 
   function bridge() {
     try {
@@ -49,7 +52,6 @@
       return capsCache;
     }
     if (parsed.returnsPrivateKey === true) {
-      // Refuse capability if native incorrectly advertises raw-K return.
       capsCache = { ok: false, nativeTypedCrypto: false, refused: 'RETURNS_PRIVATE_KEY' };
       return capsCache;
     }
@@ -67,9 +69,86 @@
     return 'f6c-' + Date.now().toString(36) + '-' + seq;
   }
 
+  function clearCapability() {
+    sessionCapability = '';
+  }
+
   /**
-   * Typed request. Never falls back to getPrivkey / verifier privkey.
+   * Bind native session after web SessionAuthority.bindCurrentSession.
+   * Capability returned once — no fetch-current API.
    */
+  function bindNativeSession(options) {
+    const opts = options && typeof options === 'object' ? options : {};
+    const b = bridge();
+    if (!b || typeof b.bindNativeSessionAuthority !== 'function') {
+      return { ok: false, errorCode: 'NOT_AVAILABLE' };
+    }
+    const body = {
+      v: 1,
+      generation: Number(opts.generation),
+      accountPubkey: String(opts.accountPubkey || opts.account || ''),
+      previousCapability: sessionCapability || '',
+    };
+    const parsed = parseJson(b.bindNativeSessionAuthority(JSON.stringify(body)));
+    if (!parsed || parsed.ok !== true || !parsed.sessionCapability) {
+      clearCapability();
+      return { ok: false, errorCode: (parsed && parsed.errorCode) || 'SESSION_REQUIRED' };
+    }
+    if (parsed.privkey || parsed.privateKey || parsed.nsec || parsed.k) {
+      clearCapability();
+      return { ok: false, errorCode: 'SECRET_IN_RESPONSE' };
+    }
+    sessionCapability = String(parsed.sessionCapability);
+    return {
+      ok: true,
+      generation: parsed.generation,
+      accountPubkey: parsed.accountPubkey,
+    };
+  }
+
+  function revokeNativeSession(reason) {
+    clearCapability();
+    const b = bridge();
+    if (!b || typeof b.revokeNativeSessionAuthority !== 'function') {
+      return { ok: false, errorCode: 'NOT_AVAILABLE' };
+    }
+    try {
+      const parsed = parseJson(b.revokeNativeSessionAuthority(JSON.stringify({ reason: String(reason || 'revoke') })));
+      return { ok: !!(parsed && parsed.ok), revoked: true };
+    } catch (_e) {
+      return { ok: false, errorCode: 'NATIVE_CRYPTO_FAILED' };
+    }
+  }
+
+  function revalidateNativeSession() {
+    const b = bridge();
+    if (!b || typeof b.revalidateNativeSessionAuthority !== 'function') {
+      return { ok: false, active: false };
+    }
+    const parsed = parseJson(b.revalidateNativeSessionAuthority());
+    if (!parsed || parsed.active !== true) {
+      clearCapability();
+    }
+    if (parsed && (parsed.sessionCapability || parsed.capability)) {
+      clearCapability();
+      return { ok: false, active: false, errorCode: 'CAPABILITY_LEAK' };
+    }
+    return parsed || { ok: false, active: false };
+  }
+
+  function sessionContext() {
+    const SA = App.SessionAuthority || root.SosSessionAuthority;
+    let gen = 0;
+    try {
+      if (SA && typeof SA.getBoundGeneration === 'function') {
+        const g = SA.getBoundGeneration();
+        if (g != null) gen = Number(g) || 0;
+      }
+    } catch (_e) {}
+    const pub = typeof App.publicKey === 'string' ? App.publicKey.trim().toLowerCase() : '';
+    return { sessionGeneration: gen, accountPubkey: pub, sessionCapability: sessionCapability };
+  }
+
   function request(op, params, sessionCtx) {
     const name = String(op || '').toUpperCase();
     if (!ALLOWED[name]) {
@@ -88,43 +167,38 @@
       err.code = 'NOT_AVAILABLE';
       throw err;
     }
+    const ctx = sessionCtx || sessionContext();
+    if (!ctx.sessionCapability) {
+      const err = new Error('SESSION_REQUIRED');
+      err.code = 'SESSION_REQUIRED';
+      throw err;
+    }
     const body = {
       v: PROTOCOL_VERSION,
       op: name,
       requestId: nextRequestId(),
-      sessionGeneration: sessionCtx && typeof sessionCtx.sessionGeneration === 'number'
-        ? sessionCtx.sessionGeneration
-        : 0,
-      accountPubkey: sessionCtx && sessionCtx.accountPubkey ? String(sessionCtx.accountPubkey) : '',
+      sessionGeneration: typeof ctx.sessionGeneration === 'number' ? ctx.sessionGeneration : 0,
+      accountPubkey: ctx.accountPubkey ? String(ctx.accountPubkey) : '',
+      sessionCapability: String(ctx.sessionCapability),
       params: params && typeof params === 'object' ? params : {},
     };
     const raw = b.nativeTypedCryptoRequest(JSON.stringify(body));
     const parsed = parseJson(raw);
     if (!parsed || parsed.ok !== true || !parsed.result) {
       const code = (parsed && parsed.errorCode) || 'NATIVE_CRYPTO_FAILED';
+      if (code === 'SESSION_REVOKED' || code === 'SESSION_REQUIRED') {
+        clearCapability();
+      }
       const err = new Error(code);
       err.code = code;
       throw err;
     }
-    // Defensive: reject any secret-bearing response
     if (parsed.result.privkey || parsed.result.privateKey || parsed.result.nsec || parsed.result.k) {
       const err = new Error('SECRET_IN_RESPONSE');
       err.code = 'SECRET_IN_RESPONSE';
       throw err;
     }
     return parsed.result;
-  }
-
-  function sessionContext() {
-    const SA = App.SessionAuthority || root.SosSessionAuthority;
-    let gen = 0;
-    try {
-      if (SA && typeof SA.getSessionGeneration === 'function') {
-        gen = Number(SA.getSessionGeneration()) || 0;
-      }
-    } catch (_e) {}
-    const pub = typeof App.publicKey === 'string' ? App.publicKey.trim().toLowerCase() : '';
-    return { sessionGeneration: gen, accountPubkey: pub };
   }
 
   function signChatEvent(fields) {
@@ -172,15 +246,19 @@
     isAvailable,
     getCapabilities,
     request,
+    bindNativeSession,
+    revokeNativeSession,
+    revalidateNativeSession,
+    clearCapability,
     signChatEvent,
     signPresenceEvent,
     signReadReceiptEvent,
     signCallSealEvent,
     signCallGiftwrapEvent,
-    // Explicit: never raw-K
     getPrivkey: undefined,
     NATIVE_PROVIDER_REQUIRES_RAW_K_FROM_BRIDGE: false,
     NATIVE_TYPED_BRIDGE_FAILURE_CAUSES_RAW_K_FALLBACK: false,
+    hasSessionCapability: function () { return !!sessionCapability; },
   };
 
   App.NativeTypedCryptoBridge = api;

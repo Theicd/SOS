@@ -40,17 +40,36 @@ class SosNativeTypedBridgeTest {
             ),
             trusted = trusted,
             nowSec = { now },
+            requireSessionBinding = false,
         )
 
-    private fun req(op: String, params: JSONObject, requestId: String = "r1"): String {
-        return JSONObject()
+    private fun bridgeWithSession(): Pair<SosNativeTypedBridge.Engine, String> {
+        val auth = SosNativeSessionAuthority.engineForTests(pubHex)
+        val bound = auth.bind(1L, pubHex) as SosNativeSessionAuthority.BindResult.Ok
+        val eng = SosNativeTypedBridge.engineForTests(
+            signer = SosNativeTypedSigner.engineForTests(
+                identity = identityEngine(),
+                sessionGate = SosNativeTypedSigner.F6dSessionGate { auth },
+                nowSec = { now },
+            ),
+            trusted = true,
+            nowSec = { now },
+            sessionAuthority = auth,
+            requireSessionBinding = true,
+        )
+        return eng to bound.capability
+    }
+
+    private fun req(op: String, params: JSONObject, requestId: String = "r1", capability: String = ""): String {
+        val o = JSONObject()
             .put("v", SosNativeTypedBridge.PROTOCOL_VERSION)
             .put("op", op)
             .put("requestId", requestId)
             .put("sessionGeneration", 1L)
             .put("accountPubkey", pubHex)
             .put("params", params)
-            .toString()
+        if (capability.isNotEmpty()) o.put("sessionCapability", capability)
+        return o.toString()
     }
 
     @Before
@@ -241,5 +260,95 @@ class SosNativeTypedBridgeTest {
         println("F6C_BRIDGE_DISPATCH_P50_MS=$p50")
         println("F6C_BRIDGE_DISPATCH_P95_MS=$p95")
         println("F6C_BRIDGE_DISPATCH_P99_MS=$p99")
+    }
+
+    @Test
+    fun f6dValidBindingTypedOpPasses() {
+        val (eng, cap) = bridgeWithSession()
+        val r = eng.dispatch(
+            req(
+                "SIGN_CHAT_EVENT",
+                JSONObject().put("content", "hi").put("recipientPubkey", "aa".repeat(32)),
+                "f6d-ok",
+                capability = cap,
+            ),
+        )
+        assertTrue(r.ok)
+    }
+
+    @Test
+    fun f6dMissingBindingRejected() {
+        val (eng, _) = bridgeWithSession()
+        val r = eng.dispatch(
+            req(
+                "SIGN_CHAT_EVENT",
+                JSONObject().put("content", "hi").put("recipientPubkey", "aa".repeat(32)),
+                "f6d-miss",
+            ),
+        )
+        assertFalse(r.ok)
+        assertEquals("SESSION_REQUIRED", JSONObject(r.json).getString("errorCode"))
+    }
+
+    @Test
+    fun f6dRevokedBindingRejected() {
+        val auth = SosNativeSessionAuthority.engineForTests(pubHex)
+        val bound = auth.bind(1L, pubHex) as SosNativeSessionAuthority.BindResult.Ok
+        val eng = SosNativeTypedBridge.engineForTests(
+            signer = SosNativeTypedSigner.engineForTests(
+                identity = identityEngine(),
+                sessionGate = SosNativeTypedSigner.F6dSessionGate { auth },
+                nowSec = { now },
+            ),
+            sessionAuthority = auth,
+            requireSessionBinding = true,
+            nowSec = { now },
+        )
+        auth.revoke("logout")
+        val r = eng.dispatch(
+            req(
+                "SIGN_CHAT_EVENT",
+                JSONObject().put("content", "hi").put("recipientPubkey", "aa".repeat(32)),
+                "f6d-rev",
+                capability = bound.capability,
+            ),
+        )
+        assertEquals("SESSION_REQUIRED", JSONObject(r.json).getString("errorCode"))
+    }
+
+    @Test
+    fun f6dOldCapabilityRejected() {
+        val auth = SosNativeSessionAuthority.engineForTests(pubHex)
+        val old = auth.bind(1L, pubHex) as SosNativeSessionAuthority.BindResult.Ok
+        val newer = auth.bind(2L, pubHex, previousCapability = old.capability) as SosNativeSessionAuthority.BindResult.Ok
+        val eng = SosNativeTypedBridge.engineForTests(
+            signer = SosNativeTypedSigner.engineForTests(
+                identity = identityEngine(),
+                sessionGate = SosNativeTypedSigner.F6dSessionGate { auth },
+                nowSec = { now },
+            ),
+            sessionAuthority = auth,
+            requireSessionBinding = true,
+            nowSec = { now },
+        )
+        val r = eng.dispatch(
+            req(
+                "SIGN_CHAT_EVENT",
+                JSONObject().put("content", "hi").put("recipientPubkey", "aa".repeat(32)),
+                "f6d-old",
+                capability = old.capability,
+            ),
+        )
+        assertEquals("SESSION_REVOKED", JSONObject(r.json).getString("errorCode"))
+        assertTrue(
+            eng.dispatch(
+                req(
+                    "SIGN_CHAT_EVENT",
+                    JSONObject().put("content", "hi").put("recipientPubkey", "aa".repeat(32)),
+                    "f6d-new",
+                    capability = newer.capability,
+                ),
+            ).ok,
+        )
     }
 }

@@ -42,6 +42,8 @@ object SosNativeTypedBridge {
     const val F6C_DOES_NOT_BYPASS_FUTURE_F6D = true
     const val F6C_CLAIMS_XSS_ELIMINATED = false
     const val THIRD_PARTY_WEB_CONTENT_CAN_USE_CRYPTO_BRIDGE = false
+    const val TYPED_BRIDGE_REQUIRES_VALID_NATIVE_SESSION = true
+    const val ALL_F6C_TYPED_OPS_REQUIRE_SESSION_BINDING = true
 
     data class DispatchResult(
         val json: String,
@@ -52,8 +54,10 @@ object SosNativeTypedBridge {
     /** Testable engine — no Android WebView required. */
     class Engine(
         private val signer: SosNativeTypedSigner.Engine,
+        private val sessionAuthority: SosNativeSessionAuthority.Engine? = null,
         private val trustedContext: () -> Boolean = { true },
         private val nowSec: () -> Long = { System.currentTimeMillis() / 1000L },
+        private val requireSessionBinding: Boolean = true,
     ) {
         private val seenIds = Collections.synchronizedSet(object : LinkedHashSet<String>() {
             override fun add(element: String): Boolean {
@@ -81,6 +85,8 @@ object SosNativeTypedBridge {
                 .put("genericSign", false)
                 .put("genericDecrypt", false)
                 .put("genericEncrypt", false)
+                .put("requiresSessionBinding", requireSessionBinding)
+                .put("nativeSessionAuthority", true)
                 .toString()
         }
 
@@ -101,7 +107,8 @@ object SosNativeTypedBridge {
             // Reject unexpected top-level keys where practical
             val allowedKeys = setOf(
                 "v", "version", "protocolVersion", "op", "operation",
-                "requestId", "id", "sessionGeneration", "accountPubkey", "params", "payload",
+                "requestId", "id", "sessionGeneration", "accountPubkey",
+                "sessionCapability", "capability", "params", "payload",
             )
             val keys = req.keys()
             while (keys.hasNext()) {
@@ -162,9 +169,26 @@ object SosNativeTypedBridge {
             val account = SosSecureIdentityStore.normalizeHex(
                 req.optString("accountPubkey", params.optString("accountPubkey")),
             )
+            val capability = req.optString(
+                "sessionCapability",
+                req.optString("capability", params.optString("sessionCapability")),
+            ).trim()
+
+            // F6D: validate native session BEFORE typed signer (claims are not authority).
+            if (requireSessionBinding) {
+                val auth = sessionAuthority
+                    ?: return err(requestId, "SESSION_REQUIRED")
+                when (val vr = auth.validateForCrypto(capability, null)) {
+                    is SosNativeSessionAuthority.ValidateResult.Err ->
+                        return err(requestId, vr.code)
+                    is SosNativeSessionAuthority.ValidateResult.Ok -> { /* ok */ }
+                }
+            }
+
             val binding = SosNativeTypedSigner.SessionBinding(
                 sessionGeneration = sessionGen,
                 accountPubkey = account,
+                sessionCapability = capability,
             )
 
             val signResult = when (op) {
@@ -172,7 +196,7 @@ object SosNativeTypedBridge {
                     val content = params.optString("content")
                     val recipient = params.optString("recipientPubkey", params.optString("recipient"))
                     val createdAt = if (params.has("createdAt")) params.optLong("createdAt") else null
-                    if (hasDisallowedParamKeys(params, setOf("content", "recipientPubkey", "recipient", "createdAt", "sessionGeneration", "accountPubkey", "extraTags"))) {
+                    if (hasDisallowedParamKeys(params, setOf("content", "recipientPubkey", "recipient", "createdAt", "sessionGeneration", "accountPubkey", "sessionCapability", "extraTags"))) {
                         return err(requestId, "UNEXPECTED_FIELD")
                     }
                     signer.signChatEvent(
@@ -186,7 +210,7 @@ object SosNativeTypedBridge {
                     )
                 }
                 "SIGN_PRESENCE_EVENT" -> {
-                    if (hasDisallowedParamKeys(params, setOf("content", "recipientPubkey", "recipient", "createdAt", "sessionGeneration", "accountPubkey"))) {
+                    if (hasDisallowedParamKeys(params, setOf("content", "recipientPubkey", "recipient", "createdAt", "sessionGeneration", "accountPubkey", "sessionCapability"))) {
                         return err(requestId, "UNEXPECTED_FIELD")
                     }
                     signer.signPresenceEvent(
@@ -199,7 +223,7 @@ object SosNativeTypedBridge {
                     )
                 }
                 "SIGN_READ_RECEIPT_EVENT" -> {
-                    if (hasDisallowedParamKeys(params, setOf("content", "recipientPubkey", "recipient", "createdAt", "eventIdTag", "sessionGeneration", "accountPubkey"))) {
+                    if (hasDisallowedParamKeys(params, setOf("content", "recipientPubkey", "recipient", "createdAt", "eventIdTag", "sessionGeneration", "accountPubkey", "sessionCapability"))) {
                         return err(requestId, "UNEXPECTED_FIELD")
                     }
                     signer.signReadReceiptEvent(
@@ -213,7 +237,7 @@ object SosNativeTypedBridge {
                     )
                 }
                 "SIGN_CALL_SEAL" -> {
-                    if (hasDisallowedParamKeys(params, setOf("content", "createdAt", "sessionGeneration", "accountPubkey"))) {
+                    if (hasDisallowedParamKeys(params, setOf("content", "createdAt", "sessionGeneration", "accountPubkey", "sessionCapability"))) {
                         return err(requestId, "UNEXPECTED_FIELD")
                     }
                     signer.signCallSealEvent(
@@ -225,7 +249,7 @@ object SosNativeTypedBridge {
                     )
                 }
                 "SIGN_CALL_GIFTWRAP" -> {
-                    if (hasDisallowedParamKeys(params, setOf("content", "recipientPubkey", "recipient", "createdAt", "sessionGeneration", "accountPubkey"))) {
+                    if (hasDisallowedParamKeys(params, setOf("content", "recipientPubkey", "recipient", "createdAt", "sessionGeneration", "accountPubkey", "sessionCapability"))) {
                         return err(requestId, "UNEXPECTED_FIELD")
                     }
                     signer.signCallGiftwrapEvent(
@@ -281,8 +305,10 @@ object SosNativeTypedBridge {
             "NO_SECURE_IDENTITY", "INVALID_SECURE_IDENTITY",
             "MISMATCH_SECURE_IDENTITY", "RECOVERY_REQUIRED_IDENTITY",
             -> "INVALID_IDENTITY"
-            "SESSION_ACCOUNT_MISMATCH", "SESSION_GENERATION_INVALID", "SESSION_REVOKED",
-            -> "SESSION_REQUIRED"
+            "SESSION_ACCOUNT_MISMATCH", "SESSION_GENERATION_INVALID",
+            "SESSION_REQUIRED", "SESSION_REVOKED",
+            "SESSION_ACCOUNT_SECURE_IDENTITY_MISMATCH",
+            -> code
             "SIGN_FAILED", "SIGNATURE_VERIFY_FAILED", "PUBKEY_DERIVE_MISMATCH", "KIND_MISMATCH",
             -> "NATIVE_CRYPTO_FAILED"
             else -> code.ifBlank { "NATIVE_CRYPTO_FAILED" }
@@ -320,13 +346,27 @@ object SosNativeTypedBridge {
         signer: SosNativeTypedSigner.Engine,
         trusted: Boolean = true,
         nowSec: () -> Long = { System.currentTimeMillis() / 1000L },
-    ): Engine = Engine(signer, trustedContext = { trusted }, nowSec = nowSec)
+        sessionAuthority: SosNativeSessionAuthority.Engine? = null,
+        requireSessionBinding: Boolean = false,
+    ): Engine = Engine(
+        signer = signer,
+        sessionAuthority = sessionAuthority,
+        trustedContext = { trusted },
+        nowSec = nowSec,
+        requireSessionBinding = requireSessionBinding,
+    )
 
     fun productionEngine(context: Context, webView: WebView): Engine {
+        val app = context.applicationContext
+        val sessionAuth = SosNativeSessionAuthority.production(app)
+        val identity = productionIdentityEngine(app)
+        val signer = SosNativeTypedSigner.engineForTests(
+            identity = identity,
+            sessionGate = SosNativeTypedSigner.F6dSessionGate { sessionAuth },
+        )
         return Engine(
-            signer = SosNativeTypedSigner.engineForTests(
-                identity = productionIdentityEngine(context.applicationContext),
-            ),
+            signer = signer,
+            sessionAuthority = sessionAuth,
             trustedContext = {
                 try {
                     isTrustedWebViewUrl(webView.url)
@@ -334,6 +374,7 @@ object SosNativeTypedBridge {
                     false
                 }
             },
+            requireSessionBinding = true,
         )
     }
 
