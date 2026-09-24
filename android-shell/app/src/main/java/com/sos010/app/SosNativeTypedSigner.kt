@@ -54,6 +54,12 @@ object SosNativeTypedSigner {
         private val authority: () -> SosNativeSessionAuthority.Engine,
     ) : SessionAuthorityGate {
         override fun check(op: Op, binding: SessionBinding, identityPubkey: String): CheckResult {
+            // Reject explicit account claim that does not match native identity (claims are not authority).
+            val claimed = SosSecureIdentityStore.normalizeHex(binding.accountPubkey)
+            val identity = SosSecureIdentityStore.normalizeHex(identityPubkey)
+            if (claimed.isNotEmpty() && claimed != identity) {
+                return CheckResult.Err("SESSION_ACCOUNT_MISMATCH")
+            }
             return when (
                 val r = authority().validateForCrypto(binding.sessionCapability, identityPubkey)
             ) {
