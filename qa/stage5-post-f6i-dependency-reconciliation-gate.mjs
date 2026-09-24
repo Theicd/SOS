@@ -83,9 +83,14 @@ record('launcher F5B6_MIGRATION false', /F5B6_MIGRATION:\s*false/.test(launcher)
 record('F6 design blocks F5B6 sealed migration', /Blocked by F5B6/.test(f6design));
 record('F6I report F6H blocked', f6i.invariants?.F6H_STATUS === 'BLOCKED_BY_F5B6');
 record('strong confirm reserved not implemented', /STRONG_DEVICE_CONFIRM/.test(confirm) && /STRONG_CONFIRMATION_UNAVAILABLE/.test(confirm));
-record('setUserPrivkey present without adjacent isTrustedWebViewUrl in same method',
-  /fun setUserPrivkey[\s\S]{0,400}?SosSessionStore\.setPrivkey/.test(bridge) &&
-  !/fun setUserPrivkey[\s\S]{0,200}?isTrustedWebViewUrl/.test(bridge));
+record('setUserPrivkey guarded by isTrustedIdentityWriteContext before storage',
+  /fun setUserPrivkey[\s\S]{0,200}?isTrustedIdentityWriteContext/.test(bridge) &&
+  /fun setUserPrivkey[\s\S]{0,500}?SosSessionStore\.setPrivkey/.test(bridge));
+record('writeSecureWebIdentity guarded by isTrustedIdentityWriteContext',
+  /fun writeSecureWebIdentity[\s\S]{0,250}?isTrustedIdentityWriteContext/.test(bridge));
+record('F6_WRITE_PATH_TRUSTED_URL_GUARD closed in report',
+  !String(report.verdict?.NEXT_LOCAL_WORK_ITEM || '').includes('F6_WRITE_PATH_TRUSTED_URL_GUARD') ||
+  report.verdict?.ALL_POSSIBLE_LOCAL_IMPLEMENTATION_EXHAUSTED === true);
 record('blossom direct client present', blossom.DIRECT_CLIENT_TO_BLOSSOM_PRESENT === true);
 record('blossom requires external infra', blossom.BLOSSOM_SOURCE_IP_PRIVACY_STATUS === 'REQUIRES_EXTERNAL_INFRA');
 record('V2 activation not ready', ac10.READY_TO_ACTIVATE_ACCESS_CONTROL_V2_PRODUCTION === false);

@@ -500,25 +500,87 @@ object SosNativeTypedBridge {
         }
     }
 
-    fun isTrustedWebViewUrl(url: String?): Boolean {
+    /**
+     * Canonical trusted WebView context (F6C/F6 write-path).
+     * Parsed-origin matching only — no substring host checks.
+     *
+     * @param allowAndroidAsset when true, `file:///android_asset/` is trusted (typed crypto /
+     *   call verifier). Identity WRITE paths must pass [isTrustedIdentityWriteWebViewUrl] instead.
+     * @param allowDebugLocalhost debug/test only; must be false for release-policy assertions.
+     */
+    fun isTrustedWebViewUrl(
+        url: String?,
+        allowAndroidAsset: Boolean = true,
+        allowDebugLocalhost: Boolean = BuildConfig.DEBUG,
+    ): Boolean {
         val raw = url?.trim().orEmpty()
         if (raw.isEmpty()) return false
         return try {
-            when {
-                raw.startsWith("file:///android_asset/") -> true
-                raw.startsWith("https://") -> {
-                    // Avoid android.net.Uri in JVM unit tests — parse host manually.
-                    val after = raw.removePrefix("https://")
-                    val hostPort = after.substringBefore('/').substringBefore('?').substringBefore('#')
-                    val host = hostPort.substringBefore(':').lowercase()
-                    host == "sos010.com" || host.endsWith(".sos010.com")
+            val schemeEnd = raw.indexOf(':')
+            if (schemeEnd <= 0) return false
+            val scheme = raw.substring(0, schemeEnd).lowercase()
+            when (scheme) {
+                "javascript", "data", "blob", "content", "intent", "about", "http" -> return false
+                "file" -> {
+                    if (!allowAndroidAsset) return false
+                    return raw.startsWith("file:///android_asset/")
                 }
-                else -> false
+                "https" -> { /* continue */ }
+                else -> return false
             }
+
+            // https://[userinfo@]host[:port][/path...]
+            if (!raw.startsWith("https://")) return false
+            val after = raw.substring("https://".length)
+            val authorityEnd = after.indexOfFirst { it == '/' || it == '?' || it == '#' }
+            val authority = if (authorityEnd < 0) after else after.substring(0, authorityEnd)
+            if (authority.isEmpty()) return false
+            // Reject userinfo (https://user:pass@host or https://sos010.com@evil.com/)
+            if (authority.contains('@')) return false
+
+            val hostPort = authority
+            val host = if (hostPort.startsWith("[")) {
+                // IPv6 literal — only localhost debug forms allowed below
+                val end = hostPort.indexOf(']')
+                if (end <= 1) return false
+                hostPort.substring(0, end + 1).lowercase()
+            } else {
+                hostPort.substringBefore(':').lowercase()
+            }
+            if (host.isEmpty()) return false
+            // Reject lookalike / malformed labels
+            if (host.contains(' ') || host.contains('\\') || host.contains("..")) return false
+            if (host.any { ch -> !(ch.isLetterOrDigit() || ch == '.' || ch == '-' || ch == '[' || ch == ']') }) {
+                return false
+            }
+
+            if (host == "sos010.com") return true
+            if (host.endsWith(".sos010.com")) {
+                val prefix = host.removeSuffix(".sos010.com")
+                if (prefix.isEmpty() || prefix.startsWith(".") || prefix.endsWith(".")) return false
+                if (prefix.split('.').any { it.isEmpty() }) return false
+                return true
+            }
+
+            if (allowDebugLocalhost) {
+                if (host == "localhost" || host == "127.0.0.1" || host == "[::1]") return true
+            }
+            false
         } catch (_: Exception) {
             false
         }
     }
+
+    /** Identity secret WRITE paths — production https origins only (no file:/asset). */
+    fun isTrustedIdentityWriteWebViewUrl(url: String?): Boolean =
+        isTrustedWebViewUrl(url, allowAndroidAsset = false, allowDebugLocalhost = BuildConfig.DEBUG)
+
+    const val WRITE_PATH_USES_CANONICAL_TRUSTED_CONTEXT = true
+    const val TRUSTED_URL_MATCH_USES_PARSED_ORIGIN = true
+    const val TRUSTED_URL_SUBSTRING_MATCH = false
+    const val WRITE_URL_GUARD_CLAIMS_XSS_ELIMINATED = false
+    const val FILE_URL_CAN_WRITE_IDENTITY = false
+    const val DEBUG_ORIGIN_ALLOWED_IN_RELEASE = false
 
     fun engineForTests(
         signer: SosNativeTypedSigner.Engine,

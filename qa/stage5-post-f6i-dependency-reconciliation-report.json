@@ -1,9 +1,9 @@
 {
   "gate": "STAGE5_POST_F6I_DEPENDENCY_RECONCILIATION",
   "status": "PASS",
-  "ts": "2026-09-24T09:50:00.000Z",
-  "startingHead": "4d49c9cf5796ac915a7bb192ec62a42db56f52ae",
-  "signerHead": "a77b42200122d0d3a771530e90f92ff9a0958d99",
+  "ts": "2026-09-24T12:00:00.000Z",
+  "startingHead": "6a56521e620c16f6d85186307ac15cd8760ab3ff",
+  "note": "Updated after F6_WRITE_PATH_TRUSTED_URL_GUARD closure",
   "remoteMain": "610c51490f00d516a767755199ba154009f04631",
   "package": 892,
   "contradiction": {
@@ -18,16 +18,11 @@
     "F5B4_PRODUCTION_REQUIRES_EXTERNAL_INFRA": true,
     "signerDnsProbe": "signer.sos010.com NXDOMAIN / unresolved",
     "protocolProductionHost": "https://signer.sos010.com",
-    "productionDeployDoc": "C:/BRAIN/SOS-signer/docs/PRODUCTION_DEPLOY.md — CF Pages + GoDaddy CNAME + live canary required; Package 893 blocked until live canary PASS",
     "READY_FOR_F5B4_PRODUCTION_REVIEW": true,
     "READY_FOR_F5B5": false,
     "READY_FOR_F5B6": false,
-    "protocolExport": false,
-    "protocolAttestationPrivateKey": false,
-    "bannedMigrateOps": ["MIGRATE", "SEAL_FOR_MIGRATION", "UNWRAP_IDENTITY"],
-    "F5B6_MIGRATION_BLOCKED": true,
-    "F6H_STATUS": "BLOCKED_BY_F5B6",
-    "F6_design": "docs/security/F6_ANDROID_NATIVE_TYPED_SIGNER_DESIGN.md — F5B6 Model B sealed migration blocked; F5B5 production trusted export UX blocked"
+    "F6_WRITE_PATH_TRUSTED_URL_GUARD": "CLOSED",
+    "F6H_STATUS": "BLOCKED_BY_F5B6"
   },
   "verdict": {
     "F5B5_REQUIRES_F5B4_PRODUCTION_ACCEPTANCE": true,
@@ -38,20 +33,10 @@
     "F6H_RUNTIME_CAN_START_NOW": false,
     "STRONG_DEVICE_CONFIRMATION_CAN_COMPLETE_LOCAL_NOW": false,
     "STRONG_DEVICE_CONFIRMATION_REQUIRED_BEFORE_F5B4_PRODUCTION": false,
-    "LEGACY_STORE_LOCAL_HARDENING_REMAINING": true,
+    "LEGACY_STORE_LOCAL_HARDENING_REMAINING": false,
     "LEGACY_DELETE_ALLOWED": false,
-    "ALL_POSSIBLE_LOCAL_IMPLEMENTATION_EXHAUSTED": false,
-    "GENUINE_REMAINING_LOCAL_STAGE5_ITEMS": [
-      {
-        "id": "F6_WRITE_PATH_TRUSTED_URL_GUARD",
-        "summary": "Defense-in-depth: add isTrustedWebViewUrl to setUserPrivkey / writeSecureWebIdentity (and related identity write paths currently lacking trust gate while F6D bind has it)",
-        "evidence": "SosJsBridge.kt setUserPrivkey/writeSecureWebIdentity lack isTrustedWebViewUrl; bindNativeSessionAuthority/nativeTypedCryptoRequest trust-gated; F6I secret-surface audit",
-        "blockedByLiveSigner": false,
-        "blockedByModelB": false,
-        "destructive": false,
-        "optionalScaffoldOnly": false
-      }
-    ],
+    "ALL_POSSIBLE_LOCAL_IMPLEMENTATION_EXHAUSTED": true,
+    "GENUINE_REMAINING_LOCAL_STAGE5_ITEMS": [],
     "NOT_GENUINE_LOCAL_NOW": [
       "F5B5 trusted export — blocked by F5B4 production acceptance",
       "F5B6 sealed migration — Model B authenticated migration pubkey/attestation absent",
@@ -60,9 +45,10 @@
       "STRONG_DEVICE_CONFIRM BiometricPrompt wiring — no current runtime consumer; fail-closed reserved for future F5B5/F5B6/F6H intents",
       "Blossom source-IP gateway — REQUIRES_EXTERNAL_INFRA",
       "Access Control V2 activation — production blockers remain",
-      "Legacy SosSessionStore plaintext delete — LEGACY_DELETE_ALLOWED=false"
+      "Legacy SosSessionStore plaintext delete — LEGACY_DELETE_ALLOWED=false",
+      "F6_WRITE_PATH_TRUSTED_URL_GUARD — CLOSED"
     ],
-    "NEXT_LOCAL_WORK_ITEM": "F6_WRITE_PATH_TRUSTED_URL_GUARD (optional bounded hardening) OR owner-authorized F5B4 production acceptance",
+    "NEXT_LOCAL_WORK_ITEM": "none — local Stage5 implementation exhausted; next is external F5B4 production acceptance",
     "NEXT_EXTERNAL_DEPENDENCY": "F5B4 production acceptance: live https://signer.sos010.com + CF Pages headers + DNS/TLS + production canary",
     "READY_TO_TOUCH_CLOUDFLARE": true,
     "note_ready_cf": "Ready only with explicit owner authorization for F5B4 signer hosting; this audit does not authorize touch"

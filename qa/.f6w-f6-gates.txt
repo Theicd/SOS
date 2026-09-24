@@ -1,0 +1,11 @@
+PASS exit=0 qa/native-secure-identity-store-f6a-gate.mjs
+PASS exit=0 qa/native-typed-signer-f6b-gate.mjs
+PASS exit=0 qa/native-typed-bridge-f6c-gate.mjs
+PASS exit=0 qa/native-session-binding-f6d-gate.mjs
+PASS exit=0 qa/native-admin-policy-f6e-gate.mjs
+PASS exit=0 qa/native-typed-crypto-f6f-gate.mjs
+PASS exit=0 qa/native-trusted-confirmation-f6g-gate.mjs
+PASS exit=0 qa/native-trusted-confirmation-f6g1-gate.mjs
+PASS exit=0 qa/native-f6i-adversarial-acceptance-gate.mjs
+PASS exit=0 qa/native-identity-write-trust-guard-gate.mjs
+PASS exit=0 qa/stage5-post-f6i-dependency-reconciliation-gate.mjs

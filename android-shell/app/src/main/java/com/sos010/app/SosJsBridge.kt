@@ -30,6 +30,18 @@ class SosJsBridge(
         return eng
     }
 
+    /**
+     * F6 write-path: re-read WebView URL at authority boundary before any secret parse/store.
+     * Does not grant session; does not claim XSS elimination.
+     */
+    private fun isTrustedIdentityWriteContext(): Boolean {
+        return try {
+            SosNativeTypedBridge.isTrustedIdentityWriteWebViewUrl(webView.url)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private fun clampText(value: String?, max: Int, fallback: String = ""): String {
         val raw = value?.trim().orEmpty()
         if (raw.isEmpty()) return fallback
@@ -163,15 +175,19 @@ class SosJsBridge(
      * WRITE-ONLY legacy migration input (F6C).
      * Stores privkey in native session store for background services.
      * WebView cannot read K back via any bridge getter.
+     * Untrusted navigated content cannot write (F6 write-path URL guard).
      */
     @JavascriptInterface
     fun setUserPrivkey(privkey: String?) {
+        // Trust check BEFORE parse/normalize/storage (fail closed).
+        if (!isTrustedIdentityWriteContext()) return
         val appCtx = context.applicationContext
         val incoming = SosSessionStore.normalizeHexPubkey(privkey)
         if (incoming.isEmpty()) return
         if (incoming == SosSessionStore.getPrivkey(appCtx)) return
         SosSessionStore.setPrivkey(appCtx, incoming)
         // Best-effort seal into secure store (same account). Failures do not expose K.
+        // Does NOT bind native session (SET_USER_PRIVKEY_AUTO_GRANTS_NATIVE_SESSION=false).
         try {
             val pub = SosNostrCrypto.pubkeyFromPriv(incoming)
             SosSecureIdentityStore.writeIdentitySameAccount(appCtx, incoming, pub)
@@ -742,10 +758,15 @@ class SosJsBridge(
     /**
      * WRITE-ONLY legacy migration into native session store (+ secure seal when possible).
      * Never returns K. WebView cannot read the key back.
+     * Untrusted navigated content cannot write (F6 write-path URL guard).
      */
     @JavascriptInterface
     fun writeSecureWebIdentity(pubkey: String?, privkey: String?): String {
         return try {
+            // Trust check BEFORE parse/normalize/storage.
+            if (!isTrustedIdentityWriteContext()) {
+                return JSONObject().put("ok", false).put("errorCode", "UNTRUSTED_CONTEXT").toString()
+            }
             val app = context.applicationContext
             val pub = SosSessionStore.normalizeHexPubkey(pubkey)
             val priv = SosSessionStore.normalizeHexPubkey(privkey)
