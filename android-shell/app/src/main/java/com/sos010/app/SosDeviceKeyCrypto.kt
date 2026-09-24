@@ -72,7 +72,7 @@ object SosDeviceKeyCrypto {
      */
     fun signDevicePayload(signPriv: ByteArray, payload: ByteArray): ByteArray {
         require(signPriv.size == 32) { "secp_priv_len" }
-        val msg = domainHash(payload)
+        val msg = domainHash("SOS|device-sign|v1", payload)
         return secp.signSchnorr(msg, signPriv, null)
     }
 
@@ -80,7 +80,28 @@ object SosDeviceKeyCrypto {
         return try {
             val pub = Hex.decode(normalizeHex(signPubHex))
             require(pub.size == 32 && signature.size == 64)
-            val msg = domainHash(payload)
+            val msg = domainHash("SOS|device-sign|v1", payload)
+            secp.verifySchnorr(signature, msg, pub)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * MD2 pairing proof-of-possession.
+     * message32 = SHA256("SOS|pair|pop" || transcript)
+     */
+    fun signPairingPop(signPriv: ByteArray, transcript: ByteArray): ByteArray {
+        require(signPriv.size == 32) { "secp_priv_len" }
+        val msg = domainHash("SOS|pair|pop", transcript)
+        return secp.signSchnorr(msg, signPriv, null)
+    }
+
+    fun verifyPairingPop(signPubHex: String, transcript: ByteArray, signature: ByteArray): Boolean {
+        return try {
+            val pub = Hex.decode(normalizeHex(signPubHex))
+            require(pub.size == 32 && signature.size == 64)
+            val msg = domainHash("SOS|pair|pop", transcript)
             secp.verifySchnorr(signature, msg, pub)
         } catch (_: Exception) {
             false
@@ -111,9 +132,9 @@ object SosDeviceKeyCrypto {
         }
     }
 
-    private fun domainHash(payload: ByteArray): ByteArray {
+    private fun domainHash(domain: String, payload: ByteArray): ByteArray {
         val md = MessageDigest.getInstance("SHA-256")
-        md.update("SOS|device-sign|v1".toByteArray(Charsets.UTF_8))
+        md.update(domain.toByteArray(Charsets.UTF_8))
         md.update(payload)
         return md.digest()
     }

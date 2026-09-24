@@ -257,6 +257,24 @@ object SosDeviceIdentityStore {
             }
         }
 
+        /** MD2 PoP — signs transcript under D_sign; never returns private key. */
+        fun signPairingPop(transcript: ByteArray): OpResult {
+            if (state() != State.OK) return OpResult.Err("STATE_${state()}")
+            return when (val loaded = loadVerifiedPrivate(Purpose.SIGN)) {
+                is LoadOk -> {
+                    try {
+                        val sig = SosDeviceKeyCrypto.signPairingPop(loaded.priv, transcript)
+                        OpResult.Ok(signatureHex = Hex.encode(sig))
+                    } catch (_: Exception) {
+                        OpResult.Err("POP_SIGN_FAIL")
+                    } finally {
+                        SosDeviceKeyCrypto.zeroize(loaded.priv)
+                    }
+                }
+                is LoadErr -> OpResult.Err(loaded.code)
+            }
+        }
+
         /** Typed D_enc ECDH with peer X25519 public (hex). Shared secret hex only — no priv export. */
         fun deviceEcdh(peerEncPubHex: String): OpResult {
             if (state() != State.OK) return OpResult.Err("STATE_${state()}")

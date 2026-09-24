@@ -1,0 +1,6 @@
+PASS qa/native-secure-identity-store-f6a-gate.mjs
+PASS qa/native-typed-signer-f6b-gate.mjs
+PASS qa/native-typed-bridge-f6c-gate.mjs
+PASS qa/native-session-binding-f6d-gate.mjs
+PASS qa/md1-device-identity-gate.mjs
+TOTAL_FAIL=0
