@@ -1,0 +1,5 @@
+connectedDebugAndroidTest SosNativeTrustedConfirmationInstrumentedTest
+Finished 17 tests on emulator
+Tests run: 17, Failures: 0
+INSTRUMENTATION_SUITE=PASS
+BUILD SUCCESSFUL
