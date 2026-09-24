@@ -1,0 +1,7 @@
+{
+    "SIGN_P50_MS":  0.3614,
+    "F6B_SIGNING_BENCHMARK_PASS":  true,
+    "samples":  1000,
+    "SIGN_P95_MS":  0.7457,
+    "SIGN_P99_MS":  1.1638
+}
