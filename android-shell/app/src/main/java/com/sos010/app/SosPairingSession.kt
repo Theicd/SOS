@@ -25,15 +25,19 @@ object SosPairingSession {
         FAILED,
     }
 
-    /** Authenticated destination binding — input for future MD3 DeviceAuthorization. */
+    /** Authenticated destination binding — input for MD3 DeviceAuthorization. */
     data class BoundDestination(
         val pairingId: String,
+        val deviceId: String,
         val dSignPub: String,
         val dEncPub: String,
         val transcriptHex: String,
         val sas: String,
         val fingerprint: String,
         val purpose: SosPairingCrypto.Purpose,
+        val storageClass: String = "",
+        val recoveryEligible: Boolean = false,
+        val hardwareBacked: Boolean = false,
     )
 
     sealed class StepResult {
@@ -45,10 +49,6 @@ object SosPairingSession {
             val sas: String? = null,
         ) : StepResult()
         data class Err(val code: String, val state: State = State.FAILED) : StepResult()
-    }
-
-    fun interface /* reserved for DI in UI hosts */ UnusedPopSignerPlaceholder {
-        fun sign(transcript: ByteArray): SosDeviceIdentityStore.OpResult
     }
 
     /**
@@ -69,6 +69,10 @@ object SosPairingSession {
         private var ePubHex: String = ""
         private var dSignPub: String = ""
         private var dEncPub: String = ""
+        private var deviceIdLocal: String = ""
+        private var storageClassLocal: String = ""
+        private var recoveryEligibleLocal: Boolean = false
+        private var hardwareBackedLocal: Boolean = false
         private var transcript: ByteArray? = null
         private var sessionKey: ByteArray? = null
         private var bound: BoundDestination? = null
@@ -87,6 +91,10 @@ object SosPairingSession {
                 is SosDeviceIdentityStore.CreateResult.Ok -> {
                     dSignPub = created.metadata.dSignPub
                     dEncPub = created.metadata.dEncPub
+                    deviceIdLocal = created.metadata.deviceId
+                    storageClassLocal = created.metadata.storageClass.name
+                    recoveryEligibleLocal = created.metadata.recoveryEligible
+                    hardwareBackedLocal = created.metadata.hardwareBacked
                 }
             }
             val (priv, pub) = SosX25519.generateKeyPair(random)
@@ -104,6 +112,10 @@ object SosPairingSession {
                 nonce = nonce,
                 expiresAt = expiresAt,
                 purpose = purpose,
+                deviceId = deviceIdLocal,
+                storageClass = storageClassLocal,
+                recoveryEligible = recoveryEligibleLocal,
+                hardwareBacked = hardwareBackedLocal,
                 rendezvous = rendezvous,
             )
             val qr = SosPairingCrypto.encodeQr(payload)
@@ -195,12 +207,16 @@ object SosPairingSession {
                 "ack" -> {
                     bound = BoundDestination(
                         pairingId = pairingId,
+                        deviceId = deviceIdLocal,
                         dSignPub = dSignPub,
                         dEncPub = dEncPub,
                         transcriptHex = Hex.encode(tr),
                         sas = SosPairingCrypto.sasDigits(tr),
                         fingerprint = SosPairingCrypto.deviceFingerprint(dSignPub, dEncPub),
                         purpose = purpose,
+                        storageClass = storageClassLocal,
+                        recoveryEligible = recoveryEligibleLocal,
+                        hardwareBacked = hardwareBackedLocal,
                     )
                     state = State.CHANNEL_READY
                     return StepResult.Ok(state = state, bound = bound, sas = bound!!.sas)
@@ -214,6 +230,14 @@ object SosPairingSession {
             ePriv = null
             sessionKey = null
             // Keep transcript for bound metadata until cleared explicitly after MD3 handoff.
+        }
+
+        /** MD3 handoff: copy of AEAD channel secrets while CHANNEL_READY (caller must zeroize). */
+        fun exportChannelSecrets(): Pair<ByteArray, ByteArray>? {
+            if (state != State.CHANNEL_READY) return null
+            val sk = sessionKey ?: return null
+            val tr = transcript ?: return null
+            return sk.copyOf() to tr.copyOf()
         }
     }
 
@@ -349,6 +373,10 @@ object SosPairingSession {
                 .put("pairingId", payload.pairingId)
                 .put("boundDSignPub", payload.dSignPub)
                 .put("boundDEncPub", payload.dEncPub)
+                .put("deviceId", payload.deviceId)
+                .put("storageClass", payload.storageClass)
+                .put("recoveryEligible", payload.recoveryEligible)
+                .put("hardwareBacked", payload.hardwareBacked)
                 .toString()
                 .toByteArray(Charsets.UTF_8)
             val sealed = SosPairingCrypto.seal(sk, tr, ackBody, random)
@@ -361,12 +389,16 @@ object SosPairingSession {
 
             bound = BoundDestination(
                 pairingId = payload.pairingId,
+                deviceId = payload.deviceId,
                 dSignPub = payload.dSignPub,
                 dEncPub = payload.dEncPub,
                 transcriptHex = Hex.encode(tr),
                 sas = SosPairingCrypto.sasDigits(tr),
                 fingerprint = SosPairingCrypto.deviceFingerprint(payload.dSignPub, payload.dEncPub),
                 purpose = payload.purpose,
+                storageClass = payload.storageClass,
+                recoveryEligible = payload.recoveryEligible,
+                hardwareBacked = payload.hardwareBacked,
             )
             state = State.CHANNEL_READY
             return StepResult.Ok(
@@ -382,13 +414,33 @@ object SosPairingSession {
             ePriv = null
             sessionKey = null
         }
+
+        fun exportChannelSecrets(): Pair<ByteArray, ByteArray>? {
+            if (state != State.CHANNEL_READY) return null
+            val sk = sessionKey ?: return null
+            val tr = transcript ?: return null
+            return sk.copyOf() to tr.copyOf()
+        }
     }
 
     /** In-memory pipe helper for tests / local protocol QA. */
+    data class PairedChannel(
+        val bound: BoundDestination,
+        val sessionKey: ByteArray,
+        val transcript: ByteArray,
+        val initiator: Initiator,
+        val responder: Responder,
+    )
+
     fun runLocalPairing(
         initiatorDevice: SosDeviceIdentityStore.Engine,
         spent: SosPairingSpentStore = SosPairingSpentStore(),
-    ): BoundDestination {
+    ): BoundDestination = runLocalPairingWithChannel(initiatorDevice, spent).bound
+
+    fun runLocalPairingWithChannel(
+        initiatorDevice: SosDeviceIdentityStore.Engine,
+        spent: SosPairingSpentStore = SosPairingSpentStore(),
+    ): PairedChannel {
         val init = Initiator(initiatorDevice)
         val resp = Responder(spent)
         val begin = init.begin() as StepResult.Ok
@@ -398,8 +450,13 @@ object SosPairingSession {
         val ack = resp.onMessage(pop.outboundMessage!!) as StepResult.Ok
         val done = init.onMessage(ack.outboundMessage!!) as StepResult.Ok
         require(done.state == State.CHANNEL_READY && ack.state == State.CHANNEL_READY)
-        require(done.bound!!.dSignPub == ack.bound!!.dSignPub)
-        require(done.bound!!.transcriptHex == ack.bound!!.transcriptHex)
-        return done.bound!!
+        val secrets = init.exportChannelSecrets() ?: error("no_channel")
+        return PairedChannel(
+            bound = done.bound!!,
+            sessionKey = secrets.first,
+            transcript = secrets.second,
+            initiator = init,
+            responder = resp,
+        )
     }
 }

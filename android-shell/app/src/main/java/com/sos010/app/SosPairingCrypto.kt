@@ -38,6 +38,10 @@ object SosPairingCrypto {
         val nonce: String,
         val expiresAt: Long,
         val purpose: Purpose = Purpose.LINK,
+        val deviceId: String = "",
+        val storageClass: String = "",
+        val recoveryEligible: Boolean = false,
+        val hardwareBacked: Boolean = false,
         val rendezvous: String? = null,
         val sasHint: String? = null,
     ) {
@@ -51,6 +55,10 @@ object SosPairingCrypto {
                 .put("nonce", nonce)
                 .put("expiresAt", expiresAt)
                 .put("purpose", purpose.name)
+            if (deviceId.isNotBlank()) o.put("deviceId", deviceId)
+            if (storageClass.isNotBlank()) o.put("storageClass", storageClass)
+            o.put("recoveryEligible", recoveryEligible)
+            o.put("hardwareBacked", hardwareBacked)
             if (!rendezvous.isNullOrBlank()) o.put("rendezvous", rendezvous)
             if (!sasHint.isNullOrBlank()) o.put("sasHint", sasHint)
             return o
@@ -109,9 +117,16 @@ object SosPairingCrypto {
                 nonce = SosDeviceKeyCrypto.normalizeHex(o.getString("nonce")),
                 expiresAt = o.getLong("expiresAt"),
                 purpose = Purpose.valueOf(o.optString("purpose", Purpose.LINK.name)),
+                deviceId = SosDeviceKeyCrypto.normalizeHex(o.optString("deviceId", "")),
+                storageClass = o.optString("storageClass", ""),
+                recoveryEligible = o.optBoolean("recoveryEligible", false),
+                hardwareBacked = o.optBoolean("hardwareBacked", false),
                 rendezvous = if (o.has("rendezvous")) o.optString("rendezvous").takeIf { it.isNotBlank() } else null,
                 sasHint = if (o.has("sasHint")) o.optString("sasHint").takeIf { it.isNotBlank() } else null,
             )
+            if (payload.deviceId.isNotEmpty() && !SosDeviceKeyCrypto.isHex64(payload.deviceId)) {
+                return Result.failure(IllegalArgumentException("BAD_DEVICE_ID"))
+            }
             if (!SosDeviceKeyCrypto.isHex64(payload.dSignPub) ||
                 !SosDeviceKeyCrypto.isHex64(payload.dEncPub) ||
                 !SosDeviceKeyCrypto.isHex64(payload.eEphemeralPub) ||
