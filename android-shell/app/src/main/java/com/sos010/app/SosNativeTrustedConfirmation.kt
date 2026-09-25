@@ -65,6 +65,8 @@ object SosNativeTrustedConfirmation {
     const val TRUSTED_UI_READY_FOR_FUTURE_IDENTITY_INTENTS = true
     const val F5B5_EXPORT_IMPLEMENTED = false
     const val F5B6_MIGRATION_IMPLEMENTED = false
+    /** F6G.3: SEALED_MIGRATION strong confirm lives in SosNativeStrongConfirmation (not this NORMAL path). */
+    const val F6G3_STRONG_CONFIRM_AVAILABLE = true
     const val ACCESS_CONTROL_V2_ACTIVATION_READY = false
     const val ROUTINE_CHAT_REQUIRES_NATIVE_CONFIRM = false
     const val P2P_FILE_CHUNK_REQUIRES_NATIVE_CONFIRM = false
