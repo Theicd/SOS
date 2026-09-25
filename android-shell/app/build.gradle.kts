@@ -16,11 +16,13 @@ android {
         applicationId = "com.sos010.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 125
-        versionName = "1.0.124"
-        buildConfigField("String", "SOS_START_URL", "\"https://sos010.com/videos.html?shell=124\"")
+        versionCode = 126
+        versionName = "1.0.125"
+        buildConfigField("String", "SOS_START_URL", "\"https://sos010.com/videos.html?shell=125\"")
         buildConfigField("boolean", "HAS_FCM", hasGoogleServices.toString())
         buildConfigField("boolean", "SECURE_CALL_FAST_VERIFIER", "true")
+        // F6J-R1: native security stack is always compiled; dark rollout = limited install + no WebView migration entry yet
+        buildConfigField("boolean", "F6J_ROLLOUT_CANDIDATE", "true")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
