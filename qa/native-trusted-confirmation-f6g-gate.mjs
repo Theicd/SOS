@@ -96,7 +96,7 @@ record('no P2P chunk confirm', /P2P_FILE_CHUNK_REQUIRES_NATIVE_CONFIRM\s*=\s*fal
 record('P2P engine untouched by confirm UI', !/SosNativeTrustedConfirmation|TrustedConfirmationDialog/.test(read(p2p)));
 record('file transfer untouched', !/SosNativeTrustedConfirmation|TrustedConfirmationDialog/.test(read(ft)));
 record('F5B5 not implemented', /F5B5_EXPORT_IMPLEMENTED\s*=\s*false/.test(c));
-record('F5B6 not implemented', /F5B6_MIGRATION_IMPLEMENTED\s*=\s*false/.test(c));
+record('F5B6 native sealed migration present', /F5B6_MIGRATION_IMPLEMENTED\s*=\s*true/.test(c));
 record('V2 not ready', /ACCESS_CONTROL_V2_ACTIVATION_READY\s*=\s*false/.test(c));
 record('all F6E ops have trusted confirmation', /ALL_F6E_ADMIN_OPS_HAVE_TRUSTED_CONFIRMATION\s*=\s*true/.test(c));
 

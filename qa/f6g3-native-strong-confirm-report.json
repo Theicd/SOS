@@ -1,7 +1,7 @@
 {
   "gate": "F6G3_NATIVE_STRONG_CONFIRM",
   "status": "PASS",
-  "pass": 34,
+  "pass": 35,
   "fail": 0,
   "results": [
     "PASS file:strong",
@@ -24,7 +24,8 @@
     "PASS no fallback dialog",
     "PASS NORMAL confirm unchanged marker",
     "PASS F6G3 flag on trusted",
-    "PASS F5B6 migration still false",
+    "PASS F6G3 does not seal K envelope",
+    "PASS F6G3 continuation does not read K",
     "PASS no strong confirm on JsBridge",
     "PASS fake soft auth only in test",
     "PASS test valid path",
@@ -60,5 +61,5 @@
   "PACKAGE": 892,
   "PACKAGE_893_CREATED": false,
   "ACCESS_CONTROL_V2_CHANGED": false,
-  "ts": "2026-09-25T00:23:07.601Z"
+  "ts": "2026-09-25T00:38:15.480Z"
 }

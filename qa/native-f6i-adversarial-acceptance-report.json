@@ -1,7 +1,7 @@
 {
   "gate": "F6I_ADVERSARIAL_ACCEPTANCE",
   "status": "PASS",
-  "pass": 46,
+  "pass": 47,
   "fail": 0,
   "results": [
     "PASS exists debugManifest",
@@ -30,7 +30,8 @@
     "PASS P2P bulk unchanged",
     "PASS confirmation no webview approve",
     "PASS XSS not claimed eliminated",
-    "PASS F5B5/F5B6 not implemented",
+    "PASS F5B5 export not implemented",
+    "PASS F5B6 native sealed migration present",
     "PASS V2 not ready",
     "PASS backup excludes identity+session",
     "PASS data extraction excludes identity+session",
@@ -77,9 +78,9 @@
     "PHYSICAL_OS_KILL_INSTRUMENTED": false,
     "ACCESS_CONTROL_V2_ACTIVATION_READY": false,
     "F5B5_IMPLEMENTED": false,
-    "F5B6_IMPLEMENTED": false,
-    "F6H_STATUS": "BLOCKED_BY_F5B6",
+    "F5B6_IMPLEMENTED": true,
+    "F6H_STATUS": "READY_FOR_UX_WIRING",
     "DEBUG_TRUSTED_CONFIRM_HOST_IN_RELEASE": false
   },
-  "generatedAt": "2026-09-24T09:16:46.269Z"
+  "generatedAt": "2026-09-25T00:38:54.352Z"
 }

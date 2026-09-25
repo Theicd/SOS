@@ -128,7 +128,8 @@ record('RAW_FILE_KEY_OVER_DC false', /RAW_FILE_KEY_OVER_DC\s*=\s*false/.test(cry
 record('P2P bulk unchanged', /P2P_BULK_DATA_PATH_CHANGED\s*=\s*false/.test(crypto));
 record('confirmation no webview approve', /WEBVIEW_CAN_CALL_APPROVE_METHOD\s*=\s*false/.test(conf));
 record('XSS not claimed eliminated', /F6G_CLAIMS_XSS_ELIMINATED\s*=\s*false/.test(conf));
-record('F5B5/F5B6 not implemented', /F5B5_EXPORT_IMPLEMENTED\s*=\s*false/.test(conf) && /F5B6_MIGRATION_IMPLEMENTED\s*=\s*false/.test(conf));
+record('F5B5 export not implemented', /F5B5_EXPORT_IMPLEMENTED\s*=\s*false/.test(conf));
+record('F5B6 native sealed migration present', /F5B6_MIGRATION_IMPLEMENTED\s*=\s*true/.test(conf));
 record('V2 not ready', /ACCESS_CONTROL_V2_ACTIVATION_READY\s*=\s*false/.test(conf));
 record('backup excludes identity+session',
   /sos_native_identity_secure_v1/.test(backup) &&
@@ -205,8 +206,8 @@ const report = {
     PHYSICAL_OS_KILL_INSTRUMENTED: false,
     ACCESS_CONTROL_V2_ACTIVATION_READY: false,
     F5B5_IMPLEMENTED: false,
-    F5B6_IMPLEMENTED: false,
-    F6H_STATUS: 'BLOCKED_BY_F5B6',
+    F5B6_IMPLEMENTED: true,
+    F6H_STATUS: 'READY_FOR_UX_WIRING',
     DEBUG_TRUSTED_CONFIRM_HOST_IN_RELEASE: false,
   },
   generatedAt: new Date().toISOString(),

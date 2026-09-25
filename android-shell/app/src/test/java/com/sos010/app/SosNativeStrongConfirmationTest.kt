@@ -352,8 +352,10 @@ class SosNativeStrongConfirmationTest {
         // F6G NORMAL path unchanged — strong sealed migration is separate module
         assertTrue(SosNativeTrustedConfirmation.TRUSTED_NATIVE_CONFIRMATION_PRESENT)
         assertTrue(SosNativeTrustedConfirmation.F6G3_STRONG_CONFIRM_AVAILABLE)
-        assertFalse(SosNativeTrustedConfirmation.F5B6_MIGRATION_IMPLEMENTED)
+        assertTrue(SosNativeTrustedConfirmation.F5B6_MIGRATION_IMPLEMENTED)
+        assertTrue(SosSealedIdentityMigration.F5B6_USES_F6G3_STRONG_CONFIRM)
         assertFalse(SosNativeStrongConfirmation.GENERIC_STRONG_CONFIRM_OPERATION)
         assertFalse(SosNativeStrongConfirmation.WEBVIEW_RECEIVES_STRONG_CONFIRM_BOOLEAN)
+        assertFalse(SosNativeStrongConfirmation.SEALED_MIGRATION_ENVELOPE_IMPLEMENTED)
     }
 }
