@@ -804,6 +804,30 @@
     const term = getTerminal(sid);
     if (term && term.ended) {
       console.log('CALL_END_ONCE');
+      // Idempotent local cleanup: terminal latch must not leave stuck session/media.
+      try {
+        if (state.peerConnection) {
+          try { state.peerConnection.close(); } catch (_e) {}
+          state.peerConnection = null;
+        }
+        if (state.localStream) {
+          try { state.localStream.getTracks().forEach((t) => t.stop()); } catch (_e) {}
+          state.localStream = null;
+        }
+        if (state.remoteStream) {
+          try { state.remoteStream.getTracks().forEach((t) => t.stop()); } catch (_e) {}
+          state.remoteStream = null;
+        }
+        state.currentPeer = null;
+        state.isCallActive = false;
+        state.isIncoming = false;
+        state.isMuted = false;
+        state.callAnswered = false;
+        state.callStartTimestamp = null;
+        state.callStartTime = null;
+        state.callSessionId = null;
+        state.ending = false;
+      } catch (_e) {}
       return;
     }
     if (state.ending) return;
