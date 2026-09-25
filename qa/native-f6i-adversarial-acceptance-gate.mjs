@@ -207,7 +207,7 @@ const report = {
     ACCESS_CONTROL_V2_ACTIVATION_READY: false,
     F5B5_IMPLEMENTED: false,
     F5B6_IMPLEMENTED: true,
-    F6H_STATUS: 'READY_FOR_UX_WIRING',
+    F6H_STATUS: 'ORCHESTRATION_CLOSED',
     DEBUG_TRUSTED_CONFIRM_HOST_IN_RELEASE: false,
   },
   generatedAt: new Date().toISOString(),
