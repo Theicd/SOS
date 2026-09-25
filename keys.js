@@ -298,8 +298,6 @@
       }
     }
 
-    persistNostrPrivateKey(privateKey);
-
     let publicKey;
     try {
       if (typeof getPublicKey !== 'function') {
@@ -324,6 +322,103 @@
       return {
         ok: false,
         state: IDENTITY_RECOVERY_REQUIRED,
+        privateKey: null,
+        publicKey: null,
+      };
+    }
+
+    // Native shell: durable write MUST succeed via typed import before claiming IDENTITY_OK.
+    try {
+      const bridge =
+        window.SosNativeShell ||
+        (window.SosNativeShell && typeof window.SosNativeShell.isNativeShell === 'function'
+          ? window.SosNativeShell
+          : null);
+      const isNative =
+        bridge &&
+        typeof bridge.isNativeShell === 'function' &&
+        bridge.isNativeShell() === true;
+      if (isNative && typeof bridge.importExistingSecureIdentity === 'function') {
+        const raw = bridge.importExistingSecureIdentity(
+          JSON.stringify({ privkey: privateKey })
+        );
+        const parsed = typeof raw === 'string' ? JSON.parse(raw || '{}') : raw || {};
+        if (!parsed || parsed.ok !== true) {
+          setIdentityState(IDENTITY_RECOVERY_REQUIRED);
+          return {
+            ok: false,
+            state: IDENTITY_RECOVERY_REQUIRED,
+            reason: String((parsed && (parsed.code || parsed.errorCode)) || 'SECURE_STORE_FAILED'),
+            privateKey: null,
+            publicKey: null,
+          };
+        }
+        const importedPub = String(parsed.pubkey || '').trim().toLowerCase();
+        if (importedPub && importedPub !== publicKey) {
+          setIdentityState(IDENTITY_RECOVERY_REQUIRED);
+          return {
+            ok: false,
+            state: IDENTITY_RECOVERY_REQUIRED,
+            reason: 'ACCOUNT_MISMATCH',
+            privateKey: null,
+            publicKey: null,
+          };
+        }
+        App.privateKey = null;
+        App.publicKey = publicKey;
+        App.guestMode = false;
+        setIdentityState(IDENTITY_OK);
+        try {
+          const SA = App.SessionAuthority || window.SosSessionAuthority;
+          if (SA && typeof SA.revokeSession === 'function') {
+            SA.revokeSession({
+              reason: 'new_account',
+              nextAccountPubkey: publicKey,
+              rebind: true,
+            });
+          } else if (SA && typeof SA.bindCurrentSession === 'function') {
+            SA.bindCurrentSession({ accountPubkey: publicKey, bump: true });
+          }
+        } catch (_saN) {}
+        try {
+          console.log('IDENTITY_EXPLICIT_CREATE native_import=1');
+        } catch (_eN) {}
+        return {
+          ok: true,
+          state: IDENTITY_OK,
+          privateKey: null,
+          publicKey,
+          typedOnly: true,
+        };
+      }
+    } catch (_nativeCreate) {
+      setIdentityState(IDENTITY_RECOVERY_REQUIRED);
+      return {
+        ok: false,
+        state: IDENTITY_RECOVERY_REQUIRED,
+        reason: 'NATIVE_CREATE_FAILED',
+        privateKey: null,
+        publicKey: null,
+      };
+    }
+
+    const wrote = (() => {
+      try {
+        if (window.SOSKeyStorage && typeof window.SOSKeyStorage.writePrivateKeyRaw === 'function') {
+          return window.SOSKeyStorage.writePrivateKeyRaw(privateKey) !== false;
+        }
+        persistNostrPrivateKey(privateKey);
+        return true;
+      } catch (_w) {
+        return false;
+      }
+    })();
+    if (!wrote) {
+      setIdentityState(IDENTITY_RECOVERY_REQUIRED);
+      return {
+        ok: false,
+        state: IDENTITY_RECOVERY_REQUIRED,
+        reason: 'WEB_WRITE_FAILED',
         privateKey: null,
         publicKey: null,
       };

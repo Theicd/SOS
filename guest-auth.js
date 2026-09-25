@@ -935,7 +935,44 @@
             } catch (_act) {}
           }
 
-          // לפני שמירה מקומית — רושמים מייל ברשת כדי למנוע כפילויות | HYPER CORE TECH
+          // לפני סימון הזמנה — שמירה עמידה של זהות חדשה (native/web).
+          // אסור לשרוף הזמנה לפני שהזהות נשמרה בהצלחה.
+          setStatus('keyStatus', 'שומר זהות...', false);
+          if (signupData.workerCreate) {
+            App.privateKey = null;
+          } else if (typeof App.createNewIdentityExplicit === 'function') {
+            var created = App.createNewIdentityExplicit({ privateKeyHex: signupData.privateKey });
+            if (!created || created.ok !== true) {
+              setStatus('keyStatus', 'שגיאה בשמירת זהות חדשה', true);
+              btnFinalConnect.disabled = false;
+              updateFinalConnectState();
+              return;
+            }
+            if (created.publicKey && typeof App.updateSubscriptionWithPubkey === 'function') {
+              App.updateSubscriptionWithPubkey(created.publicKey);
+            }
+            // Keep hex only in-memory briefly for email/invite signing if needed.
+            if (!created.typedOnly) {
+              App.privateKey = signupData.privateKey;
+            } else {
+              App.privateKey = null;
+              App.publicKey = created.publicKey;
+            }
+          } else {
+            storeNostrPrivateKeyGuest(signupData.privateKey);
+            App.privateKey = signupData.privateKey;
+            if (typeof App.ensureKeys === 'function') {
+              var resultEarly = App.ensureKeys();
+              if (resultEarly && resultEarly.publicKey) {
+                App.publicKey = resultEarly.publicKey;
+                if (typeof App.updateSubscriptionWithPubkey === 'function') {
+                  App.updateSubscriptionWithPubkey(resultEarly.publicKey);
+                }
+              }
+            }
+          }
+
+          // לפני סיום — רושמים מייל ברשת כדי למנוע כפילויות | HYPER CORE TECH
           setStatus('keyStatus', 'רושם את המייל ברשת...', false);
           var emailReg = await publishAndVerifyEmailRegistry(
             signupData.emailHash,
@@ -948,11 +985,10 @@
             return;
           }
 
-          // סימון הזמנה כמשומשת (לפני reload)
+          // סימון הזמנה כמשומשת רק אחרי שמירת זהות מוצלחת
           if (signupData.inviteCode && typeof App.markInviteUsed === 'function') {
             setStatus('keyStatus', 'מסמן את ההזמנה כמשומשת...', false);
-            if (!signupData.workerCreate) {
-              App.privateKey = signupData.privateKey;
+            if (!signupData.workerCreate && App.privateKey) {
               if (typeof App.ensureKeys === 'function') {
                 var inviteKeyResult = App.ensureKeys();
                 if (!inviteKeyResult || inviteKeyResult.ok !== true) {
@@ -979,29 +1015,6 @@
           setStatus('keyStatus', 'שומר נתונים...', false);
           if (signupData.workerCreate) {
             App.privateKey = null;
-          } else if (typeof App.createNewIdentityExplicit === 'function') {
-            var created = App.createNewIdentityExplicit({ privateKeyHex: signupData.privateKey });
-            if (!created || created.ok !== true) {
-              setStatus('keyStatus', 'שגיאה בשמירת זהות חדשה', true);
-              btnFinalConnect.disabled = false;
-              updateFinalConnectState();
-              return;
-            }
-            if (created.publicKey && typeof App.updateSubscriptionWithPubkey === 'function') {
-              App.updateSubscriptionWithPubkey(created.publicKey);
-            }
-          } else {
-            storeNostrPrivateKeyGuest(signupData.privateKey);
-            App.privateKey = signupData.privateKey;
-            if (typeof App.ensureKeys === 'function') {
-              var result = App.ensureKeys();
-              if (result && result.publicKey) {
-                App.publicKey = result.publicKey;
-                if (typeof App.updateSubscriptionWithPubkey === 'function') {
-                  App.updateSubscriptionWithPubkey(result.publicKey);
-                }
-              }
-            }
           }
 
           var profile = {

@@ -16,9 +16,9 @@ android {
         applicationId = "com.sos010.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 127
-        versionName = "1.0.126"
-        buildConfigField("String", "SOS_START_URL", "\"https://sos010.com/videos.html?shell=126\"")
+        versionCode = 128
+        versionName = "1.0.127"
+        buildConfigField("String", "SOS_START_URL", "\"https://sos010.com/videos.html?shell=127\"")
         buildConfigField("boolean", "HAS_FCM", hasGoogleServices.toString())
         buildConfigField("boolean", "SECURE_CALL_FAST_VERIFIER", "true")
         // F6J-R1: native security stack is always compiled; dark rollout = limited install + no WebView migration entry yet

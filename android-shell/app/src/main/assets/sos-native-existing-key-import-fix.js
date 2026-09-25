@@ -266,10 +266,66 @@
     App.existingKeyImportHebrewError = hebrewError;
   }
 
+  function wrapCreateNewIdentityExplicit() {
+    const App = window.NostrApp || window.App;
+    if (!App || typeof App.createNewIdentityExplicit !== 'function') return;
+    if (App.__sosCreateIdentityWrapped) return;
+    const original = App.createNewIdentityExplicit.bind(App);
+    App.createNewIdentityExplicit = function (options) {
+      const opts = options && typeof options === 'object' ? options : {};
+      const b = bridge();
+      if (b && typeof b.importExistingSecureIdentity === 'function' && opts.privateKeyHex) {
+        const hex = String(opts.privateKeyHex || '')
+          .trim()
+          .replace(/^0x/i, '')
+          .toLowerCase();
+        if (!isHex64(hex)) {
+          return { ok: false, state: 'IDENTITY_INVALID', privateKey: null, publicKey: null };
+        }
+        const native = importViaNative(hex);
+        if (!native.ok) {
+          return {
+            ok: false,
+            state: 'IDENTITY_RECOVERY_REQUIRED',
+            reason: native.code,
+            privateKey: null,
+            publicKey: null,
+          };
+        }
+        try {
+          App.privateKey = null;
+          App.publicKey = native.pubkey;
+          App.guestMode = false;
+          App.identityState = 'IDENTITY_OK';
+        } catch (_a) {}
+        try {
+          const SA = App.SessionAuthority || window.SosSessionAuthority;
+          if (SA && typeof SA.revokeSession === 'function') {
+            SA.revokeSession({
+              reason: 'new_account',
+              nextAccountPubkey: App.publicKey,
+              rebind: true,
+            });
+          }
+        } catch (_sa) {}
+        return {
+          ok: true,
+          state: 'IDENTITY_OK',
+          privateKey: null,
+          publicKey: App.publicKey,
+          typedOnly: true,
+        };
+      }
+      return original(options);
+    };
+    App.__sosCreateIdentityWrapped = true;
+  }
+
   function patchAll() {
     wrapGetPublicKeyHint();
     wrapEnsureKeys();
     wrapSwitchAccountFromRawKey();
+    wrapCreateNewIdentityExplicit();
     repairTypedBoot();
   }
 
