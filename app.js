@@ -210,13 +210,52 @@
           App.guestMode = false;
         }
       } else {
-        App.guestMode = true;
-        App.privateKey = null;
-        App.publicKey = null;
-        if (typeof App.ensureKeys === 'function') {
+        // F6C/F6J typed-only native custody: pubkey without raw K in WebView.
+        let typedPub = '';
+        try {
+          if (window.SOSKeyStorage && typeof window.SOSKeyStorage.getPublicKeyHint === 'function') {
+            typedPub = String(window.SOSKeyStorage.getPublicKeyHint() || '').trim().toLowerCase();
+          }
+        } catch (_hint) {
+          typedPub = '';
+        }
+        if (!typedPub || !/^[0-9a-f]{64}$/.test(typedPub)) {
           try {
-            App.ensureKeys();
-          } catch (_e) {}
+            // Force native hydrate so memoryPub / publicKeyHint populate.
+            if (window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function') {
+              window.SOSKeyStorage.readPrivateKeyRaw();
+            }
+            if (window.SOSKeyStorage && typeof window.SOSKeyStorage.getPublicKeyHint === 'function') {
+              typedPub = String(window.SOSKeyStorage.getPublicKeyHint() || '').trim().toLowerCase();
+            }
+          } catch (_h2) {
+            typedPub = '';
+          }
+        }
+        if (typedPub && /^[0-9a-f]{64}$/.test(typedPub)) {
+          App.privateKey = null;
+          App.publicKey = typedPub;
+          App.guestMode = false;
+          App.identityState = 'IDENTITY_OK';
+          try {
+            const SA = App.SessionAuthority || window.SosSessionAuthority;
+            if (SA && typeof SA.bindCurrentSession === 'function') {
+              const detached = typeof SA.isDetached === 'function' && SA.isDetached();
+              const already = typeof SA.isSessionValid === 'function' && SA.isSessionValid();
+              if (!detached && !already) {
+                SA.bindCurrentSession({ accountPubkey: typedPub, bump: false });
+              }
+            }
+          } catch (_saBoot) {}
+        } else {
+          App.guestMode = true;
+          App.privateKey = null;
+          App.publicKey = null;
+          if (typeof App.ensureKeys === 'function') {
+            try {
+              App.ensureKeys();
+            } catch (_e) {}
+          }
         }
       }
       try {

@@ -1669,6 +1669,7 @@ class MainActivity : AppCompatActivity() {
                 injectNativeFlag()
                 injectNativeFilePickScript()
                 injectNativeVideoFixScript()
+                injectExistingKeyImportFixScript()
                 injectWarmForCall()
                 injectWarmForP2p()
                 injectPendingDeepLink()
@@ -2189,6 +2190,19 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e(TAG, "failed to inject sos-native-video-fix.js", e)
             SosDebugLog.e("webview", "video-fix inject failed: ${e.message}")
+        }
+    }
+
+    /** F6J-R2-FIX1: existing-key import → session bind → exit Guest (typed-only safe). */
+    private fun injectExistingKeyImportFixScript() {
+        if (!this::webView.isInitialized) return
+        try {
+            val script = assets.open("sos-native-existing-key-import-fix.js").bufferedReader().use { it.readText() }
+            webView.evaluateJavascript(script, null)
+            Log.i(TAG, "injected sos-native-existing-key-import-fix.js")
+        } catch (e: Exception) {
+            Log.e(TAG, "failed to inject sos-native-existing-key-import-fix.js", e)
+            SosDebugLog.e("webview", "existing-key-import-fix inject failed: ${e.message}")
         }
     }
 

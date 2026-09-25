@@ -85,6 +85,12 @@ object SosNativeSessionAuthority {
 
         fun isActive(): Boolean = state.get().active
 
+        /** Lowest generation that will not be rejected as REPLAYED_BIND after revoke/watermark. */
+        fun recommendedBindGeneration(): Long {
+            val w = watermark.getGeneration()
+            return if (w > 0L) w else 1L
+        }
+
         /**
          * Bind current session. Issues a NEW opaque capability only on success.
          * Does not trust caller generation/account as authority without identity match + transition rules.

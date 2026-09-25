@@ -729,12 +729,29 @@ class SosJsBridge(
     /**
      * Public identity metadata only (no raw K). Used by NativeSecureProvider F6C.
      */
+    /**
+     * Safe public auth-state ack from injected repair (fingerprint only; no K).
+     */
+    @JavascriptInterface
+    fun notifyTypedAuthRepair(pubkeyOrFp: String?): String {
+        val raw = pubkeyOrFp?.trim()?.lowercase().orEmpty().replace(Regex("[^0-9a-f]"), "")
+        val fp = when {
+            raw.length >= 8 -> raw.take(8)
+            raw.isNotEmpty() -> raw
+            else -> "none"
+        }
+        Log.i(TAG, "TYPED_AUTH_REPAIR_ACK fp=$fp")
+        return JSONObject().put("ok", true).put("fp", fp).toString()
+    }
+
     @JavascriptInterface
     fun getSecureWebIdentityJson(): String {
         return try {
             val app = context.applicationContext
             val meta = SosSecureIdentityStore.getPublicIdentityMetadata(app)
-            val pub = meta.pubkey.ifBlank { SosSessionStore.getPubkey(app) }
+            val pub = SosSecureIdentityStore.normalizeHex(
+                meta.pubkey.ifBlank { SosSessionStore.getPubkey(app) },
+            )
             if (pub.length != 64) {
                 return JSONObject()
                     .put("ok", false)
@@ -786,6 +803,93 @@ class SosJsBridge(
                 .toString()
         } catch (_: Exception) {
             JSONObject().put("ok", false).put("errorCode", "NATIVE_CRYPTO_FAILED").toString()
+        }
+    }
+
+    /**
+     * F6J-R2-FIX1 — explicit existing-key import (write-only).
+     * Validates K, seals via SosSecureIdentityStore, binds native session to derived P.
+     * Never returns K/nsec. nsec must be decoded in JS before calling (hex only).
+     */
+    @JavascriptInterface
+    fun importExistingSecureIdentity(requestJson: String?): String {
+        return try {
+            if (!isTrustedIdentityWriteContext()) {
+                return SosExistingKeyImport.Result(
+                    ok = false,
+                    code = SosExistingKeyImport.CODE_UNTRUSTED_ORIGIN,
+                ).toJson()
+            }
+            val req = try {
+                JSONObject(requestJson ?: "{}")
+            } catch (_: Exception) {
+                JSONObject()
+            }
+            // Accept hex only — refuse nsec string persistence at native boundary.
+            val priv = when {
+                req.has("privkey") -> req.optString("privkey")
+                req.has("privateKey") -> req.optString("privateKey")
+                req.has("hex") -> req.optString("hex")
+                else -> requestJson?.takeIf { !it.trimStart().startsWith("{") }
+            }
+            val claimGen = when {
+                req.has("generation") -> req.optLong("generation", -1L)
+                req.has("sessionGeneration") -> req.optLong("sessionGeneration", -1L)
+                else -> -1L
+            }
+            val result = SosExistingKeyImport.importExisting(
+                context = context.applicationContext,
+                privRaw = priv,
+                trustedCaller = true,
+                claimGeneration = claimGen,
+            )
+            // Notify WebView of public auth state only (never K).
+            if (result.ok && result.pubkey.isNotEmpty()) {
+                val detail = JSONObject()
+                    .put("ok", true)
+                    .put("code", result.code)
+                    .put("pubkey", result.pubkey)
+                    .put("generation", result.generation)
+                    .put("guestMode", false)
+                    .toString()
+                val quoted = JSONObject.quote(detail)
+                mainHandler.post {
+                    try {
+                        webView.evaluateJavascript(
+                            "(function(){try{var d=JSON.parse($quoted);window.dispatchEvent(new CustomEvent('sos-existing-key-imported',{detail:d}));}catch(e){}})();",
+                            null,
+                        )
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+            result.toJson()
+        } catch (_: Exception) {
+            SosExistingKeyImport.Result(
+                ok = false,
+                code = SosExistingKeyImport.CODE_NATIVE_CRYPTO_FAILED,
+            ).toJson()
+        }
+    }
+
+    /**
+     * F6H release entry — opens sealed migration / linked-device recovery UI.
+     * No secrets. Trusted-origin optional (UI only; seal path still gated).
+     */
+    @JavascriptInterface
+    fun openSealedMigrationUi(): String {
+        return try {
+            mainHandler.post {
+                try {
+                    val i = android.content.Intent(context, SosSealedMigrationActivity::class.java)
+                    i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(i)
+                } catch (_: Exception) {
+                }
+            }
+            JSONObject().put("ok", true).put("opened", true).toString()
+        } catch (_: Exception) {
+            JSONObject().put("ok", false).put("errorCode", "UI_OPEN_FAILED").toString()
         }
     }
 

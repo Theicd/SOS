@@ -536,14 +536,20 @@
           if (typeof App.switchAccountFromRawKey === 'function') {
             var switchedLogin = App.switchAccountFromRawKey(privateKey, { reload: false });
             if (!switchedLogin || !switchedLogin.ok) {
-              setStatus('loginStatus',
-                switchedLogin && switchedLogin.state === 'IDENTITY_RECOVERY_REQUIRED'
-                  ? 'שחזור זהות נדרש'
-                  : 'המפתח לא תקין',
-                true);
+              var errCode = (switchedLogin && (switchedLogin.code || switchedLogin.reason)) || '';
+              var msg =
+                (switchedLogin && switchedLogin.hebrewError) ||
+                (typeof App.existingKeyImportHebrewError === 'function'
+                  ? App.existingKeyImportHebrewError(errCode)
+                  : '') ||
+                (switchedLogin && switchedLogin.state === 'IDENTITY_RECOVERY_REQUIRED'
+                  ? 'לא ניתן היה לחבר את החשבון. נסה שוב.'
+                  : 'המפתח שהוזן אינו תקין');
+              setStatus('loginStatus', msg, true);
               return;
             }
             App.guestMode = false;
+            App.privateKey = null;
             try { if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi(); } catch (_s) {}
             setStatus('loginStatus', 'מתחבר...', false);
             setTimeout(function() {

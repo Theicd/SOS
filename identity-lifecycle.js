@@ -328,38 +328,102 @@
       clearUserScopedCaches(oldPubkey);
       clearPublicIdentityMirrors();
 
-      // Commit Web B
+      // Commit Web B / native existing-key import
       try {
-        if (window.SOSKeyStorage && typeof window.SOSKeyStorage.writePrivateKeyRaw === 'function') {
-          window.SOSKeyStorage.writePrivateKeyRaw(prepared.privateKey);
+        const bridgeForImport = getBridge();
+        if (
+          bridgeForImport &&
+          typeof bridgeForImport.importExistingSecureIdentity === 'function' &&
+          isNativeShellPresent() &&
+          !(window.SOSKeyStorage && typeof window.SOSKeyStorage.isSessionOnly === 'function' && window.SOSKeyStorage.isSessionOnly())
+        ) {
+          let claimGen = -1;
+          try {
+            const SA0 = App.SessionAuthority || window.SosSessionAuthority;
+            if (SA0 && typeof SA0.getAuthoritativeGeneration === 'function') {
+              claimGen = Number(SA0.getAuthoritativeGeneration()) + 1;
+            }
+          } catch (_g) {
+            claimGen = -1;
+          }
+          const rawImport = bridgeForImport.importExistingSecureIdentity(
+            JSON.stringify({
+              privkey: prepared.privateKey,
+              generation: claimGen > 0 ? claimGen : undefined,
+            })
+          );
+          const parsedImport = typeof rawImport === 'string' ? JSON.parse(rawImport || '{}') : rawImport || {};
+          if (!parsedImport || parsedImport.ok !== true) {
+            App._accountSwitchInProgress = false;
+            App.identityState = App.IDENTITY_RECOVERY_REQUIRED || 'IDENTITY_RECOVERY_REQUIRED';
+            logMarker('IDENTITY_RECOVERY_REQUIRED');
+            logMarker('ACCOUNT_SWITCH_ABORT reason=' + String(parsedImport && (parsedImport.code || parsedImport.errorCode) || 'IMPORT_FAILED'));
+            return {
+              ok: false,
+              reason: String((parsedImport && (parsedImport.code || parsedImport.errorCode)) || 'SECURE_STORE_FAILED'),
+              code: String((parsedImport && (parsedImport.code || parsedImport.errorCode)) || 'SECURE_STORE_FAILED'),
+              state: 'IDENTITY_RECOVERY_REQUIRED',
+            };
+          }
+          if (
+            parsedImport.pubkey &&
+            String(parsedImport.pubkey).toLowerCase() !== prepared.publicKey
+          ) {
+            App._accountSwitchInProgress = false;
+            return {
+              ok: false,
+              reason: 'ACCOUNT_MISMATCH',
+              code: 'ACCOUNT_MISMATCH',
+              state: 'IDENTITY_RECOVERY_REQUIRED',
+            };
+          }
+        } else if (window.SOSKeyStorage && typeof window.SOSKeyStorage.writePrivateKeyRaw === 'function') {
+          const wrote = window.SOSKeyStorage.writePrivateKeyRaw(prepared.privateKey);
+          if (wrote === false) {
+            App._accountSwitchInProgress = false;
+            App.identityState = App.IDENTITY_RECOVERY_REQUIRED || 'IDENTITY_RECOVERY_REQUIRED';
+            logMarker('IDENTITY_RECOVERY_REQUIRED');
+            logMarker('ACCOUNT_SWITCH_ABORT reason=WEB_WRITE_FAILED');
+            return { ok: false, reason: 'WEB_WRITE_FAILED', code: 'SECURE_STORE_FAILED', state: 'IDENTITY_RECOVERY_REQUIRED' };
+          }
         }
       } catch (_e) {
         App._accountSwitchInProgress = false;
         App.identityState = App.IDENTITY_RECOVERY_REQUIRED || 'IDENTITY_RECOVERY_REQUIRED';
         logMarker('IDENTITY_RECOVERY_REQUIRED');
         logMarker('ACCOUNT_SWITCH_ABORT reason=WEB_WRITE_FAILED');
-        return { ok: false, reason: 'WEB_WRITE_FAILED', state: 'IDENTITY_RECOVERY_REQUIRED' };
+        return { ok: false, reason: 'WEB_WRITE_FAILED', code: 'SECURE_STORE_FAILED', state: 'IDENTITY_RECOVERY_REQUIRED' };
       }
 
-      App.privateKey = prepared.privateKey;
+      // Typed-only after successful native import: do not keep K in page memory.
+      App.privateKey = null;
       App.publicKey = prepared.publicKey;
       App.guestMode = false;
 
       if (typeof App.ensureKeys === 'function') {
         const ensured = App.ensureKeys();
         if (!ensured || ensured.ok !== true || ensured.publicKey !== prepared.publicKey) {
-          App._accountSwitchInProgress = false;
-          App.identityState = App.IDENTITY_RECOVERY_REQUIRED || 'IDENTITY_RECOVERY_REQUIRED';
-          logMarker('IDENTITY_RECOVERY_REQUIRED');
-          logMarker('ACCOUNT_SWITCH_ABORT reason=ENSURE_FAILED');
-          return { ok: false, reason: 'ENSURE_FAILED', state: 'IDENTITY_RECOVERY_REQUIRED' };
+          // ensureKeys may require typed-only path; accept publicKey already set.
+          if (!(App.publicKey === prepared.publicKey && App.guestMode === false)) {
+            App._accountSwitchInProgress = false;
+            App.identityState = App.IDENTITY_RECOVERY_REQUIRED || 'IDENTITY_RECOVERY_REQUIRED';
+            logMarker('IDENTITY_RECOVERY_REQUIRED');
+            logMarker('ACCOUNT_SWITCH_ABORT reason=ENSURE_FAILED');
+            return { ok: false, reason: 'ENSURE_FAILED', state: 'IDENTITY_RECOVERY_REQUIRED' };
+          }
         }
       }
 
-      // Atomic Native sync B (5E-C)
+      // Atomic Native sync B (5E-C) — skip raw re-sync when importExistingSecureIdentity already sealed+bound.
       let syncResult = 'SYNC_IDENTITY_OK';
-      if (isNativeShellPresent() && !(window.SOSKeyStorage && typeof window.SOSKeyStorage.isSessionOnly === 'function' && window.SOSKeyStorage.isSessionOnly())) {
-        const bridge = getBridge();
+      const bridge = getBridge();
+      const alreadyImported =
+        bridge && typeof bridge.importExistingSecureIdentity === 'function' && isNativeShellPresent();
+      if (
+        isNativeShellPresent() &&
+        !alreadyImported &&
+        !(window.SOSKeyStorage && typeof window.SOSKeyStorage.isSessionOnly === 'function' && window.SOSKeyStorage.isSessionOnly())
+      ) {
         try {
           if (bridge && typeof bridge.syncUserIdentity === 'function') {
             syncResult = String(bridge.syncUserIdentity(prepared.publicKey, prepared.privateKey) || '');
@@ -383,9 +447,9 @@
             syncResult,
           };
         }
-        App._nativeSyncedPubkey = prepared.publicKey;
-        App._nativeSyncedPrivkey = prepared.privateKey;
       }
+      App._nativeSyncedPubkey = prepared.publicKey;
+      App._nativeSyncedPrivkey = null;
 
       App.identityState = App.IDENTITY_OK || 'IDENTITY_OK';
       App._accountSwitchInProgress = false;

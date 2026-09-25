@@ -128,6 +128,53 @@
     }
 
     if (!privateKey) {
+      // F6C typed-only native: pubkey present, raw K not in WebView.
+      let typedPub = '';
+      try {
+        if (window.SOSKeyStorage && typeof window.SOSKeyStorage.getPublicKeyHint === 'function') {
+          typedPub = String(window.SOSKeyStorage.getPublicKeyHint() || '').trim().toLowerCase();
+        }
+      } catch (_tp) {
+        typedPub = '';
+      }
+      if (!typedPub || !isHex64(typedPub)) {
+        try {
+          const existingPub = String(App.publicKey || '').trim().toLowerCase();
+          if (isHex64(existingPub)) {
+            const isNative =
+              window.SosNativeShell &&
+              typeof window.SosNativeShell.isNativeShell === 'function' &&
+              window.SosNativeShell.isNativeShell() === true;
+            const NTC = App.NativeTypedCryptoBridge || window.SosNativeTypedCryptoBridge;
+            const typedAvail = !!(NTC && typeof NTC.isAvailable === 'function' && NTC.isAvailable());
+            if (isNative || typedAvail || App.guestMode === false) {
+              typedPub = existingPub;
+            }
+          }
+        } catch (_ep) {}
+      }
+      if (!hadRaw && typedPub && isHex64(typedPub)) {
+        App.privateKey = null;
+        App.publicKey = typedPub.toLowerCase();
+        setIdentityState(IDENTITY_OK);
+        try {
+          const SA = App.SessionAuthority || (typeof window !== 'undefined' && window.SosSessionAuthority);
+          if (SA && typeof SA.bindCurrentSession === 'function') {
+            const detached = typeof SA.isDetached === 'function' && SA.isDetached();
+            const already = typeof SA.isSessionValid === 'function' && SA.isSessionValid();
+            if (!detached && !already) {
+              SA.bindCurrentSession({ accountPubkey: App.publicKey, bump: false });
+            }
+          }
+        } catch (_saT) {}
+        return {
+          ok: true,
+          state: IDENTITY_OK,
+          privateKey: null,
+          publicKey: App.publicKey,
+          typedOnly: true,
+        };
+      }
       clearAppIdentityMemory();
       if (hadRaw) {
         setIdentityState(IDENTITY_INVALID);
