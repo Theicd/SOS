@@ -131,6 +131,12 @@
         </activity-alias>
 
         <activity
+            android:name=".SosSealedMigrationActivity"
+            android:exported="false"
+            android:label="העברת חשבון"
+            android:theme="@style/Theme.SosShell" />
+
+        <activity
             android:name=".SosDebugLogActivity"
             android:exported="false"
             android:label="@string/debug_log_title"
