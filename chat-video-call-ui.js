@@ -669,7 +669,10 @@
       if (sigType && sigType !== 'v-offer') return null;
       if (!eventObj.content || !App.SosCryptoSigner?.hasIdentityKey() || !window.NostrTools?.nip04) return null;
       try {
-        const decrypted = await await Promise.resolve(window.App.SosCryptoSigner.nip04Decrypt( peer, eventObj.content);
+        const decrypted = await await Promise.resolve(window.App.SosCryptoSigner.nip04Decrypt(
+          peer,
+          eventObj.content
+        ));
         let offer = decrypted ? JSON.parse(decrypted) : null;
         if (offer && offer.offer && !offer.type && !offer.sdp) offer = offer.offer;
         if (!offer?.type || !offer?.sdp) return null;
