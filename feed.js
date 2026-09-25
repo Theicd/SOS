@@ -3815,6 +3815,10 @@
       ],
       content,
     };
+    const event = draft.kind === 5 ? await Promise.resolve(App.SosCryptoSigner.signDelete(draft)) : await Promise.resolve(App.SosCryptoSigner.signFeedEvent(draft));
+    await App.pool.publish(App.relayUrls, event);
+    registerComment(event, parentId);
+  }
 
   // חלק פיד (feed.js) – בניית פילטרים מרכזיים לפיד ולהתרעות | HYPER CORE TECH
 function buildCoreFeedFilters(sinceTimestamp = 0) {
