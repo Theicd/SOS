@@ -506,7 +506,7 @@
       btn = document.createElement('button');
       btn.id = 'sosAdminSettingsEntry';
       btn.type = 'button';
-      btn.textContent = 'הגדרות קבוצה';
+      btn.textContent = 'ניהול קבוצה';
       btn.style.cssText =
         'position:fixed;bottom:88px;inset-inline-end:12px;z-index:9000;padding:10px 12px;border-radius:999px;border:0;background:#2a3142;color:#fff;cursor:pointer;';
       btn.addEventListener('click', open);

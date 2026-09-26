@@ -411,9 +411,16 @@
 
   function buildBootstrapRecord(opts) {
     const groupId = (opts && opts.groupId) || resolveGroupId();
-    const root = normalizePubkey((opts && opts.rootAdminPubkey) || legacyRootPubkey());
-    if (!root) throw Object.assign(new Error('NO_LEGACY_ROOT'), { code: 'NO_LEGACY_ROOT' });
+    // Prefer explicit creator root; fall back to legacy root for sos010 bootstrap compatibility.
+    const root = normalizePubkey(
+      (opts && (opts.rootAdminPubkey || opts.creatorPubkey)) || legacyRootPubkey()
+    );
+    if (!root) throw Object.assign(new Error('NO_ROOT'), { code: 'NO_ROOT' });
     const createdAt = (opts && opts.createdAt) || Math.floor(Date.now() / 1000);
+    const invitePolicy =
+      opts && opts.invitePolicy && INVITE_POLICIES.indexOf(opts.invitePolicy) !== -1
+        ? opts.invitePolicy
+        : INITIAL_INVITE_POLICY;
     return parseAndValidateRecord(
       JSON.stringify({
         schema: SCHEMA_NAME,
@@ -422,7 +429,7 @@
         controlEpoch: 1,
         rootAdminPubkey: root,
         capabilities: {},
-        invitePolicy: INITIAL_INVITE_POLICY,
+        invitePolicy,
         blockedPubkeys: [],
         membershipEpoch: 1,
         groupSettings: {
@@ -482,21 +489,18 @@
     }
 
     if (!prev) {
-      // Bootstrap: only legacy root, epoch 1, root must match legacy, empty caps
-      const legacy = legacyRootPubkey();
-      if (!legacy || issuer !== legacy) {
+      // First tip for this groupId: creator becomes rootAdminPubkey (canonical multi-tenant bootstrap).
+      // Still fail-closed: epoch 1, empty capabilities, issuer must equal next.rootAdminPubkey.
+      if (issuer !== next.rootAdminPubkey) {
         throw Object.assign(new Error('BAD_ISSUER'), { code: 'BAD_ISSUER' });
       }
       if (next.controlEpoch !== 1) {
         throw Object.assign(new Error('BAD_EPOCH'), { code: 'BAD_EPOCH' });
       }
-      if (next.rootAdminPubkey !== legacy) {
-        throw Object.assign(new Error('ROOT_MISMATCH'), { code: 'ROOT_MISMATCH' });
-      }
       if (Object.keys(next.capabilities).length !== 0) {
         throw Object.assign(new Error('BOOTSTRAP_CAPS'), { code: 'BOOTSTRAP_CAPS' });
       }
-      if (next.invitePolicy !== INITIAL_INVITE_POLICY) {
+      if (INVITE_POLICIES.indexOf(next.invitePolicy) === -1) {
         throw Object.assign(new Error('BOOTSTRAP_POLICY'), { code: 'BOOTSTRAP_POLICY' });
       }
       return true;

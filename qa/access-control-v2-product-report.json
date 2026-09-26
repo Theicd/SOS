@@ -1,0 +1,95 @@
+{
+  "gate": "ACCESS_CONTROL_V2_PRODUCT",
+  "status": "PASS",
+  "ts": "2026-09-26T12:20:11.061Z",
+  "results": {
+    "ACCESS_CONTROL_IMPLEMENTATION_RECONCILIATION_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "ACCESS_CONTROL_V2_DEFAULT_OFF": {
+      "ok": true,
+      "detail": null
+    },
+    "ACCESS_CONTROL_V2_LOCAL_TEST_MODE": {
+      "ok": true,
+      "detail": null
+    },
+    "PRODUCTION_HOST_BLOCKS_LOCAL_V2": {
+      "ok": true,
+      "detail": null
+    },
+    "PRODUCT_UI_WIRED": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_ADMIN_HEBREW_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_ADMIN_MOJIBAKE_FOUND": {
+      "ok": true,
+      "detail": null
+    },
+    "CREATOR_ROOT_BOOTSTRAP_CODE": {
+      "ok": true,
+      "detail": null
+    },
+    "LOCAL_TEST_ENABLES_ON_LOCALHOST": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "code": "LOCAL_TEST_ON",
+        "enabled": true
+      }
+    },
+    "PRODUCTION_ACCESS_CONTROL_CHANGED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "PRODUCTION_HOST",
+        "enabled": false
+      }
+    },
+    "GROUP_CREATE_PROTOCOL_GATE": {
+      "ok": true,
+      "detail": "community-test-muicxyme"
+    },
+    "GROUP_CREATOR_ADMIN_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_CREATE_UI_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_MANAGEMENT_HOME_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_ADMIN_MENU_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "CANONICAL_GROUP_AUTHORITY_MODEL_DEFINED": {
+      "ok": true,
+      "detail": null
+    },
+    "CLIENT_ONLY_ADMIN_TRUST": {
+      "ok": true,
+      "detail": false
+    },
+    "AC2_REGRESSION_AFTER_BOOTSTRAP_FIX": {
+      "ok": true,
+      "detail": null
+    }
+  },
+  "ACCESS_CONTROL_V2_DEFAULT_OFF": true,
+  "PRODUCTION_ACCESS_CONTROL_CHANGED": false,
+  "MAIN_PUSH_EXECUTED": false,
+  "NEXT_WEB_PACKAGE": 895,
+  "NEXT_CACHE_VERSION": "sos-cache-v895",
+  "ACCESS_CONTROL_RC_GATE": "PARTIAL_LOCAL",
+  "ACCESS_CONTROL_V2_READY_FOR_OWNER_APPROVAL": false,
+  "NOTES": "Product shell + creator-root bootstrap + local test mode landed; full 3-role/adversarial product flow still required before READY_FOR_OWNER_APPROVAL"
+}

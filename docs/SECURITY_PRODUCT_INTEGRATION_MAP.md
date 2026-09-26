@@ -67,6 +67,11 @@ MULTI-DEVICE AUTHORIZATION / PAIRING (MD1–MD3 local; QR UI not productized)
 - Runtime gate: `SOS_ACCESS_CONTROL_V2` (default **false**).
 - When OFF: admin/member directory UI is **hidden**; legacy permissive paths may
   still apply for some actions.
+- **Product shell (local branch):** `group-admin-product-ui.js` exposes Hebrew
+  **ניהול קבוצה** + create-group flow; enable only via local test helper
+  (`access-control-v2-local-test.js`) — never on sos010.com without owner approval.
+- Status doc: `docs/GROUP_ADMIN_PRODUCT_STATUS.md`
+- Activation plan: `docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md` (not executed)
 
 ### Multi-device / QR pairing
 - MD1–MD3: device identity, pairing protocol, device authorization (**local**).
