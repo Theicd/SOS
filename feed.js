@@ -1882,6 +1882,8 @@
       actionText = 'הראה עניין בך בדף ההכרויות';
     } else if (notification.type === 'follow') {
       actionText = 'התחיל/ה לעקוב אחריך';
+    } else if (notification.type === 'share') {
+      actionText = 'שיתף את הפוסט שלך';
     } else {
       actionText = 'אהב את הפוסט שלך';
     }
@@ -2086,6 +2088,11 @@
       return;
     }
     attemptNotification(event, postId, 'like', '', liker, true);
+  }
+
+  function handleNotificationForShare(event, postId, sharer) {
+    // חלק התרעות (feed.js) – יוצר התרעה כאשר משתמש אחר משתף פוסט שלנו
+    attemptNotification(event, postId, 'share', '', sharer || event?.pubkey, true);
   }
 
   function handleNotificationForComment(event, parentId) {
@@ -4544,6 +4551,7 @@ async function loadFeed() {
       const prev = App.latestShareAtByEventId.get(id) || 0;
       if (shareAt > prev) App.latestShareAtByEventId.set(id, shareAt);
       updateShareIndicator(id);
+      handleNotificationForShare(event, id, sharer);
     });
   }
 
@@ -5268,6 +5276,7 @@ async function loadFeed() {
     handleNotificationForDatingLike,
     handleNotificationForComment,
     handleNotificationForLike,
+    handleNotificationForShare,
 
     registerDeletion,
     registerModeration,
