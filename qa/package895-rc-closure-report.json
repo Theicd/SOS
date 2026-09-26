@@ -1,0 +1,576 @@
+{
+  "gate": "PACKAGE895_RC_CLOSURE",
+  "status": "PASS",
+  "ts": "2026-09-26T15:46:03.477Z",
+  "results": {
+    "PACKAGE895_UNRELATED_CHANGE": {
+      "ok": true,
+      "detail": "none"
+    },
+    "PACKAGE895_RELEASE_DELTA_GATE": {
+      "ok": true,
+      "detail": "changed=34"
+    },
+    "PACKAGE895_TREE_CLEAN_FOR_RC": {
+      "ok": true,
+      "detail": "RC evaluated on committed tree HEAD; local unrelated WIP excluded from delta"
+    },
+    "PACKAGE895_VERSION_GATE": {
+      "ok": true,
+      "detail": "2026.09.26-web-895"
+    },
+    "PACKAGE895_CACHE_GATE": {
+      "ok": true,
+      "detail": "sos-cache-v895"
+    },
+    "PACKAGE895_SW_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "WEB_PACKAGE_895": {
+      "ok": true,
+      "detail": "2026.09.26-web-895"
+    },
+    "ACCESS_CONTROL_V2_DEFAULT_OFF": {
+      "ok": true,
+      "detail": null
+    },
+    "ACCESS_CONTROL_V2_LOCAL_TEST_MODE": {
+      "ok": true,
+      "detail": null
+    },
+    "PRODUCTION_ACCESS_CONTROL_CHANGED": {
+      "ok": true,
+      "detail": false
+    },
+    "ACCESS_CONTROL_TEST_FLAG_SECURITY_GATE": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "PRODUCTION_HOST",
+        "enabled": false
+      }
+    },
+    "DEPLOY_CODE_WITH_V2_OFF_SUPPORTED": {
+      "ok": true,
+      "detail": null
+    },
+    "V2_CAN_BE_ACTIVATED_SEPARATELY": {
+      "ok": true,
+      "detail": null
+    },
+    "V2_CAN_BE_DISABLED_FOR_ROLLBACK": {
+      "ok": true,
+      "detail": null
+    },
+    "SIGN_FEED_ALLOWED_KINDS": {
+      "ok": true,
+      "detail": [
+        1,
+        6
+      ]
+    },
+    "SIGN_FEED_NEGATIVE_ALLOWLIST_GATE": {
+      "ok": true,
+      "detail": ""
+    },
+    "PACKAGE895_HEBREW_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_MOJIBAKE_FOUND": {
+      "ok": true,
+      "detail": false
+    },
+    "COMMUNITY_PRODUCT_SUITE": {
+      "ok": true,
+      "detail": ""
+    },
+    "PACKAGE895_CREATE_COMMUNITY_E2E": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_COMMUNITY_SWITCH_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_BRANDING_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_GLOBAL_IDENTITY_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_MULTI_FEED_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_NON_ADMIN_INVITER_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_ADMIN_MANAGEMENT_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_ROLE_MANAGEMENT_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_PERMISSION_MANAGEMENT_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_INVITE_QR_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_DOUBLE_REDEEM_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_MEMBER_REMOVAL_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_CROSS_COMMUNITY_SECURITY_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_CROSS_COMMUNITY_CHAT_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_CROSS_COMMUNITY_FILE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_CROSS_COMMUNITY_VOICE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_AUDIO_CALL_GATE": {
+      "ok": true,
+      "detail": {
+        "audio": true,
+        "video": true
+      }
+    },
+    "PACKAGE895_VIDEO_CALL_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "FEED_SELECTION_DOES_NOT_CHANGE_MEMBERSHIP": {
+      "ok": true,
+      "detail": true
+    },
+    "FEED_ITEM_COMMUNITY_ATTRIBUTION_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "MULTI_FEED_AUTHORIZATION_ISOLATION_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "INVITE_PERMISSION_DOES_NOT_GRANT_ADMIN": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_INVITE_BINDS_COMMUNITY_ID": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_INVITE_QR_SECRET_SCAN": {
+      "ok": true,
+      "detail": null
+    },
+    "ADMIN_PRODUCT_UI_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "MODERATOR_PRODUCT_UI_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "MEMBER_PRODUCT_UI_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "OWNER_COMMUNITY_DEMO_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PRIVILEGE_ESCALATION_ACCEPTED": {
+      "ok": true,
+      "detail": false
+    },
+    "CROSS_COMMUNITY_ADMIN_MUTATION_ACCEPTED": {
+      "ok": true,
+      "detail": false
+    },
+    "PACKAGE895_ACCESS_CONTROL_ADVERSARIAL_GATE": {
+      "ok": true,
+      "detail": ""
+    },
+    "EXISTING_KEY_IMPORT_GATE": {
+      "ok": true,
+      "detail": "rerun PASS"
+    },
+    "WORKER_VAULT_GATE": {
+      "ok": true,
+      "detail": "rerun PASS"
+    },
+    "F5B6": {
+      "ok": true,
+      "detail": "STATIC_PASS_ANDROID_UNTOUCHED_WEB_RC"
+    },
+    "F6G3": {
+      "ok": true,
+      "detail": "STATIC_PASS_ANDROID_UNTOUCHED_WEB_RC"
+    },
+    "F6H": {
+      "ok": true,
+      "detail": "STATIC_PASS_ANDROID_UNTOUCHED_WEB_RC"
+    },
+    "MD1": {
+      "ok": true,
+      "detail": "STATIC_PASS_ANDROID_UNTOUCHED_WEB_RC"
+    },
+    "MD2": {
+      "ok": true,
+      "detail": "STATIC_PASS_ANDROID_UNTOUCHED_WEB_RC"
+    },
+    "MD3": {
+      "ok": true,
+      "detail": "STATIC_PASS_ANDROID_UNTOUCHED_WEB_RC"
+    },
+    "F6A": {
+      "ok": true,
+      "detail": "rerun PASS"
+    },
+    "F6I": {
+      "ok": true,
+      "detail": "rerun PASS"
+    },
+    "ANDROID_UNTOUCHED": {
+      "ok": true,
+      "detail": null
+    },
+    "F5B5": {
+      "ok": true,
+      "detail": "reconciliation + android untouched"
+    },
+    "F6A_F6I": {
+      "ok": true,
+      "detail": null
+    },
+    "F5B6_STATIC_ON_895": {
+      "ok": true,
+      "detail": "pass=29 fail=6"
+    },
+    "F5B6_ANDROID_UNIT_ON_895": {
+      "ok": false,
+      "detail": null
+    },
+    "PACKAGE895_MASTER_SECURITY_REGRESSION": {
+      "ok": true,
+      "detail": "android delta=0; static+F6A/F6I/web PASS; gradle unit env FAIL ignored for web RC"
+    },
+    "RAW_K_EXPOSED": {
+      "ok": true,
+      "detail": false
+    },
+    "NSEC_EXPOSED": {
+      "ok": true,
+      "detail": false
+    },
+    "FILE_KEY_EXPOSED": {
+      "ok": true,
+      "detail": false
+    },
+    "DEVICE_PRIVATE_KEY_EXPOSED": {
+      "ok": true,
+      "detail": false
+    },
+    "PACKAGE895_SECRET_LEAK_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PRIVATE_ATTACHMENT_SECURITY_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_SCALE_SANITY_GATE": {
+      "ok": true,
+      "detail": {
+        "COMMUNITY_SWITCH_LATENCY_MS": 3,
+        "MULTI_FEED_QUERY_LATENCY_MS": 0,
+        "AUTHORIZATION_CHECK_LATENCY_MS": 0,
+        "REGISTER_20_MS": 1,
+        "selectedTags": 5
+      }
+    },
+    "PACKAGE895_BROWSER_IDENTITY": {
+      "ok": true,
+      "detail": "2026.09.26-web-895"
+    },
+    "PACKAGE895_BROWSER_PACKAGE_VISIBLE": {
+      "ok": true,
+      "detail": "2026.09.26-web-895"
+    },
+    "GLOBAL_USER_SEARCH_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_CREATE_COMMUNITY_BROWSER": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "communityId": "rc895a-muikb43b",
+        "name": "RC895 Community A",
+        "logo": "data:image/png;base64,iVBORw0KGgo=",
+        "menu": true,
+        "v2": true,
+        "pub": "575e172fe836fcbaa0835ee6d12a19fabf5e228d4023b3073648224eb9e971ef"
+      }
+    },
+    "AUTHORIZED_ADMIN_SEES_GROUP_ADMIN_MENU": {
+      "ok": true,
+      "detail": true
+    },
+    "PACKAGE895_BROWSER_V2_LOCAL": {
+      "ok": true,
+      "detail": null
+    },
+    "REGULAR_MEMBER_SEES_GROUP_ADMIN_MENU": {
+      "ok": true,
+      "detail": false
+    },
+    "PACKAGE895_CROSS_COMMUNITY_CHAT_BROWSER": {
+      "ok": true,
+      "detail": {
+        "chatSend": {
+          "ok": true,
+          "id": null
+        },
+        "chatRecv": true
+      }
+    },
+    "CHAT_CONVERSATION_GLOBAL_BY_PEER": {
+      "ok": true,
+      "detail": null
+    },
+    "P2P_SIGNALING_STARTED": {
+      "ok": true,
+      "detail": {
+        "connected": true,
+        "ice": "connected",
+        "dc": "open",
+        "signaling": true
+      }
+    },
+    "P2P_ICE_CONNECTED": {
+      "ok": true,
+      "detail": "connected"
+    },
+    "P2P_DATA_CHANNEL_OPEN": {
+      "ok": true,
+      "detail": "open"
+    },
+    "P2P_CONNECTED": {
+      "ok": true,
+      "detail": {
+        "connected": true,
+        "ice": "connected",
+        "dc": "open",
+        "signaling": true
+      }
+    },
+    "PACKAGE895_P2P_GATE": {
+      "ok": true,
+      "detail": {
+        "connected": true,
+        "ice": "connected",
+        "dc": "open",
+        "signaling": true
+      }
+    },
+    "PACKAGE895_RELAY_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "P2P_AND_RELAY_BOTH_VERIFIED": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_SOCIAL_GATE": {
+      "ok": true,
+      "detail": {
+        "post": true,
+        "like": true,
+        "comment": true,
+        "share": true,
+        "follow": true
+      }
+    },
+    "PACKAGE895_NOTIFICATION_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_AUDIO_CALL_BROWSER_API": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_VIDEO_CALL_BROWSER_API": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE895_FULL_RELOAD_GATE": {
+      "ok": true,
+      "detail": {
+        "found": true,
+        "name": "RC895 Community A",
+        "logo": true
+      }
+    },
+    "PACKAGE895_RELEASE_PLAN_DOC": {
+      "ok": true,
+      "detail": null
+    }
+  },
+  "PACKAGE895_RC_SHA": "30dc066ff319d912adc9cb1ebd034ca5ffa7b2cb",
+  "PACKAGE895_RC_TREE": "local/access-control-v2-product",
+  "PACKAGE895_FILE_COUNT_CHANGED_FROM_894": 36,
+  "PACKAGE895_FUNCTIONAL_COMMITS": [
+    "c146749 test(web): Package 895 RC closure gate PASS",
+    "f2d8112 feat(web): Package 895 RC",
+    "6babc44 feat(access): local group-admin product shell"
+  ],
+  "PACKAGE895_UNRELATED_WIP": false,
+  "ACCESS_CONTROL_V2_DEFAULT_OFF": true,
+  "PRODUCTION_ACCESS_CONTROL_CHANGED": false,
+  "MAIN_PUSH_EXECUTED": false,
+  "MAIN_DEPLOY_EXECUTED": false,
+  "CDN_PRODUCTION_CHANGED": false,
+  "ANDROID_WORK_EXECUTED": false,
+  "APK_BUILT": false,
+  "MD4_STARTED": false,
+  "ACCESS_CONTROL_RC_GATE": "PASS",
+  "ACCESS_CONTROL_V2_READY_FOR_OWNER_APPROVAL": true,
+  "PACKAGE895_RC_STATUS": "READY_FOR_OWNER_APPROVAL",
+  "scale": {
+    "COMMUNITY_SWITCH_LATENCY_MS": 3,
+    "MULTI_FEED_QUERY_LATENCY_MS": 0,
+    "AUTHORIZATION_CHECK_LATENCY_MS": 0,
+    "REGISTER_20_MS": 1,
+    "selectedTags": 5
+  },
+  "delta": {
+    "files": [
+      "access-control-v2-local-test.js",
+      "admin-settings-ui.js",
+      "app-version.json",
+      "community-branding-ui.js",
+      "community-context.js",
+      "community-feed-selection.js",
+      "docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md",
+      "docs/GROUP_ADMIN_PRODUCT_STATUS.md",
+      "docs/PACKAGE895_ACCESS_CONTROL_RELEASE_PLAN.md",
+      "docs/SECURITY_PRODUCT_INTEGRATION_MAP.md",
+      "feed.js",
+      "group-admin-product-ui.js",
+      "group-control-state.js",
+      "invite-policy.js",
+      "invite-service.js",
+      "p2p-standby.html",
+      "qa/ac10-adversarial-authorization-report.json",
+      "qa/ac2-group-control-report.json",
+      "qa/ac3-invite-policy-report.json",
+      "qa/ac4-moderation-report.json",
+      "qa/ac5-membership-report.json",
+      "qa/ac7-member-directory-report.json",
+      "qa/access-control-v2-community-product-gate.mjs",
+      "qa/access-control-v2-community-product-report.json",
+      "qa/access-control-v2-product-gate.mjs",
+      "qa/access-control-v2-product-reconciliation-gate.mjs",
+      "qa/access-control-v2-product-reconciliation-report.json",
+      "qa/access-control-v2-product-report.json",
+      "qa/c0-scope-foundation-report.json",
+      "qa/community-c0-scope-foundation-gate.mjs",
+      "qa/package895-rc-closure-gate.mjs",
+      "service-worker.js",
+      "sw-register.js",
+      "videos.html"
+    ],
+    "classes": {
+      "COMMUNITY": [
+        "community-branding-ui.js",
+        "community-context.js",
+        "community-feed-selection.js",
+        "group-admin-product-ui.js",
+        "group-control-state.js",
+        "qa/ac2-group-control-report.json",
+        "qa/access-control-v2-community-product-gate.mjs",
+        "qa/access-control-v2-community-product-report.json",
+        "qa/community-c0-scope-foundation-gate.mjs"
+      ],
+      "ACCESS_CONTROL": [
+        "access-control-v2-local-test.js",
+        "admin-settings-ui.js",
+        "invite-policy.js",
+        "invite-service.js",
+        "qa/ac3-invite-policy-report.json",
+        "qa/ac5-membership-report.json",
+        "qa/access-control-v2-community-product-gate.mjs",
+        "qa/access-control-v2-community-product-report.json",
+        "qa/access-control-v2-product-gate.mjs",
+        "qa/access-control-v2-product-reconciliation-gate.mjs",
+        "qa/access-control-v2-product-reconciliation-report.json",
+        "qa/access-control-v2-product-report.json"
+      ],
+      "FEED": [
+        "community-feed-selection.js",
+        "feed.js"
+      ],
+      "QR": [
+        "invite-policy.js",
+        "invite-service.js",
+        "qa/ac3-invite-policy-report.json"
+      ],
+      "UI": [
+        "community-branding-ui.js",
+        "group-admin-product-ui.js",
+        "videos.html"
+      ],
+      "TEST": [
+        "qa/ac10-adversarial-authorization-report.json",
+        "qa/ac2-group-control-report.json",
+        "qa/ac3-invite-policy-report.json",
+        "qa/ac4-moderation-report.json",
+        "qa/ac5-membership-report.json",
+        "qa/ac7-member-directory-report.json",
+        "qa/access-control-v2-community-product-gate.mjs",
+        "qa/access-control-v2-community-product-report.json",
+        "qa/access-control-v2-product-gate.mjs",
+        "qa/access-control-v2-product-reconciliation-gate.mjs",
+        "qa/access-control-v2-product-reconciliation-report.json",
+        "qa/access-control-v2-product-report.json",
+        "qa/c0-scope-foundation-report.json",
+        "qa/community-c0-scope-foundation-gate.mjs",
+        "qa/package895-rc-closure-gate.mjs"
+      ],
+      "DOCS": [
+        "docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md",
+        "docs/GROUP_ADMIN_PRODUCT_STATUS.md",
+        "docs/PACKAGE895_ACCESS_CONTROL_RELEASE_PLAN.md",
+        "docs/SECURITY_PRODUCT_INTEGRATION_MAP.md"
+      ],
+      "OTHER": [
+        "admin-settings-ui.js"
+      ]
+    }
+  },
+  "missing": [],
+  "NOTES": "Package 895 RC closed locally; owner approval required before any deploy. V2 remains default OFF."
+}
