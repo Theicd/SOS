@@ -691,6 +691,16 @@
 
       // יצירת חיבור
       state.currentPeer = peerPubkey;
+      // Bind answer publish to the incoming offer session (never invent a fresh sid here).
+      try {
+        const offerSid =
+          (offer && typeof offer === 'object' && offer.sessionId) ? String(offer.sessionId) :
+          (state.waitingOffer && state.waitingOffer.sessionId) ? String(state.waitingOffer.sessionId) :
+          (state.callSessionId ? String(state.callSessionId) : '');
+        if (offerSid && offerSid.length >= 16) {
+          state.callSessionId = offerSid;
+        }
+      } catch (_e) {}
       state.peerConnection = createPeerConnection(peerPubkey);
       // חלק שיחות קול (chat-voice-call.js) – איפוס זמן התחלה עד לחיבור בפועל (connected)
       state.callStartTimestamp = null;
@@ -1108,7 +1118,12 @@
             console.log('CALL_OFFER_OK');
             // חלק שיחות קול (chat-voice-call.js) – שיחה ממתינה: אם יש שיחה פעילה מפיר אחר, לא מצלצלים אלא מתריעים בלבד | HYPER CORE TECH
             if (state.isCallActive && state.currentPeer && state.currentPeer !== peerPubkey) {
-              state.waitingOffer = { peer: peerPubkey, offer: offerData, ts: now };
+              state.waitingOffer = {
+                peer: peerPubkey,
+                offer: offerData,
+                ts: now,
+                sessionId: preParsed && preParsed.sessionId ? preParsed.sessionId : null,
+              };
               if (typeof App.onVoiceCallWaiting === 'function') {
                 App.onVoiceCallWaiting(peerPubkey, offerData);
               }
@@ -1121,6 +1136,8 @@
             }
             // אותו peer כבר ב־context (מסך ענה פתוח) – לא לפתוח שוב | HYPER CORE TECH
             if (state.currentPeer && String(state.currentPeer).toLowerCase() === String(peerPubkey).toLowerCase() && state.isIncoming) {
+              // עדיין מאמצים sessionId מה-offer כדי ש-answer לא יישלח עם sid ישן | HYPER CORE TECH
+              if (preParsed && preParsed.sessionId) state.callSessionId = preParsed.sessionId;
               console.log('CALL_SIGNAL_SKIP already_incoming');
               return;
             }
