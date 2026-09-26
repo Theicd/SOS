@@ -23,7 +23,8 @@
     SIGN_READ_RECEIPT: { kinds: [1051], requireRecipientP: true },
     SIGN_PRESENCE: { kinds: [1054], requireRecipientP: true },
     SIGN_DELETE: { kinds: [5] },
-    SIGN_FEED: { kinds: [1] },
+    // kind 6 = NIP-18 repost/share (feed.js sharePost → signFeedEvent)
+    SIGN_FEED: { kinds: [1, 6] },
     SIGN_REACTION: { kinds: [7] },
     SIGN_FOLLOW: { kinds: [40010] },
     SIGN_INVITE: { kinds: [37378, 37379] },
