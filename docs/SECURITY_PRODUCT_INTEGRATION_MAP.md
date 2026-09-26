@@ -110,6 +110,24 @@ MULTI-DEVICE AUTHORIZATION / PAIRING (MD1–MD3 local; QR UI not productized)
 
 ---
 
+## Stage status reconciliation (closure — do not downgrade closed local evidence)
+
+| Milestone | Actual status | Evidence |
+|-----------|---------------|----------|
+| **F5B4** | `COMPLETE_LOCAL` / PASS | `qa/f5b4-main-integration-report.json` STATUS=PASS |
+| **F5B5** | `COMPLETE_LOCAL` + production signer acceptance preserved | `qa/stage5-post-f5b5-dependency-reconciliation-report.json` status=PASS; WA6 closed; `DEPLOYED_SIGNER_COMMIT` recorded. Do **not** mark incomplete without new contrary evidence. |
+| **F5B6** | `COMPLETE_LOCAL` / PASS | `qa/f5b6-sealed-migration-report.json` + gate rerun PASS |
+| **F5** | `COMPLETE_LOCAL` (not IN_PROGRESS) | B4+B5+B6 local closed; production deploy/CDN remains change-controlled |
+| **F6H** | PASS | sealed recovery orchestration gate |
+| **F6J** | `BLOCKED` on Android R2 physical (web closure may proceed independently) | physical acceptance docs; R2 not started this phase |
+| **MD1–MD3** | PASS local | device identity / pairing / authorization reports |
+| **MD4** | NOT_STARTED | change control |
+| **ACCESS_CONTROL_V2** | OFF / unchanged | default false |
+
+**Integration recovery closure (web):** Hebrew UTF-8 product UI, social reload, notifications E2E, audio/video call E2E, call lifecycle/cleanup, and master security regression re-run completed locally without main push/deploy.
+
+---
+
 ## Related reports
 
 - `qa/ac10-adversarial-authorization-report.json`
@@ -117,4 +135,8 @@ MULTI-DEVICE AUTHORIZATION / PAIRING (MD1–MD3 local; QR UI not productized)
 - `qa/md0-linked-devices-architecture-report.json`
 - `qa/md2-pairing-protocol-report.json`
 - `qa/f6j-android-rollout-report.json`
+- `qa/f5b4-main-integration-report.json`
+- `qa/stage5-post-f5b5-dependency-reconciliation-report.json`
+- `qa/f5b6-sealed-migration-report.json`
 - `docs/security/MD0_LINKED_DEVICES_ARCHITECTURE.md`
+- `docs/security/F6J_R2_PHYSICAL_DEVICE_ACCEPTANCE.md`
