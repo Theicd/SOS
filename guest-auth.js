@@ -904,6 +904,15 @@
           // F5A: Worker create BEFORE email/invite signing — no page K
           if (signupData.workerCreate) {
             setStatus('keyStatus', 'יוצר זהות מאובטחת בכספת...', false);
+            // Fresh computer accounts must keep Worker vault authoritative across reload
+            // so Chat has a signer without raw K in the main origin.
+            try {
+              if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('SOS_CRYPTO_WORKER_AUTHORITATIVE', '1');
+              }
+              window.SOS_CRYPTO_WORKER_AUTHORITATIVE = true;
+              window.__SOS_CRYPTO_WORKER_AUTHORITATIVE__ = true;
+            } catch (_flagOn) {}
             var createdW = await window.SosCryptoWorkerVault.createBrowserIdentity({
               createNonce: signupData.createNonce
             });
@@ -929,10 +938,25 @@
             App.guestMode = false;
             App.identityState = 'IDENTITY_OK';
             try {
-              if (window.SosCryptoWorkerVault.flagEnabled && window.SosCryptoWorkerVault.flagEnabled()) {
-                await window.SosCryptoWorkerVault.tryActivateAuthoritative();
+              var actW = await window.SosCryptoWorkerVault.tryActivateAuthoritative();
+              if (!actW || actW.ok !== true) {
+                setStatus('keyStatus', 'יצירת זהות נשמרה אך אין סמכות חתימה. נסו שוב.', true);
+                btnFinalConnect.disabled = false;
+                updateFinalConnectState();
+                return;
               }
-            } catch (_act) {}
+            } catch (_act) {
+              setStatus('keyStatus', 'יצירת זהות נשמרה אך אין סמכות חתימה. נסו שוב.', true);
+              btnFinalConnect.disabled = false;
+              updateFinalConnectState();
+              return;
+            }
+            if (!(App.SosCryptoSigner && typeof App.SosCryptoSigner.hasIdentityKey === 'function' && App.SosCryptoSigner.hasIdentityKey())) {
+              setStatus('keyStatus', 'אין חותם מוכן לחשבון החדש. נסו שוב.', true);
+              btnFinalConnect.disabled = false;
+              updateFinalConnectState();
+              return;
+            }
           }
 
           // לפני סימון הזמנה — שמירה עמידה של זהות חדשה (native/web).
@@ -940,6 +964,52 @@
           setStatus('keyStatus', 'שומר זהות...', false);
           if (signupData.workerCreate) {
             App.privateKey = null;
+            // Coherent public snapshot — no secrets.
+            try {
+              if (typeof App.ensureKeys === 'function') {
+                var ensuredW = App.ensureKeys();
+                if (!ensuredW || ensuredW.ok !== true || ensuredW.state !== 'IDENTITY_OK') {
+                  setStatus('keyStatus', 'זהות Worker לא אומתה כ-IDENTITY_OK.', true);
+                  btnFinalConnect.disabled = false;
+                  updateFinalConnectState();
+                  return;
+                }
+              }
+              App.guestMode = false;
+              App.identityState = 'IDENTITY_OK';
+              App._webAccountSnapshot = {
+                authenticated: true,
+                guest: false,
+                accountP: String(App.publicKey || '').toLowerCase(),
+                identityState: 'IDENTITY_OK',
+                providerState:
+                  (window.SOSKeyStorage &&
+                    typeof window.SOSKeyStorage.getProviderState === 'function' &&
+                    window.SOSKeyStorage.getProviderState()) ||
+                  'WORKER_VAULT',
+                hasSigner: !!(
+                  App.SosCryptoSigner &&
+                  typeof App.SosCryptoSigner.hasIdentityKey === 'function' &&
+                  App.SosCryptoSigner.hasIdentityKey()
+                ),
+                workerAuthoritative: !!(
+                  App.SosCryptoSigner &&
+                  typeof App.SosCryptoSigner.isWorkerAuthoritative === 'function' &&
+                  App.SosCryptoSigner.isWorkerAuthoritative()
+                ),
+              };
+              if (!App._webAccountSnapshot.hasSigner || !App._webAccountSnapshot.accountP) {
+                setStatus('keyStatus', 'אין חותם מוכן לפני סימון הזמנה.', true);
+                btnFinalConnect.disabled = false;
+                updateFinalConnectState();
+                return;
+              }
+            } catch (_snap) {
+              setStatus('keyStatus', 'כשל באימות זהות לפני הזמנה.', true);
+              btnFinalConnect.disabled = false;
+              updateFinalConnectState();
+              return;
+            }
           } else if (typeof App.createNewIdentityExplicit === 'function') {
             var created = App.createNewIdentityExplicit({ privateKeyHex: signupData.privateKey });
             if (!created || created.ok !== true) {
@@ -1078,6 +1148,14 @@
             throw new Error('מנגנון ההזמנות לא נטען');
           }
           var created = await App.createInvite();
+          // Web: show invite QR (URL payload only) before/alongside WhatsApp share | HYPER CORE TECH
+          if (typeof App.showInviteQrModal === 'function' && created && created.inviteUrl) {
+            try {
+              await App.showInviteQrModal(created.inviteUrl, created.code);
+            } catch (qrErr) {
+              console.warn('[invite-qr] render failed', qrErr);
+            }
+          }
           if (typeof App.openWhatsAppInvite === 'function') {
             App.openWhatsAppInvite(created.whatsappUrl);
           } else {

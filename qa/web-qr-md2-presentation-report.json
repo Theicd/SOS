@@ -1,0 +1,85 @@
+{
+  "gate": "WEB_QR_MD2_PRESENTATION",
+  "status": "PASS",
+  "results": [
+    {
+      "name": "invite qr ui file",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "md2 qr ui file",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "vendor qrcode",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "videos loads invite qr",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "videos loads md2 qr",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "guest-auth shows invite qr",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "invite scan button",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "invite qr uses URL only",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "GROUP_INVITE_QR_GENERATE",
+      "ok": true,
+      "detail": "data:image/png;base64,iVBORw0KGg"
+    },
+    {
+      "name": "Md2 API loaded",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MD2_PAIRING_QR_RENDER",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MD2_PAIRING_QR_PARSE",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MD2_PAIRING_QR_SECRET_SCAN reject nsec field",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MD2_PAIRING_QR_SECRET_SCAN clean",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "GROUP_INVITE_QR_GENERATE_GATE": "PASS",
+  "GROUP_INVITE_QR_SCAN_GATE": "PASS",
+  "MD2_PAIRING_QR_RENDER_GATE": "PASS",
+  "MD2_PAIRING_QR_PARSE_GATE": "PASS",
+  "MD2_PAIRING_QR_SECRET_SCAN": "PASS",
+  "LINKED_DEVICES_WEB_UI_CURRENT_STATUS": "NOT_AVAILABLE_WEB — MD1–MD3 device keys Android-only; MD4 not started",
+  "LINKED_DEVICES_WEB_UI_GATE": "BLOCKED_ARCHITECTURE",
+  "GROUP_ACCESS_CONTROL_WEB_GATE": "BLOCKED_WITH_EXACT_ARCHITECTURE_REASON — admin/member/role UI exists (admin-settings-ui.js, member-directory-ui.js) but requires SOS_ACCESS_CONTROL_V2=true; global default must remain OFF",
+  "ts": "2026-09-26T00:23:16.727Z"
+}

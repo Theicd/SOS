@@ -1,0 +1,106 @@
+{
+  "gate": "WEB_PRIVACY_AND_PLAN_AUDITS",
+  "status": "PASS",
+  "RELAY_METADATA_PRIVACY_AUDIT": "PASS",
+  "relay_metadata_matrix": [
+    {
+      "type": "chat",
+      "sender": true,
+      "recipient": true,
+      "timestamp": true,
+      "size": true,
+      "relayIp": true,
+      "correlation": "HIGH"
+    },
+    {
+      "type": "file_metadata",
+      "sender": true,
+      "recipient": true,
+      "timestamp": true,
+      "size": true,
+      "relayIp": true,
+      "correlation": "HIGH"
+    },
+    {
+      "type": "voice_metadata",
+      "sender": true,
+      "recipient": true,
+      "timestamp": true,
+      "size": true,
+      "relayIp": true,
+      "correlation": "HIGH"
+    },
+    {
+      "type": "read_receipts",
+      "sender": true,
+      "recipient": true,
+      "timestamp": true,
+      "size": true,
+      "relayIp": true,
+      "correlation": "MEDIUM"
+    },
+    {
+      "type": "presence",
+      "sender": true,
+      "recipient": "partial",
+      "timestamp": true,
+      "size": true,
+      "relayIp": true,
+      "correlation": "MEDIUM"
+    },
+    {
+      "type": "call_signaling",
+      "sender": true,
+      "recipient": true,
+      "timestamp": true,
+      "size": true,
+      "relayIp": true,
+      "correlation": "HIGH"
+    },
+    {
+      "type": "p2p_signaling",
+      "sender": true,
+      "recipient": true,
+      "timestamp": true,
+      "size": true,
+      "relayIp": true,
+      "correlation": "HIGH"
+    }
+  ],
+  "BLOSSOM_METADATA_PRIVACY_AUDIT": "PASS",
+  "blossom_metadata": {
+    "IP": "visible_to_server",
+    "ciphertext_size": "visible",
+    "upload_time": "visible",
+    "MIME": "may_be_visible_on_upload_headers",
+    "filename": "should_be_opaque_or_absent_for_encrypted-media",
+    "blob_hash": "visible",
+    "request_correlation": "possible_via_IP_time_size",
+    "anonymity_claim": false,
+    "CLIENT_SIDE_ENCRYPTED_BEFORE_UPLOAD": true
+  },
+  "P2P_PRIVACY_AUDIT": "PASS",
+  "p2p_privacy": {
+    "remote_peer_IP_visibility": true,
+    "ICE_candidate_exposure": true,
+    "STUN": "may_assist_srflx",
+    "TURN": "optional_not_forced",
+    "relay_signaling_metadata": true,
+    "FORCE_TURN_ONLY": false
+  },
+  "CALL_SIGNALING_LEGACY_AUDIT": {
+    "SECURE_CALL_SIGNALING_ACTIVE": true,
+    "LEGACY_CALL_SIGNALING_ACTIVE": true,
+    "LEGACY_SIGNALING_SENSITIVE_CONTENT": true,
+    "LEGACY_25050_REQUIRED_FOR_COMPATIBILITY": true,
+    "LEGACY_25050_CURRENT_USERS_DEPEND_ON_IT": "unknown",
+    "SECURE_1059_COVERS_ALL_CURRENT_WEB_CLIENTS": true,
+    "cutover_recommendation": "Keep legacy READ for old peers; Web publish remains giftwrap1059 XOR single transport; remove 25050 only after telemetry shows zero legacy publishers + owner approval"
+  },
+  "CHAT_FORWARD_SECRECY": "NO",
+  "POST_COMPROMISE_SECURITY": "NO",
+  "FORWARD_SECRECY_PLAN_GATE": "PASS",
+  "ANDROID_DEFERRED_LIST_GATE": "PASS",
+  "ANDROID_FROZEN": true,
+  "ts": "2026-09-26T00:22:06.098Z"
+}
