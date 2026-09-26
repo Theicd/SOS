@@ -1,0 +1,85 @@
+{
+  "gate": "PACKAGE894_REAL_BROWSER_P2P",
+  "status": "BLOCKED_NETWORK",
+  "ts": "2026-09-26T11:49:35.793Z",
+  "production": {
+    "url": "https://sos010.com/videos.html",
+    "package": "2026.09.26-web-893"
+  },
+  "p2p": {
+    "REAL_BROWSER_P2P_CAPABILITY_A": true,
+    "REAL_BROWSER_P2P_CAPABILITY_B": true,
+    "REAL_BROWSER_P2P_SIGNALING_STARTED": true,
+    "nego": [
+      {
+        "started": true,
+        "capability": true,
+        "initiator": false
+      },
+      {
+        "started": true,
+        "capability": true,
+        "initiator": true
+      }
+    ],
+    "REAL_BROWSER_P2P_SETUP_MS": 61393,
+    "REAL_BROWSER_P2P_OFFER_SENT": true,
+    "REAL_BROWSER_P2P_ANSWER_RECEIVED": true,
+    "REAL_BROWSER_P2P_ICE_STARTED": false,
+    "REAL_BROWSER_P2P_ICE_STATE": "unknown",
+    "REAL_BROWSER_P2P_DATA_CHANNEL_OPEN": false,
+    "REAL_BROWSER_P2P_CONNECTED": false,
+    "snapA": {
+      "hasPeer": true,
+      "status": "waiting",
+      "iceConnectionState": null,
+      "connectionState": null,
+      "signalingState": null,
+      "dcState": null,
+      "connected": false
+    },
+    "snapB": {
+      "hasPeer": true,
+      "status": "connecting",
+      "iceConnectionState": "new",
+      "connectionState": "new",
+      "signalingState": "have-local-offer",
+      "dcState": "connecting",
+      "connected": false
+    },
+    "candidateTypes": {
+      "local": [],
+      "remote": []
+    },
+    "P2P_CODE_FIX_REQUIRED": false
+  },
+  "text": {
+    "REAL_BROWSER_DIRECT_TEXT_TRANSPORT": "N/A",
+    "REAL_BROWSER_P2P_TEXT_A2B_GATE": "FAIL",
+    "REAL_BROWSER_P2P_TEXT_B2A_GATE": "FAIL"
+  },
+  "file": {
+    "REAL_BROWSER_DIRECT_FILE_TRANSPORT": "N/A",
+    "REAL_BROWSER_P2P_FILE_GATE": "FAIL",
+    "REAL_BROWSER_P2P_FILE_HASH_MATCH": false
+  },
+  "perf": {
+    "REAL_BROWSER_P2P_RTT_AVG_MS": null,
+    "REAL_BROWSER_P2P_10MB_MBPS": null,
+    "REAL_BROWSER_P2P_PERFORMANCE_GATE": "FAIL"
+  },
+  "fallback": {
+    "REAL_BROWSER_RELAY_FALLBACK_GATE": "PASS",
+    "send": {
+      "ok": true,
+      "transport": "NOSTR"
+    },
+    "recv": {
+      "ok": true,
+      "transport": "DOM"
+    },
+    "REAL_BROWSER_P2P_AND_RELAY_BOTH_VERIFIED": false
+  },
+  "classification": "SIGNALING",
+  "HUMAN_ACTION_REQUIRED": null
+}

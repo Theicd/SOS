@@ -1,8 +1,8 @@
-// חלק Service Worker (service-worker.js) – PWA מלא עם cache, push, notifications ותמיכה ברקע | HYPER CORE TECH
+﻿// חלק Service Worker (service-worker.js) – PWA מלא עם cache, push, notifications ותמיכה ברקע | HYPER CORE TECH
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v893'; // I2 pending package only. Delete flag stays false. Not deployed by packaging.
+  const CACHE_NAME = 'sos-cache-v894'; // I2 pending package only. Delete flag stays false. Not deployed by packaging.
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -72,18 +72,18 @@
     './p2p-standby.html',
     './doom-multiplayer.html',
     './hexgl-multiplayer.html',
-    './key-storage.js?pkg=893',
-    './identity-storage-bootstrap.js?pkg=893',
-    './auth-guard.js?pkg=893',
-    './config.js?pkg=893',
-    './keys.js?pkg=893',
-    './app.js?pkg=893',
-    './identity-lifecycle.js?pkg=893',
+    './key-storage.js?pkg=894',
+    './identity-storage-bootstrap.js?pkg=894',
+    './auth-guard.js?pkg=894',
+    './config.js?pkg=894',
+    './keys.js?pkg=894',
+    './app.js?pkg=894',
+    './identity-lifecycle.js?pkg=894',
     './signer-outage-isolation.js',
     './isolated-signer-trusted-import.js',
-    './account.js?pkg=893',
-    './key-viewer.js?pkg=893',
-    './sw-register.js?pkg=893',
+    './account.js?pkg=894',
+    './key-viewer.js?pkg=894',
+    './sw-register.js?pkg=894',
   ];
 
   async function networkFirstThenCache(request, isNavigate) {

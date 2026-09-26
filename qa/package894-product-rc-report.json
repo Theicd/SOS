@@ -1,0 +1,107 @@
+{
+  "gate": "PACKAGE894_PRODUCT_RC",
+  "status": "PASS",
+  "ts": "2026-09-26T11:39:53.181Z",
+  "results": {
+    "IDENTITY": {
+      "ok": true,
+      "detail": "2026.09.26-web-894"
+    },
+    "NEW_ACCOUNT": {
+      "ok": true,
+      "detail": null
+    },
+    "EXISTING_KEY": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE_894_VISIBLE": {
+      "ok": true,
+      "detail": "2026.09.26-web-894"
+    },
+    "HEBREW": {
+      "ok": true,
+      "detail": "DOM Hebrew sample"
+    },
+    "DIRECT_P2P": {
+      "ok": true,
+      "detail": {
+        "connected": true,
+        "dc": "open"
+      },
+      "optional": true
+    },
+    "CHAT": {
+      "ok": true,
+      "detail": {
+        "send": {
+          "ok": true,
+          "transport": "DC",
+          "id": null,
+          "err": null
+        },
+        "transport": "DOM"
+      }
+    },
+    "RELAY": {
+      "ok": true,
+      "detail": "DOM"
+    },
+    "POST": {
+      "ok": true,
+      "detail": "1da418912106"
+    },
+    "SHARE": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "kind": 6,
+        "id": "ad3c63104ceb"
+      }
+    },
+    "LIKE": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMENT": {
+      "ok": true,
+      "detail": null
+    },
+    "FOLLOW": {
+      "ok": true,
+      "detail": null
+    },
+    "NOTIFICATIONS": {
+      "ok": true,
+      "detail": "architecture unchanged"
+    },
+    "PRIVATE_ATTACHMENTS": {
+      "ok": true,
+      "detail": "no delta; inherit 893 PASS"
+    },
+    "VOICE": {
+      "ok": true,
+      "detail": "no delta; inherit 893 PASS"
+    },
+    "AUDIO_CALL": {
+      "ok": true,
+      "detail": "no delta; inherit 893 PASS"
+    },
+    "VIDEO_CALL": {
+      "ok": true,
+      "detail": "no delta; inherit 893 PASS"
+    },
+    "FULL_RELOAD": {
+      "ok": true,
+      "detail": null
+    },
+    "NSEC_EXPOSED": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE894_PRODUCT_RC_GATE": {
+      "ok": true,
+      "detail": null
+    }
+  }
+}

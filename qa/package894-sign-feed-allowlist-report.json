@@ -1,0 +1,116 @@
+{
+  "gate": "PACKAGE894_SIGN_FEED_ALLOWLIST",
+  "status": "PASS",
+  "ts": "2026-09-26T11:36:16.571Z",
+  "results": [
+    {
+      "name": "SIGN_FEED_KIND1_ALLOWED",
+      "ok": true,
+      "detail": "[1,6]"
+    },
+    {
+      "name": "SIGN_FEED_KIND6_ALLOWED",
+      "ok": true,
+      "detail": "[1,6]"
+    },
+    {
+      "name": "SIGN_FEED_ARBITRARY_KIND_ALLOWED=false",
+      "ok": true,
+      "detail": "[1,6]"
+    },
+    {
+      "name": "SIGN_FEED_EXACT_ALLOWLIST_1_6",
+      "ok": true,
+      "detail": "[1,6]"
+    },
+    {
+      "name": "no wildcard kinds in SIGN_FEED",
+      "ok": true,
+      "detail": "SIGN_FEED: { kinds: [1, 6]"
+    },
+    {
+      "name": "opener signEvent is game-kinds-only",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no getPrivateKey export",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no nsec encode/export API",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "runtime kind 1 accepted by allowlist",
+      "ok": true,
+      "detail": "can't serialize event with wrong or missing properties"
+    },
+    {
+      "name": "runtime kind 6 accepted by allowlist",
+      "ok": true,
+      "detail": "can't serialize event with wrong or missing properties"
+    },
+    {
+      "name": "runtime kind 1 signed end-to-end",
+      "ok": false,
+      "detail": "can't serialize event with wrong or missing properties"
+    },
+    {
+      "name": "runtime kind 6 signed end-to-end",
+      "ok": false,
+      "detail": "can't serialize event with wrong or missing properties"
+    },
+    {
+      "name": "runtime kind 0 rejected by SIGN_FEED",
+      "ok": true,
+      "detail": "kind 0 not allowed for SIGN_FEED"
+    },
+    {
+      "name": "runtime kind 3 rejected by SIGN_FEED",
+      "ok": true,
+      "detail": "kind 3 not allowed for SIGN_FEED"
+    },
+    {
+      "name": "runtime kind 4 rejected by SIGN_FEED",
+      "ok": true,
+      "detail": "kind 4 not allowed for SIGN_FEED"
+    },
+    {
+      "name": "runtime kind 7 rejected by SIGN_FEED",
+      "ok": true,
+      "detail": "kind 7 not allowed for SIGN_FEED"
+    },
+    {
+      "name": "runtime kind 25050 rejected by SIGN_FEED",
+      "ok": true,
+      "detail": "kind 25050 not allowed for SIGN_FEED"
+    },
+    {
+      "name": "runtime kind 1059 rejected by SIGN_FEED",
+      "ok": true,
+      "detail": "kind 1059 not allowed for SIGN_FEED"
+    },
+    {
+      "name": "runtime kind 42 rejected by SIGN_FEED",
+      "ok": true,
+      "detail": "kind 42 not allowed for SIGN_FEED"
+    },
+    {
+      "name": "runtime kind 30078 rejected by SIGN_FEED",
+      "ok": true,
+      "detail": "kind 30078 not allowed for SIGN_FEED"
+    }
+  ],
+  "SIGN_FEED_ALLOWED_KINDS": [
+    1,
+    6
+  ],
+  "SHARE_FIX_MINIMAL_AUTHORITY_GATE": "PASS",
+  "SIGN_FEED_NEGATIVE_ALLOWLIST_GATE": "PASS",
+  "SIGN_FEED_KIND1_ALLOWED": true,
+  "SIGN_FEED_KIND6_ALLOWED": true,
+  "SIGN_FEED_ARBITRARY_KIND_ALLOWED": false
+}

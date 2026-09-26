@@ -1,0 +1,126 @@
+{
+  "gate": "PACKAGE894_SECURITY",
+  "status": "PASS",
+  "ts": "2026-09-26T11:36:14.448Z",
+  "results": {
+    "ANDROID_UNTOUCHED_BY_894_DELTA": {
+      "ok": true,
+      "detail": "docs/PACKAGE_894_RC_PLAN.md,sos-crypto-signer.js,videos.html"
+    },
+    "SIGN_FEED_ALLOWED_KINDS_EXACT": {
+      "ok": true,
+      "detail": [
+        1,
+        6
+      ]
+    },
+    "NO_WILDCARD_SIGN_FEED": {
+      "ok": true,
+      "detail": null
+    },
+    "NO_GENERIC_SIGN_EVENT_EXPORT": {
+      "ok": true,
+      "detail": null
+    },
+    "NO_NSEC_API": {
+      "ok": true,
+      "detail": null
+    },
+    "SIGN_FEED_NEGATIVE_ALLOWLIST_GATE": {
+      "ok": true,
+      "detail": ""
+    },
+    "WORKER_VAULT_GATE": {
+      "ok": true,
+      "detail": ""
+    },
+    "EXISTING_KEY_IMPORT_STATIC": {
+      "ok": true,
+      "detail": "import path present"
+    },
+    "F5B5": {
+      "ok": true,
+      "detail": "reconciliation report + android untouched"
+    },
+    "F5B6": {
+      "ok": true,
+      "detail": "android untouched inherit"
+    },
+    "F6G3": {
+      "ok": true,
+      "detail": "INHERIT_PASS android untouched by 894 delta"
+    },
+    "F6H": {
+      "ok": true,
+      "detail": "INHERIT_PASS android untouched by 894 delta"
+    },
+    "MD1": {
+      "ok": true,
+      "detail": "INHERIT_PASS android untouched by 894 delta"
+    },
+    "MD2": {
+      "ok": true,
+      "detail": "INHERIT_PASS android untouched by 894 delta"
+    },
+    "MD3": {
+      "ok": true,
+      "detail": "INHERIT_PASS android untouched by 894 delta"
+    },
+    "F6A": {
+      "ok": true,
+      "detail": "INHERIT_PASS android untouched by 894 delta"
+    },
+    "F6I": {
+      "ok": true,
+      "detail": "INHERIT_PASS android untouched by 894 delta"
+    },
+    "F6A_F6I": {
+      "ok": true,
+      "detail": "bundle inherit"
+    },
+    "SHARE_PATH_NO_RAW_K": {
+      "ok": true,
+      "detail": "clean"
+    },
+    "RAW_K_EXPOSED": {
+      "ok": true,
+      "detail": false
+    },
+    "NSEC_EXPOSED": {
+      "ok": true,
+      "detail": false
+    },
+    "FILE_KEY_EXPOSED": {
+      "ok": true,
+      "detail": false
+    },
+    "DEVICE_PRIVATE_KEY_EXPOSED": {
+      "ok": true,
+      "detail": false
+    },
+    "EXISTING_KEY_IMPORT_GATE": {
+      "ok": true,
+      "detail": {
+        "hasSigner": true,
+        "backend": "MAIN_THREAD"
+      }
+    },
+    "RC894_SECRET_LEAK_GATE": {
+      "ok": true,
+      "detail": "nsecDom=false"
+    },
+    "MASTER_SECURITY_REGRESSION": {
+      "ok": true,
+      "detail": "web allowlist + vault + android untouched"
+    },
+    "RC894_SECURITY_GATE": {
+      "ok": true,
+      "detail": ""
+    }
+  },
+  "evidence": {},
+  "RAW_K_EXPOSED": false,
+  "NSEC_EXPOSED": false,
+  "FILE_KEY_EXPOSED": false,
+  "DEVICE_PRIVATE_KEY_EXPOSED": false
+}

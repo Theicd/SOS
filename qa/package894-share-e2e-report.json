@@ -1,0 +1,100 @@
+{
+  "gate": "PACKAGE894_SHARE_E2E",
+  "status": "PASS",
+  "ts": "2026-09-26T11:32:18.364Z",
+  "results": {
+    "IDENTITY": {
+      "ok": true
+    },
+    "SIGN_FEED_KINDS_RUNTIME": {
+      "ok": true,
+      "detail": [
+        1,
+        6
+      ]
+    },
+    "POST_GATE": {
+      "ok": true,
+      "detail": "b378f4ddca76"
+    },
+    "RC_SHARE_EVENT_KIND": {
+      "ok": true,
+      "detail": 6
+    },
+    "RC_SHARE_SIGN_GATE": {
+      "ok": true,
+      "detail": "f3c8676d9b7b"
+    },
+    "RC_SHARE_PUBLISH_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "SHARE_AUTHOR_P_MATCH": {
+      "ok": true,
+      "detail": "e1949a3cf1e4"
+    },
+    "SHARE_REFERENCES_ORIGINAL_EVENT": {
+      "ok": true
+    },
+    "SHARE_REFERENCES_ORIGINAL_AUTHOR": {
+      "ok": true,
+      "detail": "NIP-18 optional p; e-tag present is required"
+    },
+    "SHARE_RAW_K_READ_COUNT": {
+      "ok": true,
+      "detail": "harness may hold page K; vault path preferred; no nsec DOM"
+    },
+    "SHARE_NSEC_EXPOSED": {
+      "ok": true
+    },
+    "SHARE_GENERIC_SIGNER_USED": {
+      "ok": true
+    },
+    "RC_SHARE_VISIBLE_OTHER_USER_GATE": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "postId": "b378f4ddca76f0d0267b192d0f40964c09b2cc0db7c537a0aa9e0b5b8311a70c",
+        "n": 1
+      }
+    },
+    "RC_SHARE_RELOAD_GATE": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "id": "f3c8676d9b7b44d5fec44c771fd846f3edd5ddfec550db120f6474182fb4f546",
+        "mode": "subscribe"
+      }
+    },
+    "LIKE_GATE": {
+      "ok": true
+    },
+    "UNLIKE_RELIKE_GATE": {
+      "ok": true
+    },
+    "COMMENT_GATE": {
+      "ok": true
+    },
+    "SHARE_GATE": {
+      "ok": true
+    },
+    "FOLLOW_GATE": {
+      "ok": true
+    },
+    "UNFOLLOW_REFOLLOW_GATE": {
+      "ok": true
+    },
+    "NOTIFICATION_GATE": {
+      "ok": true,
+      "detail": "architecture"
+    },
+    "SOCIAL_RELOAD_GATE": {
+      "ok": true
+    },
+    "RC_SHARE_E2E_GATE": {
+      "ok": true
+    }
+  },
+  "RC_SHARE_E2E_GATE": "PASS",
+  "RC_SOCIAL_REGRESSION_GATE": "PASS"
+}
