@@ -1,11 +1,23 @@
 # Access Control V2 — Activation Plan (NOT EXECUTED)
 
 **Status:** draft for owner approval only.  
-**Production now:** Package 894, `SOS_ACCESS_CONTROL_V2=false`.
+**Production now:** Package 894, `SOS_ACCESS_CONTROL_V2=false`.  
+**Local branch:** `local/access-control-v2-product` preparing Package **895** (not deployed).
+
+## Product model (must stay true after activation)
+
+- SOS010 = **one global** communication network
+- Global identity = single **P**
+- Global: user search, direct chat, P2P, audio/video calls (membership not required)
+- Community-scoped: branding, content, membership, admins, roles, permissions, invites, moderation, settings
+- Feed = union of user-selected communities (selection ≠ membership)
+- Authorization = `(P, communityId, capability)`
 
 ## Preconditions
 
 1. Local product gates PASS on `local/access-control-v2-product`
+   - `qa/access-control-v2-product-gate.mjs`
+   - `qa/access-control-v2-community-product-gate.mjs`
 2. Adversarial + cross-group + multitab gates PASS
 3. Security non-regression PASS
 4. Explicit owner approval for a **dark** or **enabled** production package
@@ -23,7 +35,7 @@
 
 1. Merge local AC product branch after RC PASS
 2. Deploy Package 895 **with flag still OFF** (dark UI code path only) **or** enable flag only if owner orders
-3. Smoke: create group (if enabled), admin menu, invite/QR, member remove, privilege denial
+3. Smoke: create community (logo/name), branding switch, feed selector, admin menu, invite/QR, member remove, privilege denial, cross-community chat/calls
 4. If regression → rollback to 894
 
 ## Local test (developers)

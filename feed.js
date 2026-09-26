@@ -33,10 +33,33 @@
     const CC = App.CommunityContext || window.SosCommunityContext;
     if (CC && typeof CC.snapshot === 'function') {
       const snap = CC.snapshot();
-      if (snap && snap.networkTag) return snap.networkTag;
+      // Inside a non-global community: scope feed to that community only.
+      if (snap && snap.networkTag && snap.communityId && snap.communityId !== 'sos010') {
+        return snap.networkTag;
+      }
     }
     if (typeof App.NETWORK_TAG === 'string' && App.NETWORK_TAG.trim()) return App.NETWORK_TAG.trim();
     return 'israel-network';
+  }
+
+  /** Union of selected community feeds when on global network / multi-select. */
+  function resolveFeedNetworkTags(explicit) {
+    if (typeof explicit === 'string' && explicit.trim()) return [explicit.trim()];
+    if (Array.isArray(explicit) && explicit.length) {
+      return explicit.map((t) => String(t || '').trim()).filter(Boolean);
+    }
+    const CC = App.CommunityContext || window.SosCommunityContext;
+    if (CC && typeof CC.snapshot === 'function') {
+      const snap = CC.snapshot();
+      if (snap && snap.communityId && snap.communityId !== 'sos010' && snap.networkTag) {
+        return [snap.networkTag];
+      }
+      if (typeof CC.getSelectedNetworkTags === 'function') {
+        const selected = CC.getSelectedNetworkTags();
+        if (Array.isArray(selected) && selected.length) return selected;
+      }
+    }
+    return [resolveFeedNetworkTag()];
   }
 
   function feedBucket(networkTag) {
@@ -51,6 +74,7 @@
   }
 
   App.resolveFeedNetworkTag = resolveFeedNetworkTag;
+  App.resolveFeedNetworkTags = resolveFeedNetworkTags;
   App.feedBucket = feedBucket;
 
   // חלק פרופילי מגיבים (feed.js) – TTL לאווטארים ופרופילים למניעת פניות חוזרות לריליי | HYPER CORE TECH
@@ -3829,7 +3853,8 @@
 
   // חלק פיד (feed.js) – בניית פילטרים מרכזיים לפיד ולהתרעות | HYPER CORE TECH
 function buildCoreFeedFilters(sinceTimestamp = 0) {
-  const baseFilter = { kinds: [1], '#t': [resolveFeedNetworkTag()], limit: 200 };
+  const tags = resolveFeedNetworkTags();
+  const baseFilter = { kinds: [1], '#t': tags, limit: 200 };
   if (sinceTimestamp > 0) baseFilter.since = sinceTimestamp;
   const filters = [baseFilter];
   const viewerKey = typeof App.publicKey === 'string' ? App.publicKey : '';
@@ -3848,14 +3873,14 @@ function buildCoreFeedFilters(sinceTimestamp = 0) {
     });
   }
   // מחיקות: limit נמוך; אחרי hydrate — רק חלון since (שלב 1 ייעול ריליי) | HYPER CORE TECH
-  const delNet = { kinds: [5], '#t': [resolveFeedNetworkTag()], limit: 80 };
+  const delNet = { kinds: [5], '#t': tags, limit: 80 };
   const deletionsHydrated = App.deletedEventIds instanceof Set && App.deletedEventIds.size > 0;
   if (deletionsHydrated) {
     delNet.since = Math.floor(Date.now() / 1000) - (2 * 60 * 60);
   }
   filters.push(delNet);
   // AC4: group moderation tips (V2). Safe to subscribe always; acceptance gated by ModerationPolicy.isV2.
-  const modNet = { kinds: [39002], '#t': [resolveFeedNetworkTag()], limit: 80 };
+  const modNet = { kinds: [39002], '#t': tags, limit: 80 };
   if (deletionsHydrated) {
     modNet.since = delNet.since;
   }
@@ -3868,12 +3893,11 @@ function buildCoreFeedFilters(sinceTimestamp = 0) {
     }
     filters.push(delAuthors);
   }
-  filters.push({ kinds: [7], '#t': [resolveFeedNetworkTag()], limit: 500 });
+  filters.push({ kinds: [7], '#t': tags, limit: 500 });
   if (viewerKey) {
     const datingFilter = { kinds: [DATING_LIKE_KIND], '#p': [viewerKey], limit: 200 };
-    const nt = resolveFeedNetworkTag();
-    if (nt) {
-      datingFilter['#t'] = [nt];
+    if (tags.length) {
+      datingFilter['#t'] = tags;
     }
     filters.push(datingFilter);
     const followFilter = { kinds: [FOLLOW_KIND], '#p': [viewerKey], limit: 200 };
@@ -4290,6 +4314,11 @@ async function loadFeed() {
       
       const safeContent = App.escapeHtml(event.content || '');
       const metaHtml = formatTimestamp(event.created_at);
+      const FS = App.CommunityFeedSelection || window.SosCommunityFeedSelection;
+      const communityAttr =
+        FS && typeof FS.communityAttributionHtml === 'function'
+          ? FS.communityAttributionHtml(event)
+          : '';
       
       article.innerHTML = `
         <header class="feed-post__header">
@@ -4297,6 +4326,7 @@ async function loadFeed() {
           <div class="feed-post__info">
             <button class="feed-post__name" type="button" ${profileDataset} ${clickOpen}>${safeName}</button>
             ${metaHtml ? `<span class="feed-post__meta">${metaHtml}</span>` : ''}
+            ${communityAttr}
           </div>
         </header>
         ${safeContent ? `<div class="feed-post__content" data-post-content="${event.id}">${safeContent}</div>` : ''}

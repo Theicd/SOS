@@ -335,7 +335,7 @@ async function main() {
   ok = record('external blocklist off', CC.EXTERNAL_BLOCKLIST_IMPLEMENTED === false) && ok;
   ok = record('community follow off', CC.COMMUNITY_FOLLOW_IMPLEMENTED === false) && ok;
   ok = record('bridge off', CC.COMMUNITY_BRIDGE_IMPLEMENTED === false) && ok;
-  ok = record('creation off', CC.COMMUNITY_CREATION_IMPLEMENTED === false) && ok;
+  ok = record('creation on (local product)', CC.COMMUNITY_CREATION_IMPLEMENTED === true) && ok;
   ok = record('no raw admin key', CC.COMMUNITY_CREATION_REQUIRES_RAW_PRIVATE_ADMIN_KEY === false) && ok;
 
   // V2 default
@@ -398,7 +398,7 @@ async function main() {
   report.EXTERNAL_BLOCKLIST_IMPLEMENTED = false;
   report.COMMUNITY_FOLLOW_IMPLEMENTED = false;
   report.COMMUNITY_BRIDGE_IMPLEMENTED = false;
-  report.COMMUNITY_CREATION_IMPLEMENTED = false;
+  report.COMMUNITY_CREATION_IMPLEMENTED = true;
   report.COMMUNITY_CREATION_REQUIRES_RAW_PRIVATE_ADMIN_KEY = false;
   report.ACCESS_CONTROL_V2_DEFAULT = false;
   report.PRODUCTION_GROUP_CONTROL_EVENT_PUBLISHED = false;

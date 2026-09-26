@@ -206,9 +206,34 @@
       body.innerHTML =
         '<p>יצירת קבוצה/קהילה חדשה. היוצר הופך למנהל הסמכותי הראשוני.</p>' +
         '<div class="gap-row"><label for="sosGapName">שם הקבוצה</label><input id="sosGapName" maxlength="80"></div>' +
-        '<div class="gap-row"><label for="sosGapDesc">תיאור</label><textarea id="sosGapDesc" rows="2" maxlength="240"></textarea></div>' +
+        '<div class="gap-row"><label for="sosGapLogo">לוגו הקבוצה</label><input id="sosGapLogo" type="file" accept="image/*">' +
+        '<div id="sosGapLogoPreview" style="margin-top:6px"></div></div>' +
+        '<div class="gap-row"><label for="sosGapDesc">תיאור הקבוצה</label><textarea id="sosGapDesc" rows="2" maxlength="240"></textarea></div>' +
         '<div class="gap-row"><label for="sosGapSlug">מזהה (slug)</label><input id="sosGapSlug" maxlength="48" placeholder="my-group"></div>' +
         '<div class="gap-actions"><button type="button" class="gap-btn primary" id="sosGapCreateBtn">יצירת קבוצה</button></div>';
+      const logoInp = document.getElementById('sosGapLogo');
+      if (logoInp) {
+        logoInp.addEventListener('change', () => {
+          const f = logoInp.files && logoInp.files[0];
+          const prev = document.getElementById('sosGapLogoPreview');
+          if (!f || !prev) return;
+          if (f.size > 350000) {
+            setMsg('הלוגו גדול מדי (עד ~350KB)', 'err');
+            logoInp.value = '';
+            prev.innerHTML = '';
+            window.__SOS_GAP_LOGO_DATA__ = '';
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = String(reader.result || '');
+            window.__SOS_GAP_LOGO_DATA__ = dataUrl;
+            prev.innerHTML =
+              '<img src="' + dataUrl.replace(/"/g, '') + '" alt="logo preview" style="max-height:64px;border-radius:8px">';
+          };
+          reader.readAsDataURL(f);
+        });
+      }
     }
     setMsg('', '');
   }
@@ -216,6 +241,7 @@
   async function createGroupFromForm() {
     const name = (document.getElementById('sosGapName') || {}).value || '';
     const desc = (document.getElementById('sosGapDesc') || {}).value || '';
+    const logoRef = String(window.__SOS_GAP_LOGO_DATA__ || '').trim();
     let slug = String((document.getElementById('sosGapSlug') || {}).value || '')
       .trim()
       .toLowerCase()
@@ -249,10 +275,15 @@
         groupId: networkTag,
         slug,
         name: name.trim(),
-        logoRef: '',
-        description: desc,
+        logoRef,
+        description: String(desc || '').trim(),
       });
       cc.setActive(communityId);
+      // Auto-include new community in feed selection (membership unchanged elsewhere)
+      try {
+        const sel = cc.getFeedSelection();
+        if (!sel.includes(communityId)) cc.setFeedSelection(sel.concat([communityId]));
+      } catch (_fs) {}
     } catch (e) {
       setMsg('רישום קהילה נכשל: ' + (e.code || e.message || e), 'err');
       return { ok: false, code: String(e.code || e.message || e) };
@@ -310,16 +341,41 @@
     }
 
     setMsg('הקבוצה נוצרה. אתם המנהלים הראשונים.', 'ok');
+    window.__SOS_GAP_LOGO_DATA__ = '';
+    try {
+      if (App.CommunityBrandingUi && typeof App.CommunityBrandingUi.applyBranding === 'function') {
+        App.CommunityBrandingUi.applyBranding(cc.snapshot());
+      }
+    } catch (_brand) {}
     try {
       window.dispatchEvent(
         new CustomEvent('sos-group-created', {
-          detail: { groupId: networkTag, communityId, name: name.trim(), rootAdminPubkey: pk },
+          detail: {
+            groupId: networkTag,
+            communityId,
+            name: name.trim(),
+            logoRef,
+            description: String(desc || '').trim(),
+            rootAdminPubkey: pk,
+            CREATOR_AUTO_ENTER_COMMUNITY: true,
+            CREATOR_IS_INITIAL_AUTHORIZED_ADMIN: true,
+          },
         })
       );
     } catch (_e) {}
     ensureMenuEntry();
     renderTab('details');
-    return { ok: true, groupId: networkTag, communityId, rootAdminPubkey: pk };
+    return {
+      ok: true,
+      groupId: networkTag,
+      communityId,
+      name: name.trim(),
+      logoRef,
+      description: String(desc || '').trim(),
+      rootAdminPubkey: pk,
+      CREATOR_AUTO_ENTER_COMMUNITY: true,
+      CREATOR_IS_INITIAL_AUTHORIZED_ADMIN: true,
+    };
   }
 
   async function createInviteFlow() {

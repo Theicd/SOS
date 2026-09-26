@@ -377,6 +377,44 @@
 
   /** Session redeem gate — set after successful validateInvite for mark-used. */
   let redeemSession = null;
+  const LOCAL_REDEEM_LOCK_KEY = 'sos-invite-local-redeem-lock-v1';
+  /** @type {Set<string>} */
+  const localRedeemedIds = new Set();
+
+  function loadLocalRedeemLocks() {
+    try {
+      const raw = window.localStorage.getItem(LOCAL_REDEEM_LOCK_KEY);
+      if (!raw) return;
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) arr.forEach((id) => localRedeemedIds.add(String(id).toLowerCase()));
+    } catch (_e) {}
+  }
+
+  function persistLocalRedeemLocks() {
+    try {
+      window.localStorage.setItem(LOCAL_REDEEM_LOCK_KEY, JSON.stringify(Array.from(localRedeemedIds)));
+    } catch (_e) {}
+  }
+
+  loadLocalRedeemLocks();
+
+  function isLocallyRedeemed(inviteEventId) {
+    const id = String(inviteEventId || '').toLowerCase();
+    return !!(id && localRedeemedIds.has(id));
+  }
+
+  /**
+   * Official-client double-redeem serialization: first claim wins, second fails.
+   * Does not replace relay used-markers; complements them for same-profile races.
+   */
+  function claimLocalRedeem(inviteEventId) {
+    const id = String(inviteEventId || '').toLowerCase();
+    if (!id || !/^[0-9a-f]{64}$/.test(id)) return false;
+    if (localRedeemedIds.has(id)) return false;
+    localRedeemedIds.add(id);
+    persistLocalRedeemLocks();
+    return true;
+  }
 
   function setRedeemSession(payload) {
     redeemSession = payload
@@ -391,12 +429,22 @@
 
   function consumeRedeemSession(code, inviteEventId) {
     if (!redeemSession) return false;
+    const id = String(inviteEventId || '').toLowerCase();
     const ok =
       redeemSession.code === String(code || '').toUpperCase() &&
-      redeemSession.inviteEventId === String(inviteEventId || '').toLowerCase() &&
+      redeemSession.inviteEventId === id &&
       Date.now() - redeemSession.ts < 30 * 60 * 1000;
-    if (ok) redeemSession = null;
-    return ok;
+    if (!ok) return false;
+    if (isLocallyRedeemed(id)) {
+      redeemSession = null;
+      return false;
+    }
+    if (!claimLocalRedeem(id)) {
+      redeemSession = null;
+      return false;
+    }
+    redeemSession = null;
+    return true;
   }
 
   function peekRedeemSession() {
@@ -432,6 +480,10 @@
     setRedeemSession,
     consumeRedeemSession,
     peekRedeemSession,
+    isLocallyRedeemed,
+    claimLocalRedeem,
+    LOCAL_REDEEM_LOCK_KEY,
+    INVITE_DOUBLE_REDEEM_CLIENT_SERIALIZED: true,
     isV2,
     isAdminPrincipal,
     hasCap,

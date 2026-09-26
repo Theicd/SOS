@@ -1,9 +1,9 @@
-﻿/**
+/**
  * Single Service Worker registration owner.
  * Every caller must use this URL and scope. Do not register service-worker.js elsewhere.
  */
 (function initSOSServiceWorkerRegistration(window) {
-  const SCRIPT_URL = './service-worker.js?pkg=894';
+  const SCRIPT_URL = './service-worker.js?pkg=895';
   const SCOPE = './';
   let pending = null;
 

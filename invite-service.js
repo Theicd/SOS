@@ -251,6 +251,9 @@
     if (used) {
       return { ok: false, error: 'ההזמנה כבר נוצלה' };
     }
+    if (isV2() && P && typeof P.isLocallyRedeemed === 'function' && P.isLocallyRedeemed(inviteEvent.id)) {
+      return { ok: false, error: 'ההזמנה כבר נוצלה', code: 'DOUBLE_REDEEM' };
+    }
 
     const expectedPhoneHash = readInvitePhoneHash(inviteEvent);
     let phoneHash = '';
@@ -317,7 +320,14 @@
       ['t', App.INVITE_TAG || 'sos-invite'],
       ['expiration', String(now + ttl)],
     ];
-    if (App.NETWORK_TAG) tags.push(['t', App.NETWORK_TAG]);
+    const CC = App.CommunityContext || window.SosCommunityContext;
+    const snap = CC && typeof CC.snapshot === 'function' ? CC.snapshot() : null;
+    const bindNetworkTag =
+      (snap && snap.networkTag) ||
+      (typeof App.NETWORK_TAG === 'string' ? App.NETWORK_TAG : '') ||
+      '';
+    if (bindNetworkTag) tags.push(['t', bindNetworkTag]);
+    if (snap && snap.communityId) tags.push(['community', String(snap.communityId)]);
 
     if (isV2() && P) {
       const ih = await P.sha256Hex(code);
@@ -339,12 +349,20 @@
         v: isV2() ? 2 : 1,
         type: 'invite',
         schema: isV2() ? 'sos-invite' : undefined,
+        communityId: snap && snap.communityId ? snap.communityId : undefined,
       }),
       pubkey: App.publicKey,
     };
     // Strip undefined from content
     draft.content = JSON.stringify(
-      isV2() ? { v: 2, type: 'invite', schema: 'sos-invite' } : { v: 1, type: 'invite' }
+      isV2()
+        ? {
+            v: 2,
+            type: 'invite',
+            schema: 'sos-invite',
+            communityId: snap && snap.communityId ? snap.communityId : undefined,
+          }
+        : { v: 1, type: 'invite' }
     );
 
     const event = await Promise.resolve(App.SosCryptoSigner.signInviteEvent(draft));
@@ -356,7 +374,14 @@
     );
     const whatsappUrl = `https://wa.me/?text=${message}`;
 
-    return { code, inviteUrl, whatsappUrl, event };
+    return {
+      code,
+      inviteUrl,
+      whatsappUrl,
+      event,
+      communityId: snap && snap.communityId ? snap.communityId : null,
+      networkTag: bindNetworkTag || null,
+    };
   }
 
   async function markInviteUsed({ code, inviterPubkey, inviteEventId }) {

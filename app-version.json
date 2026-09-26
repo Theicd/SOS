@@ -1,9 +1,9 @@
-﻿{
+{
     "callSignalGiftWrapRequired":  true,
-    "version":  "2026.09.26-web-894",
-    "buildTime":  "2026-09-26T14:30:00+03:00",
+    "version":  "2026.09.26-web-895",
+    "buildTime":  "2026-09-26T18:30:00+03:00",
     "e2eeSendRequired":  true,
     "minSecureChatEpoch":  2,
     "mediaServerE2eeRequired":  true,
-    "notes":  "Web Package 894 / sos-cache-v894. Surgical share SIGN_FEED kind 6 fix on Package 893 baseline. ACCESS_CONTROL_V2 remains default OFF. MD4 not started. Android/APK frozen."
+    "notes":  "Web Package 895 / sos-cache-v895. Access Control V2 community product on Package 894 baseline. ACCESS_CONTROL_V2 remains default OFF. MD4 not started. Android/APK frozen."
 }

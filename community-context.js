@@ -16,7 +16,12 @@
     slug: 'sos010',
     name: 'SOS010',
     logoRef: 'icons/sos-logo-mobile.png',
+    description: 'רשת תקשורת גלובלית SOS010',
   });
+
+  const DIRECTORY_STORAGE_KEY = 'sos-community-directory-v1';
+  const ACTIVE_STORAGE_KEY = 'sos-active-community-id-v1';
+  const FEED_SELECTION_STORAGE_KEY = 'sos-feed-community-selection-v1';
 
   /** @type {Map<string, object>} */
   const byCommunityId = new Map();
@@ -27,6 +32,10 @@
 
   /** @type {object|null} */
   let active = null;
+
+  /** Feed selection (communityIds) — independent of membership. */
+  /** @type {string[]} */
+  let feedSelection = ['sos010'];
 
   /** Listeners for atomic switch. */
   const listeners = new Set();
@@ -45,10 +54,66 @@
       slug,
       name,
       logoRef: raw.logoRef ? String(raw.logoRef) : '',
+      description: raw.description ? String(raw.description) : '',
     });
   }
 
-  function register(meta) {
+  function persistDirectory() {
+    try {
+      const rows = Array.from(byCommunityId.values())
+        .filter((m) => m.communityId !== SOS010.communityId)
+        .map((m) => ({
+          communityId: m.communityId,
+          networkTag: m.networkTag,
+          groupId: m.groupId,
+          slug: m.slug,
+          name: m.name,
+          logoRef: m.logoRef || '',
+          description: m.description || '',
+        }));
+      window.localStorage.setItem(DIRECTORY_STORAGE_KEY, JSON.stringify(rows));
+      if (active && active.communityId) {
+        window.localStorage.setItem(ACTIVE_STORAGE_KEY, active.communityId);
+      }
+    } catch (_e) {}
+  }
+
+  function restoreDirectory() {
+    try {
+      const raw = window.localStorage.getItem(DIRECTORY_STORAGE_KEY);
+      if (!raw) return;
+      const rows = JSON.parse(raw);
+      if (!Array.isArray(rows)) return;
+      rows.forEach((row) => {
+        try {
+          register(row, { persist: false });
+        } catch (_e) {}
+      });
+      const activeId = window.localStorage.getItem(ACTIVE_STORAGE_KEY);
+      if (activeId && byCommunityId.has(activeId)) {
+        setActive(activeId, { persist: false });
+      }
+    } catch (_e2) {}
+  }
+
+  function persistFeedSelection() {
+    try {
+      window.localStorage.setItem(FEED_SELECTION_STORAGE_KEY, JSON.stringify(feedSelection.slice()));
+    } catch (_e) {}
+  }
+
+  function restoreFeedSelection() {
+    try {
+      const raw = window.localStorage.getItem(FEED_SELECTION_STORAGE_KEY);
+      if (!raw) return;
+      const rows = JSON.parse(raw);
+      if (!Array.isArray(rows)) return;
+      const cleaned = rows.map((x) => String(x || '').trim()).filter(Boolean);
+      if (cleaned.length) feedSelection = cleaned;
+    } catch (_e) {}
+  }
+
+  function register(meta, opts) {
     const m = freezeMeta(meta);
     if (!m) throw Object.assign(new Error('BAD_COMMUNITY_META'), { code: 'BAD_COMMUNITY_META' });
     // Immutability: refuse changing networkTag/communityId for existing ids
@@ -66,7 +131,42 @@
     byCommunityId.set(m.communityId, m);
     byNetworkTag.set(m.networkTag, m);
     bySlug.set(m.slug, m);
+    if (!opts || opts.persist !== false) persistDirectory();
     return m;
+  }
+
+  /**
+   * Update display metadata only (name/logo/description). Never mutates ids/tags.
+   */
+  function updateDisplayMeta(communityId, patch) {
+    const prev = getByCommunityId(communityId);
+    if (!prev) {
+      throw Object.assign(new Error('UNKNOWN_COMMUNITY'), { code: 'UNKNOWN_COMMUNITY' });
+    }
+    const next = register(
+      {
+        communityId: prev.communityId,
+        networkTag: prev.networkTag,
+        groupId: prev.groupId,
+        slug: prev.slug,
+        name: patch && patch.name != null ? String(patch.name) : prev.name,
+        logoRef: patch && patch.logoRef != null ? String(patch.logoRef) : prev.logoRef,
+        description: patch && patch.description != null ? String(patch.description) : prev.description,
+      },
+      { persist: true }
+    );
+    if (active && active.communityId === next.communityId) {
+      active = next;
+      syncLegacyAmbient(next);
+      try {
+        window.dispatchEvent(
+          new CustomEvent('sos-community-switch', {
+            detail: { prev: snapshotFrom(prev), next: snapshot() },
+          })
+        );
+      } catch (_e) {}
+    }
+    return next;
   }
 
   function getByCommunityId(id) {
@@ -87,14 +187,7 @@
 
   function snapshot() {
     if (!active) return null;
-    return Object.freeze({
-      communityId: active.communityId,
-      networkTag: active.networkTag,
-      groupId: active.groupId,
-      slug: active.slug,
-      name: active.name,
-      logoRef: active.logoRef,
-    });
+    return snapshotFrom(active);
   }
 
   function syncLegacyAmbient(meta) {
@@ -104,7 +197,7 @@
     } catch (_e) {}
   }
 
-  function setActive(target) {
+  function setActive(target, opts) {
     let meta = null;
     if (typeof target === 'string') {
       meta = getByCommunityId(target) || getByNetworkTag(target) || getBySlug(target);
@@ -114,7 +207,7 @@
         getByNetworkTag(target.networkTag || target.groupId) ||
         (target.slug ? getBySlug(target.slug) : null);
       if (!meta && target.communityId && target.networkTag) {
-        meta = register(target);
+        meta = register(target, { persist: false });
       }
     }
     if (!meta) {
@@ -123,6 +216,7 @@
     const prev = active;
     active = meta;
     syncLegacyAmbient(meta);
+    if (!opts || opts.persist !== false) persistDirectory();
     listeners.forEach((fn) => {
       try {
         fn({ prev: prev ? snapshotFrom(prev) : null, next: snapshot() });
@@ -146,7 +240,52 @@
       slug: meta.slug,
       name: meta.name,
       logoRef: meta.logoRef || '',
+      description: meta.description || '',
     });
+  }
+
+  function getFeedSelection() {
+    return feedSelection.slice();
+  }
+
+  /**
+   * Set which communities appear in "הפיד שלי".
+   * Does NOT join/leave membership.
+   */
+  function setFeedSelection(communityIds) {
+    const next = [];
+    const seen = new Set();
+    (Array.isArray(communityIds) ? communityIds : []).forEach((id) => {
+      const cid = String(id || '').trim();
+      if (!cid || seen.has(cid)) return;
+      if (!byCommunityId.has(cid) && cid !== SOS010.communityId) return;
+      seen.add(cid);
+      next.push(cid);
+    });
+    if (!next.length) next.push(SOS010.communityId);
+    feedSelection = next;
+    persistFeedSelection();
+    try {
+      window.dispatchEvent(
+        new CustomEvent('sos-feed-selection-changed', {
+          detail: { communityIds: feedSelection.slice() },
+        })
+      );
+    } catch (_e) {}
+    return feedSelection.slice();
+  }
+
+  function getSelectedNetworkTags() {
+    return getFeedSelection()
+      .map((id) => {
+        const m = getByCommunityId(id);
+        return m ? m.networkTag : id === SOS010.communityId ? SOS010.networkTag : '';
+      })
+      .filter(Boolean);
+  }
+
+  function isGlobalNetworkActive() {
+    return !!(active && active.communityId === SOS010.communityId);
   }
 
   function onSwitch(fn) {
@@ -206,8 +345,10 @@
   }
 
   // Boot defaults
-  register(SOS010);
-  setActive(SOS010.communityId);
+  register(SOS010, { persist: false });
+  restoreDirectory();
+  restoreFeedSelection();
+  if (!active) setActive(SOS010.communityId, { persist: false });
 
   const api = {
     SOS010,
@@ -223,9 +364,16 @@
     EXTERNAL_BLOCKLIST_IMPLEMENTED: false,
     COMMUNITY_FOLLOW_IMPLEMENTED: false,
     COMMUNITY_BRIDGE_IMPLEMENTED: false,
-    COMMUNITY_CREATION_IMPLEMENTED: false,
+    COMMUNITY_CREATION_IMPLEMENTED: true,
     COMMUNITY_CREATION_REQUIRES_RAW_PRIVATE_ADMIN_KEY: false,
+    GLOBAL_IDENTITY_MODEL: 'single_P_across_communities',
+    DIRECT_COMMUNICATION_REQUIRES_COMMUNITY_MEMBERSHIP: false,
+    FEED_SELECTION_CHANGES_MEMBERSHIP: false,
+    DIRECTORY_STORAGE_KEY,
+    ACTIVE_STORAGE_KEY,
+    FEED_SELECTION_STORAGE_KEY,
     register,
+    updateDisplayMeta,
     getByCommunityId,
     getByNetworkTag,
     getBySlug,
@@ -234,6 +382,12 @@
     snapshot,
     onSwitch,
     listCommunities,
+    getFeedSelection,
+    setFeedSelection,
+    getSelectedNetworkTags,
+    isGlobalNetworkActive,
+    persistDirectory,
+    restoreDirectory,
     resolveRoutePath,
     applyDocumentRoute,
     requireExplicitNetworkTag,

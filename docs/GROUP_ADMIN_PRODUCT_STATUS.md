@@ -2,46 +2,51 @@
 
 **Branch:** `local/access-control-v2-product`  
 **Production baseline:** Package **894** / `c5e764fd15befc16d26d944a3fba5d1f29b2eb08` — **unchanged**  
-**Production flag:** `SOS_ACCESS_CONTROL_V2=false` (must remain OFF)
+**Production flag:** `SOS_ACCESS_CONTROL_V2=false` (must remain OFF)  
+**Next package (not deployed):** **895** / `sos-cache-v895`
+
+## Product model (authoritative)
+
+| Layer | Scope |
+|-------|--------|
+| **SOS010** | One **global** communication network |
+| **Identity** | One global **P** (no per-community account / nsec / root key) |
+| **Direct comms** | Global by peer **P↔P**: search, chat, files, voice msgs, P2P, audio/video calls — **membership not required** |
+| **Community** | Independent scope for: branding, feed/content, membership, admins, roles, permissions, moderation, invites, settings |
+| **Authorization** | `(P, communityId, capability)` — explicit community binding |
+| **Feed** | `union(user-selected community feeds)` — selection ≠ membership |
 
 ## Canonical authority model
 
-Single model (no parallel admin systems):
+1. **GroupControlState** verified tip  
+2. **MembershipState** verified tip  
+3. **AccessControl.hasCapability(pubkey, cap)** (+ root)  
+4. Mutations via typed admin ops (`SIGN_ADMIN_TYPED`)
 
-1. **GroupControlState** verified tip (signed `GROUP_CONTROL` / typed admin ops)
-2. **MembershipState** verified tip (ACTIVE / BLOCKED / REMOVED / CONFLICT)
-3. **AccessControl.hasCapability(pubkey, cap)** derived from verified control (+ root)
-4. Mutations only via **GroupControlMutations** / **MemberAdminOperations** + **SIGN_ADMIN_TYPED**
+`CLIENT_ONLY_ADMIN_TRUST=false`
 
-`CLIENT_ONLY_ADMIN_TRUST=false` — localStorage / DOM / URL / forged `isAdmin` are not authority.
+## Landed locally (this branch)
 
-## Reconciliation (AC1–AC10)
+| Area | Status |
+|------|--------|
+| Local V2 test mode (`?acv2=1`, blocked on sos010.com) | PASS |
+| Group admin Hebrew shell + create UI (name/logo/description) | PASS |
+| Creator-root bootstrap | PASS |
+| Community directory persist + reload | PASS |
+| Branding switch (network SOS010 ↔ community logo/name) | PASS |
+| Feed selector «הפיד שלי» + multi `#t` query + attribution | PASS |
+| Invite binds `communityId` + client double-redeem lock | PASS |
+| Global identity / cross-community chat model (C0 + code) | PASS |
+| Full headed QR/live-call product E2E | PENDING |
+| Owner approval / deploy 895 | **blocked** (flag stays OFF) |
 
-| Component | Protocol | AuthZ | UI | Wired | Hidden by V2 | Gap |
-|-----------|----------|-------|----|-------|--------------|-----|
-| AccessControl | yes | yes | no | yes | provider switch | — |
-| GroupControlState | yes | yes | no | yes | no | creator-root bootstrap (fixed locally) |
-| GroupControlMutations | yes | yes | no | yes | yes | — |
-| MembershipState | yes | yes | no | yes | yes | — |
-| MemberAdminOperations | yes | yes | no | yes | yes | — |
-| AdminSettingsUi | yes | visibility caps | yes | yes | yes | rename → ניהול קבוצה |
-| MemberDirectoryUi | yes | yes | yes | yes | yes | — |
-| InvitePolicy/Service | yes | yes | yes | yes | policy gate | — |
-| Invite QR UI | yes | n/a | yes | yes | no | integrate into admin tabs |
-| CommunityContext | yes | metadata only | partial | yes | no | Create Group product |
-| ModerationPolicy | yes | yes | no | yes | yes | — |
+## Gates
 
-Gate: `qa/access-control-v2-product-reconciliation-gate.mjs`
+- `qa/access-control-v2-product-gate.mjs`
+- `qa/access-control-v2-community-product-gate.mjs`
+- AC1–AC10 + C0 (existing)
 
-## Product shell (this branch)
-
-| File | Role |
-|------|------|
-| `access-control-v2-local-test.js` | Local/test V2 enable (`?acv2=1` / localStorage); **blocked on sos010.com** |
-| `group-admin-product-ui.js` | Hebrew shell: ניהול קבוצה, tabs, יצירת קבוצה, invites/QR hooks |
-| `group-control-state.js` | Accept bootstrap when `issuer === rootAdminPubkey` for first tip |
-
-## Local test mode
+## Local test
 
 ```
 ACCESS_CONTROL_V2_DEFAULT_OFF=true
@@ -49,13 +54,7 @@ ACCESS_CONTROL_V2_LOCAL_TEST_MODE=true
 PRODUCTION_ACCESS_CONTROL_CHANGED=false
 ```
 
-Enable only on localhost / 127.0.0.1 / LAN / file: via `?acv2=1` or `localStorage.SOS_ACCESS_CONTROL_V2_LOCAL_TEST=1`.
-
-## Not done yet (continue on this branch)
-
-- Full three-role Playwright product flow gate
-- Double-redeem / delegated moderation / membership adversarial product harness glue
-- Activation plan + RC packaging (895) — **no deploy**
+Enable only on localhost / LAN / file: via `?acv2=1` or `localStorage.SOS_ACCESS_CONTROL_V2_LOCAL_TEST=1`.
 
 ## Rollback
 

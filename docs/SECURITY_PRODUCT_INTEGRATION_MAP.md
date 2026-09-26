@@ -63,15 +63,22 @@ MULTI-DEVICE AUTHORIZATION / PAIRING (MD1–MD3 local; QR UI not productized)
 
 ### Group / community Access Control
 - Governs **permissions** (who may post/moderate/manage), not key custody.
-- Implemented locally as AC1–AC10 + C0 community scope.
+- Implemented locally as AC1–AC10 + C0 community scope + product shell.
 - Runtime gate: `SOS_ACCESS_CONTROL_V2` (default **false**).
 - When OFF: admin/member directory UI is **hidden**; legacy permissive paths may
   still apply for some actions.
-- **Product shell (local branch):** `group-admin-product-ui.js` exposes Hebrew
-  **ניהול קבוצה** + create-group flow; enable only via local test helper
-  (`access-control-v2-local-test.js`) — never on sos010.com without owner approval.
+- **Product model:** SOS010 = one global network; identity = one global **P**;
+  communities scope branding/feed/membership/admins/roles/permissions/invites/
+  moderation/settings only. Direct chat/P2P/calls remain **global by peer**.
+  Authorization = `(P, communityId, capability)`. Feed = union of user-selected
+  communities (selection ≠ membership).
+- **Product shell (local branch):** `group-admin-product-ui.js`,
+  `community-branding-ui.js`, `community-feed-selection.js`; enable only via
+  local test helper (`access-control-v2-local-test.js`) — never on sos010.com
+  without owner approval.
 - Status doc: `docs/GROUP_ADMIN_PRODUCT_STATUS.md`
 - Activation plan: `docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md` (not executed)
+- Community product gate: `qa/access-control-v2-community-product-gate.mjs`
 
 ### Multi-device / QR pairing
 - MD1–MD3: device identity, pairing protocol, device authorization (**local**).

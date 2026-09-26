@@ -1,0 +1,493 @@
+{
+  "gate": "ACCESS_CONTROL_V2_COMMUNITY_PRODUCT",
+  "status": "PASS",
+  "ts": "2026-09-26T12:33:08.539Z",
+  "results": {
+    "COMMUNITY_LOGO_CREATE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_BRANDING_UI_WIRED": {
+      "ok": true,
+      "detail": null
+    },
+    "FEED_SELECTOR_UI_WIRED": {
+      "ok": true,
+      "detail": null
+    },
+    "FEED_MULTI_TAG_QUERY": {
+      "ok": true,
+      "detail": null
+    },
+    "FEED_ITEM_ATTRIBUTION_CODE": {
+      "ok": true,
+      "detail": null
+    },
+    "INVITE_BINDS_COMMUNITY": {
+      "ok": true,
+      "detail": null
+    },
+    "INVITE_DOUBLE_REDEEM_CLIENT_LOCK": {
+      "ok": true,
+      "detail": null
+    },
+    "GLOBAL_IDENTITY_SINGLE_ACCOUNT": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_MEMBERSHIP_REQUIRED_FOR_DIRECT_COMMUNICATION": {
+      "ok": true,
+      "detail": null
+    },
+    "FEED_SELECTION_DOES_NOT_CHANGE_MEMBERSHIP": {
+      "ok": true,
+      "detail": true
+    },
+    "CHAT_CONVERSATION_GLOBAL_BY_PEER": {
+      "ok": true,
+      "detail": null
+    },
+    "CALL_IDENTITY_GLOBAL_BY_PEER": {
+      "ok": true,
+      "detail": null
+    },
+    "INVITE_MEMBERS_CANONICAL_CAP": {
+      "ok": true,
+      "detail": null
+    },
+    "MANAGE_ADMINS_SEMANTICS_PRESENT": {
+      "ok": true,
+      "detail": null
+    },
+    "MANAGE_PERMISSIONS_SEMANTICS_PRESENT": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_NAME_PERSISTENCE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_LOGO_PERSISTENCE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_METADATA_RELOAD_GATE": {
+      "ok": true,
+      "detail": "comm-a"
+    },
+    "GROUP_CREATE_RELOAD_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GLOBAL_CONTEXT_SHOWS_SOS010_BRAND": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_CONTEXT_SHOWS_COMMUNITY_NAME": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_CONTEXT_SHOWS_COMMUNITY_LOGO": {
+      "ok": true,
+      "detail": null
+    },
+    "SOS010_LOGO_REPLACED_IN_COMMUNITY_CONTEXT": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_BRANDING_SWITCH_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "ACTIVE_COMMUNITY_CONTEXT_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "NO_AMBIGUOUS_GLOBAL_GROUP_STATE": {
+      "ok": true,
+      "detail": null
+    },
+    "CREATOR_AUTO_ENTER_COMMUNITY": {
+      "ok": true,
+      "detail": null
+    },
+    "CREATOR_IS_INITIAL_AUTHORIZED_ADMIN": {
+      "ok": true,
+      "detail": null
+    },
+    "NEW_COMMUNITY_BRANDING_VISIBLE": {
+      "ok": true,
+      "detail": null
+    },
+    "NEW_COMMUNITY_ADMIN_MENU_VISIBLE": {
+      "ok": true,
+      "detail": null
+    },
+    "CREATE_COMMUNITY_FULL_FLOW_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "FEED_COMMUNITY_SELECTOR_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "SINGLE_COMMUNITY_FEED_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "MULTI_COMMUNITY_FEED_SELECTION_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "MULTI_COMMUNITY_AGGREGATE_FEED_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "FEED_SELECTION_MEMBERSHIP_PRESERVED": {
+      "ok": true,
+      "detail": null
+    },
+    "FEED_ITEM_COMMUNITY_ID_BOUND": {
+      "ok": true,
+      "detail": null
+    },
+    "FEED_ITEM_COMMUNITY_ATTRIBUTION_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_BRANDING_ISOLATION_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "CROSS_COMMUNITY_BRANDING_LEAK": {
+      "ok": true,
+      "detail": false
+    },
+    "COMMUNITY_SWITCH_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_A_TO_B_BRANDING_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_TO_NETWORK_RETURN_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "STALE_COMMUNITY_CONTEXT_AFTER_SWITCH": {
+      "ok": true,
+      "detail": false
+    },
+    "USER_P_STABLE_ACROSS_COMMUNITIES": {
+      "ok": true,
+      "detail": null
+    },
+    "PER_COMMUNITY_ROOT_KEY_CREATED": {
+      "ok": true,
+      "detail": false
+    },
+    "COMMUNITY_AUTHORIZATION_BOUND_TO_COMMUNITY_ID": {
+      "ok": true,
+      "detail": null
+    },
+    "FIRST_REDEEM_ACCEPTED": {
+      "ok": true,
+      "detail": null
+    },
+    "SECOND_REDEEM_ACCEPTED": {
+      "ok": true,
+      "detail": false
+    },
+    "INVITE_DOUBLE_REDEEM_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GLOBAL_COMMUNICATION_MODEL_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "CROSS_COMMUNITY_CHAT_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "CROSS_COMMUNITY_AUDIO_CALL_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "CROSS_COMMUNITY_VIDEO_CALL_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "CROSS_COMMUNITY_P2P_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "CROSS_COMMUNITY_FILE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "CROSS_COMMUNITY_VOICE_MESSAGE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_SWITCH_DOES_NOT_DUPLICATE_CHAT_HISTORY": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_SWITCH_GLOBAL_COMMUNICATION_REGRESSION_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "MULTI_COMMUNITY_CONTEXT_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "MULTI_COMMUNITY_FEED_PRODUCT_FLOW_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "MULTI_FEED_AUTHORIZATION_ISOLATION_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "CROSS_COMMUNITY_ADMIN_LEAK": {
+      "ok": true,
+      "detail": false
+    },
+    "CROSS_COMMUNITY_AUTHORITY_LEAK": {
+      "ok": true,
+      "detail": false
+    },
+    "GROUP_MEMBER_DIRECTORY_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_AUTHORITATIVE_ACCESS_GATEWAY": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_INVITE_CREATE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "ACCESS_CONTROL_ADVERSARIAL_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "DELEGATED_MODERATION_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_MEMBERSHIP_BOOTSTRAP_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_MEMBER_SEARCH_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_MEMBER_DETAILS_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_MEMBER_REMOVE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_MEMBER_ROLE_CHANGE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_ADMIN_LIST_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_PROMOTE_ADMIN_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_DEMOTE_ADMIN_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "MANAGE_ADMINS_SEMANTICS_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_ROLE_LIST_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_ROLE_ASSIGN_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_ROLE_REMOVE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_PERMISSION_LIST_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_PERMISSION_ASSIGN_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_PERMISSION_REMOVE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "MANAGE_PERMISSIONS_SEMANTICS_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PRIVILEGE_ESCALATION_ACCEPTED": {
+      "ok": true,
+      "detail": false
+    },
+    "INVITE_MEMBERS_CAPABILITY_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "NON_ADMIN_INVITER_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "INVITE_PERMISSION_DOES_NOT_GRANT_ADMIN": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_INVITE_COPY_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_INVITE_QR_RENDER_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_QR_SCAN_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_QR_INVITE_VALIDATE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_QR_JOIN_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_QR_JOIN_RELOAD_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_INVITE_BINDS_COMMUNITY_ID": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_QR_BINDS_COMMUNITY_ID": {
+      "ok": true,
+      "detail": null
+    },
+    "CROSS_COMMUNITY_INVITE_REPLAY_ACCEPTED": {
+      "ok": true,
+      "detail": false
+    },
+    "GROUP_INVITE_QR_SECRET_SCAN": {
+      "ok": true,
+      "detail": null
+    },
+    "DELEGATED_MEMBERSHIP_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "FORGED_MEMBERSHIP_ACCEPTED": {
+      "ok": true,
+      "detail": false
+    },
+    "UNAUTHORIZED_MODERATION_ACCEPTED": {
+      "ok": true,
+      "detail": false
+    },
+    "DIRECT_PRIVILEGED_BYPASS_ACCEPTED": {
+      "ok": true,
+      "detail": false
+    },
+    "LOCAL_CACHE_ONLY_MEMBERSHIP_AUTHORITY": {
+      "ok": true,
+      "detail": false
+    },
+    "REMOVED_MEMBER_PRIVILEGED_ACTION_ACCEPTED": {
+      "ok": true,
+      "detail": false
+    },
+    "REMOVED_MEMBER_RELOAD_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "REMOVED_MEMBER_STALE_AUTH_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_MEMBERSHIP_ISOLATION_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_ADMIN_ISOLATION_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_PERMISSION_ISOLATION_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_INVITE_ISOLATION_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_SETTINGS_ISOLATION_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_CONTENT_SCOPE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "ADMIN_PRODUCT_UI_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "MODERATOR_PRODUCT_UI_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "MEMBER_PRODUCT_UI_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_ADMIN_FULL_PRODUCT_FLOW_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "PRODUCT_SHELL_GATE": {
+      "ok": true,
+      "detail": null
+    }
+  },
+  "ACCESS_CONTROL_V2_DEFAULT_OFF": true,
+  "ACCESS_CONTROL_V2_LOCAL_TEST_MODE": true,
+  "PRODUCTION_ACCESS_CONTROL_CHANGED": false,
+  "NEXT_WEB_PACKAGE": 895,
+  "NEXT_CACHE_VERSION": "sos-cache-v895",
+  "MAIN_PUSH_EXECUTED": false,
+  "MAIN_DEPLOY_EXECUTED": false,
+  "CDN_PRODUCTION_CHANGED": false,
+  "ANDROID_WORK_EXECUTED": false,
+  "APK_BUILT": false,
+  "MD4_STARTED": false,
+  "ACCESS_CONTROL_RC_GATE": "PARTIAL_LOCAL",
+  "ACCESS_CONTROL_V2_READY_FOR_OWNER_APPROVAL": false,
+  "NOTES": "Community branding/create-reload/feed-selection/global-comms model landed locally. Full headed browser E2E for QR scan + live calls still recommended before READY_FOR_OWNER_APPROVAL."
+}
