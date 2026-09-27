@@ -17,6 +17,8 @@
   const MAX_CAPS_PER_TARGET = 32;
   const MAX_BLOCKLIST = 5000;
   const INVITE_ID_MAX = 128;
+  const DESCRIPTION_MAX = 280;
+  const LOGO_REF_MAX = 24576;
 
   const INVITE_POLICIES = Object.freeze(['EVERYONE', 'AUTHORIZED_USERS_ONLY', 'ADMINS_ONLY']);
 
@@ -44,6 +46,7 @@
 
   const ADMIN_OP = Object.freeze({
     SET_GROUP_DISPLAY_NAME: 'SET_GROUP_DISPLAY_NAME',
+    SET_GROUP_METADATA: 'SET_GROUP_METADATA',
     SET_INVITE_POLICY: 'SET_INVITE_POLICY',
     GRANT_CAPABILITY: 'GRANT_CAPABILITY',
     REVOKE_CAPABILITY: 'REVOKE_CAPABILITY',
@@ -62,6 +65,7 @@
 
   const CONTROL_OPS = new Set([
     ADMIN_OP.SET_GROUP_DISPLAY_NAME,
+    ADMIN_OP.SET_GROUP_METADATA,
     ADMIN_OP.SET_INVITE_POLICY,
     ADMIN_OP.GRANT_CAPABILITY,
     ADMIN_OP.REVOKE_CAPABILITY,
@@ -124,6 +128,27 @@
     return s;
   }
 
+  function sanitizeDescription(raw) {
+    let s = String(raw == null ? '' : raw);
+    s = s.replace(/[<>]/g, '').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, '');
+    s = s.trim();
+    if (s.length > DESCRIPTION_MAX) s = s.slice(0, DESCRIPTION_MAX);
+    return s;
+  }
+
+  const LOGO_DATA_URL_RE = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+  const LOGO_HTTPS_RE = /^https:\/\/[^\s"'<>()\\`]{1,500}$/;
+
+  function validateLogoRef(raw) {
+    if (raw == null || raw === '') return '';
+    if (typeof raw !== 'string') fail('BAD_LOGO_REF');
+    const s = raw.trim();
+    if (!s) return '';
+    if (s.length > LOGO_REF_MAX) fail('LOGO_TOO_LARGE');
+    if (LOGO_DATA_URL_RE.test(s) || LOGO_HTTPS_RE.test(s)) return s;
+    fail('BAD_LOGO_REF');
+  }
+
   function hasProtoPollution(obj) {
     if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
     if (Object.prototype.hasOwnProperty.call(obj, '__proto__')) return true;
@@ -153,6 +178,13 @@
     Object.keys(state.capabilities || {}).forEach((pk) => {
       caps[pk] = (state.capabilities[pk] || []).slice();
     });
+    const gs = state.groupSettings || {};
+    const groupSettings = {
+      displayName: gs.displayName,
+      networkTag: gs.networkTag,
+    };
+    if (typeof gs.description === 'string' && gs.description) groupSettings.description = gs.description;
+    if (typeof gs.logoRef === 'string' && gs.logoRef) groupSettings.logoRef = gs.logoRef;
     return {
       schema: SCHEMA_CONTROL,
       version: 1,
@@ -163,10 +195,7 @@
       invitePolicy: state.invitePolicy,
       blockedPubkeys: (state.blockedPubkeys || []).slice(),
       membershipEpoch: state.membershipEpoch,
-      groupSettings: {
-        displayName: state.groupSettings && state.groupSettings.displayName,
-        networkTag: state.groupSettings && state.groupSettings.networkTag,
-      },
+      groupSettings,
       createdAt: Math.floor(Date.now() / 1000),
       membershipRoot: state.membershipRoot || null,
       resolution: null,
@@ -225,6 +254,11 @@
       if (!displayName) fail('EMPTY_DISPLAY_NAME');
       const invitePolicy = p.invitePolicy || 'EVERYONE';
       if (INVITE_POLICIES.indexOf(invitePolicy) === -1) fail('BAD_INVITE_POLICY');
+      const groupSettings = { displayName, networkTag: groupId };
+      const description = sanitizeDescription(p.description);
+      const logoRef = validateLogoRef(p.logoRef);
+      if (description) groupSettings.description = description;
+      if (logoRef) groupSettings.logoRef = logoRef;
       // Root-only bootstrap: rootAdminPubkey must equal actor
       return {
         schema: SCHEMA_CONTROL,
@@ -236,7 +270,7 @@
         invitePolicy,
         blockedPubkeys: [],
         membershipEpoch: 1,
-        groupSettings: { displayName, networkTag: groupId },
+        groupSettings,
         createdAt: Math.floor(Date.now() / 1000),
         membershipRoot: null,
         resolution: null,
@@ -291,6 +325,23 @@
       const name = sanitizeDisplayName(p.displayName);
       if (!name) fail('EMPTY_DISPLAY_NAME');
       next.groupSettings.displayName = name;
+    } else if (operation === ADMIN_OP.SET_GROUP_METADATA) {
+      if (!actorHas(actor, 'MANAGE_GROUP_SETTINGS', baseRecord)) fail('UNAUTHORIZED');
+      if (p.displayName != null) {
+        const name = sanitizeDisplayName(p.displayName);
+        if (!name) fail('EMPTY_DISPLAY_NAME');
+        next.groupSettings.displayName = name;
+      }
+      if (p.description != null) {
+        const description = sanitizeDescription(p.description);
+        if (description) next.groupSettings.description = description;
+        else delete next.groupSettings.description;
+      }
+      if (p.logoRef != null) {
+        const logoRef = validateLogoRef(p.logoRef);
+        if (logoRef) next.groupSettings.logoRef = logoRef;
+        else delete next.groupSettings.logoRef;
+      }
     } else if (operation === ADMIN_OP.SET_INVITE_POLICY) {
       if (!actorHas(actor, 'MANAGE_INVITES', baseRecord)) fail('UNAUTHORIZED');
       if (INVITE_POLICIES.indexOf(p.invitePolicy) === -1) fail('BAD_INVITE_POLICY');
@@ -309,6 +360,7 @@
       if (!actorIsRoot(actor, baseRecord)) {
         if (DELEGABLE_BY_PERMISSION_MANAGER.indexOf(cap) === -1) fail('DELEGATION_ESCALATION');
         if (cap === 'MANAGE_ADMINS' || cap === 'MANAGE_PERMISSIONS') fail('DELEGATION_ESCALATION');
+        if (operation === ADMIN_OP.GRANT_CAPABILITY && target === actor) fail('SELF_GRANT_FORBIDDEN');
       }
       if (!next.capabilities[target]) next.capabilities[target] = [];
       const set = new Set(next.capabilities[target]);
@@ -516,6 +568,7 @@
   function mapLegacyMutationType(type) {
     const m = {
       SET_GROUP_DISPLAY_NAME: ADMIN_OP.SET_GROUP_DISPLAY_NAME,
+      SET_GROUP_METADATA: ADMIN_OP.SET_GROUP_METADATA,
       SET_INVITE_POLICY: ADMIN_OP.SET_INVITE_POLICY,
       GRANT_CAPABILITY: ADMIN_OP.GRANT_CAPABILITY,
       REVOKE_CAPABILITY: ADMIN_OP.REVOKE_CAPABILITY,
@@ -539,10 +592,14 @@
     MAP_CAPABILITIES,
     DELEGABLE_BY_PERMISSION_MANAGER,
     DISPLAY_NAME_MAX,
+    DESCRIPTION_MAX,
+    LOGO_REF_MAX,
     REASON_MAX,
     MAX_CANDIDATES,
     normalizePubkey,
     resolveNetworkTag,
+    sanitizeDescription,
+    validateLogoRef,
     ADMIN_SIGNER_EXPLICIT_COMMUNITY_SCOPE: true,
     ADMIN_SIGNER_AMBIENT_NETWORK_FALLBACK: false,
     sanitizeDisplayName,

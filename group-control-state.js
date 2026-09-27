@@ -25,6 +25,14 @@
 
   const INVITE_POLICIES = Object.freeze(['EVERYONE', 'AUTHORIZED_USERS_ONLY', 'ADMINS_ONLY']);
 
+  const DESCRIPTION_MAX = 280;
+  const LOGO_REF_MAX = 24576;
+  const LOGO_DATA_URL_RE = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+  const LOGO_HTTPS_RE = /^https:\/\/[^\s"'<>()\\`]{1,500}$/;
+
+  /** First (canonical) group: its epoch-1 root must be a configured root pubkey (config.js adminSourceKeys). */
+  const FIRST_GROUP_NETWORK_TAG = 'israel-network';
+
   /** Capabilities that may appear in the capabilities map (never ROOT_ADMIN). */
   const MAP_CAPABILITIES = Object.freeze([
     'MANAGE_ADMINS',
@@ -176,6 +184,16 @@
     return '';
   }
 
+  /** Snapshot of config.js adminSourceKeys taken once; later runtime additions to admin sets are ignored. */
+  let configuredRootsSnapshot = null;
+  function configuredRootPubkeys() {
+    if (configuredRootsSnapshot) return configuredRootsSnapshot.slice();
+    const src = Array.isArray(App.adminSourceKeys) ? App.adminSourceKeys : [];
+    const list = src.map(normalizePubkey).filter(Boolean);
+    if (list.length) configuredRootsSnapshot = Object.freeze(list.slice());
+    return list;
+  }
+
   function initialDisplayName() {
     // Distinct from groupId. Bootstrap from COMMUNITY_CONTEXT product label only.
     if (typeof App.COMMUNITY_CONTEXT === 'string' && App.COMMUNITY_CONTEXT.trim()) {
@@ -308,6 +326,21 @@
     if (gs.displayName.trim() === raw.groupId) {
       // allowed to equal by coincidence but we still treat as distinct fields — OK
     }
+    let description = '';
+    if (gs.description != null) {
+      if (typeof gs.description !== 'string' || gs.description.length > DESCRIPTION_MAX || /[<>]/.test(gs.description)) {
+        throw Object.assign(new Error('BAD_DESCRIPTION'), { code: 'BAD_DESCRIPTION' });
+      }
+      description = gs.description.trim();
+    }
+    let logoRef = '';
+    if (gs.logoRef != null) {
+      const lr = typeof gs.logoRef === 'string' ? gs.logoRef.trim() : null;
+      if (lr == null || lr.length > LOGO_REF_MAX || (lr && !LOGO_DATA_URL_RE.test(lr) && !LOGO_HTTPS_RE.test(lr))) {
+        throw Object.assign(new Error('BAD_LOGO_REF'), { code: 'BAD_LOGO_REF' });
+      }
+      logoRef = lr;
+    }
 
     const capabilities = canonicalizeCapabilities(raw.capabilities || {});
     if (Object.prototype.hasOwnProperty.call(capabilities, root) === false) {
@@ -364,10 +397,16 @@
       invitePolicy: raw.invitePolicy,
       blockedPubkeys: Object.freeze(blockedPubkeys.slice()),
       membershipEpoch: raw.membershipEpoch,
-      groupSettings: Object.freeze({
-        displayName: gs.displayName.trim(),
-        networkTag: gs.networkTag.trim(),
-      }),
+      groupSettings: Object.freeze(
+        Object.assign(
+          {
+            displayName: gs.displayName.trim(),
+            networkTag: gs.networkTag.trim(),
+          },
+          description ? { description } : {},
+          logoRef ? { logoRef } : {}
+        )
+      ),
       createdAt: raw.createdAt,
       membershipRoot: typeof raw.membershipRoot === 'string' ? raw.membershipRoot : null,
       resolution,
@@ -398,6 +437,8 @@
       },
       createdAt: record.createdAt,
     };
+    if (record.groupSettings.description) obj.groupSettings.description = record.groupSettings.description;
+    if (record.groupSettings.logoRef) obj.groupSettings.logoRef = record.groupSettings.logoRef;
     if (record.membershipRoot) obj.membershipRoot = record.membershipRoot;
     if (record.resolution) {
       obj.resolution = {
@@ -421,6 +462,12 @@
       opts && opts.invitePolicy && INVITE_POLICIES.indexOf(opts.invitePolicy) !== -1
         ? opts.invitePolicy
         : INITIAL_INVITE_POLICY;
+    const groupSettings = {
+      displayName: (opts && opts.displayName) || initialDisplayName(),
+      networkTag: groupId,
+    };
+    if (opts && opts.description) groupSettings.description = String(opts.description);
+    if (opts && opts.logoRef) groupSettings.logoRef = String(opts.logoRef);
     return parseAndValidateRecord(
       JSON.stringify({
         schema: SCHEMA_NAME,
@@ -432,10 +479,7 @@
         invitePolicy,
         blockedPubkeys: [],
         membershipEpoch: 1,
-        groupSettings: {
-          displayName: (opts && opts.displayName) || initialDisplayName(),
-          networkTag: groupId,
-        },
+        groupSettings,
         createdAt,
       })
     );
@@ -494,6 +538,14 @@
       if (issuer !== next.rootAdminPubkey) {
         throw Object.assign(new Error('BAD_ISSUER'), { code: 'BAD_ISSUER' });
       }
+      if (next.groupId === FIRST_GROUP_NETWORK_TAG) {
+        const configured = configuredRootPubkeys();
+        if (configured.length && configured.indexOf(issuer) === -1) {
+          throw Object.assign(new Error('FIRST_GROUP_ROOT_NOT_CONFIGURED'), {
+            code: 'FIRST_GROUP_ROOT_NOT_CONFIGURED',
+          });
+        }
+      }
       if (next.controlEpoch !== 1) {
         throw Object.assign(new Error('BAD_EPOCH'), { code: 'BAD_EPOCH' });
       }
@@ -540,6 +592,9 @@
     if (!isRoot && issuerCapsFromPrevious(prev, issuer).length === 0) {
       throw Object.assign(new Error('BAD_ISSUER'), { code: 'BAD_ISSUER' });
     }
+    if (!isRoot && Array.isArray(prev.blockedPubkeys) && prev.blockedPubkeys.indexOf(issuer) !== -1) {
+      throw Object.assign(new Error('ISSUER_BLOCKED'), { code: 'ISSUER_BLOCKED' });
+    }
 
     // Detect field changes
     const capsChanged = jsonStable(prev.capabilities) !== jsonStable(next.capabilities);
@@ -562,6 +617,9 @@
         after.forEach((c) => {
           if (!before.has(c) && !DELEGABLE_SET.has(c)) {
             throw Object.assign(new Error('DELEGATION_ESCALATION'), { code: 'DELEGATION_ESCALATION' });
+          }
+          if (!before.has(c) && pk === issuer) {
+            throw Object.assign(new Error('SELF_GRANT_FORBIDDEN'), { code: 'SELF_GRANT_FORBIDDEN' });
           }
         });
         before.forEach((c) => {
@@ -644,6 +702,7 @@
     let tipRecord = null;
     let tipEvent = null;
     let epoch = 0;
+    const chain = [];
 
     // Max epoch present
     let maxEpoch = 0;
@@ -681,7 +740,7 @@
           conflictCandidates = Object.freeze(uniq.map((r) => candidateMeta(r.event, r.record)));
           // Keep prior tip
           if (tipRecord) {
-            verified = { event: tipEvent, record: tipRecord, status: 'VERIFIED' };
+            verified = { event: tipEvent, record: tipRecord, status: 'VERIFIED', chain: chain.slice() };
           }
           setStatus('CONTROL_CONFLICT');
           return {
@@ -745,6 +804,7 @@
             try {
               authorizeTransition(tipRecord, uniqResolves[0].record, uniqResolves[0].event.pubkey);
               tipRecord = uniqResolves[0].record;
+              chain.push(uniqResolves[0]);
               tipEvent = uniqResolves[0].event;
               epoch = resolveEpoch;
               conflictCandidates = Object.freeze([]);
@@ -759,7 +819,7 @@
               uniqResolves.map((r) => candidateMeta(r.event, r.record))
             );
             if (tipRecord) {
-              verified = { event: tipEvent, record: tipRecord, status: 'VERIFIED' };
+              verified = { event: tipEvent, record: tipRecord, status: 'VERIFIED', chain: chain.slice() };
             } else {
               verified = null;
             }
@@ -774,7 +834,7 @@
             };
           }
           if (tipRecord) {
-            verified = { event: tipEvent, record: tipRecord, status: 'VERIFIED' };
+            verified = { event: tipEvent, record: tipRecord, status: 'VERIFIED', chain: chain.slice() };
           } else {
             verified = null;
           }
@@ -792,6 +852,7 @@
       }
 
       tipRecord = chosen.record;
+      chain.push(chosen);
       tipEvent = chosen.event;
       epoch = e;
     }
@@ -801,7 +862,7 @@
       setStatus('MISSING');
       return { ok: false, status: 'MISSING', code: 'NO_TIP' };
     }
-    verified = { event: tipEvent, record: tipRecord, status: 'VERIFIED' };
+    verified = { event: tipEvent, record: tipRecord, status: 'VERIFIED', chain: chain.slice() };
     setStatus('VERIFIED');
     conflictCandidates = Object.freeze([]);
     return { ok: true, status: 'VERIFIED', record: tipRecord, event: tipEvent, controlEpoch: epoch };
@@ -1036,7 +1097,12 @@
       invitePolicy: r.invitePolicy,
       blockedPubkeys: r.blockedPubkeys.slice(),
       membershipEpoch: r.membershipEpoch,
-      groupSettings: { displayName: r.groupSettings.displayName, networkTag: r.groupSettings.networkTag },
+      groupSettings: {
+        displayName: r.groupSettings.displayName,
+        networkTag: r.groupSettings.networkTag,
+        description: r.groupSettings.description || '',
+        logoRef: r.groupSettings.logoRef || '',
+      },
       createdAt: r.createdAt,
       membershipRoot: r.membershipRoot,
       eventId: verified.event && verified.event.id,
@@ -1081,13 +1147,53 @@
     return verified.record.blockedPubkeys.indexOf(pk) !== -1;
   }
 
-  function getGroupSettings() {
+  function getGroupSettings(networkTag) {
+    if (networkTag) bindStore(resolveGroupId(networkTag));
     if (!verified || !verified.record) return null;
     return Object.freeze({
       displayName: verified.record.groupSettings.displayName,
       networkTag: verified.record.groupSettings.networkTag,
       groupId: verified.record.groupId,
+      description: verified.record.groupSettings.description || '',
+      logoRef: verified.record.groupSettings.logoRef || '',
     });
+  }
+
+  /** Verified chain epoch 1..tip (signed events only) — the canonical admin activity record. */
+  function getVerifiedControlChain(networkTag) {
+    bindStore(resolveGroupId(networkTag));
+    if (!verified || !Array.isArray(verified.chain)) return [];
+    return verified.chain.map((row) =>
+      deepFreeze({
+        eventId: String(row.event.id || ''),
+        issuerPubkey: normalizePubkey(row.event.pubkey),
+        createdAt: row.event.created_at,
+        controlEpoch: row.record.controlEpoch,
+        record: JSON.parse(serializeRecord(row.record)),
+      })
+    );
+  }
+
+  /**
+   * Additive merge of the shared (same-profile) event-set cache into this tab's store.
+   * Every cached event is re-verified; nothing is dropped, so a missing cache never erases state.
+   */
+  function syncFromSharedCache(networkTag) {
+    const scope = resolveGroupId(networkTag);
+    bindStore(scope);
+    let cached = null;
+    try {
+      const raw = window.localStorage.getItem(cacheKey(scope));
+      cached = raw ? JSON.parse(raw) : null;
+    } catch (_e) {
+      cached = null;
+    }
+    const rows = cached && cached.v === 2 && Array.isArray(cached.rows) ? cached.rows : [];
+    const fresh = rows
+      .map((r) => r && r.event)
+      .filter((ev) => ev && ev.id && !controlEvents.has(String(ev.id)));
+    if (fresh.length) ingestControlEvents(fresh, { persist: false, groupId: scope });
+    return { ok: storeStatus === 'VERIFIED', status: storeStatus, added: fresh.length };
   }
 
   function getStatus(networkTag) {
@@ -1116,6 +1222,7 @@
     if (!S || typeof S.signTypedAdminOperation !== 'function') {
       throw Object.assign(new Error('SIGNER_MISSING'), { code: 'SIGNER_MISSING' });
     }
+    if (record && record.groupId) bindStore(record.groupId);
     // Bootstrap-only path when no verified tip exists
     if (!verified || !verified.event) {
       return Promise.resolve(
@@ -1123,6 +1230,8 @@
           version: 1,
           operation: 'BOOTSTRAP_GROUP_CONTROL',
           displayName: record.groupSettings && record.groupSettings.displayName,
+          description: (record.groupSettings && record.groupSettings.description) || undefined,
+          logoRef: (record.groupSettings && record.groupSettings.logoRef) || undefined,
           invitePolicy: record.invitePolicy,
           groupId: record.groupId,
         })
@@ -1191,6 +1300,14 @@
       return controlStores.get(String(tag));
     },
     clearAllStores,
+    getVerifiedControlChain,
+    syncFromSharedCache,
+    configuredRootPubkeys,
+    FIRST_GROUP_NETWORK_TAG,
+    DESCRIPTION_MAX,
+    LOGO_REF_MAX,
+    FIRST_GROUP_ROOT_MUST_BE_CONFIGURED: true,
+    DELEGATED_SELF_GRANT_FORBIDDEN: true,
     CONTROL_STATE_A_CANNOT_REPLACE_B: true,
     GROUP_CONTROL_STORE_MULTI_COMMUNITY_READY: true,
     GROUP_CONTROL_CACHE_NAMESPACED: true,

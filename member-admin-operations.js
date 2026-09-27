@@ -50,14 +50,25 @@
 
   function hasCap(actor, cap, control) {
     if (actorIsRoot(actor, control)) return true;
-    const ac = AC();
-    if (ac && typeof ac.hasCapability === 'function') return ac.hasCapability(actor, cap) === true;
-    return false;
+    const pk = normalizePubkey(actor);
+    if (!pk || !control || !control.capabilities) return false;
+    if (Array.isArray(control.blockedPubkeys) && control.blockedPubkeys.indexOf(pk) !== -1) return false;
+    const m = MS();
+    if (m && typeof m.getMemberState === 'function') {
+      const st = m.getMemberState(pk);
+      if (st === 'REMOVED' || st === 'BLOCKED' || st === 'CONFLICT') return false;
+    }
+    return (control.capabilities[pk] || []).indexOf(cap) !== -1;
   }
 
   function controlOkForMemberMutation() {
     const g = GCS();
     if (!g) return { ok: false, code: 'NO_GCS' };
+    try {
+      if (typeof g.syncFromSharedCache === 'function') g.syncFromSharedCache();
+      const m = MS();
+      if (m && typeof m.syncFromSharedCache === 'function') m.syncFromSharedCache();
+    } catch (_e) {}
     if (typeof g.mutationsBlockedByConflict === 'function' && g.mutationsBlockedByConflict()) {
       return { ok: false, code: 'CONTROL_CONFLICT' };
     }

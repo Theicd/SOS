@@ -10,6 +10,7 @@
 
   const MUTATION = Object.freeze({
     SET_GROUP_DISPLAY_NAME: 'SET_GROUP_DISPLAY_NAME',
+    SET_GROUP_METADATA: 'SET_GROUP_METADATA',
     SET_INVITE_POLICY: 'SET_INVITE_POLICY',
     GRANT_CAPABILITY: 'GRANT_CAPABILITY',
     REVOKE_CAPABILITY: 'REVOKE_CAPABILITY',
@@ -27,10 +28,6 @@
 
   function getGCS() {
     return App.GroupControlState || window.SosGroupControlState || null;
-  }
-
-  function getAC() {
-    return App.AccessControl || window.SosAccessControl || null;
   }
 
   function getMS() {
@@ -60,14 +57,34 @@
       invitePolicy: state.invitePolicy,
       blockedPubkeys: (state.blockedPubkeys || []).slice(),
       membershipEpoch: state.membershipEpoch,
-      groupSettings: {
-        displayName: state.groupSettings.displayName,
-        networkTag: state.groupSettings.networkTag,
-      },
+      groupSettings: Object.assign(
+        {
+          displayName: state.groupSettings.displayName,
+          networkTag: state.groupSettings.networkTag,
+        },
+        state.groupSettings.description ? { description: state.groupSettings.description } : {},
+        state.groupSettings.logoRef ? { logoRef: state.groupSettings.logoRef } : {}
+      ),
       createdAt: Math.floor(Date.now() / 1000),
       membershipRoot: state.membershipRoot || null,
       resolution: null,
     };
+  }
+
+  function signingPolicy() {
+    return App.AdminSigningPolicy || window.SosAdminSigningPolicy || null;
+  }
+
+  /** Same-profile tabs share the event-set cache; merge it so a stale tab never signs on an old tip. */
+  function syncSharedState(scope) {
+    const GCS = getGCS();
+    const MS = getMS();
+    try {
+      if (GCS && typeof GCS.syncFromSharedCache === 'function') GCS.syncFromSharedCache(scope);
+    } catch (_e) {}
+    try {
+      if (MS && typeof MS.syncFromSharedCache === 'function') MS.syncFromSharedCache(scope);
+    } catch (_e2) {}
   }
 
   function sanitizeDisplayName(raw) {
@@ -103,10 +120,6 @@
 
   function actorHas(actorPubkey, capability, state) {
     if (actorIsRoot(actorPubkey, state)) return true;
-    const AC = getAC();
-    if (AC && typeof AC.hasCapability === 'function') {
-      return AC.hasCapability(actorPubkey, capability) === true;
-    }
     const list = (state.capabilities && state.capabilities[normalizePubkey(actorPubkey)]) || [];
     return list.indexOf(capability) !== -1;
   }
@@ -270,6 +283,27 @@
       if (!name) throw Object.assign(new Error('EMPTY_DISPLAY_NAME'), { code: 'EMPTY_DISPLAY_NAME' });
       next.groupSettings.displayName = name;
       // allowlist: only displayName
+    } else if (type === MUTATION.SET_GROUP_METADATA) {
+      if (!actorHas(actor, 'MANAGE_GROUP_SETTINGS', base) && !actorIsRoot(actor, base)) {
+        throw Object.assign(new Error('UNAUTHORIZED'), { code: 'UNAUTHORIZED' });
+      }
+      const P = signingPolicy();
+      if (!P) throw Object.assign(new Error('SIGNER_MISSING'), { code: 'SIGNER_MISSING' });
+      if (mutation.displayName != null) {
+        const name = sanitizeDisplayName(mutation.displayName);
+        if (!name) throw Object.assign(new Error('EMPTY_DISPLAY_NAME'), { code: 'EMPTY_DISPLAY_NAME' });
+        next.groupSettings.displayName = name;
+      }
+      if (mutation.description != null) {
+        const d = P.sanitizeDescription(mutation.description);
+        if (d) next.groupSettings.description = d;
+        else delete next.groupSettings.description;
+      }
+      if (mutation.logoRef != null) {
+        const l = P.validateLogoRef(mutation.logoRef);
+        if (l) next.groupSettings.logoRef = l;
+        else delete next.groupSettings.logoRef;
+      }
     } else if (type === MUTATION.SET_INVITE_POLICY) {
       if (!actorHas(actor, 'MANAGE_INVITES', base) && !actorIsRoot(actor, base)) {
         throw Object.assign(new Error('UNAUTHORIZED'), { code: 'UNAUTHORIZED' });
@@ -296,6 +330,9 @@
         }
         if (cap === 'MANAGE_ADMINS' || cap === 'MANAGE_PERMISSIONS') {
           throw Object.assign(new Error('DELEGATION_ESCALATION'), { code: 'DELEGATION_ESCALATION' });
+        }
+        if (type === MUTATION.GRANT_CAPABILITY && target === actor) {
+          throw Object.assign(new Error('SELF_GRANT_FORBIDDEN'), { code: 'SELF_GRANT_FORBIDDEN' });
         }
       }
       // Self-escalation: delegated cannot grant themselves non-delegable (already blocked)
@@ -383,6 +420,9 @@
     if (!isV2()) {
       return { ok: false, code: 'V2_REQUIRED' };
     }
+    syncSharedState(
+      (mutation && (mutation.groupId || mutation.networkTag)) || (GCS.resolveGroupId && GCS.resolveGroupId())
+    );
     let built;
     try {
       built = buildNextControlState(options.baseState || null, mutation, actorPubkey);
@@ -425,6 +465,11 @@
         actorMembershipStatus: memberStatus(actorPubkey),
       };
       if (op === 'SET_GROUP_DISPLAY_NAME') req.displayName = mutation.displayName;
+      if (op === 'SET_GROUP_METADATA') {
+        if (mutation.displayName != null) req.displayName = mutation.displayName;
+        if (mutation.description != null) req.description = mutation.description;
+        if (mutation.logoRef != null) req.logoRef = mutation.logoRef;
+      }
       if (op === 'SET_INVITE_POLICY') req.invitePolicy = mutation.invitePolicy;
       if (op === 'GRANT_CAPABILITY' || op === 'REVOKE_CAPABILITY') {
         req.targetPubkey = mutation.targetPubkey;

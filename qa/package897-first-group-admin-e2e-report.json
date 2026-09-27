@@ -1,0 +1,609 @@
+{
+  "gate": "PACKAGE897_FIRST_GROUP_ADMIN_E2E",
+  "E2E_SCOPE": "LOCAL_CONTROLLED_E2E",
+  "NETWORK_BACKED_E2E": false,
+  "DOUBLE_REDEEM_SCOPE": "LOCAL_ONLY",
+  "status": "PASS",
+  "ts": "2026-09-27T12:12:34.520Z",
+  "results": {
+    "IDENTITIES_BOOTED": {
+      "ok": true,
+      "detail": {
+        "a": "053473cc"
+      }
+    },
+    "FIRST_GROUP_CONTEXT": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "groupId": "israel-network"
+      }
+    },
+    "NO_AMBIGUOUS_ADMIN_GROUP_CONTEXT": {
+      "ok": true,
+      "detail": null
+    },
+    "ATTACKER_BOOTSTRAP_REJECTED": {
+      "ok": true,
+      "detail": {
+        "xBoot": "FIRST_GROUP_ROOT_NOT_CONFIGURED",
+        "forged": {
+          "ok": false,
+          "code": "NO_TIP"
+        }
+      }
+    },
+    "ROOT_SEES_ADMIN_ENTRY_BEFORE_BOOTSTRAP": {
+      "ok": true,
+      "detail": null
+    },
+    "FIRST_GROUP_BOOTSTRAP_BY_CONFIGURED_ROOT": {
+      "ok": true,
+      "detail": "הפעלת ניהול — בוצע"
+    },
+    "FORGED_ROOT_BOOTSTRAP_NO_CONFLICT_ON_HONEST_PEER": {
+      "ok": true,
+      "detail": "VERIFIED"
+    },
+    "ADMIN_ENTRY_LABEL": {
+      "ok": true,
+      "detail": null
+    },
+    "DASHBOARD_SECTIONS_FULL_ADMIN": {
+      "ok": true,
+      "detail": [
+        "home",
+        "details",
+        "members",
+        "admins",
+        "roles",
+        "invites",
+        "qr",
+        "settings",
+        "security"
+      ]
+    },
+    "INVITE_CREATE_IN_ADMIN_PAGE": {
+      "ok": true,
+      "detail": "יצירת הזמנה — בוצע"
+    },
+    "INVITE_COPY_IN_ADMIN_PAGE": {
+      "ok": true,
+      "detail": "הקישור הועתק"
+    },
+    "INVITE_VALIDATE_REDEEM": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "stage": "mark",
+        "inviteEventId": "32ec38f32d0735335a850188d684e8c327ca46eed21a9c6cf7083a8704a574d4",
+        "tTags": [
+          "sos-invite",
+          "israel-network"
+        ]
+      }
+    },
+    "JOIN_APPROVAL_UI": {
+      "ok": true,
+      "detail": "אישור הצטרפות — בוצע"
+    },
+    "SECOND_MEMBER_JOIN": {
+      "ok": true,
+      "detail": {
+        "rC": "mark",
+        "ap": "אישור הצטרפות — בוצע"
+      }
+    },
+    "MEMBERSHIP_ACTIVE_AFTER_APPROVAL": {
+      "ok": true,
+      "detail": {
+        "b": "ACTIVE",
+        "c": "ACTIVE"
+      }
+    },
+    "REGULAR_MEMBER_NO_ADMIN_MENU": {
+      "ok": true,
+      "detail": null
+    },
+    "GROUP_METADATA_EDIT": {
+      "ok": true,
+      "detail": "שמירת פרטים — בוצע"
+    },
+    "GROUP_METADATA_PERSISTS_RELOAD": {
+      "ok": true,
+      "detail": {
+        "name": "קבוצת SOS הראשית",
+        "desc": "תיאור קבוצה לבדיקה 897",
+        "logo": true,
+        "title": "ניהול קבוצה — קבוצת SOS הראשית",
+        "restoredA1": true
+      }
+    },
+    "MEMBER_DIRECTORY": {
+      "ok": true,
+      "detail": {
+        "dir": [
+          {
+            "pk": "436da11a",
+            "role": "MEMBER",
+            "status": "ACTIVE"
+          },
+          {
+            "pk": "b844d91a",
+            "role": "MEMBER",
+            "status": "ACTIVE"
+          },
+          {
+            "pk": "053473cc",
+            "role": "ROOT",
+            "status": "ACTIVE"
+          }
+        ],
+        "searchRows": 1
+      }
+    },
+    "GRANT_INVITE_ONLY_UI": {
+      "ok": true,
+      "detail": "שמירת הרשאות — בוצע"
+    },
+    "INVITER_ROLE_EXACT": {
+      "ok": true,
+      "detail": [
+        "INVITE_USERS"
+      ]
+    },
+    "INVITER_LIMITED_SURFACE": {
+      "ok": true,
+      "detail": [
+        "home",
+        "invites",
+        "qr"
+      ]
+    },
+    "INVITER_CREATE_COPY_QR": {
+      "ok": true,
+      "detail": {
+        "code": "K5L64567",
+        "qr": true
+      }
+    },
+    "INVITER_NO_ADMIN_POWERS": {
+      "ok": true,
+      "detail": {
+        "grantOther": "UNAUTHORIZED",
+        "selfPerms": "UNAUTHORIZED",
+        "meta": "UNAUTHORIZED",
+        "remove": "UNAUTHORIZED",
+        "promote": "UNAUTHORIZED",
+        "mutDirect": "UNAUTHORIZED",
+        "maoDirect": "UNAUTHORIZED",
+        "overlayMut": "UNAUTHORIZED",
+        "overlayMao": "UNAUTHORIZED",
+        "overlayFga": "UNAUTHORIZED",
+        "overlayUiRoles": false,
+        "uiRolesTabOpened": "home",
+        "epoch": 3
+      }
+    },
+    "GRANT_MODERATION_UI": {
+      "ok": true,
+      "detail": "שמירת הרשאות — בוצע"
+    },
+    "DELEGATED_MODERATOR": {
+      "ok": true,
+      "detail": {
+        "mod1": {
+          "onMember": "MODERATE_CONTENT",
+          "onRoot": "ROOT_CONTENT_PROTECTED",
+          "role": "MODERATOR"
+        },
+        "modC": "NO_MODERATE_CAP"
+      }
+    },
+    "PROMOTE_ADMIN_UI": {
+      "ok": true,
+      "detail": {
+        "text": "הוספת מנהל — בוצע",
+        "caps": [
+          "INVITE_USERS",
+          "MANAGE_MEMBERS",
+          "MODERATE_CONTENT"
+        ]
+      }
+    },
+    "ADMIN_LIST": {
+      "ok": true,
+      "detail": {
+        "n": 2,
+        "before": 2
+      }
+    },
+    "PROMOTED_ADMIN_UI_MATCHES_AUTHORITY": {
+      "ok": true,
+      "detail": [
+        "home",
+        "details",
+        "members",
+        "invites",
+        "qr"
+      ]
+    },
+    "REMOVE_ONE_CAPABILITY": {
+      "ok": true,
+      "detail": {
+        "text": "שמירת הרשאות — בוצע",
+        "mod2": "NO_MODERATE_CAP"
+      }
+    },
+    "DEMOTE_ADMIN_UI": {
+      "ok": true,
+      "detail": {
+        "text": "הסרת מנהל — בוצע",
+        "caps": [
+          "INVITE_USERS"
+        ]
+      }
+    },
+    "STALE_DEVICE_ACTION_REJECTED_BY_AUTHORITATIVE_PEER": {
+      "ok": true,
+      "detail": {
+        "local": "REMOVED"
+      }
+    },
+    "STALE_TAB_NO_AUTHORITY_AFTER_DEMOTE": {
+      "ok": true,
+      "detail": {
+        "remove": "UNAUTHORIZED",
+        "role": "INVITER"
+      }
+    },
+    "CONFIRMATION_CANCEL_KEEPS_STATE": {
+      "ok": true,
+      "detail": null
+    },
+    "REMOVE_MEMBER_UI": {
+      "ok": true,
+      "detail": {
+        "text": "הסרת חבר — בוצע",
+        "cState": "REMOVED"
+      }
+    },
+    "REMOVED_MEMBER_PRIVILEGED_ACTIONS_FAIL": {
+      "ok": true,
+      "detail": {
+        "status": "REMOVED",
+        "menu": false,
+        "grant": "UNAUTHORIZED",
+        "invite": "DENIED",
+        "moderate": "NO_MODERATE_CAP"
+      }
+    },
+    "QR_RENDER_FROM_CANONICAL_INVITE": {
+      "ok": true,
+      "detail": {
+        "qrText": "http://127.0.0.1:8797/videos.html?invite=E7VG7XAF"
+      }
+    },
+    "QR_SECRET_SCAN": {
+      "ok": true,
+      "detail": {
+        "len": 49
+      }
+    },
+    "QR_SCAN_PARSE_BINDS_GROUP": {
+      "ok": true,
+      "detail": {
+        "parsed": {
+          "ok": true,
+          "code": "E7VG7XAF",
+          "kind": "URL"
+        },
+        "rD": "mark"
+      }
+    },
+    "QR_INVITE_JOIN_APPROVED": {
+      "ok": true,
+      "detail": "אישור הצטרפות — בוצע"
+    },
+    "DOUBLE_REDEEM_REJECTED": {
+      "ok": true,
+      "detail": {
+        "d": "ההזמנה כבר נוצלה",
+        "e": "ההזמנה כבר נוצלה",
+        "scope": "LOCAL_ONLY"
+      }
+    },
+    "INVITE_REVOKE": {
+      "ok": true,
+      "detail": {
+        "text": "ביטול הזמנה — בוצע",
+        "e": "REVOKED"
+      }
+    },
+    "INVITE_EXPIRED_REJECTED": {
+      "ok": true,
+      "detail": {
+        "e": "תוקף ההזמנה פג. בקשו הזמנה חדשה."
+      }
+    },
+    "QR_ADVERSARIAL": {
+      "ok": true,
+      "detail": {
+        "qrAdv": {
+          "nsec": "QR_CONTAINS_SECRET_PATTERN",
+          "hexKey": "QR_CONTAINS_SECRET_PATTERN",
+          "foreign": "QR_FOREIGN_ORIGIN",
+          "extraParam": "QR_CONTAINS_SECRET_PATTERN",
+          "secretParam": "QR_CONTAINS_SECRET_PATTERN",
+          "js": "QR_BAD_SCHEME",
+          "fragment": "QR_UNEXPECTED_FRAGMENT",
+          "badCode": "QR_BAD_CODE",
+          "tooLong": "QR_EMPTY_OR_TOO_LONG",
+          "dataUrl": "QR_BAD_SCHEME",
+          "payloadSecret": "QR_PAYLOAD_SECRET_REJECTED",
+          "okCase": true
+        },
+        "cross": "קוד ההזמנה לא נמצא ברשת"
+      }
+    },
+    "FORGED_ISADMIN_ROLE_OVERLAY_DOM_REJECTED": {
+      "ok": true,
+      "detail": {
+        "configuredRootAfterForge": false,
+        "menu": false,
+        "shellOpenAfterForcedClick": false,
+        "grant": "UNAUTHORIZED",
+        "promoteSelf": "UNAUTHORIZED",
+        "demoteB": "UNAUTHORIZED",
+        "meta": "UNAUTHORIZED",
+        "removeB": "UNAUTHORIZED",
+        "policy": "UNAUTHORIZED",
+        "mutRevokeRoot": "UNAUTHORIZED",
+        "mutAsRoot": "SIGN_FAILED",
+        "bootstrap": "ALREADY_BOOTSTRAPPED",
+        "memberAfterForgedCache": "UNKNOWN",
+        "authority": {
+          "pubkey": "fbbad06a12c459d1a470b8b4ae71188ccbff5860f0e0feffa12a946af18a1509",
+          "verified": true,
+          "isRoot": false,
+          "assigned": [],
+          "caps": [],
+          "membership": "UNKNOWN",
+          "blocked": false,
+          "role": "MEMBER",
+          "controlEpoch": 7
+        }
+      }
+    },
+    "FORGED_MEMBERSHIP_CACHE_REJECTED": {
+      "ok": true,
+      "detail": "UNKNOWN"
+    },
+    "FORGED_SELECTED_GROUP_REJECTED": {
+      "ok": true,
+      "detail": {
+        "switched": "community-fake897",
+        "meta": "FIRST_GROUP_CONTEXT_MISMATCH",
+        "menu": false,
+        "back": "israel-network"
+      }
+    },
+    "FORGED_CAPABILITY_EVENTS_REJECTED": {
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "epoch": 7,
+        "id": "2028e8bb2b0e7f4311d5b7482f7bb9f373e6bfc1f5fe0a5a6d61a03b1bf412d9",
+        "codes": [
+          "NOT_APPLIED",
+          "NOT_APPLIED",
+          "NOT_APPLIED",
+          "STALE_EPOCH",
+          "STALE_EPOCH",
+          "STALE_EPOCH",
+          "STALE_EPOCH",
+          "STALE_EPOCH",
+          "STALE_EPOCH",
+          "STALE_EPOCH",
+          "REPLAY_IDEMPOTENT"
+        ]
+      }
+    },
+    "FORGED_CACHE_CONTROL_EVENT_REJECTED": {
+      "ok": true,
+      "detail": {
+        "caps": [],
+        "status": "VERIFIED"
+      }
+    },
+    "MANAGE_ADMINS_SEMANTICS": {
+      "ok": true,
+      "detail": {
+        "grantDelegable": "APPLIED",
+        "grantManageAdmins": "DELEGATION_ESCALATION",
+        "grantManagePerms": "DELEGATION_ESCALATION",
+        "selfGrant": "SELF_GRANT_FORBIDDEN",
+        "selfSetPerms": "SELF_GRANT_FORBIDDEN",
+        "mutSelf": "SELF_GRANT_FORBIDDEN",
+        "mutRoot": "ROOT_TARGET_FORBIDDEN",
+        "signerSelf": "SELF_GRANT_FORBIDDEN",
+        "uiRolesVisible": true,
+        "selfCheckboxes": 0
+      }
+    },
+    "MANAGE_PERMISSIONS_SEMANTICS": {
+      "ok": true,
+      "detail": {
+        "grant": "APPLIED",
+        "dCapsOnA": [
+          "INVITE_USERS"
+        ],
+        "imported": 2
+      }
+    },
+    "SELF_GRANT_ESCALATION_DIRECT_CALL_REJECTED": {
+      "ok": true,
+      "detail": {
+        "grantDelegable": "APPLIED",
+        "grantManageAdmins": "DELEGATION_ESCALATION",
+        "grantManagePerms": "DELEGATION_ESCALATION",
+        "selfGrant": "SELF_GRANT_FORBIDDEN",
+        "selfSetPerms": "SELF_GRANT_FORBIDDEN",
+        "mutSelf": "SELF_GRANT_FORBIDDEN",
+        "mutRoot": "ROOT_TARGET_FORBIDDEN",
+        "signerSelf": "SELF_GRANT_FORBIDDEN",
+        "uiRolesVisible": true,
+        "selfCheckboxes": 0
+      }
+    },
+    "SESSION_AUTHORITY": {
+      "ok": true,
+      "detail": {
+        "valid": "APPLIED",
+        "revoked": "NO_IDENTITY",
+        "relog": "APPLIED",
+        "diffAcct": "NO_IDENTITY"
+      }
+    },
+    "ACCOUNT_SWITCH_NO_LEAK": {
+      "ok": true,
+      "detail": {
+        "pub": "b844d91a5b4144a6d67550431ca99e8349e30c5f3fcbde8c988a2c0152af20d9",
+        "menu": false,
+        "open": false,
+        "invitesAfter": 0,
+        "codesInDom": 0,
+        "caps": 0
+      }
+    },
+    "MULTI_TAB_SYNC": {
+      "ok": true,
+      "detail": {
+        "grantInTab1": "APPLIED",
+        "tab3View": [
+          "INVITE_USERS",
+          "MODERATE_CONTENT"
+        ],
+        "revokeInTab3": "APPLIED",
+        "tab1View": [
+          "INVITE_USERS"
+        ]
+      }
+    },
+    "TYPED_SIGNER_BOUNDARIES": {
+      "ok": true,
+      "detail": {
+        "feed39001": "KIND_NOT_ALLOWED",
+        "invite39001": "KIND_NOT_ALLOWED",
+        "opener39001": "KIND_NOT_ALLOWED",
+        "broadGroup": "BROAD_ADMIN_SIGN_REMOVED",
+        "broadMember": "BROAD_ADMIN_SIGN_REMOVED",
+        "unknownOp": "UNKNOWN_OP",
+        "rawSurface": []
+      }
+    },
+    "AUDIT_MODEL": {
+      "ok": true,
+      "detail": {
+        "n": 19,
+        "actions": [
+          "BOOTSTRAP",
+          "MEMBER_ACTIVE",
+          "SET_GROUP_METADATA",
+          "GRANT_CAPABILITY",
+          "REVOKE_CAPABILITY",
+          "MEMBER_REMOVED"
+        ],
+        "controlRowsVerified": true,
+        "hebrew": true
+      }
+    },
+    "HARD_RELOAD_STATE": {
+      "ok": true,
+      "detail": {
+        "a": {
+          "root": true,
+          "c": "REMOVED",
+          "name": "קבוצת SOS הראשית",
+          "menu": true
+        },
+        "b": "INVITER",
+        "d": [
+          "INVITE_USERS"
+        ],
+        "invAfter": true,
+        "restored": {
+          "rA": true,
+          "rBr": true,
+          "rD2": true
+        }
+      }
+    },
+    "UI_MATCHES_EFFECTIVE_AUTHORITY": {
+      "ok": true,
+      "detail": [
+        true,
+        true
+      ]
+    },
+    "THREE_ROLE_UI": {
+      "ok": true,
+      "detail": {
+        "bTabs3": [
+          "home",
+          "invites",
+          "qr"
+        ],
+        "dMenu": false
+      }
+    },
+    "DESKTOP_MOBILE_UI": {
+      "ok": true,
+      "detail": {
+        "w": 390,
+        "overflow": true
+      }
+    },
+    "HEBREW_LABELS_NO_MOJIBAKE": {
+      "ok": true,
+      "detail": {
+        "all": true,
+        "mojibake": false,
+        "srcMojibake": false
+      }
+    },
+    "NO_NSEC_IN_ADMIN_DOM": {
+      "ok": true,
+      "detail": null
+    },
+    "NO_PAGE_ERRORS_IN_ADMIN_MODULES": {
+      "ok": true,
+      "detail": []
+    }
+  },
+  "screenshots": [
+    "qa/package897-admin-A-desktop-roles.png",
+    "qa/package897-admin-A-desktop-members.png",
+    "qa/package897-admin-A-mobile-admins.png",
+    "qa/package897-admin-B-delegated-desktop.png",
+    "qa/package897-member-D-regular-desktop.png"
+  ],
+  "FIRST_GROUP_ID": "israel-network",
+  "FIRST_GROUP_SOURCE": "CommunityContext.SOS010 (config.js NETWORK_TAG israel-network)",
+  "FIRST_GROUP_AUTHORITY_MODEL": "Signed kind-39001 control chain for groupId israel-network; epoch-1 root must be a configured adminSourceKeys pubkey; delegated capabilities live only in the signed capabilities map and are effective only while signed kind-39003 membership is ACTIVE and the pubkey is not blocklisted.",
+  "IDENTITY_AUTO_RESTORE_ON_RELOAD": true,
+  "STALE_DEVICE_IMPORT": {
+    "res": [
+      {
+        "ok": false,
+        "code": "UNAUTHORIZED_ISSUER",
+        "eventId": "91b749454df12e935d49e614f0638c4b156f590ce507d4ec1bf46ff9213b0730"
+      }
+    ],
+    "st": "ACTIVE"
+  },
+  "CROSS_DEVICE_STALE_LOCAL_RESULT": "REMOVED",
+  "FIRST_GROUP_ADMIN_AUDIT_MODEL": "SIGNED_CONTROL_CHAIN_PLUS_MEMBERSHIP_EVENTS",
+  "D_RESET_TO_MEMBER": true,
+  "missing": []
+}

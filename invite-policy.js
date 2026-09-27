@@ -132,6 +132,13 @@
 
     const state = controlState || getVerifiedControlOrNull();
     if (!state) return { ok: false, code: 'NO_VERIFIED_CONTROL' };
+    if (
+      pk !== state.rootAdminPubkey &&
+      Array.isArray(state.blockedPubkeys) &&
+      state.blockedPubkeys.indexOf(pk) !== -1
+    ) {
+      return { ok: false, code: 'INVITER_BLOCKED' };
+    }
 
     const policy = state.invitePolicy;
     if (policy === 'EVERYONE') {

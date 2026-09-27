@@ -1,0 +1,378 @@
+{
+  "gate": "PACKAGE897_RC",
+  "status": "PASS",
+  "ts": "2026-09-27T12:12:12.065Z",
+  "results": {
+    "PACKAGE897_SCOPE_DELTA": {
+      "ok": true,
+      "detail": [
+        "admin-signing-policy.js",
+        "app-version.json",
+        "group-admin-product-ui.js",
+        "group-control-mutations.js",
+        "group-control-state.js",
+        "invite-policy.js",
+        "member-admin-operations.js",
+        "membership-state.js",
+        "moderation-policy.js",
+        "service-worker.js",
+        "sw-register.js",
+        "videos.html",
+        "docs/FIRST_GROUP_ADMIN_STATUS.md",
+        "first-group-admin.js",
+        "qa/package897-first-group-admin-e2e.mjs",
+        "qa/package897-rc-gate.mjs",
+        "qa/prod-package-896-acceptance.mjs"
+      ]
+    },
+    "ANDROID_UNTOUCHED": {
+      "ok": true,
+      "detail": null
+    },
+    "NO_MULTI_COMMUNITY_PROTOCOL_CHANGES": {
+      "ok": true,
+      "detail": []
+    },
+    "PACKAGE897_VERSION_GATE": {
+      "ok": true,
+      "detail": "2026.09.27-web-897"
+    },
+    "PACKAGE897_CACHE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "SHIPPED_CONFIG_V2_OFF": {
+      "ok": true,
+      "detail": {
+        "schema": "sos-feature-flags-v1",
+        "accessControlV2": false
+      }
+    },
+    "SW_BYPASSES_FLAG_CONFIG": {
+      "ok": true,
+      "detail": null
+    },
+    "FLAG_LOADS_BEFORE_V2_SYNC": {
+      "ok": true,
+      "detail": {
+        "loaderIdx": 71612,
+        "firstV2": 71871
+      }
+    },
+    "FIRST_GROUP_ADMIN_WIRED": {
+      "ok": true,
+      "detail": null
+    },
+    "V2_UI_BOOTS_ON_RESOLVED_FLAG": {
+      "ok": true,
+      "detail": null
+    },
+    "NEW_GROUP_CREATION_DEFERRED": {
+      "ok": true,
+      "detail": null
+    },
+    "DOUBLE_REDEEM_SCOPE_DECLARED": {
+      "ok": true,
+      "detail": null
+    },
+    "SIGN_FEED_ALLOWED_KINDS": {
+      "ok": true,
+      "detail": [
+        1,
+        6
+      ]
+    },
+    "SIGNER_UNCHANGED_SINCE_896": {
+      "ok": true,
+      "detail": null
+    },
+    "SIGN_FEED_NEGATIVE_ALLOWLIST_GATE": {
+      "ok": true,
+      "detail": ""
+    },
+    "SECRET_LEAK_GATE": {
+      "ok": true,
+      "detail": []
+    },
+    "NO_GENERIC_RAW_SIGNING_SURFACE": {
+      "ok": true,
+      "detail": null
+    },
+    "AC1": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC2_GROUP_CONTROL": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC2_CONTROL_CONVERGENCE": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC3_INVITE_POLICY": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC4_MODERATION": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC5_MEMBERSHIP": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC5_MEMBERSHIP_CONVERGENCE": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC7_MEMBER_DIRECTORY": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC8_GUEST_HARDENING": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC9_TYPED_ADMIN_SIGNER": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC10_ADVERSARIAL": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "ACCESS_CONTROL_RECONCILIATION": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "FIRST_GROUP_ADMIN_E2E": {
+      "ok": true,
+      "detail": {
+        "status": "PASS",
+        "checks": 64,
+        "missing": []
+      }
+    },
+    "FULL_E2E": {
+      "ok": true,
+      "detail": "34 checks"
+    },
+    "ADVERSARIAL": {
+      "ok": true,
+      "detail": "14 checks"
+    },
+    "QR_SECURITY": {
+      "ok": true,
+      "detail": "4 checks"
+    },
+    "AUTHORITATIVE_GATEWAY": {
+      "ok": true,
+      "detail": "4 checks"
+    },
+    "SESSION_AUTHORITY": {
+      "ok": true,
+      "detail": "5 checks"
+    },
+    "E2E_NO_NSEC_IN_ADMIN_DOM": {
+      "ok": true,
+      "detail": null
+    },
+    "PRODUCT_RC_894_FLOWS": {
+      "ok": true,
+      "detail": [
+        "IDENTITY",
+        "NEW_ACCOUNT",
+        "EXISTING_KEY",
+        "HEBREW",
+        "CHAT",
+        "RELAY",
+        "POST",
+        "SHARE",
+        "LIKE",
+        "COMMENT",
+        "FOLLOW",
+        "NOTIFICATIONS",
+        "PRIVATE_ATTACHMENTS",
+        "VOICE",
+        "AUDIO_CALL",
+        "VIDEO_CALL",
+        "FULL_RELOAD",
+        "NSEC_EXPOSED"
+      ]
+    },
+    "PRODUCT_SECURITY_894": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "PRODUCT_SHARE_E2E": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "CHAT_READ_RECEIPT": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "FILE_SAFETY": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "VOICE_DURABLE_PLAYBACK": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "SOCIAL_REACTION": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "WEB_PRODUCT_INVENTORY": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "SECURE_P2P_V2": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "P2P_SIGNAL_SIGNATURE": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "MEDIA_FILE_E2EE_CORE": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "IDENTITY_KEY_PRESERVATION": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "IDENTITY_LOGOUT_SWITCH_ATOMICITY": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "PRODUCT_MODULES_UNCHANGED": {
+      "ok": true,
+      "detail": []
+    },
+    "PRODUCT_REGRESSION": {
+      "ok": true,
+      "detail": []
+    },
+    "EXISTING_KEY_IMPORT_GATE": {
+      "ok": true,
+      "detail": "rerun PASS"
+    },
+    "F6A": {
+      "ok": true,
+      "detail": "rerun PASS"
+    },
+    "F6I": {
+      "ok": true,
+      "detail": "rerun PASS"
+    },
+    "F5B6_STATIC_SECRET_SCAN": {
+      "ok": true,
+      "detail": null
+    },
+    "MASTER_SECURITY_REGRESSION": {
+      "ok": true,
+      "detail": null
+    },
+    "DOC_FIRST_GROUP_ADMIN_STATUS": {
+      "ok": true,
+      "detail": null
+    }
+  },
+  "informational": {
+    "SUPERSEDED_V2_PRODUCT_GATE": {
+      "ok": false,
+      "detail": "expected: group creation deferred / pre-existing on 896"
+    },
+    "SUPERSEDED_COMMUNITY_PRODUCT_GATE": {
+      "ok": false,
+      "detail": "expected: group creation deferred / pre-existing on 896"
+    },
+    "PREEXISTING_AC6_ADMIN_UI_GATE": {
+      "ok": false,
+      "detail": "expected: group creation deferred / pre-existing on 896"
+    },
+    "DIRECT_P2P_ENVIRONMENTAL": {
+      "ok": true,
+      "detail": {
+        "connected": true,
+        "dc": "open"
+      }
+    },
+    "CHAT_SIGNATURE_SOURCE_GATE_PREEXISTING": {
+      "ok": false,
+      "detail": "pre-existing on 896 baseline; inspected files unchanged"
+    },
+    "CALL_SESSION_TERMINAL_APK_VERSION_PREEXISTING": {
+      "ok": false,
+      "detail": "pre-existing on 896 baseline; inspected files unchanged"
+    },
+    "F5B6_FULL": {
+      "ok": false,
+      "detail": "Android unit-test build is out of scope (no Android work in 897)"
+    }
+  },
+  "groups": {
+    "FULL_E2E": "PASS",
+    "ADVERSARIAL": "PASS",
+    "QR_SECURITY": "PASS",
+    "AUTHORITATIVE_GATEWAY": "PASS",
+    "SESSION_AUTHORITY": "PASS",
+    "PRODUCT_REGRESSION": "PASS",
+    "MASTER_SECURITY": "PASS"
+  },
+  "PACKAGE897_RC_SHA": "1b922c0312dfcd6feb2b4a127ef127b89997ba64",
+  "PACKAGE897_RC_TREE_HASH": "dfeecf5a16db798306e0a3eb9c8b76867bdfa2af",
+  "ROLLBACK_TARGET_SHA": "1b922c0312dfcd6feb2b4a127ef127b89997ba64",
+  "NEXT_WEB_PACKAGE": 897,
+  "NEXT_CACHE_VERSION": "sos-cache-v897",
+  "ACCESS_CONTROL_V2_SHIPPED_VALUE": false,
+  "MAIN_PUSH_EXECUTED": false,
+  "MAIN_DEPLOY_EXECUTED": false,
+  "CDN_PRODUCTION_CHANGED": false,
+  "PRODUCTION_ACCESS_CONTROL_CHANGED": false,
+  "ANDROID_WORK_EXECUTED": false,
+  "APK_BUILT": false,
+  "MD4_STARTED": false,
+  "PACKAGE897_RC_STATUS": "READY_FOR_OWNER_APPROVAL",
+  "delta": {
+    "files": [
+      "admin-signing-policy.js",
+      "app-version.json",
+      "group-admin-product-ui.js",
+      "group-control-mutations.js",
+      "group-control-state.js",
+      "invite-policy.js",
+      "member-admin-operations.js",
+      "membership-state.js",
+      "moderation-policy.js",
+      "service-worker.js",
+      "sw-register.js",
+      "videos.html",
+      "docs/FIRST_GROUP_ADMIN_STATUS.md",
+      "first-group-admin.js",
+      "qa/package897-first-group-admin-e2e.mjs",
+      "qa/package897-rc-gate.mjs",
+      "qa/prod-package-896-acceptance.mjs"
+    ],
+    "count": 17
+  },
+  "E2E_SCOPE": "LOCAL_CONTROLLED_E2E",
+  "NETWORK_BACKED_E2E": false,
+  "DOUBLE_REDEEM_SCOPE": "LOCAL_ONLY",
+  "E2E_CHECKS": 64,
+  "RAW_K_EXPOSED": false,
+  "NSEC_EXPOSED": false,
+  "FILE_KEY_EXPOSED": false,
+  "DEVICE_PRIVATE_KEY_EXPOSED": false,
+  "SIGN_FEED_ALLOWED_KINDS": [
+    1,
+    6
+  ],
+  "PACKAGE897_RC_GATE": "PASS",
+  "missing": [],
+  "RC_IDENTITY_NOTE": "SHA/tree above are HEAD at gate run time; final RC identity is the commit that contains this report."
+}

@@ -1149,6 +1149,28 @@
     if (isV2()) loadCache();
   }
 
+  /** Additive merge of the shared localStorage cache (same-profile tabs); requires verified control first. */
+  function syncFromSharedCache(networkTag) {
+    if (!isV2()) return { ok: false, status: 'V2_OFF' };
+    bindMembershipStore(resolveGroupId(networkTag));
+    cacheLoaded = true;
+    const before = getKnownMemberPubkeys().length;
+    loadCache();
+    return { ok: true, status: 'SYNCED', known: getKnownMemberPubkeys().length, before };
+  }
+
+  /** Stored signed membership events (for audit and local-controlled transfer). */
+  function exportMembershipEvents(networkTag) {
+    bindMembershipStore(resolveGroupId(networkTag));
+    const out = [];
+    members.forEach((bucket) => {
+      bucket.events.forEach((stored) => {
+        if (stored && stored.event) out.push(JSON.parse(JSON.stringify(stored.event)));
+      });
+    });
+    return out.sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
+  }
+
   const api = {
     MEMBERSHIP_EVENT_KIND,
     MEMBERSHIP_KIND_CLASS,
@@ -1226,6 +1248,8 @@
     clearTips,
     loadCache,
     ensureCache,
+    syncFromSharedCache,
+    exportMembershipEvents,
     getActiveMembers,
     getBlockedMembers,
     getRemovedMembers,

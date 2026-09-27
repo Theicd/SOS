@@ -210,6 +210,18 @@
       return { ok: false, code: 'NO_MODERATE_CAP' };
     }
 
+    if (Array.isArray(state.blockedPubkeys) && state.blockedPubkeys.indexOf(viewer) !== -1) {
+      return { ok: false, code: 'MODERATOR_BLOCKED' };
+    }
+    const MS = App.MembershipState || window.SosMembershipState;
+    if (MS && typeof MS.getMemberState === 'function') {
+      if (MS.ensureCache) MS.ensureCache();
+      const ms = MS.getMemberState(viewer);
+      if (ms === 'REMOVED' || ms === 'BLOCKED' || ms === 'CONFLICT') {
+        return { ok: false, code: 'MODERATOR_MEMBERSHIP_INACTIVE' };
+      }
+    }
+
     // Delegated moderator must not moderate ROOT_ADMIN content
     if (isRootAdmin(author, state)) {
       return { ok: false, code: 'ROOT_CONTENT_PROTECTED' };
