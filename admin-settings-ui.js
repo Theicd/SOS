@@ -515,9 +515,11 @@
     btn.style.display = 'inline-flex';
   }
 
+  let booted = false;
   function boot() {
     // V2-off: no functional admin UI
-    if (!isV2()) return;
+    if (booted || !isV2()) return;
+    booted = true;
     ensureEntryButton();
     // Re-check on identity changes
     window.addEventListener('sos-identity-ready', ensureEntryButton);
@@ -546,6 +548,7 @@
   App.AdminSettingsUi = api;
   window.SosAdminSettingsUi = api;
 
+  window.addEventListener('sos-feature-flags-ready', boot);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {

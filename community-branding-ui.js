@@ -14,7 +14,8 @@
   }
 
   function applyBranding(snap) {
-    const meta = snap || (CC() && CC().snapshot && CC().snapshot()) || null;
+    const v2 = window.SOS_ACCESS_CONTROL_V2 === true;
+    const meta = v2 ? snap || (CC() && CC().snapshot && CC().snapshot()) || null : null;
     const isGlobal = !meta || meta.communityId === 'sos010';
     const logoRef = isGlobal ? SOS_LOGO : meta.logoRef || SOS_LOGO;
     const mobileLogo = isGlobal ? SOS_LOGO_MOBILE : meta.logoRef || SOS_LOGO_MOBILE;
@@ -72,6 +73,9 @@
     applyBranding();
     window.addEventListener('sos-community-switch', onSwitch);
     window.addEventListener('sos-group-created', function () {
+      applyBranding();
+    });
+    window.addEventListener('sos-feature-flags-ready', function () {
       applyBranding();
     });
   }

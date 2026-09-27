@@ -1,8 +1,8 @@
 # Access Control V2 — Activation Plan (NOT EXECUTED)
 
 **Status:** draft for owner approval only.  
-**Production now:** Package 894, `SOS_ACCESS_CONTROL_V2=false`.  
-**Local branch:** `local/access-control-v2-product` preparing Package **895** (not deployed).
+**Production now:** Package 895 (`623c94f6e2b25471b4814cdcb74851f692263a1e`), `SOS_ACCESS_CONTROL_V2=false`.  
+**Local branch:** `local/package896-feature-flag` preparing Package **896** (not deployed).
 
 ## Product model (must stay true after activation)
 
@@ -13,36 +13,64 @@
 - Feed = union of user-selected communities (selection ≠ membership)
 - Authorization = `(P, communityId, capability)`
 
+## Activation mechanism (Package 896)
+
+Package 895 had no canonical production switch: the production host forces the flag
+OFF and ignores query/storage. Package 896 adds the single canonical source:
+
+- File: `/runtime-feature-flags.json` (same origin, deployed with the site)
+- Content: `{"schema":"sos-feature-flags-v1","accessControlV2":false}`
+- Loader: `feature-flags.js` (synchronous, first in `videos.html`, before any V2 module)
+- Only `true` in a valid `sos-feature-flags-v1` document enables V2.
+- Missing / unreachable / timeout (5s) / malformed / unknown schema / unknown key /
+  non-boolean value => **OFF** (fail-closed).
+- Flag reads `false` until the config resolves; V2 UIs boot on `sos-feature-flags-ready`.
+- On non-local hosts writes to `window.SOS_ACCESS_CONTROL_V2` are ignored, so query,
+  fragment, localStorage, sessionStorage and DOM cannot enable V2.
+- The flag is **not** the authorization boundary. Signed control state and
+  `(P, communityId, capability)` checks stay enforced whether the UI is visible or not.
+- Diagnostics: `SosFeatureFlags.snapshot()` (schema, value, source, errorCode, host mode). No secrets.
+
+### Toggle = config-only change
+
+Enable: set `"accessControlV2":true` in `runtime-feature-flags.json` and deploy (no code change).  
+Disable / rollback: set it back to `false` and deploy.
+
+### Cache and propagation
+
+- Service Worker never intercepts `runtime-feature-flags.json` (same rule as `app-version.json`),
+  so it is never served from SW cache; offline => fetch fails => OFF.
+- Loader fetches with `cache: 'no-store'` and a timestamp query.
+- GitHub Pages / Fastly may keep the old file up to ~10 minutes after deploy.
+- A running tab keeps the value it resolved at load; the new value applies on the next page load.
+- Expected propagation: Pages deploy + up to ~10 minutes CDN + user reload.
+
 ## Preconditions
 
-1. Local product gates PASS on `local/access-control-v2-product`
-   - `qa/access-control-v2-product-gate.mjs`
-   - `qa/access-control-v2-community-product-gate.mjs`
-2. Adversarial + cross-group + multitab gates PASS
-3. Security non-regression PASS
-4. Explicit owner approval for a **dark** or **enabled** production package
+1. `qa/package896-rc-gate.mjs` PASS on the exact RC tree
+2. Package 896 deployed with `accessControlV2=false` and production smoke PASS
+3. Separate explicit owner approval to enable
 
-## Proposed packaging (future)
+## Packaging
 
 | Field | Value |
 |-------|-------|
-| NEXT_WEB_PACKAGE | 895 |
-| NEXT_CACHE_VERSION | sos-cache-v895 |
-| FLAG_DEFAULT | `SOS_ACCESS_CONTROL_V2=false` unless owner orders enable |
-| ROLLBACK | Package 894 / `c5e764fd15befc16d26d944a3fba5d1f29b2eb08` / `sos-cache-v894` |
+| NEXT_WEB_PACKAGE | 896 |
+| NEXT_CACHE_VERSION | sos-cache-v896 |
+| FLAG_DEFAULT | `runtime-feature-flags.json` → `accessControlV2=false` |
+| FLAG ROLLBACK | config back to `false` (no code change) |
+| CODE ROLLBACK | Package 895 / `623c94f6e2b25471b4814cdcb74851f692263a1e` / `sos-cache-v895` |
 
 ## Activation sequence (owner-gated)
 
-1. Merge local AC product branch after RC PASS
-2. Deploy Package 895 **with flag still OFF** (dark UI code path only) **or** enable flag only if owner orders
-3. Smoke: create community (logo/name), branding switch, feed selector, admin menu, invite/QR, member remove, privilege denial, cross-community chat/calls
-4. If regression → rollback to 894
+See `docs/PACKAGE896_FEATURE_FLAG_RELEASE_PLAN.md` steps A–F.
 
 ## Local test (developers)
 
-- Host: localhost / 127.0.0.1
-- `?acv2=1` or `localStorage.setItem('SOS_ACCESS_CONTROL_V2_LOCAL_TEST','1')`
-- Production host **cannot** enable via query/storage
+- Same config path: serve `runtime-feature-flags.json` with `true` locally.
+- Local helper still works only on localhost / 127.0.0.1 / LAN / file:
+  `?acv2=1` or `localStorage.setItem('SOS_ACCESS_CONTROL_V2_LOCAL_TEST','1')`
+- Production host **cannot** enable via query/storage/DOM.
 
 ## Out of scope until approved
 

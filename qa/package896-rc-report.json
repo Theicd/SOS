@@ -1,0 +1,722 @@
+{
+  "gate": "PACKAGE896_RC",
+  "status": "PASS",
+  "ts": "2026-09-27T08:02:26.200Z",
+  "results": {
+    "PACKAGE896_SURGICAL_DELTA": {
+      "ok": true,
+      "detail": [
+        "admin-settings-ui.js",
+        "app-version.json",
+        "community-branding-ui.js",
+        "community-context.js",
+        "community-feed-selection.js",
+        "docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md",
+        "feed.js",
+        "group-admin-product-ui.js",
+        "member-directory-ui.js",
+        "p2p-standby.html",
+        "service-worker.js",
+        "sw-register.js",
+        "videos.html"
+      ]
+    },
+    "ANDROID_UNTOUCHED": {
+      "ok": true,
+      "detail": null
+    },
+    "PACKAGE896_VERSION_GATE": {
+      "ok": true,
+      "detail": "2026.09.27-web-896"
+    },
+    "PACKAGE896_CACHE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "SHIPPED_CONFIG_V2_OFF": {
+      "ok": true,
+      "detail": {
+        "schema": "sos-feature-flags-v1",
+        "accessControlV2": false
+      }
+    },
+    "SW_BYPASSES_FLAG_CONFIG": {
+      "ok": true,
+      "detail": null
+    },
+    "FLAG_LOADS_BEFORE_V2_SYNC": {
+      "ok": true,
+      "detail": {
+        "loaderIdx": 71612,
+        "firstV2": 71871
+      }
+    },
+    "LOCAL_TEST_HELPER_UNCHANGED_PROD_BLOCK": {
+      "ok": true,
+      "detail": null
+    },
+    "V2_UI_BOOTS_ON_RESOLVED_FLAG": {
+      "ok": true,
+      "detail": null
+    },
+    "VM_PROD_CONFIG_OFF": {
+      "ok": true,
+      "detail": {
+        "after": false,
+        "before": false,
+        "source": "canonical_config",
+        "errorCode": null
+      }
+    },
+    "VM_PROD_CONFIG_ON": {
+      "ok": true,
+      "detail": {
+        "after": true,
+        "before": false,
+        "source": "canonical_config",
+        "errorCode": null
+      }
+    },
+    "VM_PROD_WWW_CONFIG_ON": {
+      "ok": true,
+      "detail": {
+        "after": true,
+        "before": false,
+        "source": "canonical_config",
+        "errorCode": null
+      }
+    },
+    "FAIL_CLOSED_MISSING": {
+      "ok": true,
+      "detail": {
+        "after": false,
+        "before": false,
+        "source": "default_off",
+        "errorCode": "CONFIG_HTTP_404"
+      }
+    },
+    "FAIL_CLOSED_SERVER_ERROR": {
+      "ok": true,
+      "detail": {
+        "after": false,
+        "before": false,
+        "source": "default_off",
+        "errorCode": "CONFIG_HTTP_500"
+      }
+    },
+    "FAIL_CLOSED_UNREACHABLE": {
+      "ok": true,
+      "detail": {
+        "after": false,
+        "before": false,
+        "source": "default_off",
+        "errorCode": "CONFIG_UNREACHABLE"
+      }
+    },
+    "FAIL_CLOSED_NO_FETCH": {
+      "ok": true,
+      "detail": {
+        "after": false,
+        "before": false,
+        "source": "default_off",
+        "errorCode": "FETCH_UNAVAILABLE"
+      }
+    },
+    "FAIL_CLOSED_MALFORMED": {
+      "ok": true,
+      "detail": {
+        "after": false,
+        "before": false,
+        "source": "default_off",
+        "errorCode": "CONFIG_MALFORMED"
+      }
+    },
+    "FAIL_CLOSED_UNKNOWN_SCHEMA": {
+      "ok": true,
+      "detail": {
+        "after": false,
+        "before": false,
+        "source": "default_off",
+        "errorCode": "UNKNOWN_SCHEMA"
+      }
+    },
+    "FAIL_CLOSED_EXTRA_KEY": {
+      "ok": true,
+      "detail": {
+        "after": false,
+        "before": false,
+        "source": "default_off",
+        "errorCode": "UNKNOWN_KEY"
+      }
+    },
+    "FAIL_CLOSED_STRING_VALUE": {
+      "ok": true,
+      "detail": {
+        "after": false,
+        "before": false,
+        "source": "default_off",
+        "errorCode": "INVALID_VALUE"
+      }
+    },
+    "FAIL_CLOSED_ARRAY": {
+      "ok": true,
+      "detail": {
+        "after": false,
+        "before": false,
+        "source": "default_off",
+        "errorCode": "CONFIG_NOT_OBJECT"
+      }
+    },
+    "FAIL_CLOSED_NULL": {
+      "ok": true,
+      "detail": {
+        "after": false,
+        "before": false,
+        "source": "default_off",
+        "errorCode": "CONFIG_NOT_OBJECT"
+      }
+    },
+    "FAIL_CLOSED_TOO_LARGE": {
+      "ok": true,
+      "detail": {
+        "after": false,
+        "before": false,
+        "source": "default_off",
+        "errorCode": "CONFIG_TOO_LARGE"
+      }
+    },
+    "PROD_OVERRIDES_IGNORED_ALL_CHANNELS": {
+      "ok": true,
+      "detail": {
+        "after": false,
+        "before": false,
+        "source": "canonical_config",
+        "errorCode": null
+      }
+    },
+    "PROD_OVERRIDES_IGNORED_ON_FAILURE": {
+      "ok": true,
+      "detail": {
+        "after": false,
+        "before": false,
+        "source": "default_off",
+        "errorCode": "CONFIG_HTTP_404"
+      }
+    },
+    "NON_LOCAL_HOST_OVERRIDE_IGNORED": {
+      "ok": true,
+      "detail": {
+        "after": false,
+        "before": false,
+        "source": "default_off",
+        "errorCode": "CONFIG_HTTP_404"
+      }
+    },
+    "LOCAL_CONFIG_ON": {
+      "ok": true,
+      "detail": {
+        "after": true,
+        "before": false,
+        "source": "canonical_config",
+        "errorCode": null
+      }
+    },
+    "LOCAL_CONFIG_OFF": {
+      "ok": true,
+      "detail": {
+        "after": false,
+        "before": false,
+        "source": "canonical_config",
+        "errorCode": null
+      }
+    },
+    "LOCAL_TEST_HELPER_PRESERVED": {
+      "ok": true,
+      "detail": {
+        "after": true,
+        "before": false,
+        "source": "local_test_override",
+        "errorCode": null
+      }
+    },
+    "FLAG_OFF_UNTIL_RESOLVED": {
+      "ok": true,
+      "detail": {
+        "v": false,
+        "resolved": false
+      }
+    },
+    "SAFE_DIAGNOSTICS_ONLY": {
+      "ok": true,
+      "detail": "accessControlV2,canonicalAccessControlV2,configPath,errorCode,guardInstalled,localOverrideAllowed,productionHost,resolved,schema,source"
+    },
+    "FEATURE_FLAG_NOT_AUTHORITY": {
+      "ok": true,
+      "detail": null
+    },
+    "SIGN_FEED_ALLOWED_KINDS": {
+      "ok": true,
+      "detail": [
+        1,
+        6
+      ]
+    },
+    "SIGN_FEED_NEGATIVE_ALLOWLIST_GATE": {
+      "ok": true,
+      "detail": ""
+    },
+    "SECRET_LEAK_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_PRODUCT_SUITE": {
+      "ok": true,
+      "detail": ""
+    },
+    "ACCESS_CONTROL_ADVERSARIAL_GATE": {
+      "ok": true,
+      "detail": ""
+    },
+    "EXISTING_KEY_IMPORT_GATE": {
+      "ok": true,
+      "detail": "rerun PASS"
+    },
+    "F5B6": {
+      "ok": false,
+      "detail": "PASS file:mig\nPASS file:strong\nPASS file:trusted\nPASS file:test\nPASS file:bridge\nPASS protocol sos-sealed-migration-v1\nPASS domain SOS_SEALE"
+    },
+    "F6A": {
+      "ok": true,
+      "detail": "rerun PASS"
+    },
+    "F6I": {
+      "ok": true,
+      "detail": "rerun PASS"
+    },
+    "MASTER_SECURITY_REGRESSION": {
+      "ok": true,
+      "detail": "android delta=0; F5B6 static + F6A/F6I + worker PASS"
+    },
+    "BROWSER_PACKAGE_896": {
+      "ok": true,
+      "detail": "2026.09.27-web-896"
+    },
+    "BROWSER_PRODUCTION_HOST_MODE": {
+      "ok": true,
+      "detail": {
+        "schema": "sos-feature-flags-v1",
+        "configPath": "./runtime-feature-flags.json",
+        "resolved": true,
+        "accessControlV2": false,
+        "canonicalAccessControlV2": false,
+        "source": "canonical_config",
+        "errorCode": null,
+        "productionHost": true,
+        "localOverrideAllowed": false,
+        "guardInstalled": true
+      }
+    },
+    "FLAG_OFF_CREATE_GROUP_HIDDEN": {
+      "ok": true,
+      "detail": {
+        "v2": false,
+        "snap": {
+          "schema": "sos-feature-flags-v1",
+          "configPath": "./runtime-feature-flags.json",
+          "resolved": true,
+          "accessControlV2": false,
+          "canonicalAccessControlV2": false,
+          "source": "canonical_config",
+          "errorCode": null,
+          "productionHost": true,
+          "localOverrideAllowed": false,
+          "guardInstalled": true
+        },
+        "createVisible": false,
+        "adminVisible": false,
+        "feedSelVisible": false,
+        "hebrewCreate": false,
+        "hebrewFeed": false,
+        "brandMode": "network",
+        "earlyV2": false,
+        "flash": false,
+        "nsecDom": false
+      }
+    },
+    "FLAG_OFF_GROUP_ADMIN_HIDDEN": {
+      "ok": true,
+      "detail": null
+    },
+    "FLAG_OFF_MULTI_COMMUNITY_HIDDEN": {
+      "ok": true,
+      "detail": null
+    },
+    "FLAG_OFF_NO_V2_FLASH": {
+      "ok": true,
+      "detail": null
+    },
+    "BROWSER_IDENTITY": {
+      "ok": true,
+      "detail": "02f19b5a"
+    },
+    "FORCED_UI_V2_OFF_REJECTED": {
+      "ok": true,
+      "detail": {
+        "create": {
+          "ok": false,
+          "code": "V2_OFF"
+        },
+        "mut": {
+          "ok": false,
+          "code": "V2_REQUIRED"
+        },
+        "v2": false
+      }
+    },
+    "PRODUCTION_OVERRIDES_NO_EFFECT": {
+      "ok": true,
+      "detail": {
+        "v2": false,
+        "ovAfter": false
+      }
+    },
+    "BROWSER_FAIL_CLOSED_MISSING": {
+      "ok": true,
+      "detail": {
+        "v2": false,
+        "err": "CONFIG_HTTP_404"
+      }
+    },
+    "BROWSER_FAIL_CLOSED_MALFORMED": {
+      "ok": true,
+      "detail": {
+        "v2": false,
+        "err": "CONFIG_MALFORMED"
+      }
+    },
+    "BROWSER_FAIL_CLOSED_UNKNOWN_SCHEMA": {
+      "ok": true,
+      "detail": {
+        "v2": false,
+        "err": "UNKNOWN_SCHEMA"
+      }
+    },
+    "BROWSER_FAIL_CLOSED_EXTRA_KEY": {
+      "ok": true,
+      "detail": {
+        "v2": false,
+        "err": "UNKNOWN_KEY"
+      }
+    },
+    "BROWSER_FAIL_CLOSED_STRING_VALUE": {
+      "ok": true,
+      "detail": {
+        "v2": false,
+        "err": "INVALID_VALUE"
+      }
+    },
+    "BROWSER_FAIL_CLOSED_SERVER_ERROR": {
+      "ok": true,
+      "detail": {
+        "v2": false,
+        "err": "CONFIG_HTTP_500"
+      }
+    },
+    "FLAG_ON_V2_ENABLED": {
+      "ok": true,
+      "detail": {
+        "schema": "sos-feature-flags-v1",
+        "configPath": "./runtime-feature-flags.json",
+        "resolved": true,
+        "accessControlV2": true,
+        "canonicalAccessControlV2": true,
+        "source": "canonical_config",
+        "errorCode": null,
+        "productionHost": true,
+        "localOverrideAllowed": false,
+        "guardInstalled": true
+      }
+    },
+    "FLAG_ON_CREATE_GROUP_VISIBLE": {
+      "ok": true,
+      "detail": null
+    },
+    "FLAG_ON_MULTI_COMMUNITY_VISIBLE": {
+      "ok": true,
+      "detail": null
+    },
+    "FLAG_ON_NO_PRE_RESOLUTION_V2": {
+      "ok": true,
+      "detail": null
+    },
+    "FLAG_ON_FULL_COMMUNITY_PRODUCT": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "communityId": "rc896-mujj8aj2",
+        "networkTag": "community-rc896-mujj8aj2",
+        "adminMenu": true,
+        "brand": "community"
+      }
+    },
+    "FORCED_UI_PRIVILEGE_BYPASS_REJECTED": {
+      "ok": true,
+      "detail": {
+        "strangerCan": false,
+        "creatorCan": true,
+        "grant": {
+          "ok": false,
+          "code": "UNAUTHORIZED"
+        },
+        "remove": {
+          "ok": false,
+          "code": "UNAUTHORIZED"
+        },
+        "stillAdmin": true
+      }
+    },
+    "TOGGLE_OFF_AFTER_ON_HIDDEN": {
+      "ok": true,
+      "detail": {
+        "v2": false,
+        "snap": {
+          "schema": "sos-feature-flags-v1",
+          "configPath": "./runtime-feature-flags.json",
+          "resolved": true,
+          "accessControlV2": false,
+          "canonicalAccessControlV2": false,
+          "source": "canonical_config",
+          "errorCode": null,
+          "productionHost": true,
+          "localOverrideAllowed": false,
+          "guardInstalled": true
+        },
+        "createVisible": false,
+        "adminVisible": false,
+        "feedSelVisible": false,
+        "hebrewCreate": false,
+        "hebrewFeed": false,
+        "brandMode": "network",
+        "earlyV2": false,
+        "flash": false,
+        "nsecDom": false
+      }
+    },
+    "TOGGLE_OFF_FEED_GLOBAL_ONLY": {
+      "ok": true,
+      "detail": {
+        "feed": [
+          "israel-network"
+        ],
+        "ambient": "israel-network",
+        "active": "sos010"
+      }
+    },
+    "TOGGLE_ON_AGAIN_STATE_PERSISTS": {
+      "ok": true,
+      "detail": {
+        "v2": true,
+        "persisted": {
+          "found": true,
+          "active": true
+        }
+      }
+    },
+    "TOGGLE_CYCLE_OFF_ON_OFF_ON_OFF": {
+      "ok": true,
+      "detail": {
+        "v2": false
+      }
+    },
+    "BROWSER_NO_NSEC_IN_DOM": {
+      "ok": true,
+      "detail": null
+    },
+    "P2P_CONTEXT_V2_OFF": {
+      "ok": true,
+      "detail": null
+    },
+    "CHAT_REGRESSION_V2_OFF": {
+      "ok": true,
+      "detail": {
+        "ok": true
+      }
+    },
+    "P2P_REGRESSION_V2_OFF": {
+      "ok": true,
+      "detail": {
+        "connected": true,
+        "ice": "connected",
+        "dc": "open"
+      }
+    },
+    "SOCIAL_REGRESSION_V2_OFF": {
+      "ok": true,
+      "detail": {
+        "like": true,
+        "share": true,
+        "follow": true
+      }
+    },
+    "SW_CACHE_COHERENCE_TOGGLE": {
+      "ok": true,
+      "detail": {
+        "swCtl": true,
+        "swOn": true,
+        "swOff": {
+          "v2": false,
+          "names": [
+            "sos-cache-v896"
+          ],
+          "cachedFlags": false
+        }
+      }
+    },
+    "SW_OFFLINE_FAIL_CLOSED": {
+      "ok": true,
+      "detail": {
+        "v2": false,
+        "err": "CONFIG_UNREACHABLE"
+      }
+    },
+    "DOC_ACTIVATION_PLAN": {
+      "ok": true,
+      "detail": null
+    },
+    "DOC_896_RELEASE_PLAN": {
+      "ok": true,
+      "detail": null
+    }
+  },
+  "PACKAGE896_RC_SHA": "623c94f6e2b25471b4814cdcb74851f692263a1e",
+  "PACKAGE896_RC_TREE_HASH": "a9b38e8718a3231b1409eea6c5d4f87b16e45600",
+  "ROLLBACK_TARGET_SHA": "623c94f6e2b25471b4814cdcb74851f692263a1e",
+  "NEXT_WEB_PACKAGE": 896,
+  "NEXT_CACHE_VERSION": "sos-cache-v896",
+  "ACCESS_CONTROL_V2_SHIPPED_VALUE": false,
+  "MAIN_PUSH_EXECUTED": false,
+  "MAIN_DEPLOY_EXECUTED": false,
+  "CDN_PRODUCTION_CHANGED": false,
+  "PRODUCTION_ACCESS_CONTROL_CHANGED": false,
+  "ANDROID_WORK_EXECUTED": false,
+  "MD4_STARTED": false,
+  "PACKAGE896_RC_STATUS": "READY_FOR_OWNER_APPROVAL",
+  "phases": {
+    "off1": {
+      "v2": false,
+      "snap": {
+        "schema": "sos-feature-flags-v1",
+        "configPath": "./runtime-feature-flags.json",
+        "resolved": true,
+        "accessControlV2": false,
+        "canonicalAccessControlV2": false,
+        "source": "canonical_config",
+        "errorCode": null,
+        "productionHost": true,
+        "localOverrideAllowed": false,
+        "guardInstalled": true
+      },
+      "createVisible": false,
+      "adminVisible": false,
+      "feedSelVisible": false,
+      "hebrewCreate": false,
+      "hebrewFeed": false,
+      "brandMode": "network",
+      "earlyV2": false,
+      "flash": false,
+      "nsecDom": false
+    },
+    "overrides": {
+      "v2": false,
+      "snap": {
+        "schema": "sos-feature-flags-v1",
+        "configPath": "./runtime-feature-flags.json",
+        "resolved": true,
+        "accessControlV2": false,
+        "canonicalAccessControlV2": false,
+        "source": "canonical_config",
+        "errorCode": null,
+        "productionHost": true,
+        "localOverrideAllowed": false,
+        "guardInstalled": true
+      },
+      "createVisible": false,
+      "adminVisible": false,
+      "feedSelVisible": false,
+      "hebrewCreate": false,
+      "hebrewFeed": false,
+      "brandMode": "network",
+      "earlyV2": null,
+      "flash": null,
+      "nsecDom": false
+    },
+    "on1": {
+      "v2": true,
+      "snap": {
+        "schema": "sos-feature-flags-v1",
+        "configPath": "./runtime-feature-flags.json",
+        "resolved": true,
+        "accessControlV2": true,
+        "canonicalAccessControlV2": true,
+        "source": "canonical_config",
+        "errorCode": null,
+        "productionHost": true,
+        "localOverrideAllowed": false,
+        "guardInstalled": true
+      },
+      "createVisible": true,
+      "adminVisible": false,
+      "feedSelVisible": true,
+      "hebrewCreate": true,
+      "hebrewFeed": true,
+      "brandMode": "network",
+      "earlyV2": false,
+      "flash": false,
+      "nsecDom": false
+    },
+    "off2": {
+      "v2": false,
+      "snap": {
+        "schema": "sos-feature-flags-v1",
+        "configPath": "./runtime-feature-flags.json",
+        "resolved": true,
+        "accessControlV2": false,
+        "canonicalAccessControlV2": false,
+        "source": "canonical_config",
+        "errorCode": null,
+        "productionHost": true,
+        "localOverrideAllowed": false,
+        "guardInstalled": true
+      },
+      "createVisible": false,
+      "adminVisible": false,
+      "feedSelVisible": false,
+      "hebrewCreate": false,
+      "hebrewFeed": false,
+      "brandMode": "network",
+      "earlyV2": false,
+      "flash": false,
+      "nsecDom": false
+    }
+  },
+  "delta": {
+    "files": [
+      "admin-settings-ui.js",
+      "app-version.json",
+      "community-branding-ui.js",
+      "community-context.js",
+      "community-feed-selection.js",
+      "docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md",
+      "feed.js",
+      "group-admin-product-ui.js",
+      "member-directory-ui.js",
+      "p2p-standby.html",
+      "service-worker.js",
+      "sw-register.js",
+      "videos.html"
+    ],
+    "count": 13
+  },
+  "missing": [],
+  "RC_IDENTITY_NOTE": "SHA/tree above are HEAD at gate run time; final RC identity is the commit that contains this report."
+}

@@ -546,8 +546,10 @@
     }
   }
 
+  let booted = false;
   function boot() {
-    if (!isV2()) return;
+    if (booted || !isV2()) return;
+    booted = true;
     ensureMenuEntry();
     window.addEventListener('sos-identity-ready', ensureMenuEntry);
     window.addEventListener('sos-access-control-v2-local', ensureMenuEntry);
@@ -572,6 +574,8 @@
   App.GroupAdminProductUi = api;
   window.SosGroupAdminProductUi = api;
 
+  window.addEventListener('sos-feature-flags-ready', boot);
+  window.addEventListener('sos-access-control-v2-local', boot);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {

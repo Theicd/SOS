@@ -511,8 +511,10 @@
   }
 
   // Hook Admin Settings open
+  let booted = false;
   function boot() {
-    if (!isV2()) return;
+    if (booted || !isV2()) return;
+    booted = true;
     // Do not mutate frozen AdminSettingsUi API — observe modal open instead.
     try {
       const ui = AdminUi();
@@ -550,6 +552,7 @@
   App.MemberDirectoryUi = api;
   window.SosMemberDirectoryUi = api;
 
+  window.addEventListener('sos-feature-flags-ready', boot);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {

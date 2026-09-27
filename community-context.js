@@ -89,11 +89,20 @@
           register(row, { persist: false });
         } catch (_e) {}
       });
+      restoreActiveIfV2();
+    } catch (_e2) {}
+  }
+
+  // A stored non-global active community is restored only while V2 is resolved ON;
+  // otherwise the legacy ambient NETWORK_TAG would scope posts/feed with V2 OFF.
+  function restoreActiveIfV2() {
+    if (window.SOS_ACCESS_CONTROL_V2 !== true) return;
+    try {
       const activeId = window.localStorage.getItem(ACTIVE_STORAGE_KEY);
-      if (activeId && byCommunityId.has(activeId)) {
+      if (activeId && byCommunityId.has(activeId) && (!active || active.communityId !== activeId)) {
         setActive(activeId, { persist: false });
       }
-    } catch (_e2) {}
+    } catch (_e) {}
   }
 
   function persistFeedSelection() {
@@ -349,6 +358,10 @@
   restoreDirectory();
   restoreFeedSelection();
   if (!active) setActive(SOS010.communityId, { persist: false });
+  if (typeof window.addEventListener === 'function') {
+    window.addEventListener('sos-feature-flags-ready', restoreActiveIfV2);
+    window.addEventListener('sos-access-control-v2-local', restoreActiveIfV2);
+  }
 
   const api = {
     SOS010,

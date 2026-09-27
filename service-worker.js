@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v895'; // I2 pending package only. Delete flag stays false. Not deployed by packaging.
+  const CACHE_NAME = 'sos-cache-v896'; // I2 pending package only. Delete flag stays false. Not deployed by packaging.
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -72,18 +72,18 @@
     './p2p-standby.html',
     './doom-multiplayer.html',
     './hexgl-multiplayer.html',
-    './key-storage.js?pkg=895',
-    './identity-storage-bootstrap.js?pkg=895',
-    './auth-guard.js?pkg=895',
-    './config.js?pkg=895',
-    './keys.js?pkg=895',
-    './app.js?pkg=895',
-    './identity-lifecycle.js?pkg=895',
+    './key-storage.js?pkg=896',
+    './identity-storage-bootstrap.js?pkg=896',
+    './auth-guard.js?pkg=896',
+    './config.js?pkg=896',
+    './keys.js?pkg=896',
+    './app.js?pkg=896',
+    './identity-lifecycle.js?pkg=896',
     './signer-outage-isolation.js',
     './isolated-signer-trusted-import.js',
-    './account.js?pkg=895',
-    './key-viewer.js?pkg=895',
-    './sw-register.js?pkg=895',
+    './account.js?pkg=896',
+    './key-viewer.js?pkg=896',
+    './sw-register.js?pkg=896',
   ];
 
   async function networkFirstThenCache(request, isNavigate) {
@@ -164,6 +164,8 @@
     // קובץ גרסה – תמיד מהרשת כדי לזהות דיפלוי חדש | HYPER CORE TECH
     if (url.pathname.endsWith('/app-version.json') || url.pathname.endsWith('app-version.json')) return;
     if (url.pathname.endsWith('/apk-version.json') || url.pathname.endsWith('apk-version.json')) return;
+    // דגלי ריצה קנוניים – תמיד מהרשת, לעולם לא מה-cache (fail-closed כשאין רשת) | HYPER CORE TECH
+    if (url.pathname.endsWith('/runtime-feature-flags.json')) return;
 
     // לא לשמור בקאש נתיבים דינמיים
     if (EXCLUDE_PATHS.some(p => url.pathname.startsWith(p))) return;

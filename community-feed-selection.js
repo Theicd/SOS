@@ -11,6 +11,10 @@
     return App.CommunityContext || window.SosCommunityContext;
   }
 
+  function isV2() {
+    return window.SOS_ACCESS_CONTROL_V2 === true;
+  }
+
   function ensureStyles() {
     if (document.getElementById('sosFeedSelStyles')) return;
     const s = document.createElement('style');
@@ -32,7 +36,7 @@
 
   function openPanel() {
     const cc = CC();
-    if (!cc) return;
+    if (!cc || !isV2()) return;
     ensureStyles();
     let panel = document.getElementById('sosFeedSelPanel');
     if (!panel) {
@@ -103,6 +107,7 @@
   }
 
   function ensureButton() {
+    if (!isV2()) return;
     ensureStyles();
     let btn = document.getElementById('sosFeedSelBtn');
     if (!btn) {
@@ -117,7 +122,7 @@
 
   function communityAttributionHtml(event) {
     const cc = CC();
-    if (!cc || !event || !Array.isArray(event.tags)) return '';
+    if (!isV2() || !cc || !event || !Array.isArray(event.tags)) return '';
     const tTag = event.tags.find((t) => Array.isArray(t) && t[0] === 't' && t[1]);
     if (!tTag) return '';
     const networkTag = String(tTag[1]);
@@ -143,8 +148,17 @@
     );
   }
 
+  let booted = false;
   function boot() {
+    if (booted || !isV2()) return;
+    booted = true;
     ensureButton();
+    if (App._homeFeedFirstBatchShown === true) {
+      try {
+        if (typeof App.refreshHomeFeed === 'function') App.refreshHomeFeed();
+        else if (typeof App.loadFeed === 'function') App.loadFeed();
+      } catch (_e) {}
+    }
   }
 
   const api = Object.freeze({
@@ -157,6 +171,8 @@
   App.CommunityFeedSelection = api;
   window.SosCommunityFeedSelection = api;
 
+  window.addEventListener('sos-feature-flags-ready', boot);
+  window.addEventListener('sos-access-control-v2-local', boot);
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {

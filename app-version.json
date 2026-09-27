@@ -1,9 +1,9 @@
 {
-    "callSignalGiftWrapRequired":  true,
-    "version":  "2026.09.26-web-895",
-    "buildTime":  "2026-09-26T18:30:00+03:00",
-    "e2eeSendRequired":  true,
-    "minSecureChatEpoch":  2,
-    "mediaServerE2eeRequired":  true,
-    "notes":  "Web Package 895 / sos-cache-v895. Access Control V2 community product on Package 894 baseline. ACCESS_CONTROL_V2 remains default OFF. MD4 not started. Android/APK frozen."
+    "callSignalGiftWrapRequired": true,
+    "version": "2026.09.27-web-896",
+    "buildTime": "2026-09-27T12:00:00+03:00",
+    "e2eeSendRequired": true,
+    "minSecureChatEpoch": 2,
+    "mediaServerE2eeRequired": true,
+    "notes": "Web Package 896 / sos-cache-v896. Canonical runtime feature flag (runtime-feature-flags.json, sos-feature-flags-v1). ACCESS_CONTROL_V2 ships OFF. MD4 not started. Android/APK frozen."
 }
