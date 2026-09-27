@@ -989,10 +989,15 @@
           rows.push({ event: stored.event });
         });
       });
-      localStorage.setItem(
-        CACHE_PREFIX + resolveGroupId(),
-        JSON.stringify({ v: 2, rows, updatedAt: Date.now() })
-      );
+      rows.sort((a, b) => (String(a.event.id) < String(b.event.id) ? -1 : String(a.event.id) > String(b.event.id) ? 1 : 0));
+      const key = CACHE_PREFIX + resolveGroupId();
+      // Unchanged writes would fire storage events in other tabs, which re-sync and write back (ping-pong).
+      const serializedRows = JSON.stringify(rows);
+      try {
+        const prev = JSON.parse(localStorage.getItem(key) || 'null');
+        if (prev && prev.v === 2 && JSON.stringify(prev.rows) === serializedRows) return;
+      } catch (_e) {}
+      localStorage.setItem(key, JSON.stringify({ v: 2, rows, updatedAt: Date.now() }));
     } catch (_) {}
   }
 

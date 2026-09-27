@@ -4,12 +4,12 @@
   "NETWORK_BACKED_E2E": false,
   "DOUBLE_REDEEM_SCOPE": "LOCAL_ONLY",
   "status": "PASS",
-  "ts": "2026-09-27T12:12:34.520Z",
+  "ts": "2026-09-27T15:36:04.275Z",
   "results": {
     "IDENTITIES_BOOTED": {
       "ok": true,
       "detail": {
-        "a": "053473cc"
+        "a": "fa49a91c"
       }
     },
     "FIRST_GROUP_CONTEXT": {
@@ -76,7 +76,7 @@
       "detail": {
         "ok": true,
         "stage": "mark",
-        "inviteEventId": "32ec38f32d0735335a850188d684e8c327ca46eed21a9c6cf7083a8704a574d4",
+        "inviteEventId": "1dfb4812bcd36901c3bea119382fef3662292f3f9eae01237528df9bdfdcef30",
         "tTags": [
           "sos-invite",
           "israel-network"
@@ -124,17 +124,17 @@
       "detail": {
         "dir": [
           {
-            "pk": "436da11a",
+            "pk": "7900b554",
             "role": "MEMBER",
             "status": "ACTIVE"
           },
           {
-            "pk": "b844d91a",
+            "pk": "d5eb10bc",
             "role": "MEMBER",
             "status": "ACTIVE"
           },
           {
-            "pk": "053473cc",
+            "pk": "fa49a91c",
             "role": "ROOT",
             "status": "ACTIVE"
           }
@@ -163,7 +163,7 @@
     "INVITER_CREATE_COPY_QR": {
       "ok": true,
       "detail": {
-        "code": "K5L64567",
+        "code": "2MLC456W",
         "qr": true
       }
     },
@@ -254,7 +254,8 @@
       "ok": true,
       "detail": {
         "remove": "UNAUTHORIZED",
-        "role": "INVITER"
+        "role": "INVITER",
+        "propagationMs": 12
       }
     },
     "CONFIRMATION_CANCEL_KEEPS_STATE": {
@@ -281,7 +282,7 @@
     "QR_RENDER_FROM_CANONICAL_INVITE": {
       "ok": true,
       "detail": {
-        "qrText": "http://127.0.0.1:8797/videos.html?invite=E7VG7XAF"
+        "qrText": "http://127.0.0.1:8797/videos.html?invite=TSHETHEW"
       }
     },
     "QR_SECRET_SCAN": {
@@ -295,7 +296,7 @@
       "detail": {
         "parsed": {
           "ok": true,
-          "code": "E7VG7XAF",
+          "code": "TSHETHEW",
           "kind": "URL"
         },
         "rD": "mark"
@@ -363,7 +364,7 @@
         "bootstrap": "ALREADY_BOOTSTRAPPED",
         "memberAfterForgedCache": "UNKNOWN",
         "authority": {
-          "pubkey": "fbbad06a12c459d1a470b8b4ae71188ccbff5860f0e0feffa12a946af18a1509",
+          "pubkey": "6655877bb1d66693fb10982d064c93e38da6745b1fd481a73368368380629283",
           "verified": true,
           "isRoot": false,
           "assigned": [],
@@ -393,7 +394,7 @@
       "detail": {
         "status": "VERIFIED",
         "epoch": 7,
-        "id": "2028e8bb2b0e7f4311d5b7482f7bb9f373e6bfc1f5fe0a5a6d61a03b1bf412d9",
+        "id": "d4b7ab6ce00322d643dd301421bb944c9382c0549cc5ba7a34be8916c87cc289",
         "codes": [
           "NOT_APPLIED",
           "NOT_APPLIED",
@@ -462,13 +463,14 @@
         "valid": "APPLIED",
         "revoked": "NO_IDENTITY",
         "relog": "APPLIED",
-        "diffAcct": "NO_IDENTITY"
+        "diffAcct": "NO_IDENTITY",
+        "switchLanded": true
       }
     },
     "ACCOUNT_SWITCH_NO_LEAK": {
       "ok": true,
       "detail": {
-        "pub": "b844d91a5b4144a6d67550431ca99e8349e30c5f3fcbde8c988a2c0152af20d9",
+        "pub": "7900b5543bbc9b15ca7706128c349ecd844eba7694b26e53f2879218e9b37338",
         "menu": false,
         "open": false,
         "invitesAfter": 0,
@@ -557,6 +559,29 @@
         "dMenu": false
       }
     },
+    "ROLE_PRESET_ASSIGN_UI": {
+      "ok": true,
+      "detail": {
+        "text": "הגדרת תפקיד — בוצע",
+        "role": "MODERATOR",
+        "caps": [
+          "MODERATE_CONTENT"
+        ]
+      }
+    },
+    "LAST_OWNER_SAFETY": {
+      "ok": true,
+      "detail": {
+        "demoteBtn": false,
+        "demote": "ROOT_IMMUTABLE",
+        "remove": "ROOT_PROTECTED",
+        "revoke": "ROOT_TARGET_FORBIDDEN",
+        "perms": "NO_CHANGES",
+        "isRoot": true,
+        "memberActive": true,
+        "epochUnchanged": true
+      }
+    },
     "DESKTOP_MOBILE_UI": {
       "ok": true,
       "detail": {
@@ -597,12 +622,14 @@
       {
         "ok": false,
         "code": "UNAUTHORIZED_ISSUER",
-        "eventId": "91b749454df12e935d49e614f0638c4b156f590ce507d4ec1bf46ff9213b0730"
+        "eventId": "45104cf8b39aadd1692a9df24bf780b039dd337a0193f376d8d77f3fe9e11af5"
       }
     ],
     "st": "ACTIVE"
   },
   "CROSS_DEVICE_STALE_LOCAL_RESULT": "REMOVED",
+  "STALE_TAB_STORAGE_PROPAGATION_MS": 12,
+  "OTHER_TAB_SWITCH_LANDED": true,
   "FIRST_GROUP_ADMIN_AUDIT_MODEL": "SIGNED_CONTROL_CHAIN_PLUS_MEMBERSHIP_EVENTS",
   "D_RESET_TO_MEMBER": true,
   "missing": []

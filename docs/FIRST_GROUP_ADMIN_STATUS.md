@@ -54,6 +54,12 @@ Verification scope:
   in-memory relay stub. `NETWORK_BACKED_E2E=false`.
 - `DOUBLE_REDEEM_SCOPE=LOCAL_ONLY` — double redeem is rejected by local used-state and relay used-events; it is
   not network-atomic.
+- Same-profile stale tabs: tabs share state through `localStorage`, which the browser propagates between tab
+  processes asynchronously (milliseconds normally, longer under heavy load). A tab can still sign an action
+  inside that window; up-to-date peers reject it because the signed chain no longer grants the capability
+  (`STALE_DEVICE_ACTION_REJECTED_BY_AUTHORITATIVE_PEER`). The E2E waits for propagation before asserting.
+- Membership cache persistence skips unchanged writes, so tabs do not trigger each other's storage events in a
+  loop.
 
 Superseded gates (static checks for the deferred group-creation surface): `access-control-v2-product-gate`
 (`GROUP_ADMIN_HEBREW_GATE` requires "יצירת קבוצה") and `access-control-v2-community-product-gate`.

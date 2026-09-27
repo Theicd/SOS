@@ -133,11 +133,70 @@ const NO_SW_INIT = () => {
   } catch (_e) {}
 };
 
+const TRACE_T0 = Date.now();
+const trace = (m) => console.log('TRACE +' + (Date.now() - TRACE_T0) + 'ms ' + m);
+
+const ALL_PAGES = [];
+const ALLOWED_EXTERNAL_HOSTS = new Set(['cdn.jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com']);
+
+async function pauseStacks() {
+  const one = async ({ label, page }) => {
+    const out = [];
+    if (page.isClosed()) return { label, closed: true };
+    try {
+      const cdp = await page.context().newCDPSession(page);
+      const paused = new Promise((resolve) => {
+        cdp.on('Debugger.paused', (ev) => resolve(ev));
+        setTimeout(() => resolve(null), 5000);
+      });
+      await cdp.send('Debugger.enable');
+      await cdp.send('Debugger.pause');
+      const ev = await paused;
+      out.push({
+        label,
+        frames: ev
+          ? ev.callFrames.slice(0, 14).map((f) => `${f.functionName || '(anon)'} @ ${String(f.url).replace(/^.*\//, '')}:${f.location.lineNumber + 1}`)
+          : 'NOT_PAUSED_WITHIN_5S',
+      });
+      await cdp.send('Debugger.resume').catch(() => {});
+      await cdp.detach().catch(() => {});
+    } catch (e) {
+      out.push({ label, error: String(e.message || e).slice(0, 120) });
+    }
+    return out[0];
+  };
+  return Promise.all(
+    ALL_PAGES.map((p) => Promise.race([one(p), new Promise((r) => setTimeout(() => r({ label: p.label, cdp: 'NO_RESPONSE_20S' }), 20000))]))
+  );
+}
+
 async function newUser(browser, label, viewport) {
   const ctx = await browser.newContext({ viewport: viewport || { width: 1280, height: 860 }, permissions: ['clipboard-read', 'clipboard-write'] });
   await ctx.exposeFunction('__qaRelay', (op, arg) => relayOp(op, arg));
+  // Only the local tree and the script CDNs videos.html needs; live feed media starves shared renderers.
+  await ctx.route('**/*', (route) => {
+    let host = '';
+    try {
+      host = new URL(route.request().url()).hostname;
+    } catch (_e) {}
+    if (host === '127.0.0.1' || ALLOWED_EXTERNAL_HOSTS.has(host)) return route.continue();
+    return route.abort();
+  });
   await ctx.addInitScript(NO_SW_INIT);
+  await ctx.addInitScript(() => {
+    window.__qaStorage = { n: 0, keys: {} };
+    window.addEventListener('storage', (e) => {
+      window.__qaStorage.n++;
+      const k = String(e.key || 'null').replace(/[0-9a-f]{64}/g, 'PK');
+      window.__qaStorage.keys[k] = (window.__qaStorage.keys[k] || 0) + 1;
+    });
+  });
   const page = await ctx.newPage();
+  ALL_PAGES.push({ label, page });
+  page.on('crash', () => {
+    (report.pageCrashes = report.pageCrashes || []).push(label);
+    trace('CRASH ' + label);
+  });
   page.on('pageerror', (e) => {
     if (/first-group-admin|group-admin-product-ui/.test(String(e.stack || ''))) {
       (report.pageErrors = report.pageErrors || []).push(label + ': ' + String(e.message).slice(0, 200));
@@ -154,7 +213,7 @@ async function waitApp(page) {
       !!window.NostrApp?.GroupAdminProductUi &&
       window.SosFeatureFlags?.isResolved?.() === true &&
       !!window.NostrApp?.pool,
-    { timeout: 120000 }
+    { polling: 200, timeout: 120000 }
   );
 }
 
@@ -164,17 +223,21 @@ async function installStub(page) {
     if (App.pool && App.pool.__qaStub) return true;
     const KINDS = new Set([37378, 37379, 37380, 39001, 39002, 39003]);
     const orig = App.pool;
+    // Captured once: other modules later reassign pool.publish through this proxy (onto orig),
+    // and a dynamic orig.publish lookup would then recurse back into the wrapper.
+    const origPublish = orig.publish.bind(orig);
+    const origQuerySync = orig.querySync.bind(orig);
     const wrap = {
       __qaStub: true,
       publish(relays, ev) {
         if (ev && KINDS.has(ev.kind)) return window.__qaRelay('publish', ev);
-        return orig.publish(relays, ev);
+        return origPublish(relays, ev);
       },
       async querySync(relays, filter) {
         if (filter && Array.isArray(filter.kinds) && filter.kinds.length && filter.kinds.every((k) => KINDS.has(k))) {
           return window.__qaRelay('query', filter);
         }
-        return orig.querySync(relays, filter);
+        return origQuerySync(relays, filter);
       },
     };
     App.pool = new Proxy(orig, {
@@ -189,6 +252,7 @@ async function installStub(page) {
 }
 
 async function boot(page, key) {
+  trace('boot');
   await waitApp(page);
   const pub = await page.evaluate(async (k) => {
     const App = window.NostrApp;
@@ -208,11 +272,12 @@ async function boot(page, key) {
 
 /** Hard reload; identity must restore from storage (re-boot only if it does not, and record that). */
 async function hardReload(u, key) {
+  trace('hardReload ' + u.label);
   await u.page.reload({ waitUntil: 'domcontentloaded' });
   await waitApp(u.page);
   let restored = false;
   try {
-    await u.page.waitForFunction((p) => String(window.NostrApp.publicKey || '').toLowerCase() === p, key.pub, { timeout: 25000 });
+    await u.page.waitForFunction((p) => String(window.NostrApp.publicKey || '').toLowerCase() === p, key.pub, { polling: 200, timeout: 25000 });
     restored = true;
   } catch (_e) {}
   if (!restored) await boot(u.page, key);
@@ -228,11 +293,13 @@ async function hardReload(u, key) {
 const fga = (page, fn, arg) => page.evaluate(fn, arg);
 
 async function transfer(from, to) {
+  trace('transfer ' + from.label + '->' + to.label);
   const bundle = await from.page.evaluate(() => window.NostrApp.FirstGroupAdmin.exportSignedState());
   return to.page.evaluate((b) => window.NostrApp.FirstGroupAdmin.importSignedState(b), bundle);
 }
 
 async function openUi(page, tab) {
+  trace('openUi ' + tab);
   const render = () =>
     page.evaluate((t) => {
       const ui = window.NostrApp.GroupAdminProductUi;
@@ -266,7 +333,7 @@ async function openUi(page, tab) {
 }
 
 async function clickTab(page, tab) {
-  await page.click(`#sosGapTabs button[data-tab="${tab}"]`);
+  await domClick(page, `#sosGapTabs button[data-tab="${tab}"]`);
   await sleep(250);
 }
 
@@ -281,13 +348,14 @@ async function clearMsg(page) {
 }
 
 async function waitMsg(page) {
+  await page.bringToFront();
   await page.waitForFunction(
     () => {
       const m = document.getElementById('sosGapMsg');
       return !!m && /\b(ok|err)\b/.test(m.className);
     },
     null,
-    { timeout: 60000 }
+    { polling: 200, timeout: 60000 }
   );
   return page.evaluate(() => {
     const m = document.getElementById('sosGapMsg');
@@ -295,12 +363,92 @@ async function waitMsg(page) {
   });
 }
 
+async function waitSel(page, selector, { visible = false, timeout = 30000 } = {}) {
+  await page.bringToFront();
+  await page.waitForFunction(
+    ({ sel, vis }) => {
+      const el = document.querySelector(sel);
+      if (!el) return false;
+      if (!vis) return true;
+      const r = el.getBoundingClientRect();
+      const cs = getComputedStyle(el);
+      return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none';
+    },
+    { sel: selector, vis: visible },
+    { polling: 200, timeout }
+  );
+}
+
+async function domSelect(page, selector, value) {
+  try {
+    await waitSel(page, selector, { visible: false, timeout: 15000 });
+  } catch (e) {
+    report.domSelectDiag = await page.evaluate(() => {
+      const F = window.NostrApp.FirstGroupAdmin;
+      const shell = document.getElementById('sosGroupAdminShell');
+      return {
+        shellOpen: !!(shell && shell.classList.contains('is-open')),
+        active: document.querySelector('#sosGapTabs button.active')?.dataset.tab || null,
+        pk: String(window.NostrApp.publicKey || '').slice(0, 8),
+        role: F.myAuthority().role,
+        sections: F.visibleSections(),
+        admins: F.admins().length,
+        dir: F.directory('').map((r) => r.role + ':' + r.status),
+        body: (document.getElementById('sosGapBody')?.innerText || '').slice(0, 300),
+      };
+    });
+    throw e;
+  }
+  await page.$eval(
+    selector,
+    (el, v) => {
+      el.value = v;
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+    value
+  );
+}
+
+async function domFill(page, selector, value) {
+  await waitSel(page, selector, { visible: false, timeout: 15000 });
+  await page.$eval(
+    selector,
+    (el, v) => {
+      el.focus();
+      el.value = v;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.blur();
+    },
+    value
+  );
+}
+
 async function domClick(page, selector) {
-  await page.waitForSelector(selector, { state: 'visible', timeout: 15000 });
+  try {
+    await waitSel(page, selector, { visible: true, timeout: 15000 });
+  } catch (e) {
+    report.domClickDiag = await page.evaluate((sel) => {
+      const shell = document.getElementById('sosGroupAdminShell');
+      const el = document.querySelector(sel);
+      return {
+        sel,
+        shellOpen: !!(shell && shell.classList.contains('is-open')),
+        active: document.querySelector('#sosGapTabs button.active')?.dataset.tab || null,
+        exists: !!el,
+        rect: el ? el.getBoundingClientRect().toJSON() : null,
+        pk: String(window.NostrApp.publicKey || '').slice(0, 8),
+        guest: window.NostrApp.guestMode === true,
+        msg: document.getElementById('sosGapMsg')?.textContent || '',
+        body: (document.getElementById('sosGapBody')?.innerText || '').slice(0, 200),
+      };
+    }, selector);
+    throw e;
+  }
   await page.$eval(selector, (el) => el.click());
 }
 
 async function act(page, selector, { confirm = false } = {}) {
+  trace('act ' + selector);
   await clearMsg(page);
   await domClick(page, selector);
   if (confirm) {
@@ -308,7 +456,7 @@ async function act(page, selector, { confirm = false } = {}) {
       .waitForFunction(
         () => document.getElementById('sosGapConfirm')?.classList.contains('is-open') || /\b(ok|err)\b/.test(document.getElementById('sosGapMsg')?.className || ''),
         null,
-        { timeout: 15000 }
+        { polling: 200, timeout: 15000 }
       )
       .then(() => page.evaluate(() => document.getElementById('sosGapConfirm')?.classList.contains('is-open')));
     if (!opened) {
@@ -337,9 +485,10 @@ async function menuVisible(page) {
 }
 
 async function setCaps(page, targetPub, caps) {
+  trace('setCaps ' + caps.join('+'));
   await openUi(page, 'roles');
-  await page.selectOption('#sosGapRoleTarget', targetPub);
-  await page.waitForFunction((pk) => document.getElementById('sosGapRoleTarget')?.value === pk, targetPub, { timeout: 10000 });
+  await domSelect(page, '#sosGapRoleTarget', targetPub);
+  await page.waitForFunction((pk) => document.getElementById('sosGapRoleTarget')?.value === pk, targetPub, { polling: 200, timeout: 10000 });
   await sleep(250);
   const dbg = await page.evaluate((want) => {
     const boxes = Array.from(document.querySelectorAll('#sosGapCaps input[type=checkbox]'));
@@ -385,8 +534,8 @@ async function redeem(u, code, inviterPub) {
 
 async function approveViaUi(page, memberPub) {
   await openUi(page, 'members');
-  await page.click('#sosGroupAdminShell [data-act="load-joins"]');
-  await page.waitForSelector(`#sosGapJoinList [data-pk="${memberPub}"]`, { timeout: 20000 });
+  await domClick(page, '#sosGroupAdminShell [data-act="load-joins"]');
+  await waitSel(page, `#sosGapJoinList [data-pk="${memberPub}"]`, { visible: false, timeout: 20000 });
   return act(page, `#sosGapJoinList [data-pk="${memberPub}"]`, { confirm: true });
 }
 
@@ -438,12 +587,25 @@ async function main() {
   const server = await startServer();
   const browser = await chromium.launch({
     headless: true,
-    args: ['--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows'],
+    args: [
+      '--disable-renderer-backgrounding',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-features=IntensiveWakeUpThrottling,CalculateNativeWinOcclusion',
+    ],
   });
   const shot = async (page, name) => {
     const file = path.join(ROOT, 'qa', `package897-${name}.png`);
-    await page.screenshot({ path: file, fullPage: false });
-    report.screenshots.push(path.relative(ROOT, file).replace(/\\/g, '/'));
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await page.bringToFront();
+        await page.screenshot({ path: file, fullPage: false, timeout: 20000 });
+        report.screenshots.push(path.relative(ROOT, file).replace(/\\/g, '/'));
+        return;
+      } catch (e) {
+        if (attempt === 1) (report.screenshotErrors = report.screenshotErrors || []).push({ name, error: String(e.message || e).slice(0, 120) });
+      }
+    }
   };
   try {
     const ua = await newUser(browser, 'A');
@@ -541,10 +703,10 @@ async function main() {
     await openUi(ua.page, 'details');
     const pngPath = path.join(ROOT, 'qa', '.package897-logo.png');
     fs.writeFileSync(pngPath, makePng(96, 96, [220, 40, 60]));
-    await ua.page.fill('#sosGapName', 'קבוצת SOS הראשית');
-    await ua.page.fill('#sosGapDesc', 'תיאור קבוצה לבדיקה 897');
+    await domFill(ua.page, '#sosGapName', 'קבוצת SOS הראשית');
+    await domFill(ua.page, '#sosGapDesc', 'תיאור קבוצה לבדיקה 897');
     await ua.page.setInputFiles('#sosGapLogoFile', pngPath);
-    await ua.page.waitForFunction(() => !!window.__SOS_GAP_LOGO_DATA__, null, { timeout: 15000 });
+    await ua.page.waitForFunction(() => !!window.__SOS_GAP_LOGO_DATA__, null, { polling: 200, timeout: 15000 });
     const saveMeta = await act(ua.page, '#sosGroupAdminShell [data-act="save-details"]');
     const restoredA1 = await hardReload(ua, A);
     await openUi(ua.page, 'details');
@@ -560,10 +722,10 @@ async function main() {
 
     // ---- Step 5: member directory
     await openUi(ua.page, 'members');
-    await ua.page.fill('#sosGapSearch', B.pub.slice(0, 10));
+    await domFill(ua.page, '#sosGapSearch', B.pub.slice(0, 10));
     await sleep(200);
     const searchRows = await ua.page.evaluate(() => document.querySelectorAll('#sosGapMemberList [data-member]').length);
-    await ua.page.click(`#sosGapMemberList [data-act="select-member"][data-pk="${B.pub}"]`);
+    await domClick(ua.page, `#sosGapMemberList [data-act="select-member"][data-pk="${B.pub}"]`);
     await sleep(200);
     const detail = await ua.page.evaluate(() => document.getElementById('sosGapMemberDetail')?.innerText || '');
     const dir = await fga(ua.page, () => window.NostrApp.FirstGroupAdmin.directory('').map((r) => ({ pk: r.pubkey.slice(0, 8), role: r.role, status: r.status })));
@@ -585,7 +747,7 @@ async function main() {
     const invB = await createInviteUi(ub.page);
     await openUi(ub.page, 'invites');
     const copyB = await act(ub.page, '#sosGroupAdminShell [data-act="copy-invite"]');
-    await ub.page.click('#sosGroupAdminShell [data-act="show-qr"]');
+    await domClick(ub.page, '#sosGroupAdminShell [data-act="show-qr"]');
     await sleep(600);
     const qrB = await ub.page.evaluate(() => document.getElementById('sosGapQrCanvas')?.toDataURL('image/png') || '');
     const qrBText = qrB ? decodeQrDataUrl(qrB) : '';
@@ -640,10 +802,10 @@ async function main() {
     set('DELEGATED_MODERATOR', mod1.onMember === 'MODERATE_CONTENT' && mod1.onRoot === 'ROOT_CONTENT_PROTECTED' && modC === 'NO_MODERATE_CAP' && mod1.role === 'MODERATOR' && !mod1.sections.roles, { mod1: { onMember: mod1.onMember, onRoot: mod1.onRoot, role: mod1.role }, modC });
 
     // B second tab (same profile) for stale-tab checks later
-    const bTab2 = await ub.ctx.newPage();
+    const bTab2 = await ub.ctx.newPage(); ALL_PAGES.push({ label: 'bTab2', page: bTab2 }); trace('newPage bTab2');
     await bTab2.goto(URL0, { waitUntil: 'domcontentloaded', timeout: 120000 });
     await waitApp(bTab2);
-    await bTab2.waitForFunction((p) => String(window.NostrApp.publicKey || '').toLowerCase() === p, B.pub, { timeout: 30000 }).catch(() => {});
+    await bTab2.waitForFunction((p) => String(window.NostrApp.publicKey || '').toLowerCase() === p, B.pub, { polling: 200, timeout: 30000 }).catch(() => {});
     await bTab2.evaluate(() => {
       window.NostrApp.guestMode = false;
       window.NostrApp.FirstGroupAdmin.boot();
@@ -652,7 +814,7 @@ async function main() {
 
     // ---- Step 8 / 37: A promotes B (הוספת מנהל)
     await openUi(ua.page, 'admins');
-    await ua.page.selectOption('#sosGapPromoteSel', B.pub);
+    await domSelect(ua.page, '#sosGapPromoteSel', B.pub);
     const promo = await act(ua.page, '#sosGroupAdminShell [data-act="promote"]', { confirm: true });
     const bAfterPromo = await fga(ua.page, (b) => window.NostrApp.FirstGroupAdmin.authorityFor(b), B.pub);
     const adminList = await ua.page.evaluate(() => Array.from(document.querySelectorAll('#sosGapAdminList [data-admin]')).map((e) => e.getAttribute('data-admin')));
@@ -697,25 +859,49 @@ async function main() {
     }
     report.CROSS_DEVICE_STALE_LOCAL_RESULT = staleDevice.code;
     set('STALE_DEVICE_ACTION_REJECTED_BY_AUTHORITATIVE_PEER', staleRejected, { local: staleDevice.code });
-    // Same-profile stale tab: tab1 imports demotion, tab2 (never reloaded) must fail.
+    // Same-profile stale tab: tab1 imports demotion, tab2 (never reloaded, no import) must fail once
+    // Chrome has propagated tab1's localStorage write to tab2's renderer (asynchronous across processes).
     await transfer(ua, ub);
+    const rowsKey = 'sos_group_control_v1_israel-network';
+    const rowsOnB1 = await ub.page.evaluate((k) => JSON.parse(localStorage.getItem(k) || '{"rows":[]}').rows.length, rowsKey);
+    const propStart = Date.now();
+    const propagated = await bTab2
+      .waitForFunction(({ k, n }) => JSON.parse(localStorage.getItem(k) || '{"rows":[]}').rows.length >= n, { k: rowsKey, n: rowsOnB1 }, { polling: 50, timeout: 30000 })
+      .then(() => true)
+      .catch(() => false);
+    report.STALE_TAB_STORAGE_PROPAGATION_MS = propagated ? Date.now() - propStart : null;
     const staleTab = await bTab2.evaluate(async (c) => {
       const F = window.NostrApp.FirstGroupAdmin;
       return { remove: (await F.removeMember(c)).code, role: F.myAuthority().role };
     }, C.pub);
-    set('STALE_TAB_NO_AUTHORITY_AFTER_DEMOTE', staleTab.remove === 'UNAUTHORIZED' && staleTab.role === 'INVITER', staleTab);
+    if (!(staleTab.remove === 'UNAUTHORIZED' && staleTab.role === 'INVITER')) {
+      const epochs = async (pg) =>
+        pg.evaluate(() => {
+          const G = window.NostrApp.GroupControlState;
+          let rows = -1;
+          try {
+            rows = JSON.parse(localStorage.getItem('sos_group_control_v1_israel-network') || '{}').rows.length;
+          } catch (_e) {}
+          return { epoch: (G.getVerifiedControlState('israel-network') || {}).controlEpoch, status: G.getStatus('israel-network'), rows };
+        });
+      report.staleTabDiag = { a: await epochs(ua.page), b1: await epochs(ub.page), b2: await epochs(bTab2) };
+    }
+    set('STALE_TAB_NO_AUTHORITY_AFTER_DEMOTE', propagated && staleTab.remove === 'UNAUTHORIZED' && staleTab.role === 'INVITER', {
+      ...staleTab,
+      propagationMs: report.STALE_TAB_STORAGE_PROPAGATION_MS,
+    });
     await bTab2.close();
 
     // ---- Step 6 / 33 / 37: A removes C (with cancel first)
     await openUi(ua.page, 'members');
-    await ua.page.click(`#sosGapMemberList [data-act="select-member"][data-pk="${C.pub}"]`);
+    await domClick(ua.page, `#sosGapMemberList [data-act="select-member"][data-pk="${C.pub}"]`);
     await sleep(200);
-    await ua.page.click('#sosGroupAdminShell [data-act="remove-member"]');
-    await ua.page.waitForSelector('#sosGapConfirm.is-open');
-    await ua.page.click('#sosGapConfirmCancel');
+    await domClick(ua.page, '#sosGroupAdminShell [data-act="remove-member"]');
+    await waitSel(ua.page, '#sosGapConfirm.is-open', { visible: false, timeout: 30000 });
+    await domClick(ua.page, '#sosGapConfirmCancel');
     await sleep(300);
     const afterCancel = await fga(ua.page, (c) => window.NostrApp.MembershipState.getMemberState(c), C.pub);
-    await ua.page.click(`#sosGapMemberList [data-act="select-member"][data-pk="${C.pub}"]`).catch(() => {});
+    await domClick(ua.page, `#sosGapMemberList [data-act="select-member"][data-pk="${C.pub}"]`).catch(() => {});
     await sleep(200);
     const rem = await act(ua.page, '#sosGroupAdminShell [data-act="remove-member"]', { confirm: true });
     const cState = await fga(ua.page, (c) => window.NostrApp.MembershipState.getMemberState(c), C.pub);
@@ -745,8 +931,8 @@ async function main() {
     // ---- Steps 16-18 / 37: A creates invite with QR render/scan/parse; D redeems
     const inv3 = await createInviteUi(ua.page);
     await openUi(ua.page, 'invites');
-    await ua.page.click('#sosGroupAdminShell [data-act="show-qr"]');
-    await ua.page.waitForSelector('#sosGapQrCanvas', { timeout: 10000 });
+    await domClick(ua.page, '#sosGroupAdminShell [data-act="show-qr"]');
+    await waitSel(ua.page, '#sosGapQrCanvas', { visible: false, timeout: 10000 });
     await sleep(600);
     const qrData = await ua.page.evaluate(() => document.getElementById('sosGapQrCanvas').toDataURL('image/png'));
     const qrText = decodeQrDataUrl(qrData);
@@ -993,15 +1179,19 @@ async function main() {
     await boot(ua.page, A);
     const relog = await fga(ua.page, async () => (await window.NostrApp.FirstGroupAdmin.updateMetadata({ description: 'תיאור אחרי התחברות מחדש' })).code);
     // different account in another tab of the same profile revokes this tab's authority
-    const aTab2 = await ua.ctx.newPage();
+    const aTab2 = await ua.ctx.newPage(); ALL_PAGES.push({ label: 'aTab2', page: aTab2 }); trace('newPage aTab2');
     await aTab2.goto(URL0, { waitUntil: 'domcontentloaded', timeout: 120000 });
     await waitApp(aTab2);
     await aTab2.evaluate((k) => window.NostrApp.switchAccountFromRawKey(k, { reload: false }), E.hex);
-    await sleep(800);
+    const switchLanded = await ua.page
+      .waitForFunction((e) => window.NostrApp.SessionAuthority.getAuthoritativeAccount() === e, E.pub, { polling: 200, timeout: 30000 })
+      .then(() => true)
+      .catch(() => false);
+    report.OTHER_TAB_SWITCH_LANDED = switchLanded;
     const diffAcct = await fga(ua.page, async () => (await window.NostrApp.FirstGroupAdmin.updateMetadata({ description: 'other account' })).code);
     await aTab2.close();
     await boot(ua.page, A);
-    set('SESSION_AUTHORITY', sess.valid === 'APPLIED' && /SESSION|REVOKED|NO_IDENTITY/.test(sess.revoked) && relog === 'APPLIED' && /SESSION|REVOKED|MISMATCH|NO_IDENTITY/.test(diffAcct), { ...sess, relog, diffAcct });
+    set('SESSION_AUTHORITY', sess.valid === 'APPLIED' && /SESSION|REVOKED|NO_IDENTITY/.test(sess.revoked) && relog === 'APPLIED' && switchLanded && /SESSION|REVOKED|MISMATCH|NO_IDENTITY/.test(diffAcct), { ...sess, relog, diffAcct, switchLanded });
 
     // ---- Step 29: account switch A -> C in the same page, no leak
     await openUi(ua.page, 'invites');
@@ -1026,20 +1216,24 @@ async function main() {
     await boot(ua.page, A);
 
     // ---- Step 30: multi-tab live sync
-    const aTab3 = await ua.ctx.newPage();
+    const aTab3 = await ua.ctx.newPage(); ALL_PAGES.push({ label: 'aTab3', page: aTab3 }); trace('newPage aTab3');
     await aTab3.goto(URL0, { waitUntil: 'domcontentloaded', timeout: 120000 });
     await waitApp(aTab3);
-    await aTab3.waitForFunction((p) => String(window.NostrApp.publicKey || '').toLowerCase() === p, A.pub, { timeout: 30000 }).catch(() => {});
+    await aTab3.waitForFunction((p) => String(window.NostrApp.publicKey || '').toLowerCase() === p, A.pub, { polling: 200, timeout: 30000 }).catch(() => {});
     await aTab3.evaluate(() => {
       window.NostrApp.guestMode = false;
       window.NostrApp.FirstGroupAdmin.boot();
     });
     await installStub(aTab3);
     const grantInTab1 = await fga(ua.page, async (d) => (await window.NostrApp.FirstGroupAdmin.grantCapability(d, 'MODERATE_CONTENT')).code, D.pub);
-    await sleep(1500);
+    const seen = (pg, want) =>
+      pg
+        .waitForFunction(({ d, w }) => window.NostrApp.FirstGroupAdmin.authorityFor(d).assigned.includes('MODERATE_CONTENT') === w, { d: D.pub, w: want }, { polling: 100, timeout: 20000 })
+        .catch(() => {});
+    await seen(aTab3, true);
     const tab3View = await aTab3.evaluate((d) => window.NostrApp.FirstGroupAdmin.authorityFor(d).assigned, D.pub);
     const revokeInTab3 = await aTab3.evaluate(async (d) => (await window.NostrApp.FirstGroupAdmin.revokeCapability(d, 'MODERATE_CONTENT')).code, D.pub);
-    await sleep(1500);
+    await seen(ua.page, false);
     const tab1View = await fga(ua.page, (d) => window.NostrApp.FirstGroupAdmin.authorityFor(d).assigned, D.pub);
     set('MULTI_TAB_SYNC', grantInTab1 === 'APPLIED' && tab3View.includes('MODERATE_CONTENT') && revokeInTab3 === 'APPLIED' && !tab1View.includes('MODERATE_CONTENT'), { grantInTab1, tab3View, revokeInTab3, tab1View });
     await aTab3.close();
@@ -1139,6 +1333,42 @@ async function main() {
     }
     set('UI_MATCHES_EFFECTIVE_AUTHORITY', parity.every(Boolean), parity);
     set('THREE_ROLE_UI', bTabs3.includes('invites') && !bTabs3.includes('roles') && !dMenu, { bTabs3, dMenu });
+
+    // ---- Step 11: role preset assignment through the UI (additive preset over canonical caps)
+    await openUi(ua.page, 'roles');
+    await domSelect(ua.page, '#sosGapRoleTarget', D.pub);
+    await ua.page.waitForFunction((pk) => document.getElementById('sosGapRoleTarget')?.value === pk, D.pub, { polling: 200, timeout: 10000 });
+    await sleep(250);
+    const roleAssign = await act(ua.page, '#sosGroupAdminShell [data-act="assign-role"][data-role="MODERATOR"]');
+    const dRole = await fga(ua.page, (d) => window.NostrApp.FirstGroupAdmin.authorityFor(d), D.pub);
+    set('ROLE_PRESET_ASSIGN_UI', roleAssign.ok && dRole.role === 'MODERATOR' && dRole.assigned.join(',') === 'MODERATE_CONTENT', { text: roleAssign.text, role: dRole.role, caps: dRole.assigned });
+
+    // ---- Step 10: last owner safety (root cannot be demoted / removed / stripped, even by itself)
+    await openUi(ua.page, 'admins');
+    const lastOwner = await fga(ua.page, async (a) => {
+      const F = window.NostrApp.FirstGroupAdmin;
+      const epoch0 = window.NostrApp.GroupControlState.getVerifiedControlState('israel-network').controlEpoch;
+      const out = {
+        demoteBtn: !!document.querySelector(`#sosGapAdminList [data-act="demote"][data-pk="${a}"]`),
+        demote: (await F.demoteAdmin(a)).code,
+        remove: (await F.removeMember(a)).code,
+        revoke: (await F.revokeCapability(a, 'MANAGE_ADMINS')).code,
+        perms: (await F.setPermissions(a, [])).code,
+      };
+      out.isRoot = F.authorityFor(a).isRoot;
+      out.memberActive = F.authorityFor(a).membership === 'ACTIVE';
+      out.epochUnchanged = window.NostrApp.GroupControlState.getVerifiedControlState('israel-network').controlEpoch === epoch0;
+      return out;
+    }, A.pub);
+    set(
+      'LAST_OWNER_SAFETY',
+      !lastOwner.demoteBtn &&
+        ['demote', 'remove', 'revoke', 'perms'].every((k) => lastOwner[k] && !['APPLIED', 'REMOVED', 'SAVED', 'OK'].includes(lastOwner[k])) &&
+        lastOwner.isRoot &&
+        lastOwner.memberActive &&
+        lastOwner.epochUnchanged,
+      lastOwner
+    );
     set('DESKTOP_MOBILE_UI', mobileFit.w <= 391 && mobileFit.overflow, mobileFit);
     const hebrew = await ua.page.evaluate(() => {
       const ui = window.NostrApp.GroupAdminProductUi;
@@ -1157,7 +1387,32 @@ async function main() {
   }
 }
 
-main()
+setInterval(async () => {
+  for (const { label, page } of ALL_PAGES) {
+    if (!/^(B|bTab2|A)$/.test(label) || page.isClosed()) continue;
+    const t = Date.now();
+    const r = await Promise.race([
+      page.evaluate(() => {
+        const s = window.__qaStorage || { n: 0, keys: {} };
+        const top = Object.entries(s.keys).sort((a, b) => b[1] - a[1]).slice(0, 4);
+        const rl = (window.NostrApp.requestLogger && window.NostrApp.requestLogger.counters) || {};
+        const topReq = Object.entries(rl).filter(([, v]) => v > 20).sort((a, b) => b[1] - a[1]).slice(0, 3);
+        return s.n + ' ' + JSON.stringify(top) + ' req=' + JSON.stringify(topReq);
+      }).catch((e) => 'ERR ' + String(e.message).slice(0, 40)),
+      sleep(4000).then(() => 'NO_RESPONSE_4S'),
+    ]);
+    trace(`probe ${label} ${Date.now() - t}ms ${r}`);
+  }
+}, 5000).unref();
+
+const WATCHDOG_MS = 8 * 60 * 1000;
+const watchdog = new Promise((_, reject) =>
+  setTimeout(async () => {
+    report.watchdogStacks = await Promise.race([pauseStacks(), new Promise((r) => setTimeout(() => r('STACK_CAPTURE_TIMEOUT'), 60000))]);
+    reject(new Error('E2E_WATCHDOG_TIMEOUT'));
+  }, WATCHDOG_MS)
+);
+Promise.race([main(), watchdog])
   .catch((e) => {
     set('E2E_RUNTIME', false, String(e.stack || e).slice(0, 600));
   })

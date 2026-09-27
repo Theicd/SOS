@@ -1,13 +1,15 @@
 {
   "gate": "PACKAGE897_RC",
   "status": "PASS",
-  "ts": "2026-09-27T12:12:12.065Z",
+  "ts": "2026-09-27T15:35:41.507Z",
   "results": {
     "PACKAGE897_SCOPE_DELTA": {
       "ok": true,
       "detail": [
         "admin-signing-policy.js",
         "app-version.json",
+        "docs/FIRST_GROUP_ADMIN_STATUS.md",
+        "first-group-admin.js",
         "group-admin-product-ui.js",
         "group-control-mutations.js",
         "group-control-state.js",
@@ -15,13 +17,11 @@
         "member-admin-operations.js",
         "membership-state.js",
         "moderation-policy.js",
+        "qa/package897-first-group-admin-e2e.mjs",
+        "qa/package897-rc-gate.mjs",
         "service-worker.js",
         "sw-register.js",
         "videos.html",
-        "docs/FIRST_GROUP_ADMIN_STATUS.md",
-        "first-group-admin.js",
-        "qa/package897-first-group-admin-e2e.mjs",
-        "qa/package897-rc-gate.mjs",
         "qa/prod-package-896-acceptance.mjs"
       ]
     },
@@ -150,17 +150,17 @@
       "ok": true,
       "detail": {
         "status": "PASS",
-        "checks": 64,
+        "checks": 66,
         "missing": []
       }
     },
     "FULL_E2E": {
       "ok": true,
-      "detail": "34 checks"
+      "detail": "35 checks"
     },
     "ADVERSARIAL": {
       "ok": true,
-      "detail": "14 checks"
+      "detail": "15 checks"
     },
     "QR_SECURITY": {
       "ok": true,
@@ -324,8 +324,8 @@
     "PRODUCT_REGRESSION": "PASS",
     "MASTER_SECURITY": "PASS"
   },
-  "PACKAGE897_RC_SHA": "1b922c0312dfcd6feb2b4a127ef127b89997ba64",
-  "PACKAGE897_RC_TREE_HASH": "dfeecf5a16db798306e0a3eb9c8b76867bdfa2af",
+  "PACKAGE897_RC_SHA": "6300488880c6aef2fbec036688c8b48821a4076e",
+  "PACKAGE897_RC_TREE_HASH": "8fe3126013dc143583625ed67b82e4dd50985d62",
   "ROLLBACK_TARGET_SHA": "1b922c0312dfcd6feb2b4a127ef127b89997ba64",
   "NEXT_WEB_PACKAGE": 897,
   "NEXT_CACHE_VERSION": "sos-cache-v897",
@@ -342,6 +342,8 @@
     "files": [
       "admin-signing-policy.js",
       "app-version.json",
+      "docs/FIRST_GROUP_ADMIN_STATUS.md",
+      "first-group-admin.js",
       "group-admin-product-ui.js",
       "group-control-mutations.js",
       "group-control-state.js",
@@ -349,13 +351,11 @@
       "member-admin-operations.js",
       "membership-state.js",
       "moderation-policy.js",
+      "qa/package897-first-group-admin-e2e.mjs",
+      "qa/package897-rc-gate.mjs",
       "service-worker.js",
       "sw-register.js",
       "videos.html",
-      "docs/FIRST_GROUP_ADMIN_STATUS.md",
-      "first-group-admin.js",
-      "qa/package897-first-group-admin-e2e.mjs",
-      "qa/package897-rc-gate.mjs",
       "qa/prod-package-896-acceptance.mjs"
     ],
     "count": 17
@@ -363,7 +363,7 @@
   "E2E_SCOPE": "LOCAL_CONTROLLED_E2E",
   "NETWORK_BACKED_E2E": false,
   "DOUBLE_REDEEM_SCOPE": "LOCAL_ONLY",
-  "E2E_CHECKS": 64,
+  "E2E_CHECKS": 66,
   "RAW_K_EXPOSED": false,
   "NSEC_EXPOSED": false,
   "FILE_KEY_EXPOSED": false,
