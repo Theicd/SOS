@@ -2,8 +2,9 @@
  * Package 897 — First group (sos010 / israel-network) admin gateway.
  * Authority = verified signed control chain (39001) + signed membership (39003) only.
  * UI flags, DOM, AccessControl QA overlays and App.isAdmin are never authority.
- * Every privileged op: V2 → identity → session → first-group context → shared-cache sync → signed authority
- * → existing typed mutation/member pipelines (final acceptance re-verifies the signed transition).
+ * Every privileged op: V2 → identity → session → first-group context → shared-cache sync → network reconcile
+ * (FirstGroupNetworkAuthority, fail closed) → signed authority → existing typed mutation/member pipelines
+ * (final acceptance re-verifies the signed transition).
  */
 (function initFirstGroupAdmin(window) {
   'use strict';
@@ -59,8 +60,8 @@
     '(ROOT_IMMUTABLE / ROOT_PROTECTED / ROOT_TARGET_FORBIDDEN), so the first group can never be left ' +
     'without an owner through admin actions. Root key loss/rotation is out of scope for this phase.';
 
-  const DOUBLE_REDEEM_SCOPE = 'LOCAL_ONLY';
-  const E2E_SCOPE = 'LOCAL_CONTROLLED_E2E';
+  const DOUBLE_REDEEM_SCOPE = 'NETWORK_SINGLE_APPROVER_SERIALIZED';
+  const E2E_SCOPE = 'NETWORK_BACKED_E2E';
 
   function isV2() {
     return window.SOS_ACCESS_CONTROL_V2 === true;
@@ -85,6 +86,13 @@
   }
   function IP() {
     return App.InvitePolicy || window.SosInvitePolicy || null;
+  }
+  function NA() {
+    return App.FirstGroupNetworkAuthority || window.SosFirstGroupNetworkAuthority || null;
+  }
+  function networkSynced() {
+    const n = NA();
+    return !!(n && n.isSynced());
   }
 
   function normalizePubkey(value) {
@@ -216,7 +224,7 @@
 
   /** Which dashboard sections the current principal may use. */
   function visibleSections(authIn) {
-    const a = authIn || myAuthority();
+    const a = networkSynced() ? authIn || myAuthority() : authorityFor('');
     const managePerms = hasAny(a, ['MANAGE_ADMINS', 'MANAGE_PERMISSIONS']);
     return {
       details: hasAny(a, ['MANAGE_GROUP_SETTINGS', 'MANAGE_ADMINS', 'MANAGE_PERMISSIONS', 'MANAGE_MEMBERS', 'VIEW_AUDIT_LOG']),
@@ -251,6 +259,7 @@
   function canSeeAdminMenu() {
     if (!isV2() || App.guestMode === true) return false;
     if (!contextCheck().ok) return false;
+    if (!networkSynced()) return false;
     const a = myAuthority();
     return a.verified && (a.isRoot || a.caps.length > 0);
   }
@@ -293,6 +302,17 @@
     return { ok: true, actor: me, auth };
   }
 
+  /** Privileged ops: local checks, then current network state, then the same checks against it. */
+  async function nguard(opName, anyOfCaps, explicitGroupId) {
+    const pre = guard(opName, anyOfCaps, explicitGroupId);
+    if (!pre.ok && pre.code !== 'UNAUTHORIZED' && pre.code !== 'NO_VERIFIED_CONTROL') return pre;
+    const n = NA();
+    if (!n) return { ok: false, code: 'NETWORK_AUTHORITY_MISSING' };
+    const r = await n.reconcile('op:' + opName);
+    if (!r || !r.ok) return { ok: false, code: (r && r.code) || 'NETWORK_AUTHORITY_UNVERIFIED', detail: r && r.detail };
+    return guard(opName, anyOfCaps, explicitGroupId);
+  }
+
   function done(res) {
     notifyChanged('local');
     return res;
@@ -322,6 +342,10 @@
     if (!s || s.ok !== true) return fail((s && s.code) || 'SESSION_REVOKED');
     const ctx = contextCheck();
     if (!ctx.ok) return ctx;
+    const n = NA();
+    if (!n) return fail('NETWORK_AUTHORITY_MISSING');
+    const net = await n.reconcile('bootstrap');
+    if (!net.ok && net.detail === 'RELAY_UNAVAILABLE') return fail('NETWORK_AUTHORITY_UNVERIFIED');
     sync();
     if (verifiedControl()) return fail('ALREADY_BOOTSTRAPPED');
     if (!isConfiguredRoot(me)) return fail('FIRST_GROUP_ROOT_NOT_CONFIGURED');
@@ -373,7 +397,7 @@
   }
 
   async function updateMetadata(fields, opts) {
-    const g = guard('SET_GROUP_METADATA', ['MANAGE_GROUP_SETTINGS']);
+    const g = await nguard('SET_GROUP_METADATA', ['MANAGE_GROUP_SETTINGS']);
     if (!g.ok) return g;
     const f = fields || {};
     const mutation = { type: 'SET_GROUP_METADATA' };
@@ -395,7 +419,7 @@
   }
 
   async function grantCapability(targetPubkey, capability, opts) {
-    const g = guard('GRANT_CAPABILITY', ['MANAGE_ADMINS', 'MANAGE_PERMISSIONS']);
+    const g = await nguard('GRANT_CAPABILITY', ['MANAGE_ADMINS', 'MANAGE_PERMISSIONS']);
     if (!g.ok) return g;
     const target = normalizePubkey(targetPubkey);
     if (!target) return fail('BAD_PUBKEY');
@@ -406,7 +430,7 @@
   }
 
   async function revokeCapability(targetPubkey, capability, opts) {
-    const g = guard('REVOKE_CAPABILITY', ['MANAGE_ADMINS', 'MANAGE_PERMISSIONS']);
+    const g = await nguard('REVOKE_CAPABILITY', ['MANAGE_ADMINS', 'MANAGE_PERMISSIONS']);
     if (!g.ok) return g;
     const target = normalizePubkey(targetPubkey);
     if (!target) return fail('BAD_PUBKEY');
@@ -418,7 +442,7 @@
 
   /** שמירת הרשאות: apply the diff between current signed caps and desired set (one signed epoch per change). */
   async function setPermissions(targetPubkey, desiredCaps, opts) {
-    const g = guard('SET_PERMISSIONS', ['MANAGE_ADMINS', 'MANAGE_PERMISSIONS']);
+    const g = await nguard('SET_PERMISSIONS', ['MANAGE_ADMINS', 'MANAGE_PERMISSIONS']);
     if (!g.ok) return g;
     const target = normalizePubkey(targetPubkey);
     if (!target) return fail('BAD_PUBKEY');
@@ -468,7 +492,7 @@
 
   /** הסרת מנהל = revoke every admin-tier capability the actor may revoke. */
   async function demoteAdmin(targetPubkey, opts) {
-    const g = guard('DEMOTE_ADMIN', ['MANAGE_ADMINS', 'MANAGE_PERMISSIONS']);
+    const g = await nguard('DEMOTE_ADMIN', ['MANAGE_ADMINS', 'MANAGE_PERMISSIONS']);
     if (!g.ok) return g;
     const target = normalizePubkey(targetPubkey);
     const st = verifiedControl();
@@ -482,7 +506,7 @@
   }
 
   async function removeMember(targetPubkey, opts) {
-    const g = guard('REMOVE_MEMBER', ['MANAGE_MEMBERS']);
+    const g = await nguard('REMOVE_MEMBER', ['MANAGE_MEMBERS']);
     if (!g.ok) return g;
     const mao = MAO();
     if (!mao) return fail('NO_MEMBER_OPS');
@@ -491,7 +515,7 @@
   }
 
   async function approveJoin(memberPubkey, inviteEventId, opts) {
-    const g = guard('GRANT_MEMBER_ACTIVE', ['MANAGE_MEMBERS']);
+    const g = await nguard('GRANT_MEMBER_ACTIVE', ['MANAGE_MEMBERS']);
     if (!g.ok) return g;
     const mao = MAO();
     if (!mao) return fail('NO_MEMBER_OPS');
@@ -500,7 +524,7 @@
   }
 
   async function setInvitePolicy(policy, opts) {
-    const g = guard('SET_INVITE_POLICY', ['MANAGE_INVITES']);
+    const g = await nguard('SET_INVITE_POLICY', ['MANAGE_INVITES']);
     if (!g.ok) return g;
     return mutate({ type: 'SET_INVITE_POLICY', invitePolicy: policy }, opts);
   }
@@ -510,7 +534,7 @@
   const myInvites = [];
 
   async function createInvite() {
-    const g = guard('CREATE_INVITE', null);
+    const g = await nguard('CREATE_INVITE', null);
     if (!g.ok) return g;
     if (!inviteCreateAllowed(g.auth)) return fail('UNAUTHORIZED');
     if (typeof App.createInvite !== 'function') return fail('NO_CREATE_INVITE');
@@ -533,7 +557,7 @@
   }
 
   async function revokeInvite(row) {
-    const g = guard('REVOKE_INVITE', null);
+    const g = await nguard('REVOKE_INVITE', null);
     if (!g.ok) return g;
     const P = IP();
     const st = verifiedControl();
@@ -572,7 +596,7 @@
 
   /** Redeemed invites (37379) for this group whose redeemer is not yet an ACTIVE member; each verified against its invite. */
   async function listPendingJoins() {
-    const g = guard('LIST_PENDING_JOINS', ['MANAGE_MEMBERS']);
+    const g = await nguard('LIST_PENDING_JOINS', ['MANAGE_MEMBERS']);
     if (!g.ok) return g;
     const P = IP();
     const st = verifiedControl();
@@ -846,6 +870,8 @@
       });
     }
     sync();
+    const n = NA();
+    if (n) n.start();
     notifyChanged('boot');
   }
 
@@ -865,6 +891,7 @@
     ADMIN_TIER_CAPS,
     contextCheck,
     sync,
+    networkSynced,
     authorityFor,
     myAuthority,
     visibleSections,

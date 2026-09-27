@@ -77,6 +77,13 @@ MULTI-DEVICE AUTHORIZATION / PAIRING (MD1–MD3 local; QR UI not productized)
   local test helper (`access-control-v2-local-test.js`) — never on sos010.com
   without owner approval.
 - Status doc: `docs/GROUP_ADMIN_PRODUCT_STATUS.md`
+- **First group (Package 898):** admin authority for `israel-network` is network-backed —
+  `first-group-network-authority.js` fetches / subscribes signed 39001 / 39003 events from the relay pool,
+  the canonical stores re-verify them, and every privileged action reconciles first and fails closed without
+  relay confirmation. localStorage is a cache of signed events only. Status:
+  `docs/FIRST_GROUP_ADMIN_STATUS.md`, model: `docs/FIRST_GROUP_NETWORK_AUTHORITY.md`.
+  Double redeem is `BLOCKED_DISTRIBUTED_SERIALIZATION` (single-approver serialized only).
+  Chat / P2P / calls / feed are not touched by the first-group work.
 - Activation plan: `docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md` (not executed)
 - Community product gate: `qa/access-control-v2-community-product-gate.mjs`
 
@@ -84,7 +91,8 @@ MULTI-DEVICE AUTHORIZATION / PAIRING (MD1–MD3 local; QR UI not productized)
 - MD1–MD3: device identity, pairing protocol, device authorization (**local**).
 - MD2 pairing uses `SOSPAIR1:` payload — **device binding**, not community
   membership and not social follow.
-- Group invites today are **URL/code + WhatsApp**, not QR.
+- First-group invites: URL/code + WhatsApp, plus an invite QR in the first-group admin page (canonical invite URL
+  only; no keys). MD2 device-pairing QR is a separate protocol.
 - Linked-device QR **UI** is not productized yet (protocol-only).
 
 ---
@@ -135,6 +143,7 @@ MULTI-DEVICE AUTHORIZATION / PAIRING (MD1–MD3 local; QR UI not productized)
 | **MD1–MD3** | PASS local | device identity / pairing / authorization reports |
 | **MD4** | NOT_STARTED | change control |
 | **ACCESS_CONTROL_V2** | OFF / unchanged | default false |
+| **First group network admin (898)** | RC local, network E2E PASS; double redeem BLOCKED_DISTRIBUTED_SERIALIZATION | `qa/package898-first-group-network-e2e-report.json`, `qa/package898-rc-report.json` |
 
 **Integration recovery closure (web):** Hebrew UTF-8 product UI, social reload, notifications E2E, audio/video call E2E, call lifecycle/cleanup, and master security regression re-run completed locally without main push/deploy.
 

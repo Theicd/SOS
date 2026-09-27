@@ -18,7 +18,8 @@
   const MEMBERSHIP_EVENT_KIND = 39003;
   const MEMBERSHIP_KIND_CLASS = 'parameterized-replaceable';
   const MEMBERSHIP_PARAMETERIZED_REPLACEABLE_INTENTIONAL = true;
-  const MEMBERSHIP_D_TAG_RULE = 'd === groupId + ":" + memberPubkey (lowercase)';
+  const MEMBERSHIP_D_TAG_RULE =
+    'd === groupId + ":" + memberPubkey + ":" + memberRevision (legacy: groupId + ":" + memberPubkey)';
   const MEMBERSHIP_D_TAG_REQUIRED = true;
 
   const MEMBERSHIP_EVENT_MODEL_ANALYSIS =
@@ -412,7 +413,8 @@
 
     const memberPubkey = normalizePubkey(body.memberPubkey);
     if (!memberPubkey) return { ok: false, code: 'BAD_MEMBER' };
-    if (d !== canonicalD(groupId, memberPubkey)) return { ok: false, code: 'WRONG_D_TAG' };
+    const baseD = canonicalD(groupId, memberPubkey);
+    if (d !== baseD && d !== baseD + ':' + Number(body.memberRevision)) return { ok: false, code: 'WRONG_D_TAG' };
 
     const pTag = normalizePubkey(readTag(event, 'p'));
     if (pTag && pTag !== memberPubkey) return { ok: false, code: 'P_TAG_MISMATCH' };
@@ -901,7 +903,7 @@
     };
     if (opts && opts.inviteEventId) body.inviteEventId = String(opts.inviteEventId).toLowerCase();
     if (opts && opts.reason) body.reason = String(opts.reason).slice(0, 200);
-    const d = canonicalD(groupId, memberPubkey);
+    const d = canonicalD(groupId, memberPubkey) + ':' + memberRevision;
     return {
       kind: MEMBERSHIP_EVENT_KIND,
       created_at: body.createdAt,
@@ -969,6 +971,26 @@
     touched.forEach((pk) => reconstructMember(pk, state));
     persistCache();
     return outcomes;
+  }
+
+  /**
+   * Replace the store with a full re-validation of eventList against the current control state.
+   * Delegated grants whose issuer no longer holds the capability drop out, so the result depends only
+   * on (event set, current control), never on what was ingested earlier or in which order.
+   */
+  function rebuildFromEvents(eventList, controlState) {
+    const state = controlState || getVerifiedControlOrNull();
+    if (!state) return { ok: false, code: 'NO_VERIFIED_CONTROL' };
+    bindMembershipStore(state.groupId);
+    const byId = new Map();
+    (Array.isArray(eventList) ? eventList : []).forEach((ev) => {
+      if (ev && ev.id && !byId.has(String(ev.id))) byId.set(String(ev.id), ev);
+    });
+    members.clear();
+    const ids = Array.from(byId.keys()).sort();
+    const outcomes = ingestMembershipEvents(ids.map((id) => byId.get(id)), state);
+    cacheLoaded = true;
+    return { ok: true, code: 'REBUILT', accepted: outcomes.filter((o) => o.ok).length, rejected: outcomes.filter((o) => !o.ok).length };
   }
 
   function clearTips(networkTag) {
@@ -1248,6 +1270,7 @@
     validateMembershipEventStructural,
     acceptMembershipEvent,
     ingestMembershipEvents,
+    rebuildFromEvents,
     reconstructMember,
     recomputeAll,
     clearTips,

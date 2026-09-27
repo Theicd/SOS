@@ -1,9 +1,9 @@
 {
     "callSignalGiftWrapRequired": true,
-    "version": "2026.09.27-web-897",
-    "buildTime": "2026-09-27T12:00:00+03:00",
+    "version": "2026.09.28-web-898",
+    "buildTime": "2026-09-28T12:00:00+03:00",
     "e2eeSendRequired": true,
     "minSecureChatEpoch": 2,
     "mediaServerE2eeRequired": true,
-    "notes": "Web Package 897 / sos-cache-v897. First-group admin control center (sos010 / israel-network). ACCESS_CONTROL_V2 ships OFF. Multi-community network deferred. MD4 not started. Android/APK frozen."
+    "notes": "Web Package 898 / sos-cache-v898. First-group network-backed administration (israel-network). ACCESS_CONTROL_V2 ships OFF. Multi-community network deferred. MD4 not started. Android/APK frozen."
 }

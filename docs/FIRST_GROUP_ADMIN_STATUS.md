@@ -1,79 +1,72 @@
-# First Group Admin Control Center — Package 897 status
+# First Group Admin Control Center — Package 898 status
 
 Scope: the FIRST group only — community `sos010`, groupId / networkTag `israel-network`.
-Multi-community network work, relay-sync and community discovery are paused for this phase.
+Multi-community network work, new community creation, discovery and multi-community feed stay deferred.
 
-Production is unchanged: Package 896, main `1b922c0312dfcd6feb2b4a127ef127b89997ba64`, `sos-cache-v896`,
-`ACCESS_CONTROL_V2` OFF. Package 897 ships with `ACCESS_CONTROL_V2` OFF (`runtime-feature-flags.json`).
+Production is unchanged: Package 897, main `16f43ae6f81406c68944b66770b248b27137c643`, `sos-cache-v897`,
+`ACCESS_CONTROL_V2` OFF. Package 898 ships with `ACCESS_CONTROL_V2` OFF (`runtime-feature-flags.json`).
+
+## What changed from 897
+
+- Authority is now network-backed: signed kind-39001 / kind-39003 events are fetched from the relay pool and
+  re-verified by the canonical stores (`first-group-network-authority.js`). See `FIRST_GROUP_NETWORK_AUTHORITY.md`.
+- Protocol d-tags: control `d = groupId:controlEpoch`, membership `d = groupId:member:memberRevision`,
+  V2 invites `d = ih`, invite-used `d = inviteEventId`. Relays now keep the full chain (897: only the tip).
+  Legacy d-tags are still accepted by the validators.
+- Every privileged first-group action (`nguard`) reconciles with the relays first and fails closed
+  (`NETWORK_AUTHORITY_UNVERIFIED`) when no relay confirms the state with EOSE, on control conflict, or when
+  control is not VERIFIED.
+- Join approval is automatic on an online ROOT / MANAGE_MEMBERS client; C joins by B's QR without any
+  manual export/import.
+- The admin menu and all admin sections stay hidden until the first network sync (loading state).
 
 ## Authority model
 
 - `FIRST_GROUP_ID=israel-network`
-- `FIRST_GROUP_SOURCE=CommunityContext.SOS010 (config.js NETWORK_TAG israel-network)`
-- `FIRST_GROUP_AUTHORITY_MODEL`: signed kind-39001 control chain (exact +1 epochs). The epoch-1 root must be a
-  configured `adminSourceKeys` pubkey (frozen snapshot; runtime edits to admin key lists are ignored).
-  Delegated capabilities are effective only while the member's signed kind-39003 membership is ACTIVE and the
-  pubkey is not blocklisted.
-- Roles are a presentation layer over canonical capabilities (no parallel role system):
-  ROOT, SENIOR_ADMIN (MANAGE_ADMINS / MANAGE_PERMISSIONS), ADMIN (MANAGE_MEMBERS), MODERATOR (MODERATE_CONTENT),
-  INVITER (INVITE_USERS only), DELEGATE (other combinations), MEMBER.
-- Only the root can grant MANAGE_ADMINS / MANAGE_PERMISSIONS. Holders of MANAGE_PERMISSIONS can grant delegable
-  capabilities to others only. Self-grant is rejected (`SELF_GRANT_FORBIDDEN`).
-- `LAST_OWNER_POLICY=ROOT_IMMUTABLE`: the configured root cannot be granted, revoked, demoted, blocked or removed,
-  so the group can never be left without an owner.
-- Every privileged operation goes through `FirstGroupAdmin.guard`: V2 on → identity → session authority →
-  first-group context → shared-cache sync (stale tabs) → conflict check → signed effective authority.
-  UI state, `isAdmin`, QA overlays, DOM and localStorage caches are not authority.
+- Epoch-1 root must be a configured `adminSourceKeys` pubkey (frozen). Delegated capabilities are effective only
+  while the member's signed membership is ACTIVE and the pubkey is not blocklisted.
+- Roles are presentation over canonical capabilities: ROOT, SENIOR_ADMIN, ADMIN (MANAGE_MEMBERS),
+  MODERATOR, INVITER (INVITE_USERS only), DELEGATE, MEMBER.
+- `LAST_OWNER_POLICY=ROOT_IMMUTABLE`.
 - `FIRST_GROUP_ADMIN_AUDIT_MODEL=SIGNED_CONTROL_CHAIN_PLUS_MEMBERSHIP_EVENTS`.
 
 ## COMPLETE_NOW
 
-- "ניהול קבוצה" entry for users with admin capabilities; regular members see no admin menu.
-- Hebrew dashboard: home, details, members, admins, roles/permissions, invites, QR, settings, security.
-  Tabs are filtered by signed effective authority.
-- Group metadata (name, logo, description) edit — signed `SET_GROUP_METADATA`, persists across reload.
-- Member directory, remove member (with confirmation), join approval for redeemed invites.
-- Admin list, promote (הוספת מנהל), demote (הסרת מנהל), granular permissions (שמירת הרשאות), role presets.
-- Inviter-only delegation; delegated moderator; MANAGE_ADMINS / MANAGE_PERMISSIONS semantics.
-- Invites: create, copy, QR render, QR parse bound to the first group, validate/redeem, revoke, expiry,
-  double-redeem rejection. Invites of a user whose INVITE_USERS is revoked stop validating.
-- QR payload is only the canonical invite URL (`/videos.html?invite=CODE`); strict parser rejects foreign
-  origins, extra params, fragments and secret-like payloads. No root K, nsec, device key, file key or
-  conversation key in QR.
-- Adversarial: forged bootstrap, forged capability / membership / cache events, forged isAdmin / role / overlay /
-  DOM / selected group, direct API calls, self-grant, stale tab, stale device, removed member.
-- Session authority (valid / revoked / other account / re-login), account switch without leak, multi-tab sync,
-  hard reload, typed signer boundaries (no generic raw signing surface).
-- Destructive actions require an in-shell confirmation; cancel keeps state.
-- Desktop and mobile layouts.
+- Remote membership grant / remove, admin promote / demote, granular INVITE_USERS capability, capability revoke —
+  all delivered to other users' browsers through the relays (live subscription + 15 s poll + reconcile on
+  `online` and before every privileged action).
+- Remote inviter: B (INVITE_USERS only) creates an invite and QR; C scans and joins; A and B see C; C reload keeps
+  membership.
+- Network invite revoke and expiry; invites of a user who lost INVITE_USERS stop validating.
+- Fresh browser profile rebuilds authority from the network only.
+- Multi-tab revocation, offline stale cache fails closed, reconnect converges.
+- Account switch without leak.
+- Adversarial: forged control / membership events, bad signature, wrong group, root tamper, stale replay,
+  duplicate delivery, arrival order, one relay down, relay returning without newer events, silent relays,
+  two-issuer control conflict.
+- Typed signer only; no nsec / raw K / plaintext invite code on relays, in QR or in the DOM.
 
-Verification scope:
+Verification: `E2E_SCOPE=NETWORK_BACKED_E2E` (`qa/package898-first-group-network-e2e.mjs`): three independent
+persistent Chromium profiles (USER_A / USER_B / USER_C) plus isolated contexts, two real local NIP-01 WebSocket
+relays with parameterized-replaceable semantics, the app's own nostr-tools pool. `NETWORK_BACKED_E2E=true`.
 
-- `E2E_SCOPE=LOCAL_CONTROLLED_E2E` — multi-user flows run in isolated browser contexts; signed control and
-  membership events are transferred with `exportSignedState` / `importSignedState`, invites use a local
-  in-memory relay stub. `NETWORK_BACKED_E2E=false`.
-- `DOUBLE_REDEEM_SCOPE=LOCAL_ONLY` — double redeem is rejected by local used-state and relay used-events; it is
-  not network-atomic.
-- Same-profile stale tabs: tabs share state through `localStorage`, which the browser propagates between tab
-  processes asynchronously (milliseconds normally, longer under heavy load). A tab can still sign an action
-  inside that window; up-to-date peers reject it because the signed chain no longer grants the capability
-  (`STALE_DEVICE_ACTION_REJECTED_BY_AUTHORITATIVE_PEER`). The E2E waits for propagation before asserting.
-- Membership cache persistence skips unchanged writes, so tabs do not trigger each other's storage events in a
-  loop.
+## BLOCKED
 
-Superseded gates (static checks for the deferred group-creation surface): `access-control-v2-product-gate`
-(`GROUP_ADMIN_HEBREW_GATE` requires "יצירת קבוצה") and `access-control-v2-community-product-gate`.
-They are replaced by `qa/package897-first-group-admin-e2e.mjs` and `qa/package897-rc-gate.mjs`.
+- `NETWORK_DOUBLE_REDEEM_GATE=BLOCKED_DISTRIBUTED_SERIALIZATION`
+- `DOUBLE_REDEEM_SCOPE=NETWORK_SINGLE_APPROVER_SERIALIZED`
+
+With exactly one online approver, concurrent redemptions of one invite yield exactly one member (earliest valid
+(created_at, id) after a 3 s settle window). With two approvers online the E2E shows the winner's two grants at the
+same revision end in membership CONFLICT (no double membership, but the legitimate winner is stuck).
+Nostr relays provide no compare-and-set, so the decentralized model cannot make single-use redemption atomic.
+Architectural requirement and options: `FIRST_GROUP_NETWORK_AUTHORITY.md` → "Double redeem".
 
 ## DEFERRED_TO_NEXT_PHASE
 
-- Relay-backed multi-user propagation of the control chain (relays keep only the latest replaceable event, so
-  the full chain cannot be reconstructed from relays yet).
-- Cross-device staleness beyond the local peer: a stale device's own action is rejected by up-to-date peers,
-  but there is no network push of revocations.
-- Network-atomic double redeem.
-- Invite create / revoke events in the audit log (currently chain diffs + membership events only).
+- Atomic single-use redemption (designated serializer or convergent resolver rule — owner decision).
+- Freshness against all relays withholding the newest event (a client can only be as fresh as the union of
+  reachable relays).
+- Invite create / revoke events in the audit log.
 - Root key rotation / root key loss recovery.
-- New group / community creation and multi-community network protocol.
-- Community discovery and cross-community relay synchronization.
-- Server-side logging backend for admin actions.
+- New group / community creation, multi-community network sync / feed, cross-user community discovery.
+- MD4. Android / APK untouched.

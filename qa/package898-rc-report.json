@@ -1,0 +1,659 @@
+{
+  "gate": "PACKAGE898_RC",
+  "status": "BLOCKED",
+  "ts": "2026-09-27T21:54:53.794Z",
+  "results": {
+    "PACKAGE898_SCOPE_DELTA": {
+      "ok": true,
+      "detail": [
+        "admin-signing-policy.js",
+        "app-version.json",
+        "docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md",
+        "docs/FIRST_GROUP_ADMIN_STATUS.md",
+        "docs/SECURITY_PRODUCT_INTEGRATION_MAP.md",
+        "first-group-admin.js",
+        "group-admin-product-ui.js",
+        "group-control-state.js",
+        "invite-service.js",
+        "membership-state.js",
+        "service-worker.js",
+        "sw-register.js",
+        "videos.html",
+        "docs/FIRST_GROUP_NETWORK_AUTHORITY.md",
+        "docs/PACKAGE898_FIRST_GROUP_NETWORK_RELEASE_PLAN.md",
+        "first-group-network-authority.js",
+        "qa/package898-404-audit.mjs",
+        "qa/package898-first-group-network-e2e.mjs",
+        "qa/package898-rc-gate.mjs",
+        "qa/package898-real-browser-call-gate.mjs"
+      ]
+    },
+    "ANDROID_UNTOUCHED": {
+      "ok": true,
+      "detail": null
+    },
+    "NO_MULTI_COMMUNITY_PROTOCOL_CHANGES": {
+      "ok": true,
+      "detail": []
+    },
+    "GLOBAL_COMMUNICATION_UNCHANGED": {
+      "ok": true,
+      "detail": []
+    },
+    "PACKAGE898_VERSION_GATE": {
+      "ok": true,
+      "detail": "2026.09.28-web-898"
+    },
+    "PACKAGE898_CACHE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "SHIPPED_CONFIG_V2_OFF": {
+      "ok": true,
+      "detail": {
+        "schema": "sos-feature-flags-v1",
+        "accessControlV2": false
+      }
+    },
+    "SW_BYPASSES_FLAG_CONFIG": {
+      "ok": true,
+      "detail": null
+    },
+    "FLAG_LOADS_BEFORE_V2_SYNC": {
+      "ok": true,
+      "detail": {
+        "loaderIdx": 71612,
+        "firstV2": 71871
+      }
+    },
+    "FIRST_GROUP_NETWORK_AUTHORITY_WIRED": {
+      "ok": true,
+      "detail": null
+    },
+    "NETWORK_GATEWAY_ON_EVERY_PRIVILEGED_OP": {
+      "ok": true,
+      "detail": 11
+    },
+    "NETWORK_MODULE_DECLARES_CACHE_NOT_AUTHORITY": {
+      "ok": true,
+      "detail": null
+    },
+    "NEW_GROUP_CREATION_DEFERRED": {
+      "ok": true,
+      "detail": null
+    },
+    "DOUBLE_REDEEM_SCOPE_DECLARED": {
+      "ok": true,
+      "detail": null
+    },
+    "SIGN_FEED_ALLOWED_KINDS": {
+      "ok": true,
+      "detail": [
+        1,
+        6
+      ]
+    },
+    "SIGNER_CORE_UNCHANGED_SINCE_897": {
+      "ok": true,
+      "detail": null
+    },
+    "ADMIN_SIGNING_POLICY_DTAG_ONLY": {
+      "ok": true,
+      "detail": {
+        "changed": 6,
+        "nonDtag": []
+      }
+    },
+    "SIGN_FEED_NEGATIVE_ALLOWLIST_GATE": {
+      "ok": true,
+      "detail": ""
+    },
+    "SECRET_LEAK_GATE": {
+      "ok": true,
+      "detail": []
+    },
+    "NO_GENERIC_RAW_SIGNING_SURFACE": {
+      "ok": true,
+      "detail": null
+    },
+    "AC1": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC2_GROUP_CONTROL": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC2_CONTROL_CONVERGENCE": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC3_INVITE_POLICY": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC4_MODERATION": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC5_MEMBERSHIP": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC5_MEMBERSHIP_CONVERGENCE": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC7_MEMBER_DIRECTORY": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC8_GUEST_HARDENING": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC9_TYPED_ADMIN_SIGNER": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "AC10_ADVERSARIAL": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "ACCESS_CONTROL_RECONCILIATION": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "FIRST_GROUP_NETWORK_E2E": {
+      "ok": true,
+      "detail": {
+        "status": "PASS",
+        "checks": 42,
+        "failed": []
+      }
+    },
+    "THREE_BROWSER_NETWORK_E2E": {
+      "ok": true,
+      "detail": "15 checks"
+    },
+    "FRESH_PROFILE_AUTHORITY": {
+      "ok": true,
+      "detail": "1 checks"
+    },
+    "REMOTE_CAPABILITY": {
+      "ok": true,
+      "detail": "3 checks"
+    },
+    "CROSS_USER_JOIN": {
+      "ok": true,
+      "detail": "4 checks"
+    },
+    "NETWORK_AUTHORITATIVE_GATEWAY": {
+      "ok": true,
+      "detail": "5 checks"
+    },
+    "NETWORK_ADVERSARIAL": {
+      "ok": true,
+      "detail": "11 checks"
+    },
+    "MULTI_USER_SESSION": {
+      "ok": true,
+      "detail": "4 checks"
+    },
+    "NETWORK_BACKED_ADMIN_UI": {
+      "ok": true,
+      "detail": "3 checks"
+    },
+    "NETWORK_DOUBLE_REDEEM_SINGLE_APPROVER": {
+      "ok": true,
+      "detail": {
+        "bothValidated": true,
+        "bothMarked": true,
+        "activeCount": 1,
+        "expectedWinner": "E",
+        "winnerActive": true,
+        "loserRetry": "ההזמנה כבר נוצלה"
+      }
+    },
+    "PRODUCT_RC_894_FLOWS": {
+      "ok": true,
+      "detail": [
+        "IDENTITY",
+        "NEW_ACCOUNT",
+        "EXISTING_KEY",
+        "HEBREW",
+        "CHAT",
+        "RELAY",
+        "POST",
+        "SHARE",
+        "LIKE",
+        "COMMENT",
+        "FOLLOW",
+        "NOTIFICATIONS",
+        "PRIVATE_ATTACHMENTS",
+        "VOICE",
+        "AUDIO_CALL",
+        "VIDEO_CALL",
+        "FULL_RELOAD",
+        "NSEC_EXPOSED"
+      ]
+    },
+    "PRODUCT_SECURITY_894": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "REAL_BROWSER_VOICE_VIDEO_CALLS": {
+      "ok": true,
+      "detail": {
+        "voice": true,
+        "video": true,
+        "hangup": true
+      }
+    },
+    "REAL_BROWSER_P2P_NO_898_REGRESSION": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "RELAY_FALLBACK_CHAT": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "404_AUDIT": {
+      "ok": true,
+      "detail": {
+        "unknown": [],
+        "classified": 4
+      }
+    },
+    "PRODUCT_SHARE_E2E": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "CHAT_READ_RECEIPT": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "FILE_SAFETY": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "VOICE_DURABLE_PLAYBACK": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "SOCIAL_REACTION": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "WEB_PRODUCT_INVENTORY": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "SECURE_P2P_V2": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "P2P_SIGNAL_SIGNATURE": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "MEDIA_FILE_E2EE_CORE": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "IDENTITY_KEY_PRESERVATION": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "IDENTITY_LOGOUT_SWITCH_ATOMICITY": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "PRODUCT_MODULES_UNCHANGED": {
+      "ok": true,
+      "detail": []
+    },
+    "PRODUCT_REGRESSION": {
+      "ok": true,
+      "detail": []
+    },
+    "EXISTING_KEY_IMPORT_GATE": {
+      "ok": true,
+      "detail": "rerun PASS"
+    },
+    "F6A": {
+      "ok": true,
+      "detail": "rerun PASS"
+    },
+    "F6I": {
+      "ok": true,
+      "detail": "rerun PASS"
+    },
+    "F5B6_STATIC_SECRET_SCAN": {
+      "ok": true,
+      "detail": null
+    },
+    "MASTER_SECURITY_REGRESSION": {
+      "ok": true,
+      "detail": null
+    },
+    "DOC_FIRST_GROUP_ADMIN_STATUS": {
+      "ok": true,
+      "detail": null
+    },
+    "DOC_FIRST_GROUP_NETWORK_AUTHORITY": {
+      "ok": true,
+      "detail": null
+    },
+    "DOC_SECURITY_PRODUCT_INTEGRATION_MAP": {
+      "ok": true,
+      "detail": null
+    },
+    "DOC_ACCESS_CONTROL_V2_ACTIVATION_PLAN": {
+      "ok": true,
+      "detail": null
+    },
+    "DOC_PACKAGE898_RELEASE_PLAN": {
+      "ok": true,
+      "detail": null
+    }
+  },
+  "informational": {
+    "SUPERSEDED_V2_PRODUCT_GATE": {
+      "ok": false,
+      "detail": "asserts deferred group-creation surface"
+    },
+    "SUPERSEDED_COMMUNITY_PRODUCT_GATE": {
+      "ok": false,
+      "detail": "asserts deferred group-creation surface"
+    },
+    "PREEXISTING_AC6_ADMIN_UI_GATE": {
+      "ok": false,
+      "detail": "pre-existing on 896/897"
+    },
+    "SUPERSEDED_897_LOCAL_CONTROLLED_E2E": {
+      "ok": false,
+      "detail": "superseded: in-page relay stub + export/import model; gateway now requires relay confirmation"
+    },
+    "DIRECT_P2P_ENVIRONMENTAL": {
+      "ok": true,
+      "detail": {
+        "connected": true,
+        "dc": "open"
+      }
+    },
+    "REAL_BROWSER_P2P_CHAT_FILE": {
+      "ok": true,
+      "detail": {
+        "local898": "PASS",
+        "classification": null,
+        "prod897Baseline": "BLOCKED_NETWORK",
+        "relayFallback": "PASS"
+      }
+    },
+    "CHAT_SIGNATURE_SOURCE_GATE_PREEXISTING": {
+      "ok": false,
+      "detail": "pre-existing on 896/897 baseline; inspected files unchanged"
+    },
+    "CALL_SESSION_TERMINAL_APK_VERSION_PREEXISTING": {
+      "ok": false,
+      "detail": "pre-existing on 896/897 baseline; inspected files unchanged"
+    },
+    "F5B6_FULL": {
+      "ok": false,
+      "detail": "Android unit-test build is out of scope (no Android work in 898)"
+    }
+  },
+  "blocked": {
+    "NETWORK_DOUBLE_REDEEM": {
+      "value": "BLOCKED_DISTRIBUTED_SERIALIZATION",
+      "detail": {
+        "scope": "NETWORK_SINGLE_APPROVER_SERIALIZED",
+        "twoApprovers": {
+          "grantMM": "APPLIED",
+          "onA": [
+            "CONFLICT",
+            "UNKNOWN"
+          ],
+          "onB": [
+            "CONFLICT",
+            "UNKNOWN"
+          ]
+        },
+        "requirement": "designated single join-serializer key or convergent per-invite resolver rule (owner decision)"
+      }
+    }
+  },
+  "groups": {
+    "THREE_BROWSER_NETWORK_E2E": "PASS",
+    "FRESH_PROFILE_AUTHORITY": "PASS",
+    "REMOTE_CAPABILITY": "PASS",
+    "CROSS_USER_JOIN": "PASS",
+    "NETWORK_AUTHORITATIVE_GATEWAY": "PASS",
+    "NETWORK_ADVERSARIAL": "PASS",
+    "MULTI_USER_SESSION": "PASS",
+    "NETWORK_BACKED_ADMIN_UI": "PASS",
+    "NETWORK_DOUBLE_REDEEM": "BLOCKED_DISTRIBUTED_SERIALIZATION",
+    "PRODUCT_REGRESSION": "PASS",
+    "MASTER_SECURITY": "PASS"
+  },
+  "PACKAGE898_RC_SHA": "16f43ae6f81406c68944b66770b248b27137c643",
+  "PACKAGE898_RC_TREE_HASH": "1944030179ae280d02b49f0d2866854050a94d5c",
+  "ROLLBACK_TARGET_SHA": "16f43ae6f81406c68944b66770b248b27137c643",
+  "NEXT_WEB_PACKAGE": 898,
+  "NEXT_CACHE_VERSION": "sos-cache-v898",
+  "ACCESS_CONTROL_V2_SHIPPED_VALUE": false,
+  "MAIN_PUSH_EXECUTED": false,
+  "MAIN_DEPLOY_EXECUTED": false,
+  "PRODUCTION_ACCESS_CONTROL_CHANGED": false,
+  "ANDROID_WORK_EXECUTED": false,
+  "APK_BUILT": false,
+  "MD4_STARTED": false,
+  "PACKAGE898_RC_STATUS": "BLOCKED",
+  "FIRST_GROUP_V2_READY_FOR_CONTROLLED_PRODUCTION_ACTIVATION": false,
+  "delta": {
+    "files": [
+      "admin-signing-policy.js",
+      "app-version.json",
+      "docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md",
+      "docs/FIRST_GROUP_ADMIN_STATUS.md",
+      "docs/SECURITY_PRODUCT_INTEGRATION_MAP.md",
+      "first-group-admin.js",
+      "group-admin-product-ui.js",
+      "group-control-state.js",
+      "invite-service.js",
+      "membership-state.js",
+      "service-worker.js",
+      "sw-register.js",
+      "videos.html",
+      "docs/FIRST_GROUP_NETWORK_AUTHORITY.md",
+      "docs/PACKAGE898_FIRST_GROUP_NETWORK_RELEASE_PLAN.md",
+      "first-group-network-authority.js",
+      "qa/package898-404-audit.mjs",
+      "qa/package898-first-group-network-e2e.mjs",
+      "qa/package898-rc-gate.mjs",
+      "qa/package898-real-browser-call-gate.mjs"
+    ],
+    "count": 20
+  },
+  "E2E_SCOPE": "NETWORK_BACKED_E2E",
+  "NETWORK_BACKED_E2E": true,
+  "DOUBLE_REDEEM_SCOPE": "NETWORK_SINGLE_APPROVER_SERIALIZED",
+  "E2E_CHECKS": 42,
+  "E2E_METRICS": {
+    "JOIN_APPROVAL_LATENCY_MS_B": 4491,
+    "REALTIME_GRANT_LATENCY_MS": 279,
+    "JOIN_APPROVAL_LATENCY_MS_C": 4474,
+    "REALTIME_PROMOTE_LATENCY_MS": 381,
+    "REALTIME_REVOKE_LATENCY_MS": 300,
+    "REPROMOTE_BEFORE_DEMOTE": {
+      "repromote": "SAVED",
+      "ok": true
+    },
+    "RECONNECT_CONVERGENCE_MS": 8257,
+    "REALTIME_REMOVE_LATENCY_MS": 354,
+    "DOUBLE_REDEEM_TWO_APPROVERS": {
+      "grantMM": "APPLIED",
+      "onA": [
+        "CONFLICT",
+        "UNKNOWN"
+      ],
+      "onB": [
+        "CONFLICT",
+        "UNKNOWN"
+      ]
+    },
+    "GRANT_PM_FOR_FORK": "APPLIED",
+    "FORK_EVENTS": {
+      "a": true,
+      "b": true
+    }
+  },
+  "RELAY_PRIVACY": {
+    "37378": {
+      "n": 8,
+      "tags": [
+        "community",
+        "control-epoch",
+        "d",
+        "expiration",
+        "ih",
+        "t"
+      ],
+      "contentKeys": [
+        "communityId",
+        "schema",
+        "type",
+        "v"
+      ]
+    },
+    "37379": {
+      "n": 8,
+      "tags": [
+        "d",
+        "e",
+        "ih",
+        "p",
+        "t"
+      ],
+      "contentKeys": [
+        "type",
+        "v"
+      ]
+    },
+    "37380": {
+      "n": 1,
+      "tags": [
+        "control-epoch",
+        "d",
+        "e",
+        "t"
+      ],
+      "contentKeys": [
+        "controlEpoch",
+        "groupId",
+        "inviteEventId",
+        "schema",
+        "version"
+      ]
+    },
+    "39001": {
+      "n": 15,
+      "tags": [
+        "d",
+        "sos-control",
+        "t"
+      ],
+      "contentKeys": [
+        "blockedPubkeys",
+        "capabilities",
+        "controlEpoch",
+        "createdAt",
+        "groupId",
+        "groupSettings",
+        "invitePolicy",
+        "membershipEpoch",
+        "membershipRoot",
+        "resolution",
+        "rootAdminPubkey",
+        "schema",
+        "version"
+      ]
+    },
+    "39003": {
+      "n": 8,
+      "tags": [
+        "control-epoch",
+        "d",
+        "member-revision",
+        "membership-epoch",
+        "p",
+        "status",
+        "t"
+      ],
+      "contentKeys": [
+        "controlEpochAtIssue",
+        "createdAt",
+        "groupId",
+        "inviteEventId",
+        "issuerPubkey",
+        "memberPubkey",
+        "memberRevision",
+        "membershipEpoch",
+        "schema",
+        "status",
+        "transition",
+        "version"
+      ]
+    }
+  },
+  "REAL_P2P": "PASS",
+  "AUDIT_404": [
+    {
+      "path": "/styles/game-doom-arena.css",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN"
+      ],
+      "class": "DEAD_ASSET_REFERENCE"
+    },
+    {
+      "path": "/game-doom-arena.js",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN"
+      ],
+      "class": "DEAD_ASSET_REFERENCE"
+    },
+    {
+      "path": "/styles/game-doom-arena.css",
+      "runs": [
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "DEAD_ASSET_REFERENCE"
+    },
+    {
+      "path": "/game-doom-arena.js",
+      "runs": [
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "DEAD_ASSET_REFERENCE"
+    }
+  ],
+  "RAW_K_EXPOSED": false,
+  "NSEC_EXPOSED": false,
+  "RELAY_SECRET_LEAK": false,
+  "SIGN_FEED_ALLOWED_KINDS": [
+    1,
+    6
+  ],
+  "PACKAGE898_SCOPE_GATE": "PASS",
+  "PACKAGE898_RC_GATE": "BLOCKED",
+  "missing": [],
+  "blockedKeys": [
+    "NETWORK_DOUBLE_REDEEM"
+  ],
+  "RC_IDENTITY_NOTE": "SHA/tree above are HEAD at gate run time; final RC identity is the commit that contains this report."
+}

@@ -13,8 +13,8 @@
   /** NIP-01 parameterized replaceable (30000–39999). Intentional: one live tip per group via d=groupId. */
   const GROUP_CONTROL_KIND_CLASS = 'parameterized-replaceable';
   const PARAMETERIZED_REPLACEABLE_INTENTIONAL = true;
-  /** Canonical d-tag value = groupId (App.NETWORK_TAG / israel-network). */
-  const GROUP_CONTROL_D_TAG_VALUE_RULE = 'd === groupId (exact App.NETWORK_TAG binding)';
+  /** Canonical d-tag = groupId:controlEpoch so relays retain every epoch; legacy d === groupId still accepted. */
+  const GROUP_CONTROL_D_TAG_VALUE_RULE = 'd === groupId + ":" + controlEpoch (legacy: d === groupId)';
   /** Authority/history: verified store + local revalidated cache + future GROUP_AUDIT_EVENT — not relay retention. */
   const CONTROL_HISTORY_DEPENDS_ON_RELAY_RETENTION = false;
   const SCHEMA_NAME = 'sos-group-control';
@@ -937,11 +937,11 @@
         }
       }
       const dVal = String(dTags[0][1] || '');
-      if (dVal !== record.groupId) {
+      if (dVal !== record.groupId && dVal !== record.groupId + ':' + record.controlEpoch) {
         setStatus('INVALID');
         return { ok: false, status: 'INVALID', code: 'WRONG_D_TAG' };
       }
-      if (dVal !== expectedGroup) {
+      if (record.groupId !== expectedGroup) {
         return { ok: false, status: 'WRONG_GROUP', code: 'CROSS_GROUP_D_TAG' };
       }
 
@@ -1209,7 +1209,7 @@
       created_at: record.createdAt,
       pubkey: pubkey || record.rootAdminPubkey,
       tags: [
-        ['d', record.groupId],
+        ['d', record.groupId + ':' + record.controlEpoch],
         ['t', record.groupId],
         ['sos-control', 'v' + SCHEMA_VERSION],
       ],

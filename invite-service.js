@@ -332,6 +332,8 @@
     if (isV2() && P) {
       const ih = await P.sha256Hex(code);
       tags.push(['ih', ih]);
+      // 37378 is parameterized-replaceable: without a unique d, relays keep only the author's latest invite.
+      tags.push(['d', ih]);
       const st = P.getVerifiedControlOrNull && P.getVerifiedControlOrNull();
       if (st && typeof st.controlEpoch === 'number') {
         tags.push(['control-epoch', String(st.controlEpoch)]);
@@ -419,6 +421,7 @@
     if (isV2() && P) {
       const ih = await P.sha256Hex(normalized);
       tags.push(['ih', ih]);
+      if (resolvedId) tags.push(['d', String(resolvedId).toLowerCase()]);
     } else {
       tags.push([codeTag, normalized]);
     }

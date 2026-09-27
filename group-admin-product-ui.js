@@ -98,6 +98,10 @@
   function needsBootstrap() {
     const f = FGA();
     if (!f || !isV2() || !actor() || App.guestMode) return false;
+    // Only after relays confirmed there is no control chain yet (never while authority is still loading).
+    const n = App.FirstGroupNetworkAuthority;
+    const s = n ? n.status() : null;
+    if (!s || s.relaysOk === 0 || s.lastError !== 'NO_VERIFIED_CONTROL') return false;
     const a = f.myAuthority();
     return !a.verified && f.isConfiguredRoot(actor()) && f.contextCheck().ok;
   }
@@ -865,7 +869,15 @@
     const c = f && f.verifiedControl ? f.verifiedControl() : null;
     const m = MS();
     const ev = m && m.exportMembershipEvents ? m.exportMembershipEvents(gid) : [];
-    return [actor(), g && g.getStatus ? g.getStatus(gid) : '', c ? c.controlEpoch : '', ev.length, ev.length ? ev[ev.length - 1].id : ''].join('|');
+    const n = App.FirstGroupNetworkAuthority;
+    return [
+      actor(),
+      g && g.getStatus ? g.getStatus(gid) : '',
+      c ? c.controlEpoch : '',
+      ev.length,
+      ev.length ? ev[ev.length - 1].id : '',
+      n && n.isSynced() ? 'net' : 'nonet',
+    ].join('|');
   }
 
   let chromeOwner = '';

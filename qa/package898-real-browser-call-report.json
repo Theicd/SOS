@@ -1,0 +1,56 @@
+{
+  "gate": "PACKAGE898_REAL_BROWSER_CALLS",
+  "url": "http://127.0.0.1:8794/videos.html",
+  "status": "PASS",
+  "ts": "2026-09-27T21:59:37.812Z",
+  "voice": {
+    "start": {
+      "ok": true
+    },
+    "offerReceivedMs": 325,
+    "accept": {
+      "ok": true
+    },
+    "connectedMs": 3492,
+    "statsA": {
+      "state": "connected",
+      "ice": "connected",
+      "inBytes": 18302,
+      "outBytes": 11747,
+      "candidate": "host/host"
+    },
+    "statsB": {
+      "state": "connected",
+      "ice": "connected",
+      "inBytes": 11747,
+      "outBytes": 18302,
+      "candidate": "host/host"
+    },
+    "REAL_VOICE_CALL": true,
+    "REMOTE_HANGUP_PROPAGATED": true
+  },
+  "video": {
+    "start": {
+      "ok": true
+    },
+    "offerReceivedMs": 597,
+    "accept": {
+      "ok": true
+    },
+    "connectedMs": 1691,
+    "remoteA": {
+      "active": true,
+      "video": "live:unmuted",
+      "audio": "live"
+    },
+    "remoteB": {
+      "active": true,
+      "video": "live:unmuted",
+      "audio": "live"
+    },
+    "REAL_VIDEO_CALL": true
+  },
+  "package": "2026.09.28-web-898",
+  "identities": true,
+  "nsecInDom": false
+}

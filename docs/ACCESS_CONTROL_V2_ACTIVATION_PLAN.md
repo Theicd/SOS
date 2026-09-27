@@ -1,8 +1,21 @@
 # Access Control V2 — Activation Plan (NOT EXECUTED)
 
 **Status:** draft for owner approval only.  
-**Production now:** Package 895 (`623c94f6e2b25471b4814cdcb74851f692263a1e`), `SOS_ACCESS_CONTROL_V2=false`.  
-**Local branch:** `local/package896-feature-flag` preparing Package **896** (not deployed).
+**Production now:** Package 897 (`16f43ae6f81406c68944b66770b248b27137c643`, `sos-cache-v897`), `SOS_ACCESS_CONTROL_V2=false`.  
+**Candidate:** Package **898** RC — first-group network-backed administration (not deployed, flag ships OFF).
+
+## Package 898 first-group activation readiness
+
+- First-group admin state is network-backed (`docs/FIRST_GROUP_NETWORK_AUTHORITY.md`); the three-browser
+  network E2E, fresh profile, remote capability, cross-user join, gateway and adversarial suites pass.
+- **Blocker:** `NETWORK_DOUBLE_REDEEM_GATE=BLOCKED_DISTRIBUTED_SERIALIZATION`. Single-use invites are only
+  serialized while exactly one ROOT / MANAGE_MEMBERS client approves joins. Before controlled activation the owner
+  must choose the serialization model (designated join-serializer key / root-only approval, or a convergent
+  resolver rule) — see the "Double redeem" section of the authority doc.
+- Operational precondition for activation even after that decision: at least one approver client online, otherwise
+  redemptions wait (they are not lost; they are approved on the approver's next sync).
+- Rollback after activation must be flag OFF (forward-only): 897 validators reject 898 d-tags.
+- `FIRST_GROUP_V2_READY_FOR_CONTROLLED_PRODUCTION_ACTIVATION=false` until the blocker is resolved.
 
 ## Product model (must stay true after activation)
 

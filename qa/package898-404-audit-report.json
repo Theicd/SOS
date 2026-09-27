@@ -1,0 +1,204 @@
+{
+  "gate": "PACKAGE898_404_AUDIT",
+  "ts": "2026-09-27T22:00:14.360Z",
+  "runs": {
+    "PRODUCTION_897_GUEST": {
+      "bad": [
+        {
+          "status": 404,
+          "url": "https://sos010.com/styles/game-doom-arena.css",
+          "type": "stylesheet",
+          "frame": "main"
+        },
+        {
+          "status": "FAILED",
+          "url": "https://sos010.com/styles/game-doom-arena.css",
+          "type": "stylesheet",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "status": 404,
+          "url": "https://sos010.com/game-doom-arena.js",
+          "type": "script",
+          "frame": "main"
+        },
+        {
+          "status": "FAILED",
+          "url": "https://sos010.com/game-doom-arena.js",
+          "type": "script",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "status": "FAILED",
+          "url": "https://sos010.com/icons/sos-logo-mobile.png?v=20260729e",
+          "type": "image",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "status": "FAILED",
+          "url": "https://sos010.com/icons/sos-logo.PNG",
+          "type": "image",
+          "error": "net::ERR_ABORTED"
+        }
+      ],
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "loc": "https://sos010.com/styles/game-doom-arena.css"
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "loc": "https://sos010.com/game-doom-arena.js"
+        }
+      ]
+    },
+    "PRODUCTION_897_LOGGED_IN": {
+      "bad": [
+        {
+          "status": 404,
+          "url": "https://sos010.com/styles/game-doom-arena.css",
+          "type": "stylesheet",
+          "frame": "main"
+        },
+        {
+          "status": "FAILED",
+          "url": "https://sos010.com/styles/game-doom-arena.css",
+          "type": "stylesheet",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "status": 404,
+          "url": "https://sos010.com/game-doom-arena.js",
+          "type": "script",
+          "frame": "main"
+        },
+        {
+          "status": "FAILED",
+          "url": "https://sos010.com/game-doom-arena.js",
+          "type": "script",
+          "error": "net::ERR_ABORTED"
+        }
+      ],
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "loc": "https://sos010.com/styles/game-doom-arena.css"
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 404 ()",
+          "loc": "https://sos010.com/game-doom-arena.js"
+        }
+      ]
+    },
+    "LOCAL_898_GUEST": {
+      "bad": [
+        {
+          "status": 404,
+          "url": "http://127.0.0.1:8794/styles/game-doom-arena.css",
+          "type": "stylesheet",
+          "frame": "main"
+        },
+        {
+          "status": "FAILED",
+          "url": "http://127.0.0.1:8794/styles/game-doom-arena.css",
+          "type": "stylesheet",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "status": 404,
+          "url": "http://127.0.0.1:8794/game-doom-arena.js",
+          "type": "script",
+          "frame": "main"
+        },
+        {
+          "status": "FAILED",
+          "url": "http://127.0.0.1:8794/game-doom-arena.js",
+          "type": "script",
+          "error": "net::ERR_ABORTED"
+        }
+      ],
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "loc": "http://127.0.0.1:8794/styles/game-doom-arena.css"
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "loc": "http://127.0.0.1:8794/game-doom-arena.js"
+        }
+      ]
+    },
+    "LOCAL_898_LOGGED_IN": {
+      "bad": [
+        {
+          "status": 404,
+          "url": "http://127.0.0.1:8794/styles/game-doom-arena.css",
+          "type": "stylesheet",
+          "frame": "main"
+        },
+        {
+          "status": "FAILED",
+          "url": "http://127.0.0.1:8794/styles/game-doom-arena.css",
+          "type": "stylesheet",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "status": 404,
+          "url": "http://127.0.0.1:8794/game-doom-arena.js",
+          "type": "script",
+          "frame": "main"
+        },
+        {
+          "status": "FAILED",
+          "url": "http://127.0.0.1:8794/game-doom-arena.js",
+          "type": "script",
+          "error": "net::ERR_ABORTED"
+        }
+      ],
+      "consoleErrors": [
+        {
+          "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "loc": "http://127.0.0.1:8794/styles/game-doom-arena.css"
+        },
+        {
+          "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "loc": "http://127.0.0.1:8794/game-doom-arena.js"
+        }
+      ]
+    }
+  },
+  "unique404": [
+    {
+      "url": "https://sos010.com/styles/game-doom-arena.css",
+      "type": "stylesheet",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN"
+      ]
+    },
+    {
+      "url": "https://sos010.com/game-doom-arena.js",
+      "type": "script",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN"
+      ]
+    },
+    {
+      "url": "http://127.0.0.1:8794/styles/game-doom-arena.css",
+      "type": "stylesheet",
+      "runs": [
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ]
+    },
+    {
+      "url": "http://127.0.0.1:8794/game-doom-arena.js",
+      "type": "script",
+      "runs": [
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ]
+    }
+  ]
+}

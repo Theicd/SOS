@@ -1,0 +1,806 @@
+{
+  "gate": "PACKAGE898_FIRST_GROUP_NETWORK_E2E",
+  "E2E_SCOPE": "NETWORK_BACKED_E2E",
+  "NETWORK_BACKED_E2E": true,
+  "relays": [
+    "ws://127.0.0.1:7791",
+    "ws://127.0.0.1:7792"
+  ],
+  "status": "PASS",
+  "ts": "2026-09-27T21:55:16.283Z",
+  "results": {
+    "CONFIG_TEST_TRANSFORMS_APPLIED": {
+      "ok": true,
+      "detail": {
+        "root": true,
+        "relays": true,
+        "p2p": true,
+        "sanitizer": true
+      }
+    },
+    "THREE_INDEPENDENT_PROFILES": {
+      "ok": true,
+      "detail": {
+        "separateProcesses": true,
+        "sharedStorage": false
+      }
+    },
+    "APP_USES_LOCAL_TEST_RELAYS": {
+      "ok": true,
+      "detail": {
+        "relays": [
+          "ws://127.0.0.1:7791",
+          "ws://127.0.0.1:7792"
+        ],
+        "writable": [
+          "ws://127.0.0.1:7791",
+          "ws://127.0.0.1:7792"
+        ]
+      }
+    },
+    "FIRST_GROUP_CANONICAL_ID": {
+      "ok": true,
+      "detail": [
+        {
+          "fga": "israel-network",
+          "na": "israel-network",
+          "tag": "israel-network",
+          "ctx": true,
+          "mismatch": "FIRST_GROUP_CONTEXT_MISMATCH"
+        },
+        {
+          "fga": "israel-network",
+          "na": "israel-network",
+          "tag": "israel-network",
+          "ctx": true,
+          "mismatch": "FIRST_GROUP_CONTEXT_MISMATCH"
+        },
+        {
+          "fga": "israel-network",
+          "na": "israel-network",
+          "tag": "israel-network",
+          "ctx": true,
+          "mismatch": "FIRST_GROUP_CONTEXT_MISMATCH"
+        }
+      ]
+    },
+    "ROOT_BOOTSTRAP_PUBLISHED_TO_RELAYS": {
+      "ok": true,
+      "detail": {
+        "bootRes": {
+          "ok": true,
+          "code": "BOOTSTRAPPED",
+          "member": "SELF_GRANT"
+        },
+        "preBoot": {
+          "relaysOk": 2,
+          "lastError": "NO_VERIFIED_CONTROL"
+        },
+        "relayControl": [
+          1,
+          1
+        ],
+        "relayMember": [
+          1,
+          1
+        ]
+      }
+    },
+    "NO_ADMIN_UI_WITHOUT_NETWORK_CONTROL": {
+      "ok": true,
+      "detail": null
+    },
+    "CONTROL_RECEIVED_FROM_NETWORK": {
+      "ok": true,
+      "detail": {
+        "bMs": 5,
+        "cMs": 4
+      }
+    },
+    "REMOTE_MEMBERSHIP_GRANT": {
+      "ok": true,
+      "detail": {
+        "invA": "CREATED",
+        "redB": {
+          "ok": true,
+          "stage": "mark",
+          "inviteEventId": "c7ff467b8fc6e3f38cd1538d7073757636d19e829e4d284705d8866223e6f8e1",
+          "inviter": "0f62a55820187694c18e26242d1001871db166cfb85b3ef99582533ad96cacc3",
+          "usedId": "8b8be4d171dc1d1c4fd9f82b8fb689b53b222c0e852f70a6dae3c79c306bab31"
+        },
+        "bOnB": {
+          "ok": true,
+          "ms": 4486
+        },
+        "bOnA": true
+      }
+    },
+    "A_ADMIN_UI_MEMBERS_FROM_NETWORK": {
+      "ok": true,
+      "detail": {
+        "aMenu": true,
+        "aSeesB": true
+      }
+    },
+    "REMOTE_CAPABILITY": {
+      "ok": true,
+      "detail": {
+        "grant": "APPLIED",
+        "latencyMs": 279,
+        "assigned": [
+          "INVITE_USERS"
+        ],
+        "bTabs": [
+          "home",
+          "invites",
+          "qr"
+        ]
+      }
+    },
+    "INVITER_CANNOT_ESCALATE": {
+      "ok": true,
+      "detail": {
+        "grantOther": "UNAUTHORIZED",
+        "selfPromote": "UNAUTHORIZED",
+        "remove": "UNAUTHORIZED",
+        "meta": "UNAUTHORIZED"
+      }
+    },
+    "REMOTE_INVITER": {
+      "ok": true,
+      "detail": {
+        "ui": {
+          "ok": true,
+          "text": "יצירת הזמנה — בוצע"
+        },
+        "aValidatesB": "V2_OK"
+      }
+    },
+    "NETWORK_QR_RENDER": {
+      "ok": true,
+      "detail": {
+        "qrParams": [
+          "invite"
+        ],
+        "qrSecretHits": 0,
+        "len": 49
+      }
+    },
+    "CROSS_USER_JOIN": {
+      "ok": true,
+      "detail": {
+        "redC": {
+          "ok": true,
+          "stage": "mark",
+          "inviteEventId": "2951097a55a3018fb38a985f5bc207bccb2fa896aecb197263086ae6ba39bff1",
+          "inviter": "dd3083518466c616027ab020eb575a75702451d45e8c44d225c8ab5901e65d24",
+          "usedId": "6ecca778eaab4f7a2eda16d36dae56d8f3059bcf9d56e069cc5fc745d2a85bd9"
+        },
+        "cOnC": 4474,
+        "cOnA": true,
+        "cOnB": true,
+        "aSeesC": true,
+        "cReloadRestored": true,
+        "cAfterReload": "ACTIVE"
+      }
+    },
+    "JOIN_OBSERVABILITY": {
+      "ok": true,
+      "detail": {
+        "audit": [
+          "MEMBER_ACTIVE"
+        ],
+        "bObservesVia": "membership state (B has no member-list section)"
+      }
+    },
+    "REMOTE_ADMIN_PROMOTE": {
+      "ok": true,
+      "detail": {
+        "promote": "SAVED",
+        "ms": 225,
+        "caps": [
+          "INVITE_USERS",
+          "MANAGE_MEMBERS"
+        ],
+        "bAdminTabs": [
+          "home",
+          "details",
+          "members",
+          "invites",
+          "qr"
+        ],
+        "bSeesC": true
+      }
+    },
+    "FRESH_PROFILE_AUTHORITY": {
+      "ok": true,
+      "detail": {
+        "fresh": {
+          "role": "ADMIN",
+          "caps": [
+            "INVITE_USERS",
+            "MANAGE_MEMBERS"
+          ],
+          "assigned": [
+            "INVITE_USERS",
+            "MANAGE_MEMBERS"
+          ],
+          "verified": true,
+          "isRoot": false,
+          "member": "ACTIVE",
+          "control": "VERIFIED",
+          "epoch": 3,
+          "net": "SYNCED"
+        },
+        "aView": {
+          "caps": [
+            "INVITE_USERS",
+            "MANAGE_MEMBERS"
+          ],
+          "member": "ACTIVE"
+        },
+        "bFreshMenu": true
+      }
+    },
+    "REMOTE_CAPABILITY_REVOKE": {
+      "ok": true,
+      "detail": {
+        "revoke": "APPLIED",
+        "ms": 216,
+        "remaining": [
+          "INVITE_USERS"
+        ],
+        "bRemoveAfterRevoke": "UNAUTHORIZED",
+        "cOnA": "ACTIVE"
+      }
+    },
+    "REMOTE_ADMIN_DEMOTE": {
+      "ok": true,
+      "detail": {
+        "demote": "SAVED",
+        "caps": [
+          "INVITE_USERS"
+        ],
+        "bDemotedTabs": [
+          "home",
+          "invites",
+          "qr"
+        ]
+      }
+    },
+    "OFFLINE_STALE_CACHE_FAIL_CLOSED": {
+      "ok": true,
+      "detail": {
+        "staleCaps": [
+          "INVITE_USERS",
+          "MANAGE_MEMBERS"
+        ],
+        "staleOps": {
+          "createInvite": "NETWORK_AUTHORITY_UNVERIFIED",
+          "grant": "NETWORK_AUTHORITY_UNVERIFIED",
+          "meta": "NETWORK_AUTHORITY_UNVERIFIED"
+        },
+        "staleNet": {
+          "status": "FAILED",
+          "lastError": "RELAY_UNAVAILABLE"
+        }
+      }
+    },
+    "OFFLINE_RECONNECT": {
+      "ok": true,
+      "detail": {
+        "tab1": 8245,
+        "tab2": 6
+      }
+    },
+    "MULTITAB_REVOCATION": {
+      "ok": true,
+      "detail": {
+        "tab2Before": [
+          "INVITE_USERS",
+          "MANAGE_MEMBERS"
+        ],
+        "afterOps": {
+          "meta": "UNAUTHORIZED"
+        }
+      }
+    },
+    "REMOTE_MEMBER_REMOVE": {
+      "ok": true,
+      "detail": {
+        "removeC": "REMOVED",
+        "ms": 234,
+        "cOps": {
+          "menu": false,
+          "invite": "UNAUTHORIZED",
+          "grant": "UNAUTHORIZED",
+          "redeemGate": "REMOVED"
+        },
+        "afterReload": "REMOVED"
+      }
+    },
+    "STALE_EVENT": {
+      "ok": true,
+      "detail": {
+        "replayed": 7,
+        "same": [
+          true,
+          true,
+          true
+        ]
+      }
+    },
+    "EVENT_INTEGRITY": {
+      "ok": true,
+      "detail": {
+        "injected": 5,
+        "results": [
+          {
+            "l": "USER_A",
+            "xMember": "UNKNOWN",
+            "xCaps": [],
+            "control": "VERIFIED",
+            "same": true
+          },
+          {
+            "l": "USER_B",
+            "xMember": "UNKNOWN",
+            "xCaps": [],
+            "control": "VERIFIED",
+            "same": true
+          },
+          {
+            "l": "USER_C",
+            "xMember": "UNKNOWN",
+            "xCaps": [],
+            "control": "VERIFIED",
+            "same": true
+          }
+        ]
+      }
+    },
+    "NETWORK_AUTHORITATIVE_GATEWAY": {
+      "ok": true,
+      "detail": {
+        "X": {
+          "promote": "UNAUTHORIZED",
+          "demote": "UNAUTHORIZED",
+          "permissions": "UNAUTHORIZED",
+          "remove": "UNAUTHORIZED",
+          "invite": "UNAUTHORIZED",
+          "revokeInvite": "BAD_INVITE",
+          "approve": "UNAUTHORIZED",
+          "metadata": "UNAUTHORIZED",
+          "policy": "UNAUTHORIZED",
+          "moderation": "NO_MODERATE_CAP"
+        },
+        "C_REMOVED": {
+          "promote": "UNAUTHORIZED",
+          "demote": "UNAUTHORIZED",
+          "permissions": "UNAUTHORIZED",
+          "remove": "UNAUTHORIZED",
+          "invite": "UNAUTHORIZED",
+          "revokeInvite": "BAD_INVITE",
+          "approve": "UNAUTHORIZED",
+          "metadata": "UNAUTHORIZED",
+          "policy": "UNAUTHORIZED",
+          "moderation": "NO_MODERATE_CAP"
+        },
+        "B_DEMOTED": {
+          "promote": "UNAUTHORIZED",
+          "demote": "UNAUTHORIZED",
+          "permissions": "UNAUTHORIZED",
+          "remove": "UNAUTHORIZED",
+          "invite": "CREATED",
+          "revokeInvite": "BAD_INVITE",
+          "approve": "UNAUTHORIZED",
+          "metadata": "UNAUTHORIZED",
+          "policy": "UNAUTHORIZED",
+          "moderation": "USE_AUTHOR_DELETE"
+        }
+      }
+    },
+    "DIRECT_NETWORK_PRIVILEGED_BYPASS_REJECTED": {
+      "ok": true,
+      "detail": {
+        "bypass": {
+          "ok": false,
+          "code": "UNAUTHORIZED"
+        },
+        "xOnA": "UNKNOWN",
+        "xOnObserver": "UNKNOWN"
+      }
+    },
+    "NETWORK_INVITE_REVOKE": {
+      "ok": true,
+      "detail": {
+        "revRes": "REVOKED",
+        "dRevoked": {
+          "ok": false,
+          "stage": "validate",
+          "error": "ההזמנה בוטלה",
+          "code": "REVOKED"
+        },
+        "dMember": "UNKNOWN"
+      }
+    },
+    "NETWORK_EXPIRED_INVITE": {
+      "ok": true,
+      "detail": {
+        "eExpired": {
+          "ok": false,
+          "stage": "validate",
+          "error": "תוקף ההזמנה פג. בקשו הזמנה חדשה."
+        },
+        "eMember": "UNKNOWN"
+      }
+    },
+    "NETWORK_DOUBLE_REDEEM_SINGLE_APPROVER": {
+      "ok": true,
+      "detail": {
+        "bothValidated": true,
+        "bothMarked": true,
+        "activeCount": 1,
+        "expectedWinner": "E",
+        "winnerActive": true,
+        "loserRetry": "ההזמנה כבר נוצלה"
+      }
+    },
+    "DUPLICATE_EVENT_NO_CORRUPTION": {
+      "ok": true,
+      "detail": {
+        "dupA": true,
+        "dupB": true
+      }
+    },
+    "EVENT_ARRIVAL_ORDER_DETERMINISTIC": {
+      "ok": true,
+      "detail": [
+        {
+          "order": "asc",
+          "same": true
+        },
+        {
+          "order": "shuffle",
+          "same": true
+        },
+        {
+          "order": "desc",
+          "same": true
+        }
+      ]
+    },
+    "ONE_RELAY_DOWN_CONVERGES": {
+      "ok": true,
+      "detail": {
+        "oneRelayGrant": "APPLIED",
+        "ms": 473,
+        "bOneStatus": {
+          "ok": true,
+          "relaysOk": 1
+        }
+      }
+    },
+    "RELAY_RECONNECT_UNION": {
+      "ok": true,
+      "detail": {
+        "r2Missing": true,
+        "obs": [
+          "INVITE_USERS",
+          "MODERATE_CONTENT"
+        ],
+        "bReconnect": {
+          "ok": true,
+          "relaysOk": 2
+        }
+      }
+    },
+    "FAIL_CLOSED_NO_RELAY_CONFIRMATION": {
+      "ok": true,
+      "detail": {
+        "downOp": {
+          "code": "NETWORK_AUTHORITY_UNVERIFIED",
+          "detail": "RELAY_UNAVAILABLE"
+        },
+        "silentOp": {
+          "code": "NETWORK_AUTHORITY_UNVERIFIED",
+          "detail": "RELAY_UNAVAILABLE"
+        },
+        "silentMs": 6026,
+        "backOp": "APPLIED"
+      }
+    },
+    "ADMIN_UI_LOADING_STATE": {
+      "ok": true,
+      "detail": {
+        "loading": {
+          "status": "LOADING",
+          "menu": false,
+          "sections": false
+        },
+        "loadingMenuDom": false,
+        "loaded": true
+      }
+    },
+    "NETWORK_BACKED_ADMIN_UI": {
+      "ok": true,
+      "detail": {
+        "tabRes": {
+          "home": true,
+          "details": true,
+          "members": true,
+          "admins": true,
+          "roles": true,
+          "invites": true,
+          "qr": true,
+          "settings": true,
+          "security": true
+        },
+        "aDir": [
+          "92f65a61:ACTIVE:MEMBER",
+          "a9d2a07e:ACTIVE:MEMBER",
+          "d7b973ab:REMOVED:MEMBER",
+          "dd308351:ACTIVE:MODERATOR",
+          "0f62a558:ACTIVE:ROOT"
+        ],
+        "mobileOverflow": false
+      }
+    },
+    "ACCOUNT_SWITCH": {
+      "ok": true,
+      "detail": {
+        "pub": "d7b973ab04d5cc28a19ee16370b9897b486b64fa881ea1498f248303cf8e50e8",
+        "menu": false,
+        "open": false,
+        "invitesAfter": 0,
+        "codesInDom": 0,
+        "caps": 0,
+        "member": "REMOVED",
+        "rootOp": "UNAUTHORIZED"
+      }
+    },
+    "CONTROL_CONFLICT_FAIL_CLOSED": {
+      "ok": true,
+      "detail": {
+        "conflictOp": {
+          "code": "CONTROL_CONFLICT",
+          "control": "CONTROL_CONFLICT"
+        },
+        "conflictMenu": false
+      }
+    },
+    "TYPED_SIGNER_ONLY": {
+      "ok": true,
+      "detail": {
+        "generic": [],
+        "typed": true,
+        "globalsNsec": [
+          "onsecuritypolicyviolation"
+        ]
+      }
+    },
+    "RELAY_SECRET_LEAK_SCAN": {
+      "ok": true,
+      "detail": {
+        "events": 59,
+        "authEvents": 40,
+        "secretHits": 0,
+        "plaintextInviteCodeHits": 0,
+        "nsecHits": 0,
+        "privFields": 0
+      }
+    },
+    "DOM_SECRET_SCAN": {
+      "ok": true,
+      "detail": [
+        {
+          "label": "USER_A",
+          "secretHits": 0,
+          "nsec": false
+        },
+        {
+          "label": "USER_B",
+          "secretHits": 0,
+          "nsec": false
+        },
+        {
+          "label": "USER_C",
+          "secretHits": 0,
+          "nsec": false
+        },
+        {
+          "label": "USER_X",
+          "secretHits": 0,
+          "nsec": false
+        },
+        {
+          "label": "USER_D",
+          "secretHits": 0,
+          "nsec": false
+        },
+        {
+          "label": "USER_E",
+          "secretHits": 0,
+          "nsec": false
+        }
+      ]
+    }
+  },
+  "metrics": {
+    "JOIN_APPROVAL_LATENCY_MS_B": 4491,
+    "REALTIME_GRANT_LATENCY_MS": 279,
+    "JOIN_APPROVAL_LATENCY_MS_C": 4474,
+    "REALTIME_PROMOTE_LATENCY_MS": 381,
+    "REALTIME_REVOKE_LATENCY_MS": 300,
+    "REPROMOTE_BEFORE_DEMOTE": {
+      "repromote": "SAVED",
+      "ok": true
+    },
+    "RECONNECT_CONVERGENCE_MS": 8257,
+    "REALTIME_REMOVE_LATENCY_MS": 354,
+    "DOUBLE_REDEEM_TWO_APPROVERS": {
+      "grantMM": "APPLIED",
+      "onA": [
+        "CONFLICT",
+        "UNKNOWN"
+      ],
+      "onB": [
+        "CONFLICT",
+        "UNKNOWN"
+      ]
+    },
+    "GRANT_PM_FOR_FORK": "APPLIED",
+    "FORK_EVENTS": {
+      "a": true,
+      "b": true
+    }
+  },
+  "screenshots": [
+    "qa/package898-a-members-network.png",
+    "qa/package898-b-inviter-only-tabs.png",
+    "qa/package898-b-invite-qr.png",
+    "qa/package898-a-sees-c.png",
+    "qa/package898-b-admin-members.png",
+    "qa/package898-a-loading-state.png",
+    "qa/package898-a-tab-details.png",
+    "qa/package898-a-tab-members.png",
+    "qa/package898-a-tab-admins.png",
+    "qa/package898-a-tab-roles.png",
+    "qa/package898-a-tab-invites.png",
+    "qa/package898-a-tab-qr.png",
+    "qa/package898-a-tab-settings.png",
+    "qa/package898-a-mobile-members.png"
+  ],
+  "FIRST_GROUP_ID": "israel-network",
+  "OFFLINE_CACHE_ESCALATES_AUTHORITY": false,
+  "STALE_TAB_PRIVILEGED_ACTION_ACCEPTED": false,
+  "DOUBLE_REDEEM_TWO_APPROVERS_ACTIVE": 0,
+  "NETWORK_DOUBLE_REDEEM_GATE": "BLOCKED_DISTRIBUTED_SERIALIZATION",
+  "DOUBLE_REDEEM_SCOPE": "NETWORK_SINGLE_APPROVER_SERIALIZED",
+  "DUPLICATE_EVENT_AUTHORITY_CORRUPTION": false,
+  "EVENT_ARRIVAL_ORDER_CHANGES_AUTHORITY": false,
+  "MULTI_RELAY_CONVERGENCE": true,
+  "RELAY_PRIVACY": {
+    "37378": {
+      "n": 8,
+      "tags": [
+        "community",
+        "control-epoch",
+        "d",
+        "expiration",
+        "ih",
+        "t"
+      ],
+      "contentKeys": [
+        "communityId",
+        "schema",
+        "type",
+        "v"
+      ]
+    },
+    "37379": {
+      "n": 8,
+      "tags": [
+        "d",
+        "e",
+        "ih",
+        "p",
+        "t"
+      ],
+      "contentKeys": [
+        "type",
+        "v"
+      ]
+    },
+    "37380": {
+      "n": 1,
+      "tags": [
+        "control-epoch",
+        "d",
+        "e",
+        "t"
+      ],
+      "contentKeys": [
+        "controlEpoch",
+        "groupId",
+        "inviteEventId",
+        "schema",
+        "version"
+      ]
+    },
+    "39001": {
+      "n": 15,
+      "tags": [
+        "d",
+        "sos-control",
+        "t"
+      ],
+      "contentKeys": [
+        "blockedPubkeys",
+        "capabilities",
+        "controlEpoch",
+        "createdAt",
+        "groupId",
+        "groupSettings",
+        "invitePolicy",
+        "membershipEpoch",
+        "membershipRoot",
+        "resolution",
+        "rootAdminPubkey",
+        "schema",
+        "version"
+      ]
+    },
+    "39003": {
+      "n": 8,
+      "tags": [
+        "control-epoch",
+        "d",
+        "member-revision",
+        "membership-epoch",
+        "p",
+        "status",
+        "t"
+      ],
+      "contentKeys": [
+        "controlEpochAtIssue",
+        "createdAt",
+        "groupId",
+        "inviteEventId",
+        "issuerPubkey",
+        "memberPubkey",
+        "memberRevision",
+        "membershipEpoch",
+        "schema",
+        "status",
+        "transition",
+        "version"
+      ]
+    }
+  },
+  "RELAY_SECRET_LEAK": false,
+  "RAW_K_EXPOSED": false,
+  "NSEC_EXPOSED": false,
+  "relayStats": {
+    "r1": {
+      "received": 105,
+      "rejectedInvalid": 0,
+      "replaced": 5,
+      "duplicates": 41
+    },
+    "r2": {
+      "received": 99,
+      "rejectedInvalid": 0,
+      "replaced": 4,
+      "duplicates": 37
+    },
+    "r1Events": 59,
+    "r2Events": 58
+  },
+  "pageErrorsCount": 0,
+  "passed": 42,
+  "failed": 0,
+  "failedKeys": [],
+  "THREE_BROWSER_NETWORK_E2E": true,
+  "NETWORK_ADVERSARIAL": true
+}

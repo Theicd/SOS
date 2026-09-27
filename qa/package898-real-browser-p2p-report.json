@@ -1,0 +1,123 @@
+{
+  "gate": "PACKAGE894_REAL_BROWSER_P2P",
+  "status": "PASS",
+  "ts": "2026-09-27T22:00:00.869Z",
+  "production": {
+    "url": "http://127.0.0.1:8794/videos.html",
+    "package": "2026.09.28-web-898"
+  },
+  "p2p": {
+    "REAL_BROWSER_P2P_CAPABILITY_A": true,
+    "REAL_BROWSER_P2P_CAPABILITY_B": true,
+    "REAL_BROWSER_P2P_SIGNALING_STARTED": true,
+    "nego": [
+      {
+        "started": true,
+        "capability": true,
+        "initiator": true
+      },
+      {
+        "started": true,
+        "capability": true,
+        "initiator": false
+      }
+    ],
+    "REAL_BROWSER_P2P_SETUP_MS": 8,
+    "REAL_BROWSER_P2P_OFFER_SENT": true,
+    "REAL_BROWSER_P2P_ANSWER_RECEIVED": true,
+    "REAL_BROWSER_P2P_ICE_STARTED": true,
+    "REAL_BROWSER_P2P_ICE_STATE": "connected",
+    "REAL_BROWSER_P2P_DATA_CHANNEL_OPEN": true,
+    "REAL_BROWSER_P2P_CONNECTED": true,
+    "snapA": {
+      "hasPeer": true,
+      "status": "connected",
+      "iceConnectionState": "connected",
+      "connectionState": "connected",
+      "signalingState": "stable",
+      "dcState": "open",
+      "connected": true
+    },
+    "snapB": {
+      "hasPeer": true,
+      "status": "connected",
+      "iceConnectionState": "connected",
+      "connectionState": "connected",
+      "signalingState": "stable",
+      "dcState": "open",
+      "connected": true
+    },
+    "candidateTypes": {
+      "local": [
+        "host"
+      ],
+      "remote": [
+        "prflx"
+      ]
+    },
+    "P2P_CODE_FIX_REQUIRED": false
+  },
+  "text": {
+    "REAL_BROWSER_DIRECT_TEXT_TRANSPORT": "P2P",
+    "REAL_BROWSER_P2P_TEXT_A2B_GATE": "PASS",
+    "sendA": {
+      "ok": true,
+      "via": "raw-dc",
+      "pubTransport": "DC",
+      "recvA": true,
+      "tokenA": "SOS-PROD-REAL-P2P-A2B-1790546407795"
+    },
+    "REAL_BROWSER_P2P_TEXT_B2A_GATE": "PASS",
+    "sendB": {
+      "ok": true,
+      "via": "raw-dc",
+      "pubTransport": "DC",
+      "recvB": true,
+      "tokenB": "SOS-PROD-REAL-P2P-B2A-1790546407799"
+    }
+  },
+  "file": {
+    "REAL_BROWSER_DIRECT_FILE_TRANSPORT": "P2P",
+    "REAL_BROWSER_P2P_FILE_HASH_MATCH": true,
+    "REAL_BROWSER_P2P_FILE_GATE": "PASS",
+    "send": {
+      "hash": "a969ce8aec36863e1342138cc63436f9355ca2d45e536c874c8a7777deccbd24",
+      "ackHash": "a969ce8aec36863e1342138cc63436f9355ca2d45e536c874c8a7777deccbd24",
+      "ms": 4270,
+      "size": 10485760,
+      "ok": true
+    },
+    "recv": {
+      "ok": true,
+      "hash": "a969ce8aec36863e1342138cc63436f9355ca2d45e536c874c8a7777deccbd24",
+      "bytes": 10485760
+    }
+  },
+  "perf": {
+    "REAL_BROWSER_P2P_RTT_SAMPLES": [
+      2,
+      2,
+      2,
+      6,
+      6
+    ],
+    "REAL_BROWSER_P2P_RTT_AVG_MS": 4,
+    "REAL_BROWSER_P2P_SETUP_MS": 8,
+    "REAL_BROWSER_P2P_10MB_MBPS": 19.645,
+    "REAL_BROWSER_P2P_PERFORMANCE_GATE": "PASS"
+  },
+  "fallback": {
+    "REAL_BROWSER_RELAY_FALLBACK_GATE": "PASS",
+    "send": {
+      "ok": true,
+      "transport": "P2P"
+    },
+    "recv": {
+      "ok": true,
+      "transport": "DOM"
+    },
+    "REAL_BROWSER_P2P_AND_RELAY_BOTH_VERIFIED": true
+  },
+  "classification": null,
+  "HUMAN_ACTION_REQUIRED": null
+}

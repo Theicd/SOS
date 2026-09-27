@@ -412,7 +412,8 @@
       kind: GROUP_CONTROL_KIND,
       created_at: createdAt,
       tags: [
-        ['d', body.groupId],
+        // One replaceable slot per epoch: relays keep the whole chain instead of only the latest tip.
+        ['d', body.groupId + ':' + body.controlEpoch],
         ['t', body.groupId],
         ['sos-control', 'v1'],
       ],
@@ -544,7 +545,8 @@
   function buildMembershipDraft(body) {
     const actor = normalizePubkey(body.issuerPubkey);
     const memberPubkey = normalizePubkey(body.memberPubkey);
-    const d = body.groupId + ':' + memberPubkey;
+    // One replaceable slot per revision so relays keep the member's full revision chain.
+    const d = body.groupId + ':' + memberPubkey + ':' + body.memberRevision;
     const createdAt = Math.floor(Date.now() / 1000);
     const contentBody = Object.assign({}, body, { createdAt, issuerPubkey: actor });
     return {
