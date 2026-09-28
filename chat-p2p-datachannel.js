@@ -97,7 +97,66 @@
   }
 
   // חלק מצב (chat-p2p-datachannel.js) – remoteCandsBuf: באפר ICE, gotAnswer: התקבלה תשובה, offerId/lastOfferId למניעת תשובות ישנות | HYPER CORE TECH
-  function newPS() { return { pc:null, dc:null, status:'idle', iceQ:[], iceT:null, reconnT:null, reconnN:0, init:false, seen:new Set(), offerRetryT:null, offerRetryN:0, remoteCandsBuf:[], gotAnswer:false, lastOfferAt:0, lastNeedOfferAt:0, offerId:null, lastOfferId:null, sigTransport:'', urgent:false }; }
+  function newPS() { return { pc:null, dc:null, status:'idle', iceQ:[], iceT:null, reconnT:null, reconnN:0, init:false, seen:new Set(), offerRetryT:null, offerRetryN:0, remoteCandsBuf:[], gotAnswer:false, lastOfferAt:0, lastNeedOfferAt:0, offerId:null, lastOfferId:null, sigTransport:'', urgent:false, phaseT:null, graceT:null, lastCounterResetAt:0 }; }
+
+  // חלק מכונת מצבים (chat-p2p-datachannel.js) – מעברים מפורשים + ראיות לסיווג כשל (ללא תוכן/SDP) | HYPER CORE TECH
+  const COUNTER_RESET_MIN_MS = 30000;
+  function trk(k) { return App.P2pConn ? App.P2pConn.peer(k) : null; }
+  function ev(k) { const t = trk(k); return t ? t.evidence : {}; }
+  function goState(k, state, info) { const t = trk(k); if (t) t.transition(state, info); }
+  function clearPhaseTimer(s) { if (s && s.phaseT) { clearTimeout(s.phaseT); s.phaseT = null; } }
+  function clearGraceTimer(s) { if (s && s.graceT) { clearTimeout(s.graceT); s.graceT = null; } }
+  function presenceAgeMs(k) {
+    try {
+      const p = typeof App.getChatPresence === 'function' ? App.getChatPresence(k) : null;
+      const sec = p && Number(p.lastSeenAt);
+      return sec > 0 ? Math.max(0, Date.now() - sec * 1000) : Infinity;
+    } catch (_) { return Infinity; }
+  }
+  function failureEvidence(k, extra) {
+    const e = ev(k);
+    return Object.assign({
+      publishOk: e.publishOk, publishReasons: e.publishReasons, negotiationStarted: e.negotiationStarted,
+      peerSignalSeen: e.peerSignalSeen, lastPeerRxAgeMs: e.lastPeerRxAt ? Date.now() - e.lastPeerRxAt : Infinity,
+      presenceAgeMs: presenceAgeMs(k), iceState: e.iceState, pcState: e.pcState, dcState: e.dcState,
+      iceEverConnected: e.iceEverConnected, dcEverOpen: e.dcEverOpen, dcError: e.dcError,
+      localCandidates: e.localCandidates, remoteCandidates: e.remoteCandidates,
+    }, extra || {});
+  }
+  function failPeer(k, extra, detail) {
+    const t = trk(k);
+    if (!t || !App.P2pConn) return null;
+    return t.fail(App.P2pConn.classifyConnectFailure(failureEvidence(k, extra)), { detail });
+  }
+  function armPhaseDeadline(k, phase, onExpire) {
+    const s = ensPS(k);
+    clearPhaseTimer(s);
+    if (!App.P2pConn) return;
+    s.phaseT = setTimeout(() => { s.phaseT = null; onExpire(); }, App.P2pConn.deadline(phase, 'hard'));
+  }
+  function observePublish(k, type, pub) {
+    const isNegotiation = type === 'dc-offer' || type === 'dc-answer' || type === 'dc-need-offer';
+    if (!isNegotiation) return;
+    const hardMs = App.P2pConn ? App.P2pConn.deadline('SIGNAL_PUBLISH', 'hard') : 4000;
+    const withTimeout = (p) => Promise.race([Promise.resolve(p), new Promise((_, rej) => setTimeout(() => rej(new Error('publish timeout')), hardMs))]);
+    (async () => {
+      let list = pub;
+      if (list && !Array.isArray(list) && typeof list.then === 'function') {
+        try { list = await withTimeout(list); } catch (e) { list = [Promise.reject(e)]; }
+      }
+      if (!Array.isArray(list)) list = list ? [list] : [];
+      if (!list.length) list = [Promise.reject(new Error('no relays'))];
+      const reasons = [];
+      let ok = false;
+      await Promise.all(list.map((p) => withTimeout(p).then(() => { ok = true; }).catch((e) => { reasons.push(e && e.message ? e.message : String(e)); })));
+      const e = ev(k);
+      if (ok) { e.publishOk = true; if (type === 'dc-offer' && (trk(k) || {}).state === 'OFFER_SENT') goState(k, 'ANSWER_WAIT'); return; }
+      if (e.publishOk === true || e.negotiationStarted) return;
+      e.publishOk = false;
+      e.publishReasons = reasons.slice(0, 8);
+      failPeer(k, null, 'publish_' + type);
+    })().catch(() => {});
+  }
   function getPS(k) { return peers.get(k.toLowerCase())||null; }
   function ensPS(k) { k=k.toLowerCase(); if(!peers.has(k)) peers.set(k,newPS()); return peers.get(k); }
   function isValidPeerKey(key) { return typeof key === 'string' && /^[0-9a-f]{64}$/i.test(key.trim()); }
@@ -133,8 +192,11 @@
   function cleanup(k) {
     k=k.toLowerCase(); const s=peers.get(k); if(!s) return;
     if(s.iceT) clearTimeout(s.iceT); if(s.reconnT) clearTimeout(s.reconnT); if(s.offerRetryT) clearTimeout(s.offerRetryT);
+    clearPhaseTimer(s); clearGraceTimer(s);
+    { const t=trk(k); if(t&&t.state!=='FAILED'&&t.state!=='PEER_OFFLINE') t.transition('CLOSED'); }
     // חלק keepalive cleanup (chat-p2p-datachannel.js) – עצירת ping timer בניקוי | HYPER CORE TECH
     if(s._keepAliveT){clearInterval(s._keepAliveT);s._keepAliveT=null;}
+    if(s.dc){s.dc.onopen=null;s.dc.onclose=null;s.dc.onerror=null;s.dc.onmessage=null;}
     try{if(s.dc)s.dc.close();}catch{} try{if(s.pc)s.pc.close();}catch{}
     s.pc=null; s.dc=null; s.status='closed'; s.iceQ=[]; s.offerRetryT=null; s.gotAnswer=false; s.lastOfferAt=0; s.remoteCandsBuf=[]; s.offerId=null; s.lastOfferId=null;
   }
@@ -156,6 +218,7 @@
       if (sent === true || sent === 'true') {
         const s = ensPS(p);
         s.sigTransport = 'MESH';
+        if (type === 'dc-offer' || type === 'dc-answer' || type === 'dc-need-offer') { ev(p).publishOk = true; if (type === 'dc-offer' && (trk(p) || {}).state === 'OFFER_SENT') goState(p, 'ANSWER_WAIT'); }
         console.log(`[P2P-SIG] SEND type=${type} peer=${String(p).slice(0,8)} transport=MESH_SECURE`);
         return true;
       }
@@ -168,18 +231,19 @@
   async function sendSig(p, type, data) {
     if(!isValidPeerKey(p)) return;
     if (await sendMeshSig(p, type, data)) return;
-    if(!App.pool||!App.publicKey||!App.SosCryptoSigner?.hasIdentityKey()) return;
+    if(!App.pool||!App.publicKey||!App.SosCryptoSigner?.hasIdentityKey()) { observePublish(p, type, []); return; }
     try {
       const raw=data?JSON.stringify(data):'';
       const enc=raw?await Promise.resolve(App.SosCryptoSigner.nip04Encrypt(p,raw)):'';
-      const ev={kind:SIG_KIND,pubkey:App.publicKey,created_at:Math.floor(Date.now()/1000),tags:[['type',type],['p',p.toLowerCase()],['r',roomId(p)]],content:enc};
+      const sigEv={kind:SIG_KIND,pubkey:App.publicKey,created_at:Math.floor(Date.now()/1000),tags:[['type',type],['p',p.toLowerCase()],['r',roomId(p)]],content:enc};
       if (typeof App.SosCryptoSigner.signP2pSignal !== 'function') return;
-      const signed=await Promise.resolve(App.SosCryptoSigner.signP2pSignal(ev));
+      const signed=await Promise.resolve(App.SosCryptoSigner.signP2pSignal(sigEv));
       await new Promise(r=>setTimeout(r,80));
       const pub=App.pool.publish(App.relayUrls,signed);
       if(Array.isArray(pub)) Promise.allSettled(pub).catch(()=>{});
+      observePublish(p, type, pub);
       console.log(`[P2P-SIG] SEND type=${type} peer=${p.slice(0,8)} transport=NOSTR`);
-    } catch(e){ console.warn('[DC] sendSig:',e); }
+    } catch(e){ console.warn('[DC] sendSig:',e); observePublish(p, type, [Promise.reject(e)]); }
   }
 
   // חלק ICE batch (chat-p2p-datachannel.js) – צבירת candidates | HYPER CORE TECH
@@ -193,6 +257,9 @@
     dc.onopen=()=>{
       if(s.dc!==dc) return; s.status='connected'; s.reconnN=0; s.offerRetryN=0;
       if(s.offerRetryT){clearTimeout(s.offerRetryT);s.offerRetryT=null;}
+      clearPhaseTimer(s);
+      { const e=ev(k); e.dcState='open'; e.dcEverOpen=true; e.dcError=false; e.lastPeerRxAt=Date.now(); }
+      goState(k,'DC_OPEN');
       console.log(`[P2P-DC] peer=${k.slice(0,8)} OPEN`);
       if(s.closedAt){
         const durationMs = Date.now() - s.closedAt;
@@ -222,12 +289,14 @@
       if(s.dc!==dc) return; s.dc=null; s.status='closed'; s.closedAt=Date.now();
       // חלק keepalive stop (chat-p2p-datachannel.js) – עצירת ping כשהערוץ נסגר | HYPER CORE TECH
       if(s._keepAliveT){clearInterval(s._keepAliveT);s._keepAliveT=null;}
+      clearPhaseTimer(s);
+      { const e=ev(k); const wasOpen=e.dcEverOpen; e.dcState='closed'; if(wasOpen) failPeer(k,null,'dc_onclose'); else goState(k,'CLOSED'); }
       console.log(`[P2P-DC] peer=${k.slice(0,8)} CLOSED reason=onclose`);
       if(typeof App.onDataChannelStateChange==='function') App.onDataChannelStateChange(k,'closed');
       try { if (typeof App.onChatDataChannelClosed === 'function') App.onChatDataChannelClosed(k); } catch {}
       maybeReconn(k);
     };
-    dc.onerror=(e)=>{ if(s.dc!==dc) return; console.warn(`[DC] ERR ${k.slice(0,8)}:`,e); };
+    dc.onerror=(e)=>{ if(s.dc!==dc) return; ev(k).dcError=true; console.warn(`[DC] ERR ${k.slice(0,8)}:`,e); };
     dc.onmessage=(ev)=>onMsg(k,ev.data);
   }
 
@@ -235,21 +304,47 @@
   function createPC(k) {
     k=k.toLowerCase(); const s=ensPS(k); if(s.pc) try{s.pc.close();}catch{}
     const pc=new RTCPeerConnection(RTC_CFG); s.pc=pc; s.status='connecting';
-    pc.onicecandidate=(ev)=>{ if(s.pc!==pc) return; qICE(k,ev.candidate||null); };
+    pc.onicecandidate=(ice)=>{ if(s.pc!==pc) return; if(ice.candidate) ev(k).localCandidates=(ev(k).localCandidates||0)+1; qICE(k,ice.candidate||null); };
     // חלק ניתוב ערוצים (chat-p2p-datachannel.js) – ערוץ file-transfer מנותב למערכת קבצים, sos-chat לצ'אט | HYPER CORE TECH
     pc.ondatachannel=(ev)=>{ if(s.pc!==pc) return; const ch=ev.channel; if(ch.label==='file-transfer'){console.log(`[DC] 📥 file DC from ${k.slice(0,8)}`);if(typeof App.onFileDataChannel==='function')App.onFileDataChannel(k,ch);return;} console.log(`[DC] 📥 chat DC ${k.slice(0,8)}`); wireDC(k,ch); };
-    pc.oniceconnectionstatechange=()=>{ if(s.pc!==pc) return; console.log(`[P2P-ICE] peer=${k.slice(0,8)} state=${pc.iceConnectionState}`); if(['disconnected','failed','closed'].includes(pc.iceConnectionState)){
+    // חלק disconnected grace (chat-p2p-datachannel.js) – disconnected הוא זמני; לא הורגים העברה פעילה מיד | HYPER CORE TECH
+    const onTransportState=(label,st)=>{
       let activeXfer=false;
       try{ activeXfer = typeof App.hasActiveChatFileTransfer==='function' && App.hasActiveChatFileTransfer(k); }catch{}
-      console.warn(`[P2P-ICE] cleanup-on-${pc.iceConnectionState} peer=${k.slice(0,8)} ACTIVE_TRANSFER=${activeXfer}`);
-      cleanup(k);maybeReconn(k);
-    } };
-    pc.onconnectionstatechange=()=>{ if(s.pc!==pc) return; console.log(`[P2P-PC] peer=${k.slice(0,8)} state=${pc.connectionState}`); if(['disconnected','failed','closed'].includes(pc.connectionState)){
-      let activeXfer=false;
-      try{ activeXfer = typeof App.hasActiveChatFileTransfer==='function' && App.hasActiveChatFileTransfer(k); }catch{}
-      console.warn(`[P2P-PC] cleanup-on-${pc.connectionState} peer=${k.slice(0,8)} ACTIVE_TRANSFER=${activeXfer}`);
-      cleanup(k);maybeReconn(k);
-    } };
+      if(st==='connected'||st==='completed'){
+        clearGraceTimer(s);
+        if(label==='ICE'){
+          ev(k).iceEverConnected=true;
+          if(!(s.dc&&s.dc.readyState==='open')){
+            goState(k,'DC_CONNECTING');
+            armPhaseDeadline(k,'DC_OPEN',()=>{ if(s.pc!==pc||(s.dc&&s.dc.readyState==='open')) return; failPeer(k,null,'dc_open_deadline'); cleanup(k); maybeReconn(k); });
+          }
+        }
+        return;
+      }
+      if(st==='disconnected'){
+        if(s.graceT) return;
+        const graceMs=App.P2pConn?App.P2pConn.deadline('ICE_DISCONNECT_GRACE',activeXfer?'hard':'soft'):5000;
+        console.warn(`[P2P-${label}] disconnected-grace peer=${k.slice(0,8)} ms=${graceMs} ACTIVE_TRANSFER=${activeXfer}`);
+        s.graceT=setTimeout(()=>{
+          s.graceT=null;
+          if(s.pc!==pc) return;
+          const now=pc.iceConnectionState;
+          if(now==='connected'||now==='completed') return;
+          console.warn(`[P2P-${label}] cleanup-after-grace peer=${k.slice(0,8)} state=${now}`);
+          failPeer(k,{iceState:now},'disconnect_grace');
+          cleanup(k);maybeReconn(k);
+        },graceMs);
+        return;
+      }
+      if(st==='failed'||st==='closed'){
+        console.warn(`[P2P-${label}] cleanup-on-${st} peer=${k.slice(0,8)} ACTIVE_TRANSFER=${activeXfer}`);
+        if(st==='failed') failPeer(k,null,label.toLowerCase()+'_failed');
+        cleanup(k);maybeReconn(k);
+      }
+    };
+    pc.oniceconnectionstatechange=()=>{ if(s.pc!==pc) return; ev(k).iceState=pc.iceConnectionState; console.log(`[P2P-ICE] peer=${k.slice(0,8)} state=${pc.iceConnectionState}`); onTransportState('ICE',pc.iceConnectionState); };
+    pc.onconnectionstatechange=()=>{ if(s.pc!==pc) return; ev(k).pcState=pc.connectionState; console.log(`[P2P-PC] peer=${k.slice(0,8)} state=${pc.connectionState}`); if(pc.connectionState!=='connected') onTransportState('PC',pc.connectionState); };
     return pc;
   }
 
@@ -349,6 +444,8 @@
     if (!amInitiator(k)) {
       const s = ensPS(k);
       if (s.offerRetryT) { clearTimeout(s.offerRetryT); s.offerRetryT = null; }
+      const t = trk(k);
+      if (s.status !== 'waiting' && s.status !== 'connecting') { if (t) t.resetAttempt(); goState(k, 'SIGNALING'); }
       s.status = 'waiting';
       s.offerRetryN = 0;
       console.log(`[DC] אני responder, ממתין ל-offer מ ${k.slice(0, 8)}`);
@@ -357,6 +454,8 @@
     }
     if (ex && ex.status === 'connecting') return;
     if (ex) { ex.offerRetryN = 0; ex.reconnN = 0; }
+    { const t = trk(k); if (t) t.resetAttempt(); }
+    goState(k, 'SIGNALING');
     enqueueConnect(k, true);
   }
 
@@ -389,6 +488,10 @@
     s.init = true;
     s.status = 'connecting';
     s.gotAnswer = false;
+    clearPhaseTimer(s);
+    clearGraceTimer(s);
+    { const t = trk(k); if (t) t.resetAttempt(); }
+    goState(k, 'OFFER_SENT');
     if (s.offerRetryT) {
       clearTimeout(s.offerRetryT);
       s.offerRetryT = null;
@@ -425,6 +528,7 @@
       if (s.offerRetryN >= MAX_OFFER_RETRY) {
         console.warn(`[DC] ❌ gave up on ${k.slice(0, 8)} after ${MAX_OFFER_RETRY} retries`);
         s.status = 'idle';
+        failPeer(k, null, 'offer_retries_exhausted');
         return;
       }
       console.log(`[DC] 🔁 retry offer ${k.slice(0, 8)} (#${s.offerRetryN})`);
@@ -450,12 +554,27 @@
     s.lastOfferId=oid||s.lastOfferId;
     if(s.dc){s.dc.onopen=null;s.dc.onclose=null;s.dc.onerror=null;s.dc.onmessage=null;}
     if(s.pc){s.pc.onconnectionstatechange=null;s.pc.oniceconnectionstatechange=null;try{s.pc.close();}catch{}}
-    s.init=false; s.remoteCandsBuf=[]; const pc=createPC(k);
+    s.init=false; s.remoteCandsBuf=[]; clearPhaseTimer(s); clearGraceTimer(s);
+    { const t=trk(k); if(t) t.resetAttempt(); }
+    const pc=createPC(k);
     await pc.setRemoteDescription({type:offer.type,sdp:offer.sdp});
+    { const e=ev(k); e.negotiationStarted=true; e.peerSignalSeen=true; }
     await flushRemoteCands(k);
     const ans=await pc.createAnswer(); await pc.setLocalDescription(ans);
     await sendSig(k,'dc-answer',{type:ans.type,sdp:ans.sdp,oid:oid});
+    goState(k,'ICE_CONNECTING');
+    armIceDeadline(k,pc);
     console.log(`[DC] 📨 answered offer from ${k.slice(0,8)}`);
+  }
+
+  function armIceDeadline(k,pc){
+    armPhaseDeadline(k,'ICE_CONNECT',()=>{
+      const s=getPS(k); if(!s||s.pc!==pc) return;
+      const st=pc.iceConnectionState;
+      if(st==='connected'||st==='completed') return;
+      failPeer(k,{phaseExpired:'ICE_CONNECT',iceState:st},'ice_deadline');
+      cleanup(k); maybeReconn(k);
+    });
   }
 
   async function onAnswer(peer,ans) {
@@ -465,13 +584,18 @@
     if(s.offerId&&oid&&oid!==s.offerId){ console.log(`[DC] ↩️ ignore stale answer ${peer.slice(0,8)}`); return; }
     s.gotAnswer=true; if(s.offerRetryT){clearTimeout(s.offerRetryT);s.offerRetryT=null;}
     console.log(`[DC] 📬 got answer from ${peer.slice(0,8)}`);
-    await s.pc.setRemoteDescription({type:ans.type,sdp:ans.sdp});
+    const pc=s.pc;
+    await pc.setRemoteDescription({type:ans.type,sdp:ans.sdp});
+    { const e=ev(peer); e.negotiationStarted=true; e.peerSignalSeen=true; }
+    goState(peer.toLowerCase(),'ICE_CONNECTING');
+    armIceDeadline(peer.toLowerCase(),pc);
     await flushRemoteCands(peer.toLowerCase()); // החלת candidates שהגיעו לפני ה-answer
   }
 
   // חלק ICE נכנס (chat-p2p-datachannel.js) – אם אין remote description, שומר בבאפר ומחיל אחרי setRemoteDescription | HYPER CORE TECH
   async function onCands(peer,cands) {
     const s=getPS(peer.toLowerCase()); if(!s||!s.pc) return;
+    { const e=ev(peer); e.remoteCandidates=(e.remoteCandidates||0)+cands.filter(Boolean).length; }
     if(!s.pc.remoteDescription) { s.remoteCandsBuf.push(...cands.filter(Boolean)); return; }
     for(const c of cands){ if(!c) continue; try{await s.pc.addIceCandidate(new RTCIceCandidate(c));}catch(e){console.warn('[DC] ICE:',e);} }
   }
@@ -580,6 +704,7 @@
       }
     }
     lastSigAt = Date.now();
+    { const e = ev(peer); e.lastPeerRxAt = Date.now(); e.peerSignalSeen = true; }
     console.log(`[P2P-SIG] RX type=${type} peer=${peer.slice(0, 8)} transport=NOSTR`);
     if (type === 'dc-need-offer') {
       nudgeInitiator(peer);
@@ -594,6 +719,7 @@
   const CHAT_FILE_TYPES = ['file-complete-ack','file-resend-request','file-ready','file-offer','p2p-secure-file-offer','chunk-meta','chunk-ack','ack','file-resend-failed'];
 
   function onMsg(peer,raw) {
+    ev(peer).lastPeerRxAt = Date.now();
     try {
       if (raw instanceof ArrayBuffer || (typeof ArrayBuffer !== 'undefined' && ArrayBuffer.isView && ArrayBuffer.isView(raw)) || (typeof Blob !== 'undefined' && raw instanceof Blob)) {
         const s = getPS(peer.toLowerCase());
@@ -780,6 +906,7 @@
   function maybeReconn(k) {
     k=k.toLowerCase(); const s=ensPS(k);
     if(s.reconnT) return; if(s.reconnN>=MAX_RECONN) return;
+    { const t=trk(k); if(t&&t.failure&&t.failure.code==='NETWORK_ENVIRONMENT_BLOCKED'){ console.log(`[DC] skip reconn network-blocked peer=${k.slice(0,8)}`); return; } }
     try {
       if (typeof window.AndroidBridge !== 'undefined' &&
           typeof window.AndroidBridge.isEmergencyMode === 'function' &&
@@ -876,9 +1003,13 @@
       list.forEach((pk)=>{
         try{
           const s=ensPS(pk);
+          if(s.status==='connected'&&s.dc&&s.dc.readyState==='open') return;
+          if(s.status==='connecting') return;
+          const nowMs=Date.now();
+          if(nowMs-(s.lastCounterResetAt||0)<COUNTER_RESET_MIN_MS) return;
+          s.lastCounterResetAt=nowMs;
           s.offerRetryN=0;
           s.reconnN=0;
-          if(s.status==='connected'&&s.dc&&s.dc.readyState==='open') return;
           // headless: initiator שולח offer; responder ממתין – אם כבר היינו initiator נשלח שוב | HYPER CORE TECH
           if(amInitiator(pk)){
             s.status='idle';
@@ -945,6 +1076,76 @@
     await connect(peer);
   }
 
+  // חלק בריאות ערוץ (chat-p2p-datachannel.js) – DC open לבד לא מספיק אם ICE מת (stale) | HYPER CORE TECH
+  function isHealthy(peer) {
+    if (!peer) return false;
+    const s = getPS(String(peer).toLowerCase());
+    if (!s || !s.dc || s.dc.readyState !== 'open') return false;
+    const ice = s.pc ? s.pc.iceConnectionState : '';
+    return ice !== 'disconnected' && ice !== 'failed' && ice !== 'closed';
+  }
+
+  function getDiagnostics(peer) {
+    const k = String(peer || '').toLowerCase();
+    const t = trk(k);
+    const s = getPS(k);
+    const snap = t ? t.snapshot() : { state: 'IDLE', failure: null, negotiationStarted: false };
+    snap.dcReadyState = s && s.dc ? s.dc.readyState : 'none';
+    snap.healthy = isHealthy(k);
+    return snap;
+  }
+
+  const CONNECTING_STATES = new Set(['SIGNALING', 'OFFER_SENT', 'ANSWER_WAIT', 'ICE_CONNECTING', 'DC_CONNECTING']);
+
+  // חלק waitForOpen (chat-p2p-datachannel.js) – המתנה לפי שלב: ממשיכים כל עוד יש התקדמות, נכשלים בקוד מדויק | HYPER CORE TECH
+  async function waitForOpen(peer, opts) {
+    const k = String(peer || '').toLowerCase();
+    const C = App.P2pConn;
+    const o = opts || {};
+    const startedAt = Date.now();
+    if (isHealthy(k)) return { ok: true, reused: true, state: 'DC_OPEN', waitedMs: 0 };
+    if (!isValidPeerKey(k) || !C) return { ok: false, failure: 'UNKNOWN_P2P_FAILURE', negotiationStarted: false, waitedMs: 0 };
+    const pollMs = o.pollMs || 100;
+    const capMs = o.maxTotalMs || (C.deadline('ANSWER_WAIT', 'hard') + C.deadline('ICE_CONNECT', 'hard') + C.deadline('DC_OPEN', 'hard'));
+    let softActed = false;
+    const t = trk(k);
+    while (true) {
+      if (isHealthy(k)) return { ok: true, reused: false, state: 'DC_OPEN', waitedMs: Date.now() - startedAt };
+      const waited = Date.now() - startedAt;
+      if (t.failure && t.failure.at >= startedAt) {
+        return { ok: false, failure: t.failure.code, negotiationStarted: t.failure.negotiationStarted, phase: t.failure.phase, waitedMs: waited };
+      }
+      const e = t.evidence;
+      if (!e.negotiationStarted) {
+        if (e.publishOk === false) {
+          const code = t.failure ? t.failure.code : t.fail(C.classifyPublishFailure(e.publishReasons));
+          return { ok: false, failure: code, negotiationStarted: false, phase: 'SIGNALING', waitedMs: waited };
+        }
+        if (!softActed && e.publishOk === true && waited >= C.deadline('ANSWER_WAIT', 'soft')) {
+          softActed = true;
+          const off = C.decidePeerOffline(Object.assign(failureEvidence(k), { answerDeadlineExpired: true }));
+          if (off.decision === 'OFFLINE_LIKELY' && o.allowEarlyOffline !== false) {
+            const code = t.fail('PEER_OFFLINE', { detail: 'soft_offline' });
+            return { ok: false, failure: code, negotiationStarted: false, phase: 'ANSWER_WAIT', waitedMs: waited };
+          }
+          if (!amInitiator(k)) { try { await requestOfferFromInitiator(k); } catch (_) {} }
+        }
+        if (waited >= C.deadline('ANSWER_WAIT', 'hard')) {
+          const code = failPeer(k, null, 'answer_deadline');
+          return { ok: false, failure: code, negotiationStarted: false, phase: 'ANSWER_WAIT', waitedMs: waited };
+        }
+      } else if (!CONNECTING_STATES.has(t.state) && t.state !== 'DC_OPEN') {
+        const code = t.failure ? t.failure.code : failPeer(k, null, 'not_connecting');
+        return { ok: false, failure: code, negotiationStarted: true, phase: t.state, waitedMs: waited };
+      }
+      if (waited >= capMs) {
+        const code = failPeer(k, { phaseExpired: t.state === 'ICE_CONNECTING' ? 'ICE_CONNECT' : undefined }, 'wait_cap');
+        return { ok: false, failure: code, negotiationStarted: !!e.negotiationStarted, phase: t.state, waitedMs: waited };
+      }
+      await new Promise((r) => setTimeout(r, pollMs));
+    }
+  }
+
   async function ingestLocalSignal(fromIp, signal, fromPubkey) {
     try {
       let sig = typeof signal === 'string' ? JSON.parse(signal) : signal;
@@ -962,6 +1163,7 @@
       if (!type.startsWith('dc-')) return;
       const data = sig.data !== undefined ? sig.data : (sig.payload !== undefined ? sig.payload : null);
       ensPS(peer).sigTransport = 'MESH';
+      { const e = ev(peer); e.lastPeerRxAt = Date.now(); e.peerSignalSeen = true; }
       console.log(`[P2P-SIG] RX type=${type} peer=${peer.slice(0,8)} transport=MESH`);
       if (type === 'dc-need-offer') nudgeInitiator(peer);
       else if (type === 'dc-offer' && data && data.type && data.sdp) onOffer(peer, data);
@@ -986,7 +1188,7 @@
     window.SOSBridge.onWebRTCSignal = next;
   }
 
-  App.dataChannel={ connect, forceConnect, send, sendJson, isConnected:isConn, getStatus:status, init:lazyInit, resumeStandby, getChatPC, getChatDC, subscribeIncomingMessages, ingestSignal: ingestLocalSignal, amInitiator, _peers:peers, verifyIncomingRelayEvent: verifyIncomingP2pRelayEvent };
+  App.dataChannel={ connect, forceConnect, send, sendJson, isConnected:isConn, isHealthy, getDiagnostics, waitForOpen, getStatus:status, init:lazyInit, resumeStandby, getChatPC, getChatDC, subscribeIncomingMessages, ingestSignal: ingestLocalSignal, amInitiator, _peers:peers, verifyIncomingRelayEvent: verifyIncomingP2pRelayEvent };
   hookMeshReceiver();
 
   // חלק lazy trigger (chat-p2p-datachannel.js) – אתחול כשפותחים צ'אט / headless | HYPER CORE TECH

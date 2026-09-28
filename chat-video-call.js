@@ -270,6 +270,7 @@
     try {
       console.log('CALL_CONNECTED session=' + (sid ? sid.slice(0, 8) : 'none') + ' role=' + role);
     } catch (_) {}
+    markCallPerf('CALL_CONNECTED_TS');
     try {
       if (window.SosCallColdBoot && typeof window.SosCallColdBoot.release === 'function') {
         window.SosCallColdBoot.release('connected');
@@ -293,6 +294,54 @@
 
   function isSecureVideoSessionId(sid) {
     return typeof sid === 'string' && /^[0-9a-f]{32,}$/i.test(sid.trim());
+  }
+
+  function markCallPerf(name) {
+    try {
+      if (App.RealtimePerf && typeof App.RealtimePerf.markCall === 'function') App.RealtimePerf.markCall('video', name);
+    } catch (_) {}
+  }
+
+  const RING_OFFER_DEADLINE_MS = 30000;
+
+  function clearRingOfferDeadline() {
+    if (state.ringOfferTimer) {
+      clearTimeout(state.ringOfferTimer);
+      state.ringOfferTimer = null;
+    }
+  }
+
+  function armRingOfferDeadline(peer, sessionId) {
+    clearRingOfferDeadline();
+    state.ringOfferTimer = setTimeout(() => {
+      state.ringOfferTimer = null;
+      if (state.pc || state.callSessionId !== sessionId || state.currentPeer !== peer) return;
+      console.log('CALL_RING_OFFER_TIMEOUT');
+      end({ remoteDisconnect: true, reason: 'remote_disconnect' });
+    }, RING_OFFER_DEADLINE_MS);
+  }
+
+  const OUTGOING_NO_ANSWER_MS = 60000;
+
+  function clearOutgoingSetupDeadline() {
+    if (state.setupTimer) {
+      clearTimeout(state.setupTimer);
+      state.setupTimer = null;
+    }
+  }
+
+  function armOutgoingSetupDeadline(sessionId) {
+    clearOutgoingSetupDeadline();
+    state.setupTimer = setTimeout(() => {
+      state.setupTimer = null;
+      if (state.ending || state.isActive || state.callSessionId !== sessionId) return;
+      try {
+        const rd = state.pc && state.pc.remoteDescription;
+        if (rd && rd.type === 'answer') return;
+      } catch (_) {}
+      console.log('CALL_SETUP_TIMEOUT');
+      end({ reason: 'setup_timeout' });
+    }, OUTGOING_NO_ANSWER_MS);
   }
 
   function ensureCallSessionId() {
@@ -548,7 +597,15 @@
     console.log('CALL_VIDEO_OUTGOING_SESSION_CREATED');
     noteSessionOffer(Math.floor(Date.now() / 1000));
     try {
+      state.currentPeer = peerPubkey;
+      markCallPerf('CALL_CLICK_TS');
+      // Ring intent (1059, no SDP) goes out before GUM so the callee rings in parallel.
+      sendSignal(peerPubkey, 'v-ring', null)
+        .then(() => markCallPerf('CALL_RING_PUBLISHED_TS'))
+        .catch(() => { try { console.log('CALL_RING_PUBLISH_FAIL'); } catch (_) {} });
+      markCallPerf('CALL_GUM_START_TS');
       await getLocalStream(opts && opts.video);
+      markCallPerf('CALL_GUM_DONE_TS');
       // חלק שיחות וידאו (chat-video-call.js) – איפוס מצב לפני שיחה יוצאת כדי למנוע שאריות ICE/Stream משיחות קודמות | HYPER CORE TECH
       state.isIncoming = false;
       state.isActive = false;
@@ -562,7 +619,9 @@
       createPC(peerPubkey);
       const offer = await state.pc.createOffer();
       await state.pc.setLocalDescription(offer);
+      markCallPerf('CALL_OFFER_CREATED_TS');
       const published = await sendSignal(peerPubkey, 'v-offer', offer);
+      markCallPerf('CALL_OFFER_PUBLISHED_TS');
       if (!published || published.transport !== 'giftwrap1059') {
         throw Object.assign(new Error('CALL_SIGNAL_E2EE_ENCRYPT_FAILED: offer publish required'), {
           code: 'CALL_SIGNAL_E2EE_ENCRYPT_FAILED',
@@ -591,15 +650,31 @@
           });
         }
       } catch (_) {}
+      armOutgoingSetupDeadline(state.callSessionId);
       if (typeof App.onVideoCallStarted === 'function') App.onVideoCallStarted(peerPubkey, false);
     } catch (err) {
       state.outboundStarting = false;
+      // Ring may already be out: end() sends v-disconnect and clears peer/session/media.
+      if (state.currentPeer && !state.ending) {
+        try { await end({ reason: 'start_error' }); } catch (_) {}
+      }
       throw err;
     }
   }
 
   // חלק שיחות וידאו – קבלת שיחה
   async function accept(peerPubkey, offer, meta) {
+    try {
+      return await acceptIncoming(peerPubkey, offer, meta);
+    } catch (err) {
+      if (state.currentPeer && !state.ending) {
+        try { await end({ reason: 'start_error' }); } catch (_) {}
+      }
+      throw err;
+    }
+  }
+
+  async function acceptIncoming(peerPubkey, offer, meta) {
     if (!isSupported()) throw new Error('הדפדפן לא תומך בוידאו');
     const peer = String(peerPubkey || '').trim().toLowerCase();
     const createdAt = Number(meta && meta.createdAt) || Number(App.__videoIncomingOfferCreatedAt) || 0;
@@ -618,6 +693,7 @@
       throw Object.assign(new Error('CALL_VIDEO_SESSION_MISSING'), { code: 'CALL_VIDEO_SESSION_MISSING' });
     }
     console.log('CALL_VIDEO_SESSION_ADOPTED');
+    markCallPerf('CALL_ACCEPT_TS');
     state.answeredLocally = false;
     state.answerPublished = false;
     const flowT0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
@@ -687,6 +763,8 @@
   // חלק שיחות וידאו – סיום
   async function end(opts) {
     const options = opts || {};
+    clearRingOfferDeadline();
+    clearOutgoingSetupDeadline();
     const sid = state.callSessionId || options.sessionId || '';
     const term = getTerminal(sid);
     if (term && term.ended) {
@@ -1024,6 +1102,8 @@
     'remote_track_ended',
     'start_error',
     'decline',
+    'setup_timeout',
+    'page_hide',
   ]);
 
   function endReason(options) {
@@ -1087,6 +1167,22 @@
       return;
     }
     switch (type) {
+      case 'v-ring': {
+        // Only the authenticated 1059 path may ring early; legacy 25050 has no ring.
+        if (!preParsed || !preParsed.sessionId) break;
+        if (isOfferReplayAfterHangup(peer, createdAt)) break;
+        if (state.currentPeer || state.pc || state.outboundStarting || state.isActive || window.__sosAcceptInFlight) {
+          console.log('CALL_SIGNAL_SKIP ring_busy');
+          break;
+        }
+        if (window.SosNativeShell) break;
+        if (!adoptIncomingVideoSession(peer, preParsed.sessionId, createdAt)) break;
+        armRingOfferDeadline(peer, preParsed.sessionId);
+        markCallPerf('CALL_RING_RX_TS');
+        console.log('CALL_RING_RX');
+        if (typeof App.onVideoCallRinging === 'function') App.onVideoCallRinging(peer);
+        break;
+      }
       case 'v-offer': {
         // חלק שיחות וידאו (chat-video-call.js) – הגנה מפני offer ישן אחרי re-subscribe | HYPER CORE TECH
         try {
@@ -1117,6 +1213,7 @@
         }
 
         console.log('CALL_OFFER_OK');
+        markCallPerf('CALL_OFFER_RX_TS');
         if (state.outboundStarting || (state.pc && !state.isIncoming)) {
           console.log('CALL_SIGNAL_SKIP already_calling');
           return;
@@ -1147,12 +1244,14 @@
         if (typeof App.triggerIncomingCallPush === 'function') {
           App.triggerIncomingCallPush(peer, 'video');
         }
+        clearRingOfferDeadline();
         if (typeof App.onVideoCallIncoming === 'function') App.onVideoCallIncoming(peer, offerData);
         break;
       }
       case 'v-answer': {
         if (!state.pc || state.currentPeer !== peer) break;
         try { console.log('CALL_ANSWER_RX'); } catch (_) {}
+        markCallPerf('CALL_ANSWER_RX_TS');
         if (state.isIncoming) {
           console.log('CALL_SIGNAL_SKIP answer_as_callee');
           break;
@@ -1323,6 +1422,15 @@
       });
     } catch {}
     try { window.addEventListener('online', () => forceResubscribeSignals('online')); } catch {}
+    // Leaving the page mid-call: tell the peer (best effort). An unanswered incoming ring is not declined.
+    try {
+      window.addEventListener('pagehide', (ev) => {
+        if (ev && ev.persisted) return;
+        if (!state.currentPeer || state.ending) return;
+        if (state.isIncoming && !state.isActive && !state.answerPublished) return;
+        end({ reason: 'page_hide' });
+      });
+    } catch {}
     // שלב 3: בלי focus/pageshow — visibilitychange מספיק (מונע כפילויות) | HYPER CORE TECH
 
     state.signalKeepaliveTimer = setInterval(() => {

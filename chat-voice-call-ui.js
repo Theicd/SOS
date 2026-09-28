@@ -28,6 +28,9 @@
   // חלק שיחות קול (chat-voice-call-ui.js) – שמירת offer נכנס מקומית לתהליך קבלה
   let incomingOffer = null;
   let incomingOfferPeer = null;
+  /** Peer whose authenticated ring intent is showing before its offer arrived. */
+  let ringOnlyPeer = null;
+  const RING_ACCEPT_OFFER_WAIT_MS = 15000;
   // חלק שיחות קול (chat-voice-call-ui.js) – שומר את ה-peer הפעיל כדי לסגור UI בצורה מדויקת בעת ניתוק/ביטול | HYPER CORE TECH
   let activePeerPubkey = null;
   // חלק שיחות קול (chat-voice-call-ui.js) – דגל: המשתמש דחה את השיחה באופן יזום (לא לרשום כ-missed) | HYPER CORE TECH
@@ -704,6 +707,7 @@
     // חלק שיחות קול (chat-voice-call-ui.js) – ניקוי offer ו-peer ודגל דחייה כדי למנוע קבלה של הצעה ישנה לאחר סגירה | HYPER CORE TECH
     incomingOffer = null;
     incomingOfferPeer = null;
+    ringOnlyPeer = null;
     activePeerPubkey = null;
     userDeclinedCall = false;
     clearPersistedIncomingOffer();
@@ -1029,6 +1033,24 @@
         }
       } catch (_) {}
       try { console.log('CALL_ACCEPT_HYDRATE_OK source=' + hydrateSource + ' ms=' + flowMs()); } catch (_) {}
+      if ((!incomingOffer || !incomingOffer.sdp) && ringOnlyPeer === peer) {
+        if (!window.__sosNativeInCallUi) updateCallStatus('מתחבר...');
+        const waitUntil = Date.now() + RING_ACCEPT_OFFER_WAIT_MS;
+        while ((!incomingOffer || !incomingOffer.sdp) && ringOnlyPeer === peer && Date.now() < waitUntil) {
+          await new Promise((r) => setTimeout(r, 100));
+          try {
+            const api = App.CallSignalE2ee;
+            const cached = api && typeof api.getCachedSecureOffer === 'function' ? api.getCachedSecureOffer(peer) : null;
+            const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : null;
+            const sidOk = !!(cached && st && st.callSessionId && cached.sessionId === st.callSessionId);
+            if (sidOk && cached.media === 'voice' && cached.offer && cached.offer.sdp) {
+              incomingOffer = cached.offer;
+              incomingOfferPeer = peer;
+            }
+          } catch (_) {}
+        }
+        try { console.log('CALL_RING_ACCEPT_OFFER_WAIT ms=' + flowMs() + ' ok=' + !!(incomingOffer && incomingOffer.sdp)); } catch (_) {}
+      }
       const offer = incomingOffer;
       if (!offer || !offer.type || !offer.sdp) {
         if (!window.__sosNativeInCallUi) updateCallStatus('ממתין להצעת שיחה...');
@@ -1050,6 +1072,7 @@
       await App.voiceCall.accept(peerPubkey, offer);
       incomingOffer = null;
       incomingOfferPeer = null;
+      ringOnlyPeer = null;
       try { window.__sosNativePendingDecline = null; } catch (_) {}
       clearPersistedIncomingOffer();
       if (!window.__sosNativeInCallUi) {
@@ -1084,8 +1107,8 @@
 
   // חלק שיחות קול (chat-voice-call-ui.js) – טיפול בניתוק/דחייה | HYPER CORE TECH
   function handleEndCall() {
-    const stillRinging = !!incomingOffer;
-    const peer = incomingOfferPeer || '';
+    const stillRinging = !!incomingOffer || !!ringOnlyPeer;
+    const peer = incomingOfferPeer || ringOnlyPeer || '';
     if (stillRinging) {
       userDeclinedCall = true;
     } else {
@@ -1201,6 +1224,31 @@
     } catch (_) {}
     return false;
   }
+
+  // Authenticated 1059 ring intent (no SDP yet): ring now, accept waits for the offer.
+  App.onVoiceCallRinging = function(peerPubkey) {
+    const peer = peerPubkey ? String(peerPubkey).toLowerCase() : '';
+    if (!/^[0-9a-f]{64}$/.test(peer)) return;
+    if (window.__sosAcceptInFlight || shouldSkipIncomingRingUi(peer)) return;
+    if (callDialog && document.body.contains(callDialog)) return;
+    ringOnlyPeer = peer;
+    incomingOfferPeer = peer;
+    try { console.log('CALL_RING_UI_SHOW'); } catch (_) {}
+    saveChatPanelState();
+    if (typeof App.pauseAllFeedVideos === 'function') App.pauseAllFeedVideos();
+    createCallDialog(peerPubkey, true);
+    showIncomingCallNotification(peerPubkey);
+    resumeOnUserGestureOnce(() => playRingtone());
+  };
+
+  App.onVoiceCallOfferReady = function(peerPubkey, offer) {
+    const peer = peerPubkey ? String(peerPubkey).toLowerCase() : '';
+    if (!peer || ringOnlyPeer !== peer || !offer || !offer.type || !offer.sdp) return;
+    incomingOffer = offer;
+    incomingOfferPeer = peer;
+    persistIncomingOffer(peer, offer);
+    try { console.log('CALL_RING_OFFER_READY'); } catch (_) {}
+  };
 
   // חלק שיחות קול (chat-voice-call-ui.js) – callbacks מהמודול הראשי
   App.onVoiceCallIncoming = function(peerPubkey, offer) {

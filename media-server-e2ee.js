@@ -334,7 +334,7 @@
       url: opts.policyUrl,
       skipFetch: opts.skipPolicyFetch === true,
     });
-    const mustEncrypt = decision.required === true;
+    const mustEncrypt = decision.required === true || opts.requireEncryption === true;
 
     if (!mustEncrypt) {
       // Fail closed unless policy authoritatively says NOT required (explicit false).

@@ -21,11 +21,18 @@
   ];
   const WEB_RECOVERY_MAX_MS = 20000;
   const WEB_RECOVERY_INTERVAL_MS = 750;
+  const WEB_RECOVERY_HEALTHY_INTERVAL_MS = 3000;
   const WEB_RECOVERY_QUERY_LIMIT = 48;
   /** Session-scoped: exclude call relays that reject Gift Wrap publish with auth-required. */
   const callRelayAuthExcluded = new Set();
+  /** Session-scoped: relays that CLOSE our #p read with auth-required (recipient NIP-42 not done on web). */
+  const callRelayReadAuthRequired = new Set();
+  let secureSubHealthy = false;
+  const FORCED_SUBSCRIBE_COALESCE_MS = 5000;
+  let lastForcedSubscribeAt = 0;
 
   const FRESHNESS_SEC = {
+    ring: 60,
     offer: 60,
     answer: 60,
     candidate: 120,
@@ -636,22 +643,37 @@
       if (App.SosCryptoSigner.isWorkerAuthoritative && App.SosCryptoSigner.isWorkerAuthoritative()) {
         try {
           const logical = await App.SosCryptoSigner.unwrapCallGiftwrap(wrapEvent, App.publicKey);
-          if (logical) {
+          const valid = logical ? validatePayload({
+            family: logical.family,
+            v: logical.v,
+            media: logical.media,
+            action: logical.action,
+            sessionId: logical.sessionId,
+            signalId: logical.signalId,
+            sender: logical.sender,
+            recipient: logical.recipient,
+            sentAt: logical.sentAt,
+            data: logical.data,
+          }, App.publicKey) : null;
+          const sealPk = logical && typeof logical.sealPubkey === 'string' ? logical.sealPubkey.toLowerCase() : '';
+          if (valid && sealPk && valid.sender === sealPk) {
             unwrapped = {
-              media: logical.media,
-              action: logical.action,
-              wireType: toWireType(logical.media, logical.action),
-              data: logical.data,
-              sender: logical.sender,
-              recipient: logical.recipient,
-              sessionId: logical.sessionId,
-              signalId: logical.signalId,
-              sentAt: logical.sentAt,
+              media: valid.media,
+              action: valid.action,
+              wireType: toWireType(valid.media, valid.action),
+              data: valid.data,
+              sender: valid.sender,
+              recipient: valid.recipient,
+              sessionId: valid.sessionId,
+              signalId: valid.signalId,
+              sentAt: valid.sentAt,
               wrapId: logical.wrapId || wrapId,
             };
-            if (unwrapped.signalId && rememberSignalId(unwrapped.signalId)) {
+            if (rememberSignalId(unwrapped.signalId)) {
               unwrapped = null; // replay
             }
+          } else if (logical) {
+            try { console.log('CALL_SIGNAL_REJECT worker_payload_invalid'); } catch (_e) {}
           }
         } catch (_e) {
           unwrapped = null;
@@ -761,6 +783,11 @@
     if (App.guestMode) return null;
     if (secureSub && !options.force) return secureSub;
     if (!App.pool || !App.publicKey) return null;
+    if (options.force && secureSub && Date.now() - lastForcedSubscribeAt < FORCED_SUBSCRIBE_COALESCE_MS) {
+      try { console.log('CALL_SECURE_SUBSCRIBE_COALESCED reason=' + String(options.reason || 'force')); } catch (_e) {}
+      return secureSub;
+    }
+    if (options.force) lastForcedSubscribeAt = Date.now();
     if (options.force && secureSub) {
       try {
         if (typeof secureSub.close === 'function') secureSub.close();
@@ -782,6 +809,7 @@
     try {
       console.log('CALL_SECURE_SUBSCRIBE kind=1059');
       console.log('CALL_SECURE_SUBSCRIBE_START relays=' + callRelays.length);
+      secureSubHealthy = false;
       secureSub = App.pool.subscribeMany(callRelays, filters, {
         onevent: (ev) => {
           if (!ev || ev.kind !== GIFT_WRAP_KIND) return;
@@ -789,7 +817,11 @@
           if (getPTag(ev) !== String(App.publicKey || '').toLowerCase()) return;
           enqueueSecureDispatch(ev);
         },
+        onclose: () => {
+          secureSubHealthy = false;
+        },
         oneose: () => {
+          secureSubHealthy = true;
           console.log('CALL_SECURE_SUBSCRIBE_EOSE');
           console.log('CALL_SECURE_SUBSCRIBE_READY');
           try { reconcilePendingSecureCallSignals('subscribe-ready'); } catch (_e) {}
@@ -984,9 +1016,57 @@
     }
   }
 
+  function getCallSignalReadRelays() {
+    let relays = getCallSignalRelays().filter((u) => {
+      const host = relayHostname(u);
+      return !callRelayReadAuthRequired.has(u) && !(host && callRelayReadAuthRequired.has(host));
+    });
+    const health = App.RelayHealth;
+    if (health && typeof health.select === 'function') relays = health.select(relays);
+    return relays;
+  }
+
+  /** One-shot per-relay read; marks relays that CLOSE the #p read with auth-required. */
+  function queryOneCallRelay(pool, url, filter) {
+    return new Promise((resolve) => {
+      const collected = [];
+      let done = false;
+      let sub = null;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        try { if (sub && typeof sub.close === 'function') sub.close(); } catch (_e) {}
+        resolve(collected);
+      };
+      const timer = setTimeout(finish, 3500);
+      pool.ensureRelay(url, { connectionTimeout: CALL_RELAY_CONNECT_TIMEOUT_MS }).then((relay) => {
+        if (done) return;
+        sub = relay.subscribe([filter], {
+          onevent: (ev) => { if (ev) collected.push(ev); },
+          oneose: () => { clearTimeout(timer); finish(); },
+          onclose: (reason) => {
+            if (classifyRelayPublishError(reason) === 'auth-required') {
+              const host = relayHostname(url);
+              callRelayReadAuthRequired.add(normalizeRelayUrl(url));
+              if (host) callRelayReadAuthRequired.add(host);
+              try { console.log('CALL_RELAY_READ_AUTH_REQUIRED relay=' + (host || 'unknown')); } catch (_e) {}
+            }
+            clearTimeout(timer);
+            finish();
+          },
+        });
+      }, (err) => {
+        const health = App.RelayHealth;
+        if (health) health.record(url, false, 0, classifyRelayPublishError(err));
+        clearTimeout(timer);
+        finish();
+      });
+    });
+  }
+
   async function querySecureCallWrapsFromRelays() {
     const pool = App.pool;
-    const relays = getCallSignalRelays();
+    const relays = getCallSignalReadRelays();
     if (!pool || !App.publicKey || !relays.length) return [];
     const filter = {
       kinds: [GIFT_WRAP_KIND],
@@ -999,7 +1079,12 @@
     } catch (_e) {}
     let events = [];
     try {
-      if (typeof pool.querySync === 'function') {
+      if (typeof pool.ensureRelay === 'function') {
+        const lists = await Promise.all(relays.map((u) => queryOneCallRelay(pool, u, filter)));
+        const byId = new Map();
+        lists.forEach((l) => l.forEach((ev) => { if (ev && ev.id && !byId.has(ev.id)) byId.set(ev.id, ev); }));
+        events = Array.from(byId.values());
+      } else if (typeof pool.querySync === 'function') {
         const res = await pool.querySync(relays, filter);
         if (Array.isArray(res)) events = res;
       } else if (typeof pool.list === 'function') {
@@ -1160,7 +1245,7 @@
 
   function stopWebSecureCallRecovery(reason) {
     if (!webRecoveryTimer && !webRecoveryStartedAt) return;
-    try { clearInterval(webRecoveryTimer); } catch (_e) {}
+    try { clearTimeout(webRecoveryTimer); } catch (_e) {}
     webRecoveryTimer = null;
     webRecoveryStartedAt = 0;
     webRecoveryTickN = 0;
@@ -1178,7 +1263,9 @@
     try {
       console.log('CALL_WEB_RECOVERY_START reason=' + why);
     } catch (_e) {}
+    const startedAt = webRecoveryStartedAt;
     const tick = () => {
+      if (webRecoveryStartedAt !== startedAt) return;
       webRecoveryTickN += 1;
       const elapsedMs = Date.now() - webRecoveryStartedAt;
       try {
@@ -1195,9 +1282,11 @@
         return;
       }
       try { runWebSecureCallRecovery(why); } catch (_e) {}
+      // Live subscription already delivers; recovery is only a safety net then.
+      const nextMs = secureSubHealthy ? WEB_RECOVERY_HEALTHY_INTERVAL_MS : WEB_RECOVERY_INTERVAL_MS;
+      webRecoveryTimer = setTimeout(tick, nextMs);
     };
     tick();
-    webRecoveryTimer = setInterval(tick, WEB_RECOVERY_INTERVAL_MS);
   }
 
   function stopOutgoingAnswerDrainWatchdog(reason) {
@@ -1288,6 +1377,7 @@
   function normalizeAction(media, type) {
     const t = String(type || '');
     if (media === 'video') {
+      if (t === 'v-ring' || t === 'ring') return 'ring';
       if (t === 'v-offer' || t === 'offer') return 'offer';
       if (t === 'v-answer' || t === 'answer') return 'answer';
       if (t === 'v-candidates' || t === 'candidates') return 'candidates';
@@ -1299,6 +1389,7 @@
 
   function toWireType(media, action) {
     if (media === 'video') {
+      if (action === 'ring') return 'v-ring';
       if (action === 'offer') return 'v-offer';
       if (action === 'answer') return 'v-answer';
       if (action === 'candidates') return 'v-candidates';
@@ -1352,10 +1443,19 @@
       throw err;
     }
 
-    const issued = pool.publish(relayList, event);
-    const pending = Array.isArray(issued)
-      ? issued
-      : (issued && typeof issued.then === 'function' ? [issued] : []);
+    const health = App.RelayHealth;
+    if (health && typeof health.select === 'function') relayList = health.select(relayList);
+    const authSk = meta && meta.authSk instanceof Uint8Array ? meta.authSk : null;
+
+    let pending;
+    if (typeof pool.ensureRelay === 'function') {
+      // Per-relay publish on the base relay objects: real OK/timeout per relay, NIP-42 write auth.
+      pending = relayList.map((url) => publishToCallRelay(pool, url, event, authSk));
+    } else {
+      let issued = pool.publish(relayList, event);
+      if (issued && !Array.isArray(issued) && typeof issued.then === 'function') issued = await issued;
+      pending = Array.isArray(issued) ? issued : [];
+    }
     if (!pending.length) {
       const err = new Error('CALL_SIGNAL_TRANSPORT_FAILED: publish returned no promises');
       err.code = 'CALL_SIGNAL_TRANSPORT_FAILED';
@@ -1363,48 +1463,78 @@
       throw err;
     }
 
-    const settled = await Promise.allSettled(pending);
-    let ok = 0;
-    for (let i = 0; i < settled.length; i += 1) {
-      const r = settled[i];
-      const relay = relayList[i] || relayList[relayList.length - 1] || '';
-      const host = relayHostname(relay) || 'unknown';
-      if (r && r.status === 'fulfilled') {
-        ok += 1;
-        try { console.log('CALL_RELAY_OK relay=' + host); } catch (_e) {}
-      } else {
-        const reason = classifyRelayPublishError(r && r.reason);
-        if (reason === 'auth-required') {
-          markCallRelayAuthRequired(relay);
-        }
+    const total = pending.length;
+    const t0 = Date.now();
+    return new Promise((resolve, reject) => {
+      let ok = 0;
+      let done = 0;
+      let settledFirst = false;
+      const finish = () => {
         try {
-          console.log('CALL_RELAY_FAIL relay=' + host + ' reason=' + reason);
+          console.log('CALL_RELAY_PUBLISH_RESULT action=' + action + ' ok=' + ok + ' total=' + total);
+          if (ok >= 1 && ok < total) console.log('CALL_RELAY_DEGRADED action=' + action + ' ok=' + ok + ' total=' + total);
         } catch (_e) {}
-      }
-    }
+        if (ok <= 0) {
+          try { console.log('CALL_SEND_1059_PUBLISH_FAIL'); } catch (_e) {}
+          const err = new Error('CALL_SIGNAL_TRANSPORT_FAILED: publish zero relays');
+          err.code = 'CALL_SIGNAL_TRANSPORT_FAILED';
+          err.name = 'CallSignalTransportError';
+          reject(err);
+        }
+      };
+      pending.forEach((p, i) => {
+        const relay = relayList[i] || '';
+        const host = relayHostname(relay) || 'unknown';
+        withTimeout(Promise.resolve(p), CALL_RELAY_PUBLISH_TIMEOUT_MS, 'timeout').then(() => {
+          ok += 1;
+          const ms = Date.now() - t0;
+          if (health) health.record(relay, true, ms);
+          try { console.log('CALL_RELAY_OK relay=' + host + ' ms=' + ms); } catch (_e) {}
+          if (!settledFirst) {
+            settledFirst = true;
+            resolve({ ok: 1, total, requiredOk: 1, action, firstOkMs: ms });
+          }
+        }, (errRelay) => {
+          const reason = classifyRelayPublishError(errRelay);
+          if (health) health.record(relay, false, 0, reason);
+          if (reason === 'auth-required') markCallRelayAuthRequired(relay);
+          try { console.log('CALL_RELAY_FAIL relay=' + host + ' reason=' + reason); } catch (_e) {}
+        }).then(() => {
+          done += 1;
+          if (done === total) finish();
+        });
+      });
+    });
+  }
 
+  const CALL_RELAY_PUBLISH_TIMEOUT_MS = 4000;
+  const CALL_RELAY_CONNECT_TIMEOUT_MS = 3000;
+
+  function withTimeout(promise, ms, label) {
+    let timer = null;
+    return Promise.race([
+      promise,
+      new Promise((_, rej) => { timer = setTimeout(() => rej(new Error(label || 'timeout')), ms); }),
+    ]).finally(() => { if (timer) clearTimeout(timer); });
+  }
+
+  /**
+   * Publish one wrap to one relay. On NIP-42 auth-required, authenticate the connection with the
+   * wrap's own ephemeral key (never the identity key) and retry once.
+   */
+  async function publishToCallRelay(pool, url, event, authSk) {
+    const relay = await pool.ensureRelay(url, { connectionTimeout: CALL_RELAY_CONNECT_TIMEOUT_MS });
     try {
-      console.log('CALL_RELAY_PUBLISH_RESULT action=' + action + ' ok=' + ok + ' total=' + settled.length);
-    } catch (_e) {}
-
-    if (ok >= 1 && ok < settled.length) {
-      try {
-        console.log('CALL_RELAY_DEGRADED action=' + action + ' ok=' + ok + ' total=' + settled.length);
-      } catch (_e) {}
-    } else if (ok >= 1 && settled.length === 1) {
-      try {
-        console.log('CALL_RELAY_DEGRADED action=' + action + ' ok=1 total=1');
-      } catch (_e) {}
+      return await relay.publish(event);
+    } catch (err) {
+      if (classifyRelayPublishError(err) !== 'auth-required' || !authSk || typeof relay.auth !== 'function' || !relay.challenge) {
+        throw err;
+      }
+      const finalizeEvent = getFinalizeEvent();
+      await relay.auth((template) => finalizeEvent(template, authSk));
+      try { console.log('CALL_RELAY_AUTH_OK relay=' + (relayHostname(url) || 'unknown')); } catch (_e) {}
+      return relay.publish(event);
     }
-
-    if (ok <= 0) {
-      try { console.log('CALL_SEND_1059_PUBLISH_FAIL'); } catch (_e) {}
-      const err = new Error('CALL_SIGNAL_TRANSPORT_FAILED: publish zero relays');
-      err.code = 'CALL_SIGNAL_TRANSPORT_FAILED';
-      err.name = 'CallSignalTransportError';
-      throw err;
-    }
-    return { ok, total: settled.length, requiredOk: 1, action };
   }
 
   async function publishGiftWrappedCallSignal(opts) {
@@ -1459,6 +1589,7 @@
     };
 
     let wrap;
+    let wrapAuthSk = null;
     try {
       const finalizeEvent = getFinalizeEvent();
       const rumorUnsigned = {
@@ -1514,6 +1645,7 @@
       if (wrap.pubkey.toLowerCase() === sender) {
         callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', 'outer pubkey is identity');
       }
+      wrapAuthSk = wrapSk;
       try { console.log('CALL_SEND_1059_BUILD_OK'); } catch (_e) {}
     } catch (err) {
       if (err && (err.code === 'CALL_SIGNAL_E2EE_ENCRYPT_FAILED' || err.code === 'BLOCKED_CRYPTO_API')) throw err;
@@ -1524,7 +1656,7 @@
       console.log('CALL_SEND_1059_PUBLISH_START');
     } catch (_e) {}
     try {
-      await awaitPoolPublish(pool, Array.isArray(relays) ? relays : getCallSignalRelays(), wrap, { action });
+      await awaitPoolPublish(pool, Array.isArray(relays) ? relays : getCallSignalRelays(), wrap, { action, authSk: wrapAuthSk });
     } catch (pubErr) {
       try { console.log('CALL_SEND_1059_PUBLISH_FAIL'); } catch (_e) {}
       if (pubErr && pubErr.code) throw pubErr;

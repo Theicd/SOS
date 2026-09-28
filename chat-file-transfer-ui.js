@@ -333,61 +333,7 @@
 
     // חלק חסם Inline (chat-file-transfer-ui.js) – אם P2P לא זמין/נכשל לקובץ גדול מ-256KB מנסים WebTorrent אוטומטית | HYPER CORE TECH
     if (file.size > MAX_INLINE_SIZE_BYTES) {
-      if (typeof App.torrentTransfer?.requestTransfer === 'function') {
-        try {
-          log('P2P לא זמין לקובץ גדול, עובר ל-WebTorrent', { name: file.name, size: file.size });
-          App.cleanupOrphanCompressTransferBubbles?.();
-          if (caption) {
-            App.setChatFileAttachment?.(peer, {
-              id: `pending-caption-${Date.now()}`,
-              name: file.name,
-              size: file.size,
-              type: file.type,
-              caption,
-              hidePreview: true,
-            });
-          }
-          if (localPreviewUrl) {
-            // יישום מוקדם של preview לפני שהטורנט מקבל transferId | HYPER CORE TECH
-            App.registerChatTransferPreview?.(`pending-torrent-${Date.now()}`, {
-              url: localPreviewUrl,
-              mime: file.type || '',
-              name: file.name || '',
-              size: file.size || 0,
-            });
-          }
-          const torrentResult = await App.torrentTransfer.requestTransfer(peer, file);
-          if (torrentResult?.success) {
-            const tid = torrentResult.transferId || '';
-            if (optimisticFileId && tid && optimisticFileId !== tid) {
-              App.adoptChatTransferBubble?.(optimisticFileId, tid);
-              optimisticFileId = null;
-            }
-            if (pipelineVideoId && tid && pipelineVideoId !== tid) {
-              App.adoptChatTransferBubble?.(pipelineVideoId, tid);
-              pipelineVideoId = null;
-            }
-            log('torrent fallback ok', { name: file.name, transferId: tid || null });
-            return;
-          }
-          const reason = torrentResult?.error || 'torrent-request-failed';
-          App.notifyChatFileTransferError?.({
-            peer,
-            code: 'torrent-fallback-failed',
-            message: `שליחת הקובץ נכשלה במסלול החלופי (${reason}). נסה שוב בעוד רגע.`,
-          });
-          return;
-        } catch (torrentErr) {
-          const reason = torrentErr?.message || 'torrent-exception';
-          App.notifyChatFileTransferError?.({
-            peer,
-            code: 'torrent-fallback-error',
-            message: `שליחת הקובץ נכשלה במסלול החלופי (${reason}). נסה שוב בעוד רגע.`,
-          });
-          return;
-        }
-      }
-
+      // אין fallback טורנט plaintext — sendP2PFile כבר מנסה Blossom מוצפן בלבד
       App.notifyChatFileTransferError?.({
         peer,
         code: 'p2p-required-for-large-file',
@@ -475,12 +421,12 @@
             fileName: file.name,
           });
           if (resolved?.route === 'GENERIC_ALTERNATE_REQUIRED') {
-            log('inline E3B-unsafe generic → existing torrent alternate', {
+            log('inline E3B-unsafe generic → P2P / encrypted Blossom', {
               name: file.name,
               size: file.size,
               utf8Bytes: resolved.classification?.utf8Bytes,
             });
-            if (typeof App.torrentTransfer?.requestTransfer === 'function') {
+            if (typeof App.sendP2PFile === 'function') {
               try {
                 if (caption) {
                   App.setChatFileAttachment?.(peer, {
@@ -492,18 +438,17 @@
                     hidePreview: true,
                   });
                 }
-                const torrentResult = await App.torrentTransfer.requestTransfer(peer, file);
-                if (torrentResult?.success) {
-                  const tid = torrentResult.transferId || '';
-                  if (optimisticFileId && tid && optimisticFileId !== tid) {
-                    App.adoptChatTransferBubble?.(optimisticFileId, tid);
+                const fid = await App.sendP2PFile(peer, file, (evt) => App.handleP2PProgressUpdate?.({ ...(evt || {}), peerPubkey: evt?.peerPubkey || peer, caption: caption || evt?.caption || undefined }));
+                if (fid) {
+                  if (optimisticFileId && optimisticFileId !== fid) {
+                    App.adoptChatTransferBubble?.(optimisticFileId, fid);
                     optimisticFileId = null;
                   }
-                  log('generic E3B-overflow torrent ok', { name: file.name, transferId: tid || null });
+                  log('generic E3B-overflow encrypted route started', { name: file.name, fileId: fid });
                   return;
                 }
-              } catch (torrentErr) {
-                log('generic E3B-overflow torrent failed', torrentErr?.message || torrentErr);
+              } catch (sendErr) {
+                log('generic E3B-overflow encrypted route failed', sendErr?.message || sendErr);
               }
             }
             App.notifyChatFileTransferError?.({

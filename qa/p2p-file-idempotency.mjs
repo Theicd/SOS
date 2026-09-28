@@ -344,7 +344,7 @@ async function runD() {
   const dupPrep = [...startCounts.values()].some((c) => c > 1);
   record(
     'D duplicate ACK',
-    h.count('chunk-sent', (n) => n.chunkIndex === 4) === 1 && h.count('chunk-ack-accepted') === 1 && h.count('chunk-ack-ignored', (n) => n.reason === 'duplicate-or-stale') >= 2 && maxInFlight(h) <= 4 && !dupPrep && transfer.nextChunkToSend === 5,
+    h.count('chunk-sent', (n) => n.chunkIndex === 4) === 1 && h.count('chunk-ack-accepted') === 1 && h.count('chunk-ack-ignored', (n) => n.reason === 'duplicate-or-stale') >= 2 && maxInFlight(h) <= 5 && transfer.sendWindow === 5 && !dupPrep && transfer.nextChunkToSend === 6,
     `sent4=${h.count('chunk-sent', (n) => n.chunkIndex === 4)} acked=${h.count('chunk-ack-accepted')} next=${transfer.nextChunkToSend}`
   );
   h.App.cancelP2PFile(fileId);
@@ -517,8 +517,9 @@ async function runI() {
   record('I simultaneous offers still single init', h3.count('offer-reserved') === 1 && receiveCount === 1, `reserved=${h3.count('offer-reserved')} after=${receiveCount}`);
   h3.App.cancelP2PFile(fileId3);
 
-  record('I wire unchanged', SRC.includes("type: 'chunk-ack'") && SRC.includes("type: 'chunk-meta'") && SRC.includes('MAX_IN_FLIGHT = 4') && SRC.includes('MAX_PREPARE_CONCURRENCY = 4') && SRC.includes('PREFETCH_TARGET = 8') && SRC.includes("type: 'file-resend-request'"));
-  record('I no Window=8', !SRC.includes('MAX_IN_FLIGHT = 8'));
+  record('I wire unchanged', SRC.includes("type: 'chunk-ack'") && SRC.includes("type: 'chunk-meta'") && SRC.includes('MIN_IN_FLIGHT = 4') && SRC.includes('MAX_IN_FLIGHT = 32') && SRC.includes('MAX_PREPARE_CONCURRENCY = 4') && SRC.includes('PREFETCH_TARGET = 8') && SRC.includes("type: 'file-resend-request'"));
+  record('I adaptive window bounded 4..32', SRC.includes('inFlightCount(transfer) < sendWindow(transfer)') && SRC.includes('t.sendWindow = MIN_IN_FLIGHT') && !/setTimeout\(\(\) => sendNextChunk\(fileId, onProgress\), 100\);\s*break;\s*\}\s*\n\s*const chunkIndex/.test(SRC));
+  record('I chunk-meta handler not shadowed', (SRC.match(/msg\.type === 'chunk-meta'/g) || []).length === 1);
 }
 
 async function main() {

@@ -1,0 +1,129 @@
+{
+  "gate": "PACKAGE899_RELAY_MATRIX",
+  "ts": "2026-09-28T09:19:00.127Z",
+  "trials": 3,
+  "relays": {
+    "wss://relay.snort.social": {
+      "connectOk": "3/3",
+      "connectMsP50": 256,
+      "authChallengeOnConnect": false,
+      "subscribe1059": [
+        "EOSE"
+      ],
+      "readRequiresAuth": false,
+      "publish1059Accepted": "3/3",
+      "publish1059Reasons": [
+        ""
+      ],
+      "publish1059MsP50": 89,
+      "nip42Required": false,
+      "nip42AuthAccepted": false,
+      "publish1059AfterAuthAccepted": "0/3",
+      "publish1059AfterAuthReasons": [],
+      "delivery1059": "3/3",
+      "deliveryMsP50": 89,
+      "publish25055Accepted": "3/3",
+      "publish25055Reasons": [
+        "ephemeral: will not be stored"
+      ]
+    },
+    "wss://nos.lol": {
+      "connectOk": "0/3",
+      "connectMsP50": 240,
+      "authChallengeOnConnect": false,
+      "subscribe1059": [
+        "NONE"
+      ],
+      "readRequiresAuth": false,
+      "publish1059Accepted": "0/3",
+      "publish1059Reasons": [
+        "NO_CONN"
+      ],
+      "publish1059MsP50": null,
+      "nip42Required": false,
+      "nip42AuthAccepted": false,
+      "publish1059AfterAuthAccepted": "0/3",
+      "publish1059AfterAuthReasons": [],
+      "delivery1059": "0/3",
+      "deliveryMsP50": null,
+      "publish25055Accepted": "0/3",
+      "publish25055Reasons": [
+        "NO_CONN"
+      ]
+    },
+    "wss://nostr-relay.xbytez.io": {
+      "connectOk": "3/3",
+      "connectMsP50": 224,
+      "authChallengeOnConnect": false,
+      "subscribe1059": [
+        "EOSE"
+      ],
+      "readRequiresAuth": false,
+      "publish1059Accepted": "3/3",
+      "publish1059Reasons": [
+        ""
+      ],
+      "publish1059MsP50": 71,
+      "nip42Required": false,
+      "nip42AuthAccepted": false,
+      "publish1059AfterAuthAccepted": "0/3",
+      "publish1059AfterAuthReasons": [],
+      "delivery1059": "3/3",
+      "deliveryMsP50": 63,
+      "publish25055Accepted": "3/3",
+      "publish25055Reasons": [
+        ""
+      ]
+    },
+    "wss://nostr-02.uid.ovh": {
+      "connectOk": "3/3",
+      "connectMsP50": 266,
+      "authChallengeOnConnect": true,
+      "subscribe1059": [
+        "EOSE"
+      ],
+      "readRequiresAuth": true,
+      "publish1059Accepted": "0/3",
+      "publish1059Reasons": [
+        "auth-required: authenticate to publish gift wraps"
+      ],
+      "publish1059MsP50": 81,
+      "nip42Required": true,
+      "nip42AuthAccepted": true,
+      "publish1059AfterAuthAccepted": "3/3",
+      "publish1059AfterAuthReasons": [
+        ""
+      ],
+      "delivery1059": "0/3",
+      "deliveryMsP50": null,
+      "publish25055Accepted": "3/3",
+      "publish25055Reasons": [
+        "broadcasted to 8"
+      ]
+    },
+    "wss://nostr.0x7e.xyz": {
+      "connectOk": "0/3",
+      "connectMsP50": 233,
+      "authChallengeOnConnect": false,
+      "subscribe1059": [
+        "NONE"
+      ],
+      "readRequiresAuth": false,
+      "publish1059Accepted": "0/3",
+      "publish1059Reasons": [
+        "NO_CONN"
+      ],
+      "publish1059MsP50": null,
+      "nip42Required": false,
+      "nip42AuthAccepted": false,
+      "publish1059AfterAuthAccepted": "0/3",
+      "publish1059AfterAuthReasons": [],
+      "delivery1059": "0/3",
+      "deliveryMsP50": null,
+      "publish25055Accepted": "0/3",
+      "publish25055Reasons": [
+        "NO_CONN"
+      ]
+    }
+  }
+}

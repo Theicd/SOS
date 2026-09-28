@@ -1,0 +1,400 @@
+{
+  "gate": "PACKAGE899_REAL_BROWSER_P2P_FV",
+  "ts": "2026-09-28T21:00:56.509Z",
+  "status": "PASS",
+  "connect": {
+    "boot": {
+      "a": true,
+      "b": true,
+      "connStateModule": true
+    },
+    "setupMs": 1025,
+    "ready": true,
+    "diagA": {
+      "peer": "d299f719",
+      "state": "DC_OPEN",
+      "phaseAgeMs": 470,
+      "failure": null,
+      "negotiationStarted": true,
+      "iceState": "connected",
+      "dcState": "open",
+      "publishOk": true,
+      "history": [
+        "IDLE>SIGNALING",
+        "SIGNALING>OFFER_SENT",
+        "OFFER_SENT>ANSWER_WAIT",
+        "ANSWER_WAIT>ICE_CONNECTING",
+        "ICE_CONNECTING>DC_CONNECTING",
+        "DC_CONNECTING>DC_OPEN"
+      ],
+      "dcReadyState": "open",
+      "healthy": true
+    },
+    "diagB": {
+      "peer": "a93d65f2",
+      "state": "DC_OPEN",
+      "phaseAgeMs": 470,
+      "failure": null,
+      "negotiationStarted": true,
+      "iceState": "connected",
+      "dcState": "open",
+      "publishOk": true,
+      "history": [
+        "IDLE>SIGNALING",
+        "SIGNALING>ICE_CONNECTING",
+        "ICE_CONNECTING>DC_CONNECTING",
+        "DC_CONNECTING>DC_OPEN"
+      ],
+      "dcReadyState": "open",
+      "healthy": true
+    },
+    "relaysA": 4,
+    "sigLines": {
+      "A": [
+        "[DC] module loaded (lazy)",
+        "[DC] module loaded (lazy)",
+        "[DC] ✅ initialized",
+        "[P2P-SIG] RX type=dc-need-offer peer=d299f719 transport=NOSTR",
+        "[DC] ✅ sub ready",
+        "[P2P-SIG] SEND type=dc-offer peer=d299f719 transport=NOSTR",
+        "[DC] 🔄 connecting d299f719 (attempt 1)...",
+        "[P2P-SIG] RX type=dc-answer peer=d299f719 transport=NOSTR",
+        "[DC] 📬 got answer from d299f719",
+        "[P2P-SIG] SEND type=dc-candidates peer=d299f719 transport=NOSTR",
+        "[P2P-SIG] RX type=dc-candidates peer=d299f719 transport=NOSTR",
+        "[P2P-ICE] peer=d299f719 state=checking",
+        "[P2P-ICE] peer=d299f719 state=connected",
+        "[P2P-DC] peer=d299f719 OPEN",
+        "[DC] 📤 P2P → d299f719 secure",
+        "[DC] 📩 P2P ← d299f719 secure",
+        "[DC] אני responder, ממתין ל-offer מ 5cc47531",
+        "[DC] 📨 מבקש offer מ-initiator 5cc47531",
+        "[DC] אני responder, ממתין ל-offer מ 98717086",
+        "[DC] 📨 מבקש offer מ-initiator 98717086",
+        "[DC] אני responder, ממתין ל-offer מ a723742e",
+        "[DC] 📨 מבקש offer מ-initiator a723742e",
+        "[P2P-SIG] SEND type=dc-need-offer peer=5cc47531 transport=NOSTR",
+        "[P2P-SIG] SEND type=dc-need-offer peer=98717086 transport=NOSTR",
+        "[P2P-SIG] SEND type=dc-need-offer peer=a723742e transport=NOSTR",
+        "[P2P-SIG] SEND type=dc-offer peer=ede1e7fa transport=NOSTR",
+        "[DC] 🔄 connecting ede1e7fa (attempt 1)...",
+        "[P2P-SIG] SEND type=dc-offer peer=f1cdc0f3 transport=NOSTR",
+        "[DC] 🔄 connecting f1cdc0f3 (attempt 1)...",
+        "[P2P-SIG] SEND type=dc-candidates peer=ede1e7fa transport=NOSTR",
+        "[P2P-SIG] SEND type=dc-candidates peer=f1cdc0f3 transport=NOSTR",
+        "[P2P-ICE] peer=f1cdc0f3 state=checking",
+        "[P2P-SIG] RX type=dc-answer peer=f1cdc0f3 transport=NOSTR",
+        "[DC] 📬 got answer from f1cdc0f3",
+        "[P2P-ICE] peer=f1cdc0f3 state=connected",
+        "[P2P-DC] peer=f1cdc0f3 OPEN",
+        "[P2P-SIG] RX type=dc-candidates peer=f1cdc0f3 transport=NOSTR"
+      ],
+      "B": [
+        "[DC] module loaded (lazy)",
+        "[DC] module loaded (lazy)",
+        "[DC] ✅ initialized",
+        "[DC] אני responder, ממתין ל-offer מ a93d65f2",
+        "[DC] 📨 מבקש offer מ-initiator a93d65f2",
+        "[P2P-SIG] SEND type=dc-need-offer peer=a93d65f2 transport=NOSTR",
+        "[DC] ✅ sub ready",
+        "[P2P-SIG] RX type=dc-offer peer=a93d65f2 transport=NOSTR",
+        "[P2P-SIG] SEND type=dc-answer peer=a93d65f2 transport=NOSTR",
+        "[DC] 📨 answered offer from a93d65f2",
+        "[DC] אני responder, ממתין ל-offer מ a93d65f2",
+        "[P2P-SIG] SEND type=dc-candidates peer=a93d65f2 transport=NOSTR",
+        "[P2P-SIG] RX type=dc-candidates peer=a93d65f2 transport=NOSTR",
+        "[P2P-ICE] peer=a93d65f2 state=checking",
+        "[P2P-ICE] peer=a93d65f2 state=connected",
+        "[DC] 📥 chat DC a93d65f2",
+        "[P2P-DC] peer=a93d65f2 OPEN",
+        "[DC] 📩 P2P ← a93d65f2 secure",
+        "[DC] 📤 P2P → a93d65f2 secure",
+        "[DC] אני responder, ממתין ל-offer מ 5cc47531",
+        "[DC] 📨 מבקש offer מ-initiator 5cc47531",
+        "[DC] אני responder, ממתין ל-offer מ 98717086",
+        "[DC] 📨 מבקש offer מ-initiator 98717086",
+        "[DC] אני responder, ממתין ל-offer מ a723742e",
+        "[DC] 📨 מבקש offer מ-initiator a723742e",
+        "[P2P-SIG] SEND type=dc-need-offer peer=5cc47531 transport=NOSTR",
+        "[P2P-SIG] SEND type=dc-need-offer peer=98717086 transport=NOSTR",
+        "[P2P-SIG] SEND type=dc-need-offer peer=a723742e transport=NOSTR",
+        "[P2P-SIG] SEND type=dc-offer peer=f1cdc0f3 transport=NOSTR",
+        "[DC] 🔄 connecting f1cdc0f3 (attempt 1)...",
+        "[P2P-SIG] SEND type=dc-offer peer=ede1e7fa transport=NOSTR",
+        "[DC] 🔄 connecting ede1e7fa (attempt 1)...",
+        "[P2P-SIG] SEND type=dc-candidates peer=f1cdc0f3 transport=NOSTR",
+        "[P2P-SIG] RX type=dc-answer peer=f1cdc0f3 transport=NOSTR",
+        "[DC] 📬 got answer from f1cdc0f3",
+        "[P2P-ICE] peer=f1cdc0f3 state=checking",
+        "[P2P-ICE] peer=f1cdc0f3 state=connected",
+        "[P2P-DC] peer=f1cdc0f3 OPEN",
+        "[P2P-SIG] SEND type=dc-candidates peer=ede1e7fa transport=NOSTR",
+        "[P2P-SIG] RX type=dc-candidates peer=f1cdc0f3 transport=NOSTR"
+      ]
+    }
+  },
+  "text": {
+    "A2B": {
+      "sent": true,
+      "received": true
+    },
+    "B2A": {
+      "sent": true,
+      "received": true
+    }
+  },
+  "files": [
+    {
+      "dir": "A2B",
+      "mb": 1,
+      "hashMatch": true,
+      "transport": "P2P",
+      "ms": 306,
+      "mbpsApprox": 27.4,
+      "sendStatus": [
+        "sending",
+        "complete",
+        "verified"
+      ],
+      "senderTimeline": [
+        "send:starting@0",
+        "send:sending@44",
+        "send:complete@150",
+        "send:verified@158"
+      ],
+      "receiverTimeline": [
+        "receive:waiting@0",
+        "receive:receiving@36",
+        "receive:complete@143"
+      ]
+    },
+    {
+      "dir": "A2B",
+      "mb": 5,
+      "hashMatch": true,
+      "transport": "P2P",
+      "ms": 798,
+      "mbpsApprox": 52.6,
+      "sendStatus": [
+        "sending",
+        "complete",
+        "verified"
+      ],
+      "senderTimeline": [
+        "send:starting@0",
+        "send:sending@18",
+        "send:complete@532",
+        "send:verified@576"
+      ],
+      "receiverTimeline": [
+        "receive:waiting@0",
+        "receive:receiving@10",
+        "receive:complete@562"
+      ]
+    },
+    {
+      "dir": "A2B",
+      "mb": 10,
+      "hashMatch": true,
+      "transport": "P2P",
+      "ms": 1077,
+      "mbpsApprox": 77.9,
+      "sendStatus": [
+        "sending",
+        "complete",
+        "verified"
+      ],
+      "senderTimeline": [
+        "send:starting@0",
+        "send:sending@17",
+        "send:complete@946",
+        "send:verified@1043"
+      ],
+      "receiverTimeline": [
+        "receive:waiting@0",
+        "receive:receiving@21",
+        "receive:complete@1030"
+      ]
+    },
+    {
+      "dir": "A2B",
+      "mb": 25,
+      "hashMatch": true,
+      "transport": "P2P",
+      "ms": 2514,
+      "mbpsApprox": 83.4,
+      "sendStatus": [
+        "sending",
+        "sending",
+        "complete"
+      ],
+      "senderTimeline": [
+        "send:starting@0",
+        "send:sending@25",
+        "send:complete@2409",
+        "send:verified@2520"
+      ],
+      "receiverTimeline": [
+        "receive:waiting@0",
+        "receive:receiving@23",
+        "receive:complete@2478"
+      ]
+    },
+    {
+      "dir": "B2A",
+      "mb": 1,
+      "hashMatch": true,
+      "transport": "P2P",
+      "ms": 286,
+      "mbpsApprox": 29.3,
+      "sendStatus": [
+        "sending",
+        "complete",
+        "verified"
+      ],
+      "senderTimeline": [
+        "send:starting@0",
+        "send:sending@32",
+        "send:complete@195",
+        "send:verified@242"
+      ],
+      "receiverTimeline": [
+        "receive:waiting@0",
+        "receive:receiving@25",
+        "receive:complete@226"
+      ]
+    },
+    {
+      "dir": "B2A",
+      "mb": 5,
+      "hashMatch": true,
+      "transport": "P2P",
+      "ms": 824,
+      "mbpsApprox": 50.9,
+      "sendStatus": [
+        "sending",
+        "complete",
+        "verified"
+      ],
+      "senderTimeline": [
+        "send:starting@0",
+        "send:sending@15",
+        "send:complete@555",
+        "send:verified@628"
+      ],
+      "receiverTimeline": [
+        "receive:waiting@0",
+        "receive:receiving@14",
+        "receive:complete@618"
+      ]
+    },
+    {
+      "dir": "B2A",
+      "mb": 10,
+      "hashMatch": true,
+      "transport": "P2P",
+      "ms": 1430,
+      "mbpsApprox": 58.7,
+      "sendStatus": [
+        "sending",
+        "complete",
+        "verified"
+      ],
+      "senderTimeline": [
+        "send:starting@0",
+        "send:sending@15",
+        "send:complete@1234",
+        "send:verified@1331"
+      ],
+      "receiverTimeline": [
+        "receive:waiting@0",
+        "receive:receiving@5",
+        "receive:complete@1310"
+      ]
+    },
+    {
+      "dir": "B2A",
+      "mb": 25,
+      "hashMatch": true,
+      "transport": "P2P",
+      "ms": 3548,
+      "mbpsApprox": 59.1,
+      "sendStatus": [
+        "sending",
+        "complete",
+        "verified"
+      ],
+      "senderTimeline": [
+        "send:starting@0",
+        "send:sending@15",
+        "send:complete@3223",
+        "send:verified@3435"
+      ],
+      "receiverTimeline": [
+        "receive:waiting@0",
+        "receive:receiving@13",
+        "receive:complete@3424"
+      ]
+    }
+  ],
+  "fallback": [
+    {
+      "media": "image/png",
+      "size": 307200,
+      "status": "complete-blossom",
+      "p2pFailureCode": "PEER_OFFLINE",
+      "ms": 92,
+      "uploads": 1,
+      "ciphertextOnly": true,
+      "descriptorEncrypted": true,
+      "recipientDecrypt": true
+    },
+    {
+      "media": "video/mp4",
+      "size": 2097152,
+      "status": "complete-blossom",
+      "p2pFailureCode": "PEER_OFFLINE",
+      "ms": 291,
+      "uploads": 1,
+      "ciphertextOnly": true,
+      "descriptorEncrypted": true,
+      "recipientDecrypt": true
+    },
+    {
+      "media": "audio/webm",
+      "size": 153600,
+      "status": "complete-blossom",
+      "p2pFailureCode": "PEER_OFFLINE",
+      "ms": 65,
+      "uploads": 1,
+      "ciphertextOnly": true,
+      "descriptorEncrypted": true,
+      "recipientDecrypt": true
+    }
+  ],
+  "security": {
+    "cryptoFailureDuringFallback": {
+      "fileId": "1790629284879-mvvuemgqlab",
+      "status": "failed",
+      "direction": "send",
+      "failureCode": "ENCRYPTION_FAILED",
+      "p2pFailureCode": "PEER_OFFLINE",
+      "at": 22938.399999999907
+    },
+    "foreignPlaintextUploads": 0,
+    "nsecInLogs": false,
+    "sdpInLogs": false,
+    "privKeyInLogs": false,
+    "p2pAttemptLines": 20,
+    "mockRequests": 6
+  },
+  "gates": {
+    "REAL_BROWSER_P2P_CONNECT": "PASS",
+    "REAL_BROWSER_P2P_TEXT_GATE": "PASS",
+    "REAL_BROWSER_P2P_FILE_GATE": "PASS",
+    "ALL_HASHES_MATCH": "PASS",
+    "ENCRYPTED_BLOSSOM_FALLBACK_E2E_GATE": "PASS",
+    "P2P_FALLBACK_CRYPTO_FAIL_CLOSED_REAL": "PASS",
+    "REAL_BROWSER_DIAGNOSTIC_PRIVACY": "PASS"
+  }
+}

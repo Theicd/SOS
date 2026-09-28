@@ -252,6 +252,7 @@
       totalChunks: offerPlain.totalChunks,
       caption: offerPlain.caption,
     };
+    if (typeof offerPlain.sha256 === 'string' && /^[0-9a-f]{64}$/.test(offerPlain.sha256)) inner.sha256 = offerPlain.sha256;
     const envelope = await encryptInner(inner, recipient);
     try {
       console.log('[P2P_SECURE_FILE_KEY_SEND] peer=' + recipient.slice(0, 8) + ' fileId=' + fileId.slice(0, 12));
@@ -275,6 +276,7 @@
       totalChunks: inner.totalChunks,
       createdAt: inner.createdAt,
       caption: inner.caption,
+      sha256: typeof inner.sha256 === 'string' && /^[0-9a-f]{64}$/.test(inner.sha256) ? inner.sha256 : undefined,
     };
   }
 

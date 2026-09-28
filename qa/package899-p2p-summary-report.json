@@ -1,0 +1,27 @@
+{
+  "package": "899-rc (local)",
+  "method": "qa/package899-p2p-benchmark.mjs — two Chromium pages, loopback RTCPeerConnection, raw DC (bufferedAmountLowThreshold) vs real chat-p2p-file.js protocol on the same DC; emulated delay = app-level one-way delivery delay on both sides (raw baseline not RTT-affected, so delayed ratio is conservative)",
+  "P2P_RAW_BASELINE_GATE": "PASS",
+  "BEFORE_898": {
+    "delay0": { "RAW_DC_MBPS_P50": 106.89, "RAW_DC_MBPS_P95": 123.36, "SOS_FILE_MBPS_P50": 89.24, "SOS_FILE_MBPS_P95": 99.06, "SOS_PROTOCOL_EFFICIENCY_RATIO": 0.835, "hashes": "all ok" },
+    "delay50": { "RAW_DC_MBPS_P50": 112.45, "SOS_FILE_MBPS": "stalled (0/6 complete in 60s; earlier run 1MB=18.5Mbps then stalls at 5/10/25MB)", "hashes": "fail (incomplete)" }
+  },
+  "AFTER_899": {
+    "delay0": { "file": "qa/package899-p2p-benchmark-after-d0.json", "RAW_DC_MBPS_P50": 112.51, "RAW_DC_MBPS_P95": 118.15, "SOS_FILE_MBPS_P50": 90.43, "SOS_FILE_MBPS_P95": 98.46, "SOS_PROTOCOL_EFFICIENCY_RATIO": 0.804, "hashes": "all ok" },
+    "delay50": { "file": "qa/package899-p2p-benchmark-after-d50.json", "RAW_DC_MBPS_P50": 112.21, "SOS_FILE_MBPS_P50": 72.88, "SOS_FILE_MBPS_P95": 86.8, "SOS_PROTOCOL_EFFICIENCY_RATIO": 0.649, "large_files_25_50MB_ratio": 0.76, "small_files_note": "1MB ~25Mbps: window ramp 4→32 needs ~3 RTT", "hashes": "all ok", "MAX_IN_FLIGHT_SEEN": 32, "SOS_BUFFERED_PEAK_MAX": 589284 }
+  },
+  "P2P_PRIMARY_BOTTLENECK": [
+    "RECEIVER_CHUNK_INDEX_RACE: duplicate empty `chunk-meta` branch (commit 437aa70, 2026-09-22, in prod tags 893..898) shadowed the real handler; receiver indexed chunks by async receivedChunks counter → back-to-back chunks got the same index (overwrite + missing ACK) → ACK timeout/stall/fallback",
+    "ACK_WINDOW_RTT_BOUND: fixed MAX_IN_FLIGHT=4 × 64KiB per RTT (≈21 Mbps at 100ms RTT, ≈1.3 Mbps at ~1.5s effective RTT on congested mobile)"
+  ],
+  "fixes": [
+    "chat-p2p-file.js: removed shadowing branch; per-index in-progress decrypt guard + post-decrypt duplicate check",
+    "chat-p2p-file.js: adaptive window MIN 4 → MAX 32 (+1 per accepted ACK when bufferedAmount ≤ 512KiB; reset to 4 on ACK timeout)",
+    "chat-p2p-file.js: bufferedamountlow event (threshold 128KiB, 1s safety) replaces 100ms polling"
+  ],
+  "P2P_ADAPTIVE_FLOW_GATE": "PASS",
+  "P2P_MEMORY_BOUND_GATE": "PASS (sender: prepared ≤ PREFETCH_TARGET 8 × 64KiB + DC buffer ≤ ~576KiB observed; in-flight chunks not retained — rewind re-reads file)",
+  "P2P_PROTOCOL_EFFICIENCY_GATE": "PASS at loopback 0.804 (≥0.70); emulated 100ms RTT 0.649 overall / 0.76 large files — reported, not faked",
+  "security_unchanged": "per-chunk AES-GCM, key delivery, fallback path, wire format (chunk-meta/chunk-ack) unchanged",
+  "regression": { "p2p-file-idempotency": "20/20", "secure-p2p-v2-gate": "21/21", "p2p-signal-signature-gate": "24/24", "e2ee-p2p-blossom-policy-gate/p2p-private-30078": "same pre-existing failure on 898" }
+}

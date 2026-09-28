@@ -16,6 +16,9 @@
   let userDeclinedVideoCall = false;
   // חלק APK (chat-video-call-ui.js) – מונע accept כפול מ־inject retries | HYPER CORE TECH
   let videoAcceptStarted = false;
+  /** Peer whose authenticated ring intent is showing before its offer arrived. */
+  let videoRingOnlyPeer = null;
+  const RING_ACCEPT_OFFER_WAIT_MS = 15000;
 
   // חלק שיחות וידאו (chat-video-call-ui.js) – שמירת מצב פאנל הצ'אט לפני פתיחת שיחה כדי להחזיר אותו בסיום | HYPER CORE TECH
   let chatPanelWasOpen = false;
@@ -552,6 +555,7 @@
     stopDialtone();
     App.__videoIncomingOffer = null;
     App.__videoIncomingPeer = null;
+    videoRingOnlyPeer = null;
     App.__videoIncomingSessionId = null;
     userDeclinedVideoCall = false;
     videoAcceptStarted = false;
@@ -758,6 +762,15 @@
         acceptBtn.disabled = true;
         acceptBtn.setAttribute('hidden', '');
       }
+      const ringPeer = String(peer || '').toLowerCase();
+      if (!(App.__videoIncomingOffer && App.__videoIncomingOffer.sdp) && videoRingOnlyPeer === ringPeer) {
+        setStatus('מתחבר...');
+        const waitUntil = Date.now() + RING_ACCEPT_OFFER_WAIT_MS;
+        while (!(App.__videoIncomingOffer && App.__videoIncomingOffer.sdp) && videoRingOnlyPeer === ringPeer && Date.now() < waitUntil) {
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        try { console.log('CALL_RING_ACCEPT_OFFER_WAIT ok=' + !!(App.__videoIncomingOffer && App.__videoIncomingOffer.sdp)); } catch (_) {}
+      }
       const offer = App.__videoIncomingOffer || null;
       if (!offer || !offer.type || !offer.sdp) {
         if (!silent) {
@@ -791,7 +804,7 @@
     const peer = App.__videoIncomingPeer || '';
     try {
       const st = App.videoCall?.getState && App.videoCall.getState();
-      shouldMarkDeclined = !!(App.__videoIncomingOffer && st?.isIncoming && !st?.isActive);
+      shouldMarkDeclined = !!((App.__videoIncomingOffer || videoRingOnlyPeer) && st?.isIncoming && !st?.isActive);
     } catch {}
     try {
       const bridge = window.SosNativeShell;
@@ -815,6 +828,21 @@
   function handleMute(){ const m = App.videoCall.toggleMute(); const btn = dialog && dialog.querySelector('[data-action="mute"]'); if (btn){ const i = btn.querySelector('i'); const t = btn.querySelector('span'); if(m){ i.className='fa-solid fa-microphone-slash'; t.textContent='בטל השתקה'; } else { i.className='fa-solid fa-microphone'; t.textContent='השתק'; } } }
   async function handleCamera(){ const off = await App.videoCall.toggleCamera(); const btn = dialog && dialog.querySelector('[data-action="camera"]'); if(btn){ const i = btn.querySelector('i'); const t = btn.querySelector('span'); if(off){ i.className='fa-solid fa-video-slash'; t.textContent='הפעל מצלמה'; } else { i.className='fa-solid fa-camera'; t.textContent='כבה מצלמה'; } } }
   async function handleFlip(){ try { await App.videoCall.switchCamera(); } catch(e){ console.warn('flip failed', e); } }
+
+  // Authenticated 1059 ring intent (no SDP yet): ring now, accept waits for the offer.
+  App.onVideoCallRinging = function(peer){
+    const peerNorm = peer ? String(peer).toLowerCase() : '';
+    if (!/^[0-9a-f]{64}$/.test(peerNorm) || dialog || window.__sosAcceptInFlight) return;
+    videoRingOnlyPeer = peerNorm;
+    App.__videoIncomingOffer = null;
+    App.__videoIncomingPeer = peerNorm;
+    try { console.log('CALL_RING_UI_SHOW'); } catch (_) {}
+    saveChatPanelState();
+    if (typeof App.pauseAllFeedVideos === 'function') App.pauseAllFeedVideos();
+    createDialog(peer, true);
+    showIncomingVideoNotification(peer);
+    startToneWithPolicy(playRingtone);
+  };
 
   // חלק שיחות וידאו – callbacks מהמנוע
   App.onVideoCallIncoming = function(peer, offer){
@@ -857,6 +885,12 @@
         App.nativeCacheIncomingCallOffer(peer, 'video', offer);
       }
     } catch (_) {}
+
+    if (videoRingOnlyPeer && videoRingOnlyPeer === peerNorm && dialog) {
+      videoRingOnlyPeer = null;
+      try { console.log('CALL_RING_OFFER_READY'); } catch (_) {}
+      return;
+    }
 
     // Native already answered — adopt, suppress ring, auto-accept.
     try {

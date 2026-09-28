@@ -1,0 +1,162 @@
+{
+  "generatedAt": "2026-09-28T21:00:37.834Z",
+  "package": 899,
+  "phase": "F+V",
+  "gates": {
+    "P2P_CONNECTION_STATE_MACHINE_GATE": "PASS",
+    "P2P_FAILURE_CLASSIFICATION_GATE": "PASS",
+    "P2P_PHASE_DEADLINE_GATE": "PASS",
+    "P2P_DIAGNOSTIC_PRIVACY_GATE": "PASS",
+    "P2P_PERSISTENT_DC_REUSE_GATE": "PASS",
+    "P2P_STALE_DC_DETECTION_GATE": "PASS",
+    "P2P_ACTIVE_TRANSFER_CONNECTION_PROTECTION_GATE": "PASS",
+    "SIGNALING_FAILURE_CLASSIFICATION_GATE": "PASS",
+    "P2P_PEER_OFFLINE_GATE": "PASS",
+    "NETWORK_ENVIRONMENT_BLOCK_CLASSIFICATION_GATE": "PASS",
+    "P2P_RETRY_STORM_GATE": "PASS",
+    "DC_FAILED_NOT_RETRIED_FOREVER": "PASS",
+    "P2P_TO_BLOSSOM_FALLBACK_GATE": "PASS",
+    "P2P_FALLBACK_CRYPTO_FAIL_CLOSED_GATE": "PASS",
+    "P2P_ACK_TIMEOUT_POSTFIX_GATE": "PASS",
+    "P2P_ADAPTIVE_WINDOW_SAFETY_GATE": "PASS",
+    "TRANSFER_INACTIVITY_DEADLINE_GATE": "PASS",
+    "DC_CONNECTING_NOT_MISCLASSIFIED_AS_FAILED": "PASS",
+    "P2P_HASH_FAILURE_GATE": "PASS",
+    "SECURITY": "PASS",
+    "P2P_898_BUG_REPRO_GATE": "PASS",
+    "P2P_899_BUG_FIXED_GATE": "PASS",
+    "P2P_TEST_DIAGNOSTIC_GATE": "PASS",
+    "P2P_FAILURE_MATRIX_GATE": "PASS",
+    "P2P_FALLBACK_LATENCY_GATE": "PASS"
+  },
+  "matrix": [
+    {
+      "scenario": "healthy_new_dc",
+      "expected": "DC_OPEN",
+      "actual": "DC_OPEN",
+      "ms": 364,
+      "ok": true
+    },
+    {
+      "scenario": "healthy_existing_dc",
+      "expected": "REUSED",
+      "actual": "REUSED",
+      "ms": 0,
+      "ok": true
+    },
+    {
+      "scenario": "dc_closes_mid_transfer",
+      "expected": "DATA_CHANNEL_CLOSED",
+      "actual": "DATA_CHANNEL_CLOSED",
+      "ms": 0,
+      "ok": true
+    },
+    {
+      "scenario": "slow_signaling",
+      "expected": "DC_OPEN (no premature fail)",
+      "actual": "DC_OPEN",
+      "ms": 665,
+      "ok": true
+    },
+    {
+      "scenario": "relay_unavailable",
+      "expected": "SIGNAL_RELAY_UNAVAILABLE",
+      "actual": "SIGNAL_RELAY_UNAVAILABLE",
+      "ms": 328,
+      "ok": true
+    },
+    {
+      "scenario": "answer_missing",
+      "expected": "ANSWER_TIMEOUT",
+      "actual": "ANSWER_TIMEOUT",
+      "ms": 668,
+      "ok": true
+    },
+    {
+      "scenario": "peer_offline",
+      "expected": "PEER_OFFLINE (early at soft)",
+      "actual": "PEER_OFFLINE",
+      "ms": 329,
+      "ok": true
+    },
+    {
+      "scenario": "ice_failure",
+      "expected": "NETWORK_ENVIRONMENT_BLOCKED",
+      "actual": "NETWORK_ENVIRONMENT_BLOCKED",
+      "ms": 0,
+      "ok": true
+    },
+    {
+      "scenario": "dc_never_opens",
+      "expected": "DATA_CHANNEL_TIMEOUT",
+      "actual": "DATA_CHANNEL_TIMEOUT",
+      "ms": 269,
+      "ok": true
+    },
+    {
+      "scenario": "healthy_existing_dc_file",
+      "expected": "REUSED",
+      "actual": "REUSED",
+      "ms": 43,
+      "ok": true
+    },
+    {
+      "scenario": "p2p_unavailable_to_blossom",
+      "expected": "complete-blossom (encrypted)",
+      "actual": "complete-blossom",
+      "ms": 15,
+      "ok": true
+    },
+    {
+      "scenario": "crypto_failure_during_fallback",
+      "expected": "ENCRYPTION_FAILED",
+      "actual": "ENCRYPTION_FAILED",
+      "ms": 15,
+      "ok": true
+    },
+    {
+      "scenario": "ack_timeout_no_first_ack",
+      "expected": "TRANSFER_READY_TIMEOUT → encrypted fallback",
+      "actual": "TRANSFER_READY_TIMEOUT",
+      "ms": 278,
+      "ok": true
+    },
+    {
+      "scenario": "receiver_stalls",
+      "expected": "APPLICATION_ACK_TIMEOUT → encrypted fallback",
+      "actual": "APPLICATION_ACK_TIMEOUT",
+      "ms": 534,
+      "ok": true
+    },
+    {
+      "scenario": "hash_mismatch",
+      "expected": "INTEGRITY_HASH_FAILED (1 full resend, never complete)",
+      "actual": "INTEGRITY_HASH_FAILED",
+      "ms": 0,
+      "ok": true
+    }
+  ],
+  "fallbackLatency": {
+    "decisionToFallbackStart_p50_ms": 0,
+    "decisionToFallbackStart_p95_ms": 1,
+    "selectToFallbackComplete_p50_ms_mock": 14,
+    "selectToFallbackComplete_p95_ms_mock": 15,
+    "worstCaseDetectMs": {
+      "SIGNAL_RELAY_UNAVAILABLE": 4000,
+      "PEER_OFFLINE": 4000,
+      "ANSWER_TIMEOUT": 12000,
+      "ICE_FAILED_or_TIMEOUT": 27000,
+      "DATA_CHANNEL_TIMEOUT": 32000,
+      "TRANSFER_READY_TIMEOUT": 24000,
+      "APPLICATION_ACK_TIMEOUT": 48000
+    },
+    "samples": 25
+  },
+  "voice": {
+    "VOICE_P2P_APP_E2EE_STATUS": "NOT_YET_IMPLEMENTED",
+    "plaintextWebTorrentSeedPresent": true,
+    "PACKAGE899_FINAL_RC_BLOCKED_BY_VOICE_P2P_E2EE": true
+  },
+  "logLinesScanned": 768,
+  "result": "PASS"
+}
