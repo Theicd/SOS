@@ -1,31 +1,47 @@
 {
   "gate": "PACKAGE898_RC",
-  "status": "BLOCKED",
-  "ts": "2026-09-27T21:54:53.794Z",
+  "status": "PASS",
+  "ts": "2026-09-27T23:49:51.982Z",
   "results": {
     "PACKAGE898_SCOPE_DELTA": {
       "ok": true,
       "detail": [
         "admin-signing-policy.js",
         "app-version.json",
+        "config.js",
         "docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md",
         "docs/FIRST_GROUP_ADMIN_STATUS.md",
-        "docs/SECURITY_PRODUCT_INTEGRATION_MAP.md",
-        "first-group-admin.js",
-        "group-admin-product-ui.js",
-        "group-control-state.js",
-        "invite-service.js",
-        "membership-state.js",
-        "service-worker.js",
-        "sw-register.js",
-        "videos.html",
         "docs/FIRST_GROUP_NETWORK_AUTHORITY.md",
         "docs/PACKAGE898_FIRST_GROUP_NETWORK_RELEASE_PLAN.md",
+        "docs/SECURITY_PRODUCT_INTEGRATION_MAP.md",
+        "first-group-admin.js",
         "first-group-network-authority.js",
+        "group-admin-product-ui.js",
+        "group-control-state.js",
+        "guest-auth.js",
+        "invite-service.js",
+        "membership-state.js",
         "qa/package898-404-audit.mjs",
         "qa/package898-first-group-network-e2e.mjs",
         "qa/package898-rc-gate.mjs",
-        "qa/package898-real-browser-call-gate.mjs"
+        "qa/package898-real-browser-call-gate.mjs",
+        "service-worker.js",
+        "sw-register.js",
+        "videos.html",
+        "admission-service/.gitignore",
+        "admission-service/package-lock.json",
+        "admission-service/package.json",
+        "admission-service/src/authority.js",
+        "admission-service/src/group.js",
+        "admission-service/src/index.js",
+        "admission-service/src/keys.js",
+        "admission-service/src/ledger.js",
+        "admission-service/src/shim.js",
+        "admission-service/wrangler.toml",
+        "docs/FIRST_GROUP_ADMISSION_AUTHORITY.md",
+        "first-group-admission-client.js",
+        "qa/package898-admission-service-gate.mjs",
+        "qa/package898-admission-staging.mjs"
       ]
     },
     "ANDROID_UNTOUCHED": {
@@ -70,9 +86,21 @@
       "ok": true,
       "detail": null
     },
+    "FIRST_GROUP_ADMISSION_CLIENT_WIRED": {
+      "ok": true,
+      "detail": null
+    },
+    "SHIPPED_ADMISSION_URL_EMPTY": {
+      "ok": true,
+      "detail": "production admission service not configured in 898"
+    },
+    "UNSERIALIZED_FALLBACK_DISABLED": {
+      "ok": true,
+      "detail": null
+    },
     "NETWORK_GATEWAY_ON_EVERY_PRIVILEGED_OP": {
       "ok": true,
-      "detail": 11
+      "detail": 12
     },
     "NETWORK_MODULE_DECLARES_CACHE_NOT_AUTHORITY": {
       "ok": true,
@@ -97,11 +125,20 @@
       "ok": true,
       "detail": null
     },
+    "ADMIN_SIGNING_POLICY_SCOPED_DELTA": {
+      "ok": true,
+      "detail": {
+        "changed": 8,
+        "other": [],
+        "admissionCapsDelegable": false
+      }
+    },
     "ADMIN_SIGNING_POLICY_DTAG_ONLY": {
       "ok": true,
       "detail": {
-        "changed": 6,
-        "nonDtag": []
+        "changed": 8,
+        "other": [],
+        "admissionCapsDelegable": false
       }
     },
     "SIGN_FEED_NEGATIVE_ALLOWLIST_GATE": {
@@ -113,6 +150,25 @@
       "detail": []
     },
     "NO_GENERIC_RAW_SIGNING_SURFACE": {
+      "ok": true,
+      "detail": null
+    },
+    "ADMISSION_SERVICE_SECRETS_OUT_OF_REPO": {
+      "ok": true,
+      "detail": {
+        "ignored": true,
+        "trackedSvcSecrets": []
+      }
+    },
+    "ROOT_PRIVATE_KEY_NOT_IN_SERVICE": {
+      "ok": true,
+      "detail": null
+    },
+    "ADMISSION_SERVICE_NARROW_SIGNER": {
+      "ok": true,
+      "detail": null
+    },
+    "ADMISSION_SERVICE_KEY_NOT_IN_CLIENT": {
       "ok": true,
       "detail": null
     },
@@ -168,7 +224,7 @@
       "ok": true,
       "detail": {
         "status": "PASS",
-        "checks": 42,
+        "checks": 45,
         "failed": []
       }
     },
@@ -204,16 +260,182 @@
       "ok": true,
       "detail": "3 checks"
     },
-    "NETWORK_DOUBLE_REDEEM_SINGLE_APPROVER": {
+    "PACKAGE898_EXISTING_E2E_PASS": {
+      "ok": true,
+      "detail": "42/42"
+    },
+    "E2E_ADMISSION_DELEGATION_BY_ROOT_ONLY": {
+      "ok": true,
+      "detail": null
+    },
+    "E2E_SERVICE_LOG_PRIVACY": {
+      "ok": true,
+      "detail": 0
+    },
+    "ADMISSION_SERVICE_LOCAL_GATE": {
+      "ok": true,
+      "detail": {
+        "status": "PASS",
+        "checks": 46
+      }
+    },
+    "ADMISSION_STAGING_GATE": {
+      "ok": true,
+      "detail": {
+        "status": "PASS",
+        "checks": 44,
+        "worker": "sos-first-group-admission-staging",
+        "generatedAt": "2026-09-27T22:59:52.776Z"
+      }
+    },
+    "DURABLE_OBJECT_PER_INVITE": {
+      "ok": true,
+      "detail": "idFromName(firstGroupId + \":\" + inviteId)"
+    },
+    "ADMISSION_INFRA_ARCHITECTURE_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "INVITE_ATOMIC_LEDGER": {
+      "ok": true,
+      "detail": null
+    },
+    "MULTI_INSTANCE_ADMISSION_SERIALIZATION_GATE": {
+      "ok": true,
+      "detail": {
+        "edge": "cloudflare-staging",
+        "stress": {
+          "p50": 637.3,
+          "p95": 802.1,
+          "max": 810,
+          "tally": {
+            "ALREADY_REDEEMED": 99,
+            "ACCEPTED": 1
+          }
+        }
+      }
+    },
+    "INVITE_ATOMIC_COMPARE_AND_SET_GATE": {
+      "ok": true,
+      "detail": {
+        "local": "PASS",
+        "staging": "PASS"
+      }
+    },
+    "FIRST_GROUP_INVITE_CONCURRENCY_GATE": {
+      "ok": true,
+      "detail": {
+        "local": "PASS",
+        "staging": "PASS"
+      }
+    },
+    "FIRST_GROUP_REDEEM_IDEMPOTENCY_GATE": {
+      "ok": true,
+      "detail": {
+        "local": "PASS",
+        "staging": "PASS"
+      }
+    },
+    "INVITE_MEMBERSHIP_ATOMICITY_GATE": {
+      "ok": true,
+      "detail": {
+        "local": "PASS",
+        "staging": "PASS"
+      }
+    },
+    "INVITE_REVOKE_REDEEM_RACE_GATE": {
+      "ok": true,
+      "detail": {
+        "local": "PASS",
+        "staging": "PASS"
+      }
+    },
+    "ADMISSION_INVITE_REGISTER_GATE": {
+      "ok": true,
+      "detail": {
+        "local": "PASS",
+        "staging": "PASS"
+      }
+    },
+    "INVITE_REGISTER_IDEMPOTENCY_GATE": {
+      "ok": true,
+      "detail": {
+        "local": "PASS",
+        "staging": "PASS"
+      }
+    },
+    "FINALIZATION_RECOVERY_GATE": {
+      "ok": true,
+      "detail": {
+        "local": "PASS",
+        "staging": "PASS"
+      }
+    },
+    "ADMISSION_DELEGATION_GROUP_BOUND": {
+      "ok": true,
+      "detail": {
+        "local": "PASS",
+        "staging": "PASS"
+      }
+    },
+    "ADMISSION_DELEGATION_CAPABILITY_NARROW": {
+      "ok": true,
+      "detail": {
+        "local": "PASS",
+        "staging": "PASS"
+      }
+    },
+    "CLIENT_CLOCK_CAN_BYPASS_EXPIRATION_FALSE": {
+      "ok": true,
+      "detail": null
+    },
+    "ADMISSION_OUTAGE_FAILS_CLOSED": {
+      "ok": true,
+      "detail": null
+    },
+    "ADMISSION_SERVICE_ROOT_DELEGATION_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "FIRST_GROUP_NETWORK_DOUBLE_REDEEM_GATE": {
       "ok": true,
       "detail": {
         "bothValidated": true,
-        "bothMarked": true,
-        "activeCount": 1,
-        "expectedWinner": "E",
-        "winnerActive": true,
-        "loserRetry": "ההזמנה כבר נוצלה"
+        "accepted": 1,
+        "winner": "E",
+        "loser": {
+          "result": "ALREADY_REDEEMED",
+          "error": "ההזמנה כבר נוצלה"
+        },
+        "converged": {
+          "winnerOnA": true,
+          "winnerOnB": true,
+          "loserOnA": "UNKNOWN",
+          "loserOnB": "UNKNOWN"
+        },
+        "loserRetry": "ההזמנה כבר נוצלה",
+        "serviceProofsOnRelay": 1
       }
+    },
+    "FIRST_GROUP_REDEEM_RESPONSE_LOSS_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "FIRST_GROUP_THREE_BROWSER_NETWORK_E2E_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "FIRST_GROUP_NETWORK_ADVERSARIAL_GATE": {
+      "ok": true,
+      "detail": null
+    },
+    "ADMISSION_REGISTRATION_POLICY": {
+      "ok": true,
+      "detail": null
+    },
+    "ADMISSION_SERVICE_LOG_PRIVACY": {
+      "ok": true,
+      "detail": null
     },
     "PRODUCT_RC_894_FLOWS": {
       "ok": true,
@@ -345,6 +567,10 @@
       "ok": true,
       "detail": null
     },
+    "DOC_FIRST_GROUP_ADMISSION_AUTHORITY": {
+      "ok": true,
+      "detail": null
+    },
     "DOC_SECURITY_PRODUCT_INTEGRATION_MAP": {
       "ok": true,
       "detail": null
@@ -356,6 +582,10 @@
     "DOC_PACKAGE898_RELEASE_PLAN": {
       "ok": true,
       "detail": null
+    },
+    "DOCS_NO_STALE_BLOCKED_MODEL": {
+      "ok": true,
+      "detail": []
     }
   },
   "informational": {
@@ -376,10 +606,10 @@
       "detail": "superseded: in-page relay stub + export/import model; gateway now requires relay confirmation"
     },
     "DIRECT_P2P_ENVIRONMENTAL": {
-      "ok": true,
+      "ok": false,
       "detail": {
-        "connected": true,
-        "dc": "open"
+        "connected": false,
+        "dc": null
       }
     },
     "REAL_BROWSER_P2P_CHAT_FILE": {
@@ -404,26 +634,7 @@
       "detail": "Android unit-test build is out of scope (no Android work in 898)"
     }
   },
-  "blocked": {
-    "NETWORK_DOUBLE_REDEEM": {
-      "value": "BLOCKED_DISTRIBUTED_SERIALIZATION",
-      "detail": {
-        "scope": "NETWORK_SINGLE_APPROVER_SERIALIZED",
-        "twoApprovers": {
-          "grantMM": "APPLIED",
-          "onA": [
-            "CONFLICT",
-            "UNKNOWN"
-          ],
-          "onB": [
-            "CONFLICT",
-            "UNKNOWN"
-          ]
-        },
-        "requirement": "designated single join-serializer key or convergent per-invite resolver rule (owner decision)"
-      }
-    }
-  },
+  "blocked": {},
   "groups": {
     "THREE_BROWSER_NETWORK_E2E": "PASS",
     "FRESH_PROFILE_AUTHORITY": "PASS",
@@ -433,12 +644,12 @@
     "NETWORK_ADVERSARIAL": "PASS",
     "MULTI_USER_SESSION": "PASS",
     "NETWORK_BACKED_ADMIN_UI": "PASS",
-    "NETWORK_DOUBLE_REDEEM": "BLOCKED_DISTRIBUTED_SERIALIZATION",
+    "NETWORK_DOUBLE_REDEEM": "PASS",
     "PRODUCT_REGRESSION": "PASS",
     "MASTER_SECURITY": "PASS"
   },
-  "PACKAGE898_RC_SHA": "16f43ae6f81406c68944b66770b248b27137c643",
-  "PACKAGE898_RC_TREE_HASH": "1944030179ae280d02b49f0d2866854050a94d5c",
+  "PACKAGE898_RC_SHA": "9d9111bf198851b00ceb83eb7e1ad6a94195547d",
+  "PACKAGE898_RC_TREE_HASH": "7739631fa7c9e26ba789fb8f6a657188843aa964",
   "ROLLBACK_TARGET_SHA": "16f43ae6f81406c68944b66770b248b27137c643",
   "NEXT_WEB_PACKAGE": 898,
   "NEXT_CACHE_VERSION": "sos-cache-v898",
@@ -449,60 +660,91 @@
   "ANDROID_WORK_EXECUTED": false,
   "APK_BUILT": false,
   "MD4_STARTED": false,
-  "PACKAGE898_RC_STATUS": "BLOCKED",
-  "FIRST_GROUP_V2_READY_FOR_CONTROLLED_PRODUCTION_ACTIVATION": false,
+  "PACKAGE898_RC_STATUS": "READY_FOR_OWNER_APPROVAL",
+  "FIRST_GROUP_V2_READY_FOR_CONTROLLED_PRODUCTION_ACTIVATION": true,
+  "PRODUCTION_ADMISSION_SERVICE_DEPLOYED": false,
+  "PRODUCTION_DNS_CHANGED": false,
+  "PRODUCTION_ROOT_DELEGATION_CREATED": false,
+  "PRODUCTION_V2_ACTIVATED": false,
+  "ROOT_KEY_ROTATION_REQUIRED": false,
+  "UNSERIALIZED_FALLBACK_ENABLED": false,
+  "CLIENT_CLOCK_CAN_BYPASS_EXPIRATION": false,
   "delta": {
     "files": [
       "admin-signing-policy.js",
       "app-version.json",
+      "config.js",
       "docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md",
       "docs/FIRST_GROUP_ADMIN_STATUS.md",
-      "docs/SECURITY_PRODUCT_INTEGRATION_MAP.md",
-      "first-group-admin.js",
-      "group-admin-product-ui.js",
-      "group-control-state.js",
-      "invite-service.js",
-      "membership-state.js",
-      "service-worker.js",
-      "sw-register.js",
-      "videos.html",
       "docs/FIRST_GROUP_NETWORK_AUTHORITY.md",
       "docs/PACKAGE898_FIRST_GROUP_NETWORK_RELEASE_PLAN.md",
+      "docs/SECURITY_PRODUCT_INTEGRATION_MAP.md",
+      "first-group-admin.js",
       "first-group-network-authority.js",
+      "group-admin-product-ui.js",
+      "group-control-state.js",
+      "guest-auth.js",
+      "invite-service.js",
+      "membership-state.js",
       "qa/package898-404-audit.mjs",
       "qa/package898-first-group-network-e2e.mjs",
       "qa/package898-rc-gate.mjs",
-      "qa/package898-real-browser-call-gate.mjs"
+      "qa/package898-real-browser-call-gate.mjs",
+      "service-worker.js",
+      "sw-register.js",
+      "videos.html",
+      "admission-service/.gitignore",
+      "admission-service/package-lock.json",
+      "admission-service/package.json",
+      "admission-service/src/authority.js",
+      "admission-service/src/group.js",
+      "admission-service/src/index.js",
+      "admission-service/src/keys.js",
+      "admission-service/src/ledger.js",
+      "admission-service/src/shim.js",
+      "admission-service/wrangler.toml",
+      "docs/FIRST_GROUP_ADMISSION_AUTHORITY.md",
+      "first-group-admission-client.js",
+      "qa/package898-admission-service-gate.mjs",
+      "qa/package898-admission-staging.mjs"
     ],
-    "count": 20
+    "count": 36
   },
+  "ROOT_PRIVATE_KEY_SERVER_EXPOSED": false,
+  "ADMISSION_SERVICE_PRIVATE_KEY_CLIENT_EXPOSED": false,
+  "GENERIC_SIGNER_EXPOSED": false,
   "E2E_SCOPE": "NETWORK_BACKED_E2E",
   "NETWORK_BACKED_E2E": true,
-  "DOUBLE_REDEEM_SCOPE": "NETWORK_SINGLE_APPROVER_SERIALIZED",
-  "E2E_CHECKS": 42,
+  "DOUBLE_REDEEM_SCOPE": "NETWORK_SERIALIZED_AUTHORITY",
+  "E2E_CHECKS": 45,
   "E2E_METRICS": {
-    "JOIN_APPROVAL_LATENCY_MS_B": 4491,
-    "REALTIME_GRANT_LATENCY_MS": 279,
-    "JOIN_APPROVAL_LATENCY_MS_C": 4474,
-    "REALTIME_PROMOTE_LATENCY_MS": 381,
-    "REALTIME_REVOKE_LATENCY_MS": 300,
+    "ADMISSION_DELEGATION": {
+      "delegation": {
+        "code": "APPLIED",
+        "push": "OK",
+        "caps": [
+          "FINALIZE_MEMBERSHIP_ADMISSION"
+        ],
+        "delegates": [
+          {
+            "pubkey": "4630b15e944b4ef1066a22376c607e58a63f63ab3f0de2d91980f5327d215b12",
+            "status": "ACTIVE"
+          }
+        ]
+      },
+      "delegateByNonRoot": "UNAUTHORIZED"
+    },
+    "JOIN_APPROVAL_LATENCY_MS_B": 261,
+    "REALTIME_GRANT_LATENCY_MS": 304,
+    "JOIN_APPROVAL_LATENCY_MS_C": 43,
+    "REALTIME_PROMOTE_LATENCY_MS": 351,
+    "REALTIME_REVOKE_LATENCY_MS": 314,
     "REPROMOTE_BEFORE_DEMOTE": {
       "repromote": "SAVED",
       "ok": true
     },
-    "RECONNECT_CONVERGENCE_MS": 8257,
-    "REALTIME_REMOVE_LATENCY_MS": 354,
-    "DOUBLE_REDEEM_TWO_APPROVERS": {
-      "grantMM": "APPLIED",
-      "onA": [
-        "CONFLICT",
-        "UNKNOWN"
-      ],
-      "onB": [
-        "CONFLICT",
-        "UNKNOWN"
-      ]
-    },
+    "RECONNECT_CONVERGENCE_MS": 4878,
+    "REALTIME_REMOVE_LATENCY_MS": 370,
     "GRANT_PM_FOR_FORK": "APPLIED",
     "FORK_EVENTS": {
       "a": true,
@@ -528,12 +770,15 @@
       ]
     },
     "37379": {
-      "n": 8,
+      "n": 6,
       "tags": [
         "d",
         "e",
         "ih",
+        "member-revision",
+        "op",
         "p",
+        "svc",
         "t"
       ],
       "contentKeys": [
@@ -558,7 +803,7 @@
       ]
     },
     "39001": {
-      "n": 15,
+      "n": 16,
       "tags": [
         "d",
         "sos-control",
@@ -581,8 +826,9 @@
       ]
     },
     "39003": {
-      "n": 8,
+      "n": 9,
       "tags": [
+        "admission",
         "control-epoch",
         "d",
         "member-revision",
@@ -592,6 +838,7 @@
         "t"
       ],
       "contentKeys": [
+        "admission",
         "controlEpochAtIssue",
         "createdAt",
         "groupId",
@@ -605,6 +852,31 @@
         "transition",
         "version"
       ]
+    }
+  },
+  "EXISTING_E2E_PASS": 42,
+  "EXISTING_E2E_TOTAL": 42,
+  "EXISTING_E2E_RESCOPED": {
+    "NETWORK_DOUBLE_REDEEM_SINGLE_APPROVER": "FIRST_GROUP_NETWORK_DOUBLE_REDEEM"
+  },
+  "ADMISSION_STRESS": {
+    "local": {
+      "p50": 391.3,
+      "p95": 653,
+      "max": 665,
+      "tally": {
+        "ACCEPTED": 1,
+        "ALREADY_REDEEMED": 99
+      }
+    },
+    "staging": {
+      "p50": 637.3,
+      "p95": 802.1,
+      "max": 810,
+      "tally": {
+        "ALREADY_REDEEMED": 99,
+        "ACCEPTED": 1
+      }
     }
   },
   "REAL_P2P": "PASS",
@@ -650,10 +922,8 @@
     6
   ],
   "PACKAGE898_SCOPE_GATE": "PASS",
-  "PACKAGE898_RC_GATE": "BLOCKED",
+  "PACKAGE898_RC_GATE": "PASS",
   "missing": [],
-  "blockedKeys": [
-    "NETWORK_DOUBLE_REDEEM"
-  ],
+  "blockedKeys": [],
   "RC_IDENTITY_NOTE": "SHA/tree above are HEAD at gate run time; final RC identity is the commit that contains this report."
 }

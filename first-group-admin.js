@@ -60,7 +60,8 @@
     '(ROOT_IMMUTABLE / ROOT_PROTECTED / ROOT_TARGET_FORBIDDEN), so the first group can never be left ' +
     'without an owner through admin actions. Root key loss/rotation is out of scope for this phase.';
 
-  const DOUBLE_REDEEM_SCOPE = 'NETWORK_SINGLE_APPROVER_SERIALIZED';
+  const DOUBLE_REDEEM_SCOPE = 'NETWORK_SERIALIZED_AUTHORITY';
+  const ADMISSION_CAPS = Object.freeze(['FINALIZE_MEMBERSHIP_ADMISSION', 'FINALIZE_MEMBERSHIP_ADMISSION_RETIRED']);
   const E2E_SCOPE = 'NETWORK_BACKED_E2E';
 
   function isV2() {
@@ -107,7 +108,7 @@
 
   function mapCaps() {
     const g = GCS();
-    return ((g && g.MAP_CAPABILITIES) || Object.keys(CAP_LABELS)).slice();
+    return ((g && g.MAP_CAPABILITIES) || Object.keys(CAP_LABELS)).filter((c) => ADMISSION_CAPS.indexOf(c) === -1);
   }
 
   function delegableCaps() {
@@ -514,13 +515,69 @@
     return res && res.ok ? done(res) : res || fail('REMOVE_FAILED');
   }
 
-  async function approveJoin(memberPubkey, inviteEventId, opts) {
+  /** Invite-bound admission is final only through the canonical admission service (single-use atomic claim). */
+  async function approveJoin(memberPubkey, inviteEventId) {
     const g = await nguard('GRANT_MEMBER_ACTIVE', ['MANAGE_MEMBERS']);
     if (!g.ok) return g;
-    const mao = MAO();
-    if (!mao) return fail('NO_MEMBER_OPS');
-    const res = await mao.grantMemberActiveFromInvite(normalizePubkey(memberPubkey), inviteEventId, g.actor, opts || {});
-    return res && res.ok ? done(res) : res || fail('GRANT_FAILED');
+    void memberPubkey;
+    void inviteEventId;
+    return fail('ADMISSION_SERVICE_REQUIRED');
+  }
+
+  // ---------------------------------------------------------------- admission service delegation (ROOT only)
+
+  async function rootDelegationGuard(opName, servicePubkey) {
+    const g = await nguard(opName, ['MANAGE_ADMINS']);
+    if (!g.ok) return g;
+    if (!g.auth.isRoot) return fail('ROOT_ONLY');
+    const pk = normalizePubkey(servicePubkey);
+    if (!pk) return fail('BAD_PUBKEY');
+    if (pk === g.actor) return fail('ROOT_TARGET_FORBIDDEN');
+    return Object.assign({}, g, { target: pk, assigned: authorityFor(pk).assigned });
+  }
+
+  /** Grants only FINALIZE_MEMBERSHIP_ADMISSION to the admission service key. */
+  async function setAdmissionDelegate(servicePubkey, opts) {
+    const g = await rootDelegationGuard('SET_ADMISSION_DELEGATE', servicePubkey);
+    if (!g.ok) return g;
+    if (g.assigned.some((c) => ADMISSION_CAPS.indexOf(c) === -1)) return fail('DELEGATE_HAS_OTHER_CAPABILITIES');
+    if (g.assigned.indexOf('FINALIZE_MEMBERSHIP_ADMISSION') !== -1) return fail('NO_CHANGES');
+    return mutate({ type: 'GRANT_CAPABILITY', targetPubkey: g.target, capability: 'FINALIZE_MEMBERSHIP_ADMISSION' }, opts);
+  }
+
+  /** Planned rotation: RETIRED is added before ACTIVE is removed, so earlier proofs never lose validity. */
+  async function retireAdmissionDelegate(servicePubkey, opts) {
+    const g = await rootDelegationGuard('RETIRE_ADMISSION_DELEGATE', servicePubkey);
+    if (!g.ok) return g;
+    if (g.assigned.indexOf('FINALIZE_MEMBERSHIP_ADMISSION_RETIRED') === -1) {
+      const r1 = await mutate({ type: 'GRANT_CAPABILITY', targetPubkey: g.target, capability: 'FINALIZE_MEMBERSHIP_ADMISSION_RETIRED' }, opts);
+      if (!r1 || !r1.ok) return r1;
+    }
+    if (authorityFor(g.target).assigned.indexOf('FINALIZE_MEMBERSHIP_ADMISSION') === -1) return { ok: true, code: 'RETIRED' };
+    const r2 = await mutate({ type: 'REVOKE_CAPABILITY', targetPubkey: g.target, capability: 'FINALIZE_MEMBERSHIP_ADMISSION' }, opts);
+    return r2 && r2.ok ? Object.assign({}, r2, { code: 'RETIRED' }) : r2;
+  }
+
+  /** Compromise: removes the delegation entirely; every proof it signed stops counting. */
+  async function revokeAdmissionDelegate(servicePubkey, opts) {
+    const g = await rootDelegationGuard('REVOKE_ADMISSION_DELEGATE', servicePubkey);
+    if (!g.ok) return g;
+    let last = fail('NO_CHANGES');
+    for (const c of ADMISSION_CAPS) {
+      if (authorityFor(g.target).assigned.indexOf(c) === -1) continue;
+      last = await mutate({ type: 'REVOKE_CAPABILITY', targetPubkey: g.target, capability: c }, opts);
+      if (!last || !last.ok) return last;
+    }
+    return last && last.ok ? Object.assign({}, last, { code: 'DELEGATION_REVOKED' }) : last;
+  }
+
+  function admissionDelegates() {
+    const st = verifiedControl();
+    if (!st) return [];
+    return Object.keys(st.capabilities || {})
+      .map((pk) => ({ pubkey: pk, caps: (st.capabilities[pk] || []).filter((c) => ADMISSION_CAPS.indexOf(c) !== -1) }))
+      .filter((r) => r.caps.length)
+      .map((r) => ({ pubkey: r.pubkey, status: r.caps.indexOf('FINALIZE_MEMBERSHIP_ADMISSION') !== -1 ? 'ACTIVE' : 'RETIRED' }));
   }
 
   async function setInvitePolicy(policy, opts) {
@@ -550,9 +607,9 @@
         status: 'ACTIVE',
       };
       myInvites.unshift(row);
-      return done({ ok: true, code: 'CREATED', invite: row });
+      return done({ ok: true, code: 'CREATED', invite: row, admission: inv.admission || null });
     } catch (e) {
-      return fail('CREATE_INVITE_FAILED', { error: String((e && e.message) || e) });
+      return fail((e && e.admissionCode) || 'CREATE_INVITE_FAILED', { error: String((e && e.message) || e) });
     }
   }
 
@@ -576,7 +633,12 @@
       });
       return done({ ok: true, code: 'REVOKED', event: res && res.event });
     } catch (e) {
-      return fail('REVOKE_FAILED', { error: String((e && e.message) || e) });
+      if (e && e.admissionCode === 'ALREADY_REDEEMED') {
+        myInvites.forEach((r) => {
+          if (r.eventId === row.eventId) r.status = 'USED';
+        });
+      }
+      return fail((e && e.admissionCode) || 'REVOKE_FAILED', { error: String((e && e.message) || e) });
     }
   }
 
@@ -910,6 +972,11 @@
     demoteAdmin,
     removeMember,
     approveJoin,
+    ADMISSION_CAPS,
+    setAdmissionDelegate,
+    retireAdmissionDelegate,
+    revokeAdmissionDelegate,
+    admissionDelegates,
     listPendingJoins,
     setInvitePolicy,
     createInvite,

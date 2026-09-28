@@ -1,0 +1,463 @@
+{
+  "package": 898,
+  "gate": "PACKAGE898_ADMISSION_SERVICE_GATE",
+  "mode": "staging",
+  "baseUrl": "https://sos-first-group-admission-staging.<workers.dev>",
+  "generatedAt": "2026-09-27T22:59:52.776Z",
+  "status": "PASS",
+  "stress100": {
+    "p50": 637.3,
+    "p95": 802.1,
+    "max": 810,
+    "tally": {
+      "ALREADY_REDEEMED": 99,
+      "ACCEPTED": 1
+    }
+  },
+  "raceOutcomes": [
+    "REVOKED/REVOKED",
+    "ALREADY_REDEEMED/ACCEPTED",
+    "REVOKED/REVOKED",
+    "REVOKED/REVOKED",
+    "REVOKED/REVOKED",
+    "ALREADY_REDEEMED/ACCEPTED",
+    "REVOKED/REVOKED",
+    "ALREADY_REDEEMED/ACCEPTED",
+    "REVOKED/REVOKED",
+    "REVOKED/REVOKED",
+    "REVOKED/REVOKED",
+    "ALREADY_REDEEMED/ACCEPTED"
+  ],
+  "results": {
+    "SERVICE_HEALTH": "PASS",
+    "REGISTER_WITHOUT_CONTROL_FAILS_CLOSED": "PASS",
+    "REGISTER_WITHOUT_DELEGATION_FAILS_CLOSED": "PASS",
+    "CONTROL_INGEST_VERIFIED": "PASS",
+    "FORGED_CONTROL_IGNORED": "PASS",
+    "ADMISSION_DELEGATE_CANNOT_ISSUE_CONTROL": "PASS",
+    "ADMISSION_INVITE_REGISTER_GATE": "PASS",
+    "INVITE_REGISTER_IDEMPOTENCY_GATE": "PASS",
+    "REGISTER_UNAUTHORIZED_DENIED": "PASS",
+    "REGISTER_WRONG_GROUP_DENIED": "PASS",
+    "REGISTER_FORGED_INVITE_DENIED": "PASS",
+    "REGISTER_EXPIRY_BOUNDS": "PASS",
+    "REGISTER_WRONG_GROUP_BODY_DENIED": "PASS",
+    "FIRST_GROUP_NETWORK_DOUBLE_REDEEM_GATE": "PASS",
+    "SERVICE_PROOF_ACCEPTED_BY_CLIENT_RESOLVER": "PASS",
+    "PROOF_BINDS_INVITE_REDEEMER_GROUP": "PASS",
+    "FIRST_GROUP_INVITE_CONCURRENCY_GATE": "PASS",
+    "INVITE_MEMBERSHIP_ATOMICITY_GATE": "PASS",
+    "STRESS_100_WAY_ONE_WINNER": "PASS",
+    "PARALLEL_INVITES_EACH_ONE_WINNER": "PASS",
+    "INVITE_ATOMIC_COMPARE_AND_SET_GATE": "PASS",
+    "FIRST_GROUP_REDEEM_IDEMPOTENCY_GATE": "PASS",
+    "FIRST_GROUP_REDEEM_RESPONSE_LOSS_GATE": "PASS",
+    "FINALIZATION_RECOVERY_GATE": "PASS",
+    "CLAIMED_NEVER_REVERTS_TO_UNUSED": "PASS",
+    "INVITE_REVOKE_REDEEM_RACE_GATE": "PASS",
+    "REVOKE_AUTHORIZATION_AND_IDEMPOTENCY": "PASS",
+    "REVOKE_AFTER_REDEEM_ALREADY_REDEEMED": "PASS",
+    "EXPIRY_AUTHORITY_CLOCK": "PASS",
+    "CLIENT_CLOCK_CAN_BYPASS_EXPIRATION_FALSE": "PASS",
+    "STATUS_PRIVACY": "PASS",
+    "REQUEST_REPLAY_AND_TAMPER_DENIED": "PASS",
+    "REPLAYED_REQUEST_GRANTS_ONLY_ORIGINAL_REDEEMER": "PASS",
+    "CORS_NOT_AUTHORIZATION": "PASS",
+    "ABUSE_LIMITS": "PASS",
+    "REGISTRATION_AUTHORITY_POLICY": "PASS",
+    "EXISTING_INVITE_PROOF_VALID_AFTER_INVITER_CAP_REMOVED": "PASS",
+    "FIRST_GROUP_NETWORK_ADVERSARIAL_PROOFS": "PASS",
+    "ADMISSION_DELEGATION_GROUP_BOUND": "PASS",
+    "ADMISSION_DELEGATION_CAPABILITY_NARROW": "PASS",
+    "ADMISSION_KEY_ROTATION": "PASS",
+    "REVOKED_DELEGATION_PROOF_REJECTED": "PASS",
+    "DELEGATION_INACTIVE_FAILS_CLOSED_WITHOUT_CLAIM": "PASS",
+    "OUTAGE_FAILS_CLOSED": "PASS"
+  },
+  "checks": [
+    {
+      "name": "SERVICE_HEALTH",
+      "ok": true,
+      "detail": {
+        "mode": "staging"
+      }
+    },
+    {
+      "name": "REGISTER_WITHOUT_CONTROL_FAILS_CLOSED",
+      "ok": true,
+      "detail": {
+        "result": "TEMPORARILY_UNAVAILABLE",
+        "code": "NO_VERIFIED_CONTROL"
+      }
+    },
+    {
+      "name": "REGISTER_WITHOUT_DELEGATION_FAILS_CLOSED",
+      "ok": true,
+      "detail": {
+        "result": "TEMPORARILY_UNAVAILABLE",
+        "code": "DELEGATION_INACTIVE"
+      }
+    },
+    {
+      "name": "CONTROL_INGEST_VERIFIED",
+      "ok": true,
+      "detail": {
+        "result": "OK",
+        "status": "VERIFIED",
+        "controlEpoch": 2,
+        "added": 1
+      }
+    },
+    {
+      "name": "FORGED_CONTROL_IGNORED",
+      "ok": true,
+      "detail": {
+        "result": "OK",
+        "status": "VERIFIED",
+        "controlEpoch": 2,
+        "added": 0
+      }
+    },
+    {
+      "name": "ADMISSION_DELEGATE_CANNOT_ISSUE_CONTROL",
+      "ok": true,
+      "detail": {
+        "result": "OK",
+        "status": "VERIFIED",
+        "controlEpoch": 2,
+        "added": 0
+      }
+    },
+    {
+      "name": "ADMISSION_INVITE_REGISTER_GATE",
+      "ok": true,
+      "detail": {
+        "result": "REGISTERED",
+        "replay": false,
+        "expiresAt": 1790553538
+      }
+    },
+    {
+      "name": "INVITE_REGISTER_IDEMPOTENCY_GATE",
+      "ok": true,
+      "detail": {
+        "result": "REGISTERED",
+        "replay": true
+      }
+    },
+    {
+      "name": "REGISTER_UNAUTHORIZED_DENIED",
+      "ok": true,
+      "detail": {
+        "result": "UNAUTHORIZED",
+        "code": "AUTHORIZED_DENIED"
+      }
+    },
+    {
+      "name": "REGISTER_WRONG_GROUP_DENIED",
+      "ok": true,
+      "detail": {
+        "result": "INVALID",
+        "code": "CROSS_GROUP"
+      }
+    },
+    {
+      "name": "REGISTER_FORGED_INVITE_DENIED",
+      "ok": true,
+      "detail": {
+        "result": "INVALID",
+        "code": "STRICT_VERIFY_FAILED"
+      }
+    },
+    {
+      "name": "REGISTER_EXPIRY_BOUNDS",
+      "ok": true,
+      "detail": [
+        "BAD_EXPIRATION",
+        "BAD_EXPIRATION"
+      ]
+    },
+    {
+      "name": "REGISTER_WRONG_GROUP_BODY_DENIED",
+      "ok": true,
+      "detail": {
+        "result": "INVALID",
+        "code": "WRONG_GROUP"
+      }
+    },
+    {
+      "name": "FIRST_GROUP_NETWORK_DOUBLE_REDEEM_GATE",
+      "ok": true,
+      "detail": {
+        "ALREADY_REDEEMED": 1,
+        "ACCEPTED": 1
+      }
+    },
+    {
+      "name": "SERVICE_PROOF_ACCEPTED_BY_CLIENT_RESOLVER",
+      "ok": true,
+      "detail": "STRUCTURAL_OK"
+    },
+    {
+      "name": "PROOF_BINDS_INVITE_REDEEMER_GROUP",
+      "ok": true
+    },
+    {
+      "name": "FIRST_GROUP_INVITE_CONCURRENCY_GATE",
+      "ok": true,
+      "detail": {
+        "ALREADY_REDEEMED": 19,
+        "ACCEPTED": 1
+      }
+    },
+    {
+      "name": "INVITE_MEMBERSHIP_ATOMICITY_GATE",
+      "ok": true,
+      "detail": "REDEEMED"
+    },
+    {
+      "name": "STRESS_100_WAY_ONE_WINNER",
+      "ok": true,
+      "detail": {
+        "p50": 637.3,
+        "p95": 802.1,
+        "max": 810,
+        "tally": {
+          "ALREADY_REDEEMED": 99,
+          "ACCEPTED": 1
+        }
+      }
+    },
+    {
+      "name": "PARALLEL_INVITES_EACH_ONE_WINNER",
+      "ok": true,
+      "detail": {
+        "invites": 25,
+        "redeemersEach": 5
+      }
+    },
+    {
+      "name": "INVITE_ATOMIC_COMPARE_AND_SET_GATE",
+      "ok": true
+    },
+    {
+      "name": "FIRST_GROUP_REDEEM_IDEMPOTENCY_GATE",
+      "ok": true,
+      "detail": {
+        "stormT": {
+          "ACCEPTED": 30,
+          "ALREADY_REDEEMED": 29
+        },
+        "diffOp": "ALREADY_REDEEMED"
+      }
+    },
+    {
+      "name": "FIRST_GROUP_REDEEM_RESPONSE_LOSS_GATE",
+      "ok": true,
+      "detail": {
+        "lost": "TEST_FAULT_AFTER_CLAIM",
+        "claimed": "CLAIMED",
+        "loser": "ALREADY_REDEEMED",
+        "retry": "ACCEPTED"
+      }
+    },
+    {
+      "name": "FINALIZATION_RECOVERY_GATE",
+      "ok": true,
+      "detail": {
+        "before": "CLAIMED",
+        "after": "REDEEMED"
+      }
+    },
+    {
+      "name": "CLAIMED_NEVER_REVERTS_TO_UNUSED",
+      "ok": true
+    },
+    {
+      "name": "INVITE_REVOKE_REDEEM_RACE_GATE",
+      "ok": true,
+      "detail": [
+        "REVOKED/REVOKED",
+        "ALREADY_REDEEMED/ACCEPTED",
+        "REVOKED/REVOKED",
+        "REVOKED/REVOKED",
+        "REVOKED/REVOKED",
+        "ALREADY_REDEEMED/ACCEPTED",
+        "REVOKED/REVOKED",
+        "ALREADY_REDEEMED/ACCEPTED",
+        "REVOKED/REVOKED",
+        "REVOKED/REVOKED",
+        "REVOKED/REVOKED",
+        "ALREADY_REDEEMED/ACCEPTED"
+      ]
+    },
+    {
+      "name": "REVOKE_AUTHORIZATION_AND_IDEMPOTENCY",
+      "ok": true,
+      "detail": [
+        "UNAUTHORIZED",
+        "REVOKED",
+        "REVOKED"
+      ]
+    },
+    {
+      "name": "REVOKE_AFTER_REDEEM_ALREADY_REDEEMED",
+      "ok": true,
+      "detail": {
+        "result": "ALREADY_REDEEMED"
+      }
+    },
+    {
+      "name": "EXPIRY_AUTHORITY_CLOCK",
+      "ok": true,
+      "detail": [
+        "EXPIRED",
+        "EXPIRED"
+      ]
+    },
+    {
+      "name": "CLIENT_CLOCK_CAN_BYPASS_EXPIRATION_FALSE",
+      "ok": true
+    },
+    {
+      "name": "STATUS_PRIVACY",
+      "ok": true,
+      "detail": {
+        "unused": "UNUSED",
+        "wrong": "INVALID",
+        "used": "result"
+      }
+    },
+    {
+      "name": "REQUEST_REPLAY_AND_TAMPER_DENIED",
+      "ok": true,
+      "detail": [
+        "STALE_REQUEST",
+        "UNAUTHORIZED",
+        "UNAUTHORIZED",
+        "UNAUTHORIZED",
+        "UNAUTHORIZED",
+        "CODE_MISMATCH",
+        "BAD_REQUEST_BINDING"
+      ]
+    },
+    {
+      "name": "REPLAYED_REQUEST_GRANTS_ONLY_ORIGINAL_REDEEMER",
+      "ok": true
+    },
+    {
+      "name": "CORS_NOT_AUTHORIZATION",
+      "ok": true
+    },
+    {
+      "name": "ABUSE_LIMITS",
+      "ok": true,
+      "detail": [
+        "TOO_LARGE",
+        "BAD_JSON",
+        405,
+        "NO_INVITE_ID"
+      ]
+    },
+    {
+      "name": "REGISTRATION_AUTHORITY_POLICY",
+      "ok": true,
+      "detail": {
+        "existingInvite": "ACCEPTED",
+        "newRegistration": "UNAUTHORIZED"
+      }
+    },
+    {
+      "name": "EXISTING_INVITE_PROOF_VALID_AFTER_INVITER_CAP_REMOVED",
+      "ok": true,
+      "detail": "STRUCTURAL_OK"
+    },
+    {
+      "name": "FIRST_GROUP_NETWORK_ADVERSARIAL_PROOFS",
+      "ok": true,
+      "detail": {
+        "forged": "INVITE_ADMISSION_REQUIRES_DELEGATE",
+        "tampered": "STRICT_VERIFY_FAILED",
+        "noDelegation": "UNAUTHORIZED_ISSUER",
+        "binding": "ADMISSION_BINDING_INVALID",
+        "tag": "ADMISSION_TAG_MISMATCH",
+        "nonGrant": "ADMISSION_DELEGATE_GRANT_ONLY",
+        "wrongGroupDelegation": "UNAUTHORIZED_ISSUER",
+        "wrongGroupProof": "CROSS_GROUP",
+        "nonRootDelegation": "REJECTED"
+      }
+    },
+    {
+      "name": "ADMISSION_DELEGATION_GROUP_BOUND",
+      "ok": true
+    },
+    {
+      "name": "ADMISSION_DELEGATION_CAPABILITY_NARROW",
+      "ok": true
+    },
+    {
+      "name": "ADMISSION_KEY_ROTATION",
+      "ok": true,
+      "detail": {
+        "historical": "STRUCTURAL_OK",
+        "lateRetired": "ADMISSION_DELEGATE_RETIRED",
+        "retiredServiceRegister": "DELEGATION_INACTIVE",
+        "afterFullRevoke": "INVITE_ADMISSION_REQUIRES_DELEGATE",
+        "preRotateEpoch": 3
+      }
+    },
+    {
+      "name": "REVOKED_DELEGATION_PROOF_REJECTED",
+      "ok": true,
+      "detail": "INVITE_ADMISSION_REQUIRES_DELEGATE"
+    },
+    {
+      "name": "DELEGATION_INACTIVE_FAILS_CLOSED_WITHOUT_CLAIM",
+      "ok": true,
+      "detail": {
+        "result": "TEMPORARILY_UNAVAILABLE",
+        "code": "DELEGATION_INACTIVE"
+      }
+    },
+    {
+      "name": "OUTAGE_FAILS_CLOSED",
+      "ok": true,
+      "detail": {
+        "note": "client transport failure maps to TEMPORARILY_UNAVAILABLE",
+        "saved": "https://sos-first-group-admission-staging.<account>.workers.dev"
+      }
+    }
+  ],
+  "DOUBLE_REDEEM_SCOPE": "NETWORK_SERIALIZED_AUTHORITY",
+  "DURABLE_OBJECT_PER_INVITE": "idFromName(firstGroupId + \":\" + inviteId)",
+  "ROOT_PRIVATE_KEY_SERVER_EXPOSED": false,
+  "PRODUCTION_ROOT_DELEGATION_CREATED": false,
+  "QA_KEYS": "disposable (generated per run, never persisted outside gitignored .dev.vars during the run)",
+  "stagingEvidence": {
+    "worker": "sos-first-group-admission-staging",
+    "routes": "none",
+    "customDomain": "none",
+    "steps": [
+      {
+        "step": "deploy",
+        "code": 0,
+        "url": "https://sos-first-group-admission-staging.<account>.workers.dev"
+      },
+      {
+        "step": "secret put ADMISSION_SK",
+        "code": 0
+      },
+      {
+        "step": "gate",
+        "code": 0
+      },
+      {
+        "step": "delete staging worker",
+        "code": 0
+      }
+    ],
+    "gateStatus": "PASS"
+  },
+  "PRODUCTION_ADMISSION_SERVICE_DEPLOYED": false,
+  "PRODUCTION_DNS_CHANGED": false
+}

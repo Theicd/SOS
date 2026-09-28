@@ -1075,7 +1075,13 @@
             });
             if (!usedResult || !usedResult.ok) {
               console.warn('Invite mark-used failed', usedResult);
-              setStatus('keyStatus', 'ההרשמה נעצרה: לא ניתן לסמן שההזמנה נוצלה. נסו שוב.', true);
+              setStatus(
+                'keyStatus',
+                usedResult && usedResult.userMessage
+                  ? 'ההרשמה נעצרה: ' + usedResult.userMessage
+                  : 'ההרשמה נעצרה: לא ניתן לסמן שההזמנה נוצלה. נסו שוב.',
+                true
+              );
               btnFinalConnect.disabled = false;
               updateFinalConnectState();
               return;

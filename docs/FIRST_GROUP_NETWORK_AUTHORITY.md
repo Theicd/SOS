@@ -43,8 +43,8 @@ kept only an author's latest invite.
    `sos-identity-ready`, and before every privileged action.
 4. Dead relay entries are evicted from the pool so a relay that was down reconnects.
 
-Measured on local relays (E2E): grant 284 ms, promote 379 ms, revoke 309 ms, remove 361 ms, reconnect 145 ms,
-join approval 3–4.5 s (includes the 3 s settle window).
+Measured on local relays (E2E): grant 284 ms, promote 379 ms, revoke 309 ms, remove 361 ms, reconnect 145 ms.
+Join admission latency is the service round-trip (staging 100-way race: p50 ≈ 640 ms, p95 ≈ 800 ms).
 
 ## Authorization
 
@@ -62,24 +62,19 @@ reconnect the tab converges and the action is rejected as `UNAUTHORIZED`.
 ## Invites and joining
 
 Creator authority is checked against the current control state (policy AUTHORIZED_USERS_ONLY → INVITE_USERS or
-MANAGE_INVITES). Redeem publishes 37379; self-grant is forbidden, so an online ROOT / MANAGE_MEMBERS client
-approves (`maybeApproveJoins`): invite valid, not revoked, not expired, not already consumed, winner = earliest valid
-redemption by (created_at, id) that is ≥ 3 s old.
+MANAGE_INVITES). With V2 ON, the invite must be registered with the admission service before it is published.
+Redeem sends a signed 37379 request to the service; on `ACCEPTED` the client publishes the service-signed
+39003 proof and the 37379 event. No client approves joins any more (`maybeApproveJoins` →
+`UNSERIALIZED_FALLBACK_DISABLED`, `approveJoin` → `ADMISSION_SERVICE_REQUIRED`).
 
-## Double redeem — BLOCKED_DISTRIBUTED_SERIALIZATION
+## Double redeem — NETWORK_SERIALIZED_AUTHORITY
 
-- Single approver online: exactly one redemption becomes a member (E2E PASS).
-- Two approvers online: both grant the same winner at the same revision → membership CONFLICT (E2E observed):
-  no second member, but the legitimate winner is stuck until a root checkpoint.
-- Relays have no compare-and-set; no client can prove it saw every competing redemption. Atomic single-use
-  therefore needs one of:
-  1. A designated single join-serializer key (e.g. root-only approval, or one configured approver pubkey);
-     simplest, but joins wait for that key to be online.
-  2. A convergent resolver rule in MembershipState: among grants citing the same single-use `inviteEventId`, only
-     the earliest (created_at, id) grant is effective, and duplicate grants of the same winner collapse instead of
-     conflicting. Converges, but is eventually consistent (a loser may appear active until it sees the earlier grant).
-  3. An external serializer service (breaks the no-server model).
-  Owner decision required; not implemented in 898.
+Relays have no compare-and-set, so single-use cannot be decided from relay or browser order. Package 898 uses one
+canonical serializer per invite: a Cloudflare Durable Object (`InviteLedger`) with an atomic `UNUSED → CLAIMED` CAS.
+Exactly one redeem wins; the rest get `ALREADY_REDEEMED` / `REVOKED` / `EXPIRED`. The winner's membership is valid
+only through a proof signed by the service key that ROOT delegated `FINALIZE_MEMBERSHIP_ADMISSION` to; every peer
+re-verifies it. Full design: `FIRST_GROUP_ADMISSION_AUTHORITY.md`. Verified locally (workerd), on Cloudflare staging
+(100-way race → 1 accepted), and in the three-browser E2E.
 
 ## Relay privacy (what relays can see)
 

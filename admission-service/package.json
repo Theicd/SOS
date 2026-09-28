@@ -1,0 +1,17 @@
+{
+  "name": "sos-first-group-admission",
+  "private": true,
+  "version": "1.0.0",
+  "description": "First-group (israel-network) single-use invite admission authority: Cloudflare Worker + Durable Object per invite.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local --port 8799",
+    "deploy:staging": "wrangler deploy --env staging"
+  },
+  "dependencies": {
+    "nostr-tools": "2.17.0"
+  },
+  "devDependencies": {
+    "wrangler": "4.42.0"
+  }
+}

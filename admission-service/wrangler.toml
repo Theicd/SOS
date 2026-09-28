@@ -1,0 +1,50 @@
+# First-group admission authority (Package 898).
+# Secrets (never in this file or in git): ADMISSION_SK — dedicated service key (hex). Set with
+#   wrangler secret put ADMISSION_SK --env staging
+# Locally it is read from the gitignored .dev.vars.
+# The ROOT private key is never given to this service; ROOT only delegates FINALIZE_MEMBERSHIP_ADMISSION
+# to the service public key through a root-signed GROUP_CONTROL event.
+
+name = "sos-first-group-admission-local"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+workers_dev = false
+
+[vars]
+FIRST_GROUP_ID = "israel-network"
+# Local/QA root public key; the E2E harness overrides it through .dev.vars.
+ROOT_PUBKEY = ""
+ALLOWED_ORIGINS = "http://127.0.0.1:8898"
+TEST_FAULTS = "0"
+
+[[durable_objects.bindings]]
+name = "INVITES"
+class_name = "InviteLedger"
+
+[[durable_objects.bindings]]
+name = "GROUP"
+class_name = "GroupAuthority"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["InviteLedger", "GroupAuthority"]
+
+# Isolated staging: workers.dev only, no routes, no custom domain, disposable QA root + service key.
+[env.staging]
+name = "sos-first-group-admission-staging"
+workers_dev = true
+routes = []
+
+[env.staging.vars]
+FIRST_GROUP_ID = "israel-network"
+ROOT_PUBKEY = ""
+ALLOWED_ORIGINS = "http://127.0.0.1:8898"
+TEST_FAULTS = "1"
+
+[[env.staging.durable_objects.bindings]]
+name = "INVITES"
+class_name = "InviteLedger"
+
+[[env.staging.durable_objects.bindings]]
+name = "GROUP"
+class_name = "GroupAuthority"

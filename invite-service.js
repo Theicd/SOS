@@ -102,6 +102,18 @@
     return !!(P && P.isV2 && P.isV2());
   }
 
+  /** First-group V2: single-use invites are registered, consumed and revoked only through the admission service. */
+  function admission() {
+    if (!isV2() || App.NETWORK_TAG !== 'israel-network') return null;
+    return App.FirstGroupAdmission || window.SosFirstGroupAdmission || null;
+  }
+
+  function admissionError(result, fallbackCode) {
+    const A = App.FirstGroupAdmission || window.SosFirstGroupAdmission;
+    const msg = A ? A.message(result) : 'שירות ההצטרפות אינו זמין כרגע. נסו שוב בעוד רגע.';
+    return Object.assign(new Error(msg), { admissionCode: result || fallbackCode || 'TEMPORARILY_UNAVAILABLE' });
+  }
+
   async function findInviteEvent(code) {
     const normalized = String(code || '').trim().toUpperCase();
     if (isV2()) {
@@ -223,7 +235,9 @@
     const P = policy();
     if (isV2() && P) {
       const auth = P.canRedeemInvite(inviteEvent, null, {});
-      if (!auth.ok) {
+      // With the admission service, inviter authority was checked at registration; an unregistered invite is INVALID there.
+      const serviceDecidesCreator = !!admission() && (auth.code === 'CREATOR_UNAUTHORIZED' || auth.code === 'NO_VERIFIED_CONTROL');
+      if (!auth.ok && !serviceDecidesCreator) {
         return { ok: false, error: 'ההזמנה אינה מורשית לפי מדיניות הרשת', code: auth.code };
       }
       try {
@@ -239,7 +253,33 @@
 
     const expiry = readInviteExpiry(inviteEvent);
     if (expiry && expiry < Math.floor(Date.now() / 1000)) {
-      return { ok: false, error: 'תוקף ההזמנה פג. בקשו הזמנה חדשה.' };
+      return { ok: false, error: 'תוקף ההזמנה פג. בקשו הזמנה חדשה.', code: 'EXPIRED' };
+    }
+
+    const A = admission();
+    if (A) {
+      const st = await A.status(inviteEvent.id, normalizedCode);
+      const map = {
+        ALREADY_REDEEMED: 'ALREADY_REDEEMED',
+        REVOKED: 'REVOKED',
+        EXPIRED: 'EXPIRED',
+        INVALID: 'INVALID',
+        UNAUTHORIZED: 'INVALID',
+        TEMPORARILY_UNAVAILABLE: 'TEMPORARILY_UNAVAILABLE',
+      };
+      const resumable = st.result === 'ALREADY_REDEEMED' && typeof A.hasOperation === 'function' && A.hasOperation(inviteEvent.id);
+      if (st.result !== 'UNUSED' && !resumable) {
+        const r = map[st.result] || 'INVALID';
+        return { ok: false, error: A.message(r), code: r };
+      }
+      return {
+        ok: true,
+        code: normalizedCode,
+        inviteEvent,
+        inviterPubkey: inviteEvent.pubkey || '',
+        phoneHash: '',
+        admission: 'SERVICE',
+      };
     }
 
     let used = false;
@@ -368,6 +408,13 @@
     );
 
     const event = await Promise.resolve(App.SosCryptoSigner.signInviteEvent(draft));
+    const A = admission();
+    let admissionResult = null;
+    if (A) {
+      const reg = await A.registerInvite(event);
+      if (reg.result !== 'REGISTERED') throw admissionError(reg.result, 'REGISTER_FAILED');
+      admissionResult = { result: 'REGISTERED', replay: reg.replay === true };
+    }
     await App.pool.publish(App.relayUrls, event);
 
     const inviteUrl = buildInviteUrl(code);
@@ -383,6 +430,7 @@
       event,
       communityId: snap && snap.communityId ? snap.communityId : null,
       networkTag: bindNetworkTag || null,
+      admission: admissionResult,
     };
   }
 
@@ -400,6 +448,15 @@
     try {
       inviteEvent = await findInviteEvent(normalized);
     } catch (_e) {}
+
+    const A = admission();
+    if (A) {
+      if (!inviteEvent) return { ok: false, error: A.message('INVALID'), code: 'INVALID' };
+      const r = await A.redeem({ code: normalized, inviteEvent, inviterPubkey });
+      return r.ok
+        ? { ok: true, event: r.event, proof: r.proof, result: r.result, operationId: r.operationId }
+        : { ok: false, error: r.error, code: r.result, result: r.result, userMessage: r.error };
+    }
 
     const resolvedId =
       (inviteEvent && inviteEvent.id) ||
@@ -481,6 +538,11 @@
       typeof signer.signInviteRevokeEvent === 'function'
         ? await Promise.resolve(signer.signInviteRevokeEvent(draft))
         : await Promise.resolve(signer.signInviteEvent(draft));
+    const A = admission();
+    if (A) {
+      const r = await A.revoke(signed);
+      if (r.result !== 'REVOKED') throw admissionError(r.result, 'REVOKE_FAILED');
+    }
     await App.pool.publish(App.relayUrls, signed);
     return { ok: true, event: signed };
   }

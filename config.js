@@ -351,6 +351,8 @@
   App.getPublicKey = window.NostrTools?.getPublicKey;
   App.ENCRYPTED_CHANNEL_KIND = 4;
   App.COMMUNITY_CONTEXT = 'yalacommunity';
+  // Package 898: first-group admission service (Cloudflare Worker). Empty = not configured; V2 redemption fails closed.
+  App.FIRST_GROUP_ADMISSION_URL = '';
 
   // AC1: adminSourceKeys are PUBLIC keys only. Never treat 64-hex as private K.
   const adminSourceKeys = ['8c60929899e0009f199b3865a7a5e7ba483fec60ff3c926169d0a4588ada256a'];

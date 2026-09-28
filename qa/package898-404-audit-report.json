@@ -1,6 +1,6 @@
 {
   "gate": "PACKAGE898_404_AUDIT",
-  "ts": "2026-09-27T22:00:14.360Z",
+  "ts": "2026-09-27T23:56:33.773Z",
   "runs": {
     "PRODUCTION_897_GUEST": {
       "bad": [
@@ -17,18 +17,6 @@
           "error": "net::ERR_ABORTED"
         },
         {
-          "status": 404,
-          "url": "https://sos010.com/game-doom-arena.js",
-          "type": "script",
-          "frame": "main"
-        },
-        {
-          "status": "FAILED",
-          "url": "https://sos010.com/game-doom-arena.js",
-          "type": "script",
-          "error": "net::ERR_ABORTED"
-        },
-        {
           "status": "FAILED",
           "url": "https://sos010.com/icons/sos-logo-mobile.png?v=20260729e",
           "type": "image",
@@ -38,6 +26,18 @@
           "status": "FAILED",
           "url": "https://sos010.com/icons/sos-logo.PNG",
           "type": "image",
+          "error": "net::ERR_ABORTED"
+        },
+        {
+          "status": 404,
+          "url": "https://sos010.com/game-doom-arena.js",
+          "type": "script",
+          "frame": "main"
+        },
+        {
+          "status": "FAILED",
+          "url": "https://sos010.com/game-doom-arena.js",
+          "type": "script",
           "error": "net::ERR_ABORTED"
         }
       ],

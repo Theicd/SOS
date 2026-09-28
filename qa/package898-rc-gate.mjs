@@ -42,6 +42,13 @@ const report = {
   MD4_STARTED: false,
   PACKAGE898_RC_STATUS: 'BLOCKED',
   FIRST_GROUP_V2_READY_FOR_CONTROLLED_PRODUCTION_ACTIVATION: false,
+  PRODUCTION_ADMISSION_SERVICE_DEPLOYED: false,
+  PRODUCTION_DNS_CHANGED: false,
+  PRODUCTION_ROOT_DELEGATION_CREATED: false,
+  PRODUCTION_V2_ACTIVATED: false,
+  ROOT_KEY_ROTATION_REQUIRED: false,
+  UNSERIALIZED_FALLBACK_ENABLED: false,
+  CLIENT_CLOCK_CAN_BYPASS_EXPIRATION: false,
 };
 
 const set = (k, ok, detail) => {
@@ -137,20 +144,32 @@ async function main() {
   set('SW_BYPASSES_FLAG_CONFIG', /endsWith\('\/runtime-feature-flags\.json'\)\) return;/.test(sw));
   const loaderIdx = videos.indexOf('<script src="./feature-flags.js?pkg=898"></script>');
   const firstV2 = Math.min(
-    ...['community-context.js', 'access-control-v2-local-test.js', 'access-control.js', 'feed.js', 'group-admin-product-ui.js', 'first-group-admin.js', 'first-group-network-authority.js']
+    ...['community-context.js', 'access-control-v2-local-test.js', 'access-control.js', 'feed.js', 'group-admin-product-ui.js', 'first-group-admin.js', 'first-group-network-authority.js', 'first-group-admission-client.js']
       .map((f) => videos.indexOf('./' + f))
       .filter((i) => i >= 0)
   );
   set('FLAG_LOADS_BEFORE_V2_SYNC', loaderIdx > 0 && loaderIdx < firstV2, { loaderIdx, firstV2 });
   const naIdx = videos.indexOf('./first-group-network-authority.js?pkg=898');
   set('FIRST_GROUP_NETWORK_AUTHORITY_WIRED', naIdx > 0 && naIdx < videos.indexOf('./first-group-admin.js') && videos.indexOf('./first-group-admin.js') < videos.indexOf('./group-admin-product-ui.js'));
+  const admIdx = videos.indexOf('./first-group-admission-client.js?pkg=898');
+  set('FIRST_GROUP_ADMISSION_CLIENT_WIRED', admIdx > 0 && admIdx < naIdx);
   const fga = read('first-group-admin.js');
   const na = read('first-group-network-authority.js');
   const ui = read('group-admin-product-ui.js');
+  const admClient = read('first-group-admission-client.js');
+  const cfg = read('config.js');
+  set('SHIPPED_ADMISSION_URL_EMPTY', /App\.FIRST_GROUP_ADMISSION_URL = '';/.test(cfg), 'production admission service not configured in 898');
+  set(
+    'UNSERIALIZED_FALLBACK_DISABLED',
+    /UNSERIALIZED_FALLBACK_ENABLED:\s*false/.test(na) &&
+      /UNSERIALIZED_FALLBACK_ENABLED:\s*false/.test(admClient) &&
+      !/consumedInviteIds|pendingRedemptions|REDEEM_SETTLE_S/.test(na) &&
+      /fail\('ADMISSION_SERVICE_REQUIRED'\)/.test(fga)
+  );
   set('NETWORK_GATEWAY_ON_EVERY_PRIVILEGED_OP', (fga.match(/await nguard\(/g) || []).length >= 11 && !/const g = guard\(/.test(fga), (fga.match(/await nguard\(/g) || []).length);
   set('NETWORK_MODULE_DECLARES_CACHE_NOT_AUTHORITY', /LOCAL_CACHE_IS_AUTHORITY:\s*false/.test(na) && /NETWORK_STATE_AUTHORITATIVE:\s*true/.test(na) && /isV2\(\)/.test(na));
   set('NEW_GROUP_CREATION_DEFERRED', /MULTI_COMMUNITY_DEFERRED/.test(ui) && /NEW_GROUP_CREATION/.test(ui));
-  set('DOUBLE_REDEEM_SCOPE_DECLARED', /DOUBLE_REDEEM_SCOPE\s*=\s*'NETWORK_SINGLE_APPROVER_SERIALIZED'/.test(fga));
+  set('DOUBLE_REDEEM_SCOPE_DECLARED', /DOUBLE_REDEEM_SCOPE\s*=\s*'NETWORK_SERIALIZED_AUTHORITY'/.test(fga));
 
   // ---------------------------------------------------------------- typed signer / secrets
   const signer = read('sos-crypto-signer.js');
@@ -161,8 +180,20 @@ async function main() {
   const policyDiff = git(`git diff ${PROD897} -- admin-signing-policy.js`)
     .split(/\r?\n/)
     .filter((l) => /^[+-]/.test(l) && !/^(\+\+\+|---)/.test(l));
-  const policyNonDtag = policyDiff.filter((l) => !/\['d',|const d = |^\s*[+-]\s*\/\//.test(l));
-  set('ADMIN_SIGNING_POLICY_DTAG_ONLY', policyNonDtag.length === 0, { changed: policyDiff.length, nonDtag: policyNonDtag });
+  // Allowed: per-epoch / per-revision d-tags and the two ROOT-only admission capabilities in MAP_CAPABILITIES.
+  const policyOther = policyDiff.filter(
+    (l) => !/\['d',|const d = |^\s*[+-]\s*\/\//.test(l) && !/^\+\s*'FINALIZE_MEMBERSHIP_ADMISSION(_RETIRED)?',$/.test(l)
+  );
+  const asp = read('admin-signing-policy.js');
+  const delegableBlock = (asp.match(/DELEGABLE_BY_PERMISSION_MANAGER\s*=\s*Object\.freeze\(\[([\s\S]*?)\]\)/) || [])[1] || '';
+  const gcsSrc = read('group-control-state.js');
+  const gcsDelegable = (gcsSrc.match(/DELEGABLE_BY_PERMISSION_MANAGER\s*=\s*Object\.freeze\(\[([\s\S]*?)\]\)/) || [])[1] || '';
+  set(
+    'ADMIN_SIGNING_POLICY_SCOPED_DELTA',
+    policyOther.length === 0 && delegableBlock.length > 0 && !/FINALIZE_MEMBERSHIP_ADMISSION/.test(delegableBlock) && !/FINALIZE_MEMBERSHIP_ADMISSION/.test(gcsDelegable),
+    { changed: policyDiff.length, other: policyOther, admissionCapsDelegable: /FINALIZE_MEMBERSHIP_ADMISSION/.test(delegableBlock + gcsDelegable) }
+  );
+  report.results.ADMIN_SIGNING_POLICY_DTAG_ONLY = report.results.ADMIN_SIGNING_POLICY_SCOPED_DELTA;
   const allow = runNode('qa/package894-sign-feed-allowlist-gate.mjs');
   set('SIGN_FEED_NEGATIVE_ALLOWLIST_GATE', allow.ok, allow.out.slice(-160));
   const leak = [];
@@ -171,7 +202,36 @@ async function main() {
     if (/nsec1[a-z0-9]{50,}/i.test(s) || /privateKeyHex\s*[:=]\s*['"][0-9a-f]{64}['"]/i.test(s)) leak.push(f);
   }
   set('SECRET_LEAK_GATE', leak.length === 0, leak);
-  set('NO_GENERIC_RAW_SIGNING_SURFACE', !/App\.signEvent\s*=|window\.nostr\s*=|signRawEvent|finalizeEvent\(/.test(fga + ui + na));
+  set('NO_GENERIC_RAW_SIGNING_SURFACE', !/App\.signEvent\s*=|window\.nostr\s*=|signRawEvent|finalizeEvent\(/.test(fga + ui + na + admClient));
+
+  // ---------------------------------------------------------------- admission service: key custody + narrow signer
+  const svcFiles = ['admission-service/src/index.js', 'admission-service/src/ledger.js', 'admission-service/src/group.js', 'admission-service/src/keys.js', 'admission-service/src/authority.js', 'admission-service/src/shim.js', 'admission-service/wrangler.toml', 'admission-service/package.json'];
+  const svcSrc = svcFiles.map((f) => (fs.existsSync(path.join(ROOT, f)) ? read(f) : '')).join('\n');
+  const ignored = (() => {
+    try {
+      return git('git check-ignore admission-service/.dev.vars admission-service/.staging-keys.json admission-service/node_modules').split(/\r?\n/).length === 3;
+    } catch (_e) {
+      return false;
+    }
+  })();
+  const trackedSvcSecrets = delta.filter((f) => /^admission-service\/(\.dev\.vars|\.staging-keys\.json)/.test(f));
+  const svcHexAssign = /(ADMISSION_SK|ROOT_SK|PRIVATE_KEY|NSEC)\s*=\s*"?[0-9a-f]{64}/i.test(svcSrc);
+  const rootKeyInService = /ROOT_(SK|PRIVATE|NSEC|SECRET)|rootSk|rootPrivate/i.test(svcSrc);
+  const keysSrc = read('admission-service/src/keys.js');
+  const narrowSigner =
+    /const PROOF_KIND = 39003;/.test(keysSrc) &&
+    /draft\.kind !== PROOF_KIND/.test(keysSrc) &&
+    /body\.transition !== 'GRANT_ACTIVE'/.test(keysSrc) &&
+    (keysSrc.match(/export function/g) || []).length === 2 &&
+    /return load\(env\)\.pk;/.test(keysSrc) &&
+    !/return\s+(raw|sk)\b|console\./.test(keysSrc);
+  set('ADMISSION_SERVICE_SECRETS_OUT_OF_REPO', ignored && trackedSvcSecrets.length === 0 && !svcHexAssign && fs.existsSync(path.join(ROOT, 'admission-service/.dev.vars')) === false, { ignored, trackedSvcSecrets });
+  set('ROOT_PRIVATE_KEY_NOT_IN_SERVICE', !rootKeyInService && /ROOT_PUBKEY/.test(svcSrc));
+  set('ADMISSION_SERVICE_NARROW_SIGNER', narrowSigner);
+  set('ADMISSION_SERVICE_KEY_NOT_IN_CLIENT', !/ADMISSION_SK/.test(admClient + cfg + fga + na));
+  report.ROOT_PRIVATE_KEY_SERVER_EXPOSED = rootKeyInService;
+  report.ADMISSION_SERVICE_PRIVATE_KEY_CLIENT_EXPOSED = /ADMISSION_SK/.test(admClient + cfg + fga + na);
+  report.GENERIC_SIGNER_EXPOSED = !narrowSigner;
 
   // ---------------------------------------------------------------- access-control suites
   for (const [name, script] of [
@@ -232,15 +292,102 @@ async function main() {
     report.groups[g] = e2e.ok && missing.length === 0 ? 'PASS' : 'FAIL';
     set(g, report.groups[g] === 'PASS', missing.length ? missing : `${keys.length} checks`);
   }
-  set('NETWORK_DOUBLE_REDEEM_SINGLE_APPROVER', ok('NETWORK_DOUBLE_REDEEM_SINGLE_APPROVER'), R.NETWORK_DOUBLE_REDEEM_SINGLE_APPROVER ? R.NETWORK_DOUBLE_REDEEM_SINGLE_APPROVER.detail : null);
-  report.groups.NETWORK_DOUBLE_REDEEM = er.NETWORK_DOUBLE_REDEEM_GATE || 'MISSING';
-  if (report.groups.NETWORK_DOUBLE_REDEEM !== 'PASS') {
-    block('NETWORK_DOUBLE_REDEEM', report.groups.NETWORK_DOUBLE_REDEEM, {
-      scope: er.DOUBLE_REDEEM_SCOPE,
-      twoApprovers: er.metrics && er.metrics.DOUBLE_REDEEM_TWO_APPROVERS,
-      requirement: 'designated single join-serializer key or convergent per-invite resolver rule (owner decision)',
-    });
+  report.EXISTING_E2E_PASS = er.EXISTING_E2E_PASS ?? null;
+  report.EXISTING_E2E_TOTAL = er.EXISTING_E2E_TOTAL ?? null;
+  report.EXISTING_E2E_RESCOPED = er.EXISTING_E2E_RESCOPED || null;
+  set('PACKAGE898_EXISTING_E2E_PASS', e2e.ok && er.EXISTING_E2E_PASS === 42 && er.EXISTING_E2E_TOTAL === 42, `${er.EXISTING_E2E_PASS}/${er.EXISTING_E2E_TOTAL}`);
+  set('E2E_ADMISSION_DELEGATION_BY_ROOT_ONLY', er.ADMISSION_DELEGATION_OK === true);
+  set('E2E_SERVICE_LOG_PRIVACY', er.SERVICE_LOG_SECRET_HITS === 0, er.SERVICE_LOG_SECRET_HITS);
+
+  // ---------------------------------------------------------------- admission service (local workerd + real Cloudflare staging)
+  const svcRun = SKIP_E2E ? { ok: true } : runNode('qa/package898-admission-service-gate.mjs', { timeoutMs: 900000 });
+  const sl = readJson('qa/package898-admission-service-report.json');
+  const st = readJson('qa/package898-admission-staging-report.json');
+  const SL = sl.results || {};
+  const ST = st.results || {};
+  const svcOk = (k) => SL[k] === 'PASS';
+  const stgOk = (k) => ST[k] === 'PASS';
+  const both = (k) => svcOk(k) && stgOk(k);
+  set('ADMISSION_SERVICE_LOCAL_GATE', svcRun.ok && sl.status === 'PASS' && sl.mode === 'local-workerd' && Object.keys(SL).length >= 40, { status: sl.status, checks: Object.keys(SL).length });
+  const stSteps = (st.stagingEvidence && st.stagingEvidence.steps) || [];
+  const stepOk = (name) => stSteps.some((s) => s.step === name && s.code === 0);
+  set(
+    'ADMISSION_STAGING_GATE',
+    st.status === 'PASS' &&
+      st.mode === 'staging' &&
+      Object.keys(ST).length >= 40 &&
+      stepOk('deploy') &&
+      stepOk('secret put ADMISSION_SK') &&
+      stepOk('gate') &&
+      stepOk('delete staging worker') &&
+      st.stagingEvidence.routes === 'none' &&
+      st.stagingEvidence.customDomain === 'none' &&
+      st.PRODUCTION_ADMISSION_SERVICE_DEPLOYED === false &&
+      st.PRODUCTION_DNS_CHANGED === false &&
+      (JSON.stringify(st).match(/https:\/\/[^"]*workers\.dev[^"]*/g) || []).every((u) => u.includes('<')),
+    { status: st.status, checks: Object.keys(ST).length, worker: st.stagingEvidence && st.stagingEvidence.worker, generatedAt: st.generatedAt }
+  );
+  const idxSrc = read('admission-service/src/index.js');
+  const wt = read('admission-service/wrangler.toml');
+  const doPerInvite =
+    /idFromName\(firstGroupId \+ ":" \+ inviteId\)/.test(String(sl.DURABLE_OBJECT_PER_INVITE)) &&
+    sl.DURABLE_OBJECT_PER_INVITE === st.DURABLE_OBJECT_PER_INVITE &&
+    /INVITES\.idFromName\(/.test(idxSrc) &&
+    /class_name\s*=\s*"InviteLedger"/.test(wt) &&
+    /new_sqlite_classes/.test(wt);
+  set('DURABLE_OBJECT_PER_INVITE', doPerInvite, sl.DURABLE_OBJECT_PER_INVITE);
+  set(
+    'ADMISSION_INFRA_ARCHITECTURE_GATE',
+    doPerInvite && /class_name\s*=\s*"GroupAuthority"/.test(wt) && sl.DOUBLE_REDEEM_SCOPE === 'NETWORK_SERIALIZED_AUTHORITY' && st.DOUBLE_REDEEM_SCOPE === 'NETWORK_SERIALIZED_AUTHORITY' && /workers_dev\s*=\s*false/.test(wt)
+  );
+  set('INVITE_ATOMIC_LEDGER', both('INVITE_ATOMIC_COMPARE_AND_SET_GATE') && both('CLAIMED_NEVER_REVERTS_TO_UNUSED') && svcOk('LEDGER_DURABLE_ACROSS_RESTART'));
+  const stress = st.stress100 || {};
+  set(
+    'MULTI_INSTANCE_ADMISSION_SERIALIZATION_GATE',
+    stgOk('STRESS_100_WAY_ONE_WINNER') && stgOk('PARALLEL_INVITES_EACH_ONE_WINNER') && stgOk('FIRST_GROUP_INVITE_CONCURRENCY_GATE') && stress.tally && stress.tally.ACCEPTED === 1,
+    { edge: 'cloudflare-staging', stress }
+  );
+  for (const k of [
+    'INVITE_ATOMIC_COMPARE_AND_SET_GATE',
+    'FIRST_GROUP_INVITE_CONCURRENCY_GATE',
+    'FIRST_GROUP_REDEEM_IDEMPOTENCY_GATE',
+    'INVITE_MEMBERSHIP_ATOMICITY_GATE',
+    'INVITE_REVOKE_REDEEM_RACE_GATE',
+    'ADMISSION_INVITE_REGISTER_GATE',
+    'INVITE_REGISTER_IDEMPOTENCY_GATE',
+    'FINALIZATION_RECOVERY_GATE',
+    'ADMISSION_DELEGATION_GROUP_BOUND',
+    'ADMISSION_DELEGATION_CAPABILITY_NARROW',
+  ]) {
+    set(k, both(k), { local: SL[k], staging: ST[k] });
   }
+  set('CLIENT_CLOCK_CAN_BYPASS_EXPIRATION_FALSE', both('EXPIRY_AUTHORITY_CLOCK') && both('CLIENT_CLOCK_CAN_BYPASS_EXPIRATION_FALSE'));
+  set('ADMISSION_OUTAGE_FAILS_CLOSED', both('OUTAGE_FAILS_CLOSED') && both('DELEGATION_INACTIVE_FAILS_CLOSED_WITHOUT_CLAIM') && both('REGISTER_WITHOUT_CONTROL_FAILS_CLOSED'));
+  set('ADMISSION_SERVICE_ROOT_DELEGATION_GATE', both('ADMISSION_DELEGATION_GROUP_BOUND') && both('ADMISSION_DELEGATION_CAPABILITY_NARROW') && both('ADMISSION_DELEGATE_CANNOT_ISSUE_CONTROL') && both('REVOKED_DELEGATION_PROOF_REJECTED') && both('ADMISSION_KEY_ROTATION') && report.results.E2E_ADMISSION_DELEGATION_BY_ROOT_ONLY.ok && report.results.ADMIN_SIGNING_POLICY_SCOPED_DELTA.ok && sl.PRODUCTION_ROOT_DELEGATION_CREATED === false && st.PRODUCTION_ROOT_DELEGATION_CREATED === false);
+  set('FIRST_GROUP_NETWORK_DOUBLE_REDEEM_GATE', both('FIRST_GROUP_NETWORK_DOUBLE_REDEEM_GATE') && ok('FIRST_GROUP_NETWORK_DOUBLE_REDEEM') && er.NETWORK_DOUBLE_REDEEM_GATE === 'PASS' && er.DOUBLE_REDEEM_SCOPE === 'NETWORK_SERIALIZED_AUTHORITY', R.FIRST_GROUP_NETWORK_DOUBLE_REDEEM ? R.FIRST_GROUP_NETWORK_DOUBLE_REDEEM.detail : null);
+  set('FIRST_GROUP_REDEEM_RESPONSE_LOSS_GATE', both('FIRST_GROUP_REDEEM_RESPONSE_LOSS_GATE') && ok('BROWSER_REDEEM_RESPONSE_LOSS'));
+  set('FIRST_GROUP_THREE_BROWSER_NETWORK_E2E_GATE', report.groups.THREE_BROWSER_NETWORK_E2E === 'PASS' && er.THREE_BROWSER_NETWORK_E2E === true);
+  set(
+    'FIRST_GROUP_NETWORK_ADVERSARIAL_GATE',
+    report.groups.NETWORK_ADVERSARIAL === 'PASS' &&
+      er.NETWORK_ADVERSARIAL === true &&
+      ok('FORGED_ADMISSION_PROOF_REJECTED') &&
+      ok('ADMISSION_ROTATION_RETIRE') &&
+      both('FIRST_GROUP_NETWORK_ADVERSARIAL_PROOFS') &&
+      both('REQUEST_REPLAY_AND_TAMPER_DENIED') &&
+      both('REPLAYED_REQUEST_GRANTS_ONLY_ORIGINAL_REDEEMER') &&
+      both('FORGED_CONTROL_IGNORED') &&
+      both('REGISTER_FORGED_INVITE_DENIED') &&
+      both('REGISTER_UNAUTHORIZED_DENIED') &&
+      both('CORS_NOT_AUTHORIZATION') &&
+      both('STATUS_PRIVACY')
+  );
+  set('ADMISSION_REGISTRATION_POLICY', both('REGISTRATION_AUTHORITY_POLICY') && both('EXISTING_INVITE_PROOF_VALID_AFTER_INVITER_CAP_REMOVED'));
+  set('ADMISSION_SERVICE_LOG_PRIVACY', svcOk('SERVICE_LOG_PRIVACY') && report.results.E2E_SERVICE_LOG_PRIVACY.ok);
+  report.DOUBLE_REDEEM_SCOPE = er.DOUBLE_REDEEM_SCOPE || sl.DOUBLE_REDEEM_SCOPE || null;
+  report.groups.NETWORK_DOUBLE_REDEEM = report.results.FIRST_GROUP_NETWORK_DOUBLE_REDEEM_GATE.ok ? 'PASS' : 'FAIL';
+  report.ADMISSION_STRESS = { local: sl.stress100 || null, staging: st.stress100 || null };
+  report.ROOT_PRIVATE_KEY_SERVER_EXPOSED = report.ROOT_PRIVATE_KEY_SERVER_EXPOSED || sl.ROOT_PRIVATE_KEY_SERVER_EXPOSED !== false || st.ROOT_PRIVATE_KEY_SERVER_EXPOSED !== false;
   const e897 = runNode('qa/package897-first-group-admin-e2e.mjs', { timeoutMs: 1200000 });
   info('SUPERSEDED_897_LOCAL_CONTROLLED_E2E', e897.ok, e897.ok ? 'PASS' : 'superseded: in-page relay stub + export/import model; gateway now requires relay confirmation');
 
@@ -339,9 +486,15 @@ async function main() {
   const masterOk =
     report.results.ANDROID_UNTOUCHED.ok &&
     report.results.SIGNER_CORE_UNCHANGED_SINCE_897.ok &&
-    report.results.ADMIN_SIGNING_POLICY_DTAG_ONLY.ok &&
+    report.results.ADMIN_SIGNING_POLICY_SCOPED_DELTA.ok &&
     report.results.SIGN_FEED_ALLOWED_KINDS.ok &&
     report.results.SECRET_LEAK_GATE.ok &&
+    report.results.ADMISSION_SERVICE_SECRETS_OUT_OF_REPO.ok &&
+    report.results.ROOT_PRIVATE_KEY_NOT_IN_SERVICE.ok &&
+    report.results.ADMISSION_SERVICE_NARROW_SIGNER.ok &&
+    report.results.ADMISSION_SERVICE_KEY_NOT_IN_CLIENT.ok &&
+    report.results.ADMISSION_SERVICE_LOG_PRIVACY.ok &&
+    !report.ROOT_PRIVATE_KEY_SERVER_EXPOSED &&
     f5b6StaticOk &&
     report.results.F6A.ok &&
     report.results.F6I.ok &&
@@ -365,11 +518,23 @@ async function main() {
       return false;
     }
   };
-  set('DOC_FIRST_GROUP_ADMIN_STATUS', doc('docs/FIRST_GROUP_ADMIN_STATUS.md', [/Package 898/, /NETWORK_BACKED_E2E/, /BLOCKED_DISTRIBUTED_SERIALIZATION/, /DEFERRED_TO_NEXT_PHASE/]));
-  set('DOC_FIRST_GROUP_NETWORK_AUTHORITY', doc('docs/FIRST_GROUP_NETWORK_AUTHORITY.md', [/Network-authoritative vs cache/, /Event kinds and schema/, /Authorization/, /Revocation/, /Double redeem/, /Relay privacy/, /Stale tabs/, /Rollback/, /Deferred/]));
-  set('DOC_SECURITY_PRODUCT_INTEGRATION_MAP', doc('docs/SECURITY_PRODUCT_INTEGRATION_MAP.md', [/Package 898/, /first-group-network-authority\.js/]));
-  set('DOC_ACCESS_CONTROL_V2_ACTIVATION_PLAN', doc('docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md', [/Package 898/, /BLOCKED_DISTRIBUTED_SERIALIZATION/]));
-  set('DOC_PACKAGE898_RELEASE_PLAN', doc('docs/PACKAGE898_FIRST_GROUP_NETWORK_RELEASE_PLAN.md', [/sos-cache-v898/, /DEAD_ASSET_REFERENCE/, /Rollback/]));
+  set('DOC_FIRST_GROUP_ADMIN_STATUS', doc('docs/FIRST_GROUP_ADMIN_STATUS.md', [/Package 898/, /NETWORK_BACKED_E2E/, /NETWORK_SERIALIZED_AUTHORITY/, /DEFERRED_TO_NEXT_PHASE/]));
+  set('DOC_FIRST_GROUP_NETWORK_AUTHORITY', doc('docs/FIRST_GROUP_NETWORK_AUTHORITY.md', [/Network-authoritative vs cache/, /Event kinds and schema/, /Authorization/, /Revocation/, /Double redeem/, /NETWORK_SERIALIZED_AUTHORITY/, /Relay privacy/, /Stale tabs/, /Rollback/, /Deferred/]));
+  set(
+    'DOC_FIRST_GROUP_ADMISSION_AUTHORITY',
+    doc('docs/FIRST_GROUP_ADMISSION_AUTHORITY.md', [/Durable Object topology/, /Ledger and state machine/, /Idempotency and recovery/, /Delegation/, /Service key security/, /Rotation/, /Registration policy/, /Revoke\/redeem race/, /Expiry clock/, /Outage behavior/, /Privacy/, /Staging to production rollout/])
+  );
+  set('DOC_SECURITY_PRODUCT_INTEGRATION_MAP', doc('docs/SECURITY_PRODUCT_INTEGRATION_MAP.md', [/Package 898/, /first-group-network-authority\.js/, /first-group-admission-client\.js/, /admission-service/]));
+  set('DOC_ACCESS_CONTROL_V2_ACTIVATION_PLAN', doc('docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md', [/Package 898/, /admission service/i, /FIRST_GROUP_ADMISSION_URL/]));
+  set('DOC_PACKAGE898_RELEASE_PLAN', doc('docs/PACKAGE898_FIRST_GROUP_NETWORK_RELEASE_PLAN.md', [/sos-cache-v898/, /DEAD_ASSET_REFERENCE/, /Rollback/, /admission service/i]));
+  const staleDocs = ['docs/FIRST_GROUP_ADMIN_STATUS.md', 'docs/FIRST_GROUP_NETWORK_AUTHORITY.md', 'docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md', 'docs/PACKAGE898_FIRST_GROUP_NETWORK_RELEASE_PLAN.md'].filter((f) => {
+    try {
+      return /BLOCKED_DISTRIBUTED_SERIALIZATION|NETWORK_SINGLE_APPROVER_SERIALIZED/.test(read(f));
+    } catch (_e) {
+      return false;
+    }
+  });
+  set('DOCS_NO_STALE_BLOCKED_MODEL', staleDocs.length === 0, staleDocs);
 
   // ---------------------------------------------------------------- verdict
   const missing = Object.entries(report.results).filter(([, v]) => !v.ok).map(([k]) => k);

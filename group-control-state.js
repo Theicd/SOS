@@ -44,8 +44,20 @@
     'MANAGE_MEMBERS',
     'MANAGE_BLOCKLIST',
     'VIEW_AUDIT_LOG',
+    'FINALIZE_MEMBERSHIP_ADMISSION',
+    'FINALIZE_MEMBERSHIP_ADMISSION_RETIRED',
   ]);
   const MAP_CAP_SET = new Set(MAP_CAPABILITIES);
+
+  /**
+   * First-group admission service delegation (ROOT-only; not in DELEGABLE_BY_PERMISSION_MANAGER).
+   * ACTIVE: the delegate may sign invite-bound GRANT_ACTIVE membership proofs and nothing else.
+   * RETIRED: no new proofs; proofs issued at a control epoch where it was ACTIVE stay valid (planned rotation).
+   * Removing both caps revokes every proof the delegate signed (compromise).
+   */
+  const ADMISSION_CAP = 'FINALIZE_MEMBERSHIP_ADMISSION';
+  const ADMISSION_RETIRED_CAP = 'FINALIZE_MEMBERSHIP_ADMISSION_RETIRED';
+  const ADMISSION_DELEGATE_CAPABILITIES = Object.freeze([ADMISSION_CAP, ADMISSION_RETIRED_CAP]);
 
   /**
    * Conservative delegation:
@@ -594,6 +606,9 @@
     }
     if (!isRoot && Array.isArray(prev.blockedPubkeys) && prev.blockedPubkeys.indexOf(issuer) !== -1) {
       throw Object.assign(new Error('ISSUER_BLOCKED'), { code: 'ISSUER_BLOCKED' });
+    }
+    if (!isRoot && issuerCapsFromPrevious(prev, issuer).some((c) => ADMISSION_DELEGATE_CAPABILITIES.indexOf(c) !== -1)) {
+      throw Object.assign(new Error('ADMISSION_DELEGATE_NOT_CONTROL_ISSUER'), { code: 'ADMISSION_DELEGATE_NOT_CONTROL_ISSUER' });
     }
 
     // Detect field changes
@@ -1196,6 +1211,39 @@
     return { ok: storeStatus === 'VERIFIED', status: storeStatus, added: fresh.length };
   }
 
+  /** Admission delegate status from the verified chain: active now, or retired at a known epoch. */
+  function admissionDelegateInfo(pubkey, networkTag) {
+    bindStore(resolveGroupId(networkTag));
+    const pk = normalizePubkey(pubkey);
+    const out = { pubkey: pk, active: false, retired: false, retiredAtEpoch: null, activeEpochs: [] };
+    if (!pk || !verified || !verified.record) return Object.freeze(out);
+    const now = verified.record.capabilities[pk] || [];
+    out.active = now.indexOf(ADMISSION_CAP) !== -1;
+    out.retired = !out.active && now.indexOf(ADMISSION_RETIRED_CAP) !== -1;
+    let lastActive = 0;
+    (verified.chain || []).forEach((row) => {
+      const caps = row.record.capabilities[pk] || [];
+      const e = row.record.controlEpoch;
+      if (caps.indexOf(ADMISSION_CAP) !== -1) {
+        out.activeEpochs.push(e);
+        lastActive = e;
+        out.retiredAtEpoch = null;
+      } else if (lastActive && out.retiredAtEpoch == null && caps.indexOf(ADMISSION_RETIRED_CAP) !== -1) {
+        out.retiredAtEpoch = e;
+      }
+    });
+    if (!out.retired) out.retiredAtEpoch = null;
+    out.activeEpochs = Object.freeze(out.activeEpochs);
+    return Object.freeze(out);
+  }
+
+  function activeAdmissionDelegates(networkTag) {
+    bindStore(resolveGroupId(networkTag));
+    if (!verified || !verified.record) return [];
+    const caps = verified.record.capabilities;
+    return Object.keys(caps).filter((pk) => (caps[pk] || []).indexOf(ADMISSION_CAP) !== -1).sort();
+  }
+
   function getStatus(networkTag) {
     if (networkTag) bindStore(resolveGroupId(networkTag));
     else if (!boundKey) bindStore(resolveGroupId());
@@ -1303,6 +1351,9 @@
     getVerifiedControlChain,
     syncFromSharedCache,
     configuredRootPubkeys,
+    ADMISSION_DELEGATE_CAPABILITIES,
+    admissionDelegateInfo,
+    activeAdmissionDelegates,
     FIRST_GROUP_NETWORK_TAG,
     DESCRIPTION_MAX,
     LOGO_REF_MAX,

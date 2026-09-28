@@ -9,9 +9,9 @@
  * Privileged first-group actions call reconcile() first and fail closed when no relay confirms the
  * current state (EOSE), when control is not VERIFIED, or on control conflict.
  *
- * Join approval: an online ROOT / MANAGE_MEMBERS client grants membership for valid invite redemptions.
- * Single-use invites are serialized by that approver: the earliest valid redemption (created_at, id)
- * wins; later redemptions of the same invite are never granted.
+ * Join admission is not decided here: single-use invites are consumed only by the canonical first-group
+ * admission service (first-group-admission-client.js), which atomically claims the invite and signs the
+ * membership proof with its ROOT-delegated key. No client-side / relay-order approval fallback exists.
  */
 (function initFirstGroupNetworkAuthority(window) {
   'use strict';
@@ -25,16 +25,13 @@
   const CONNECT_TIMEOUT_MS = 4000;
   const POLL_INTERVAL_MS = 15000;
   const LIVE_DEBOUNCE_MS = 150;
-  // Redemptions younger than this are not granted yet, so concurrent redemptions of one invite can arrive
-  // and the (created_at, id) winner is chosen from the full set rather than from arrival order.
-  const REDEEM_SETTLE_S = 3;
 
   const NETWORK_AUTHORITY_MODEL =
     'Relays are transport. Authority = deterministic reconstruction of every valid signed 39001/39003 event ' +
     'fetched from the relay pool (plus locally held signed events), re-verified by the canonical stores.';
   const DOUBLE_REDEEM_MODEL =
-    'Single-use invite redemptions (37379) are serialized by the approving ROOT / MANAGE_MEMBERS client: ' +
-    'earliest valid (created_at, id) wins after a ' + REDEEM_SETTLE_S + 's settle window. Not atomic across concurrently online approvers.';
+    'Single-use invite redemption is serialized by the canonical admission service: one Durable Object per ' +
+    'invite performs an atomic UNUSED -> CLAIMED compare-and-set; relays and clients never pick a winner.';
 
   const state = {
     status: 'IDLE',
@@ -43,6 +40,7 @@
     lastError: null,
     relaysOk: 0,
     relaysTotal: 0,
+    lastCodes: [],
     lastLatencyMs: null,
     controlEvents: 0,
     membershipEvents: 0,
@@ -54,7 +52,6 @@
   let pollTimer = null;
   let liveSub = null;
   let liveTimer = null;
-  let approving = false;
 
   function isV2() {
     return window.SOS_ACCESS_CONTROL_V2 === true;
@@ -65,24 +62,6 @@
   function MS() {
     return App.MembershipState || window.SosMembershipState || null;
   }
-  function IP() {
-    return App.InvitePolicy || window.SosInvitePolicy || null;
-  }
-  function FGA() {
-    return App.FirstGroupAdmin || window.SosFirstGroupAdmin || null;
-  }
-
-  function normalizePubkey(value) {
-    if (typeof value !== 'string') return '';
-    const t = value.trim().toLowerCase();
-    return /^[0-9a-f]{64}$/.test(t) ? t : '';
-  }
-
-  function readTag(ev, name) {
-    const row = ev && Array.isArray(ev.tags) ? ev.tags.find((t) => Array.isArray(t) && t[0] === name && t[1] != null) : null;
-    return row ? String(row[1]) : '';
-  }
-
   function relayList() {
     const list = typeof App.getWritableRelays === 'function' ? App.getWritableRelays() : App.relayUrls;
     return Array.isArray(list) ? list.filter((u) => typeof u === 'string' && u) : [];
@@ -102,6 +81,19 @@
       const base = String(url).replace(/\/+$/, '');
       map.forEach((r, key) => {
         if (String(key).replace(/\/+$/, '') === base && !(r && r.connected === true)) map.delete(key);
+      });
+    } catch (_e) {}
+  }
+
+  /** A relay whose query timed out or closed may hold a dead socket after a network drop; evict it so the next query reconnects. */
+  function evictRelay(pool, url, relay) {
+    try {
+      if (relay && typeof relay.close === 'function') relay.close();
+    } catch (_e) {}
+    try {
+      const base = String(url).replace(/\/+$/, '');
+      pool.relays.forEach((r, key) => {
+        if (String(key).replace(/\/+$/, '') === base && r === relay) pool.relays.delete(key);
       });
     } catch (_e) {}
   }
@@ -128,6 +120,7 @@
         try {
           if (sub) sub.close();
         } catch (_e) {}
+        if (!ok) evictRelay(pool, url, relay);
         resolve({ ok, events, code });
       };
       const timer = setTimeout(() => finish(false, 'TIMEOUT'), timeoutMs);
@@ -226,7 +219,13 @@
     if (!isV2()) return { ok: false, code: 'V2_OFF' };
     const t0 = Date.now();
     if (!state.everSynced) state.status = 'LOADING';
-    const res = await fetchFromRelays(authorityFilters());
+    let res = await fetchFromRelays(authorityFilters());
+    if (res.relaysOk === 0 && res.codes.some((c) => /^(TIMEOUT|CLOSED|SUBSCRIBE_FAILED|CONNECT_FAILED)/.test(String(c)))) {
+      // Dead relays were evicted above; one fresh attempt covers sockets lost in a network drop. Still fails closed.
+      await new Promise((r) => setTimeout(r, 300));
+      res = await fetchFromRelays(authorityFilters());
+    }
+    state.lastCodes = res.codes.slice(0, 8);
     state.relaysOk = res.relaysOk;
     state.relaysTotal = res.relaysTotal;
     if (res.relaysOk === 0) {
@@ -253,7 +252,7 @@
     state.lastError = null;
     if (applied.changed || first) notify('network');
     if (started) startLive();
-    maybeApproveJoins(reason);
+    pushControlToAdmission();
     return { ok: true, code: 'SYNCED', controlEpoch: applied.controlEpoch, relaysOk: res.relaysOk, latencyMs: state.lastLatencyMs };
   }
 
@@ -276,7 +275,7 @@
         state.status = 'SYNCED';
         state.lastOkAt = Date.now();
         if (applied.changed) notify('network-live');
-        maybeApproveJoins('live');
+        pushControlToAdmission();
       }
     }, LIVE_DEBOUNCE_MS);
   }
@@ -286,11 +285,10 @@
     try {
       liveSub = App.pool.subscribeMany(
         relayList(),
-        [{ kinds: [KIND_CONTROL, KIND_MEMBERSHIP, App.INVITE_USED_KIND || 37379], '#t': [GROUP_ID], since: Math.floor(Date.now() / 1000) - 5 }],
+        [{ kinds: [KIND_CONTROL, KIND_MEMBERSHIP], '#t': [GROUP_ID], since: Math.floor(Date.now() / 1000) - 5 }],
         {
           onevent(ev) {
-            if (ev && ev.kind === (App.INVITE_USED_KIND || 37379)) maybeApproveJoins('live-redeem');
-            else onLiveEvent(ev);
+            onLiveEvent(ev);
           },
           onclose() {
             liveSub = null;
@@ -309,96 +307,41 @@
     liveSub = null;
   }
 
-  // ---------------------------------------------------------------- join approval (serializer)
+  // ---------------------------------------------------------------- admission service feed
 
-  function canApprove() {
-    const F = FGA();
-    if (!F || !App.publicKey || App.guestMode === true) return false;
-    const a = F.myAuthority();
-    return !!(a && a.verified && (a.isRoot || a.caps.indexOf('MANAGE_MEMBERS') !== -1));
-  }
-
-  function consumedInviteIds() {
-    const m = MS();
-    const out = new Set();
-    (m ? m.exportMembershipEvents(GROUP_ID) : []).forEach((ev) => {
-      try {
-        const body = JSON.parse(ev.content || '{}');
-        if (body.inviteEventId) out.add(String(body.inviteEventId).toLowerCase());
-      } catch (_e) {}
-    });
-    return out;
-  }
-
-  /** Deterministic winner per single-use invite among valid redemptions. */
-  async function pendingRedemptions() {
-    const P = IP();
+  /** Keeps the admission service's control view current (signed events only; it re-verifies everything). */
+  let pushedTip = '';
+  function pushControlToAdmission() {
+    const adm = App.FirstGroupAdmission || window.SosFirstGroupAdmission;
     const st = verifiedControl();
-    if (!P || !st) return [];
-    const usedKind = App.INVITE_USED_KIND || 37379;
-    const used = (await fetchFromRelays([{ kinds: [usedKind], '#t': [GROUP_ID], limit: 500 }])).events;
-    const ids = Array.from(new Set(used.map((u) => readTag(u, 'e').toLowerCase()).filter(Boolean)));
-    if (!ids.length) return [];
-    const inv = (await fetchFromRelays([{ kinds: [App.INVITE_KIND || 37378], ids }])).events;
-    const rev = (await fetchFromRelays([{ kinds: [P.INVITE_REVOKE_EVENT_KIND || 37380], '#d': ids }])).events;
-    const invites = new Map(inv.map((e) => [String(e.id).toLowerCase(), e]));
-    const consumed = consumedInviteIds();
-    const now = Math.floor(Date.now() / 1000);
-    const out = [];
-    for (const id of ids) {
-      const invite = invites.get(id);
-      if (!invite || consumed.has(id)) continue;
-      if (!P.validateInviteEvent(invite, st, {}).ok) continue;
-      if (rev.some((r) => P.validateRevokeEvent(r, invite, st).ok)) continue;
-      const exp = Number(readTag(invite, 'expiration')) || 0;
-      if (exp && exp < now) continue;
-      const ih = readTag(invite, 'ih');
-      const valid = used
-        .filter((u) => readTag(u, 'e').toLowerCase() === id && P.validateUsedEvent(u, invite, ih).ok)
-        .filter((u) => u.created_at >= invite.created_at)
-        .sort((a, b) => a.created_at - b.created_at || (a.id < b.id ? -1 : 1));
-      if (!valid.length) continue;
-      out.push({
-        inviteEventId: id,
-        redeemer: normalizePubkey(valid[0].pubkey),
-        usedEventId: valid[0].id,
-        contenders: valid.length,
-        settled: valid[0].created_at <= now - REDEEM_SETTLE_S,
-      });
-    }
-    return out;
-  }
-
-  let settleTimer = null;
-  function scheduleSettleRetry() {
-    if (settleTimer) return;
-    settleTimer = setTimeout(() => {
-      settleTimer = null;
-      maybeApproveJoins('settle');
-    }, (REDEEM_SETTLE_S + 1) * 1000);
-  }
-
-  async function maybeApproveJoins(_reason) {
-    if (approving || !isV2() || !canApprove()) return;
-    approving = true;
-    try {
-      const F = FGA();
-      const m = MS();
-      const rows = await pendingRedemptions();
-      for (const r of rows) {
-        if (!r.redeemer) continue;
-        if (!r.settled) {
-          scheduleSettleRetry();
-          continue;
-        }
-        const status = m.getMemberState(r.redeemer, GROUP_ID);
-        if (status !== 'UNKNOWN' && status !== 'REMOVED') continue;
-        await F.approveJoin(r.redeemer, r.inviteEventId);
+    if (!adm || !adm.configured() || !st || st.eventId === pushedTip) return Promise.resolve(null);
+    const events = [];
+    const seen = new Set();
+    networkEvents.forEach((ev) => {
+      if (ev.kind === KIND_CONTROL && !seen.has(ev.id)) {
+        seen.add(ev.id);
+        events.push(ev);
       }
-    } catch (_e) {
-    } finally {
-      approving = false;
-    }
+    });
+    localControlEvents().forEach((ev) => {
+      if (!seen.has(ev.id)) {
+        seen.add(ev.id);
+        events.push(ev);
+      }
+    });
+    const tip = st.eventId;
+    return adm
+      .syncControl(events)
+      .then((r) => {
+        if (r && r.result === 'OK') pushedTip = tip;
+        return r;
+      })
+      .catch(() => null);
+  }
+
+  /** Kept for API compatibility: client-side / relay-order join approval no longer exists. */
+  async function maybeApproveJoins() {
+    return { ok: false, code: 'UNSERIALIZED_FALLBACK_DISABLED' };
   }
 
   // ---------------------------------------------------------------- lifecycle
@@ -437,10 +380,11 @@
     DOUBLE_REDEEM_MODEL,
     LOCAL_CACHE_IS_AUTHORITY: false,
     NETWORK_STATE_AUTHORITATIVE: true,
+    UNSERIALIZED_FALLBACK_ENABLED: false,
     reconcile,
     fetchFromRelays,
-    pendingRedemptions,
     maybeApproveJoins,
+    pushControlToAdmission,
     start,
     stop,
     status,

@@ -14,6 +14,7 @@ import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
 import { fileURLToPath } from 'node:url';
+import { spawn, execSync } from 'node:child_process';
 import { chromium } from 'playwright';
 import { WebSocketServer } from 'ws';
 import { generateSecretKey, getPublicKey, finalizeEvent, verifyEvent } from 'nostr-tools';
@@ -27,6 +28,9 @@ const PORT = Number(process.env.SOS_898_PORT || 8798);
 const RELAY_PORTS = [7791, 7792];
 const RELAYS = RELAY_PORTS.map((p) => `ws://127.0.0.1:${p}`);
 const URL0 = `http://127.0.0.1:${PORT}/videos.html`;
+const ADM_PORT = Number(process.env.SOS_898_ADM_PORT || 8799);
+const ADM_URL = `http://127.0.0.1:${ADM_PORT}`;
+const ADM_DIR = path.join(ROOT, 'admission-service');
 const PROD_ROOT = '8c60929899e0009f199b3865a7a5e7ba483fec60ff3c926169d0a4588ada256a';
 const GROUP = 'israel-network';
 const PROFILES = path.join(os.tmpdir(), 'sos898-e2e-' + Date.now());
@@ -237,9 +241,13 @@ const publishAll = (ev) => allRelays.map((r) => r.publish(ev));
 
 // ---------------------------------------------------------------- static server
 let ROOT_PUB = '';
-const CONFIG_TRANSFORMS = { root: false, relays: false, p2p: false, sanitizer: false };
+const CONFIG_TRANSFORMS = { root: false, relays: false, p2p: false, sanitizer: false, admission: false };
 function transformConfig(src) {
   let out = src;
+  out = out.replace("App.FIRST_GROUP_ADMISSION_URL = '';", () => {
+    CONFIG_TRANSFORMS.admission = true;
+    return `App.FIRST_GROUP_ADMISSION_URL = '${ADM_URL}';`;
+  });
   if (out.includes(PROD_ROOT)) {
     out = out.replace(PROD_ROOT, ROOT_PUB);
     CONFIG_TRANSFORMS.root = true;
@@ -300,6 +308,50 @@ function startServer() {
     server.listen(PORT, '127.0.0.1', () => resolve(server));
     server.on('error', reject);
   });
+}
+
+// ---------------------------------------------------------------- admission service (local workerd, disposable keys)
+let admProc = null;
+let admLog = '';
+const admPersist = path.join(os.tmpdir(), 'sos898-adm-' + Date.now());
+async function startAdmission(rootPub, svcHex) {
+  fs.writeFileSync(
+    path.join(ADM_DIR, '.dev.vars'),
+    `ROOT_PUBKEY=${rootPub}\nADMISSION_SK=${svcHex}\nTEST_FAULTS=1\nALLOWED_ORIGINS=http://127.0.0.1:${PORT}\n`
+  );
+  admProc = spawn('npx', ['wrangler', 'dev', '--local', '--ip', '127.0.0.1', '--port', String(ADM_PORT), '--persist-to', admPersist, '--show-interactive-dev-session=false'], {
+    cwd: ADM_DIR,
+    shell: true,
+    env: Object.assign({}, process.env, { WRANGLER_SEND_METRICS: 'false', NO_COLOR: '1' }),
+  });
+  admProc.stdout.on('data', (d) => (admLog += d.toString()));
+  admProc.stderr.on('data', (d) => (admLog += d.toString()));
+  for (let i = 0; i < 120; i++) {
+    try {
+      const r = await fetch(ADM_URL + '/v1/health');
+      if (r.ok) return true;
+    } catch (_e) {}
+    await sleep(500);
+  }
+  throw new Error('admission service did not start');
+}
+function stopAdmission() {
+  if (admProc) {
+    try {
+      execSync(`taskkill /pid ${admProc.pid} /T /F`, { stdio: 'ignore' });
+    } catch (_e) {
+      try {
+        admProc.kill('SIGKILL');
+      } catch (_e2) {}
+    }
+    admProc = null;
+  }
+  try {
+    fs.rmSync(path.join(ADM_DIR, '.dev.vars'), { force: true });
+  } catch (_e) {}
+  try {
+    fs.rmSync(admPersist, { recursive: true, force: true });
+  } catch (_e) {}
 }
 
 // ---------------------------------------------------------------- browsers / profiles
@@ -629,11 +681,16 @@ async function main() {
   const X = mkKey();
   const Y = mkKey();
   const Z = mkKey();
-  const SECRET_HEXES = [A, B, C, D, E, X, Y, Z].map((k) => k.hex);
+  const W = mkKey();
+  const S = mkKey(); // disposable admission service key (QA only)
+  const SECRET_HEXES = [A, B, C, D, E, X, Y, Z, W, S].map((k) => k.hex);
+  globalThis.__SOS_SECRET_HEXES = SECRET_HEXES;
   ROOT_PUB = A.pub;
   fs.mkdirSync(PROFILES, { recursive: true });
   await r1.start();
   await r2.start();
+  await startAdmission(A.pub, S.hex);
+  report.ADMISSION_SERVICE = { mode: 'local-workerd', url: ADM_URL, servicePubkey: S.pub };
   const server = await startServer();
   sharedBrowser = await chromium.launch({ headless: true, args: CHROME_ARGS });
   const shot = async (page, name) => {
@@ -697,6 +754,23 @@ async function main() {
       relayMember,
     });
     set('NO_ADMIN_UI_WITHOUT_NETWORK_CONTROL', menuBeforeControl === false);
+
+    // ROOT delegates only FINALIZE_MEMBERSHIP_ADMISSION to the service key (root key never leaves the browser).
+    const delegation = await ev(
+      ua.page,
+      async (svc) => {
+        const F = window.NostrApp.FirstGroupAdmin;
+        const r = await F.setAdmissionDelegate(svc);
+        const push = await window.NostrApp.FirstGroupNetworkAuthority.pushControlToAdmission();
+        const st = window.NostrApp.GroupControlState.getVerifiedControlState('israel-network');
+        return { code: r.code, push: push && push.result, caps: (st.capabilities[svc] || []).slice(), delegates: F.admissionDelegates() };
+      },
+      S.pub
+    );
+    const delegateByNonRoot = await ev(ub.page, async (svc) => (await window.NostrApp.FirstGroupAdmin.setAdmissionDelegate(svc)).code, B.pub);
+    info('ADMISSION_DELEGATION', { delegation, delegateByNonRoot });
+    report.ADMISSION_DELEGATION_OK =
+      delegation.code === 'APPLIED' && JSON.stringify(delegation.caps) === JSON.stringify(['FINALIZE_MEMBERSHIP_ADMISSION']) && delegateByNonRoot !== 'APPLIED';
 
     const bCtl = await waitView(ub.page, A.pub, "v.control === 'VERIFIED'", 30000);
     const cCtl = await waitView(uc.page, A.pub, "v.control === 'VERIFIED'", 30000);
@@ -906,7 +980,11 @@ async function main() {
     const tab1Demoted = await waitView(ub.page, B.pub, "v.caps.every(function (c) { return ['MANAGE_ADMINS','MANAGE_PERMISSIONS','MANAGE_MEMBERS','MANAGE_GROUP_SETTINGS','MANAGE_INVITES','MANAGE_BLOCKLIST','VIEW_AUDIT_LOG'].indexOf(c) === -1; })", 30000);
     const tab2Demoted = await waitView(bTab2, B.pub, "v.caps.every(function (c) { return ['MANAGE_ADMINS','MANAGE_PERMISSIONS','MANAGE_MEMBERS','MANAGE_GROUP_SETTINGS','MANAGE_INVITES','MANAGE_BLOCKLIST','VIEW_AUDIT_LOG'].indexOf(c) === -1; })", 30000);
     info('RECONNECT_CONVERGENCE_MS', Date.now() - tOnline);
-    const afterOps = await ev(bTab2, async () => ({ meta: (await window.NostrApp.FirstGroupAdmin.updateMetadata({ description: 'after' })).code }));
+    const afterOps = await ev(bTab2, async () => {
+      const code = (await window.NostrApp.FirstGroupAdmin.updateMetadata({ description: 'after' })).code;
+      const s = window.NostrApp.FirstGroupNetworkAuthority.status();
+      return { meta: code, net: { status: s.status, lastError: s.lastError, codes: s.lastCodes } };
+    });
     const bDemotedView = await view(ub.page, B.pub);
     const bDemotedTabs = await (async () => {
       await openUi(ub.page, 'home');
@@ -946,6 +1024,21 @@ async function main() {
     set('REMOTE_MEMBER_REMOVE', /REMOVED|APPLIED|OK/.test(String(removeC)) && cRemovedOnC.ok && cRemovedOnB.ok && !cOps.menu && cOps.invite !== 'CREATED' && cAfterRemoveReload.member === 'REMOVED', {
       removeC,
       ms: cRemovedOnC.ms,
+      onB: cRemovedOnB.ok
+        ? cRemovedOnB.ms
+        : {
+            last: cRemovedOnB.last,
+            diag: await ev(ub.page, async (pk) => {
+              const NA = window.NostrApp.FirstGroupNetworkAuthority;
+              const before = NA.status();
+              const r = await NA.reconcile('diag');
+              return {
+                before: { status: before.status, lastError: before.lastError, relaysOk: before.relaysOk },
+                reconcile: { ok: r.ok, code: r.code, detail: r.detail, relaysOk: r.relaysOk },
+                member: window.NostrApp.MembershipState.getMemberState(pk, 'israel-network'),
+              };
+            }, C.pub).catch((e) => String(e.message || e)),
+          },
       cOps,
       afterReload: cAfterRemoveReload.member,
     });
@@ -1096,7 +1189,7 @@ async function main() {
     const expInv = await ev(ua.page, async () => {
       const App = window.NostrApp;
       const prev = App.INVITE_TTL_SECONDS;
-      App.INVITE_TTL_SECONDS = 2;
+      App.INVITE_TTL_SECONDS = 3;
       try {
         const r = await App.FirstGroupAdmin.createInvite();
         return { ok: r.ok, code: r.invite && r.invite.code, eventId: r.invite && r.invite.eventId };
@@ -1105,7 +1198,7 @@ async function main() {
       }
     });
     createdCodes.push(expInv.code);
-    await sleep(3500);
+    await sleep(4500);
     const eExpired = await redeem(ue.page, expInv.code);
     const expEv = r1.all([37378]).find((e) => e.id === expInv.eventId);
     const expIh = expEv && (expEv.tags.find((t) => t[0] === 'ih') || [])[1];
@@ -1121,82 +1214,132 @@ async function main() {
     const eAfterExpired = await view(ua.page, E.pub);
     set('NETWORK_EXPIRED_INVITE', expInv.ok && !eExpired.ok && /תוקף/.test(String(eExpired.error)) && eAfterExpired.member === 'UNKNOWN', { eExpired, eMember: eAfterExpired.member });
 
-    // ================================================================ network double redeem (single approver: A is the only MANAGE_MEMBERS holder)
+    // ================================================================ network double redeem: D and E race through the admission service
     const drInv = await createInviteApi(ua.page);
     createdCodes.push(drInv.invite && drInv.invite.code);
     await sleep(600);
-    const [vD, vE] = await Promise.all([
-      ev(ud.page, async (code) => {
+    const validateIn = (page, code) =>
+      ev(page, async (c) => {
         await window.NostrApp.FirstGroupNetworkAuthority.reconcile('dr');
-        const v = await window.NostrApp.validateInvite({ code });
-        return { ok: v.ok, id: v.inviteEvent && v.inviteEvent.id, inviter: v.inviterPubkey };
-      }, drInv.invite.code),
-      ev(ue.page, async (code) => {
-        await window.NostrApp.FirstGroupNetworkAuthority.reconcile('dr');
-        const v = await window.NostrApp.validateInvite({ code });
-        return { ok: v.ok, id: v.inviteEvent && v.inviteEvent.id, inviter: v.inviterPubkey };
-      }, drInv.invite.code),
-    ]);
-    const [mD, mE] = await Promise.all([
-      ev(ud.page, async ({ code, id, inv }) => {
+        const v = await window.NostrApp.validateInvite({ code: c });
+        return { ok: v.ok, id: v.inviteEvent && v.inviteEvent.id, inviter: v.inviterPubkey, code: v.code };
+      }, code);
+    const markIn = (page, code, v) =>
+      ev(page, async ({ code, id, inv }) => {
         const m = await window.NostrApp.markInviteUsed({ code, inviterPubkey: inv, inviteEventId: id });
-        return { ok: m.ok, id: m.event && m.event.id, at: m.event && m.event.created_at };
-      }, { code: drInv.invite.code, id: vD.id, inv: vD.inviter }),
-      ev(ue.page, async ({ code, id, inv }) => {
-        const m = await window.NostrApp.markInviteUsed({ code, inviterPubkey: inv, inviteEventId: id });
-        return { ok: m.ok, id: m.event && m.event.id, at: m.event && m.event.created_at };
-      }, { code: drInv.invite.code, id: vE.id, inv: vE.inviter }),
-    ]);
-    const expectedWinner = [
-      { who: 'D', pub: D.pub, ...mD },
-      { who: 'E', pub: E.pub, ...mE },
-    ]
-      .filter((r) => r.ok)
-      .sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : 1))[0];
-    await sleep(9000);
-    await ev(ua.page, () => window.NostrApp.FirstGroupNetworkAuthority.maybeApproveJoins('test'));
-    await sleep(2500);
-    const drD = await view(ua.page, D.pub);
-    const drE = await view(ua.page, E.pub);
-    const activeCount = [drD, drE].filter((v) => v.member === 'ACTIVE').length;
-    const winnerActive = expectedWinner && (expectedWinner.who === 'D' ? drD : drE).member === 'ACTIVE';
-    const loserRetry = await redeem(expectedWinner && expectedWinner.who === 'D' ? ue.page : ud.page, drInv.invite.code);
-    const singleApproverOk = vD.ok && vE.ok && mD.ok && mE.ok && activeCount === 1 && winnerActive && !loserRetry.ok;
-    set('NETWORK_DOUBLE_REDEEM_SINGLE_APPROVER', singleApproverOk, {
+        return { ok: !!m.ok, result: m.result || m.code, error: m.userMessage || m.error, proofId: m.proof && m.proof.id };
+      }, { code, id: v.id, inv: v.inviter });
+    const [vD, vE] = await Promise.all([validateIn(ud.page, drInv.invite.code), validateIn(ue.page, drInv.invite.code)]);
+    const [mD, mE] = await Promise.all([markIn(ud.page, drInv.invite.code, vD), markIn(ue.page, drInv.invite.code, vE)]);
+    const winners = [{ who: 'D', pub: D.pub, page: ud.page, ...mD }, { who: 'E', pub: E.pub, page: ue.page, ...mE }].filter((r) => r.ok);
+    const expectedWinner = winners[0] || { who: '-', pub: D.pub };
+    const loser = expectedWinner.who === 'D' ? { who: 'E', pub: E.pub, page: ue.page, ...mE } : { who: 'D', pub: D.pub, page: ud.page, ...mD };
+    const wOnA = await waitView(ua.page, expectedWinner.pub, "v.member === 'ACTIVE'", 30000);
+    const wOnB = await waitView(ub.page, expectedWinner.pub, "v.member === 'ACTIVE'", 30000);
+    const wOnSelf = await view(expectedWinner.page || ud.page, expectedWinner.pub);
+    await sleep(1500);
+    const lOnA = await view(ua.page, loser.pub);
+    const lOnB = await view(ub.page, loser.pub);
+    const loserRetry = await redeem(loser.page, drInv.invite.code);
+    const proofsOnRelay = r1.all([39003]).filter((e) => e.pubkey === S.pub && (e.tags.find((t) => t[0] === 'admission') || [])[1] === (vD.id || ''));
+    const doubleOk =
+      vD.ok &&
+      vE.ok &&
+      winners.length === 1 &&
+      loser.result === 'ALREADY_REDEEMED' &&
+      /כבר נוצלה/.test(String(loser.error)) &&
+      wOnA.ok &&
+      wOnB.ok &&
+      wOnSelf.member === 'ACTIVE' &&
+      lOnA.member === 'UNKNOWN' &&
+      lOnB.member === 'UNKNOWN' &&
+      !loserRetry.ok &&
+      proofsOnRelay.length === 1;
+    set('FIRST_GROUP_NETWORK_DOUBLE_REDEEM', doubleOk, {
       bothValidated: vD.ok && vE.ok,
-      bothMarked: mD.ok && mE.ok,
-      activeCount,
-      expectedWinner: expectedWinner && expectedWinner.who,
-      winnerActive,
-      loserRetry: loserRetry.error,
+      accepted: winners.length,
+      winner: expectedWinner.who,
+      loser: { result: loser.result, error: loser.error },
+      converged: { winnerOnA: wOnA.ok, winnerOnB: wOnB.ok, loserOnA: lOnA.member, loserOnB: lOnB.member },
+      loserRetry: loserRetry.error || loserRetry.markError,
+      serviceProofsOnRelay: proofsOnRelay.length,
     });
 
-    // two concurrently online approvers (A root + B granted MANAGE_MEMBERS): measures the known limitation
-    const grantMM = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.grantCapability(pk, 'MANAGE_MEMBERS')).code, B.pub);
-    await waitView(ub.page, B.pub, "v.caps.indexOf('MANAGE_MEMBERS') !== -1", 20000);
+    // response loss in a real browser: the service commits, the response is dropped, the client retries the same operation
+    const uw = await newProfile('USER_W', { persistent: false });
     const uy = await newProfile('USER_Y', { persistent: false });
-    const uz = await newProfile('USER_Z', { persistent: false });
+    await openPage(uw, W);
     await openPage(uy, Y);
-    await openPage(uz, Z);
     const dr2 = await createInviteApi(ua.page);
     createdCodes.push(dr2.invite && dr2.invite.code);
     await sleep(600);
-    await Promise.all([redeem(uy.page, dr2.invite.code), redeem(uz.page, dr2.invite.code)]);
-    await sleep(12000);
-    const yA = await view(ua.page, Y.pub);
-    const zA = await view(ua.page, Z.pub);
-    const yB = await view(ub.page, Y.pub);
-    const zB = await view(ub.page, Z.pub);
-    const multi = { grantMM, onA: [yA.member, zA.member], onB: [yB.member, zB.member] };
-    const multiActive = [yA, zA].filter((v) => v.member === 'ACTIVE').length;
-    info('DOUBLE_REDEEM_TWO_APPROVERS', multi);
-    report.DOUBLE_REDEEM_TWO_APPROVERS_ACTIVE = multiActive;
-    await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.revokeCapability(pk, 'MANAGE_MEMBERS')).code, B.pub);
+    let dropped = 0;
+    await uw.page.route(ADM_URL + '/v1/invites/redeem', async (route) => {
+      if (dropped === 0 && route.request().method() === 'POST') {
+        dropped++;
+        await route.fetch().catch(() => null);
+        return route.abort('failed');
+      }
+      return route.continue();
+    });
+    const wRes = await redeem(uw.page, dr2.invite.code);
+    const ledger = await fetch(ADM_URL + '/v1/test/inspect', { method: 'POST', body: JSON.stringify({ groupId: GROUP, inviteId: dr2.invite.eventId }) }).then((r) => r.json());
+    const yRes = await redeem(uy.page, dr2.invite.code);
+    const wActiveOnA = await waitView(ua.page, W.pub, "v.member === 'ACTIVE'", 30000);
+    set('BROWSER_REDEEM_RESPONSE_LOSS', dropped === 1 && wRes.ok && ledger.ledger && ledger.ledger.state === 'REDEEMED' && ledger.ledger.redeemer === W.pub && !yRes.ok && wActiveOnA.ok, {
+      dropped,
+      w: wRes.ok,
+      ledgerState: ledger.ledger && ledger.ledger.state,
+      y: yRes.error || yRes.markError,
+      wOnA: wActiveOnA.ok,
+    });
+
+    // forged admission proofs published to relays must not grant membership anywhere
+    const svcProof = r1.all([39003]).find((e) => e.pubkey === S.pub && (e.tags.find((t) => t[0] === 'admission') || [])[1] === dr2.invite.eventId);
+    const forgedProofs = [];
+    if (svcProof) {
+      const body = JSON.parse(svcProof.content);
+      const retarget = (signer, patch) => {
+        const b = Object.assign({}, body, { memberPubkey: Y.pub, issuerPubkey: signer.pub, memberRevision: 1 }, patch || {});
+        b.admission = Object.assign({}, body.admission, { redeemerPubkey: Y.pub }, (patch && patch.admission) || {});
+        const tags = svcProof.tags.map((t) => (t[0] === 'p' ? ['p', Y.pub] : t[0] === 'd' ? ['d', GROUP + ':' + Y.pub + ':1'] : t[0] === 'member-revision' ? ['member-revision', '1'] : t.slice()));
+        return finalizeEvent({ kind: 39003, created_at: Math.floor(Date.now() / 1000), tags, content: JSON.stringify(b) }, signer.sk);
+      };
+      forgedProofs.push(retarget(X)); // not a delegate
+      forgedProofs.push(retarget(S, { admission: { redeemerPubkey: W.pub } })); // delegate key, broken binding
+      forgedProofs.push(retarget(S, { groupId: 'community-other' })); // wrong group body
+      forgedProofs.forEach((e) => publishAll(e));
+    }
+    await sleep(1500);
+    const yForged = [];
+    for (const u of [ua, ub]) {
+      await ev(u.page, () => window.NostrApp.FirstGroupNetworkAuthority.reconcile('forged-proof'));
+      yForged.push((await view(u.page, Y.pub)).member);
+    }
+    set('FORGED_ADMISSION_PROOF_REJECTED', !!svcProof && forgedProofs.length === 3 && yForged.every((m) => m === 'UNKNOWN'), { injected: forgedProofs.length, yOnAB: yForged });
+
+    // planned rotation: ROOT retires the service key; earlier admissions stay valid, new registrations fail closed
+    const retire = await ev(ua.page, async (svc) => (await window.NostrApp.FirstGroupAdmin.retireAdmissionDelegate(svc)).code, S.pub);
+    await ev(ua.page, () => window.NostrApp.FirstGroupNetworkAuthority.pushControlToAdmission());
+    await sleep(1200);
+    const afterRetire = [];
+    for (const u of [ua, ub]) {
+      await ev(u.page, () => window.NostrApp.FirstGroupNetworkAuthority.reconcile('retire'));
+      afterRetire.push({ b: (await view(u.page, B.pub)).member, winner: (await view(u.page, expectedWinner.pub)).member, w: (await view(u.page, W.pub)).member });
+    }
+    const createAfterRetire = await ev(ua.page, async () => {
+      const r = await window.NostrApp.FirstGroupAdmin.createInvite();
+      return { code: r.code, error: r.error };
+    });
+    set(
+      'ADMISSION_ROTATION_RETIRE',
+      retire === 'RETIRED' && afterRetire.every((r) => r.b === 'ACTIVE' && r.winner === 'ACTIVE' && r.w === 'ACTIVE') && createAfterRetire.code !== 'CREATED',
+      { retire, afterRetire, createAfterRetire }
+    );
+    await closeProfile(uw);
     await closeProfile(uy);
-    await closeProfile(uz);
-    // Not atomic across approvers by construction: the gate is reported BLOCKED_DISTRIBUTED_SERIALIZATION.
-    report.NETWORK_DOUBLE_REDEEM_GATE = 'BLOCKED_DISTRIBUTED_SERIALIZATION';
-    report.DOUBLE_REDEEM_SCOPE = 'NETWORK_SINGLE_APPROVER_SERIALIZED';
+    report.NETWORK_DOUBLE_REDEEM_GATE = doubleOk ? 'PASS' : 'FAIL';
+    report.DOUBLE_REDEEM_SCOPE = 'NETWORK_SERIALIZED_AUTHORITY';
 
     // ================================================================ multi-relay convergence
     const convPubs = [A.pub, B.pub, C.pub, D.pub, E.pub];
@@ -1443,6 +1586,7 @@ async function main() {
       await sharedBrowser.close();
     } catch (_e) {}
     server.close();
+    stopAdmission();
     await r1.stop().catch(() => {});
     await r2.stop().catch(() => {});
     try {
@@ -1457,8 +1601,40 @@ async function main() {
   const r = (k) => !!(report.results[k] && report.results[k].ok);
   report.THREE_BROWSER_NETWORK_E2E =
     r('THREE_INDEPENDENT_PROFILES') && r('REMOTE_MEMBERSHIP_GRANT') && r('A_ADMIN_UI_MEMBERS_FROM_NETWORK') && r('REMOTE_CAPABILITY') && r('REMOTE_INVITER') && r('NETWORK_QR_RENDER') && r('CROSS_USER_JOIN') && r('REMOTE_ADMIN_PROMOTE') && r('REMOTE_CAPABILITY_REVOKE') && r('REMOTE_ADMIN_DEMOTE') && r('REMOTE_MEMBER_REMOVE');
-  report.NETWORK_ADVERSARIAL = r('EVENT_INTEGRITY') && r('STALE_EVENT') && r('DIRECT_NETWORK_PRIVILEGED_BYPASS_REJECTED') && r('INVITER_CANNOT_ESCALATE') && r('CONTROL_CONFLICT_FAIL_CLOSED') && r('FAIL_CLOSED_NO_RELAY_CONFIRMATION') && r('NETWORK_INVITE_REVOKE') && r('NETWORK_EXPIRED_INVITE');
-  report.status = !report.fatal && report.failedKeys.length === 0 ? 'PASS' : 'FAIL';
+  report.THREE_BROWSER_NETWORK_E2E =
+    report.THREE_BROWSER_NETWORK_E2E && report.ADMISSION_DELEGATION_OK === true && r('FIRST_GROUP_NETWORK_DOUBLE_REDEEM') && r('BROWSER_REDEEM_RESPONSE_LOSS');
+  report.NETWORK_ADVERSARIAL =
+    r('EVENT_INTEGRITY') &&
+    r('STALE_EVENT') &&
+    r('DIRECT_NETWORK_PRIVILEGED_BYPASS_REJECTED') &&
+    r('INVITER_CANNOT_ESCALATE') &&
+    r('CONTROL_CONFLICT_FAIL_CLOSED') &&
+    r('FAIL_CLOSED_NO_RELAY_CONFIRMATION') &&
+    r('NETWORK_INVITE_REVOKE') &&
+    r('NETWORK_EXPIRED_INVITE') &&
+    r('FORGED_ADMISSION_PROOF_REJECTED') &&
+    r('ADMISSION_ROTATION_RETIRE');
+  // The 42 checks carried from the 898 RC v1 E2E; the single-approver double-redeem check is re-scoped to the service.
+  const EXISTING_42 = [
+    'CONFIG_TEST_TRANSFORMS_APPLIED', 'THREE_INDEPENDENT_PROFILES', 'APP_USES_LOCAL_TEST_RELAYS', 'FIRST_GROUP_CANONICAL_ID',
+    'ROOT_BOOTSTRAP_PUBLISHED_TO_RELAYS', 'NO_ADMIN_UI_WITHOUT_NETWORK_CONTROL', 'CONTROL_RECEIVED_FROM_NETWORK', 'REMOTE_MEMBERSHIP_GRANT',
+    'A_ADMIN_UI_MEMBERS_FROM_NETWORK', 'REMOTE_CAPABILITY', 'INVITER_CANNOT_ESCALATE', 'REMOTE_INVITER', 'NETWORK_QR_RENDER', 'CROSS_USER_JOIN',
+    'JOIN_OBSERVABILITY', 'REMOTE_ADMIN_PROMOTE', 'FRESH_PROFILE_AUTHORITY', 'REMOTE_CAPABILITY_REVOKE', 'REMOTE_ADMIN_DEMOTE',
+    'OFFLINE_STALE_CACHE_FAIL_CLOSED', 'OFFLINE_RECONNECT', 'MULTITAB_REVOCATION', 'REMOTE_MEMBER_REMOVE', 'STALE_EVENT', 'EVENT_INTEGRITY',
+    'NETWORK_AUTHORITATIVE_GATEWAY', 'DIRECT_NETWORK_PRIVILEGED_BYPASS_REJECTED', 'NETWORK_INVITE_REVOKE', 'NETWORK_EXPIRED_INVITE',
+    'FIRST_GROUP_NETWORK_DOUBLE_REDEEM', 'DUPLICATE_EVENT_NO_CORRUPTION', 'EVENT_ARRIVAL_ORDER_DETERMINISTIC', 'ONE_RELAY_DOWN_CONVERGES',
+    'RELAY_RECONNECT_UNION', 'FAIL_CLOSED_NO_RELAY_CONFIRMATION', 'ADMIN_UI_LOADING_STATE', 'NETWORK_BACKED_ADMIN_UI', 'ACCOUNT_SWITCH',
+    'CONTROL_CONFLICT_FAIL_CLOSED', 'TYPED_SIGNER_ONLY', 'RELAY_SECRET_LEAK_SCAN', 'DOM_SECRET_SCAN',
+  ];
+  report.EXISTING_E2E_TOTAL = EXISTING_42.length;
+  report.EXISTING_E2E_PASS = EXISTING_42.filter((k) => r(k)).length;
+  report.EXISTING_E2E_RESCOPED = { NETWORK_DOUBLE_REDEEM_SINGLE_APPROVER: 'FIRST_GROUP_NETWORK_DOUBLE_REDEEM' };
+  report.SERVICE_LOG_SECRET_HITS = 0;
+  try {
+    const leakCount = (globalThis.__SOS_SECRET_HEXES || []).filter((h) => admLog.includes(h)).length;
+    report.SERVICE_LOG_SECRET_HITS = leakCount;
+  } catch (_e) {}
+  report.status = !report.fatal && report.failedKeys.length === 0 && report.SERVICE_LOG_SECRET_HITS === 0 ? 'PASS' : 'FAIL';
   fs.writeFileSync(OUT, JSON.stringify(report, null, 2));
   console.log('RESULT', report.status, 'passed', report.passed, 'failed', report.failedKeys.join(','));
   process.exit(report.status === 'PASS' ? 0 : 1);

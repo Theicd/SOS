@@ -8,14 +8,21 @@
 
 - First-group admin state is network-backed (`docs/FIRST_GROUP_NETWORK_AUTHORITY.md`); the three-browser
   network E2E, fresh profile, remote capability, cross-user join, gateway and adversarial suites pass.
-- **Blocker:** `NETWORK_DOUBLE_REDEEM_GATE=BLOCKED_DISTRIBUTED_SERIALIZATION`. Single-use invites are only
-  serialized while exactly one ROOT / MANAGE_MEMBERS client approves joins. Before controlled activation the owner
-  must choose the serialization model (designated join-serializer key / root-only approval, or a convergent
-  resolver rule) — see the "Double redeem" section of the authority doc.
-- Operational precondition for activation even after that decision: at least one approver client online, otherwise
-  redemptions wait (they are not lost; they are approved on the approver's next sync).
-- Rollback after activation must be flag OFF (forward-only): 897 validators reject 898 d-tags.
-- `FIRST_GROUP_V2_READY_FOR_CONTROLLED_PRODUCTION_ACTIVATION=false` until the blocker is resolved.
+- Double redeem: `NETWORK_DOUBLE_REDEEM_GATE=PASS`, `DOUBLE_REDEEM_SCOPE=NETWORK_SERIALIZED_AUTHORITY`. Single-use
+  invites are serialized by the first-group admission service (one Durable Object per invite, atomic CAS) —
+  `docs/FIRST_GROUP_ADMISSION_AUTHORITY.md`. No approver client needs to be online.
+- Activation order (each step owner-approved):
+  1. Deploy Web 898 with the flag OFF (`App.FIRST_GROUP_ADMISSION_URL = ''`).
+  2. Deploy the production admission service (own key as Cloudflare secret `ADMISSION_SK`; `ROOT_PUBKEY` var;
+     no `TEST_FAULTS`); verify `/v1/health`.
+  3. ROOT signs `setAdmissionDelegate(<service pubkey>)` from the owner's device (the only delegation; ROOT key
+     never goes to a server).
+  4. Web package sets `App.FIRST_GROUP_ADMISSION_URL`; then flag ON (config-only).
+- Without the admission service configured, invite register / redeem / revoke fail closed
+  (`TEMPORARILY_UNAVAILABLE` / `ADMISSION_SERVICE_REQUIRED`); there is no unserialized fallback.
+- Rollback after activation must be flag OFF (forward-only): 897 validators reject 898 d-tags. Service key
+  compromise: `revokeAdmissionDelegate`, deploy a new key, delegate it.
+- `FIRST_GROUP_V2_READY_FOR_CONTROLLED_PRODUCTION_ACTIVATION` is set by `qa/package898-rc-report.json`.
 
 ## Product model (must stay true after activation)
 

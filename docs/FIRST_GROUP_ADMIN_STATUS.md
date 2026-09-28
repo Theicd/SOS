@@ -16,8 +16,8 @@ Production is unchanged: Package 897, main `16f43ae6f81406c68944b66770b248b27137
 - Every privileged first-group action (`nguard`) reconciles with the relays first and fails closed
   (`NETWORK_AUTHORITY_UNVERIFIED`) when no relay confirms the state with EOSE, on control conflict, or when
   control is not VERIFIED.
-- Join approval is automatic on an online ROOT / MANAGE_MEMBERS client; C joins by B's QR without any
-  manual export/import.
+- Join admission goes through the first-group admission service (single-use atomic claim, service-signed proof
+  delegated by ROOT); C joins by B's QR without any manual export/import. See `FIRST_GROUP_ADMISSION_AUTHORITY.md`.
 - The admin menu and all admin sections stay hidden until the first network sync (loading state).
 
 ## Authority model
@@ -37,7 +37,8 @@ Production is unchanged: Package 897, main `16f43ae6f81406c68944b66770b248b27137
   `online` and before every privileged action).
 - Remote inviter: B (INVITE_USERS only) creates an invite and QR; C scans and joins; A and B see C; C reload keeps
   membership.
-- Network invite revoke and expiry; invites of a user who lost INVITE_USERS stop validating.
+- Network invite revoke and expiry. Inviter authority is checked when the invite is registered with the admission
+  service: a registered invite stays valid after the inviter loses INVITE_USERS; new registrations are denied.
 - Fresh browser profile rebuilds authority from the network only.
 - Multi-tab revocation, offline stale cache fails closed, reconnect converges.
 - Account switch without leak.
@@ -50,20 +51,22 @@ Verification: `E2E_SCOPE=NETWORK_BACKED_E2E` (`qa/package898-first-group-network
 persistent Chromium profiles (USER_A / USER_B / USER_C) plus isolated contexts, two real local NIP-01 WebSocket
 relays with parameterized-replaceable semantics, the app's own nostr-tools pool. `NETWORK_BACKED_E2E=true`.
 
-## BLOCKED
+## Double redeem — resolved
 
-- `NETWORK_DOUBLE_REDEEM_GATE=BLOCKED_DISTRIBUTED_SERIALIZATION`
-- `DOUBLE_REDEEM_SCOPE=NETWORK_SINGLE_APPROVER_SERIALIZED`
+- `NETWORK_DOUBLE_REDEEM_GATE=PASS`
+- `DOUBLE_REDEEM_SCOPE=NETWORK_SERIALIZED_AUTHORITY`
 
-With exactly one online approver, concurrent redemptions of one invite yield exactly one member (earliest valid
-(created_at, id) after a 3 s settle window). With two approvers online the E2E shows the winner's two grants at the
-same revision end in membership CONFLICT (no double membership, but the legitimate winner is stuck).
-Nostr relays provide no compare-and-set, so the decentralized model cannot make single-use redemption atomic.
-Architectural requirement and options: `FIRST_GROUP_NETWORK_AUTHORITY.md` → "Double redeem".
+One Durable Object per invite (`admission-service/`) performs an atomic `UNUSED → CLAIMED` compare-and-set; exactly one
+redeem is accepted, others get canonical non-success results. ROOT delegates only `FINALIZE_MEMBERSHIP_ADMISSION` to
+the service's own key; the ROOT private key never leaves the owner's device. Verified locally (workerd), on an
+isolated Cloudflare staging Worker (deleted after the run) and in the three-browser E2E, including response loss,
+revoke/redeem race, forged proofs and key rotation. Production service not deployed; `FIRST_GROUP_ADMISSION_URL`
+is empty in 898.
 
 ## DEFERRED_TO_NEXT_PHASE
 
-- Atomic single-use redemption (designated serializer or convergent resolver rule — owner decision).
+- Production admission service deployment + ROOT delegation (owner-gated).
+- Service control view is fed by client pushes; a relay-subscribing service is a later hardening step.
 - Freshness against all relays withholding the newest event (a client can only be as fresh as the union of
   reachable relays).
 - Invite create / revoke events in the audit log.

@@ -144,8 +144,9 @@
     'REMOVED cannot self-rejoin; new GRANT_ACTIVE (invite-bound or manager grant) → ACTIVE at next revision';
 
   const INVITE_MEMBERSHIP_GRANT_SIGNER_MODEL =
-    'Client-only: ROOT or MANAGE_MEMBERS signs GRANT_MEMBER_ACTIVE (AC9 SIGN_ADMIN_TYPED) after valid redeem; ' +
-    'no browser system key; if no authorized signer present → no auto-grant';
+    'When a ROOT-delegated admission service is configured in GROUP_CONTROL, only its key may sign invite-bound ' +
+    'GRANT_ACTIVE (after its atomic single-use claim); otherwise ROOT / MANAGE_MEMBERS via AC9 SIGN_ADMIN_TYPED. ' +
+    'No browser system key.';
 
   const MEMBERSHIP_GATED_ACTIONS = Object.freeze([
     'post_create',
@@ -291,6 +292,61 @@
 
   function isRootCheckpointTransition(transition) {
     return ROOT_CHECKPOINT_TRANSITIONS.indexOf(transition) !== -1;
+  }
+
+  const ADMISSION_CAP = 'FINALIZE_MEMBERSHIP_ADMISSION';
+  const ADMISSION_RETIRED_CAP = 'FINALIZE_MEMBERSHIP_ADMISSION_RETIRED';
+  const ADMISSION_SCHEMA = 'sos-first-group-admission';
+  const ADMISSION_PROOF_MODEL =
+    'Invite-bound GRANT_ACTIVE is final only when signed by a ROOT-delegated admission service key ' +
+    '(control capabilities[pk] contains FINALIZE_MEMBERSHIP_ADMISSION) and body.admission binds ' +
+    'inviteEventId + redeemer (= memberPubkey) + operationId. Retired delegates keep proofs issued at an ' +
+    'epoch where they were active; removed delegates lose every proof.';
+
+  function admissionConfigured(state) {
+    const caps = (state && state.capabilities) || {};
+    return Object.keys(caps).some((pk) => (caps[pk] || []).indexOf(ADMISSION_CAP) !== -1);
+  }
+
+  /** null = issuer is not an admission delegate; otherwise the verdict for its proof. */
+  function admissionProofCheck(event, body, issuer, memberPubkey, transition, state, groupId) {
+    const caps = (state && state.capabilities && state.capabilities[issuer]) || [];
+    const active = caps.indexOf(ADMISSION_CAP) !== -1;
+    const retired = !active && caps.indexOf(ADMISSION_RETIRED_CAP) !== -1;
+    if (!active && !retired) return null;
+    if (transition !== TRANSITION.GRANT_ACTIVE || body.status !== STATUS.ACTIVE) {
+      return { ok: false, code: 'ADMISSION_DELEGATE_GRANT_ONLY' };
+    }
+    const a = body.admission;
+    const inviteId = String(body.inviteEventId || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(inviteId)) return { ok: false, code: 'ADMISSION_INVITE_REQUIRED' };
+    if (
+      !a ||
+      a.schema !== ADMISSION_SCHEMA ||
+      Number(a.version) !== 1 ||
+      String(a.inviteEventId || '').toLowerCase() !== inviteId ||
+      normalizePubkey(a.redeemerPubkey) !== memberPubkey ||
+      String(a.groupId || '') !== groupId ||
+      !/^[A-Za-z0-9_-]{16,80}$/.test(String(a.operationId || ''))
+    ) {
+      return { ok: false, code: 'ADMISSION_BINDING_INVALID' };
+    }
+    if (readTag(event, 'admission').toLowerCase() !== inviteId) return { ok: false, code: 'ADMISSION_TAG_MISMATCH' };
+    if (active) return { ok: true, code: 'ADMISSION_ACTIVE' };
+    const GCS = getGCS();
+    const info = GCS && typeof GCS.admissionDelegateInfo === 'function' ? GCS.admissionDelegateInfo(issuer, groupId) : null;
+    const at = Number(body.controlEpochAtIssue);
+    if (
+      info &&
+      info.retired &&
+      info.retiredAtEpoch != null &&
+      Number.isInteger(at) &&
+      at < info.retiredAtEpoch &&
+      info.activeEpochs.indexOf(at) !== -1
+    ) {
+      return { ok: true, code: 'ADMISSION_RETIRED_HISTORICAL' };
+    }
+    return { ok: false, code: 'ADMISSION_DELEGATE_RETIRED' };
   }
 
   function parseContent(event) {
@@ -483,8 +539,16 @@
       }
     }
 
-    if (!issuerMayTransition(issuer, transition, state)) {
-      return { ok: false, code: 'UNAUTHORIZED_ISSUER' };
+    const admission = admissionProofCheck(event, body, issuer, memberPubkey, transition, state, groupId);
+    if (admission) {
+      if (!admission.ok) return admission;
+    } else {
+      if (transition === TRANSITION.GRANT_ACTIVE && body.inviteEventId && admissionConfigured(state)) {
+        return { ok: false, code: 'INVITE_ADMISSION_REQUIRES_DELEGATE' };
+      }
+      if (!issuerMayTransition(issuer, transition, state)) {
+        return { ok: false, code: 'UNAUTHORIZED_ISSUER' };
+      }
     }
 
     if (isRootCheckpointTransition(transition) && !isRootAdmin(issuer, state)) {
@@ -1248,6 +1312,8 @@
     REMOVED_MEMBER_CAPABILITY_CLEANUP_REQUIRED,
     REMOVED_USER_REJOIN_MODEL,
     INVITE_MEMBERSHIP_GRANT_SIGNER_MODEL,
+    ADMISSION_PROOF_MODEL,
+    admissionConfigured,
     MEMBERSHIP_GATED_ACTIONS,
     NON_MEMBERSHIP_GATED_ACTIONS,
     BLOCKED_USER_PUBLIC_READ_POLICY,

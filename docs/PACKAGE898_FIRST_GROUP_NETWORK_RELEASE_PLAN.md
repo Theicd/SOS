@@ -9,11 +9,21 @@
 | Base / rollback target | Package 897, `16f43ae6f81406c68944b66770b248b27137c643`, `sos-cache-v897` |
 | RC gate | `qa/package898-rc-gate.mjs` → `qa/package898-rc-report.json` |
 | Network E2E | `qa/package898-first-group-network-e2e.mjs` |
-| Status | BLOCKED (double redeem: `BLOCKED_DISTRIBUTED_SERIALIZATION`) |
+| Admission service gate | `qa/package898-admission-service-gate.mjs` (local workerd) + `qa/package898-admission-staging.mjs` (Cloudflare staging, deleted after run) |
+| Status | see `qa/package898-rc-report.json` (`PACKAGE898_RC_STATUS`) |
 
-## Delta (web only)
+## Delta
 
-- `first-group-network-authority.js` (new): relay fetch / live subscription / reconcile / fail-closed / join approval.
+- `admission-service/` (new, not deployed): Cloudflare Worker + Durable Objects `InviteLedger` (per invite) and
+  `GroupAuthority` (per group). Own service key as Cloudflare secret only. See `FIRST_GROUP_ADMISSION_AUTHORITY.md`.
+- `first-group-admission-client.js` (new): register / redeem / revoke / status against the admission service,
+  operation-id retry, control push; fail closed.
+- `invite-service.js`: V2 first-group invites are registered before publish, redeemed and revoked via the service.
+- `group-control-state.js` / `admin-signing-policy.js` / `membership-state.js`: ROOT-only, non-delegable
+  `FINALIZE_MEMBERSHIP_ADMISSION` (+ `_RETIRED`) and admission-proof validation.
+- `config.js`: `App.FIRST_GROUP_ADMISSION_URL = ''` (no production service in 898). `guest-auth.js`: admission error text.
+- `first-group-network-authority.js` (new): relay fetch / live subscription / reconcile / fail-closed / control push
+  to the admission service (no client-side join approval).
 - `first-group-admin.js`: `nguard` (reconcile before every privileged action), sync-gated admin menu, network bootstrap.
 - `group-admin-product-ui.js`: bootstrap prompt only after a relay confirmed there is no control; network state in fingerprint.
 - `admin-signing-policy.js`, `group-control-state.js`, `membership-state.js`: per-epoch / per-revision d-tags
@@ -29,24 +39,31 @@ With `accessControlV2=false` the network module never starts, `nguard` is unreac
 
 ## Pre-deploy (owner-gated)
 
-1. `qa/package898-rc-gate.mjs` on the exact RC tree; review BLOCKED items.
-2. Owner decision on the double-redeem serialization model (see `FIRST_GROUP_NETWORK_AUTHORITY.md`).
-3. Explicit owner approval for deploy (flag OFF) — separate from any activation approval.
+1. `qa/package898-rc-gate.mjs` on the exact RC tree; `PACKAGE898_RC_GATE=PASS`.
+2. Explicit owner approval for Web deploy (flag OFF) — separate from the admission service deploy and from activation.
 
 ## Deploy (when approved)
 
 `git push origin <RC SHA>:main` (fast-forward) → GitHub Pages → verify `app-version.json` = `2026.09.28-web-898`,
 `sos-cache-v898`, flag `false`, production smoke (chat, P2P, calls, feed, invites).
 
-## Controlled activation (separate approval, after blocker resolved)
+## Admission service (separate approval)
 
-Flag ON is config-only. Preconditions: serialization model implemented and gated; an approver client online;
-root key available. Monitor: control status VERIFIED on clients, join approvals, no CONTROL_CONFLICT.
+Production Worker `wrangler deploy` (no `TEST_FAULTS`, no routes unless approved) → `wrangler secret put ADMISSION_SK`
+(stdin, never in files) → `/v1/health` → ROOT signs `setAdmissionDelegate(<service pubkey>)` on the owner's device.
+No DNS change required (workers.dev). The ROOT private key is never given to the service.
+
+## Controlled activation (separate approval)
+
+Web package sets `App.FIRST_GROUP_ADMISSION_URL`, then flag ON (config-only). Preconditions: admission service
+healthy, delegation active, root key available. Monitor: control status VERIFIED on clients, admission results
+(`ACCEPTED` / `ALREADY_REDEEMED`), no CONTROL_CONFLICT, no `TEMPORARILY_UNAVAILABLE` spikes.
 
 ## Rollback
 
 - Before activation: code revert to 897 is safe (V2 never signed in production).
 - After activation: flag OFF only (897 validators reject 898 d-tags).
+- Admission service: `revokeAdmissionDelegate` stops new admissions immediately; the Worker can then be removed.
 
 ## 404 audit (production 897 and local 898, guest + logged in)
 

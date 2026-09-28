@@ -82,7 +82,10 @@ MULTI-DEVICE AUTHORIZATION / PAIRING (MD1–MD3 local; QR UI not productized)
   the canonical stores re-verify them, and every privileged action reconciles first and fails closed without
   relay confirmation. localStorage is a cache of signed events only. Status:
   `docs/FIRST_GROUP_ADMIN_STATUS.md`, model: `docs/FIRST_GROUP_NETWORK_AUTHORITY.md`.
-  Double redeem is `BLOCKED_DISTRIBUTED_SERIALIZATION` (single-approver serialized only).
+  Single-use invite admission is serialized by `admission-service/` (Cloudflare Durable Object per invite, atomic
+  CAS) through `first-group-admission-client.js`; ROOT delegates only `FINALIZE_MEMBERSHIP_ADMISSION` to the
+  service's own key (ROOT key stays on the owner's device). Model: `docs/FIRST_GROUP_ADMISSION_AUTHORITY.md`.
+  Production service not deployed; `FIRST_GROUP_ADMISSION_URL` empty in 898.
   Chat / P2P / calls / feed are not touched by the first-group work.
 - Activation plan: `docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md` (not executed)
 - Community product gate: `qa/access-control-v2-community-product-gate.mjs`
@@ -143,7 +146,7 @@ MULTI-DEVICE AUTHORIZATION / PAIRING (MD1–MD3 local; QR UI not productized)
 | **MD1–MD3** | PASS local | device identity / pairing / authorization reports |
 | **MD4** | NOT_STARTED | change control |
 | **ACCESS_CONTROL_V2** | OFF / unchanged | default false |
-| **First group network admin (898)** | RC local, network E2E PASS; double redeem BLOCKED_DISTRIBUTED_SERIALIZATION | `qa/package898-first-group-network-e2e-report.json`, `qa/package898-rc-report.json` |
+| **First group network admin (898)** | RC local, network E2E PASS; double redeem NETWORK_SERIALIZED_AUTHORITY (admission service, staging verified, not in production) | `qa/package898-first-group-network-e2e-report.json`, `qa/package898-admission-service-report.json`, `qa/package898-admission-staging-report.json`, `qa/package898-rc-report.json` |
 
 **Integration recovery closure (web):** Hebrew UTF-8 product UI, social reload, notifications E2E, audio/video call E2E, call lifecycle/cleanup, and master security regression re-run completed locally without main push/deploy.
 
