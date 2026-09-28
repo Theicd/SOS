@@ -37,6 +37,26 @@
     return '';
   }
 
+  // Decrypted encrypted-voice cache entries are bound to the full descriptor + message context,
+  // so a descriptor that only reuses an attachmentId never gets someone else's cached plaintext.
+  async function boundEncryptedVoiceCacheKey(att, ctx) {
+    try {
+      if (typeof App.hashMediaCiphertext !== 'function' || typeof TextEncoder === 'undefined') return '';
+      const material = [
+        att.attachmentId || '',
+        (att.cipher && att.cipher.sha256) || '',
+        (att.enc && att.enc.key) || '',
+        ctx.messageId || att.clientMessageId || att.logicalMessageId || '',
+        ctx.sender || '',
+        ctx.recipient || '',
+      ].join('|');
+      const digest = await App.hashMediaCiphertext(new TextEncoder().encode(material));
+      return typeof digest === 'string' && digest ? 'p2p-file-ev-' + digest.slice(0, 40) : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
   function isLivePlayableSrc(src) {
     const s = String(src || '').trim();
     if (!s) return false;
@@ -117,22 +137,31 @@
       typeof URL !== 'undefined' &&
       typeof URL.createObjectURL === 'function'
     ) {
-      const src = URL.createObjectURL(att._resolvedBlob);
+      const src =
+        typeof att._localObjectUrl === 'string' && att._localObjectUrl.startsWith('blob:')
+          ? att._localObjectUrl
+          : URL.createObjectURL(att._resolvedBlob);
       logVoiceSource('VOICE_SOURCE_LOCAL');
       return { ok: true, src, source: 'VOICE_SOURCE_LOCAL', encrypted };
     }
 
     let local = '';
+    const boundKey = encrypted ? await boundEncryptedVoiceCacheKey(att, ctx) : '';
     try {
-      if (att && typeof App.resolveChatMediaSrc === 'function') {
+      if (encrypted && !boundKey) {
+        local = '';
+      } else if (att && typeof App.resolveChatMediaSrc === 'function') {
         const probe = Object.assign({}, att);
-        if (encrypted && (probe.url === cipherUrl || String(probe.url || '').startsWith('http'))) {
-          probe.url = '';
-          probe.dataUrl = '';
+        if (encrypted) {
+          probe.cacheKey = boundKey;
+          if (probe.url === cipherUrl || String(probe.url || '').startsWith('http')) {
+            probe.url = '';
+            probe.dataUrl = '';
+          }
         }
         local = await App.resolveChatMediaSrc(probe);
-      } else if ((ctx.cacheKey || (att && att.cacheKey)) && typeof App.loadChatP2PMediaBlob === 'function') {
-        const blob = await App.loadChatP2PMediaBlob(ctx.cacheKey || att.cacheKey);
+      } else if ((boundKey || ctx.cacheKey || (att && att.cacheKey)) && typeof App.loadChatP2PMediaBlob === 'function') {
+        const blob = await App.loadChatP2PMediaBlob(boundKey || ctx.cacheKey || att.cacheKey);
         if (blob && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
           local = URL.createObjectURL(blob);
         }
@@ -164,10 +193,14 @@
           logVoiceSource('VOICE_BLOSSOM_RESOLVE_FAILED');
           return { ok: false, src: '', source: 'VOICE_BLOSSOM_RESOLVE_FAILED', encrypted, failClosed: false };
         }
+        // P2P-E2EE plaintext stays in memory only; the durable copy is the Blossom ciphertext.
+        if (att._resolvedSource === 'p2p') {
+          logVoiceSource('VOICE_SOURCE_P2P_E2EE');
+          return { ok: true, src, source: 'VOICE_SOURCE_P2P_E2EE', encrypted, blob: result.blob || null };
+        }
         if (result.blob && typeof App.persistChatP2PMedia === 'function') {
-          const key = resolveVoiceCacheKey(att) || ctx.cacheKey || '';
-          if (key) {
-            App.persistChatP2PMedia(key, result.blob, {
+          if (boundKey) {
+            App.persistChatP2PMedia(boundKey, result.blob, {
               name: 'voice',
               type: result.blob.type || 'audio/webm',
             }).catch(() => {});
@@ -237,7 +270,8 @@
     // חלק שעה וסטטוס (chat-audio-player.js) – מקום לשעה וסטטוס בתוך הנגן | HYPER CORE TECH
     // חלק תמונת פרופיל (chat-audio-player.js) – מקום לתמונת פרופיל בתוך הנגן | HYPER CORE TECH
     // חלק P2P קול (chat-audio-player.js) – שמירת magnetURI כ-data attribute לטעינת P2P | HYPER CORE TECH
-    const magnetUriRaw = attachment.magnetURI || '';
+    // p2p v1 (encrypted) is resolved via resolveServerMediaAttachment; legacy magnet playback is for LEGACY_VOICE only.
+    const magnetUriRaw = attachment.p2p ? '' : (attachment.magnetURI || '');
     const magnetUri = (magnetUriRaw && typeof App.isValidIncomingMagnetURI === 'function' && !App.isValidIncomingMagnetURI(magnetUriRaw)) ? '' : magnetUriRaw;
     const fallbackSrc = src;
     const cacheKey = resolveVoiceCacheKey(attachment);

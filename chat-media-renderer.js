@@ -171,7 +171,7 @@
         const resp = await fetch(src);
         if (resp.ok) {
           const liveBlob = await resp.blob();
-          if (cacheKey && liveBlob?.size > 0) {
+          if (cacheKey && liveBlob?.size > 0 && attachment._resolvedSource !== 'p2p') {
             persistChatP2PMedia(cacheKey, liveBlob, {
               name: attachment.name,
               type: attachment.type || liveBlob.type,

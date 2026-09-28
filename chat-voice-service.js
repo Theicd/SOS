@@ -64,6 +64,7 @@
       mr.onstop = async ()=>{
         // חלק פורמט (chat-voice-service.js) – שימוש בפורמט שנבחר בהקלטה | HYPER CORE TECH
         const blob = new Blob(chunks, { type: activeMimeType });
+        chunks = [];
         const durationSec = Math.max(1, Math.round((Date.now()-startedAt)/1000));
         stopTracks();
         console.log('[VOICE] Recording stopped, blob size:', blob.size, 'type:', activeMimeType);
@@ -99,11 +100,19 @@
     return mimeType.split(';')[0].trim() || 'audio/webm';
   }
 
-  async function buildAttachmentFromBlob(blob, duration, mimeType){
+  function voiceSecureError(code) {
+    const err = new Error(code);
+    err.code = code;
+    return err;
+  }
+
+  // Voice never takes a plaintext server path: encrypted Blossom descriptor or E2EE-safe inline only. | HYPER CORE TECH
+  async function buildAttachmentFromBlob(blob, duration, mimeType, peerPubkey){
     const ext = getFileExtension(mimeType || 'audio/webm');
     const fileName = `voice-message.${ext}`;
     const finalMime = canonicalVoiceMime(mimeType || 'audio/webm');
     const peer =
+      peerPubkey ||
       (typeof App.getActiveChatPeer === 'function' && App.getActiveChatPeer()) ||
       (App.chatState && App.chatState.activeContact) ||
       '';
@@ -113,39 +122,34 @@
         : ('cmsg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));
 
     async function uploadSecureVoice() {
-      const uploadBlob = new Blob([blob], { type: finalMime });
-      if (typeof App.uploadMediaForServerFallback === 'function') {
-        const uploaded = await App.uploadMediaForServerFallback(uploadBlob, {
-          messageId,
-          sender: App.publicKey,
-          recipient: peer,
-          mimeType: finalMime,
-          fileName,
-          duration,
-        });
-        if (uploaded && typeof uploaded === 'object' && uploaded.type === 'encrypted-media') {
-          uploaded.id = uploaded.attachmentId || ('audio-' + Date.now());
-          uploaded.name = (uploaded.media && uploaded.media.filename) || fileName;
-          uploaded.size =
-            (uploaded.media && typeof uploaded.media.originalSize === 'number'
-              ? uploaded.media.originalSize
-              : blob.size);
-          uploaded.duration = duration;
-          uploaded.isVoice = true;
-          uploaded.clientMessageId = messageId;
-          uploaded.logicalMessageId = messageId;
-          console.log('[VOICE] Uploaded encrypted Blossom descriptor');
-          return uploaded;
-        }
-        const url = uploaded;
-        console.log('[VOICE] Uploaded to Blossom:', typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]');
-        return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl: '', url, duration, clientMessageId: messageId, logicalMessageId: messageId };
+      if (typeof App.uploadMediaForServerFallback !== 'function') {
+        throw voiceSecureError('VOICE_E2EE_UNAVAILABLE');
       }
-      if(typeof App.uploadToBlossom !== 'function') throw new Error('blossom-missing');
-      // חלק העלאה (chat-voice-service.js) – העלאה עם MIME type נכון | HYPER CORE TECH
-      const url = await App.uploadToBlossom(uploadBlob);
-      console.log('[VOICE] Uploaded to Blossom:', typeof App.diagSafeUrl === 'function' ? App.diagSafeUrl(url) : '[url]');
-      return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl: '', url, duration };
+      const uploadBlob = new Blob([blob], { type: finalMime });
+      const uploaded = await App.uploadMediaForServerFallback(uploadBlob, {
+        messageId,
+        sender: App.publicKey,
+        recipient: peer,
+        mimeType: finalMime,
+        fileName,
+        duration,
+        requireEncryption: true,
+      });
+      if (!uploaded || typeof uploaded !== 'object' || uploaded.type !== 'encrypted-media') {
+        throw voiceSecureError('VOICE_E2EE_UPLOAD_NOT_ENCRYPTED');
+      }
+      uploaded.id = uploaded.attachmentId || ('audio-' + Date.now());
+      uploaded.name = (uploaded.media && uploaded.media.filename) || fileName;
+      uploaded.size =
+        (uploaded.media && typeof uploaded.media.originalSize === 'number'
+          ? uploaded.media.originalSize
+          : blob.size);
+      uploaded.duration = duration;
+      uploaded.isVoice = true;
+      uploaded.clientMessageId = messageId;
+      uploaded.logicalMessageId = messageId;
+      console.log('[VOICE] Uploaded encrypted Blossom descriptor');
+      return uploaded;
     }
 
     async function tryInlineVoice() {
@@ -178,11 +182,15 @@
         mimeType: finalMime,
         fileName,
         duration,
+        requireEncryption: true,
       });
       if (resolved.route === 'INLINE_E2EE_SAFE') {
         return resolved.attachment;
       }
       if (resolved.route === 'SECURE_BLOB_REQUIRED' && resolved.attachment) {
+        if (resolved.attachment.type !== 'encrypted-media') {
+          throw voiceSecureError('VOICE_E2EE_UPLOAD_NOT_ENCRYPTED');
+        }
         return resolved.attachment;
       }
       // GENERIC should not happen for voice MIME; fall through to secure upload.
@@ -213,45 +221,54 @@
     try{
       return await uploadSecureVoice();
     }catch(err){
-      console.error('[VOICE] Blossom upload failed:', err);
-      // When server E2EE gate is ON: never silent plaintext Blossom downgrade.
-      // Do not return an E3B-impossible inline as flow control (ENCRYPT_FAILURE).
-      if (typeof App.isMediaServerE2eeRequired === 'function' && App.isMediaServerE2eeRequired()) {
-        if (blob.size <= MAX_INLINE_BYTES * 1.2 && typeof App.resolveInlineAttachmentForE2ee === 'function') {
-          try {
-            const emergency = await tryInlineVoice();
-            if (emergency && emergency.dataUrl && emergency.type !== 'encrypted-media') {
-              // Only accept if classifier kept it INLINE_E2EE_SAFE
-              return emergency;
-            }
-            if (emergency && emergency.type === 'encrypted-media') return emergency;
-          } catch (_e) {}
-        }
-        throw err;
-      }
-      // Fallback: אם העלאה נכשלה נחזור ל-inline אם אפשר, אחרת נדווח שגיאה
-      if (blob.size <= MAX_INLINE_BYTES * 1.2){
+      console.error('[VOICE] Encrypted Blossom upload failed:', err?.code || err?.message);
+      // Never a plaintext Blossom/dataUrl downgrade; only a classifier-approved E2EE inline (ENCRYPT_FAILURE otherwise).
+      if (blob.size <= MAX_INLINE_BYTES * 1.2 && typeof App.resolveInlineAttachmentForE2ee === 'function') {
         try {
           const emergency = await tryInlineVoice();
           if (emergency) return emergency;
         } catch (_e) {}
-        const dataUrl = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(String(r.result||'')); r.onerror=rej; r.readAsDataURL(blob); });
-        return { id: 'audio-'+Date.now(), name: fileName, size: blob.size, type: finalMime, dataUrl, url: '', duration };
       }
       throw err;
     }
   }
 
-  // חלק P2P קול (chat-voice-service.js) – זריעת קובץ קול בטורנט כדי לאפשר הורדה P2P ישירה | HYPER CORE TECH
-  async function seedVoiceForP2P(blob, mimeType) {
+  function isEncryptedVoiceDescriptor(att) {
+    return !!(
+      att &&
+      att.type === 'encrypted-media' &&
+      att.resource &&
+      att.resource.transport === 'blossom' &&
+      att.resource.url
+    );
+  }
+
+  // חלק P2P קול (chat-voice-service.js) – זריעת ה-ciphertext בלבד (אותם bytes ו-hash כמו ב-Blossom), לעולם לא WebM גלוי | HYPER CORE TECH
+  const VOICE_P2P_MARKER_VERSION = 1;
+  const VOICE_P2P_CONTENT = 'sos-media-e2ee-v2-ciphertext';
+  const VOICE_P2P_TORRENT_NAME = 'data.bin';
+
+  async function seedVoiceForP2P(descriptor) {
     try {
+      const prepared = descriptor && descriptor._prepared;
+      const ciphertext = prepared && prepared.ciphertextBytes;
+      if (!isEncryptedVoiceDescriptor(descriptor) || !(ciphertext instanceof Uint8Array)) return null;
+      if (
+        !descriptor.cipher ||
+        ciphertext.byteLength !== descriptor.cipher.size ||
+        prepared.ciphertextSha256 !== descriptor.cipher.sha256 ||
+        typeof App.hashMediaCiphertext !== 'function' ||
+        (await App.hashMediaCiphertext(ciphertext)) !== descriptor.cipher.sha256
+      ) {
+        console.warn('[VOICE/P2P] VOICE_P2P_SEED_REFUSED ciphertext does not match descriptor');
+        return null;
+      }
       if (!App.torrentTransfer || typeof App.torrentTransfer.init !== 'function') return null;
       const wt = App.torrentTransfer.init();
       if (!wt) return null;
 
-      const ext = getFileExtension(mimeType || 'audio/webm');
-      const fileName = `voice-${Date.now()}.${ext}`;
-      const file = new File([blob], fileName, { type: mimeType || 'audio/webm' });
+      const fileName = VOICE_P2P_TORRENT_NAME;
+      const file = new File([ciphertext], fileName, { type: 'application/octet-stream' });
 
       return new Promise((resolve) => {
         const timer = setTimeout(() => { resolve(null); }, P2P_SEED_TIMEOUT_MS);
@@ -291,37 +308,36 @@
   }
 
 
-  // חלק P2P קול (chat-voice-service.js) – finalize: תמיד מקור ניגון (dataUrl/Blossom) + magnet אופציונלי | HYPER CORE TECH
-  async function finalizeVoiceToChat(peerPubkey){
+  // חלק P2P קול (chat-voice-service.js) – finalize: descriptor מוצפן (Blossom) + אותו ciphertext ב-P2P תחת סימון p2p v1 | HYPER CORE TECH
+  async function sendVoiceBlobToChat(peerPubkey, result){
     if(!peerPubkey) throw new Error('missing-peer');
-    const result = await stopVoiceRecording();
-    if(!result) return null;
+    if(!result || !result.blob) return null;
 
-    // מקור playable חובה לשני הצדדים; magnet רק כבונוס P2P (לא במקום URL) | HYPER CORE TECH
-    console.log('[VOICE] Building playable attachment + optional P2P seed in parallel', {
+    console.log('[VOICE] Building encrypted attachment', {
       size: result.blob.size,
       mime: result.mimeType,
     });
-    const [attachment, magnetURI] = await Promise.all([
-      buildAttachmentFromBlob(result.blob, result.duration, result.mimeType),
-      seedVoiceForP2P(result.blob, result.mimeType).catch(() => null),
-    ]);
+    const attachment = await buildAttachmentFromBlob(result.blob, result.duration, result.mimeType, peerPubkey);
 
-    const hasEncryptedBlossom =
-      attachment &&
-      attachment.type === 'encrypted-media' &&
-      attachment.resource &&
-      attachment.resource.transport === 'blossom' &&
-      attachment.resource.url;
+    const hasEncryptedBlossom = isEncryptedVoiceDescriptor(attachment);
     if (!attachment || (!attachment.url && !attachment.dataUrl && !hasEncryptedBlossom)) {
       throw new Error('voice-attachment-missing-src');
     }
 
-    if (magnetURI) {
-      attachment.magnetURI = magnetURI;
-      console.log('[VOICE] Hybrid ready: playable src + magnetURI');
-    } else {
-      console.log('[VOICE] Playable src ready (no magnet)');
+    if (hasEncryptedBlossom) {
+      const magnetURI = await seedVoiceForP2P(attachment).catch(() => null);
+      delete attachment._prepared;
+      if (magnetURI) {
+        attachment.p2p = {
+          v: VOICE_P2P_MARKER_VERSION,
+          transport: 'webtorrent',
+          content: VOICE_P2P_CONTENT,
+          magnetURI,
+        };
+        console.log('[VOICE] Hybrid ready: encrypted Blossom + encrypted P2P');
+      } else {
+        console.log('[VOICE] Encrypted Blossom ready (no P2P)');
+      }
     }
 
     // hidePreview: אין שורת שם-קובץ מתחת לקומפוזר בזמן שליחת הודעה קולית | HYPER CORE TECH
@@ -333,10 +349,18 @@
     return attachment;
   }
 
+  async function finalizeVoiceToChat(peerPubkey){
+    if(!peerPubkey) throw new Error('missing-peer');
+    const result = await stopVoiceRecording();
+    if(!result) return null;
+    return sendVoiceBlobToChat(peerPubkey, result);
+  }
+
   Object.assign(App, {
     startVoiceRecording,
     stopVoiceRecording,
     cancelVoiceRecording,
     finalizeVoiceToChat,
+    sendVoiceBlobToChat,
   });
 })(window);

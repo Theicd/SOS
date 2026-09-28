@@ -449,6 +449,201 @@
 
   App.uploadMediaForServerFallback = uploadMediaForServerFallback;
 
+  // p2p v1: WebTorrent carries the same sos-media-e2ee v2 ciphertext as resource.url.
+  // Bytes are size/hash-verified and decrypted locally before any playback; Blossom is the E2EE fallback.
+  const P2P_ENCRYPTED_CONTENT = 'sos-media-e2ee-v2-ciphertext';
+  const P2P_HEAD_START_MS = 4000;
+  const P2P_CONNECTED_GRACE_MS = 3000;
+  const P2P_FETCH_TIMEOUT_MS = 20000;
+  const inflightEncryptedMedia = new Map();
+
+  function mediaCodeError(code) {
+    const err = new Error(code);
+    err.code = code;
+    return err;
+  }
+
+  function hasEncryptedP2pMarker(attachment) {
+    const p2p = attachment && attachment.p2p;
+    if (!p2p || typeof p2p !== 'object') return false;
+    if (typeof App.isValidIncomingEncryptedP2pMarker === 'function') {
+      return App.isValidIncomingEncryptedP2pMarker(p2p);
+    }
+    return (
+      p2p.v === 1 &&
+      p2p.transport === 'webtorrent' &&
+      p2p.content === P2P_ENCRYPTED_CONTENT &&
+      typeof p2p.magnetURI === 'string' &&
+      /^magnet:\?/i.test(p2p.magnetURI)
+    );
+  }
+
+  async function readTorrentFileBytes(file) {
+    if (typeof file.arrayBuffer === 'function') return new Uint8Array(await file.arrayBuffer());
+    if (typeof file.blob === 'function') return new Uint8Array(await (await file.blob()).arrayBuffer());
+    if (typeof file.getBlob === 'function') {
+      const blob = await new Promise((res, rej) => file.getBlob((e, b) => (e ? rej(e) : res(b))));
+      return new Uint8Array(await blob.arrayBuffer());
+    }
+    throw mediaCodeError('VOICE_P2P_READ_UNSUPPORTED');
+  }
+
+  function torrentHasPeer(torrent) {
+    if (!torrent) return false;
+    return (typeof torrent.numPeers === 'number' && torrent.numPeers > 0) || (Array.isArray(torrent.wires) && torrent.wires.length > 0);
+  }
+
+  function fetchCiphertextViaWebTorrent(magnetURI, expectedSize, signal, probe) {
+    return new Promise((resolve, reject) => {
+      const wt =
+        App.torrentTransfer && typeof App.torrentTransfer.init === 'function'
+          ? App.torrentTransfer.init()
+          : null;
+      if (!wt || typeof wt.add !== 'function') {
+        reject(mediaCodeError('VOICE_P2P_UNAVAILABLE'));
+        return;
+      }
+      let owned = null;
+      let settled = false;
+      const finish = (err, bytes) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (signal) signal.removeEventListener('abort', onAbort);
+        try {
+          if (owned) owned.destroy();
+        } catch (_e) {}
+        if (err) reject(err);
+        else resolve(bytes);
+      };
+      const onAbort = () => finish(mediaCodeError('MEDIA_E2EE_ABORTED'));
+      const timer = setTimeout(() => finish(mediaCodeError('VOICE_P2P_TIMEOUT')), P2P_FETCH_TIMEOUT_MS);
+      if (signal) {
+        if (signal.aborted) {
+          onAbort();
+          return;
+        }
+        signal.addEventListener('abort', onAbort);
+      }
+      const consume = (torrent) => {
+        if (settled) return;
+        const files = torrent && torrent.files;
+        if (!files || files.length !== 1 || torrent.length !== expectedSize) {
+          finish(mediaCodeError('VOICE_P2P_SIZE_MISMATCH'));
+          return;
+        }
+        const read = () =>
+          readTorrentFileBytes(files[0]).then((bytes) => finish(null, bytes), () => finish(mediaCodeError('VOICE_P2P_READ_FAILED')));
+        if (torrent.done) read();
+        else torrent.once('done', read);
+      };
+      Promise.resolve(typeof wt.get === 'function' ? wt.get(magnetURI) : null)
+        .then((existing) => {
+          if (settled) return;
+          if (existing) {
+            if (probe) probe.torrent = existing;
+            if (existing.ready || existing.done) consume(existing);
+            else existing.once('ready', () => consume(existing));
+            return;
+          }
+          owned = wt.add(magnetURI, {}, (torrent) => consume(torrent));
+          if (probe) probe.torrent = owned;
+          if (owned && typeof owned.on === 'function') {
+            owned.on('error', () => finish(mediaCodeError('VOICE_P2P_TORRENT_ERROR')));
+          }
+        })
+        .catch(() => finish(mediaCodeError('VOICE_P2P_UNAVAILABLE')));
+    });
+  }
+
+  function isMediaSecurityFailure(err) {
+    const code = String((err && err.code) || '');
+    return (
+      code === 'VOICE_P2P_SIZE_MISMATCH' ||
+      code === 'MEDIA_E2EE_HASH_MISMATCH' ||
+      code === 'MEDIA_E2EE_AUTH_FAILED' ||
+      code === 'MEDIA_E2EE_SIZE_MISMATCH' ||
+      code === 'MEDIA_E2EE_BAD_CONTEXT' ||
+      code === 'MEDIA_E2EE_BAD_DESCRIPTOR' ||
+      code === 'MEDIA_E2EE_BAD_KEY'
+    );
+  }
+
+  async function downloadEncryptedMediaHybrid(attachment, ctx) {
+    const decryptCtx = {
+      messageId: ctx.messageId || attachment.clientMessageId || attachment.logicalMessageId,
+      sender: ctx.sender,
+      recipient: ctx.recipient,
+    };
+    const abort = typeof AbortController === 'function' ? new AbortController() : null;
+    const signal = abort ? abort.signal : undefined;
+    const fromBlossom = () =>
+      App.downloadEncryptedMediaFromBlossom(Object.assign({ descriptor: attachment, signal }, decryptCtx)).then(
+        (r) => ({ blob: r.blob, source: 'blossom' }),
+      );
+    if (!hasEncryptedP2pMarker(attachment) || typeof App.decryptMediaBlob !== 'function') {
+      return fromBlossom();
+    }
+    const probe = {};
+    const fromP2p = async () => {
+      const bytes = await fetchCiphertextViaWebTorrent(attachment.p2p.magnetURI, attachment.cipher.size, signal, probe);
+      if (bytes.byteLength !== attachment.cipher.size) throw mediaCodeError('VOICE_P2P_SIZE_MISMATCH');
+      if ((await App.hashMediaCiphertext(bytes)) !== attachment.cipher.sha256) {
+        throw mediaCodeError('MEDIA_E2EE_HASH_MISMATCH');
+      }
+      const dec = await App.decryptMediaBlob(bytes, attachment, Object.assign({ attachmentId: attachment.attachmentId, signal }, decryptCtx));
+      const mime = (dec.media && dec.media.mime) || (attachment.media && attachment.media.mime) || 'application/octet-stream';
+      return { blob: new Blob([dec.plaintext], { type: mime }), source: 'p2p' };
+    };
+    return new Promise((resolve, reject) => {
+      let done = false;
+      let blossomStarted = false;
+      let p2pErr = null;
+      let blossomErr = null;
+      const win = (r) => {
+        if (done) return;
+        done = true;
+        clearTimeout(headStart);
+        if (abort) abort.abort();
+        resolve(r);
+      };
+      const maybeFail = () => {
+        if (done || !p2pErr || !blossomErr) return;
+        done = true;
+        reject(isMediaSecurityFailure(p2pErr) && !isMediaSecurityFailure(blossomErr) ? p2pErr : blossomErr);
+      };
+      const startBlossom = () => {
+        if (blossomStarted || done) return;
+        blossomStarted = true;
+        clearTimeout(headStart);
+        fromBlossom().then(win, (e) => {
+          blossomErr = e;
+          maybeFail();
+        });
+      };
+      // A connected peer gets a bounded grace period; no peer → Blossom E2EE immediately after the head start.
+      let headStart = setTimeout(() => {
+        if (!done && !blossomStarted && torrentHasPeer(probe.torrent)) {
+          headStart = setTimeout(startBlossom, P2P_CONNECTED_GRACE_MS);
+          return;
+        }
+        startBlossom();
+      }, P2P_HEAD_START_MS);
+      fromP2p().then(win, (e) => {
+        p2pErr = e;
+        if (!done) {
+          try {
+            console.warn('[MEDIA/P2P-E2EE] p2p path failed code=' + String((e && e.code) || 'P2P_FAILED') + ' fallback=blossom-e2ee');
+          } catch (_e) {}
+        }
+        startBlossom();
+        maybeFail();
+      });
+    });
+  }
+
+  App.downloadEncryptedMediaHybrid = downloadEncryptedMediaHybrid;
+
   async function resolveServerMediaAttachment(attachment, context) {
     if (!attachment || typeof attachment !== 'object') return null;
     if (!isEncryptedMediaAttachment(attachment)) return null;
@@ -467,12 +662,33 @@
     }
 
     const ctx = context && typeof context === 'object' ? context : {};
-    const result = await App.downloadEncryptedMediaFromBlossom({
-      descriptor: attachment,
-      messageId: ctx.messageId || attachment.clientMessageId || attachment.logicalMessageId,
-      sender: ctx.sender,
-      recipient: ctx.recipient,
-    });
+    const inflightKey =
+      attachment.cipher && attachment.cipher.sha256
+        ? [
+            attachment.cipher.sha256,
+            attachment.attachmentId || '',
+            (attachment.enc && attachment.enc.key) || '',
+            ctx.messageId || attachment.clientMessageId || attachment.logicalMessageId || '',
+            ctx.sender || '',
+            ctx.recipient || '',
+          ].join('|')
+        : '';
+    let pending = inflightKey ? inflightEncryptedMedia.get(inflightKey) : null;
+    if (!pending) {
+      pending = downloadEncryptedMediaHybrid(attachment, ctx);
+      if (inflightKey) {
+        inflightEncryptedMedia.set(inflightKey, pending);
+        pending.then(
+          () => inflightEncryptedMedia.delete(inflightKey),
+          () => inflightEncryptedMedia.delete(inflightKey),
+        );
+      }
+    }
+    const result = await pending;
+    if (attachment._localObjectUrl && attachment._resolvedBlob) {
+      return { blob: attachment._resolvedBlob, objectUrl: attachment._localObjectUrl, descriptor: attachment };
+    }
+    attachment._resolvedSource = result.source || 'blossom';
 
     const objectUrl = URL.createObjectURL(result.blob);
     try {
@@ -667,6 +883,7 @@
       mimeType: mime,
       fileName: name,
       duration: typeof attachment.duration === 'number' ? attachment.duration : opts.duration,
+      requireEncryption: opts.requireEncryption === true,
       signal: opts.signal,
       skipPolicyFetch: opts.skipPolicyFetch === true,
       policyFetchImpl: opts.policyFetchImpl,

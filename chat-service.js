@@ -192,6 +192,19 @@
     return /[?&]xt=urn:btih:([a-fA-F0-9]{40}|[a-zA-Z2-7]{32})(?:&|$)/i.test(trimmed);
   }
 
+  // p2p v1 = the same sos-media-e2ee v2 ciphertext as resource, seeded over WebTorrent. Exact shape only.
+  function isValidIncomingEncryptedP2pMarker(p2p) {
+    if (!p2p || typeof p2p !== 'object' || Array.isArray(p2p)) return false;
+    const keys = Object.keys(p2p);
+    if (keys.length !== 4) return false;
+    return (
+      p2p.v === 1 &&
+      p2p.transport === 'webtorrent' &&
+      p2p.content === 'sos-media-e2ee-v2-ciphertext' &&
+      isValidIncomingMagnetURI(p2p.magnetURI)
+    );
+  }
+
   function isSafeIncomingChatResource(value) {
     if (value == null || value === '') return true;
     if (typeof value !== 'string' || value.length > MAX_ATTACH_DATAURL_CHARS) return false;
@@ -283,6 +296,9 @@
         }
         if (raw.duration != null && (typeof raw.duration !== 'number' || !Number.isFinite(raw.duration) || raw.duration < 0 || raw.duration > MAX_ATTACH_DURATION_SEC)) {
           return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
+        }
+        if (raw.p2p != null && !isValidIncomingEncryptedP2pMarker(raw.p2p)) {
+          return { ok: false, reasonCode: 'VOICE_P2P_BAD_METADATA' };
         }
         return { ok: true, encryptedBlossom: true };
       } catch (_valErr) {
@@ -2347,6 +2363,7 @@
     sanitizeIncomingChatFileName,
     isSafeIncomingChatResource,
     isValidIncomingMagnetURI,
+    isValidIncomingEncryptedP2pMarker,
     flushPendingE2eeEvents,
     handleIncomingChatEvent,
     extractValidatedChatRecipientPTag,

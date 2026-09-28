@@ -57,6 +57,18 @@
       wire.infoHash = attachment.infoHash;
     }
     if (attachment.isTorrent === true) wire.isTorrent = true;
+    const p2p = attachment.p2p;
+    if (
+      p2p &&
+      typeof p2p === 'object' &&
+      p2p.v === 1 &&
+      p2p.transport === 'webtorrent' &&
+      p2p.content === 'sos-media-e2ee-v2-ciphertext' &&
+      typeof p2p.magnetURI === 'string' &&
+      p2p.magnetURI
+    ) {
+      wire.p2p = { v: 1, transport: p2p.transport, content: p2p.content, magnetURI: p2p.magnetURI };
+    }
     return wire;
   }
 

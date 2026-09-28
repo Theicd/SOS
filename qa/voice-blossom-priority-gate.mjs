@@ -60,8 +60,9 @@ function load(mocks) {
     },
     resolveChatMediaSrc: async () => '',
     persistChatP2PMedia: async () => 'k',
+    hashMediaCiphertext: async (bytes) => Buffer.from(await crypto.subtle.digest('SHA-256', bytes)).toString('hex'),
   }, mocks);
-  const sandbox = { window: { NostrApp: App }, console, URL, Blob };
+  const sandbox = { window: { NostrApp: App }, console, URL, Blob, TextEncoder };
   sandbox.globalThis = sandbox;
   vm.runInNewContext(audioSrc, sandbox, { filename: 'chat-audio-player.js' });
   return App;

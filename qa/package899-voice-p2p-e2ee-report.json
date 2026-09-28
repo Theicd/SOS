@@ -1,0 +1,152 @@
+{
+  "generatedAt": "2026-09-28T22:08:14.487Z",
+  "durations": [
+    {
+      "seconds": 2,
+      "plaintextBytes": 16384,
+      "route": "INLINE_E2EE_MESSAGE",
+      "cipherBytes": null,
+      "seededBytes": 0,
+      "plaintextHashNeCipherHash": null,
+      "seededHashEqCipherHash": null,
+      "sentinelInSeeded": false,
+      "sentinelInBlossom": false,
+      "plaintextBlossomUploads": 0,
+      "sendMs": 3.55
+    },
+    {
+      "seconds": 10,
+      "plaintextBytes": 81920,
+      "route": "P2P_APP_E2EE_VOICE(+BLOSSOM_E2EE)",
+      "cipherBytes": 81936,
+      "seededBytes": 81936,
+      "plaintextHashNeCipherHash": true,
+      "seededHashEqCipherHash": true,
+      "sentinelInSeeded": false,
+      "sentinelInBlossom": false,
+      "plaintextBlossomUploads": 0,
+      "sendMs": 36.11,
+      "recvMs": 14.88
+    },
+    {
+      "seconds": 30,
+      "plaintextBytes": 245760,
+      "route": "P2P_APP_E2EE_VOICE(+BLOSSOM_E2EE)",
+      "cipherBytes": 245776,
+      "seededBytes": 245776,
+      "plaintextHashNeCipherHash": true,
+      "seededHashEqCipherHash": true,
+      "sentinelInSeeded": false,
+      "sentinelInBlossom": false,
+      "plaintextBlossomUploads": 0,
+      "sendMs": 43.65,
+      "recvMs": 26.47
+    },
+    {
+      "seconds": 60,
+      "plaintextBytes": 491520,
+      "route": "P2P_APP_E2EE_VOICE(+BLOSSOM_E2EE)",
+      "cipherBytes": 491536,
+      "seededBytes": 491536,
+      "plaintextHashNeCipherHash": true,
+      "seededHashEqCipherHash": true,
+      "sentinelInSeeded": false,
+      "sentinelInBlossom": false,
+      "plaintextBlossomUploads": 0,
+      "sendMs": 52.09,
+      "recvMs": 31.44
+    }
+  ],
+  "perf": {
+    "MIDFLIGHT_FALLBACK_MS": 4085,
+    "MIDFLIGHT_FALLBACK_CONNECTED_PEER_MS": 7085,
+    "VOICE_ENCRYPT_MS_P50": 1.89,
+    "VOICE_ENCRYPT_MS_P95": 4,
+    "VOICE_DECRYPT_MS_P50": 1.31,
+    "VOICE_DECRYPT_MS_P95": 2.74,
+    "VOICE_SEND_START_LATENCY_P50_VM": 36.11,
+    "VOICE_SEND_START_LATENCY_P95_VM": 52.09
+  },
+  "failClosed": {
+    "ENCRYPTION_FAILURE": {
+      "rejected": true,
+      "code": "MEDIA_E2EE_ENCRYPT_FAILED",
+      "seeded": 0,
+      "uploads": 0,
+      "attached": 0
+    },
+    "KEY_WRAP_FAILURE": {
+      "rejected": true,
+      "code": "MEDIA_SERVER_E2EE_MISSING_PARTIES",
+      "seeded": 0,
+      "uploads": 0
+    },
+    "MISSING_KEY": {
+      "inboundRejected": true,
+      "resolveOk": false,
+      "code": "MEDIA_E2EE_BAD_KEY"
+    },
+    "CORRUPT_CIPHERTEXT": {
+      "resolveOk": false,
+      "code": "MEDIA_E2EE_HASH_MISMATCH"
+    },
+    "HASH_MISMATCH": {
+      "resolveOk": false,
+      "code": "MEDIA_E2EE_HASH_MISMATCH"
+    },
+    "SIZE_MISMATCH": {
+      "resolveOk": false,
+      "code": "VOICE_P2P_SIZE_MISMATCH"
+    },
+    "INVALID_VERSION": {
+      "p2pV2": "VOICE_P2P_BAD_METADATA",
+      "descriptorV3": "INVALID_DESCRIPTOR",
+      "badContent": "VOICE_P2P_BAD_METADATA",
+      "extraKey": "VOICE_P2P_BAD_METADATA",
+      "badMagnet": "VOICE_P2P_BAD_METADATA"
+    },
+    "WRONG_RECIPIENT": {
+      "resolveOk": false,
+      "code": "MEDIA_E2EE_AUTH_FAILED"
+    },
+    "TAMPERED_METADATA": {
+      "messageIdTamper": "MEDIA_E2EE_AUTH_FAILED",
+      "keyTamper": "MEDIA_E2EE_AUTH_FAILED"
+    },
+    "DECRYPT_FAILURE": {
+      "resolveOk": false,
+      "code": "MEDIA_E2EE_AUTH_FAILED"
+    }
+  },
+  "notes": [
+    "createEnhancedAudioPlayer html checks: rendered"
+  ],
+  "gates": {
+    "VOICE_CURRENT_PATH_AUDIT_GATE": "PASS",
+    "VOICE_KEY_BINDING_GATE": "PASS",
+    "VOICE_FILE_KEY_PLAINTEXT_ON_NETWORK": false,
+    "VOICE_E2EE_REUSES_EXISTING_CRYPTO": "PASS",
+    "VOICE_P2P_RECEIVER_DECRYPT_GATE": "PASS",
+    "VOICE_DECRYPT_BEFORE_PLAYBACK": true,
+    "VOICE_P2P_CRYPTO_FAIL_CLOSED_GATE": "PASS",
+    "VOICE_P2P_SILENT_DOWNGRADE": false,
+    "VOICE_BLOSSOM_E2EE_FALLBACK_GATE": "PASS",
+    "BLOSSOM_VOICE_PLAINTEXT_OBSERVED": false,
+    "VOICE_MIDFLIGHT_FALLBACK_E2EE_GATE": "PASS",
+    "VOICE_HYBRID_DEDUP_GATE": "PASS",
+    "VOICE_CACHE_BINDING_GATE": "PASS",
+    "VOICE_LEGACY_READ_COMPATIBILITY_GATE": "PASS",
+    "NEW_VOICE_TRANSPORT_ONLY_ALLOWED": false,
+    "VOICE_PLAINTEXT_PERSISTENT_CACHE_NEW": false,
+    "VOICE_PLAINTEXT_REFERENCE_LIFETIME_GATE": "PASS",
+    "VOICE_E2EE_PERFORMANCE_GATE_VM": "PASS",
+    "VOICE_P2P_PLAINTEXT_SEEDED": false,
+    "VOICE_P2P_CIPHERTEXT_ONLY": true,
+    "VOICE_P2P_ONWIRE_APP_CIPHERTEXT_GATE_VM": "PASS",
+    "NEW_CRYPTO_PRIMITIVE_ADDED": false,
+    "VOICE_HYBRID_CIPHERTEXT_MODEL": "ONE_SOS_MEDIA_E2EE_V2_CIPHERTEXT: BLOSSOM(resource, opaque wrap) + WEBTORRENT(p2p v1, raw ciphertext); key only in E2EE chat message",
+    "VOICE_CACHE_SECURITY_MODEL": "P2P_E2EE: plaintext in-memory Blob/ObjectURL only (no persist); SERVER_E2EE: pre-existing local decrypted cache unchanged; sender: WebTorrent holds ciphertext only"
+  },
+  "pass": 149,
+  "fail": 0
+}
