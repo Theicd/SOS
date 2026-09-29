@@ -96,10 +96,34 @@ export class GroupAuthority extends DurableObject {
     return { result: status === 'VERIFIED' ? 'OK' : 'INVALID', status: snap.status, controlEpoch: snap.state ? snap.state.controlEpoch : null, added };
   }
 
+  /** Dry-run: would this control event become the new verified tip? Never stored. */
+  validate(event) {
+    this.cached = null;
+    try {
+      const group = this.load();
+      const G = GCS();
+      const cur = G.getStatus(group) === 'VERIFIED' ? G.getVerifiedControlState(group) : null;
+      const prev = cur ? JSON.parse(JSON.stringify(cur)) : null;
+      const r = G.acceptControlEvent(event, { groupId: group, persist: false });
+      return {
+        ok: !!(r && r.ok && r.code !== 'REPLAY_IDEMPOTENT'),
+        code: r ? r.code || null : 'REJECTED',
+        prev,
+        next: r && r.ok && r.record ? JSON.parse(JSON.stringify(r.record)) : null,
+      };
+    } finally {
+      this.cached = null;
+    }
+  }
+
   async fetch(request) {
     try {
       const url = new URL(request.url);
       if (url.pathname === '/snapshot') return Response.json(this.snapshot());
+      if (url.pathname === '/validate') {
+        const body = await request.json();
+        return Response.json(this.validate(body.event));
+      }
       if (url.pathname === '/ingest') {
         const body = await request.json();
         return Response.json(this.ingest(body.events));

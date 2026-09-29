@@ -25,9 +25,18 @@ class_name = "InviteLedger"
 name = "GROUP"
 class_name = "GroupAuthority"
 
+[[durable_objects.bindings]]
+name = "ADMIN_PIN"
+class_name = "AdminPinAuthority"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["InviteLedger", "GroupAuthority"]
+
+# Admin PIN + co-sign. Secrets: ADMIN_COSIGN_SK (hex, distinct from ADMISSION_SK) and ADMIN_PIN_PEPPER (hex).
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["AdminPinAuthority"]
 
 # Isolated staging: workers.dev only, no routes, no custom domain, disposable QA root + service key.
 [env.staging]
@@ -48,6 +57,10 @@ class_name = "InviteLedger"
 [[env.staging.durable_objects.bindings]]
 name = "GROUP"
 class_name = "GroupAuthority"
+
+[[env.staging.durable_objects.bindings]]
+name = "ADMIN_PIN"
+class_name = "AdminPinAuthority"
 
 # Production: own Worker script => own Durable Object namespaces (no staging state). workers.dev only, no routes.
 # ADMISSION_SK is set only with: wrangler secret put ADMISSION_SK --env production
@@ -70,3 +83,7 @@ class_name = "InviteLedger"
 [[env.production.durable_objects.bindings]]
 name = "GROUP"
 class_name = "GroupAuthority"
+
+[[env.production.durable_objects.bindings]]
+name = "ADMIN_PIN"
+class_name = "AdminPinAuthority"

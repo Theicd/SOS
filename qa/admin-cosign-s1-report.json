@@ -1,0 +1,317 @@
+{
+  "gate": "ADMIN_COSIGN_STAGE1_GATE",
+  "mode": "local-workerd",
+  "generatedAt": "2026-09-29T23:20:53.154Z",
+  "status": "PASS",
+  "results": {
+    "HEALTH_EXPOSES_COSIGN_PUBKEY_ONLY": "PASS",
+    "COSIGN_KEY_DISTINCT_FROM_ROOT_AND_ADMISSION": "PASS",
+    "AUTH_EVENT_REQUIRED_AND_BOUND": "PASS",
+    "ROOT_FIRST_STATE_SETUP_REQUIRED": "PASS",
+    "PARAMS_SALT_AND_KDF": "PASS",
+    "AUTH_REPLAY_DENIED": "PASS",
+    "SALT_STABLE_UNTIL_ENROLLED": "PASS",
+    "ENROLL_INPUT_VALIDATION": "PASS",
+    "OUTSIDER_CANNOT_ENROLL": "PASS",
+    "FIRST_TIME_ADMIN_ENROLLMENT": "PASS",
+    "NO_SILENT_PIN_REPLACEMENT": "PASS",
+    "ENROLL_RACE_NO_OVERWRITE": "PASS",
+    "SERVER_LOCKOUT_SCHEDULE": "PASS",
+    "CORRECT_PIN_AFTER_LOCK_UNLOCKS": "PASS",
+    "SUCCESS_RESETS_FAILURE_COUNTER": "PASS",
+    "LOCKOUT_ESCALATES": "PASS",
+    "ADMIN_PIN_SERVER_AUTHORITATIVE": "PASS",
+    "COSIGN_REQUIRES_PIN_SESSION": "PASS",
+    "GENESIS_REQUIRES_STEP_UP": "PASS",
+    "ATTESTATION_SHAPE_AND_SIGNATURE": "PASS",
+    "COSIGN_IS_DRY_RUN_NO_CONTROL_MUTATION": "PASS",
+    "CONTROL_BOOTSTRAP_INGESTED": "PASS",
+    "ADDITIVE_CHANGE_COSIGNED_WITHOUT_STEP_UP": "PASS",
+    "COSIGN_REJECTS_INVALID_EVENTS": "PASS",
+    "SESSION_BOUND_TO_PRINCIPAL": "PASS",
+    "DESTRUCTIVE_CHANGE_REQUIRES_STEP_UP": "PASS",
+    "DELEGATED_ADMIN_OWN_ENROLLMENT_ONLY": "PASS",
+    "ROOT_SESSION_NOT_USABLE_BY_OTHER_ADMIN": "PASS",
+    "SESSION_IDLE_TIMEOUT": "PASS",
+    "SESSION_ACTIVITY_EXTENDS_IDLE": "PASS",
+    "LOCK_REVOKES_SESSION": "PASS",
+    "SESSION_ABSOLUTE_LIFETIME": "PASS",
+    "HARDENED_VERIFIER_ONLY": "PASS",
+    "ENROLLMENT_DURABLE_ACROSS_RESTART": "PASS",
+    "GENERIC_SIGNER_EXPOSED_FALSE": "PASS",
+    "SERVICE_LOG_PRIVACY": "PASS"
+  },
+  "checks": [
+    {
+      "name": "HEALTH_EXPOSES_COSIGN_PUBKEY_ONLY",
+      "ok": true,
+      "detail": {
+        "adminPinService": true
+      }
+    },
+    {
+      "name": "COSIGN_KEY_DISTINCT_FROM_ROOT_AND_ADMISSION",
+      "ok": true
+    },
+    {
+      "name": "AUTH_EVENT_REQUIRED_AND_BOUND",
+      "ok": true,
+      "detail": [
+        "NO_AUTH",
+        "NOT_ADMIN",
+        "BAD_AUTH_KIND",
+        "CROSS_GROUP",
+        "WRONG_ACTION",
+        "STALE_AUTH",
+        "STALE_AUTH",
+        "STRICT_VERIFY_FAILED",
+        "PAYLOAD_MISMATCH",
+        "NO_NONCE"
+      ]
+    },
+    {
+      "name": "ROOT_FIRST_STATE_SETUP_REQUIRED",
+      "ok": true,
+      "detail": {
+        "adminState": "SETUP_REQUIRED"
+      }
+    },
+    {
+      "name": "PARAMS_SALT_AND_KDF",
+      "ok": true
+    },
+    {
+      "name": "AUTH_REPLAY_DENIED",
+      "ok": true,
+      "detail": "AUTH_REPLAY"
+    },
+    {
+      "name": "SALT_STABLE_UNTIL_ENROLLED",
+      "ok": true
+    },
+    {
+      "name": "ENROLL_INPUT_VALIDATION",
+      "ok": true,
+      "detail": [
+        "BAD_DERIVED",
+        "SALT_MISMATCH"
+      ]
+    },
+    {
+      "name": "OUTSIDER_CANNOT_ENROLL",
+      "ok": true,
+      "detail": "NOT_ADMIN"
+    },
+    {
+      "name": "FIRST_TIME_ADMIN_ENROLLMENT",
+      "ok": true,
+      "detail": {
+        "adminState": "UNLOCKED"
+      }
+    },
+    {
+      "name": "NO_SILENT_PIN_REPLACEMENT",
+      "ok": true,
+      "detail": [
+        "ALREADY_ENROLLED",
+        "LOCKED",
+        "OK"
+      ]
+    },
+    {
+      "name": "ENROLL_RACE_NO_OVERWRITE",
+      "ok": true
+    },
+    {
+      "name": "SERVER_LOCKOUT_SCHEDULE",
+      "ok": true,
+      "detail": {
+        "fourth": 30000,
+        "correctWhileLocked": "PIN_LOCKED"
+      }
+    },
+    {
+      "name": "CORRECT_PIN_AFTER_LOCK_UNLOCKS",
+      "ok": true
+    },
+    {
+      "name": "SUCCESS_RESETS_FAILURE_COUNTER",
+      "ok": true,
+      "detail": [
+        0,
+        0,
+        0,
+        30000
+      ]
+    },
+    {
+      "name": "LOCKOUT_ESCALATES",
+      "ok": true,
+      "detail": 60000
+    },
+    {
+      "name": "ADMIN_PIN_SERVER_AUTHORITATIVE",
+      "ok": true
+    },
+    {
+      "name": "COSIGN_REQUIRES_PIN_SESSION",
+      "ok": true,
+      "detail": [
+        "NO_SESSION",
+        "NO_SESSION"
+      ]
+    },
+    {
+      "name": "GENESIS_REQUIRES_STEP_UP",
+      "ok": true,
+      "detail": [
+        "STEP_UP_REQUIRED",
+        "WRONG_PIN",
+        "COSIGNED"
+      ]
+    },
+    {
+      "name": "ATTESTATION_SHAPE_AND_SIGNATURE",
+      "ok": true,
+      "detail": {
+        "kind": 39004,
+        "controlEpoch": 1
+      }
+    },
+    {
+      "name": "COSIGN_IS_DRY_RUN_NO_CONTROL_MUTATION",
+      "ok": true,
+      "detail": {
+        "result": "INVALID",
+        "status": "MISSING",
+        "controlEpoch": null,
+        "added": 0
+      }
+    },
+    {
+      "name": "CONTROL_BOOTSTRAP_INGESTED",
+      "ok": true,
+      "detail": {
+        "result": "OK",
+        "status": "VERIFIED",
+        "controlEpoch": 1,
+        "added": 1
+      }
+    },
+    {
+      "name": "ADDITIVE_CHANGE_COSIGNED_WITHOUT_STEP_UP",
+      "ok": true,
+      "detail": "COSIGNED"
+    },
+    {
+      "name": "COSIGN_REJECTS_INVALID_EVENTS",
+      "ok": true,
+      "detail": [
+        "ISSUER_MISMATCH",
+        "INVALID_TRANSITION",
+        "BAD_EPOCH_STEP",
+        "KIND_NOT_COSIGNABLE",
+        "STRICT_VERIFY_FAILED",
+        "INVALID_TRANSITION"
+      ]
+    },
+    {
+      "name": "SESSION_BOUND_TO_PRINCIPAL",
+      "ok": true,
+      "detail": "NOT_ADMIN"
+    },
+    {
+      "name": "DESTRUCTIVE_CHANGE_REQUIRES_STEP_UP",
+      "ok": true,
+      "detail": [
+        "STEP_UP_REQUIRED",
+        "STEP_UP_REQUIRED/STEP_UP_REQUIRED",
+        "STEP_UP_REQUIRED",
+        "COSIGNED"
+      ]
+    },
+    {
+      "name": "DELEGATED_ADMIN_OWN_ENROLLMENT_ONLY",
+      "ok": true,
+      "detail": [
+        "SETUP_REQUIRED",
+        "NOT_ADMIN"
+      ]
+    },
+    {
+      "name": "ROOT_SESSION_NOT_USABLE_BY_OTHER_ADMIN",
+      "ok": true,
+      "detail": "NO_SESSION"
+    },
+    {
+      "name": "SESSION_IDLE_TIMEOUT",
+      "ok": true,
+      "detail": "SESSION_EXPIRED"
+    },
+    {
+      "name": "SESSION_ACTIVITY_EXTENDS_IDLE",
+      "ok": true,
+      "detail": [
+        "COSIGNED",
+        "COSIGNED",
+        "COSIGNED"
+      ]
+    },
+    {
+      "name": "LOCK_REVOKES_SESSION",
+      "ok": true,
+      "detail": "NO_SESSION"
+    },
+    {
+      "name": "SESSION_ABSOLUTE_LIFETIME",
+      "ok": true,
+      "detail": "SESSION_EXPIRED"
+    },
+    {
+      "name": "HARDENED_VERIFIER_ONLY",
+      "ok": true,
+      "detail": {
+        "columns": [
+          "principal",
+          "salt",
+          "verifier",
+          "enrolled_at",
+          "failures",
+          "lock_until"
+        ],
+        "sessions": 3
+      }
+    },
+    {
+      "name": "ENROLLMENT_DURABLE_ACROSS_RESTART",
+      "ok": true,
+      "detail": [
+        "OK",
+        "ALREADY_ENROLLED"
+      ]
+    },
+    {
+      "name": "GENERIC_SIGNER_EXPOSED_FALSE",
+      "ok": true
+    },
+    {
+      "name": "SERVICE_LOG_PRIVACY",
+      "ok": true,
+      "detail": {
+        "leaks": 0,
+        "logBytes": 6901
+      }
+    }
+  ],
+  "FIRST_TIME_ADMIN_ENROLLMENT_READY": true,
+  "ONE_TIME_ACTIVATION_REQUIRED": false,
+  "OWNER_CHOOSES_PIN_LOCALLY": true,
+  "ROOT_KEY_ONLY_ADMIN_ACCESS": false,
+  "ADMIN_PIN_SERVER_AUTHORITATIVE": true,
+  "ADMIN_SECOND_FACTOR_REQUIRED": true,
+  "PIN_ONLY_ADMIN_AUTHORIZATION": false,
+  "GENERIC_SIGNER_EXPOSED": false,
+  "PLAINTEXT_PIN_STORED": false,
+  "DEPLOYED": false,
+  "QA_KEYS": "disposable (generated per run; only in gitignored .dev.vars during the run)"
+}

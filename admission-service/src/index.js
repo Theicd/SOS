@@ -1,7 +1,18 @@
 import { InviteLedger, SERVICE_TAG } from './ledger.js';
 import { GroupAuthority } from './group.js';
+import { AdminPinAuthority } from './pin.js';
+import { cosignPubkey } from './cosign-keys.js';
 
-export { InviteLedger, GroupAuthority };
+export { InviteLedger, GroupAuthority, AdminPinAuthority };
+
+const PIN_ROUTES = {
+  '/v1/admin-pin/params': '/params',
+  '/v1/admin-pin/enroll': '/enroll',
+  '/v1/admin-pin/verify': '/verify',
+  '/v1/admin-pin/cosign': '/cosign',
+  '/v1/admin-pin/lock': '/lock',
+  '/v1/test/pin-inspect': '/inspect',
+};
 
 const MAX_BODY_BYTES = 256 * 1024;
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -90,7 +101,15 @@ export default {
         controlStatus: null,
         servicePubkey: null,
         delegationActive: false,
+        cosignPubkey: null,
+        adminPinService: false,
       };
+      try {
+        health.cosignPubkey = cosignPubkey(env);
+        health.adminPinService = !!env.ADMIN_PIN && /^[0-9a-f]{64}$/i.test(String(env.ADMIN_PIN_PEPPER || ''));
+      } catch (_e) {
+        health.cosignPubkey = null;
+      }
       try {
         const stub = env.GROUP.get(env.GROUP.idFromName(env.FIRST_GROUP_ID));
         const snap = await (await stub.fetch('https://group/snapshot')).json();
@@ -128,6 +147,18 @@ export default {
           body: JSON.stringify({ events: Array.isArray(body.events) ? body.events.slice(0, 500) : [] }),
         });
         return reply(request, env, await res.json());
+      }
+      const pinInner = PIN_ROUTES[url.pathname];
+      if (pinInner) {
+        if (!env.ADMIN_PIN || (pinInner === '/inspect' && env.TEST_FAULTS !== '1')) {
+          return reply(request, env, { result: 'INVALID', code: 'NOT_FOUND' }, 404);
+        }
+        const stub = env.ADMIN_PIN.get(env.ADMIN_PIN.idFromName('admin-pin:' + env.FIRST_GROUP_ID));
+        const headers = { 'Content-Type': 'application/json' };
+        const testNow = request.headers.get('x-sos-test-now');
+        if (testNow && env.TEST_FAULTS === '1') headers['x-sos-test-now'] = testNow;
+        const res = await stub.fetch('https://admin-pin' + pinInner, { method: 'POST', headers, body: JSON.stringify(body) });
+        return reply(request, env, await res.json(), res.status === 503 ? 503 : 200);
       }
       const inner = ROUTES[url.pathname];
       if (!inner || (inner === '/inspect' && env.TEST_FAULTS !== '1')) {
