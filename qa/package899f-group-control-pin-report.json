@@ -1,0 +1,349 @@
+{
+  "gate": "PACKAGE899F_GROUP_CONTROL_PIN",
+  "ACCESS_CONTROL_V2": "OFF (served unchanged)",
+  "status": "PASS",
+  "ts": "2026-09-29T21:58:17.654Z",
+  "results": {
+    "ENV_V2_OFF_TEST_ROOT": {
+      "ok": true,
+      "detail": {
+        "v2": false,
+        "root": true,
+        "admission": ""
+      }
+    },
+    "MENU_VISIBLE_ROOT": {
+      "ok": true,
+      "detail": {
+        "exists": true,
+        "visible": true,
+        "label": "שליטה על הקבוצה",
+        "inMenu": true
+      }
+    },
+    "MENU_HIDDEN_MEMBER": {
+      "ok": true,
+      "detail": {
+        "exists": true,
+        "visible": false,
+        "label": "שליטה על הקבוצה",
+        "inMenu": true
+      }
+    },
+    "MENU_HIDDEN_GUEST": {
+      "ok": true,
+      "detail": {
+        "exists": true,
+        "visible": false,
+        "label": "שליטה על הקבוצה",
+        "inMenu": true
+      }
+    },
+    "MEMBER_DIRECT_OPEN_REJECTED": {
+      "ok": true,
+      "detail": {
+        "mOpen": "UNAUTHORIZED"
+      }
+    },
+    "SETUP_DIALOG": {
+      "ok": true,
+      "detail": {
+        "title": "הגדרת קוד מנהל",
+        "inputs": [
+          {
+            "type": "password",
+            "inputmode": "numeric",
+            "maxlength": 6,
+            "autocomplete": "off"
+          },
+          {
+            "type": "password",
+            "inputmode": "numeric",
+            "maxlength": 6,
+            "autocomplete": "off"
+          }
+        ],
+        "err": "",
+        "buttons": [
+          "אישור",
+          "ביטול"
+        ]
+      }
+    },
+    "PANEL_NOT_OPEN_BEFORE_PIN": {
+      "ok": true,
+      "detail": null
+    },
+    "SETUP_REJECTS_TRIVIAL": {
+      "ok": true,
+      "detail": "הקוד פשוט מדי. בחרו קוד אחר"
+    },
+    "SETUP_REJECTS_MISMATCH": {
+      "ok": true,
+      "detail": "הקודים אינם זהים"
+    },
+    "NUMERIC_ONLY_INPUT": {
+      "ok": true,
+      "detail": {
+        "len": 4
+      }
+    },
+    "DENY_LIST": {
+      "ok": true,
+      "detail": {
+        "badAllRejected": true,
+        "goodAccepted": true,
+        "shortRejected": true
+      }
+    },
+    "SETUP_OK_PANEL_OPENS": {
+      "ok": true,
+      "detail": {
+        "open": true
+      }
+    },
+    "PANEL_INACTIVE_CONTENT": {
+      "ok": true,
+      "detail": {
+        "status": "CONTROL_PLANE_NOT_ACTIVE",
+        "name": "SOS",
+        "members": "—",
+        "roles": 7,
+        "caps": 9,
+        "capsDisabled": true
+      }
+    },
+    "NO_ENABLED_MUTATION_CONTROLS_INACTIVE": {
+      "ok": true,
+      "detail": {
+        "enabledButtons": 0
+      }
+    },
+    "CONTROL_PLANE_NOT_ACTIVE_FAIL_CLOSED": {
+      "ok": true,
+      "detail": {
+        "unlocked": true,
+        "ui": "CONTROL_PLANE_NOT_ACTIVE",
+        "bootstrap": "V2_REQUIRED",
+        "meta": "V2_REQUIRED",
+        "grant": "V2_REQUIRED",
+        "invite": "V2_REQUIRED",
+        "flagsFlag": true,
+        "pinOnly": false
+      }
+    },
+    "PIN_STORED_AS_SEALED_SLOW_VERIFIER": {
+      "ok": true,
+      "detail": {
+        "records": 1,
+        "keyIsIdentity": true,
+        "fields": [
+          "v",
+          "sealed",
+          "failures",
+          "lockUntil",
+          "createdAt"
+        ],
+        "sealedFields": [
+          "iv",
+          "ct",
+          "saltLength",
+          "iterations"
+        ],
+        "iterations": 600000,
+        "ctBytes": 64,
+        "wrap": [
+          {
+            "extractable": false,
+            "alg": "AES-GCM",
+            "usages": [
+              "encrypt",
+              "decrypt"
+            ]
+          }
+        ]
+      }
+    },
+    "PIN_NOT_IN_STORAGE_URL_DOM": {
+      "ok": true,
+      "detail": null
+    },
+    "LOCK_CLOSES_PANEL": {
+      "ok": true,
+      "detail": null
+    },
+    "ENTRY_DIALOG": {
+      "ok": true,
+      "detail": {
+        "title": "קוד מנהל",
+        "inputs": [
+          {
+            "type": "password",
+            "inputmode": "numeric",
+            "maxlength": 6,
+            "autocomplete": "off"
+          }
+        ],
+        "err": "",
+        "buttons": [
+          "אישור",
+          "ביטול"
+        ]
+      }
+    },
+    "WRONG_PIN_REJECTED": {
+      "ok": true,
+      "detail": "קוד שגוי"
+    },
+    "CORRECT_PIN_OPENS": {
+      "ok": true,
+      "detail": null
+    },
+    "FAILURES_1_TO_3_NO_DELAY": {
+      "ok": true,
+      "detail": [
+        {
+          "ok": false,
+          "code": "PIN_WRONG",
+          "failures": 1,
+          "retryAfterMs": 0
+        },
+        {
+          "ok": false,
+          "code": "PIN_WRONG",
+          "failures": 2,
+          "retryAfterMs": 0
+        },
+        {
+          "ok": false,
+          "code": "PIN_WRONG",
+          "failures": 3,
+          "retryAfterMs": 0
+        }
+      ]
+    },
+    "FAILURES_4_5_SHORT_DELAY": {
+      "ok": true,
+      "detail": {
+        "f4": {
+          "ok": false,
+          "code": "PIN_WRONG",
+          "failures": 4,
+          "retryAfterMs": 30000
+        },
+        "during4": "PIN_LOCKED",
+        "f5": {
+          "ok": false,
+          "code": "PIN_WRONG",
+          "failures": 5,
+          "retryAfterMs": 60000
+        }
+      }
+    },
+    "FAILURES_6_PLUS_PROGRESSIVE": {
+      "ok": true,
+      "detail": {
+        "f6": {
+          "ok": false,
+          "code": "PIN_WRONG",
+          "failures": 6,
+          "retryAfterMs": 300000
+        },
+        "during6": "PIN_LOCKED",
+        "f7": {
+          "ok": false,
+          "code": "PIN_WRONG",
+          "failures": 7,
+          "retryAfterMs": 600000
+        }
+      }
+    },
+    "LOCKOUT_NOT_PERMANENT": {
+      "ok": true,
+      "detail": {
+        "okAfter": "UNLOCKED",
+        "stAfter": {
+          "failures": 0,
+          "retryAfterMs": 0
+        },
+        "capMs": [
+          3600000,
+          3600000,
+          3600000
+        ]
+      }
+    },
+    "ACTIVITY_REFRESHES_SESSION": {
+      "ok": true,
+      "detail": {
+        "t": true,
+        "refreshed": true
+      }
+    },
+    "TIMEOUT_RELOCKS_15_MIN": {
+      "ok": true,
+      "detail": {
+        "unlocked": false,
+        "open": false,
+        "body": 0
+      }
+    },
+    "LOGOUT_CLEARS_UNLOCK": {
+      "ok": true,
+      "detail": {
+        "beforeLogout": true,
+        "afterLogout": false,
+        "afterRelogin": false
+      }
+    },
+    "ACCOUNT_SWITCH_CLEARS_UNLOCK": {
+      "ok": true,
+      "detail": {
+        "before": true,
+        "pub": "d32f21a8e887d5ecae7ad7f9f99b45bd69209d2413dd74ecded4c23562e04b22",
+        "unlocked": false,
+        "open": false,
+        "menu": false,
+        "mHasPin": false
+      }
+    },
+    "SWITCH_BACK_REQUIRES_PIN": {
+      "ok": true,
+      "detail": {
+        "unlocked": false,
+        "hasPin": true
+      }
+    },
+    "PIN_BOUND_TO_IDENTITY": {
+      "ok": true,
+      "detail": {
+        "mVerify": "PIN_NOT_SET"
+      }
+    },
+    "RESTART_CLEARS_UNLOCK": {
+      "ok": true,
+      "detail": {
+        "pub": "b8cc2743a79e1c9b11f26bf60b0233db262a1febae40a4509d1e7525fd6d8a97",
+        "unlocked": false,
+        "hasPin": true,
+        "menu": true
+      }
+    },
+    "PIN_NOT_IN_CONSOLE_OR_NETWORK": {
+      "ok": true,
+      "detail": {
+        "requests": 1517,
+        "consoleLines": 1198
+      }
+    },
+    "NO_PIN_MODULE_PAGE_ERRORS": {
+      "ok": true,
+      "detail": []
+    }
+  },
+  "info_afterTimeoutMutation": "V2_REQUIRED",
+  "passed": 34,
+  "total": 34,
+  "PIN_ONLY_ADMIN_AUTHORIZATION": false,
+  "PIN_LOGGED": false
+}

@@ -303,6 +303,36 @@
     return { ok: true, actor: me, auth };
   }
 
+  const PIN_OPS = new Set([
+    'SET_GROUP_METADATA',
+    'GRANT_CAPABILITY',
+    'REVOKE_CAPABILITY',
+    'SET_PERMISSIONS',
+    'DEMOTE_ADMIN',
+    'REMOVE_MEMBER',
+    'GRANT_MEMBER_ACTIVE',
+    'SET_INVITE_POLICY',
+    'CREATE_INVITE',
+    'REVOKE_INVITE',
+    'SET_ADMISSION_DELEGATE',
+    'RETIRE_ADMISSION_DELEGATE',
+    'REVOKE_ADMISSION_DELEGATE',
+  ]);
+
+  function PIN() {
+    return App.AdminPinLock || window.SosAdminPinLock || null;
+  }
+
+  /** Admin-tier actors must hold an unlocked PIN session; the PIN adds a lock, never authority. */
+  function pinCheck(opName, auth, me) {
+    if (!PIN_OPS.has(opName)) return null;
+    if (!auth.isRoot && !hasAny(auth, ADMIN_TIER_CAPS)) return null;
+    const p = PIN();
+    if (!p || typeof p.isUnlocked !== 'function' || p.isUnlocked(me) !== true) return fail('ADMIN_PIN_REQUIRED');
+    p.touch();
+    return null;
+  }
+
   /** Privileged ops: local checks, then current network state, then the same checks against it. */
   async function nguard(opName, anyOfCaps, explicitGroupId) {
     const pre = guard(opName, anyOfCaps, explicitGroupId);
@@ -311,7 +341,9 @@
     if (!n) return { ok: false, code: 'NETWORK_AUTHORITY_MISSING' };
     const r = await n.reconcile('op:' + opName);
     if (!r || !r.ok) return { ok: false, code: (r && r.code) || 'NETWORK_AUTHORITY_UNVERIFIED', detail: r && r.detail };
-    return guard(opName, anyOfCaps, explicitGroupId);
+    const g = guard(opName, anyOfCaps, explicitGroupId);
+    if (!g.ok) return g;
+    return pinCheck(opName, g.auth, g.actor) || g;
   }
 
   function done(res) {
@@ -350,6 +382,8 @@
     sync();
     if (verifiedControl()) return fail('ALREADY_BOOTSTRAPPED');
     if (!isConfiguredRoot(me)) return fail('FIRST_GROUP_ROOT_NOT_CONFIGURED');
+    const p = PIN();
+    if (!p || typeof p.isUnlocked !== 'function' || p.isUnlocked(me) !== true) return fail('ADMIN_PIN_REQUIRED');
     const g = GCS();
     const o = opts || {};
     try {
@@ -946,6 +980,7 @@
     LAST_OWNER_POLICY,
     DOUBLE_REDEEM_SCOPE,
     E2E_SCOPE,
+    ADMIN_MUTATION_REQUIRES_PIN_UNLOCK: true,
     FIRST_GROUP_ADMIN_AUDIT_MODEL: 'SIGNED_CONTROL_CHAIN_PLUS_MEMBERSHIP_EVENTS',
     ROLE_MODEL: 'PRESENTATION_OVER_CANONICAL_CAPABILITIES',
     CAP_LABELS,

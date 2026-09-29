@@ -112,6 +112,27 @@
     return f.canSeeAdminMenu() || needsBootstrap();
   }
 
+  function PIN() {
+    return App.AdminPinLock || window.SosAdminPinLock || null;
+  }
+
+  function pinUnlocked() {
+    const p = PIN();
+    return !!(p && p.isUnlocked(actor()));
+  }
+
+  /** V2 on: signed authority (existing rule). V2 off: only the configured first-group root sees the read-only panel. */
+  function canSeeGroupControl() {
+    const f = FGA();
+    if (!f || !actor() || App.guestMode) return false;
+    if (isV2()) return canSeeGroupAdminMenu();
+    return f.isConfiguredRoot(actor()) === true;
+  }
+
+  function controlStatus() {
+    return isV2() ? 'ACTIVE_PATH' : 'CONTROL_PLANE_NOT_ACTIVE';
+  }
+
   function isActiveMember() {
     const ms = MS();
     const pk = actor();
@@ -219,6 +240,9 @@
     LOGO_TOO_LARGE: 'הלוגו גדול מדי',
     BAD_LOGO_REF: 'קובץ לוגו לא נתמך',
     NO_CHANGES: 'אין שינויים לשמירה',
+    CONTROL_PLANE_NOT_ACTIVE: 'מערכת השליטה על הקבוצה עדיין לא הופעלה',
+    V2_REQUIRED: 'מערכת השליטה על הקבוצה עדיין לא הופעלה',
+    ADMIN_PIN_REQUIRED: 'נדרש קוד מנהל',
   };
 
   function errText(res) {
@@ -252,6 +276,16 @@
 
   async function run(label, fn, confirmText) {
     if (busy) return { ok: false, code: 'BUSY' };
+    const p = PIN();
+    const unlocked = p ? await p.requestUnlock() : { ok: false };
+    if (!unlocked.ok) {
+      setMsg(errText({ code: 'ADMIN_PIN_REQUIRED' }), 'err');
+      return { ok: false, code: 'ADMIN_PIN_REQUIRED' };
+    }
+    if (!isV2()) {
+      setMsg(errText({ code: 'CONTROL_PLANE_NOT_ACTIVE' }), 'err');
+      return { ok: false, code: 'CONTROL_PLANE_NOT_ACTIVE' };
+    }
     if (confirmText) {
       const yes = await confirmAction(confirmText);
       if (!yes) {
@@ -268,6 +302,7 @@
       res = { ok: false, code: (e && e.code) || 'ERROR', error: String((e && e.message) || e) };
     }
     busy = false;
+    if (res && res.ok && p) p.touch();
     if (res && res.ok) setMsg(label + ' — בוצע', 'ok');
     else setMsg(errText(res), 'err');
     refreshChrome();
@@ -667,8 +702,69 @@
       '</tbody></table>';
   }
 
+  /** Control plane (V2 + signed control chain) not active: read-only view, every mutation fails closed. */
+  function renderInactive(body) {
+    const f = FGA();
+    const g = GCS();
+    const roots = g && typeof g.configuredRootPubkeys === 'function' ? g.configuredRootPubkeys() : [];
+    const root = roots[0] || '';
+    const info = groupInfo();
+    body.innerHTML =
+      '<div class="gap-card" id="sosGapControlStatus" data-status="CONTROL_PLANE_NOT_ACTIVE" style="margin-bottom:12px">' +
+      '<strong>מצב שליטה: לא פעיל</strong>' +
+      '<div class="gap-sub">מערכת השליטה החתומה על הקבוצה עדיין לא הופעלה. אי אפשר לבצע שינויים עד להפעלתה (CONTROL_PLANE_NOT_ACTIVE).</div></div>' +
+      '<div class="gap-cards">' +
+      '<div class="gap-card">שם הקבוצה<b id="sosGapViewName">' + escapeHtml(info.displayName) + '</b></div>' +
+      '<div class="gap-card">מזהה<b class="gap-mono">' + escapeHtml(f.FIRST_GROUP_ID) + '</b></div>' +
+      '<div class="gap-card">חברים<b id="sosGapMemberCount">—</b></div>' +
+      '<div class="gap-card">מנהלים<b>' + (root ? 1 : 0) + '</b></div>' +
+      '<div class="gap-card">הזמנות<b>—</b></div>' +
+      '</div>' +
+      '<h3 style="margin-top:14px">מנהל ראשי</h3>' +
+      '<div class="gap-list"><div class="gap-item" id="sosGapRootCard" data-root="1"><div><div>' + escapeHtml(f.roleLabel('ROOT')) + '</div>' +
+      '<div class="gap-sub gap-mono">' + escapeHtml(root) + '</div></div><span class="gap-sub">מוגן — לא ניתן לשנות או להסיר</span></div></div>' +
+      '<h3 style="margin-top:14px">תפקידים</h3>' +
+      '<table><thead><tr><th>תפקיד</th><th>הרשאות</th></tr></thead><tbody>' +
+      f.ROLES.map(
+        (r) =>
+          '<tr><td>' + escapeHtml(r.label) + '</td><td>' +
+          escapeHtml(r.id === 'ROOT' ? 'כל ההרשאות (לא ניתן להעברה)' : r.preset ? r.preset.map((c) => f.CAP_LABELS[c]).join(', ') : r.id === 'MEMBER' ? 'חברות פעילה' : 'שילוב הרשאות') +
+          '</td></tr>'
+      ).join('') +
+      '</tbody></table>' +
+      '<h3 style="margin-top:14px">הרשאות</h3>' +
+      '<div class="gap-caps" id="sosGapCapsCatalog">' +
+      Object.keys(f.CAP_LABELS)
+        .map((c) => '<label><input type="checkbox" data-cap="' + c + '" disabled> ' + escapeHtml(f.CAP_LABELS[c]) + '</label>')
+        .join('') +
+      '</div>' +
+      '<div class="gap-actions">' +
+      '<button type="button" class="gap-btn" disabled>' + LABELS.SAVE_DETAILS + '</button>' +
+      '<button type="button" class="gap-btn" disabled>' + LABELS.ADD_ADMIN + '</button>' +
+      '<button type="button" class="gap-btn" disabled>' + LABELS.CREATE_INVITE + '</button></div>';
+  }
+
   function renderTab(tabId) {
     if (!shellEl) return;
+    const body0 = document.getElementById('sosGapBody');
+    if (!pinUnlocked()) {
+      if (body0) body0.innerHTML = '';
+      close();
+      return;
+    }
+    if (!isV2()) {
+      activeTab = 'home';
+      refreshChrome();
+      shellEl.querySelectorAll('#sosGapTabs button').forEach((b) => {
+        const on = b.dataset.tab === 'home';
+        b.hidden = !on;
+        b.style.display = on ? '' : 'none';
+      });
+      const role = shellEl.querySelector('#sosGapRole');
+      if (role) role.textContent = 'מנהל ראשי · לא פעיל';
+      if (body0) renderInactive(body0);
+      return;
+    }
     const s = sections();
     let tab = tabId;
     if (!tabAllowed(tab, s)) tab = 'home';
@@ -829,19 +925,27 @@
     });
     shellEl.querySelector('#sosGapClose').addEventListener('click', close);
     shellEl.addEventListener('click', (ev) => {
+      const p = PIN();
+      if (p) p.touch();
       const t = ev.target instanceof HTMLElement ? ev.target.closest('[data-act]') : null;
       if (!t || t.hasAttribute('disabled')) return;
       onAction(t.getAttribute('data-act'), t);
     });
   }
 
-  function open(tab) {
-    if (!isV2()) return;
+  /** Every open requires an unlocked admin PIN session for the current identity. */
+  async function open(tab) {
     ensureMenuEntry();
-    if (!canSeeGroupAdminMenu()) return;
+    if (!canSeeGroupControl()) return { ok: false, code: 'UNAUTHORIZED' };
+    const p = PIN();
+    if (!p) return { ok: false, code: 'ADMIN_PIN_REQUIRED' };
+    const who = actor();
+    const u = await p.requestUnlock();
+    if (!u.ok || actor() !== who || !canSeeGroupControl()) return { ok: false, code: u.ok ? 'UNAUTHORIZED' : 'ADMIN_PIN_REQUIRED' };
     ensureShell();
     shellEl.classList.add('is-open');
     renderTab(tab || 'home');
+    return { ok: true, code: controlStatus() };
   }
 
   /** New-group creation is deferred to the multi-community phase. */
@@ -921,11 +1025,34 @@
     btn.classList.toggle('is-visible', showAdmin);
     btn.style.display = showAdmin ? 'inline-flex' : 'none';
     if (more) more.style.display = showAdmin ? '' : 'none';
+    const showControl = canSeeGroupControl();
+    let item = document.getElementById('sosGroupControlMenuItem');
+    const menu = document.getElementById('topBarProfileMenu');
+    if (!item && menu) {
+      item = document.createElement('button');
+      item.type = 'button';
+      item.id = 'sosGroupControlMenuItem';
+      item.className = 'top-bar__dropdown-item';
+      item.innerHTML = '<i class="fa-solid fa-shield-halved"></i><span>שליטה על הקבוצה</span>';
+      item.addEventListener('click', () => {
+        menu.hidden = true;
+        const pb = document.getElementById('topBarProfileButton');
+        if (pb) pb.setAttribute('aria-expanded', 'false');
+        open('home');
+      });
+      const invite = document.getElementById('topBarInviteFriend');
+      if (invite && invite.parentNode) invite.parentNode.insertBefore(item, invite.nextSibling);
+      else menu.appendChild(item);
+    }
+    if (item) {
+      item.hidden = !showControl;
+      item.style.display = showControl ? '' : 'none';
+    }
     const createBtn = document.getElementById('sosGroupCreateMenuEntry');
     if (createBtn) createBtn.remove();
     const legacy = document.getElementById('sosAdminSettingsEntry');
     if (legacy) legacy.style.display = 'none';
-    if (!showAdmin && isOpen()) close();
+    if ((!showControl || !pinUnlocked()) && isOpen()) close();
     else if (isOpen()) {
       const fp = stateFingerprint();
       if (fp === renderedFingerprint) return;
@@ -938,9 +1065,14 @@
 
   let booted = false;
   function boot() {
-    if (booted || !isV2()) return;
+    if (booted) return;
     booted = true;
     ensureMenuEntry();
+    window.addEventListener('sos-admin-pin-locked', () => {
+      const body = document.getElementById('sosGapBody');
+      if (body) body.innerHTML = '';
+      close();
+    });
     window.addEventListener('sos-identity-ready', ensureMenuEntry);
     window.addEventListener('sos-access-control-v2-local', ensureMenuEntry);
     window.addEventListener('sos-first-group-state-changed', ensureMenuEntry);
@@ -952,6 +1084,8 @@
     TABS,
     LABELS,
     canSeeGroupAdminMenu,
+    canSeeGroupControl,
+    controlStatus,
     isActiveMember,
     tabAllowed,
     open,
@@ -962,6 +1096,7 @@
     ensureMenuEntry,
     renderTab,
     GROUP_ADMIN_MENU_LABEL: 'ניהול קבוצה',
+    GROUP_CONTROL_MENU_LABEL: 'שליטה על הקבוצה',
     NEW_GROUP_CREATION: 'DEFERRED_TO_MULTI_COMMUNITY_PHASE',
   });
 

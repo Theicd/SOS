@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { spawn, execSync } from 'node:child_process';
 import { chromium } from 'playwright';
@@ -41,6 +42,15 @@ const mkKey = () => {
   const sk = generateSecretKey();
   return { sk, hex: hex(sk), pub: getPublicKey(sk) };
 };
+// 899f: per-run admin PIN (random, never printed); unlocks the admin UI/session lock only.
+const TEST_PIN = (() => {
+  for (;;) {
+    const p = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
+    const d = p.split('').map(Number);
+    const step = d.slice(1).map((x, i) => (x - d[i] + 10) % 10);
+    if (new Set(d).size >= 4 && !step.every((s) => s === 1) && !step.every((s) => s === 9)) return p;
+  }
+})();
 
 const report = {
   gate: 'PACKAGE898_FIRST_GROUP_NETWORK_E2E',
@@ -469,7 +479,18 @@ async function boot(page, key) {
     await App.FirstGroupNetworkAuthority.reconcile('test-boot');
     return String(c.publicKey || '').toLowerCase();
   }, key.hex);
+  await pinReady(page);
   return pub;
+}
+
+/** Sets up (first time for this identity/profile) or enters the admin PIN. */
+async function pinReady(page) {
+  return page.evaluate(async (pin) => {
+    const P = window.NostrApp.AdminPinLock;
+    if (P.isUnlocked()) return 'ALREADY_UNLOCKED';
+    const r = (await P.hasPin()) ? await P.verifyPin(pin) : await P.setupPin(pin, pin);
+    return r.code;
+  }, TEST_PIN);
 }
 
 async function openPage(u, key) {
@@ -491,6 +512,7 @@ async function hardReload(page, key) {
     window.NostrApp.FirstGroupAdmin.boot();
     await window.NostrApp.FirstGroupNetworkAuthority.reconcile('test-reload');
   });
+  await pinReady(page);
   return restored;
 }
 
@@ -794,6 +816,92 @@ async function main() {
     await shot(ua.page, 'a-members-network');
     set('A_ADMIN_UI_MEMBERS_FROM_NETWORK', aMenu && aSeesB, { aMenu, aSeesB });
 
+    // ================================================================ 899f: admin PIN lock in active control mode
+    const controlMenu = await ev(ua.page, () => {
+      const el = document.getElementById('sosGroupControlMenuItem');
+      return !!el && el.style.display !== 'none' && el.textContent.trim() === 'שליטה על הקבוצה';
+    });
+    const bControlMenu = await ev(ub.page, () => {
+      window.NostrApp.GroupAdminProductUi.ensureMenuEntry();
+      const el = document.getElementById('sosGroupControlMenuItem');
+      return !!el && el.style.display !== 'none';
+    });
+    set('GROUP_CONTROL_MENU_ADMIN_ONLY', controlMenu && !bControlMenu, { controlMenu, bControlMenu });
+    const noPin = await ev(ua.page, async (pk) => {
+      const App = window.NostrApp;
+      App.AdminPinLock.lock('test');
+      const F = App.FirstGroupAdmin;
+      const before = F.authorityFor(pk).assigned.join(',');
+      const r = {
+        open: App.GroupAdminProductUi.isOpen(),
+        grant: (await F.grantCapability(pk, 'MODERATE_CONTENT')).code,
+        remove: (await F.removeMember(pk)).code,
+        meta: (await F.updateMetadata({ description: 'no-pin' })).code,
+        invite: (await F.createInvite()).code,
+      };
+      await App.FirstGroupNetworkAuthority.reconcile('no-pin-check');
+      r.unchanged = F.authorityFor(pk).assigned.join(',') === before && App.MembershipState.getMemberState(pk, 'israel-network') === 'ACTIVE';
+      return r;
+    }, B.pub);
+    set('DIRECT_MUTATION_WITHOUT_PIN_REJECTED', !noPin.open && ['grant', 'remove', 'meta', 'invite'].every((x) => noPin[x] === 'ADMIN_PIN_REQUIRED') && noPin.unchanged, noPin);
+    await ev(ua.page, () => {
+      window.__pinOpen = window.NostrApp.GroupAdminProductUi.open('members');
+    });
+    await waitSel(ua.page, '#sosAdminPinDialog');
+    const uiPrompt = await ev(ua.page, () => document.getElementById('sosAdminPinTitle')?.textContent || '');
+    await ua.page.fill('#sosAdminPinInput', TEST_PIN);
+    await ua.page.click('#sosAdminPinOk');
+    await ua.page.waitForFunction(() => window.NostrApp.GroupAdminProductUi.isOpen(), null, { polling: 100, timeout: 20000 });
+    set('PIN_PROMPT_THEN_PANEL', uiPrompt === 'קוד מנהל', { uiPrompt });
+    await openUi(ua.page, 'admins');
+    const rootCard = await ev(ua.page, (a) => {
+      const row = document.querySelector(`#sosGapAdminList [data-admin="${a}"]`);
+      return { found: !!row, protectedLabel: !!row && /מוגן/.test(row.textContent), demoteBtn: !!(row && row.querySelector('[data-act="demote"]')) };
+    }, A.pub);
+    const rootOps = await ev(ua.page, async (a) => {
+      const F = window.NostrApp.FirstGroupAdmin;
+      return { remove: (await F.removeMember(a)).code, demote: (await F.demoteAdmin(a)).code, revoke: (await F.revokeCapability(a, 'MANAGE_MEMBERS')).code };
+    }, A.pub);
+    await openUi(ua.page, 'members');
+    await domClick(ua.page, `#sosGapBody [data-act="select-member"][data-pk="${A.pub}"]`).catch(() => {});
+    await sleep(200);
+    const rootDetail = await ev(ua.page, () => {
+      const d = document.getElementById('sosGapMemberDetail');
+      return { shown: !!d, remove: !!(d && d.querySelector('[data-act="remove-member"]')), edit: !!(d && d.querySelector('[data-act="edit-perms"]')) };
+    });
+    set(
+      'ROOT_CARD_PROTECTED',
+      rootCard.found && rootCard.protectedLabel && !rootCard.demoteBtn && !rootDetail.remove && !rootDetail.edit && Object.values(rootOps).every((c) => /ROOT_/.test(String(c))),
+      { rootCard, rootDetail, rootOps }
+    );
+    await openUi(ua.page, 'members');
+    await domClick(ua.page, `#sosGapBody [data-act="select-member"][data-pk="${B.pub}"]`);
+    await sleep(200);
+    const bCard = await ev(ua.page, () => {
+      const d = document.getElementById('sosGapMemberDetail');
+      return { remove: !!(d && d.querySelector('[data-act="remove-member"]')), edit: !!(d && d.querySelector('[data-act="edit-perms"]')) };
+    });
+    await domClick(ua.page, '#sosGapBody [data-act="edit-perms"]');
+    await sleep(300);
+    const editor = await ev(ua.page, (b) => ({
+      target: document.getElementById('sosGapRoleTarget')?.value || '',
+      caps: Array.from(document.querySelectorAll('#sosGapCaps input[data-cap]')).map((c) => c.getAttribute('data-cap')),
+      canonical: Object.keys(window.NostrApp.FirstGroupAdmin.CAP_LABELS),
+      enabled: Array.from(document.querySelectorAll('#sosGapCaps input[data-cap]')).filter((c) => !c.disabled).length,
+      roleButtons: document.querySelectorAll('#sosGapBody [data-act="assign-role"]').length,
+      b,
+    }), B.pub);
+    set(
+      'MEMBER_CARD_CONTROLS_FOLLOW_POLICY',
+      bCard.remove && bCard.edit && editor.target === B.pub && JSON.stringify(editor.caps) === JSON.stringify(editor.canonical) && editor.enabled > 0 && editor.roleButtons > 0,
+      { bCard, target: editor.target === B.pub, caps: editor.caps.length, enabled: editor.enabled, roleButtons: editor.roleButtons }
+    );
+    const bNoPanel = await ev(ub.page, async () => {
+      const r = await window.NostrApp.GroupAdminProductUi.open('members');
+      return { code: r.code, dialog: !!document.getElementById('sosAdminPinDialog') };
+    });
+    set('MEMBER_CANNOT_OPEN_CONTROL', bNoPanel.code === 'UNAUTHORIZED' && !bNoPanel.dialog, bNoPanel);
+
     // ================================================================ A grants B INVITE_USERS only; B receives it from the network
     const tGrant = Date.now();
     const grant = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.grantCapability(pk, 'INVITE_USERS')).code, B.pub);
@@ -956,6 +1064,7 @@ async function main() {
       window.NostrApp.FirstGroupAdmin.boot();
       await window.NostrApp.FirstGroupNetworkAuthority.reconcile('tab2');
     });
+    await pinReady(bTab2);
     const tab2Before = await view(bTab2, B.pub);
     await goOffline(ub);
     await sleep(500);
@@ -1480,8 +1589,11 @@ async function main() {
       window.NostrApp.guestMode = false;
       window.NostrApp.FirstGroupAdmin.boot();
       await window.NostrApp.FirstGroupNetworkAuthority.reconcile('switch-tab');
+    });
+    await pinReady(aTabSwitch);
+    await aTabSwitch.evaluate(async () => {
       window.NostrApp.GroupAdminProductUi.ensureMenuEntry();
-      window.NostrApp.GroupAdminProductUi.open('invites');
+      await window.NostrApp.GroupAdminProductUi.open('invites');
     });
     const leak = await aTabSwitch.evaluate(async (kC) => {
       const App = window.NostrApp;
