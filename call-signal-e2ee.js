@@ -2014,12 +2014,10 @@
   /**
    * Authoritative refresh. Sticky after true — never downgrade.
    *
-   * States:
-   * - NOT_REQUIRED: remote/qa false and never seen true → legacy rollout send OK
-   * - REQUIRED: seen true OR remote true → 1059 only
-   * - POLICY_UNAVAILABLE: fetch fail / missing field
-   *   - before ever seeing true → LEGACY_ROLLOUT (Production APK compat during prep)
-   *   - after seeing true → REQUIRED
+   * States (informational; outgoing send is 1059-only in every state):
+   * - NOT_REQUIRED: remote/qa false and never seen true
+   * - REQUIRED: seen true OR remote true
+   * - POLICY_UNAVAILABLE: fetch fail / missing field / malformed
    */
   async function refreshCallSignalGiftWrapPolicy(options) {
     const opts = options && typeof options === 'object' ? options : {};
@@ -2139,92 +2137,26 @@
 
   /**
    * Shared voice/video send decision.
-   * @returns {{ mode: 'SECURE'|'LEGACY_ROLLOUT'|'BLOCK', policy: object }}
+   * @returns {{ mode: 'SECURE', policy: object }}
    */
   async function resolveCallSignalSecurityDecision(options) {
     const policy = await refreshCallSignalGiftWrapPolicy(options);
-    if (policy.required === true || policy.state === POLICY_STATES.REQUIRED) {
-      return { mode: SEND_MODES.SECURE, policy };
+    // Outgoing private call signaling is secure-only: unavailable, malformed, absent or
+    // "not required" policy never re-enables legacy 25050 send (read compat stays separate).
+    if (policy.state !== POLICY_STATES.REQUIRED && policy.required !== true) {
+      try {
+        console.log('CALL_SEND_POLICY_SECURE_DEFAULT state=' + String(policy.state) + ' source=' + String(policy.source || ''));
+      } catch (_e) {}
     }
-    // Pre-cutover: NOT_REQUIRED or POLICY_UNAVAILABLE (never seen true) → legacy only.
-    if (
-      policy.state === POLICY_STATES.NOT_REQUIRED ||
-      policy.state === POLICY_STATES.POLICY_UNAVAILABLE
-    ) {
-      return { mode: SEND_MODES.LEGACY_ROLLOUT, policy };
-    }
-    return { mode: SEND_MODES.BLOCK, policy };
-  }
-
-  function computeLegacyRoomId(senderPubkey, peerPubkey) {
-    const a = String(senderPubkey || '').toLowerCase();
-    const b = String(peerPubkey || '').toLowerCase();
-    if (!a || !b) return '';
-    return a < b ? a + ':' + b : b + ':' + a;
+    return { mode: SEND_MODES.SECURE, policy };
   }
 
   /**
-   * LEGACY_ROLLOUT only — direct kind 25050 + NIP-04.
-   * Never used after sticky REQUIRED.
+   * Outgoing legacy kind 25050 is disabled: kind 1059 gift wrap is the only send transport.
    */
-  async function publishLegacyDirectCallSignal(opts) {
-    const media = opts && opts.media;
-    const peerPubkey = opts && opts.peerPubkey;
-    const type = opts && opts.type;
-    const data = opts && opts.data;
-    const pool = opts && opts.pool;
-    const relays = opts && opts.relays;
-    const senderPubkey = opts && opts.senderPubkey;
-    const senderPrivateKey = (opts && opts.senderPrivateKey)
-      || (App.SosCryptoSigner && typeof App.SosCryptoSigner.f1CryptoModuleSessionKeyHex === 'function'
-        ? App.SosCryptoSigner.f1CryptoModuleSessionKeyHex()
-        : '');
-
-    if (media !== 'voice' && media !== 'video') {
-      callSignalFail('CALL_SIGNAL_LEGACY_SEND_FAILED', 'bad media');
-    }
-    if (!pool || typeof pool.publish !== 'function') {
-      callSignalFail('CALL_SIGNAL_LEGACY_SEND_FAILED', 'pool unavailable');
-    }
-    if (!window.NostrTools || !window.NostrTools.nip04 || typeof window.NostrTools.nip04.encrypt !== 'function') {
-      callSignalFail('CALL_SIGNAL_LEGACY_SEND_FAILED', 'NIP04 unavailable');
-    }
-    const recipient = requireHexPubkey(peerPubkey);
-    const sender = requireHexPubkey(senderPubkey);
-    const senderSk = typeof senderPrivateKey === 'string' ? senderPrivateKey : '';
-    if (!senderSk) callSignalFail('CALL_SIGNAL_LEGACY_SEND_FAILED', 'empty private key');
-    const wireType = toWireType(media, normalizeAction(media, type));
-    const payload = data == null ? '' : JSON.stringify(data);
-    let encryptedContent = '';
-    try {
-      encryptedContent = payload
-        ? await window.NostrTools.nip04.encrypt(senderSk, recipient, payload)
-        : '';
-    } catch (err) {
-      callSignalFail('CALL_SIGNAL_LEGACY_SEND_FAILED', err && err.message ? err.message : 'nip04');
-    }
-    const roomId =
-      typeof opts.roomId === 'string' && opts.roomId
-        ? opts.roomId
-        : computeLegacyRoomId(sender, recipient);
-    const event = {
-      kind: RUMOR_KIND,
-      pubkey: sender,
-      created_at: Math.floor(Date.now() / 1000),
-      tags: [
-        ['type', wireType],
-        ['p', recipient],
-        ['r', roomId],
-      ],
-      content: encryptedContent,
-    };
-    const finalizeEvent = getFinalizeEvent();
-    const signed = finalizeEvent(event, requirePrivBytes(senderSk));
-    await pool.publish(Array.isArray(relays) ? relays : [], signed);
-    try {
-      console.log('CALL_SIGNAL_SENT action=' + normalizeAction(media, type) + ' encrypted=false transport=legacy');
-    } catch (_e) {}
-    return { event: signed, transport: 'legacy25050', action: normalizeAction(media, type) };
+  async function publishLegacyDirectCallSignal(_opts) {
+    try { console.warn('CALL_SIGNAL_LEGACY_SEND_DISABLED'); } catch (_e) {}
+    callSignalFail('CALL_SIGNAL_LEGACY_SEND_DISABLED', 'outgoing 25050 disabled');
   }
 
   /**
@@ -2252,10 +2184,8 @@
         callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', err && err.message ? err.message : 'secure-send');
       }
     }
-    // LEGACY_ROLLOUT
-    const res = await publishLegacyDirectCallSignal(opts);
-    try { console.log('CALL_SEND_RETURN_OK'); } catch (_e) {}
-    return { ...res, mode: SEND_MODES.LEGACY_ROLLOUT };
+    try { console.log('CALL_SEND_POLICY_BLOCK mode=' + String(decision.mode)); } catch (_e) {}
+    callSignalFail('CALL_SIGNAL_E2EE_ENCRYPT_FAILED', 'secure-only');
   }
 
   // Shared LEGACY_READ_ONLY kind 25050 subscription: voice + video register handlers, one REQ per identity.

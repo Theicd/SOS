@@ -3025,13 +3025,27 @@
   async function sendSignal(peerPubkey, type, data) {
     try {
       const keys = getEffectiveKeys();
-      const tryRelay = () => {
+      // Mesh relay: intermediary peers must only ever see a recipient-bound P2pSecureV2 envelope.
+      const tryRelay = async () => {
         if (!App.PeerExchange || typeof App.PeerExchange.sendRelaySignal !== 'function') return false;
         const via = typeof App.PeerExchange.findRelayPeer === 'function' ? App.PeerExchange.findRelayPeer(peerPubkey) : null;
         if (!via) return false;
-        const ok = App.PeerExchange.sendRelaySignal(peerPubkey, { type, data }, via);
+        const secure = App.P2pSecureV2;
+        if (!secure || typeof secure.encryptMeshSignal !== 'function' || !secure.isLocalSecureP2pV2()) {
+          console.warn('[SECURITY/MESH_RELAY_BLOCKED] reason=secure_envelope_unavailable type=' + String(type));
+          return false;
+        }
+        let wire;
+        try {
+          wire = await secure.encryptMeshSignal(peerPubkey, type, data);
+        } catch (e) {
+          console.warn('[SECURITY/MESH_RELAY_BLOCKED] reason=' + (e && e.code ? e.code : 'encrypt_failed') + ' type=' + String(type));
+          return false;
+        }
+        if (typeof wire !== 'string' || !wire) return false;
+        const ok = App.PeerExchange.sendRelaySignal(peerPubkey, wire, via);
         if (ok) {
-          log('peer', `📡 signal נשלח דרך Relay Peer`, {
+          log('peer', `📡 signal נשלח דרך Relay Peer (מוצפן)`, {
             type,
             to: peerPubkey.slice(0, 16) + '...',
             via: via.slice(0, 16) + '...'
@@ -3041,7 +3055,7 @@
       };
 
       if (!App.pool || !keys.publicKey || !(keys.hasSigner || App.SosCryptoSigner?.hasIdentityKey())) {
-        if (tryRelay()) return;
+        if (await tryRelay()) return;
         p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'missing local private key');
       }
 
@@ -3100,7 +3114,7 @@
       try {
         await App.pool.publish(relays, signed);
       } catch (publishErr) {
-        if (tryRelay()) return;
+        if (await tryRelay()) return;
         throw publishErr;
       }
 
@@ -3119,7 +3133,22 @@
 
   async function handleRelayedSignal(signal, senderPubkey) {
     try {
-      const msg = typeof signal === 'string' ? JSON.parse(signal) : signal;
+      const outer = typeof signal === 'string' ? JSON.parse(signal) : signal;
+      if (!outer || outer.type !== 'p2p-secure-mesh-signal') {
+        console.warn('[SECURITY/PARSE_REJECT] kind=mesh type=relay-signal reason=plaintext_relayed_signal_rejected');
+        return;
+      }
+      if (!App.P2pSecureV2 || typeof App.P2pSecureV2.decryptMeshSignal !== 'function') {
+        console.warn('[SECURITY/PARSE_REJECT] kind=mesh type=p2p-secure-mesh-signal reason=no_module');
+        return;
+      }
+      let msg;
+      try {
+        msg = await App.P2pSecureV2.decryptMeshSignal(senderPubkey, outer);
+      } catch (e) {
+        console.warn('[SECURITY/PARSE_REJECT] kind=mesh type=p2p-secure-mesh-signal reason=' + (e && e.code ? e.code : 'decrypt_failed'));
+        return;
+      }
       if (!msg || !msg.type) return;
 
       log('request', `📬 התקבל Relay Signal`, {
