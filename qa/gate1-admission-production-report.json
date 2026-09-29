@@ -9,7 +9,7 @@
     "protocolVersion": 1,
     "environment": "production",
     "group": "israel-network",
-    "rootPubkey": "8c60929899e0009f199b3865a7a5e7ba483fec60ff3c926169d0a4588ada256a",
+    "rootPubkey": "ede1e7fabb758aca75ae548680a206a234c6d6b257834b111d284c3692e67601",
     "testFaults": false,
     "durableObjectReachable": true,
     "controlStatus": "MISSING",
@@ -260,5 +260,14 @@
     }
   ],
   "status": "PASS",
-  "secrets": "none (service key only in Cloudflare secret; ROOT private key never used)"
+  "secrets": "none (service key only in Cloudflare secret; ROOT private key never used)",
+  "rootCorrection": {
+    "correctedAt": "2026-09-29T22:29:26.970Z",
+    "reason": "Previous ROOT_PUBKEY value was misclassified (it was not a public key). Only the ROOT public reference changed; service key unchanged; delegation inactive.",
+    "versionId": "60600248-d0aa-45b8-a75c-c47a7da538e9",
+    "rootPubkey": "ede1e7fabb758aca75ae548680a206a234c6d6b257834b111d284c3692e67601",
+    "servicePubkeyUnchanged": true,
+    "delegationActive": false,
+    "productionDenyRerun": "PASS (28/28)"
+  }
 }
