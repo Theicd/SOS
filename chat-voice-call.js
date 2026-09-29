@@ -724,9 +724,9 @@
       setCallAudioSessionType();
       // קבלת הרשאות מיקרופון
       try { console.log('CALL_ACCEPT_MEDIA_START'); } catch (_) {}
-      await getLocalStream();
-      try { console.log('CALL_ACCEPT_MIC_READY ms=' + flowMs()); } catch (_) {}
-      try { console.log('CALL_ACCEPT_MEDIA_OK ms=' + flowMs()); } catch (_) {}
+      // Mic start and remote offer apply run in parallel; local tracks attach before createAnswer.
+      const streamP = getLocalStream();
+      streamP.catch(() => {});
 
       // יצירת חיבור
       state.currentPeer = peerPubkey;
@@ -749,21 +749,38 @@
       clearIceDisconnectTimer();
 
       const sid = state.callSessionId || '';
-      if (isOfferApplyBlocked(sid, peerPubkey)) {
-        throw Object.assign(new Error('CALL_STALE_OFFER_APPLY_BLOCK'), { code: 'CALL_STALE_OFFER_APPLY_BLOCK' });
-      }
+      const pcForAccept = state.peerConnection;
+      let localStream = null;
+      try {
+        if (isOfferApplyBlocked(sid, peerPubkey)) {
+          throw Object.assign(new Error('CALL_STALE_OFFER_APPLY_BLOCK'), { code: 'CALL_STALE_OFFER_APPLY_BLOCK' });
+        }
 
-      // קבלת offer (אימות + נרמול {type,sdp} אחרי סריאליזציה מ-Nostr/QA)
-      const offerNorm = normalizeSessionDescription(offer);
-      if (!offerNorm) {
-        console.error('Invalid offer received', { reason: 'invalid-sdp', type: typeof offer, sdpLength: offer && offer.sdp ? String(offer.sdp).length : 0 });
-        throw new Error('ה-offer שהתקבל אינו תקין');
+        // קבלת offer (אימות + נרמול {type,sdp} אחרי סריאליזציה מ-Nostr/QA)
+        const offerNorm = normalizeSessionDescription(offer);
+        if (!offerNorm) {
+          console.error('Invalid offer received', { reason: 'invalid-sdp', type: typeof offer, sdpLength: offer && offer.sdp ? String(offer.sdp).length : 0 });
+          throw new Error('ה-offer שהתקבל אינו תקין');
+        }
+        try { console.log('CALL_ACCEPT_REMOTE_DESCRIPTION_START'); } catch (_) {}
+        console.log('Applying remote offer', { type: offerNorm.type, sdpLen: offerNorm.sdp?.length });
+        const srdP = pcForAccept.setRemoteDescription(offerNorm).then(() => flushRemoteCandidates(peerPubkey));
+        srdP.catch(() => {});
+        localStream = await streamP;
+        try { console.log('CALL_ACCEPT_MIC_READY ms=' + flowMs()); } catch (_) {}
+        try { console.log('CALL_ACCEPT_MEDIA_OK ms=' + flowMs()); } catch (_) {}
+        await srdP;
+        try { console.log('CALL_ACCEPT_REMOTE_DESCRIPTION_OK ms=' + flowMs()); } catch (_) {}
+      } catch (setupErr) {
+        // Let the stream land in state.localStream so the cleanup below stops the mic.
+        await streamP.catch(() => null);
+        throw setupErr;
       }
-      try { console.log('CALL_ACCEPT_REMOTE_DESCRIPTION_START'); } catch (_) {}
-      console.log('Applying remote offer', { type: offerNorm.type, sdpLen: offerNorm.sdp?.length });
-      await state.peerConnection.setRemoteDescription(offerNorm);
-      await flushRemoteCandidates(peerPubkey);
-      try { console.log('CALL_ACCEPT_REMOTE_DESCRIPTION_OK ms=' + flowMs()); } catch (_) {}
+      if (state.peerConnection !== pcForAccept) throw new Error('CALL_ACCEPT_PC_REPLACED');
+      const senders = pcForAccept.getSenders();
+      localStream.getTracks().forEach((t) => {
+        if (!senders.some((s) => s.track === t)) pcForAccept.addTrack(t, localStream);
+      });
       answeredLocally = true;
       const termAns = getTerminal(sid);
       if (termAns) termAns.answeredLocally = true;

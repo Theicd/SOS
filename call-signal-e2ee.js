@@ -1931,6 +1931,16 @@
       };
     }
 
+    if (seenBefore && !opts.forceFetch) {
+      return {
+        state: POLICY_STATES.REQUIRED,
+        required: true,
+        fetchOk: false,
+        remoteValue: null,
+        source: 'sticky',
+      };
+    }
+
     if (opts.skipFetch) {
       if (seenBefore) {
         return {

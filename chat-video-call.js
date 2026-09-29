@@ -171,11 +171,11 @@
   }
 
   // חלק שיחות וידאו – יצירת RTCPeerConnection והאזנות
-  function createPC(peerPubkey) {
+  function createPC(peerPubkey, opts) {
     const pc = new RTCPeerConnection(RTC_CONFIG);
 
     // הוספת מסלולים מקומיים
-    if (state.localStream) {
+    if (state.localStream && !(opts && opts.skipLocalTracks)) {
       state.localStream.getTracks().forEach(t => pc.addTrack(t, state.localStream));
     }
 
@@ -724,34 +724,52 @@
     const flowMs = () => Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - flowT0);
     try { console.log('CALL_ACCEPT_FLOW_START'); } catch (_) {}
     try { console.log('CALL_ACCEPT_MEDIA_START'); } catch (_) {}
-    await getLocalStream();
-    try { console.log('CALL_ACCEPT_MIC_READY ms=' + flowMs()); } catch (_) {}
-    try { console.log('CALL_ACCEPT_MEDIA_OK ms=' + flowMs()); } catch (_) {}
-    state.isIncoming = true;
-    state.isActive = false;
-    state.callStartTimestamp = null;
-    state.remoteStream = null;
-    state.candidateQueue = [];
-    clearTimer();
-    try { subscribeToSignals(); } catch {}
-    state.currentPeer = peer;
-    try { state.lastOfferFrom[peer] = Date.now(); } catch (_) {}
-    createPC(peer);
-    const offerNorm = normalizeVideoSessionDescription(offer);
-    if (!offerNorm) throw new Error('offer וידאו אינו תקין');
+    // Camera/mic start and remote offer apply run in parallel; local tracks attach before createAnswer.
+    const streamP = getLocalStream();
+    streamP.catch(() => {});
+    let pcForAccept = null;
+    let localStream = null;
     try {
-      if (sid && typeof App.isCallSessionTerminal === 'function' && App.isCallSessionTerminal(sid)) {
-        console.log('CALL_STALE_OFFER_APPLY_BLOCK reason=tombstoned');
-        throw Object.assign(new Error('CALL_STALE_OFFER_APPLY_BLOCK'), { code: 'CALL_STALE_OFFER_APPLY_BLOCK' });
+      state.isIncoming = true;
+      state.isActive = false;
+      state.callStartTimestamp = null;
+      state.remoteStream = null;
+      state.candidateQueue = [];
+      clearTimer();
+      try { subscribeToSignals(); } catch {}
+      state.currentPeer = peer;
+      try { state.lastOfferFrom[peer] = Date.now(); } catch (_) {}
+      createPC(peer, { skipLocalTracks: true });
+      const offerNorm = normalizeVideoSessionDescription(offer);
+      if (!offerNorm) throw new Error('offer וידאו אינו תקין');
+      try {
+        if (sid && typeof App.isCallSessionTerminal === 'function' && App.isCallSessionTerminal(sid)) {
+          console.log('CALL_STALE_OFFER_APPLY_BLOCK reason=tombstoned');
+          throw Object.assign(new Error('CALL_STALE_OFFER_APPLY_BLOCK'), { code: 'CALL_STALE_OFFER_APPLY_BLOCK' });
+        }
+      } catch (e) {
+        if (e && e.code === 'CALL_STALE_OFFER_APPLY_BLOCK') throw e;
       }
-    } catch (e) {
-      if (e && e.code === 'CALL_STALE_OFFER_APPLY_BLOCK') throw e;
+      try { console.log('CALL_ACCEPT_REMOTE_DESCRIPTION_START'); } catch (_) {}
+      console.log('Applying remote offer', { type: offerNorm.type, sdpLen: offerNorm.sdp?.length });
+      pcForAccept = state.pc;
+      const srdP = pcForAccept.setRemoteDescription(offerNorm).then(() => flushRemoteCandidates(peer));
+      srdP.catch(() => {});
+      localStream = await streamP;
+      try { console.log('CALL_ACCEPT_MIC_READY ms=' + flowMs()); } catch (_) {}
+      try { console.log('CALL_ACCEPT_MEDIA_OK ms=' + flowMs()); } catch (_) {}
+      await srdP;
+      try { console.log('CALL_ACCEPT_REMOTE_DESCRIPTION_OK ms=' + flowMs()); } catch (_) {}
+    } catch (setupErr) {
+      // Let the stream land in state.localStream so the caller's cleanup stops the camera/mic.
+      await streamP.catch(() => null);
+      throw setupErr;
     }
-    try { console.log('CALL_ACCEPT_REMOTE_DESCRIPTION_START'); } catch (_) {}
-    console.log('Applying remote offer', { type: offerNorm.type, sdpLen: offerNorm.sdp?.length });
-    await state.pc.setRemoteDescription(offerNorm);
-    await flushRemoteCandidates(peer);
-    try { console.log('CALL_ACCEPT_REMOTE_DESCRIPTION_OK ms=' + flowMs()); } catch (_) {}
+    if (state.pc !== pcForAccept) throw new Error('CALL_ACCEPT_PC_REPLACED');
+    const senders = pcForAccept.getSenders();
+    localStream.getTracks().forEach((t) => {
+      if (!senders.some((s) => s.track === t)) pcForAccept.addTrack(t, localStream);
+    });
     // Local SDP preparation only — NOT publish readiness (do not gate CALL_CONNECTED on this).
     state.answeredLocally = true;
     try { console.log('CALL_ANSWER_BUILD_START'); } catch (_) {}
