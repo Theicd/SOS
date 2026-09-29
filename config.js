@@ -355,7 +355,7 @@
   App.FIRST_GROUP_ADMISSION_URL = '';
 
   // AC1: adminSourceKeys are PUBLIC keys only. Never treat 64-hex as private K.
-  const adminSourceKeys = ['8c60929899e0009f199b3865a7a5e7ba483fec60ff3c926169d0a4588ada256a'];
+  const adminSourceKeys = ['ede1e7fabb758aca75ae548680a206a234c6d6b257834b111d284c3692e67601'];
   App.adminSourceKeys = adminSourceKeys.slice();
   App.adminPublicKeys = App.adminPublicKeys || new Set();
   adminSourceKeys.forEach((rawKey) => {

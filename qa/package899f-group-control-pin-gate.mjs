@@ -18,7 +18,7 @@ const ROOT = path.resolve(__dirname, '..');
 const OUT = path.join(ROOT, 'qa', 'package899f-group-control-pin-report.json');
 const PORT = Number(process.env.SOS_899F_PORT || 8799);
 const URL0 = `http://127.0.0.1:${PORT}/videos.html`;
-const PROD_ROOT = '8c60929899e0009f199b3865a7a5e7ba483fec60ff3c926169d0a4588ada256a';
+const PROD_ROOT = 'ede1e7fabb758aca75ae548680a206a234c6d6b257834b111d284c3692e67601';
 
 const hex = (b) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
