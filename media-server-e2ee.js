@@ -456,6 +456,54 @@
   const P2P_CONNECTED_GRACE_MS = 3000;
   const P2P_FETCH_TIMEOUT_MS = 20000;
   const inflightEncryptedMedia = new Map();
+  const boundMediaCacheKeys = new WeakMap();
+
+  // Local plaintext cache key for an encrypted descriptor: never attachmentId/fileId alone,
+  // so a descriptor with a different file key or ciphertext can never hit another entry.
+  function encryptedMediaCacheMaterial(attachment) {
+    if (!attachment || typeof attachment !== 'object' || attachment.type !== 'encrypted-media') return '';
+    const sha = attachment.cipher && attachment.cipher.sha256;
+    const key = attachment.enc && attachment.enc.key;
+    const id = attachment.attachmentId;
+    if (typeof sha !== 'string' || !/^[0-9a-f]{64}$/.test(sha)) return '';
+    if (typeof key !== 'string' || !key || typeof id !== 'string' || !id) return '';
+    return ['sos-media-cache-v1', id, sha, key].join('|');
+  }
+
+  function peekEncryptedMediaCacheKey(attachment) {
+    const material = encryptedMediaCacheMaterial(attachment);
+    if (!material) return '';
+    const memo = boundMediaCacheKeys.get(attachment);
+    return memo && memo.material === material ? memo.cacheKey : '';
+  }
+
+  async function encryptedMediaCacheKey(attachment) {
+    const material = encryptedMediaCacheMaterial(attachment);
+    if (!material || typeof App.hashMediaCiphertext !== 'function') return '';
+    const known = peekEncryptedMediaCacheKey(attachment);
+    if (known) return known;
+    try {
+      const digest = await App.hashMediaCiphertext(new TextEncoder().encode(material));
+      if (typeof digest !== 'string' || !/^[0-9a-f]{64}$/.test(digest)) return '';
+      const cacheKey = 'p2p-file-eb-' + digest.slice(0, 40);
+      boundMediaCacheKeys.set(attachment, { material, cacheKey });
+      return cacheKey;
+    } catch (_e) {
+      return '';
+    }
+  }
+
+  function hasLiveResolvedBlob(attachment) {
+    return (
+      typeof Blob !== 'undefined' &&
+      attachment._resolvedBlob instanceof Blob &&
+      typeof attachment._localObjectUrl === 'string' &&
+      attachment._localObjectUrl.startsWith('blob:')
+    );
+  }
+
+  App.encryptedMediaCacheKey = encryptedMediaCacheKey;
+  App.peekEncryptedMediaCacheKey = peekEncryptedMediaCacheKey;
 
   function mediaCodeError(code) {
     const err = new Error(code);
@@ -647,7 +695,7 @@
   async function resolveServerMediaAttachment(attachment, context) {
     if (!attachment || typeof attachment !== 'object') return null;
     if (!isEncryptedMediaAttachment(attachment)) return null;
-    if (attachment._localObjectUrl && attachment._resolvedBlob) {
+    if (hasLiveResolvedBlob(attachment)) {
       return {
         blob: attachment._resolvedBlob,
         objectUrl: attachment._localObjectUrl,
@@ -685,10 +733,11 @@
       }
     }
     const result = await pending;
-    if (attachment._localObjectUrl && attachment._resolvedBlob) {
+    if (hasLiveResolvedBlob(attachment)) {
       return { blob: attachment._resolvedBlob, objectUrl: attachment._localObjectUrl, descriptor: attachment };
     }
     attachment._resolvedSource = result.source || 'blossom';
+    await encryptedMediaCacheKey(attachment);
 
     const objectUrl = URL.createObjectURL(result.blob);
     try {

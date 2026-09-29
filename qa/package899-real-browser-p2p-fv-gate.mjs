@@ -102,6 +102,8 @@ async function instrument(page) {
       try {
         const buf = await blob.arrayBuffer();
         const d = await crypto.subtle.digest('SHA-256', buf);
+        window.__fv.persistCount = window.__fv.persistCount || {};
+        window.__fv.persistCount[fileId] = (window.__fv.persistCount[fileId] || 0) + 1;
         window.__fv.recv[fileId] = { size: buf.byteLength, hash: Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, '0')).join(''), at: performance.now() };
       } catch (_) {}
       if (typeof origPersist === 'function') return origPersist(fileId, blob, meta);
@@ -239,6 +241,12 @@ async function main() {
           const ms = recv ? Math.round(Date.now() - w0) : null;
           const row = { dir, mb, hashMatch: !!recv && recv.hash === res.hash && recv.size === size, transport: sendDone.some((s) => s.startsWith('complete-blossom')) ? 'BLOSSOM' : 'P2P', ms, mbpsApprox: ms ? Math.round(((size * 8) / (ms / 1000) / 1e6) * 10) / 10 : null, sendStatus: sendDone };
           const tl = async (P) => P.evaluate((fid) => { const ev = window.__fv.progress.filter((e) => e.fileId === fid); const t0 = ev.length ? ev[0].at : 0; const out = []; let last = ''; for (const e of ev) { const k = e.direction + ':' + e.status; if (k !== last) out.push(k + '@' + Math.round(e.at - t0)); last = k; } return out.slice(0, 40); }, res.fileId);
+          await sleep(400);
+          row.receiverLogicalMessages = await R.evaluate(({ fid, from }) => {
+            const list = (window.NostrApp.getChatMessages && window.NostrApp.getChatMessages(from)) || [];
+            return list.filter((m) => m && m.attachment && (m.attachment.fileId === fid || m.id === fid || m.attachment.id === fid)).length;
+          }, { fid: res.fileId, from: dir === 'A2B' ? pubA : pubB });
+          row.receiverPersistCount = await R.evaluate((fid) => (window.__fv.persistCount || {})[fid] || 0, res.fileId);
           row.senderTimeline = await tl(S);
           row.receiverTimeline = await tl(R);
           if (STATS) { row.statsSender = await stopStats(S); row.statsReceiver = await stopStats(R); }
@@ -287,6 +295,7 @@ async function main() {
       };
       App.publishChatMessage = async () => ({ ok: true, qaCaptured: true });
     });
+    const fbDescs = [];
     for (const m of media) {
       const up0 = store.size;
       const res = await A.evaluate(async ({ p, m }) => {
@@ -324,7 +333,46 @@ async function main() {
         recipientDecrypt: !!dec && dec.ok && dec.hash === res.hash && dec.size === m.size, decErr: dec && !dec.ok ? dec.code : undefined,
       };
       report.fallback.push(row);
+      if (res.desc) fbDescs.push(res.desc);
       console.log('FALLBACK', m.type, row.status, row.p2pFailureCode, 'cipherOnly=' + ciphertextOnly, 'decrypt=' + row.recipientDecrypt);
+    }
+    // descriptor-bound local plaintext cache (real IndexedDB on B)
+    if (fbDescs[0]) {
+      report.cacheBinding = await B.evaluate(async ({ desc, a, b }) => {
+        const App = window.NostrApp;
+        const ctx = { messageId: desc.clientMessageId || desc.logicalMessageId, sender: a, recipient: b };
+        const clone = () => { const c = JSON.parse(JSON.stringify(desc)); delete c.url; delete c.dataUrl; return c; };
+        const rk = () => { const k = crypto.getRandomValues(new Uint8Array(32)); return btoa(String.fromCharCode(...k)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+        const hit = async (att) => { try { return !!(await App.resolveChatMediaSrc(att)); } catch (_) { return false; } };
+        const out = {};
+        const L = clone();
+        await App.resolveServerMediaAttachment(L, ctx);
+        const src1 = await App.resolveChatMediaSrc(L);
+        await new Promise((r) => setTimeout(r, 1000));
+        const bound = typeof App.encryptedMediaCacheKey === 'function' ? await App.encryptedMediaCacheKey(clone()) : '';
+        out.boundKeyFormat = /^p2p-file-eb-[0-9a-f]{40}$/.test(bound);
+        out.boundEntry = !!(await App.getChatMediaFromCache(bound));
+        out.attachmentIdEntry = !!(await App.getChatMediaFromCache('p2p-file-' + desc.attachmentId));
+        out.fileIdEntry = desc.fileId ? !!(await App.getChatMediaFromCache('p2p-file-' + desc.fileId)) : false;
+        out.legitReplayHit = await hit(clone());
+        const T = clone(); T.enc = { ...T.enc, key: rk() };
+        out.tamperedKeyCacheHit = await hit(T);
+        try { await App.resolveServerMediaAttachment(T, ctx); out.tamperedKeyDecrypt = 'ok'; } catch (e) { out.tamperedKeyDecrypt = String((e && e.code) || 'error'); }
+        const S = clone(); S.cipher = { ...S.cipher, sha256: '0'.repeat(64) };
+        out.staleCipherCacheHit = await hit(S);
+        const I = clone(); I.enc = { ...I.enc, key: rk() }; I.cacheKey = bound; I.fileId = desc.fileId || desc.attachmentId; I._localObjectUrl = src1; I._resolvedBlob = {};
+        const ins = App.inspectIncomingChatAttachment(I, { network: true });
+        out.injectedLocalFieldsStripped = !!ins.ok && !('cacheKey' in I) && !('fileId' in I) && !('_localObjectUrl' in I) && !('_resolvedBlob' in I);
+        out.injectedCacheHit = await hit(I);
+        const J = clone(); J.enc = { ...J.enc, key: rk() }; J.cacheKey = 'p2p-file-' + desc.attachmentId;
+        out.legacyCacheKeyHit = await hit(J);
+        const K = clone(); K.enc = { ...K.enc, key: rk() }; K._resolvedBlob = {}; K._localObjectUrl = src1;
+        try { const r = await App.resolveServerMediaAttachment(K, ctx); out.fakeResolvedBlobAccepted = !!r && r.objectUrl === src1; } catch (_) { out.fakeResolvedBlobAccepted = false; }
+        const insR = App.inspectIncomingChatAttachment(L);
+        out.restoreKeepsLiveState = !!insR.ok && L._resolvedBlob instanceof Blob && typeof L._localObjectUrl === 'string';
+        return out;
+      }, { desc: fbDescs[0], a: pubA, b: pubB });
+      console.log('CACHE_BINDING', JSON.stringify(report.cacheBinding));
     }
     // crypto failure during fallback (real browser) → fail closed
     const cf = await A.evaluate(async (p) => {
@@ -358,9 +406,16 @@ async function main() {
     g.REAL_BROWSER_P2P_CONNECT = ready ? 'PASS' : 'FAIL';
     g.REAL_BROWSER_P2P_TEXT_GATE = report.text.A2B?.received && report.text.B2A?.received ? 'PASS' : 'FAIL';
     g.REAL_BROWSER_P2P_FILE_GATE = files.length === SIZES_MB.length * 2 && files.every((f) => f.hashMatch && f.transport === 'P2P') ? 'PASS' : 'FAIL';
+    g.NO_DUPLICATE_LOGICAL_MESSAGE = files.length > 0 && files.every((f) => f.receiverLogicalMessages <= 1 && f.receiverPersistCount === 1) ? 'PASS' : 'FAIL';
     g.ALL_HASHES_MATCH = files.length > 0 && files.every((f) => f.hashMatch) && report.fallback.every((f) => f.recipientDecrypt) ? 'PASS' : 'FAIL';
     g.ENCRYPTED_BLOSSOM_FALLBACK_E2E_GATE = report.fallback.length === 3 && report.fallback.every((f) => f.status === 'complete-blossom' && f.p2pFailureCode === 'PEER_OFFLINE' && f.ciphertextOnly && f.descriptorEncrypted && f.recipientDecrypt) ? 'PASS' : 'FAIL';
     g.P2P_FALLBACK_CRYPTO_FAIL_CLOSED_REAL = cf && cf.status === 'failed' && cf.failureCode === 'ENCRYPTION_FAILED' ? 'PASS' : 'FAIL';
+    const cbr = report.cacheBinding || {};
+    g.DESCRIPTOR_CACHE_BINDING_GATE =
+      cbr.boundKeyFormat && cbr.boundEntry && !cbr.attachmentIdEntry && !cbr.fileIdEntry && cbr.legitReplayHit &&
+      !cbr.tamperedKeyCacheHit && cbr.tamperedKeyDecrypt && cbr.tamperedKeyDecrypt !== 'ok' && !cbr.staleCipherCacheHit &&
+      cbr.injectedLocalFieldsStripped && !cbr.injectedCacheHit && !cbr.legacyCacheKeyHit && !cbr.fakeResolvedBlobAccepted && cbr.restoreKeepsLiveState
+        ? 'PASS' : 'FAIL';
     g.REAL_BROWSER_DIAGNOSTIC_PRIVACY = !report.security.nsecInLogs && !report.security.sdpInLogs && !report.security.privKeyInLogs && foreignUploads.length === 0 ? 'PASS' : 'FAIL';
     report.status = Object.values(g).every((v) => v === 'PASS') ? 'PASS' : 'FAIL';
   } catch (e) {

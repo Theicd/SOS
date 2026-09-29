@@ -27,6 +27,9 @@
   const callRelayAuthExcluded = new Set();
   /** Session-scoped: relays that CLOSE our #p read with auth-required (recipient NIP-42 not done on web). */
   const callRelayReadAuthRequired = new Set();
+  /** Session-scoped: relays that accept Gift Wrap only after NIP-42 — they gate 1059 reads the same way. */
+  const callRelayWriteAuthGated = new Set();
+  const MIN_DELIVERY_CAPABLE_RELAYS = 2;
   let secureSubHealthy = false;
   const FORCED_SUBSCRIBE_COALESCE_MS = 5000;
   let lastForcedSubscribeAt = 0;
@@ -99,6 +102,14 @@
       out.push(raw);
     }
     return out;
+  }
+
+  /** An ACK from an auth-gated relay is not delivery: web and Native recipients do not NIP-42 read-auth. */
+  function isDeliveryGatedRelay(url) {
+    const raw = normalizeRelayUrl(url);
+    const host = relayHostname(raw);
+    return callRelayReadAuthRequired.has(raw) || callRelayWriteAuthGated.has(raw)
+      || !!(host && (callRelayReadAuthRequired.has(host) || callRelayWriteAuthGated.has(host)));
   }
 
   function classifyRelayPublishError(err) {
@@ -1289,6 +1300,26 @@
     tick();
   }
 
+  const ANSWER_NUDGE_DELAYS_MS = [0, 700, 1800];
+  let answerNudgeSession = 0;
+  /**
+   * Remote ICE checks reached the caller before the answer was applied → the callee already answered.
+   * Pull the answer now instead of waiting for the next healthy-interval tick. Bounded: 3 queries per await.
+   */
+  function nudgeAnswerRecovery(reason) {
+    const session = webRecoveryStartedAt;
+    if (!session || answerNudgeSession === session) return false;
+    answerNudgeSession = session;
+    try { console.log('CALL_WEB_RECOVERY_NUDGE reason=' + String(reason || 'ice')); } catch (_e) {}
+    ANSWER_NUDGE_DELAYS_MS.forEach((ms) => {
+      setTimeout(() => {
+        if (webRecoveryStartedAt !== session) return;
+        try { runWebSecureCallRecovery('outgoing-await-answer'); } catch (_e) {}
+      }, ms);
+    });
+    return true;
+  }
+
   function stopOutgoingAnswerDrainWatchdog(reason) {
     const why = String(reason || 'done');
     if (outgoingAnswerWatchdogTimer) {
@@ -1444,7 +1475,9 @@
     }
 
     const health = App.RelayHealth;
-    if (health && typeof health.select === 'function') relayList = health.select(relayList);
+    if (health && typeof health.select === 'function') {
+      relayList = health.select(relayList, { min: MIN_DELIVERY_CAPABLE_RELAYS, capable: (u) => !isDeliveryGatedRelay(u) });
+    }
     const authSk = meta && meta.authSk instanceof Uint8Array ? meta.authSk : null;
 
     let pending;
@@ -1467,13 +1500,24 @@
     const t0 = Date.now();
     return new Promise((resolve, reject) => {
       let ok = 0;
+      let gatedOk = 0;
+      let capableTimeouts = 0;
       let done = 0;
       let settledFirst = false;
       const finish = () => {
         try {
-          console.log('CALL_RELAY_PUBLISH_RESULT action=' + action + ' ok=' + ok + ' total=' + total);
-          if (ok >= 1 && ok < total) console.log('CALL_RELAY_DEGRADED action=' + action + ' ok=' + ok + ' total=' + total);
+          console.log('CALL_RELAY_PUBLISH_RESULT action=' + action + ' ok=' + ok + ' gated=' + gatedOk + ' total=' + total);
+          if (ok >= 1 && ok + gatedOk < total) console.log('CALL_RELAY_DEGRADED action=' + action + ' ok=' + ok + ' total=' + total);
         } catch (_e) {}
+        if (ok <= 0 && gatedOk > 0 && capableTimeouts > 0) {
+          // A silent deliverable relay may still have stored/fanned out the wrap (late OK); not a proven failure.
+          try { console.log('CALL_RELAY_DELIVERY_UNCONFIRMED action=' + action + ' timeouts=' + capableTimeouts); } catch (_e) {}
+          if (!settledFirst) {
+            settledFirst = true;
+            resolve({ ok: 0, total, requiredOk: 1, action, unconfirmed: true, firstOkMs: Date.now() - t0 });
+          }
+          return;
+        }
         if (ok <= 0) {
           try { console.log('CALL_SEND_1059_PUBLISH_FAIL'); } catch (_e) {}
           const err = new Error('CALL_SIGNAL_TRANSPORT_FAILED: publish zero relays');
@@ -1486,9 +1530,14 @@
         const relay = relayList[i] || '';
         const host = relayHostname(relay) || 'unknown';
         withTimeout(Promise.resolve(p), CALL_RELAY_PUBLISH_TIMEOUT_MS, 'timeout').then(() => {
-          ok += 1;
           const ms = Date.now() - t0;
           if (health) health.record(relay, true, ms);
+          if (isDeliveryGatedRelay(relay)) {
+            gatedOk += 1;
+            try { console.log('CALL_RELAY_OK_GATED relay=' + host + ' ms=' + ms); } catch (_e) {}
+            return;
+          }
+          ok += 1;
           try { console.log('CALL_RELAY_OK relay=' + host + ' ms=' + ms); } catch (_e) {}
           if (!settledFirst) {
             settledFirst = true;
@@ -1497,6 +1546,7 @@
         }, (errRelay) => {
           const reason = classifyRelayPublishError(errRelay);
           if (health) health.record(relay, false, 0, reason);
+          if (reason === 'timeout' && !isDeliveryGatedRelay(relay)) capableTimeouts += 1;
           if (reason === 'auth-required') markCallRelayAuthRequired(relay);
           try { console.log('CALL_RELAY_FAIL relay=' + host + ' reason=' + reason); } catch (_e) {}
         }).then(() => {
@@ -1532,9 +1582,25 @@
       }
       const finalizeEvent = getFinalizeEvent();
       await relay.auth((template) => finalizeEvent(template, authSk));
-      try { console.log('CALL_RELAY_AUTH_OK relay=' + (relayHostname(url) || 'unknown')); } catch (_e) {}
+      const gatedHost = relayHostname(url);
+      callRelayWriteAuthGated.add(normalizeRelayUrl(url));
+      if (gatedHost) callRelayWriteAuthGated.add(gatedHost);
+      try { console.log('CALL_RELAY_AUTH_OK relay=' + (gatedHost || 'unknown')); } catch (_e) {}
       return relay.publish(event);
     }
+  }
+
+  const CALL_PUBLISH_PERF_MARKS = {
+    ring: ['CALL_RING_PUBLISH_START', 'CALL_RING_FIRST_RELAY_ACK'],
+    offer: ['OFFER_PUBLISH_START', 'OFFER_FIRST_RELAY_ACK'],
+    answer: ['ANSWER_PUBLISH_START', 'ANSWER_PUBLISHED'],
+  };
+
+  function markCallTimeline(media, name) {
+    if (!name) return;
+    try {
+      if (App.RealtimePerf && typeof App.RealtimePerf.markCall === 'function') App.RealtimePerf.markCall(media, name);
+    } catch (_e) {}
   }
 
   async function publishGiftWrappedCallSignal(opts) {
@@ -1655,8 +1721,11 @@
     try {
       console.log('CALL_SEND_1059_PUBLISH_START');
     } catch (_e) {}
+    const perfMarks = CALL_PUBLISH_PERF_MARKS[action];
+    markCallTimeline(media, perfMarks && perfMarks[0]);
     try {
       await awaitPoolPublish(pool, Array.isArray(relays) ? relays : getCallSignalRelays(), wrap, { action, authSk: wrapAuthSk });
+      markCallTimeline(media, perfMarks && perfMarks[1]);
     } catch (pubErr) {
       try { console.log('CALL_SEND_1059_PUBLISH_FAIL'); } catch (_e) {}
       if (pubErr && pubErr.code) throw pubErr;
@@ -2055,8 +2124,89 @@
     return { ...res, mode: SEND_MODES.LEGACY_ROLLOUT };
   }
 
+  // Shared LEGACY_READ_ONLY kind 25050 subscription: voice + video register handlers, one REQ per identity.
+  const legacyListeners = new Map();
+  const legacyStats = { opens: 0, reused: 0 };
+  let legacySub = null;
+  let legacySubSince = 0;
+  let legacySubIdentity = '';
+  let legacySubOpenedAt = 0;
+  let legacySubEose = false;
+  let legacyOpenTimer = null;
+
+  function closeLegacySub() {
+    const sub = legacySub;
+    legacySub = null;
+    legacySubEose = false;
+    if (!sub) return;
+    try {
+      if (typeof sub.close === 'function') sub.close();
+      else if (typeof sub.unsub === 'function') sub.unsub();
+    } catch (_e) {}
+  }
+
+  function openLegacySubNow() {
+    legacyOpenTimer = null;
+    closeLegacySub();
+    if (!legacyListeners.size || !App.pool || !App.publicKey) return;
+    let since = Infinity;
+    legacyListeners.forEach((l) => { since = Math.min(since, l.since); });
+    legacySubSince = since;
+    legacySubIdentity = String(App.publicKey);
+    legacySubOpenedAt = Date.now();
+    legacyStats.opens += 1;
+    try {
+      legacySub = App.pool.subscribeMany(Array.isArray(App.relayUrls) ? App.relayUrls : [], [
+        { kinds: [25050], '#p': [App.publicKey], since },
+      ], {
+        onevent: (ev) => {
+          legacyListeners.forEach((l) => { try { l.onevent(ev); } catch (_e) {} });
+        },
+        oneose: () => {
+          legacySubEose = true;
+          legacyListeners.forEach((l) => { try { if (l.oneose) l.oneose(); } catch (_e) {} });
+        },
+      });
+    } catch (_err) {
+      legacySub = null;
+      try { console.warn('CALL_SUBSCRIBE_FAILED'); } catch (_e) {}
+    }
+  }
+
+  function subscribeLegacyCallSignals(key, opts) {
+    const o = opts || {};
+    const token = {};
+    const listener = { token, since: Math.max(0, Math.floor(Number(o.since) || 0)), onevent: o.onevent, oneose: o.oneose };
+    legacyListeners.set(key, listener);
+    const covered = !!legacySub && legacySubIdentity === String(App.publicKey || '') && legacySubSince <= listener.since;
+    const fresh = Date.now() - legacySubOpenedAt < FORCED_SUBSCRIBE_COALESCE_MS;
+    if (covered && (!o.force || fresh) && !legacyOpenTimer) {
+      legacyStats.reused += 1;
+      try { console.log('CALL_SUBSCRIBE_LEGACY_SHARED key=' + key); } catch (_e) {}
+      if (legacySubEose && listener.oneose) setTimeout(() => { try { listener.oneose(); } catch (_e) {} }, 0);
+    } else if (!legacyOpenTimer) {
+      legacyOpenTimer = setTimeout(openLegacySubNow, 0);
+    }
+    return {
+      close() {
+        const cur = legacyListeners.get(key);
+        if (cur && cur.token === token) legacyListeners.delete(key);
+        if (!legacyListeners.size) {
+          if (legacyOpenTimer) { clearTimeout(legacyOpenTimer); legacyOpenTimer = null; }
+          closeLegacySub();
+        }
+      },
+    };
+  }
+
+  function getLegacySubscriptionStats() {
+    return { opens: legacyStats.opens, reused: legacyStats.reused, listeners: legacyListeners.size, active: legacySub ? 1 : 0 };
+  }
+
   Object.assign(App, {
     CallSignalE2ee: {
+      subscribeLegacyCallSignals,
+      getLegacySubscriptionStats,
       FAMILY: CALL_SIGNAL_FAMILY,
       VERSION: CALL_SIGNAL_VERSION,
       SEAL_KIND,
@@ -2086,9 +2236,11 @@
       startWebSecureCallRecovery,
       stopWebSecureCallRecovery,
       runWebSecureCallRecovery,
+      nudgeAnswerRecovery,
       isPendingSecureReconcileInFlight: () => !!pendingSecureReconcileInFlight,
       getPendingSecureReconcileInFlight: () => pendingSecureReconcileInFlight,
       getCallSignalRelays,
+      isDeliveryGatedRelay,
       CANONICAL_CALL_RELAYS,
       NATIVE_HANDOFF_REV,
       normalizeSessionDescription,

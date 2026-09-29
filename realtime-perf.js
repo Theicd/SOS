@@ -45,7 +45,7 @@
     const startsCall = name === 'CALL_CLICK_TS' || name === 'CALL_RING_RX_TS' || name === 'CALL_OFFER_RX_TS';
     const stale = !cur || cur.marks.CALL_CONNECTED_TS != null || (t - cur.t0) > CALL_SESSION_MAX_MS;
     if (!cur || (startsCall && (stale || cur.marks[name] != null || name === 'CALL_CLICK_TS'))) {
-      current[media] = { media, t0: t, marks: {} };
+      current[media] = { media, t0: t, wall0: Date.now(), marks: {} };
       calls.push(current[media]);
       while (calls.length > MAX_CALLS) calls.shift();
     }
@@ -106,7 +106,7 @@
   function snapshot() {
     return {
       main: { ...main, longTaskMs: Math.round(main.longTaskMs), forcedLayoutMs: Math.round(main.forcedLayoutMs) },
-      calls: calls.map((c) => ({ media: c.media, marks: { ...c.marks } })),
+      calls: calls.map((c) => ({ media: c.media, wall0: c.wall0, marks: { ...c.marks } })),
       p2p: p2p.slice(),
       relays: App.RelayHealth && typeof App.RelayHealth.snapshot === 'function' ? App.RelayHealth.snapshot() : {},
     };

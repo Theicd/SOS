@@ -1,6 +1,6 @@
 {
   "gate": "PACKAGE899_REAL_BROWSER_VOICE_P2P_E2EE",
-  "ts": "2026-09-28T22:08:45.883Z",
+  "ts": "2026-09-28T22:56:08.062Z",
   "status": "PASS",
   "relayDelayMs": 1500,
   "voices": [
@@ -22,7 +22,7 @@
       "recipientPlainHashMatch": null,
       "decodedSec": 2,
       "played": true,
-      "sendMs": 4,
+      "sendMs": 5,
       "recvMs": 0,
       "attachedOnce": true
     },
@@ -30,7 +30,7 @@
       "dir": "B2A",
       "seconds": 2,
       "route": "INLINE_E2EE_MESSAGE",
-      "plaintextBytes": 31860,
+      "plaintextBytes": 24244,
       "cipherBytes": null,
       "seededHashEqCipher": null,
       "plainHashNeCipher": null,
@@ -44,7 +44,7 @@
       "recipientPlainHashMatch": null,
       "decodedSec": 2,
       "played": true,
-      "sendMs": 12,
+      "sendMs": 28,
       "recvMs": 0,
       "attachedOnce": true
     },
@@ -62,12 +62,12 @@
       "blossomPlaintext": false,
       "inboundOk": true,
       "source": "VOICE_SOURCE_P2P_E2EE",
-      "p2pBytes": 161261,
+      "p2pBytes": 161266,
       "recipientPlainHashMatch": true,
       "decodedSec": 10,
       "played": true,
-      "sendMs": 115,
-      "recvMs": 744,
+      "sendMs": 76,
+      "recvMs": 3959,
       "attachedOnce": true
     },
     {
@@ -88,8 +88,8 @@
       "recipientPlainHashMatch": true,
       "decodedSec": 10,
       "played": true,
-      "sendMs": 116,
-      "recvMs": 1001,
+      "sendMs": 65,
+      "recvMs": 392,
       "attachedOnce": true
     },
     {
@@ -106,12 +106,12 @@
       "blossomPlaintext": false,
       "inboundOk": true,
       "source": "VOICE_SOURCE_P2P_E2EE",
-      "p2pBytes": 484565,
+      "p2pBytes": 484570,
       "recipientPlainHashMatch": true,
       "decodedSec": 30,
       "played": true,
-      "sendMs": 136,
-      "recvMs": 1220,
+      "sendMs": 129,
+      "recvMs": 3758,
       "attachedOnce": true
     },
     {
@@ -132,8 +132,8 @@
       "recipientPlainHashMatch": true,
       "decodedSec": 30,
       "played": true,
-      "sendMs": 162,
-      "recvMs": 1381,
+      "sendMs": 123,
+      "recvMs": 371,
       "attachedOnce": true
     },
     {
@@ -154,8 +154,8 @@
       "recipientPlainHashMatch": true,
       "decodedSec": 60,
       "played": true,
-      "sendMs": 210,
-      "recvMs": 5330,
+      "sendMs": 195,
+      "recvMs": 500,
       "attachedOnce": true
     },
     {
@@ -171,13 +171,13 @@
       "blossomUploads": 1,
       "blossomPlaintext": false,
       "inboundOk": true,
-      "source": "VOICE_SOURCE_P2P_E2EE",
-      "p2pBytes": 968562,
+      "source": "VOICE_SOURCE_BLOSSOM_E2EE",
+      "p2pBytes": 0,
       "recipientPlainHashMatch": true,
       "decodedSec": 60,
       "played": true,
-      "sendMs": 204,
-      "recvMs": 847,
+      "sendMs": 214,
+      "recvMs": 4087,
       "attachedOnce": true
     }
   ],
@@ -201,10 +201,10 @@
   "midflight": {
     "hasP2p": true,
     "source": "VOICE_SOURCE_BLOSSOM_E2EE",
-    "p2pBytesBeforeFallback": 91310,
+    "p2pBytesBeforeFallback": 92510,
     "recipientPlainHashMatch": true,
     "torrentDroppedAfterFallback": true,
-    "recvMs": 7159
+    "recvMs": 7048
   },
   "dedup": {
     "sources": [
@@ -232,16 +232,16 @@
     }
   },
   "perf": {
-    "VOICE_ENCRYPT_MS_P50": 6.1,
-    "VOICE_ENCRYPT_MS_P95": 8.5,
+    "VOICE_ENCRYPT_MS_P50": 3.9,
+    "VOICE_ENCRYPT_MS_P95": 8.9,
     "VOICE_DECRYPT_MS_P50": 1.9,
-    "VOICE_DECRYPT_MS_P95": 5.5,
-    "VOICE_SEND_START_LATENCY_P50": 162,
-    "VOICE_SEND_START_LATENCY_P95": 210,
-    "VOICE_RECV_READY_P50": 1220,
-    "VOICE_RECV_READY_P95": 5330,
-    "LONG_TASKS_DURING_VOICE_OPS": 1,
-    "LONG_TASK_MAX_MS": 112
+    "VOICE_DECRYPT_MS_P95": 8.3,
+    "VOICE_SEND_START_LATENCY_P50": 129,
+    "VOICE_SEND_START_LATENCY_P95": 214,
+    "VOICE_RECV_READY_P50": 3758,
+    "VOICE_RECV_READY_P95": 4087,
+    "LONG_TASKS_DURING_VOICE_OPS": 3,
+    "LONG_TASK_MAX_MS": 100
   },
   "security": {
     "foreignPlaintextUploads": 0,
@@ -266,11 +266,11 @@
   },
   "p2pDelivery": {
     "encryptedVoices": 6,
-    "deliveredViaP2p": 6,
-    "deliveredViaBlossomE2ee": 0,
+    "deliveredViaP2p": 5,
+    "deliveredViaBlossomE2ee": 1,
     "p2pPerDirection": {
       "A2B": 3,
-      "B2A": 3
+      "B2A": 2
     },
     "note": "P2P discovery via public WebTorrent trackers is best-effort; a slow swarm falls back to the same ciphertext on Blossom (E2EE)."
   }

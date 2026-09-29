@@ -1262,6 +1262,14 @@
       }
     } catch (_) {}
     try { window.__sosNativeInCallUi = false; } catch (_) {}
+    try {
+      const ended = String(peerPubkey || '').toLowerCase();
+      if (!ended || window.__sosAcceptSucceededPeer === ended) window.__sosAcceptSucceededPeer = '';
+      if (!ended || window.__sosAcceptInFlightPeer === ended) {
+        window.__sosAcceptInFlight = false;
+        window.__sosAcceptInFlightPeer = '';
+      }
+    } catch (_) {}
   };
 
   // חלק שיחות וידאו (chat-video-call-ui.js) – רישום שיחה שלא נענתה בהיסטוריית הצ'אט ועדכון מונה לא נקראו | HYPER CORE TECH

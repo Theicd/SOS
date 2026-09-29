@@ -52,11 +52,24 @@
     return !e || !e.openUntil || Date.now() >= e.openUntil;
   }
 
-  /** Healthy relays first (by latency); circuit-open relays dropped unless nothing else is left. */
-  function select(urls) {
+  /**
+   * Healthy relays first (by latency); circuit-open relays dropped unless fewer than opts.min
+   * delivery-capable relays remain — then the open circuits closest to expiry are probed as well.
+   */
+  function select(urls, opts) {
     const list = (Array.isArray(urls) ? urls : []).map(norm).filter(Boolean);
+    const capable = opts && typeof opts.capable === 'function' ? opts.capable : () => true;
+    const min = Math.max(1, Number(opts && opts.min) || 1);
     const open = list.filter(isAvailable);
-    const pick = open.length ? open : list;
+    let pick = open.length ? open : list;
+    const capableOpen = pick.filter((u) => capable(u)).length;
+    if (open.length && capableOpen < min) {
+      const probes = list
+        .filter((u) => !open.includes(u) && capable(u))
+        .sort((a, b) => ((stats.get(a) || {}).openUntil || 0) - ((stats.get(b) || {}).openUntil || 0))
+        .slice(0, min - capableOpen);
+      pick = open.concat(probes);
+    }
     return pick.slice().sort((a, b) => {
       const la = (stats.get(a) || {}).latencyMs || 0;
       const lb = (stats.get(b) || {}).latencyMs || 0;

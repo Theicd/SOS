@@ -368,7 +368,15 @@
     } catch (_) {}
   }
 
-  function isOfferReplayAfterHangup(peerPubkey, createdAtSec) {
+  // Authenticated signals carry a sessionId: replay = that session is terminal. A fresh session from
+  // the same peer is a redial, not a replay (second-granular sentAt cannot tell them apart).
+  function isOfferReplayAfterHangup(peerPubkey, createdAtSec, sessionId) {
+    const sid = typeof sessionId === 'string' ? sessionId.trim() : '';
+    if (sid) {
+      const term = terminalBySession.get(sid);
+      if (term && term.ended) return true;
+      try { return typeof App.isCallSessionTerminal === 'function' && !!App.isCallSessionTerminal(sid); } catch (_e) { return false; }
+    }
     const pk = peerPubkeyOrEmpty(peerPubkey);
     const at = Number(state.lastEndedAt[pk]) || 0;
     if (!at || Date.now() - at > 120000) return false;
@@ -431,6 +439,7 @@
       console.log('CALL_CONNECTED session=' + (sid ? sid.slice(0, 8) : 'none') + ' role=' + role);
     } catch (_) {}
     markCallPerf('CALL_CONNECTED_TS');
+    markCallPerf('CALL_CONNECTED');
     try {
       if (window.SosCallColdBoot && typeof window.SosCallColdBoot.release === 'function') {
         window.SosCallColdBoot.release('connected');
@@ -549,8 +558,13 @@
       if (state.peerConnection !== pc) return;
       const ice = pc.iceConnectionState;
       console.log('ICE connection state:', ice);
+      if (ice === 'checking') markCallPerf('ICE_CHECKING');
+      if ((ice === 'checking' || ice === 'connected') && !state.isIncoming && !state.callAnswered) {
+        try { App.CallSignalE2ee?.nudgeAnswerRecovery?.('ice-before-answer'); } catch (_) {}
+      }
 
       if (ice === 'connected' || ice === 'completed') {
+        markCallPerf('ICE_CONNECTED');
         clearIceDisconnectTimer();
         maybeMarkVoiceCallConnected(peerPubkey, 'ice-' + ice);
       } else if (ice === 'disconnected') {
@@ -577,6 +591,7 @@
       const cs = pc.connectionState;
       console.log('Peer connection state:', cs);
       if (cs === 'connected') {
+        markCallPerf('PC_CONNECTED');
         clearIceDisconnectTimer();
         maybeMarkVoiceCallConnected(peerPubkey, 'pc-connected');
       } else if (cs === 'failed' || cs === 'closed') {
@@ -611,15 +626,20 @@
       setCallAudioSessionType();
       state.currentPeer = peerPubkey;
       state.callSessionId = null;
-      ensureCallSessionId();
       markCallPerf('CALL_CLICK_TS');
+      markCallPerf('CALL_CLICK');
+      ensureCallSessionId();
+      markCallPerf('CALL_SESSION_CREATED');
       // Ring intent (1059, no SDP) goes out before GUM so the callee rings in parallel.
+      markCallPerf('CALL_RING_BUILD_START');
       sendSignal(peerPubkey, 'ring', null)
         .then(() => markCallPerf('CALL_RING_PUBLISHED_TS'))
         .catch(() => { try { console.log('CALL_RING_PUBLISH_FAIL'); } catch (_) {} });
       markCallPerf('CALL_GUM_START_TS');
+      markCallPerf('GUM_START');
       await getLocalStream();
       markCallPerf('CALL_GUM_DONE_TS');
+      markCallPerf('GUM_READY');
 
       // יצירת חיבור
       state.peerConnection = createPeerConnection(peerPubkey);
@@ -631,6 +651,7 @@
       try { delete state.pendingRemoteCandidates[peerPubkeyOrEmpty(peerPubkey)]; } catch {}
 
       // יצירת offer
+      markCallPerf('OFFER_BUILD_START');
       const offer = await state.peerConnection.createOffer();
       if (!offer || !offer.type || !offer.sdp) {
         throw new Error('Offer לא תקין מהדפדפן');
@@ -694,6 +715,7 @@
     const flowMs = () => Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - flowT0);
     try { console.log('CALL_ACCEPT_FLOW_START'); } catch (_) {}
     markCallPerf('CALL_ACCEPT_TS');
+    markCallPerf('ANSWER_START');
 
     let answerSent = false;
     let answeredLocally = false;
@@ -1139,7 +1161,7 @@
           // Only the authenticated 1059 path may ring early; legacy 25050 has no ring.
           if (!preParsed || !preParsed.sessionId) break;
           if (dedupeId) markCallEventProcessed(dedupeId);
-          if (isOfferReplayAfterHangup(peerPubkey, preParsed.sentAt)) break;
+          if (isOfferReplayAfterHangup(peerPubkey, preParsed.sentAt, preParsed.sessionId)) break;
           if (state.currentPeer || state.isCallActive || state.peerConnection || window.__sosAcceptInFlight) {
             console.log('CALL_SIGNAL_SKIP ring_busy');
             break;
@@ -1150,8 +1172,12 @@
           state.callSessionId = preParsed.sessionId;
           armRingOfferDeadline(peerPubkey, preParsed.sessionId);
           markCallPerf('CALL_RING_RX_TS');
+          markCallPerf('CALL_REMOTE_RING_SIGNAL_RX');
           console.log('CALL_RING_RX');
-          if (typeof App.onVoiceCallRinging === 'function') App.onVoiceCallRinging(peerPubkey);
+          if (typeof App.onVoiceCallRinging === 'function') {
+            App.onVoiceCallRinging(peerPubkey);
+            markCallPerf('CALL_REMOTE_RING_UI_SHOWN');
+          }
           break;
         }
 
@@ -1164,7 +1190,7 @@
               if (dedupeId) markCallEventProcessed(dedupeId);
               return;
             }
-            if (isOfferReplayAfterHangup(peerPubkey, createdAt)) {
+            if (isOfferReplayAfterHangup(peerPubkey, createdAt, preParsed && preParsed.sessionId)) {
               console.log('CALL_SIGNAL_REJECT replay_after_hangup');
               if (dedupeId) markCallEventProcessed(dedupeId);
               return;
@@ -1204,6 +1230,7 @@
             if (dedupeId) markCallEventProcessed(dedupeId);
             console.log('CALL_OFFER_OK');
             markCallPerf('CALL_OFFER_RX_TS');
+            markCallPerf('OFFER_REMOTE_RX');
             // חלק שיחות קול (chat-voice-call.js) – שיחה ממתינה: אם יש שיחה פעילה מפיר אחר, לא מצלצלים אלא מתריעים בלבד | HYPER CORE TECH
             if (state.isCallActive && state.currentPeer && state.currentPeer !== peerPubkey) {
               state.waitingOffer = {
@@ -1242,6 +1269,7 @@
             }
             if (typeof App.onVoiceCallIncoming === 'function') {
               App.onVoiceCallIncoming(peerPubkey, offerData);
+              markCallPerf('CALL_REMOTE_RING_UI_SHOWN');
             }
           } catch (e) {
             console.error('CALL_SIGNAL_REJECT offer_parse');
@@ -1258,6 +1286,7 @@
           // תשובה לשיחה יוצאת
           try { console.log('CALL_ANSWER_RX'); } catch (_) {}
           markCallPerf('CALL_ANSWER_RX_TS');
+          markCallPerf('ANSWER_REMOTE_RX');
           if (state.peerConnection && state.currentPeer === peerPubkey) {
             if (state.callAnswered) {
               try { console.log('CALL_ANSWER_APPLY_SKIP reason=already-applied'); } catch (_) {}
@@ -1585,7 +1614,7 @@
           App.CallSignalE2ee.ensureSecureCallSubscription();
         }
       } catch (_e) {}
-      const sub = App.pool.subscribeMany(App.relayUrls, filters, {
+      const handlers = {
         onevent: (ev) => {
           // LEGACY_READ_ONLY path only — 1059 handled by shared dispatcher
           if (ev && ev.kind === 1059) return;
@@ -1604,7 +1633,11 @@
             }
           } catch (_) {}
         }
-      });
+      };
+      const shared = App.CallSignalE2ee && App.CallSignalE2ee.subscribeLegacyCallSignals;
+      const sub = typeof shared === 'function'
+        ? shared('voice', { since, force: !!options.force, onevent: handlers.onevent, oneose: handlers.oneose })
+        : App.pool.subscribeMany(App.relayUrls, filters, handlers);
       state.signalSubscription = sub;
       state.lastSignalReceivedAt = Date.now();
       return sub;

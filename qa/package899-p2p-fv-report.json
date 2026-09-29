@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-28T22:18:35.519Z",
+  "generatedAt": "2026-09-29T01:07:38.061Z",
   "package": 899,
   "phase": "F+V",
   "gates": {
@@ -34,7 +34,7 @@
       "scenario": "healthy_new_dc",
       "expected": "DC_OPEN",
       "actual": "DC_OPEN",
-      "ms": 357,
+      "ms": 370,
       "ok": true
     },
     {
@@ -48,35 +48,35 @@
       "scenario": "dc_closes_mid_transfer",
       "expected": "DATA_CHANNEL_CLOSED",
       "actual": "DATA_CHANNEL_CLOSED",
-      "ms": 1,
+      "ms": 0,
       "ok": true
     },
     {
       "scenario": "slow_signaling",
       "expected": "DC_OPEN (no premature fail)",
       "actual": "DC_OPEN",
-      "ms": 660,
+      "ms": 665,
       "ok": true
     },
     {
       "scenario": "relay_unavailable",
       "expected": "SIGNAL_RELAY_UNAVAILABLE",
       "actual": "SIGNAL_RELAY_UNAVAILABLE",
-      "ms": 329,
+      "ms": 334,
       "ok": true
     },
     {
       "scenario": "answer_missing",
       "expected": "ANSWER_TIMEOUT",
       "actual": "ANSWER_TIMEOUT",
-      "ms": 663,
+      "ms": 662,
       "ok": true
     },
     {
       "scenario": "peer_offline",
       "expected": "PEER_OFFLINE (early at soft)",
       "actual": "PEER_OFFLINE",
-      "ms": 331,
+      "ms": 333,
       "ok": true
     },
     {
@@ -90,7 +90,7 @@
       "scenario": "dc_never_opens",
       "expected": "DATA_CHANNEL_TIMEOUT",
       "actual": "DATA_CHANNEL_TIMEOUT",
-      "ms": 264,
+      "ms": 270,
       "ok": true
     },
     {
@@ -104,14 +104,14 @@
       "scenario": "p2p_unavailable_to_blossom",
       "expected": "complete-blossom (encrypted)",
       "actual": "complete-blossom",
-      "ms": 24,
+      "ms": 22,
       "ok": true
     },
     {
       "scenario": "crypto_failure_during_fallback",
       "expected": "ENCRYPTION_FAILED",
       "actual": "ENCRYPTION_FAILED",
-      "ms": 16,
+      "ms": 15,
       "ok": true
     },
     {
@@ -125,7 +125,7 @@
       "scenario": "receiver_stalls",
       "expected": "APPLICATION_ACK_TIMEOUT → encrypted fallback",
       "actual": "APPLICATION_ACK_TIMEOUT",
-      "ms": 542,
+      "ms": 541,
       "ok": true
     },
     {
@@ -140,7 +140,7 @@
     "decisionToFallbackStart_p50_ms": 0,
     "decisionToFallbackStart_p95_ms": 1,
     "selectToFallbackComplete_p50_ms_mock": 15,
-    "selectToFallbackComplete_p95_ms_mock": 17,
+    "selectToFallbackComplete_p95_ms_mock": 15,
     "worstCaseDetectMs": {
       "SIGNAL_RELAY_UNAVAILABLE": 4000,
       "PEER_OFFLINE": 4000,

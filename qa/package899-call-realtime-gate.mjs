@@ -251,8 +251,10 @@ async function relayPublish() {
     sessionId: api.createSessionId(), pool, relays: App.relayUrls, senderPubkey: alice.pk, senderPrivateKey: alice.hex,
   });
   const touched = new Set(calls.map((c) => c.url.replace(/\/$/, '')));
-  record('CIRCUIT open relays skipped (no hot loop on dead relays)', !touched.has('wss://nos.lol') && !touched.has('wss://nostr-relay.xbytez.io'), JSON.stringify([...touched]));
-  out.UNHEALTHY_RELAY_HOT_LOOP = (!touched.has('wss://nos.lol') && !touched.has('wss://nostr-relay.xbytez.io')) ? false : true;
+  // Only snort is healthy+deliverable (uid.ovh is auth-gated) → exactly one open circuit is probed to keep 2 capable.
+  const openTouched = ['wss://nos.lol', 'wss://nostr-relay.xbytez.io'].filter((u) => touched.has(u)).length;
+  record('CIRCUIT open relays skipped beyond one min-capable probe (no hot loop on dead relays)', openTouched <= 1, JSON.stringify([...touched]));
+  out.UNHEALTHY_RELAY_HOT_LOOP = openTouched > 1;
 
   // All relays down → circuit falls back to full list, and zero OK must throw.
   const deadPool = mockRelayPool({
@@ -286,6 +288,61 @@ async function relayPublish() {
     sessionId: api.createSessionId(), pool: okWrapped, relays: App.relayUrls, senderPubkey: alice.pk, senderPrivateKey: alice.hex,
   });
   record('ASYNC_WRAPPED_POOL success still works', r3 && r3.transport === 'giftwrap1059');
+}
+
+async function gatedRelayDelivery() {
+  const rt = loadHelper();
+  const { App, alice, bob } = rt;
+  const api = App.CallSignalE2ee;
+  App.publicKey = alice.pk;
+  const send = (pool) => api.publishGiftWrappedCallSignal({
+    media: 'voice', peerPubkey: bob.pk, type: 'ring', data: null,
+    sessionId: api.createSessionId(), pool, relays: App.relayUrls, senderPubkey: alice.pk, senderPrivateKey: alice.hex,
+  });
+  const chal = 'chal-' + hex32().slice(0, 8);
+  // Deliverable relays definitively reject, only the auth-gated relay accepts → fail closed, never a silent black hole.
+  const onlyGated = mockRelayPool({
+    'wss://relay.snort.social': { mode: 'reject' }, 'wss://nos.lol': { mode: 'reject' },
+    'wss://nostr-relay.xbytez.io': { mode: 'reject' }, 'wss://nostr-02.uid.ovh': { mode: 'auth', ms: 5, challenge: chal },
+  }, []);
+  let threw = null;
+  try { await send(onlyGated); } catch (e) { threw = e; }
+  record('GATED relay ACK is not delivery (deliverable relays reject → CALL_SIGNAL_TRANSPORT_FAILED)', threw && threw.code === 'CALL_SIGNAL_TRANSPORT_FAILED', threw ? threw.code : 'resolved');
+  record('GATED relay flagged after NIP-42 write auth', api.isDeliveryGatedRelay('wss://nostr-02.uid.ovh') === true && api.isDeliveryGatedRelay('wss://relay.snort.social') === false);
+  // Deliverable relays silent (late OK possible) + gated ACK → resolves only after the per-relay timeout, as unconfirmed.
+  App.RelayHealth.reset();
+  const silent = mockRelayPool({
+    'wss://relay.snort.social': { mode: 'hang' }, 'wss://nos.lol': { mode: 'hang' },
+    'wss://nostr-relay.xbytez.io': { mode: 'hang' }, 'wss://nostr-02.uid.ovh': { mode: 'auth', ms: 5, challenge: chal },
+  }, []);
+  const ts = Date.now();
+  let silentRes = null;
+  try { silentRes = await send(silent); } catch (e) { silentRes = e; }
+  const silentMs = Date.now() - ts;
+  record('GATED ACK never short-circuits; silent deliverable relays → unconfirmed after timeout', silentRes && silentRes.transport === 'giftwrap1059' && silentMs >= 3900, 'ms=' + silentMs);
+  // Gated ACK is fast, deliverable relay slower: the publish resolves on the deliverable one.
+  App.RelayHealth.reset();
+  const mixed = mockRelayPool({
+    'wss://relay.snort.social': { mode: 'ok', ms: 250 }, 'wss://nos.lol': { mode: 'hang' },
+    'wss://nostr-relay.xbytez.io': { mode: 'hang' }, 'wss://nostr-02.uid.ovh': { mode: 'auth', ms: 5, challenge: chal },
+  }, []);
+  const t0 = Date.now();
+  const r = await send(mixed);
+  const ms = Date.now() - t0;
+  record('FIRST ACK comes from a delivery-capable relay (gated ACK ignored)', r && r.transport === 'giftwrap1059' && ms >= 240 && ms < 1500, 'ms=' + ms);
+  // Selection keeps >= 2 delivery-capable relays: open circuits are probed only to fill the gap.
+  const H = App.RelayHealth;
+  H.reset();
+  const urls = ['wss://a.qa', 'wss://b.qa', 'wss://c.qa', 'wss://gated.qa'];
+  const capable = (u) => u !== 'wss://gated.qa';
+  H.record('wss://b.qa', false, 0, 'timeout'); H.record('wss://b.qa', false, 0, 'timeout');
+  const sel1 = H.select(urls, { min: 2, capable });
+  record('SELECT skips open circuit when >= 2 capable relays are healthy', !sel1.includes('wss://b.qa') && sel1.includes('wss://a.qa') && sel1.includes('wss://c.qa'), JSON.stringify(sel1));
+  H.record('wss://c.qa', false, 0, 'timeout'); H.record('wss://c.qa', false, 0, 'timeout');
+  const sel2 = H.select(urls, { min: 2, capable });
+  const probed = ['wss://b.qa', 'wss://c.qa'].filter((u) => sel2.includes(u));
+  record('SELECT probes exactly one open capable relay when only 1 capable is healthy', probed.length === 1 && sel2.includes('wss://a.qa') && sel2.includes('wss://gated.qa'), JSON.stringify(sel2));
+  record('SELECT default (no opts) keeps legacy behaviour', JSON.stringify(H.select(urls).sort()) === JSON.stringify(['wss://a.qa', 'wss://gated.qa'].sort()));
 }
 
 async function recoveryChurn() {
@@ -363,6 +420,7 @@ function staticChecks() {
   record('STALE pagehide disconnect voice (not for unanswered incoming ring)', /addEventListener\('pagehide'[\s\S]{0,260}state\.isIncoming && !state\.callAnswered && !state\.isCallActive\) return;[\s\S]{0,60}page_hide/.test(voice));
   record('STALE pagehide disconnect video (not for unanswered incoming ring)', /addEventListener\('pagehide'[\s\S]{0,260}state\.isIncoming && !state\.isActive && !state\.answerPublished\) return;[\s\S]{0,60}page_hide/.test(video));
   record('CHURN forced resubscribe coalesced', helper.includes('FORCED_SUBSCRIBE_COALESCE_MS') && helper.includes('CALL_SECURE_SUBSCRIBE_COALESCED'));
+  record('RECOVERY answer nudge on ICE-before-answer (voice + video, bounded)', /nudgeAnswerRecovery\?\.\('ice-before-answer'\)/.test(voice) && /nudgeAnswerRecovery\?\.\('ice-before-answer'\)/.test(video) && helper.includes('ANSWER_NUDGE_DELAYS_MS = [0, 700, 1800]') && helper.includes('answerNudgeSession === session'));
   record('Ring payload carries no SDP', !/sendSignal\(peerPubkey, '(v-)?ring', (?!null)/.test(voice + video));
 }
 
@@ -371,12 +429,13 @@ function staticChecks() {
   await workerPathCases();
   await ringCrypto();
   await relayPublish();
+  await gatedRelayDelivery();
   await recoveryChurn();
   out.CALL_STALE_STATE_GATE = results.filter((r) => r.includes('STALE')).every((r) => r.startsWith('PASS')) ? 'PASS' : 'FAIL';
   out.CALL_RECOVERY_CHURN_GATE = results.filter((r) => r.includes('RECOVERY') || r.includes('CHURN')).every((r) => r.startsWith('PASS')) ? 'PASS' : 'FAIL';
   out.CALL_1059_WORKER_VALIDATION = results.filter((r) => r.includes('WORKER_PATH')).every((r) => r.startsWith('PASS')) ? 'PASS' : 'FAIL';
   out.CALL_RING_NO_GUM_BLOCK_STATIC = results.filter((r) => /ring|RING/.test(r)).every((r) => r.startsWith('PASS')) ? 'PASS' : 'FAIL';
-  out.CALL_RELAY_HEALTH_GATE = results.filter((r) => /PUBLISH|HEALTH|CIRCUIT|NIP42|ZERO|ASYNC_WRAPPED/.test(r)).every((r) => r.startsWith('PASS')) ? 'PASS' : 'FAIL';
+  out.CALL_RELAY_HEALTH_GATE = results.filter((r) => /PUBLISH|HEALTH|CIRCUIT|NIP42|ZERO|ASYNC_WRAPPED|GATED|SELECT|FIRST ACK/.test(r)).every((r) => r.startsWith('PASS')) ? 'PASS' : 'FAIL';
   out.TOTAL = { pass, fail };
   out.results = results;
   out.STATUS = fail === 0 ? 'PASS' : 'FAIL';

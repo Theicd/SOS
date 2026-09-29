@@ -102,6 +102,10 @@
       return `p2p-file-${fileIdOrAttachment}`;
     }
     const att = fileIdOrAttachment;
+    if (att.type === 'encrypted-media') {
+      if (typeof att.cacheKey === 'string' && /^p2p-file-e[bv]-[0-9a-f]{40}$/.test(att.cacheKey)) return att.cacheKey;
+      return typeof App.peekEncryptedMediaCacheKey === 'function' ? App.peekEncryptedMediaCacheKey(att) : '';
+    }
     if (att.cacheKey) return String(att.cacheKey);
     if (att.fileId) return `p2p-file-${att.fileId}`;
     if (att.attachmentId) return `p2p-file-${att.attachmentId}`;
@@ -153,7 +157,10 @@
   async function resolveChatMediaSrc(attachment) {
     if (!attachment) return '';
     let src = String(attachment.url || attachment.dataUrl || '').trim();
-    const cacheKey = chatP2PCacheKey(attachment);
+    let cacheKey = chatP2PCacheKey(attachment);
+    if (!cacheKey && attachment.type === 'encrypted-media' && typeof App.encryptedMediaCacheKey === 'function') {
+      cacheKey = await App.encryptedMediaCacheKey(attachment);
+    }
     if (src && typeof App.isSafeIncomingChatResource === 'function' && !App.isSafeIncomingChatResource(src)) {
       src = '';
     }
@@ -600,8 +607,11 @@
     }
     const name = (att.media && att.media.filename) || att.name || 'sos-file';
     const mime = (att.media && att.media.mime) || (att.type !== 'encrypted-media' ? att.type : '') || 'application/octet-stream';
-    const cacheKey = chatP2PCacheKey(att) || chatP2PCacheKey(message.id);
     const encrypted = att.type === 'encrypted-media';
+    let cacheKey = encrypted ? chatP2PCacheKey(att) : chatP2PCacheKey(att) || chatP2PCacheKey(message.id);
+    if (!cacheKey && encrypted && typeof App.encryptedMediaCacheKey === 'function') {
+      cacheKey = await App.encryptedMediaCacheKey(att);
+    }
 
     const liveUrl = String(att.url || att.dataUrl || '');
     if (liveUrl.startsWith('blob:') || liveUrl.startsWith('data:')) {
@@ -683,9 +693,10 @@
     const srcRaw = attachment.dataUrl || attachment.url || '';
     const src = (srcRaw && typeof App.isSafeIncomingChatResource === 'function' && !App.isSafeIncomingChatResource(srcRaw)) ? '' : srcRaw;
     const cls = className || 'chat-file-bubble__download';
+    const encryptedDescriptor = attachment.type === 'encrypted-media';
     const meta = {
-      fileId: attachment.fileId || '',
-      cacheKey: attachment.cacheKey || chatP2PCacheKey(attachment) || '',
+      fileId: encryptedDescriptor ? '' : attachment.fileId || '',
+      cacheKey: encryptedDescriptor ? chatP2PCacheKey(attachment) : attachment.cacheKey || chatP2PCacheKey(attachment) || '',
     };
     if (attachment.type === 'encrypted-media') {
       const local = src && (src.startsWith('blob:') || src.startsWith('data:')) ? src : '';

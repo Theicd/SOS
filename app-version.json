@@ -1,9 +1,9 @@
 {
     "callSignalGiftWrapRequired": true,
-    "version": "2026.09.28-web-898",
-    "buildTime": "2026-09-28T12:00:00+03:00",
+    "version": "2026.09.29-web-899",
+    "buildTime": "2026-09-29T04:10:00+03:00",
     "e2eeSendRequired": true,
     "minSecureChatEpoch": 2,
     "mediaServerE2eeRequired": true,
-    "notes": "Web Package 898 / sos-cache-v898. First-group network-backed administration (israel-network). ACCESS_CONTROL_V2 ships OFF. Multi-community network deferred. MD4 not started. Android/APK frozen."
+    "notes": "Web Package 899 / sos-cache-v899. Realtime performance: P2P transfer flow control, voice P2P E2EE, call relay health failover and ring latency. First-group network-backed administration (israel-network). ACCESS_CONTROL_V2 ships OFF. Multi-community network deferred. MD4 not started. Android/APK frozen."
 }

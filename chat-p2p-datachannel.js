@@ -756,7 +756,7 @@
           const content = typeof dec.content === 'string' ? dec.content : '';
           let attachment = dec.attachment == null ? null : dec.attachment;
           if (attachment != null && typeof App.inspectIncomingChatAttachment === 'function') {
-            const inspected = App.inspectIncomingChatAttachment(attachment);
+            const inspected = App.inspectIncomingChatAttachment(attachment, { network: true });
             if (!inspected || inspected.ok !== true) {
               console.warn('[SECURITY/PARSE_REJECT] kind=dc type=p2p-secure-text reason=bad_attachment');
               return;
@@ -847,7 +847,7 @@
       let attachment = m.attachment == null ? null : m.attachment;
       if (attachment != null) {
         if (typeof App.inspectIncomingChatAttachment === 'function') {
-          const inspected = App.inspectIncomingChatAttachment(attachment);
+          const inspected = App.inspectIncomingChatAttachment(attachment, { network: true });
           if (!inspected || inspected.ok !== true) {
             console.warn(
               '[SECURITY/PARSE_REJECT] kind=dc type=chat-text reason=bad_attachment' +

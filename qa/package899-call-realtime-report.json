@@ -1,6 +1,6 @@
 {
   "CALL_WORKER_PATH_SENDER_BINDING": "PASS",
-  "CALL_PUBLISH_FIRST_OK_MS": 78,
+  "CALL_PUBLISH_FIRST_OK_MS": 91,
   "RELAY_HEALTH_AFTER_PUBLISH": {
     "wss://nos.lol": {
       "ok": 0,
@@ -15,7 +15,7 @@
       "fail": 0,
       "consecutiveFails": 0,
       "circuitOpen": false,
-      "latencyMs": 31,
+      "latencyMs": 27,
       "lastReason": ""
     },
     "wss://relay.snort.social": {
@@ -23,7 +23,7 @@
       "fail": 0,
       "consecutiveFails": 0,
       "circuitOpen": false,
-      "latencyMs": 31,
+      "latencyMs": 42,
       "lastReason": ""
     },
     "wss://nostr-relay.xbytez.io": {
@@ -43,7 +43,7 @@
   "CALL_RING_NO_GUM_BLOCK_STATIC": "PASS",
   "CALL_RELAY_HEALTH_GATE": "PASS",
   "TOTAL": {
-    "pass": 66,
+    "pass": 74,
     "fail": 0
   },
   "results": [
@@ -70,6 +70,7 @@
     "PASS STALE pagehide disconnect voice (not for unanswered incoming ring)",
     "PASS STALE pagehide disconnect video (not for unanswered incoming ring)",
     "PASS CHURN forced resubscribe coalesced",
+    "PASS RECOVERY answer nudge on ICE-before-answer (voice + video, bounded)",
     "PASS Ring payload carries no SDP",
     "PASS WORKER_PATH forged sender (payload.sender != seal signer) rejected",
     "PASS WORKER_PATH missing seal signer rejected",
@@ -105,10 +106,17 @@
     "PASS HEALTH connect-fail relay recorded",
     "PASS auth relay not excluded when auth succeeds",
     "PASS CIRCUIT opens after 2 consecutive failures",
-    "PASS CIRCUIT open relays skipped (no hot loop on dead relays)",
+    "PASS CIRCUIT open relays skipped beyond one min-capable probe (no hot loop on dead relays)",
     "PASS ZERO relay OK fails closed (CALL_SIGNAL_TRANSPORT_FAILED)",
     "PASS ASYNC_WRAPPED_POOL all-reject no longer fakes success",
     "PASS ASYNC_WRAPPED_POOL success still works",
+    "PASS GATED relay ACK is not delivery (deliverable relays reject → CALL_SIGNAL_TRANSPORT_FAILED)",
+    "PASS GATED relay flagged after NIP-42 write auth",
+    "PASS GATED ACK never short-circuits; silent deliverable relays → unconfirmed after timeout",
+    "PASS FIRST ACK comes from a delivery-capable relay (gated ACK ignored)",
+    "PASS SELECT skips open circuit when >= 2 capable relays are healthy",
+    "PASS SELECT probes exactly one open capable relay when only 1 capable is healthy",
+    "PASS SELECT default (no opts) keeps legacy behaviour",
     "PASS RECOVERY read-auth relay detected from CLOSED",
     "PASS RECOVERY read-auth relay skipped afterwards (no churn)",
     "PASS RECOVERY healthy subscription → slow ticks (<=3 in 6s, was 9)",

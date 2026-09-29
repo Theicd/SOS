@@ -275,7 +275,7 @@
     }
   }
 
-  function inspectIncomingChatAttachment(raw) {
+  function inspectIncomingChatAttachment(raw, options) {
     if (raw == null) return { ok: true };
     if (typeof raw !== 'object' || Array.isArray(raw)) {
       return { ok: false, reasonCode: 'INVALID_DESCRIPTOR' };
@@ -299,6 +299,12 @@
         }
         if (raw.p2p != null && !isValidIncomingEncryptedP2pMarker(raw.p2p)) {
           return { ok: false, reasonCode: 'VOICE_P2P_BAD_METADATA' };
+        }
+        if (options && options.network === true) {
+          // Local-only cache/state fields are never taken from a received descriptor.
+          Object.keys(raw).forEach((k) => {
+            if (k === 'cacheKey' || k === 'fileId' || k.charAt(0) === '_') delete raw[k];
+          });
         }
         return { ok: true, encryptedBlossom: true };
       } catch (_valErr) {
@@ -416,7 +422,7 @@
         return false;
       }
       if (parsed.a != null) {
-        const inspected = inspectIncomingChatAttachment(parsed.a);
+        const inspected = inspectIncomingChatAttachment(parsed.a, { network: true });
         if (!inspected.ok) {
           logAttachmentRejected(parsed.a, inspected.reasonCode, meta && meta.eventId);
           return false;
@@ -1319,7 +1325,7 @@
     }
 
     if (parsedPayload.attachment) {
-      const inspected = inspectIncomingChatAttachment(parsedPayload.attachment);
+      const inspected = inspectIncomingChatAttachment(parsedPayload.attachment, { network: true });
       if (!inspected.ok) {
         logAttachmentRejected(parsedPayload.attachment, inspected.reasonCode, event.id);
         parsedPayload.attachment = null;

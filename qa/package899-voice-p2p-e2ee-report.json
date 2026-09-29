@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-28T22:08:14.487Z",
+  "generatedAt": "2026-09-29T01:07:38.310Z",
   "durations": [
     {
       "seconds": 2,
@@ -12,7 +12,7 @@
       "sentinelInSeeded": false,
       "sentinelInBlossom": false,
       "plaintextBlossomUploads": 0,
-      "sendMs": 3.55
+      "sendMs": 3.57
     },
     {
       "seconds": 10,
@@ -25,8 +25,8 @@
       "sentinelInSeeded": false,
       "sentinelInBlossom": false,
       "plaintextBlossomUploads": 0,
-      "sendMs": 36.11,
-      "recvMs": 14.88
+      "sendMs": 33.98,
+      "recvMs": 14.65
     },
     {
       "seconds": 30,
@@ -39,8 +39,8 @@
       "sentinelInSeeded": false,
       "sentinelInBlossom": false,
       "plaintextBlossomUploads": 0,
-      "sendMs": 43.65,
-      "recvMs": 26.47
+      "sendMs": 40.7,
+      "recvMs": 12.73
     },
     {
       "seconds": 60,
@@ -53,19 +53,19 @@
       "sentinelInSeeded": false,
       "sentinelInBlossom": false,
       "plaintextBlossomUploads": 0,
-      "sendMs": 52.09,
-      "recvMs": 31.44
+      "sendMs": 53.09,
+      "recvMs": 31.9
     }
   ],
   "perf": {
-    "MIDFLIGHT_FALLBACK_MS": 4085,
-    "MIDFLIGHT_FALLBACK_CONNECTED_PEER_MS": 7085,
-    "VOICE_ENCRYPT_MS_P50": 1.89,
-    "VOICE_ENCRYPT_MS_P95": 4,
-    "VOICE_DECRYPT_MS_P50": 1.31,
-    "VOICE_DECRYPT_MS_P95": 2.74,
-    "VOICE_SEND_START_LATENCY_P50_VM": 36.11,
-    "VOICE_SEND_START_LATENCY_P95_VM": 52.09
+    "MIDFLIGHT_FALLBACK_MS": 4086,
+    "MIDFLIGHT_FALLBACK_CONNECTED_PEER_MS": 7094,
+    "VOICE_ENCRYPT_MS_P50": 1.79,
+    "VOICE_ENCRYPT_MS_P95": 4.02,
+    "VOICE_DECRYPT_MS_P50": 1.46,
+    "VOICE_DECRYPT_MS_P95": 2.59,
+    "VOICE_SEND_START_LATENCY_P50_VM": 34.47,
+    "VOICE_SEND_START_LATENCY_P95_VM": 53.09
   },
   "failClosed": {
     "ENCRYPTION_FAILURE": {

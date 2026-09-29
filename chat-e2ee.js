@@ -121,7 +121,7 @@
   function inspectAttachment(raw) {
     if (raw == null) return { ok: true };
     if (typeof App.inspectIncomingChatAttachment === 'function') {
-      return App.inspectIncomingChatAttachment(raw);
+      return App.inspectIncomingChatAttachment(raw, { network: true });
     }
     if (typeof App.verifyIncomingChatAttachment === 'function') {
       return App.verifyIncomingChatAttachment(raw)

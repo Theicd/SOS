@@ -194,7 +194,16 @@
     pc.oniceconnectionstatechange = () => {
       if (state.pc !== pc) return;
       const ice = pc.iceConnectionState;
+      if (ice === 'checking') markCallPerf('ICE_CHECKING');
+      if ((ice === 'checking' || ice === 'connected') && !state.isIncoming) {
+        let answered = false;
+        try { answered = !!(pc.remoteDescription && pc.remoteDescription.type === 'answer'); } catch (_) {}
+        if (!answered) {
+          try { App.CallSignalE2ee?.nudgeAnswerRecovery?.('ice-before-answer'); } catch (_) {}
+        }
+      }
       if (ice === 'connected' || ice === 'completed') {
+        markCallPerf('ICE_CONNECTED');
         maybeMarkVideoCallConnected(peerPubkey, 'ice-' + ice);
       } else if (ice === 'disconnected') {
         if (!state.ending) end({ reason: 'ice_disconnected_grace' });
@@ -209,6 +218,7 @@
       if (state.pc !== pc) return;
       const cs = pc.connectionState;
       if (cs === 'connected') {
+        markCallPerf('PC_CONNECTED');
         maybeMarkVideoCallConnected(peerPubkey, 'pc-connected');
       } else if (cs === 'failed' || cs === 'closed') {
         if (!state.ending) end({ reason: 'peer_connection_closed' });
@@ -271,6 +281,7 @@
       console.log('CALL_CONNECTED session=' + (sid ? sid.slice(0, 8) : 'none') + ' role=' + role);
     } catch (_) {}
     markCallPerf('CALL_CONNECTED_TS');
+    markCallPerf('CALL_CONNECTED');
     try {
       if (window.SosCallColdBoot && typeof window.SosCallColdBoot.release === 'function') {
         window.SosCallColdBoot.release('connected');
@@ -473,7 +484,13 @@
     } catch (_) {}
   }
 
-  function isOfferReplayAfterHangup(peerPubkey, createdAtSec) {
+  // Authenticated signals carry a sessionId: replay = that session is terminal. A fresh session from
+  // the same peer is a redial, not a replay (second-granular sentAt cannot tell them apart).
+  function isOfferReplayAfterHangup(peerPubkey, createdAtSec, sessionId) {
+    const sid = typeof sessionId === 'string' ? sessionId.trim() : '';
+    if (sid) {
+      try { return typeof App.isCallSessionTerminal === 'function' && !!App.isCallSessionTerminal(sid); } catch (_e) { return false; }
+    }
     const pk = peerPubkeyOrEmpty(peerPubkey);
     const at = Number(state.lastEndedAt[pk]) || 0;
     if (!at || Date.now() - at > 120000) return false;
@@ -490,12 +507,12 @@
     }
   }
 
-  function isStaleForCurrentSession(createdAtSec, peerPubkey) {
+  function isStaleForCurrentSession(createdAtSec, peerPubkey, sessionId) {
     const created = Number(createdAtSec) || 0;
     if (!created) return false;
     const offerAt = Number(state.sessionOfferCreatedAt) || 0;
     if (offerAt && created + 1 < offerAt) return true;
-    return isOfferReplayAfterHangup(peerPubkey, created);
+    return isOfferReplayAfterHangup(peerPubkey, created, sessionId);
   }
 
   // חלק שיחות וידאו (chat-video-call.js) – דה-דופליקציה לאירועי סיגנלים לפי event.id כדי למנוע טריגרים כפולים אחרי re-subscribe | HYPER CORE TECH
@@ -599,13 +616,18 @@
     try {
       state.currentPeer = peerPubkey;
       markCallPerf('CALL_CLICK_TS');
+      markCallPerf('CALL_CLICK');
+      markCallPerf('CALL_SESSION_CREATED');
       // Ring intent (1059, no SDP) goes out before GUM so the callee rings in parallel.
+      markCallPerf('CALL_RING_BUILD_START');
       sendSignal(peerPubkey, 'v-ring', null)
         .then(() => markCallPerf('CALL_RING_PUBLISHED_TS'))
         .catch(() => { try { console.log('CALL_RING_PUBLISH_FAIL'); } catch (_) {} });
       markCallPerf('CALL_GUM_START_TS');
+      markCallPerf('GUM_START');
       await getLocalStream(opts && opts.video);
       markCallPerf('CALL_GUM_DONE_TS');
+      markCallPerf('GUM_READY');
       // חלק שיחות וידאו (chat-video-call.js) – איפוס מצב לפני שיחה יוצאת כדי למנוע שאריות ICE/Stream משיחות קודמות | HYPER CORE TECH
       state.isIncoming = false;
       state.isActive = false;
@@ -617,6 +639,7 @@
       try { subscribeToSignals(); } catch {}
       state.currentPeer = peerPubkey;
       createPC(peerPubkey);
+      markCallPerf('OFFER_BUILD_START');
       const offer = await state.pc.createOffer();
       await state.pc.setLocalDescription(offer);
       markCallPerf('CALL_OFFER_CREATED_TS');
@@ -694,6 +717,7 @@
     }
     console.log('CALL_VIDEO_SESSION_ADOPTED');
     markCallPerf('CALL_ACCEPT_TS');
+    markCallPerf('ANSWER_START');
     state.answeredLocally = false;
     state.answerPublished = false;
     const flowT0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
@@ -1162,7 +1186,7 @@
     const createdAt = preParsed && preParsed.sentAt
       ? Number(preParsed.sentAt) || 0
       : Number(event.created_at) || 0;
-    if (type !== 'v-offer' && isStaleForCurrentSession(createdAt, peer)) {
+    if (type !== 'v-offer' && isStaleForCurrentSession(createdAt, peer, preParsed && preParsed.sessionId)) {
       console.log('CALL_SIGNAL_SKIP stale');
       return;
     }
@@ -1170,7 +1194,7 @@
       case 'v-ring': {
         // Only the authenticated 1059 path may ring early; legacy 25050 has no ring.
         if (!preParsed || !preParsed.sessionId) break;
-        if (isOfferReplayAfterHangup(peer, createdAt)) break;
+        if (isOfferReplayAfterHangup(peer, createdAt, preParsed.sessionId)) break;
         if (state.currentPeer || state.pc || state.outboundStarting || state.isActive || window.__sosAcceptInFlight) {
           console.log('CALL_SIGNAL_SKIP ring_busy');
           break;
@@ -1179,8 +1203,12 @@
         if (!adoptIncomingVideoSession(peer, preParsed.sessionId, createdAt)) break;
         armRingOfferDeadline(peer, preParsed.sessionId);
         markCallPerf('CALL_RING_RX_TS');
+        markCallPerf('CALL_REMOTE_RING_SIGNAL_RX');
         console.log('CALL_RING_RX');
-        if (typeof App.onVideoCallRinging === 'function') App.onVideoCallRinging(peer);
+        if (typeof App.onVideoCallRinging === 'function') {
+          App.onVideoCallRinging(peer);
+          markCallPerf('CALL_REMOTE_RING_UI_SHOWN');
+        }
         break;
       }
       case 'v-offer': {
@@ -1191,7 +1219,7 @@
             console.log('CALL_SIGNAL_REJECT stale_offer');
             return;
           }
-          if (isOfferReplayAfterHangup(peer, createdAt)) {
+          if (isOfferReplayAfterHangup(peer, createdAt, preParsed && preParsed.sessionId)) {
             console.log('CALL_SIGNAL_REJECT replay_after_hangup');
             return;
           }
@@ -1214,6 +1242,7 @@
 
         console.log('CALL_OFFER_OK');
         markCallPerf('CALL_OFFER_RX_TS');
+        markCallPerf('OFFER_REMOTE_RX');
         if (state.outboundStarting || (state.pc && !state.isIncoming)) {
           console.log('CALL_SIGNAL_SKIP already_calling');
           return;
@@ -1245,13 +1274,17 @@
           App.triggerIncomingCallPush(peer, 'video');
         }
         clearRingOfferDeadline();
-        if (typeof App.onVideoCallIncoming === 'function') App.onVideoCallIncoming(peer, offerData);
+        if (typeof App.onVideoCallIncoming === 'function') {
+          App.onVideoCallIncoming(peer, offerData);
+          markCallPerf('CALL_REMOTE_RING_UI_SHOWN');
+        }
         break;
       }
       case 'v-answer': {
         if (!state.pc || state.currentPeer !== peer) break;
         try { console.log('CALL_ANSWER_RX'); } catch (_) {}
         markCallPerf('CALL_ANSWER_RX_TS');
+        markCallPerf('ANSWER_REMOTE_RX');
         if (state.isIncoming) {
           console.log('CALL_SIGNAL_SKIP answer_as_callee');
           break;
@@ -1495,7 +1528,7 @@
           App.CallSignalE2ee.ensureSecureCallSubscription();
         }
       } catch (_e) {}
-      const sub = App.pool.subscribeMany(App.relayUrls, filters, {
+      const handlers = {
         onevent: (ev) => {
           if (ev && ev.kind === 1059) return;
           // LEGACY_READ_ONLY path
@@ -1513,7 +1546,11 @@
             }
           } catch (_) {}
         }
-      });
+      };
+      const shared = App.CallSignalE2ee && App.CallSignalE2ee.subscribeLegacyCallSignals;
+      const sub = typeof shared === 'function'
+        ? shared('video', { since, force: !!options.force, onevent: handlers.onevent, oneose: handlers.oneose })
+        : App.pool.subscribeMany(App.relayUrls, filters, handlers);
       state.signalSubscription = sub;
       state.lastSignalReceivedAt = Date.now();
       return sub;
