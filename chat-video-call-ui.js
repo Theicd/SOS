@@ -119,12 +119,17 @@
 
   function showIncomingVideoNotification(peerPubkey) {
     try {
-      if (!('Notification' in window)) return;
-      if (window.Notification.permission !== 'granted') return;
-
       const isHidden = !!doc.hidden || doc.visibilityState === 'hidden';
       const hasFocus = typeof doc.hasFocus === 'function' ? doc.hasFocus() : true;
       if (!isHidden && hasFocus) return;
+      if (!('Notification' in window)) {
+        try { console.log('CALL_BG_NOTIFY_SKIP media=video reason=unsupported'); } catch (_) {}
+        return;
+      }
+      if (window.Notification.permission !== 'granted') {
+        try { console.log('CALL_BG_NOTIFY_SKIP media=video reason=permission-' + window.Notification.permission); } catch (_) {}
+        return;
+      }
 
       closeIncomingVideoNotification();
       registerVideoCallServiceWorkerIfSupported();
@@ -143,6 +148,7 @@
 
       const openUrl = `${window.location.origin}/videos.html?chat=${encodeURIComponent(peerPubkey)}&incomingCall=video`;
       const swOptions = Object.assign({}, baseOptions, {
+        vibrate: [400, 200, 400, 200, 400],
         actions: [
           { action: 'open', title: 'ענה / פתח וידאו' }
         ],
@@ -158,10 +164,16 @@
         if (reg && typeof reg.showNotification === 'function') {
           try {
             const p = reg.showNotification('שיחת וידאו נכנסת', swOptions);
-            if (p && typeof p.catch === 'function') p.catch(() => {});
-          } catch {}
+            if (p && typeof p.then === 'function') {
+              p.then(() => { try { console.log('CALL_BG_NOTIFY_SHOWN media=video via=sw'); } catch (_) {} })
+                .catch((e) => { try { console.log('CALL_BG_NOTIFY_FAIL media=video via=sw err=' + ((e && e.name) || 'error')); } catch (_) {} });
+            }
+          } catch (e) {
+            try { console.log('CALL_BG_NOTIFY_FAIL media=video via=sw err=' + ((e && e.name) || 'error')); } catch (_) {}
+          }
           return;
         }
+        try { console.log('CALL_BG_NOTIFY_NO_SW media=video'); } catch (_) {}
 
         incomingVideoNotification = new window.Notification('שיחת וידאו נכנסת', baseOptions);
         incomingVideoNotification.onclick = () => {
@@ -173,7 +185,8 @@
             createDialog(peerPubkey, true);
           }
         };
-      }).catch(() => {
+      }).catch((e) => {
+        try { console.log('CALL_BG_NOTIFY_FAIL media=video via=page err=' + ((e && e.name) || 'error')); } catch (_) {}
         try {
           incomingVideoNotification = new window.Notification('שיחת וידאו נכנסת', baseOptions);
           incomingVideoNotification.onclick = () => {

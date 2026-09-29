@@ -15,7 +15,7 @@
       "fail": 0,
       "consecutiveFails": 0,
       "circuitOpen": false,
-      "latencyMs": 27,
+      "latencyMs": 25,
       "lastReason": ""
     },
     "wss://relay.snort.social": {
@@ -23,7 +23,7 @@
       "fail": 0,
       "consecutiveFails": 0,
       "circuitOpen": false,
-      "latencyMs": 42,
+      "latencyMs": 41,
       "lastReason": ""
     },
     "wss://nostr-relay.xbytez.io": {
