@@ -48,3 +48,25 @@ class_name = "InviteLedger"
 [[env.staging.durable_objects.bindings]]
 name = "GROUP"
 class_name = "GroupAuthority"
+
+# Production: own Worker script => own Durable Object namespaces (no staging state). workers.dev only, no routes.
+# ADMISSION_SK is set only with: wrangler secret put ADMISSION_SK --env production
+[env.production]
+name = "sos-first-group-admission"
+workers_dev = true
+routes = []
+
+[env.production.vars]
+SOS_ENV = "production"
+FIRST_GROUP_ID = "israel-network"
+ROOT_PUBKEY = "8c60929899e0009f199b3865a7a5e7ba483fec60ff3c926169d0a4588ada256a"
+ALLOWED_ORIGINS = "https://sos010.com"
+TEST_FAULTS = "0"
+
+[[env.production.durable_objects.bindings]]
+name = "INVITES"
+class_name = "InviteLedger"
+
+[[env.production.durable_objects.bindings]]
+name = "GROUP"
+class_name = "GroupAuthority"

@@ -1,4 +1,4 @@
-import { InviteLedger } from './ledger.js';
+import { InviteLedger, SERVICE_TAG } from './ledger.js';
 import { GroupAuthority } from './group.js';
 
 export { InviteLedger, GroupAuthority };
@@ -76,7 +76,32 @@ export default {
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request, env) });
     if (request.method === 'GET' && url.pathname === '/v1/health') {
-      return reply(request, env, { result: 'OK', service: 'sos-first-group-admission', group: env.FIRST_GROUP_ID });
+      // Public facts only: no secrets, no invite or member data.
+      const health = {
+        result: 'OK',
+        service: 'sos-first-group-admission',
+        protocol: SERVICE_TAG,
+        protocolVersion: 1,
+        environment: String(env.SOS_ENV || 'local'),
+        group: env.FIRST_GROUP_ID,
+        rootPubkey: String(env.ROOT_PUBKEY || ''),
+        testFaults: env.TEST_FAULTS === '1',
+        durableObjectReachable: false,
+        controlStatus: null,
+        servicePubkey: null,
+        delegationActive: false,
+      };
+      try {
+        const stub = env.GROUP.get(env.GROUP.idFromName(env.FIRST_GROUP_ID));
+        const snap = await (await stub.fetch('https://group/snapshot')).json();
+        health.durableObjectReachable = true;
+        health.controlStatus = snap.status || snap.code || null;
+        health.servicePubkey = snap.delegate ? snap.delegate.pubkey : null;
+        health.delegationActive = !!(snap.delegate && snap.delegate.active);
+      } catch (_e) {
+        health.result = 'DEGRADED';
+      }
+      return reply(request, env, health);
     }
     if (request.method !== 'POST') return reply(request, env, { result: 'INVALID', code: 'METHOD' }, 405);
     if (rateLimited()) return reply(request, env, { result: 'TEMPORARILY_UNAVAILABLE', code: 'RATE_LIMITED' }, 429);
