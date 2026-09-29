@@ -1,0 +1,264 @@
+{
+  "package": "first-group-gate1-production-admission",
+  "generatedAt": "2026-09-29T13:24:29.476Z",
+  "target": "https://sos-first-group-admission.dror201031-b16.workers.dev",
+  "health": {
+    "result": "OK",
+    "service": "sos-first-group-admission",
+    "protocol": "sos-first-group-admission-v1",
+    "protocolVersion": 1,
+    "environment": "production",
+    "group": "israel-network",
+    "rootPubkey": "8c60929899e0009f199b3865a7a5e7ba483fec60ff3c926169d0a4588ada256a",
+    "testFaults": false,
+    "durableObjectReachable": true,
+    "controlStatus": "MISSING",
+    "servicePubkey": "752f47fa926d1833a451bdc97f3f2967ae4bc6452d0356bc7919c6928e4611ef",
+    "delegationActive": false
+  },
+  "checks": [
+    {
+      "name": "HEALTH_ALIVE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "HEALTH_PROTOCOL",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "HEALTH_GROUP",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "HEALTH_PRODUCTION_ENV",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "HEALTH_ROOT_PUBKEY",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "HEALTH_DO_REACHABLE",
+      "ok": true,
+      "detail": {
+        "controlStatus": "MISSING"
+      }
+    },
+    {
+      "name": "HEALTH_SERVICE_PUBKEY",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "HEALTH_DELEGATION_INACTIVE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "HEALTH_NO_SECRETS",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "STAGING_STATE_NOT_PRESENT",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "DENY_NO_DELEGATION_REGISTER",
+      "ok": true,
+      "detail": {
+        "http": 200,
+        "result": "TEMPORARILY_UNAVAILABLE",
+        "code": "NO_VERIFIED_CONTROL"
+      }
+    },
+    {
+      "name": "DENY_NO_DELEGATION_REDEEM",
+      "ok": true,
+      "detail": {
+        "http": 200,
+        "result": "INVALID",
+        "code": "NOT_REGISTERED"
+      }
+    },
+    {
+      "name": "DENY_WRONG_GROUP_BODY",
+      "ok": true,
+      "detail": {
+        "http": 400,
+        "result": "INVALID",
+        "code": "WRONG_GROUP"
+      }
+    },
+    {
+      "name": "DENY_WRONG_GROUP_TAG",
+      "ok": true,
+      "detail": {
+        "http": 200,
+        "result": "INVALID",
+        "code": "BAD_REQUEST_BINDING"
+      }
+    },
+    {
+      "name": "DENY_WRONG_GROUP_INVITE",
+      "ok": true,
+      "detail": {
+        "http": 200,
+        "result": "INVALID",
+        "code": "CROSS_GROUP"
+      }
+    },
+    {
+      "name": "DENY_WRONG_INVITE_UNREGISTERED",
+      "ok": true,
+      "detail": {
+        "http": 200,
+        "result": "INVALID",
+        "code": "NOT_REGISTERED"
+      }
+    },
+    {
+      "name": "DENY_WRONG_INVITE_CODE",
+      "ok": true,
+      "detail": {
+        "http": 200,
+        "result": "INVALID",
+        "code": "NOT_REGISTERED"
+      }
+    },
+    {
+      "name": "DENY_EXPIRED_REGISTER",
+      "ok": true,
+      "detail": {
+        "http": 200,
+        "result": "INVALID",
+        "code": "BAD_EXPIRATION"
+      }
+    },
+    {
+      "name": "DENY_EXPIRED_REDEEM",
+      "ok": true,
+      "detail": {
+        "http": 200,
+        "result": "INVALID",
+        "code": "NOT_REGISTERED"
+      }
+    },
+    {
+      "name": "DENY_REVOKED",
+      "ok": true,
+      "detail": {
+        "revoke": {
+          "http": 200,
+          "result": "INVALID",
+          "code": "NOT_REGISTERED"
+        },
+        "redeem": {
+          "http": 200,
+          "result": "INVALID",
+          "code": "NOT_REGISTERED"
+        }
+      }
+    },
+    {
+      "name": "DENY_MALFORMED",
+      "ok": true,
+      "detail": [
+        {
+          "http": 400,
+          "result": "INVALID",
+          "code": "BAD_JSON"
+        },
+        {
+          "http": 400,
+          "result": "INVALID",
+          "code": "NO_INVITE_ID"
+        },
+        {
+          "http": 400,
+          "result": "INVALID",
+          "code": "WRONG_GROUP"
+        },
+        {
+          "http": 413,
+          "result": "INVALID",
+          "code": "TOO_LARGE"
+        }
+      ]
+    },
+    {
+      "name": "DENY_WRONG_RECIPIENT",
+      "ok": true,
+      "detail": {
+        "http": 200,
+        "result": "INVALID",
+        "code": "NOT_REGISTERED"
+      }
+    },
+    {
+      "name": "DENY_TAMPERED",
+      "ok": true,
+      "detail": [
+        {
+          "http": 200,
+          "result": "UNAUTHORIZED",
+          "code": "STRICT_VERIFY_FAILED"
+        },
+        {
+          "http": 200,
+          "result": "UNAUTHORIZED",
+          "code": "STRICT_VERIFY_FAILED"
+        },
+        {
+          "http": 200,
+          "result": "INVALID",
+          "code": "STRICT_VERIFY_FAILED"
+        }
+      ]
+    },
+    {
+      "name": "TEST_ENDPOINT_DISABLED",
+      "ok": true,
+      "detail": {
+        "http": 404,
+        "result": "INVALID",
+        "code": "NOT_FOUND"
+      }
+    },
+    {
+      "name": "NO_STATE_MUTATION",
+      "ok": true,
+      "detail": {
+        "http": 200,
+        "result": "INVALID",
+        "code": "NOT_REGISTERED"
+      }
+    },
+    {
+      "name": "INVITE_NOT_REDEEMED_OR_CLAIMED",
+      "ok": true,
+      "detail": {
+        "http": 200,
+        "result": "INVALID"
+      }
+    },
+    {
+      "name": "CORS_PRODUCTION_ORIGIN_ONLY",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "METHOD_GUARD",
+      "ok": true,
+      "detail": null
+    }
+  ],
+  "status": "PASS",
+  "secrets": "none (service key only in Cloudflare secret; ROOT private key never used)"
+}
