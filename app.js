@@ -100,6 +100,13 @@
   // מצב אורח - NostrApp (app.js) – זיהוי אם המשתמש עובד כאורח או כמשתמש מחובר | HYPER CORE TECH
   // קוד זה אחראי לזהות האם המשתמש עובד כאורח (בלי מפתח) או כמשתמש מחובר
   // =======================
+  // Call modules may load before or after this file; the secure call module also self-starts at load.
+  function notifyCallIdentity(reason) {
+    try {
+      if (typeof App.notifyCallIdentityReady === 'function') App.notifyCallIdentityReady(reason);
+    } catch (_e) {}
+  }
+
   function bootGuestIdentity() {
     try {
       // F2B/F5A: Worker-authoritative durable browser path — never hydrate App.privateKey.
@@ -145,6 +152,7 @@
             App._topBarAuthUiReady = true;
             if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
           } catch (_syncErr) {}
+          notifyCallIdentity('worker-boot');
         }
         function finishWorkerBootFail(code) {
           try {
@@ -157,6 +165,7 @@
             App._topBarAuthUiReady = true;
             if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
           } catch (_syncErr2) {}
+          notifyCallIdentity('worker-boot-fail');
         }
         function tryActivateVault(attempt) {
           const vault = App.SosCryptoWorkerVault || window.SosCryptoWorkerVault;
@@ -273,6 +282,7 @@
       App._topBarAuthUiReady = true;
       if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
     } catch (_syncErr) {}
+    notifyCallIdentity('boot');
   }
   try {
     const identityReady = window.SOSIdentityStorageReady || (window.SOSKeyStorage && window.SOSKeyStorage.ready);

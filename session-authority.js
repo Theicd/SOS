@@ -143,6 +143,9 @@
       App._sessionAuthorityDetached = true;
       App._sessionDetachReason = lastDetachReason;
     } catch (_e4) {}
+    try {
+      if (typeof App.notifyCallIdentityReady === 'function') App.notifyCallIdentityReady('session-detached');
+    } catch (_e4b) {}
     const v = vaultApi();
     if (v) {
       try {

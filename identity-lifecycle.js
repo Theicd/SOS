@@ -142,6 +142,9 @@
     } catch (_e3) {}
     App.privateKey = null;
     App.publicKey = null;
+    try {
+      if (typeof App.notifyCallIdentityReady === 'function') App.notifyCallIdentityReady('logout');
+    } catch (_callIdErr) {}
   }
 
   function clearPublicIdentityMirrors() {
@@ -453,6 +456,9 @@
 
       App.identityState = App.IDENTITY_OK || 'IDENTITY_OK';
       App._accountSwitchInProgress = false;
+      try {
+        if (typeof App.notifyCallIdentityReady === 'function') App.notifyCallIdentityReady('account-switch');
+      } catch (_callIdErr) {}
 
       // Multi-tab: revoke other tabs' Account A authority, rebind THIS tab to Account B.
       // Does not generate a replacement identity — uses the validated target key only.

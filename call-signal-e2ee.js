@@ -60,6 +60,15 @@
   };
 
   let secureSub = null;
+  /** Account the current secure receiver was opened for — events for any other account are dropped. */
+  let secureSubPubkey = '';
+  /** Bumped on every open/close so callbacks of a replaced receiver are ignored. */
+  let secureSubToken = 0;
+  let secureSubRetryTimer = null;
+  let secureSubRetryDelayMs = 0;
+  const SECURE_SUB_RETRY_MIN_MS = 3000;
+  const SECURE_SUB_RETRY_MAX_MS = 60000;
+  const SECURE_SUB_SOFT_FORCE_REASONS = new Set(['visibility', 'visibilitychange', 'focus', 'pageshow']);
   let secureDispatchChain = Promise.resolve();
   const nativeRingAuthOnce = new Set(); // signalId authorized for Native ring
   let outgoingAnswerWatchdogTimer = null;
@@ -789,56 +798,153 @@
     return secureDispatchChain;
   }
 
+  function currentAccountPubkey() {
+    const pk = String(App.publicKey || '').toLowerCase();
+    return /^[0-9a-f]{64}$/.test(pk) ? pk : '';
+  }
+
+  function clearSecureSubRetry() {
+    if (secureSubRetryTimer) {
+      clearTimeout(secureSubRetryTimer);
+      secureSubRetryTimer = null;
+    }
+  }
+
+  function closeSecureCallSubscription(reason) {
+    const sub = secureSub;
+    secureSubToken += 1;
+    secureSub = null;
+    secureSubHealthy = false;
+    secureSubPubkey = '';
+    if (!sub) return false;
+    try {
+      if (typeof sub.close === 'function') sub.close();
+      else if (typeof sub.unsub === 'function') sub.unsub();
+    } catch (_e) {}
+    try { console.log('CALL_SECURE_SUBSCRIBE_CLOSED reason=' + String(reason || 'close')); } catch (_e2) {}
+    return true;
+  }
+
+  /** Unknown or connecting socket state counts as alive; only a pool that reports every call relay closed is "dead". */
+  function anyCallRelaySocketOpen() {
+    try {
+      const relays = App.pool && App.pool.relays;
+      if (!relays || typeof relays.get !== 'function') return true;
+      let known = 0;
+      const urls = getCallSignalRelays();
+      for (let i = 0; i < urls.length; i += 1) {
+        const r = relays.get(urls[i]) || relays.get(String(urls[i]).replace(/\/$/, '') + '/');
+        if (!r) continue;
+        if (r.ws && typeof r.ws.readyState === 'number') {
+          known += 1;
+          if (r.ws.readyState === 0 || r.ws.readyState === 1) return true;
+        }
+      }
+      return known === 0;
+    } catch (_e) {
+      return true;
+    }
+  }
+
+  function isSecureCallReceiverReady() {
+    const me = currentAccountPubkey();
+    return !!(secureSub && secureSubHealthy && me && secureSubPubkey === me && anyCallRelaySocketOpen());
+  }
+
+  function scheduleSecureSubRetry(reason) {
+    if (secureSubRetryTimer) return;
+    secureSubRetryDelayMs = secureSubRetryDelayMs
+      ? Math.min(SECURE_SUB_RETRY_MAX_MS, secureSubRetryDelayMs * 2)
+      : SECURE_SUB_RETRY_MIN_MS;
+    try {
+      console.log('CALL_SECURE_SUBSCRIBE_RETRY_SCHEDULED reason=' + String(reason || 'closed') + ' ms=' + secureSubRetryDelayMs);
+    } catch (_e) {}
+    secureSubRetryTimer = setTimeout(() => {
+      secureSubRetryTimer = null;
+      if (isSecureCallReceiverReady()) return;
+      try { ensureSecureCallSubscription({ reason: 'retry' }); } catch (_e) {}
+    }, secureSubRetryDelayMs);
+  }
+
   function ensureSecureCallSubscription(options) {
     options = options || {};
-    if (App.guestMode) return null;
-    if (secureSub && !options.force) return secureSub;
-    if (!App.pool || !App.publicKey) return null;
+    const me = currentAccountPubkey();
+    if (App.guestMode || !me) {
+      if (secureSub) closeSecureCallSubscription(App.guestMode ? 'guest' : 'no-identity');
+      clearSecureSubRetry();
+      return null;
+    }
+    if (secureSub && secureSubPubkey !== me) {
+      closeSecureCallSubscription('identity-changed');
+    }
+    if (!App.pool) return null;
+    const reason = String(options.reason || (options.force ? 'force' : 'ensure'));
+    const ready = isSecureCallReceiverReady();
+    if (ready && (!options.force || SECURE_SUB_SOFT_FORCE_REASONS.has(reason))) {
+      if (options.force) {
+        try { console.log('CALL_SECURE_SUBSCRIBE_KEEP reason=' + reason); } catch (_e) {}
+      }
+      return secureSub;
+    }
+    // Opened but EOSE not seen yet: still converging, do not stack a second receiver.
+    if (secureSub && !secureSubHealthy && !options.force && anyCallRelaySocketOpen()) return secureSub;
     if (options.force && secureSub && Date.now() - lastForcedSubscribeAt < FORCED_SUBSCRIBE_COALESCE_MS) {
-      try { console.log('CALL_SECURE_SUBSCRIBE_COALESCED reason=' + String(options.reason || 'force')); } catch (_e) {}
+      try { console.log('CALL_SECURE_SUBSCRIBE_COALESCED reason=' + reason); } catch (_e) {}
       return secureSub;
     }
     if (options.force) lastForcedSubscribeAt = Date.now();
-    if (options.force && secureSub) {
+    if (secureSub) {
+      closeSecureCallSubscription(reason);
       try {
-        if (typeof secureSub.close === 'function') secureSub.close();
-        else if (typeof secureSub.unsub === 'function') secureSub.unsub();
-      } catch (_e) {}
-      secureSub = null;
-      try {
-        console.log('CALL_SECURE_SUBSCRIBE_RECONNECT reason=' + String(options.reason || 'force'));
+        console.log('CALL_SECURE_SUBSCRIBE_RECONNECT reason=' + reason);
       } catch (_e2) {}
     }
     const callRelays = getCallSignalRelays();
     const filters = [
       {
         kinds: [GIFT_WRAP_KIND],
-        '#p': [App.publicKey],
+        '#p': [me],
         since: Math.floor(Date.now() / 1000) - TWO_DAYS_SEC - 120,
       },
     ];
     try {
       console.log('CALL_SECURE_SUBSCRIBE kind=1059');
       console.log('CALL_SECURE_SUBSCRIBE_START relays=' + callRelays.length);
+      secureSubToken += 1;
+      const token = secureSubToken;
       secureSubHealthy = false;
-      secureSub = App.pool.subscribeMany(callRelays, filters, {
+      secureSubPubkey = me;
+      const sub = App.pool.subscribeMany(callRelays, filters, {
         onevent: (ev) => {
+          if (token !== secureSubToken) return;
           if (!ev || ev.kind !== GIFT_WRAP_KIND) return;
           if (!verifyEventSig(ev)) return;
-          if (getPTag(ev) !== String(App.publicKey || '').toLowerCase()) return;
+          const p = getPTag(ev);
+          if (p !== me || p !== currentAccountPubkey()) return;
           enqueueSecureDispatch(ev);
         },
         onclose: () => {
+          if (token !== secureSubToken) return;
+          secureSubToken += 1;
+          secureSub = null;
           secureSubHealthy = false;
+          secureSubPubkey = '';
+          try { console.log('CALL_SECURE_SUBSCRIBE_DEAD'); } catch (_e) {}
+          if (currentAccountPubkey() && !App.guestMode) scheduleSecureSubRetry('closed');
         },
         oneose: () => {
+          if (token !== secureSubToken) return;
           secureSubHealthy = true;
+          secureSubRetryDelayMs = 0;
+          clearSecureSubRetry();
           console.log('CALL_SECURE_SUBSCRIBE_EOSE');
           console.log('CALL_SECURE_SUBSCRIBE_READY');
+          try { console.log('CALL_RECEIVE_READY=true'); } catch (_e0) {}
           try { reconcilePendingSecureCallSignals('subscribe-ready'); } catch (_e) {}
           try { runWebSecureCallRecovery('subscribe-ready'); } catch (_e2) {}
         },
       });
+      if (token === secureSubToken) secureSub = sub;
       for (let i = 0; i < callRelays.length; i += 1) {
         try {
           console.log('CALL_SECURE_SUBSCRIBE_RELAY_READY relay=' + relayHostname(callRelays[i]));
@@ -846,10 +952,28 @@
       }
       return secureSub;
     } catch (_err) {
+      secureSub = null;
+      secureSubPubkey = '';
       try {
         console.log('CALL_SECURE_SUBSCRIBE_ERROR relay=all reason=subscribe-failed');
       } catch (_e) {}
       console.warn('CALL_SECURE_SUBSCRIBE_FAILED');
+      scheduleSecureSubRetry('subscribe-failed');
+      return null;
+    }
+  }
+
+  /** Identity became ready, changed, or was cleared — converge the single shared receiver. */
+  function notifyCallIdentityReady(reason) {
+    try {
+      const why = String(reason || 'identity');
+      if (App.guestMode || !currentAccountPubkey()) {
+        closeSecureCallSubscription('identity-cleared:' + why);
+        clearSecureSubRetry();
+        return null;
+      }
+      return ensureSecureCallSubscription({ reason: 'identity-ready' });
+    } catch (_e) {
       return null;
     }
   }
@@ -2239,6 +2363,16 @@
       shouldDropOldSessionDisconnect,
       enqueueSecureDispatch,
       ensureSecureCallSubscription,
+      closeSecureCallSubscription,
+      isSecureCallReceiverReady,
+      notifyCallIdentityReady,
+      getSecureReceiverStateForQa: () => ({
+        open: !!secureSub,
+        healthy: secureSubHealthy,
+        boundToCurrent: !!secureSubPubkey && secureSubPubkey === currentAccountPubkey(),
+        retryPending: !!secureSubRetryTimer,
+        retryDelayMs: secureSubRetryDelayMs,
+      }),
       drainPendingSecureWrapsFromNative,
       reconcilePendingSecureCallSignals,
       startOutgoingAnswerDrainWatchdog,
@@ -2293,6 +2427,8 @@
   App.isCallSessionTerminal = isCallSessionTerminal;
   App.clearSecureOfferCache = clearSecureOfferCache;
   App.NATIVE_HANDOFF_REV = NATIVE_HANDOFF_REV;
+  App.notifyCallIdentityReady = notifyCallIdentityReady;
+  App.isCallReceiveReady = isSecureCallReceiverReady;
 
   try {
     console.log('CALL_NATIVE_HANDOFF_REV=' + NATIVE_HANDOFF_REV);
