@@ -9,17 +9,19 @@
 
   const App = window.NostrApp || (window.NostrApp = {});
 
+  /** User-centric management: search a user, open the user panel, edit role + permissions, save. */
   const TABS = Object.freeze([
-    { id: 'home', label: 'ניהול קבוצה' },
-    { id: 'details', label: 'פרטי הקבוצה' },
     { id: 'members', label: 'חברים' },
     { id: 'admins', label: 'מנהלים' },
-    { id: 'roles', label: 'תפקידים והרשאות' },
     { id: 'invites', label: 'הזמנות' },
-    { id: 'qr', label: 'QR' },
-    { id: 'settings', label: 'הגדרות' },
-    { id: 'security', label: 'אבטחה ופעילות ניהולית' },
+    { id: 'activity', label: 'פעילות ניהולית' },
   ]);
+  // Older entry points (menu 'home', deep links) land on the matching new tab; group details live in advanced settings.
+  const TAB_ALIASES = Object.freeze({ home: 'members', details: 'members', roles: 'members', settings: 'members', qr: 'invites', security: 'activity' });
+  const EDITABLE_ROLES = Object.freeze(['MEMBER', 'INVITER', 'MODERATOR', 'ADMIN', 'SENIOR_ADMIN']);
+  const INACTIVE_STATUS_TEXT = 'מערכת הניהול עדיין לא הופעלה. ניתן לצפות ולהכין הרשאות, אך לא לשמור שינויים.';
+  const SAVE_AFTER_ACTIVATION_TEXT = 'ניתן לשמור לאחר הפעלת מערכת הניהול';
+  const NO_DATA_TEXT = 'עדיין אין נתונים';
 
   const LABELS = Object.freeze({
     ADD_ADMIN: 'הוספת מנהל',
@@ -52,11 +54,16 @@
   });
 
   let shellEl = null;
-  let activeTab = 'home';
+  let activeTab = 'members';
   let selectedMember = '';
-  let rolesTarget = '';
+  let draftCaps = null;
   let lastInvite = null;
   let busy = false;
+  let searchQuery = '';
+  let searchSeq = 0;
+  let searchTimer = null;
+  let advancedOpen = false;
+  const profiles = new Map();
 
   function isV2() {
     return window.SOS_ACCESS_CONTROL_V2 === true;
@@ -152,17 +159,15 @@
     return f ? f.visibleSections() : {};
   }
 
+  /** V2 off: every tab is read-only navigation for the root. V2 on: tabs follow signed authority. */
   function tabAllowed(tabId, s) {
+    const id = TAB_ALIASES[tabId] || tabId;
+    if (!isV2()) return TABS.some((t) => t.id === id);
     const v = s || sections();
-    if (tabId === 'home') return canSeeGroupAdminMenu();
-    if (tabId === 'details') return !!v.details;
-    if (tabId === 'members') return !!v.members;
-    if (tabId === 'admins') return !!v.admins;
-    if (tabId === 'roles') return !!v.roles;
-    if (tabId === 'invites') return !!v.invites || !!v.createInvite;
-    if (tabId === 'qr') return !!v.qr;
-    if (tabId === 'settings') return !!v.settings;
-    if (tabId === 'security') return !!v.security;
+    if (id === 'members') return canSeeGroupAdminMenu();
+    if (id === 'admins') return !!v.admins;
+    if (id === 'invites') return !!v.invites || !!v.createInvite;
+    if (id === 'activity') return !!v.security;
     return false;
   }
 
@@ -213,10 +218,43 @@
       '#sosGapConfirm .gap-confirm-box{background:#1b1f2b;border-radius:12px;padding:16px;width:min(420px,90%);}' +
       '#sosGroupAdminMenuEntry{display:none;}' +
       '#sosGroupAdminMenuEntry.is-visible{display:block;}' +
+      '#sosGroupAdminShell .gap-top{padding:10px 16px 4px;display:flex;flex-direction:column;gap:8px;}' +
+      '#sosGroupAdminShell .gap-status{font-size:.86rem;line-height:1.4;background:#1d2332;border-radius:10px;padding:8px 10px;}' +
+      '#sosGroupAdminShell .gap-status.inactive{background:#2a2518;color:#ffe3a3;}' +
+      '#sosGroupAdminShell .gap-summary{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.85rem;opacity:.9;}' +
+      '#sosGroupAdminShell .gap-summary b{font-weight:600;}' +
+      '#sosGroupAdminShell .gap-search label{font-weight:600;font-size:.9rem;}' +
+      '#sosGroupAdminShell .gap-search input{width:100%;box-sizing:border-box;font-size:1rem;padding:11px 14px;border-radius:12px;margin-top:4px;}' +
+      '#sosGroupAdminShell .gap-results{display:flex;flex-direction:column;gap:6px;max-height:34vh;overflow:auto;}' +
+      '#sosGroupAdminShell .gap-user{flex-wrap:nowrap;cursor:pointer;}' +
+      '#sosGroupAdminShell .gap-user:hover,#sosGroupAdminShell .gap-user:focus{background:#222a3a;outline:none;}' +
+      '#sosGroupAdminShell .gap-user-main{flex:1;min-width:0;}' +
+      '#sosGroupAdminShell .gap-user-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}' +
+      '#sosGroupAdminShell .gap-avatar{flex:0 0 auto;width:40px;height:40px;border-radius:50%;background:#2d3550;display:inline-flex;align-items:center;justify-content:center;font-weight:700;overflow:hidden;}' +
+      '#sosGroupAdminShell .gap-avatar img{width:100%;height:100%;object-fit:cover;}' +
+      '#sosGroupAdminShell .gap-avatar.lg{width:64px;height:64px;font-size:1.4rem;}' +
+      '#sosGroupAdminShell .gap-chip{font-size:.75rem;background:#243049;border-radius:999px;padding:3px 9px;white-space:nowrap;}' +
+      '#sosGroupAdminShell .gap-chip.root{background:#5a4412;color:#ffe3a3;}' +
+      '#sosGroupAdminShell .gap-note{font-size:.84rem;opacity:.8;margin:8px 0;}' +
+      '#sosGroupAdminShell details.gap-adv{margin-top:18px;border-top:1px solid rgba(255,255,255,.08);padding-top:10px;}' +
+      '#sosGroupAdminShell details.gap-adv summary{cursor:pointer;font-weight:600;}' +
+      '#sosGroupAdminShell .gap-ref{margin:6px 0;padding-inline-start:18px;font-size:.82rem;}' +
+      '#sosGapMemberDetail{position:absolute;inset:0;z-index:3;display:flex;justify-content:flex-start;background:rgba(0,0,0,.45);}' +
+      '#sosGapMemberDetail .gap-drawer{width:min(440px,100%);height:100%;background:#161a23;display:flex;flex-direction:column;box-shadow:0 0 24px rgba(0,0,0,.5);}' +
+      '#sosGapMemberDetail .gap-drawer-body{padding:14px 16px;overflow:auto;flex:1;}' +
+      '#sosGapMemberDetail .gap-drawer-foot{padding:10px 16px 14px;border-top:1px solid rgba(255,255,255,.08);}' +
+      '#sosGapMemberDetail .gap-who{display:flex;gap:12px;align-items:center;margin-bottom:10px;}' +
+      '#sosGapMemberDetail h3{font-size:.95rem;margin:14px 0 6px;}' +
+      '#sosGapRoleOptions{display:flex;flex-wrap:wrap;gap:6px;}' +
+      '#sosGapRoleOptions button{border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:6px 12px;background:#1b1e27;color:#fff;cursor:pointer;font-size:.85rem;}' +
+      '#sosGapRoleOptions button.active{background:#3d7eff;border-color:#3d7eff;}' +
+      '#sosGapRoleOptions button[disabled]{opacity:.45;cursor:not-allowed;}' +
+      '#sosGapMemberDetail .gap-caps{grid-template-columns:1fr;}' +
       '@media (max-width:640px){#sosGroupAdminShell .gap-panel{width:100vw;max-height:100vh;height:100vh;border-radius:0;}' +
       '#sosGroupAdminShell .gap-tabs{flex-wrap:nowrap;overflow-x:auto;}' +
       '#sosGroupAdminShell .gap-tabs button{flex:0 0 auto;}' +
-      '#sosGroupAdminShell .gap-item{flex-direction:column;align-items:stretch;}' +
+      '#sosGroupAdminShell .gap-item:not(.gap-user){flex-direction:column;align-items:stretch;}' +
+      '#sosGapMemberDetail .gap-drawer{width:100%;}' +
       '#sosGroupAdminShell .gap-actions button{flex:1 1 auto;}}';
     document.head.appendChild(style);
   }
@@ -246,8 +284,9 @@
     LOGO_TOO_LARGE: 'הלוגו גדול מדי',
     BAD_LOGO_REF: 'קובץ לוגו לא נתמך',
     NO_CHANGES: 'אין שינויים לשמירה',
-    CONTROL_PLANE_NOT_ACTIVE: 'מערכת השליטה על הקבוצה עדיין לא הופעלה',
-    V2_REQUIRED: 'מערכת השליטה על הקבוצה עדיין לא הופעלה',
+    CONTROL_PLANE_NOT_ACTIVE: SAVE_AFTER_ACTIVATION_TEXT,
+    V2_REQUIRED: SAVE_AFTER_ACTIVATION_TEXT,
+    TARGET_NOT_MEMBER: 'המשתמש עדיין לא חבר בקבוצה',
     ADMIN_PIN_REQUIRED: 'נדרש קוד מנהל',
     ADMIN_2FA_SERVICE_UNAVAILABLE: 'שירות אימות המנהל אינו זמין כרגע',
     ADMIN_SESSION_EXPIRED: 'פג תוקף אימות המנהל. הזינו שוב את קוד המנהל',
@@ -278,7 +317,7 @@
 
   function errText(res) {
     const code = (res && res.code) || 'ERROR';
-    return (ERROR_TEXT[code] || 'הפעולה נכשלה') + ' (' + code + ')';
+    return ERROR_TEXT[code] || 'הפעולה נכשלה (' + code + ')';
   }
 
   // ---------------------------------------------------------------- confirm
@@ -362,9 +401,8 @@
     if (!shellEl) return;
     const f = FGA();
     const info = groupInfo();
-    const a = f ? f.myAuthority() : null;
     const title = shellEl.querySelector('#sosGapTitle');
-    if (title) title.textContent = 'ניהול קבוצה — ' + info.displayName;
+    if (title) title.textContent = 'ניהול הקבוצה';
     const logo = shellEl.querySelector('#sosGapLogo');
     const src = safeLogoSrc(info.logoRef);
     if (logo) {
@@ -372,67 +410,464 @@
       if (src) logo.src = src;
     }
     const role = shellEl.querySelector('#sosGapRole');
-    if (role) role.textContent = a && a.verified ? f.roleLabel(a.role) : 'לא מאומת';
-    const s = sections();
+    if (role) {
+      if (!isV2()) role.textContent = f.roleLabel('ROOT');
+      else {
+        const a = f.myAuthority();
+        role.textContent = a.verified ? f.roleLabel(a.role) : 'לא מאומת';
+      }
+    }
+    const s = isV2() ? sections() : null;
     shellEl.querySelectorAll('#sosGapTabs button').forEach((b) => {
       const allowed = tabAllowed(b.dataset.tab, s);
       b.hidden = !allowed;
       b.style.display = allowed ? '' : 'none';
       b.classList.toggle('active', b.dataset.tab === activeTab);
+      b.setAttribute('aria-selected', b.dataset.tab === activeTab ? 'true' : 'false');
     });
   }
 
-  function renderHome(body) {
-    const f = FGA();
-    const info = groupInfo();
-    if (needsBootstrap()) {
-      body.innerHTML =
-        '<p>ניהול הקבוצה הראשית טרם הופעל. אתם המנהל הראשי המוגדר.</p>' +
-        '<div class="gap-actions"><button type="button" class="gap-btn primary" data-act="bootstrap">הפעלת ניהול הקבוצה</button></div>';
-      return;
-    }
-    const a = f.myAuthority();
-    const dir = f.directory('');
-    const active = dir.filter((r) => r.status === 'ACTIVE').length;
-    const adminsN = f.admins().length;
-    const invitesN = f.listMyInvites().filter((r) => r.status === 'ACTIVE').length;
-    body.innerHTML =
-      '<p><strong>' + escapeHtml(info.displayName) + '</strong></p>' +
-      (info.description ? '<p class="gap-sub">' + escapeHtml(info.description) + '</p>' : '') +
-      '<div class="gap-cards">' +
-      '<div class="gap-card">התפקיד שלי<b>' + escapeHtml(f.roleLabel(a.role)) + '</b></div>' +
-      '<div class="gap-card">חברים פעילים<b>' + active + '</b></div>' +
-      '<div class="gap-card">מנהלים<b>' + adminsN + '</b></div>' +
-      '<div class="gap-card">הזמנות פעילות שלי<b>' + invitesN + '</b></div>' +
-      '</div>' +
-      '<p class="gap-sub">ההרשאות שלי: ' +
-      escapeHtml(a.isRoot ? 'כל ההרשאות (מנהל ראשי)' : a.caps.map((c) => f.CAP_LABELS[c] || c).join(', ') || '—') +
-      '</p>';
+  // ---------------------------------------------------------------- users (profiles come from the shared profile cache)
+
+  const USER_STATUS = Object.freeze({
+    ROOT: 'בעלים של הקבוצה',
+    ACTIVE: 'חבר פעיל',
+    REMOVED: 'הוסר מהקבוצה',
+    BLOCKED: 'חסום',
+    CONFLICT: 'בבדיקה',
+  });
+
+  const ACTION_LABELS = Object.freeze({
+    BOOTSTRAP: 'הפעלת ניהול',
+    GRANT_CAPABILITY: 'הענקת הרשאה',
+    REVOKE_CAPABILITY: 'הסרת הרשאה',
+    SET_INVITE_POLICY: 'שינוי מדיניות הזמנות',
+    SET_GROUP_METADATA: 'עריכת פרטי הקבוצה',
+    BLOCKLIST_CHANGED: 'שינוי רשימת חסימה',
+    MEMBER_ACTIVE: 'חבר אושר',
+    MEMBER_REMOVED: 'חבר הוסר',
+    MEMBER_BLOCKED: 'חבר נחסם',
+  });
+
+  function configuredRoot() {
+    const g = GCS();
+    const roots = g && typeof g.configuredRootPubkeys === 'function' ? g.configuredRootPubkeys() : [];
+    const r = String(roots[0] || '').toLowerCase();
+    return /^[0-9a-f]{64}$/.test(r) ? r : '';
   }
 
-  function renderDetails(body) {
-    const info = groupInfo();
+  /** A pasted hex public key or npub selects that user directly. */
+  function queryPubkey(q) {
+    const t = String(q || '').trim();
+    if (/^[0-9a-f]{64}$/i.test(t)) return t.toLowerCase();
+    if (/^npub1[02-9ac-hj-np-z]{20,}$/i.test(t)) {
+      try {
+        const nip19 = window.NostrTools && window.NostrTools.nip19;
+        const d = nip19 ? nip19.decode(t) : null;
+        if (d && d.type === 'npub' && /^[0-9a-f]{64}$/.test(String(d.data))) return String(d.data);
+      } catch (_e) {}
+    }
+    return '';
+  }
+
+  function profileOf(pk, row) {
+    const r = row || {};
+    const p = profiles.get(pk) || {};
+    const c = App.profileCache instanceof Map ? App.profileCache.get(pk) : null;
+    const cached = String((c && (c.name || c.display_name)) || '').trim();
+    // follow-service caches a placeholder name ("משתמש <8 hex>") until the real kind-0 profile arrives.
+    const placeholder = cached === 'משתמש ' + String(pk).slice(0, 8);
+    return {
+      name: String(r.displayName || (!placeholder && cached) || p.name || cached || '').trim(),
+      picture: safeLogoSrc(r.avatar || (c && c.picture) || p.picture || ''),
+    };
+  }
+
+  function ensureProfile(pk) {
+    if (!/^[0-9a-f]{64}$/.test(pk) || profiles.has(pk) || typeof App.fetchProfile !== 'function') return;
+    if (App.profileCache instanceof Map && App.profileCache.has(pk)) return;
+    profiles.set(pk, {});
+    Promise.resolve()
+      .then(() => App.fetchProfile(pk))
+      .then((p) => {
+        if (!p) return;
+        profiles.set(pk, { name: String(p.name || p.display_name || ''), picture: String(p.picture || '') });
+        refreshProfileNodes(pk);
+      })
+      .catch(() => {});
+  }
+
+  function displayName(pk, prof) {
+    if (prof && prof.name) return prof.name;
+    return pk && pk === configuredRoot() ? 'המנהל הראשי' : 'משתמש ללא שם';
+  }
+
+  function avatarHtml(pk, prof, large) {
+    const initial = escapeHtml(((prof && prof.name) || '').trim().charAt(0) || '?');
+    return (
+      '<span class="gap-avatar' + (large ? ' lg' : '') + '" data-avatar-pk="' + escapeHtml(pk) + '" aria-hidden="true">' +
+      (prof && prof.picture ? '<img alt="" loading="lazy" referrerpolicy="no-referrer" src="' + escapeHtml(prof.picture) + '">' : initial) +
+      '</span>'
+    );
+  }
+
+  function refreshProfileNodes(pk) {
+    if (!shellEl || !/^[0-9a-f]{64}$/.test(pk)) return;
+    const prof = profileOf(pk);
+    shellEl.querySelectorAll('[data-name-pk="' + pk + '"]').forEach((el) => {
+      el.textContent = displayName(pk, prof);
+    });
+    shellEl.querySelectorAll('[data-avatar-pk="' + pk + '"]').forEach((el) => {
+      el.outerHTML = avatarHtml(pk, prof, el.classList.contains('lg'));
+    });
+  }
+
+  /** Role + status of any user from signed state (V2 on) or the configured root only (V2 off). */
+  function userView(pk, rowIn) {
+    const f = FGA();
+    const isRoot = !!pk && pk === configuredRoot();
+    const row = rowIn || (isV2() ? f.directory('').find((r) => r.pubkey === pk) : null);
+    const a = f.authorityFor(pk);
+    const status = isRoot ? 'ROOT' : row ? row.status : a.membership;
+    const role = isRoot ? 'ROOT' : a.role;
+    return {
+      pubkey: pk,
+      isRoot,
+      role,
+      roleLabel: f.roleLabel(role),
+      assigned: isRoot ? [] : a.assigned.slice(),
+      status,
+      statusLabel: USER_STATUS[status] || (isV2() ? 'לא חבר בקבוצה' : 'עדיין אין נתוני חברות'),
+      member: isRoot || status === 'ACTIVE',
+      profile: profileOf(pk, row),
+    };
+  }
+
+  function byName(a, b) {
+    return displayName(a.pubkey, a.profile).localeCompare(displayName(b.pubkey, b.profile), 'he');
+  }
+
+  function userRowHtml(u, opts) {
+    const o = opts || {};
+    ensureProfile(u.pubkey);
+    const chip = u.isRoot
+      ? '<span class="gap-chip root">' + escapeHtml(u.roleLabel) + '</span><span class="gap-sub">מוגן</span>'
+      : '<span class="gap-chip">' + escapeHtml(u.member ? u.roleLabel : u.statusLabel) + '</span>';
+    return (
+      '<div class="gap-item gap-user' + (u.pubkey === selectedMember ? ' sel' : '') + '"' +
+      (o.rootCard ? ' id="sosGapRootCard" data-root="1"' : '') +
+      (o.admin ? ' data-admin="' + escapeHtml(u.pubkey) + '"' : '') +
+      ' data-act="select-member" data-pk="' + escapeHtml(u.pubkey) + '" role="button" tabindex="0">' +
+      avatarHtml(u.pubkey, u.profile) +
+      '<div class="gap-user-main"><div class="gap-user-name" data-name-pk="' + escapeHtml(u.pubkey) + '">' +
+      escapeHtml(displayName(u.pubkey, u.profile)) + '</div>' +
+      '<div class="gap-sub gap-mono">' + escapeHtml(shortPk(u.pubkey)) + '</div></div>' +
+      chip +
+      (o.extra || '') +
+      '<button type="button" class="gap-btn" tabindex="-1">ניהול</button></div>'
+    );
+  }
+
+  // ---------------------------------------------------------------- top: status, summary, search
+
+  function summaryCounts() {
+    const f = FGA();
+    if (!isV2()) return { members: null, admins: configuredRoot() ? 1 : null, invites: null };
+    const dir = f.directory('');
+    const active = dir.filter((r) => r.status === 'ACTIVE').length;
+    const invites = f.listMyInvites().filter((r) => r.status === 'ACTIVE').length;
+    return { members: active || null, admins: f.admins().length || null, invites };
+  }
+
+  function renderTop() {
+    const top = document.getElementById('sosGapTop');
+    if (!top) return;
+    if (!document.getElementById('sosGapUserSearch')) {
+      top.innerHTML =
+        '<div class="gap-status" id="sosGapControlStatus" role="status"></div>' +
+        '<div class="gap-summary" id="sosGapSummary"></div>' +
+        '<div class="gap-search"><label for="sosGapUserSearch">חיפוש משתמש</label>' +
+        '<input id="sosGapUserSearch" type="search" autocomplete="off" maxlength="120" placeholder="חפש לפי שם או מזהה משתמש"></div>' +
+        '<div class="gap-results" id="sosGapSearchResults" aria-live="polite"></div>';
+      const input = document.getElementById('sosGapUserSearch');
+      input.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => doSearch(input.value), 300);
+      });
+    }
+    const st = document.getElementById('sosGapControlStatus');
+    st.setAttribute('data-status', controlStatus());
+    st.className = 'gap-status' + (isV2() ? '' : ' inactive');
+    if (!isV2()) st.textContent = INACTIVE_STATUS_TEXT;
+    else if (needsBootstrap()) {
+      st.innerHTML =
+        'ניהול הקבוצה עדיין לא הופעל. אתם המנהל הראשי המוגדר. ' +
+        '<button type="button" class="gap-btn primary" data-act="bootstrap" data-mutation="1">הפעלת ניהול הקבוצה</button>';
+    } else st.textContent = 'מערכת הניהול פעילה. כל שינוי נשמר בחתימה ומאושר בקוד מנהל.';
+    const c = summaryCounts();
+    const metric = (label, id, v) => '<span>' + label + ': <b id="' + id + '">' + escapeHtml(v == null ? NO_DATA_TEXT : String(v)) + '</b></span>';
+    document.getElementById('sosGapSummary').innerHTML =
+      metric('חברים', 'sosGapMemberCount', c.members) + metric('מנהלים', 'sosGapAdminCount', c.admins) + metric('הזמנות פעילות', 'sosGapInviteCount', c.invites);
+  }
+
+  function localMatches(q) {
+    const f = FGA();
+    const out = [];
+    const seen = new Set();
+    const push = (u) => {
+      if (!u || !u.pubkey || seen.has(u.pubkey)) return;
+      seen.add(u.pubkey);
+      out.push(u);
+    };
+    const direct = queryPubkey(q);
+    if (direct) push(userView(direct));
+    const lq = q.toLowerCase();
+    const root = configuredRoot();
+    if (root) {
+      const ru = userView(root);
+      if (root.indexOf(lq) !== -1 || displayName(root, ru.profile).toLowerCase().indexOf(lq) !== -1) push(ru);
+    }
+    if (isV2()) f.directory(q).forEach((r) => push(userView(r.pubkey, r)));
+    return { out, push };
+  }
+
+  /** Same discovery as the chat "new conversation" search (profile cache + relay profile search). */
+  async function doSearch(raw) {
+    const seq = ++searchSeq;
+    searchQuery = String(raw || '').trim().slice(0, 120);
+    const box0 = document.getElementById('sosGapSearchResults');
+    if (!box0) return;
+    if (!searchQuery) {
+      box0.innerHTML = '';
+      return;
+    }
+    const m = localMatches(searchQuery);
+    box0.innerHTML = m.out.map((u) => userRowHtml(u)).join('') + '<div class="gap-sub">מחפש…</div>';
+    let remote = [];
+    if (searchQuery.length >= 2 && typeof App.searchProfilesByName === 'function') {
+      try {
+        remote = (await App.searchProfilesByName(searchQuery, { limit: 20 })) || [];
+      } catch (_e) {
+        remote = [];
+      }
+    }
+    const box = document.getElementById('sosGapSearchResults');
+    if (seq !== searchSeq || !box) return;
+    remote.forEach((p) => {
+      const pk = String((p && p.pubkey) || '').toLowerCase();
+      if (!/^[0-9a-f]{64}$/.test(pk)) return;
+      if (!(profiles.get(pk) || {}).name) profiles.set(pk, { name: String(p.name || ''), picture: String(p.picture || '') });
+      m.push(userView(pk));
+    });
+    box.innerHTML = m.out.map((u) => userRowHtml(u)).join('') || '<div class="gap-sub">לא נמצאו משתמשים</div>';
+  }
+
+  // ---------------------------------------------------------------- tabs
+
+  function renderMembers(body) {
+    const f = FGA();
+    const root = configuredRoot();
+    if (!isV2()) {
+      body.innerHTML =
+        '<div class="gap-list" id="sosGapMemberList">' + (root ? userRowHtml(userView(root), { rootCard: true }) : '') + '</div>' +
+        '<p class="gap-note">רשימת החברים המלאה תוצג לאחר הפעלת מערכת הניהול. בינתיים אפשר לחפש כל משתמש בשדה החיפוש ולפתוח את כרטיס הניהול שלו.</p>';
+      return;
+    }
     const s = sections();
-    const src = safeLogoSrc(info.logoRef);
+    const rows = f.directory('').map((r) => userView(r.pubkey, r));
+    const rootRow = rows.find((u) => u.isRoot) || (root ? userView(root) : null);
+    const others = rows.filter((u) => !u.isRoot).sort(byName);
     let html =
+      '<div class="gap-list" id="sosGapMemberList">' +
+      (rootRow ? userRowHtml(rootRow, { rootCard: true }) : '') +
+      others.map((u) => userRowHtml(u)).join('') +
+      '</div>';
+    if (!others.length) html += '<p class="gap-note">אין עדיין חברים נוספים להצגה.</p>';
+    if (s.removeMembers) {
+      html +=
+        '<h3 style="margin-top:16px">בקשות הצטרפות</h3>' +
+        '<div class="gap-actions"><button type="button" class="gap-btn" data-act="load-joins">רענון בקשות</button></div>' +
+        '<div class="gap-list" id="sosGapJoinList"></div>';
+    }
+    body.innerHTML = html;
+  }
+
+  async function loadJoins() {
+    const f = FGA();
+    const list = document.getElementById('sosGapJoinList');
+    if (!list) return;
+    list.innerHTML = '<div class="gap-sub">טוען…</div>';
+    const res = await f.listPendingJoins();
+    if (!res.ok) {
+      list.innerHTML = '<div class="gap-sub">' + escapeHtml(errText(res)) + '</div>';
+      return;
+    }
+    list.innerHTML =
+      res.rows
+        .map((r) => {
+          const pk = String(r.memberPubkey || '');
+          const prof = profileOf(pk);
+          return (
+            '<div class="gap-item">' + avatarHtml(pk, prof) +
+            '<div class="gap-user-main"><div class="gap-user-name">' + escapeHtml(displayName(pk, prof)) + '</div><div class="gap-sub gap-mono">' + escapeHtml(shortPk(pk)) + '</div></div>' +
+            '<button type="button" class="gap-btn primary" data-act="approve-join" data-mutation="1" data-pk="' + escapeHtml(pk) + '" data-invite="' + escapeHtml(r.inviteEventId) + '">' + LABELS.APPROVE_JOIN + '</button></div>'
+          );
+        })
+        .join('') || '<div class="gap-sub">אין בקשות ממתינות</div>';
+  }
+
+  function renderAdmins(body) {
+    const f = FGA();
+    const root = configuredRoot();
+    const s = isV2() ? sections() : {};
+    const me = actor();
+    const list = isV2() ? f.admins().map((r) => userView(r.pubkey, r)) : [];
+    if (root && !list.some((u) => u.isRoot)) list.unshift(userView(root));
+    list.sort((a, b) => (b.isRoot ? 1 : 0) - (a.isRoot ? 1 : 0) || byName(a, b));
+    body.innerHTML =
+      '<div class="gap-list" id="sosGapAdminList">' +
+      list
+        .map((u) =>
+          userRowHtml(u, {
+            admin: true,
+            extra:
+              s.manageAdmins && !u.isRoot && u.pubkey !== me
+                ? '<button type="button" class="gap-btn danger" data-act="demote" data-mutation="1" data-pk="' + escapeHtml(u.pubkey) + '">' + LABELS.REMOVE_ADMIN + '</button>'
+                : '',
+          })
+        )
+        .join('') +
+      '</div>' +
+      '<p class="gap-note">כדי למנות מנהל חדש: חפשו את המשתמש, פתחו את כרטיס הניהול שלו ובחרו תפקיד.</p>';
+  }
+
+  function renderInvites(body) {
+    const f = FGA();
+    if (!isV2()) {
+      body.innerHTML =
+        '<div class="gap-actions"><button type="button" class="gap-btn primary" data-mutation="1" disabled>' + LABELS.CREATE_INVITE + '</button></div>' +
+        '<p class="gap-note">ניתן ליצור הזמנות מכאן לאחר הפעלת מערכת הניהול. בינתיים אפשר להזמין חברים דרך כפתור ההזמנה בתפריט הפרופיל.</p>';
+      return;
+    }
+    const s = sections();
+    const rows = f.listMyInvites();
+    let html =
+      '<div class="gap-actions"><button type="button" class="gap-btn primary" data-act="create-invite" data-mutation="1"' + (s.createInvite ? '' : ' disabled') + '>' + LABELS.CREATE_INVITE + '</button></div>';
+    if (lastInvite) {
+      html +=
+        '<div class="gap-row"><label for="sosGapInviteUrl">קישור הזמנה</label><input readonly id="sosGapInviteUrl" value="' + escapeHtml(lastInvite.inviteUrl) + '"></div>' +
+        '<div class="gap-actions"><button type="button" class="gap-btn" data-act="copy-invite">' + LABELS.COPY_LINK + '</button></div>' +
+        '<canvas id="sosGapQrCanvas" width="240" height="240" aria-label="קוד QR להזמנה"></canvas>' +
+        '<p class="gap-note">שלחו את הקישור או את קוד ה-QR למשתמש. הקישור כולל קוד הזמנה בלבד.</p>';
+    }
+    html +=
+      '<div class="gap-list" id="sosGapInviteList">' +
+      rows
+        .map(
+          (r, i) =>
+            '<div class="gap-item"><div><div>הזמנה ' + escapeHtml(r.code) + '</div><div class="gap-sub">' + (r.status === 'ACTIVE' ? 'פעילה' : 'בוטלה') + '</div></div>' +
+            (r.status === 'ACTIVE' && s.revokeInvites
+              ? '<button type="button" class="gap-btn danger" data-act="revoke-invite" data-mutation="1" data-idx="' + i + '">' + LABELS.REVOKE_INVITE + '</button>'
+              : '') +
+            '</div>'
+        )
+        .join('') +
+      '</div>' +
+      (rows.length ? '' : '<p class="gap-note">אין עדיין הזמנות.</p>');
+    body.innerHTML = html;
+    if (lastInvite) {
+      f.renderInviteQr(document.getElementById('sosGapQrCanvas'), lastInvite.inviteUrl).then((r) => {
+        if (!r.ok) setMsg(errText(r), 'err');
+      });
+    }
+  }
+
+  function renderActivity(body) {
+    const f = FGA();
+    const rows = isV2() ? f.auditLog().slice().reverse().slice(0, 200) : [];
+    if (!rows.length) {
+      body.innerHTML = '<p class="gap-note">עדיין אין פעילות ניהולית.</p>';
+      return;
+    }
+    const who = (pk) => (pk ? displayName(pk, profileOf(pk)) : '');
+    body.innerHTML =
+      '<div class="gap-list" id="sosGapAudit">' +
+      rows
+        .map((r) => {
+          const detail = f.CAP_LABELS[r.detail] || POLICY_LABELS[r.detail] || '';
+          return (
+            '<div class="gap-item"><div><div>' + escapeHtml(ACTION_LABELS[r.action] || 'פעולת ניהול') + (detail ? ' · ' + escapeHtml(detail) : '') + '</div>' +
+            '<div class="gap-sub">' + escapeHtml(who(r.actor)) + (r.target ? ' ← ' + escapeHtml(who(r.target)) : '') + '</div></div>' +
+            '<div class="gap-sub">' + escapeHtml(r.createdAt ? new Date(r.createdAt * 1000).toLocaleString('he-IL') : '') + '</div></div>'
+          );
+        })
+        .join('') +
+      '</div>';
+  }
+
+  // ---------------------------------------------------------------- advanced (technical / reference, collapsed)
+
+  function advancedHtml() {
+    const f = FGA();
+    const g = GCS();
+    const info = groupInfo();
+    const s = isV2() ? sections() : {};
+    const src = safeLogoSrc(info.logoRef);
+    const n = App.FirstGroupNetworkAuthority;
+    let html =
+      '<details class="gap-adv" id="sosGapAdvanced"' + (advancedOpen ? ' open' : '') + '><summary>הגדרות מתקדמות</summary>' +
+      '<h3>פרטי הקבוצה</h3>' +
       '<div class="gap-row"><label>שם הקבוצה</label><div id="sosGapViewName">' + escapeHtml(info.displayName) + '</div></div>' +
-      '<div class="gap-row"><label>תיאור</label><div id="sosGapViewDesc">' + escapeHtml(info.description || '—') + '</div></div>' +
-      '<div class="gap-row"><label>לוגו</label><div>' +
-      (src ? '<img id="sosGapViewLogo" alt="לוגו הקבוצה" style="max-height:64px;border-radius:8px" src="' + escapeHtml(src) + '">' : '—') +
-      '</div></div>' +
-      '<div class="gap-row"><label>מזהה קבוצה</label><div class="gap-mono">israel-network</div></div>' +
-      '<div class="gap-row"><label>מנהל ראשי</label><div class="gap-mono">' + escapeHtml(shortPk(info.root)) + '</div></div>';
+      '<div class="gap-row"><label>תיאור</label><div id="sosGapViewDesc">' + escapeHtml(info.description || 'אין תיאור') + '</div></div>' +
+      '<div class="gap-row"><label>לוגו הקבוצה</label><div>' +
+      (src ? '<img id="sosGapViewLogo" alt="לוגו הקבוצה" style="max-height:64px;border-radius:8px" src="' + escapeHtml(src) + '">' : 'אין לוגו') +
+      '</div></div>';
     if (s.editDetails) {
       html +=
-        '<hr><div class="gap-row"><label for="sosGapName">עריכת שם</label><input id="sosGapName" maxlength="80" value="' + escapeHtml(info.displayName) + '"></div>' +
+        '<div class="gap-row"><label for="sosGapName">עריכת שם</label><input id="sosGapName" maxlength="80" value="' + escapeHtml(info.displayName) + '"></div>' +
         '<div class="gap-row"><label for="sosGapDesc">עריכת תיאור</label><textarea id="sosGapDesc" rows="3" maxlength="280">' + escapeHtml(info.description) + '</textarea></div>' +
         '<div class="gap-row"><label for="sosGapLogoFile">החלפת לוגו</label><input id="sosGapLogoFile" type="file" accept="image/png,image/jpeg,image/webp">' +
         '<div id="sosGapLogoPreview"></div></div>' +
-        '<div class="gap-actions"><button type="button" class="gap-btn primary" data-act="save-details">' + LABELS.SAVE_DETAILS + '</button>' +
-        (src ? '<button type="button" class="gap-btn" data-act="remove-logo">הסרת לוגו</button>' : '') +
+        '<div class="gap-actions"><button type="button" class="gap-btn primary" data-act="save-details" data-mutation="1">' + LABELS.SAVE_DETAILS + '</button>' +
+        (src ? '<button type="button" class="gap-btn" data-act="remove-logo" data-mutation="1">הסרת לוגו</button>' : '') +
         '</div>';
     }
-    body.innerHTML = html;
+    if (s.settings) {
+      html +=
+        '<div class="gap-row"><label for="sosGapPolicy">מי יכול ליצור הזמנות</label><select id="sosGapPolicy">' +
+        Object.keys(POLICY_LABELS)
+          .map((k) => '<option value="' + k + '"' + (k === info.invitePolicy ? ' selected' : '') + '>' + escapeHtml(POLICY_LABELS[k]) + '</option>')
+          .join('') +
+        '</select></div>' +
+        '<div class="gap-actions"><button type="button" class="gap-btn primary" data-act="save-policy" data-mutation="1">שמירת הגדרות</button></div>';
+    }
+    html +=
+      '<h3>מידע טכני</h3><ul class="gap-ref">' +
+      '<li>מזהה קבוצה: <span class="gap-mono">' + escapeHtml(f.FIRST_GROUP_ID) + '</span></li>' +
+      '<li>מצב מערכת הניהול: <span class="gap-mono" id="sosGapControlCode">' + escapeHtml(controlStatus()) + '</span></li>' +
+      '<li>מצב שרשרת הבקרה: <span class="gap-mono">' + escapeHtml(g && typeof g.getStatus === 'function' ? String(g.getStatus(f.FIRST_GROUP_ID) || '') : '') + '</span></li>' +
+      '<li>גרסת בקרה: ' + escapeHtml(info.epoch != null ? String(info.epoch) : NO_DATA_TEXT) + '</li>' +
+      '<li>סנכרון רשת: ' + (n && typeof n.isSynced === 'function' && n.isSynced() ? 'מסונכרן' : 'לא מסונכרן') + '</li>' +
+      '<li>מפתח ציבורי של המנהל הראשי: <span class="gap-mono">' + escapeHtml(configuredRoot()) + '</span></li></ul>' +
+      '<h3>תפקידים</h3><table><thead><tr><th>תפקיד</th><th>הרשאות</th></tr></thead><tbody>' +
+      f.ROLES.map(
+        (r) =>
+          '<tr><td>' + escapeHtml(r.label) + '</td><td>' +
+          escapeHtml(r.id === 'ROOT' ? 'כל ההרשאות (לא ניתן להעברה)' : r.preset ? r.preset.map((c) => f.CAP_LABELS[c]).join(', ') : r.id === 'MEMBER' ? 'חברות פעילה' : 'שילוב הרשאות') +
+          '</td></tr>'
+      ).join('') +
+      '</tbody></table>' +
+      '<h3>הרשאות</h3><ul class="gap-ref" id="sosGapCapsCatalog">' +
+      Object.keys(f.CAP_LABELS)
+        .map((c) => '<li data-cap="' + c + '">' + escapeHtml(f.CAP_LABELS[c]) + ' <span class="gap-mono gap-sub">' + c + '</span></li>')
+        .join('') +
+      '</ul></details>';
+    return html;
+  }
+
+  function bindAdvanced() {
+    const d = document.getElementById('sosGapAdvanced');
+    if (d) d.addEventListener('toggle', () => (advancedOpen = d.open));
     const file = document.getElementById('sosGapLogoFile');
     if (file) {
       file.addEventListener('change', async () => {
@@ -487,337 +922,168 @@
     });
   }
 
-  function memberRowHtml(r, selectable) {
-    return (
-      '<div class="gap-item' + (r.pubkey === selectedMember ? ' sel' : '') + '" data-member="' + escapeHtml(r.pubkey) + '">' +
-      '<div><div>' + escapeHtml(r.displayName || shortPk(r.pubkey)) + '</div>' +
-      '<div class="gap-sub gap-mono">' + escapeHtml(shortPk(r.pubkey)) + '</div></div>' +
-      '<div class="gap-sub">' + escapeHtml(r.roleLabel) + ' · ' + escapeHtml(STATUS_LABELS[r.status] || r.status) + '</div>' +
-      (selectable ? '<button type="button" class="gap-btn" data-act="select-member" data-pk="' + escapeHtml(r.pubkey) + '">פרטים</button>' : '') +
-      '</div>'
-    );
+  // ---------------------------------------------------------------- user panel (role + permissions of one user)
+
+  /** Same derivation as FirstGroupAdmin roles: a role is a view of the canonical capability set. */
+  function roleForCaps(caps) {
+    const c = caps || [];
+    if (c.indexOf('MANAGE_ADMINS') !== -1 || c.indexOf('MANAGE_PERMISSIONS') !== -1) return 'SENIOR_ADMIN';
+    if (c.indexOf('MANAGE_MEMBERS') !== -1) return 'ADMIN';
+    if (c.indexOf('MODERATE_CONTENT') !== -1) return 'MODERATOR';
+    if (c.indexOf('INVITE_USERS') !== -1 && c.length === 1) return 'INVITER';
+    if (c.length) return 'DELEGATE';
+    return 'MEMBER';
   }
 
-  function renderMembers(body) {
-    const f = FGA();
-    const s = sections();
-    const q = (document.getElementById('sosGapSearch') || {}).value || '';
-    const rows = f.directory(q);
-    let html =
-      '<div class="gap-row"><label for="sosGapSearch">חיפוש חבר</label><input id="sosGapSearch" placeholder="שם או מפתח ציבורי" value="' + escapeHtml(q) + '"></div>' +
-      '<div class="gap-list" id="sosGapMemberList">' + (rows.map((r) => memberRowHtml(r, true)).join('') || '<div class="gap-sub">אין חברים להצגה</div>') + '</div>';
-    const sel = rows.find((r) => r.pubkey === selectedMember) || f.directory('').find((r) => r.pubkey === selectedMember);
-    if (sel) {
-      html +=
-        '<div class="gap-card" id="sosGapMemberDetail" style="margin-top:12px">' +
-        '<div><strong>' + escapeHtml(sel.displayName || 'חבר') + '</strong></div>' +
-        '<div class="gap-mono">' + escapeHtml(sel.pubkey) + '</div>' +
-        '<div class="gap-sub">תפקיד: ' + escapeHtml(sel.roleLabel) + ' · מצב: ' + escapeHtml(STATUS_LABELS[sel.status] || sel.status) + '</div>' +
-        '<div class="gap-sub">הרשאות: ' + escapeHtml(sel.isRoot ? 'כל ההרשאות' : sel.caps.map((c) => f.CAP_LABELS[c] || c).join(', ') || '—') + '</div>' +
-        '<div class="gap-actions">' +
-        (s.removeMembers && !sel.isRoot && sel.status === 'ACTIVE' && sel.pubkey !== actor()
-          ? '<button type="button" class="gap-btn danger" data-act="remove-member" data-pk="' + escapeHtml(sel.pubkey) + '">' + LABELS.REMOVE_MEMBER + '</button>'
-          : '') +
-        (s.roles && !sel.isRoot && sel.status === 'ACTIVE'
-          ? '<button type="button" class="gap-btn" data-act="edit-perms" data-pk="' + escapeHtml(sel.pubkey) + '">עריכת הרשאות</button>'
-          : '') +
-        '</div></div>';
-    }
-    if (s.removeMembers) {
-      html +=
-        '<h3 style="margin-top:16px">בקשות הצטרפות</h3>' +
-        '<div class="gap-actions"><button type="button" class="gap-btn" data-act="load-joins">רענון בקשות</button></div>' +
-        '<div class="gap-list" id="sosGapJoinList"></div>';
-    }
-    body.innerHTML = html;
-    const search = document.getElementById('sosGapSearch');
-    if (search) {
-      search.addEventListener('input', () => {
-        const list = document.getElementById('sosGapMemberList');
-        if (list) list.innerHTML = f.directory(search.value).map((r) => memberRowHtml(r, true)).join('') || '<div class="gap-sub">אין תוצאות</div>';
-      });
-    }
+  function rolePreset(id) {
+    const r = FGA().ROLES.find((x) => x.id === id);
+    return r && r.preset ? r.preset.slice() : [];
   }
 
-  async function loadJoins() {
+  /** V2 off: preparation only (all toggles usable, save disabled). V2 on: what the signed policy lets me grant. */
+  function grantableFor(pk) {
     const f = FGA();
-    const list = document.getElementById('sosGapJoinList');
-    if (!list) return;
-    list.innerHTML = '<div class="gap-sub">טוען…</div>';
-    const res = await f.listPendingJoins();
-    if (!res.ok) {
-      list.innerHTML = '<div class="gap-sub">' + escapeHtml(errText(res)) + '</div>';
+    if (!isV2()) return Object.keys(f.CAP_LABELS);
+    return f.grantableCapsFor(f.myAuthority(), pk);
+  }
+
+  function roleAllowed(id, current, grantable) {
+    const next = rolePreset(id);
+    const changed = next.filter((c) => current.indexOf(c) === -1).concat(current.filter((c) => next.indexOf(c) === -1));
+    return changed.every((c) => grantable.indexOf(c) !== -1);
+  }
+
+  function updateRoleHighlight() {
+    const role = roleForCaps(draftCaps || []);
+    document.querySelectorAll('#sosGapRoleOptions [data-role]').forEach((b) => {
+      const on = b.getAttribute('data-role') === role;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+  }
+
+  function renderDrawer() {
+    if (!shellEl) return;
+    let el = document.getElementById('sosGapMemberDetail');
+    if (!selectedMember) {
+      if (el) el.remove();
       return;
     }
-    list.innerHTML =
-      res.rows
-        .map(
-          (r) =>
-            '<div class="gap-item"><div class="gap-mono">' + escapeHtml(shortPk(r.memberPubkey)) + '</div>' +
-            '<button type="button" class="gap-btn primary" data-act="approve-join" data-pk="' + escapeHtml(r.memberPubkey) + '" data-invite="' + escapeHtml(r.inviteEventId) + '">' + LABELS.APPROVE_JOIN + '</button></div>'
-        )
-        .join('') || '<div class="gap-sub">אין בקשות ממתינות</div>';
-  }
-
-  function renderAdmins(body) {
     const f = FGA();
-    const s = sections();
-    const admins = f.admins();
-    const candidates = f.directory('').filter((r) => !r.isRoot && r.status === 'ACTIVE' && r.caps.indexOf('MANAGE_MEMBERS') === -1 && r.pubkey !== actor());
-    let html =
-      '<div class="gap-list" id="sosGapAdminList">' +
-      admins
-        .map(
-          (r) =>
-            '<div class="gap-item" data-admin="' + escapeHtml(r.pubkey) + '"><div><div>' + escapeHtml(r.displayName || shortPk(r.pubkey)) + '</div>' +
-            '<div class="gap-sub">' + escapeHtml(r.roleLabel) + '</div></div>' +
-            (s.manageAdmins && !r.isRoot && r.pubkey !== actor()
-              ? '<button type="button" class="gap-btn danger" data-act="demote" data-pk="' + escapeHtml(r.pubkey) + '">' + LABELS.REMOVE_ADMIN + '</button>'
-              : r.isRoot
-                ? '<span class="gap-sub">מוגן</span>'
-                : '') +
-            '</div>'
-        )
-        .join('') +
-      '</div>';
-    if (s.manageAdmins) {
-      html +=
-        '<div class="gap-row" style="margin-top:12px"><label for="sosGapPromoteSel">בחירת חבר לקידום</label><select id="sosGapPromoteSel">' +
-        candidates.map((r) => '<option value="' + escapeHtml(r.pubkey) + '">' + escapeHtml((r.displayName || shortPk(r.pubkey)) + ' · ' + r.roleLabel) + '</option>').join('') +
-        '</select></div>' +
-        '<div class="gap-actions"><button type="button" class="gap-btn primary" data-act="promote"' + (candidates.length ? '' : ' disabled') + '>' + LABELS.ADD_ADMIN + '</button></div>';
+    const u = userView(selectedMember);
+    const s = isV2() ? sections() : {};
+    const me = actor();
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'sosGapMemberDetail';
+      el.setAttribute('role', 'dialog');
+      el.setAttribute('aria-modal', 'true');
+      el.setAttribute('aria-labelledby', 'sosGapUserTitle');
+      shellEl.querySelector('.gap-panel').appendChild(el);
     }
-    body.innerHTML = html;
-  }
-
-  function renderRoles(body) {
-    const f = FGA();
-    const me = f.myAuthority();
-    const targets = f.directory('').filter((r) => !r.isRoot && r.status === 'ACTIVE');
-    if (!rolesTarget || !targets.some((t) => t.pubkey === rolesTarget)) rolesTarget = targets.length ? targets[0].pubkey : '';
-    const target = targets.find((t) => t.pubkey === rolesTarget);
-    const grantable = target ? f.grantableCapsFor(me, target.pubkey) : [];
-    const allCaps = Object.keys(f.CAP_LABELS);
-    let html =
-      '<p class="gap-sub">תפקידים הם תצוגה של הרשאות קנוניות. הענקת הרשאה אחת אינה הופכת למנהל מלא.</p>' +
-      '<table><thead><tr><th>תפקיד</th><th>הרשאות</th></tr></thead><tbody>' +
-      f.ROLES.map(
-        (r) =>
-          '<tr><td>' + escapeHtml(r.label) + '</td><td>' +
-          escapeHtml(r.id === 'ROOT' ? 'כל ההרשאות (לא ניתן להעברה)' : r.preset ? r.preset.map((c) => f.CAP_LABELS[c]).join(', ') : r.id === 'MEMBER' ? 'חברות פעילה' : 'שילוב הרשאות') +
-          '</td></tr>'
-      ).join('') +
-      '</tbody></table>';
-    if (!target) {
-      body.innerHTML = html + '<p class="gap-sub">אין חברים פעילים להגדרת הרשאות</p>';
-      return;
-    }
-    html +=
-      '<div class="gap-row" style="margin-top:12px"><label for="sosGapRoleTarget">חבר</label><select id="sosGapRoleTarget">' +
-      targets.map((t) => '<option value="' + escapeHtml(t.pubkey) + '"' + (t.pubkey === rolesTarget ? ' selected' : '') + '>' + escapeHtml((t.displayName || shortPk(t.pubkey)) + ' · ' + t.roleLabel) + '</option>').join('') +
-      '</select></div>' +
-      '<div class="gap-caps" id="sosGapCaps">' +
-      allCaps
-        .map((c) => {
-          const checked = target.assigned.indexOf(c) !== -1;
-          const can = grantable.indexOf(c) !== -1;
+    el.setAttribute('data-pk', u.pubkey);
+    ensureProfile(u.pubkey);
+    const caps = Object.keys(f.CAP_LABELS);
+    let body =
+      '<div class="gap-who">' + avatarHtml(u.pubkey, u.profile, true) +
+      '<div class="gap-user-main"><div class="gap-user-name" data-name-pk="' + escapeHtml(u.pubkey) + '">' + escapeHtml(displayName(u.pubkey, u.profile)) + '</div>' +
+      '<div class="gap-sub gap-mono">' + escapeHtml(shortPk(u.pubkey)) + '</div>' +
+      '<div class="gap-sub">' +
+      (u.isRoot ? '<span class="gap-chip root">' + escapeHtml(u.roleLabel) + '</span>' : 'תפקיד נוכחי: ' + escapeHtml(u.member ? u.roleLabel : NO_DATA_TEXT)) +
+      ' · ' + escapeHtml(u.statusLabel) + '</div></div></div>';
+    let foot = '';
+    if (u.isRoot) {
+      body +=
+        '<p class="gap-note" id="sosGapRootLocked">המנהל הראשי הוא הבעלים של הקבוצה. התפקיד וההרשאות שלו מוגנים ולא ניתן לשנות או להסיר אותם.</p>' +
+        '<h3>הרשאות</h3><div class="gap-caps">' +
+        caps.map((c) => '<label><input type="checkbox" checked disabled> ' + escapeHtml(f.CAP_LABELS[c]) + '</label>').join('') +
+        '</div>';
+    } else if (isV2() && !u.member) {
+      body +=
+        '<h3>הוספה לקבוצה</h3>' +
+        '<p class="gap-note">הצטרפות לקבוצה נעשית בהזמנה אישית. צרו הזמנה ושלחו אותה למשתמש. אחרי שיצטרף תוכלו להעניק לו תפקיד.</p>';
+      foot =
+        '<div class="gap-actions"><button type="button" class="gap-btn primary" data-act="invite-user" data-mutation="1"' + (s.createInvite ? '' : ' disabled') + '>הוסף לקבוצה</button></div>';
+    } else {
+      const current = u.assigned;
+      const draft = draftCaps || current;
+      const grantable = grantableFor(u.pubkey);
+      const draftRole = roleForCaps(draft);
+      if (!u.member) {
+        body += '<p class="gap-note">המשתמש עדיין לא מופיע כחבר בקבוצה. לאחר הפעלת מערכת הניהול תוכלו להוסיף אותו ולהעניק לו תפקיד. כבר עכשיו אפשר להכין תפקיד והרשאות.</p>';
+      }
+      body +=
+        '<h3>תפקיד</h3><div id="sosGapRoleOptions" role="radiogroup" aria-label="תפקיד">' +
+        EDITABLE_ROLES.map((id) => {
+          const on = draftRole === id;
           return (
-            '<label><input type="checkbox" data-cap="' + c + '"' + (checked ? ' checked' : '') + (can ? '' : ' disabled') + '> ' +
-            escapeHtml(f.CAP_LABELS[c]) + '</label>'
+            '<button type="button" role="radio" data-act="pick-role" data-role="' + id + '" aria-checked="' + (on ? 'true' : 'false') + '"' +
+            (on ? ' class="active"' : '') + (roleAllowed(id, current, grantable) ? '' : ' disabled') + '>' + escapeHtml(f.roleLabel(id)) + '</button>'
           );
-        })
-        .join('') +
-      '</div>' +
-      '<div class="gap-actions"><button type="button" class="gap-btn primary" data-act="save-perms">' + LABELS.SAVE_PERMISSIONS + '</button>' +
-      f.ROLES.filter((r) => r.preset && r.preset.every((c) => grantable.indexOf(c) !== -1))
-        .map((r) => '<button type="button" class="gap-btn" data-act="assign-role" data-role="' + r.id + '">הגדרה כ' + escapeHtml(r.label) + '</button>')
-        .join('') +
-      '</div>';
-    body.innerHTML = html;
-    const sel = document.getElementById('sosGapRoleTarget');
-    if (sel) {
-      sel.addEventListener('change', () => {
-        rolesTarget = sel.value;
-        renderTab('roles');
-      });
-    }
-  }
-
-  function renderInvites(body) {
-    const f = FGA();
-    const s = sections();
-    const rows = f.listMyInvites();
-    let html = '<p class="gap-sub">קישור ההזמנה כולל קוד הזמנה בלבד — ללא מפתחות פרטיים.</p>';
-    html +=
-      '<div class="gap-actions"><button type="button" class="gap-btn primary" data-act="create-invite"' + (s.createInvite ? '' : ' disabled') + '>' + LABELS.CREATE_INVITE + '</button></div>';
-    if (lastInvite) {
-      html +=
-        '<div class="gap-row"><label for="sosGapInviteUrl">קישור הזמנה</label><input readonly id="sosGapInviteUrl" value="' + escapeHtml(lastInvite.inviteUrl) + '"></div>' +
+        }).join('') +
+        '</div>' +
+        '<h3>הרשאות</h3><div class="gap-caps" id="sosGapCaps">' +
+        caps
+          .map(
+            (c) =>
+              '<label><input type="checkbox" data-cap="' + c + '"' + (draft.indexOf(c) !== -1 ? ' checked' : '') + (grantable.indexOf(c) !== -1 ? '' : ' disabled') + '> ' +
+              escapeHtml(f.CAP_LABELS[c]) + '</label>'
+          )
+          .join('') +
+        '</div>';
+      const canSave = isV2() && u.member;
+      foot =
+        (isV2() ? '' : '<p class="gap-note" id="sosGapSaveNote">' + SAVE_AFTER_ACTIVATION_TEXT + '</p>') +
         '<div class="gap-actions">' +
-        '<button type="button" class="gap-btn" data-act="copy-invite">' + LABELS.COPY_LINK + '</button>' +
-        '<button type="button" class="gap-btn" data-act="show-qr">' + LABELS.SHOW_QR + '</button></div>';
+        '<button type="button" class="gap-btn primary" id="sosGapSaveUser" data-act="save-user" data-mutation="1"' + (canSave ? '' : ' disabled') + '>שמור שינויים</button>' +
+        (!u.member ? '<button type="button" class="gap-btn" data-mutation="1" disabled>הוסף לקבוצה</button>' : '') +
+        (isV2() && s.removeMembers && u.member && u.pubkey !== me
+          ? '<button type="button" class="gap-btn danger" data-act="remove-member" data-mutation="1" data-pk="' + escapeHtml(u.pubkey) + '">הסרה מהקבוצה</button>'
+          : '') +
+        '</div>';
     }
-    html +=
-      '<div class="gap-list" id="sosGapInviteList">' +
-      rows
-        .map(
-          (r, i) =>
-            '<div class="gap-item"><div class="gap-mono">' + escapeHtml(r.code) + '</div><div class="gap-sub">' + (r.status === 'ACTIVE' ? 'פעילה' : 'בוטלה') + '</div>' +
-            (r.status === 'ACTIVE' && s.revokeInvites
-              ? '<button type="button" class="gap-btn danger" data-act="revoke-invite" data-idx="' + i + '">' + LABELS.REVOKE_INVITE + '</button>'
-              : '') +
-            '</div>'
-        )
-        .join('') +
+    el.innerHTML =
+      '<div class="gap-drawer"><div class="gap-head"><h2 id="sosGapUserTitle">ניהול משתמש</h2>' +
+      '<button type="button" class="gap-btn" data-act="close-user">סגור</button></div>' +
+      '<div class="gap-drawer-body">' + body + '</div>' +
+      (foot ? '<div class="gap-drawer-foot">' + foot + '</div>' : '') +
       '</div>';
-    body.innerHTML = html;
   }
 
-  function renderQr(body) {
-    body.innerHTML =
-      '<p class="gap-sub">ה-QR נוצר מקישור ההזמנה הקנוני בלבד.</p>' +
-      (lastInvite
-        ? '<canvas id="sosGapQrCanvas" width="240" height="240" aria-label="קוד QR להזמנה"></canvas><p class="gap-mono" id="sosGapQrCode">' + escapeHtml(lastInvite.code) + '</p>'
-        : '<p>צרו הזמנה תחילה.</p><div class="gap-actions"><button type="button" class="gap-btn primary" data-act="create-invite">' + LABELS.CREATE_INVITE + '</button></div>') +
-      '<div class="gap-row" style="margin-top:12px"><label for="sosGapQrParse">בדיקת קישור / קוד שנסרק</label><input id="sosGapQrParse" placeholder="הדביקו קישור הזמנה"></div>' +
-      '<div class="gap-actions"><button type="button" class="gap-btn" data-act="parse-qr">בדיקה</button></div>' +
-      '<div id="sosGapQrParseOut" class="gap-sub"></div>';
-    if (lastInvite) {
-      const canvas = document.getElementById('sosGapQrCanvas');
-      FGA()
-        .renderInviteQr(canvas, lastInvite.inviteUrl)
-        .then((r) => {
-          if (!r.ok) setMsg(errText(r), 'err');
-        });
-    }
-  }
-
-  function renderSettings(body) {
-    const info = groupInfo();
-    body.innerHTML =
-      '<div class="gap-row"><label for="sosGapPolicy">מי יכול ליצור הזמנות</label><select id="sosGapPolicy">' +
-      Object.keys(POLICY_LABELS)
-        .map((k) => '<option value="' + k + '"' + (k === info.invitePolicy ? ' selected' : '') + '>' + escapeHtml(POLICY_LABELS[k]) + '</option>')
-        .join('') +
-      '</select></div>' +
-      '<div class="gap-actions"><button type="button" class="gap-btn primary" data-act="save-policy">שמירת הגדרות</button></div>' +
-      '<p class="gap-sub">יצירת קבוצות נוספות ורשת קהילות — בשלב הבא.</p>';
-  }
-
-  function renderSecurity(body) {
-    const f = FGA();
-    const rows = f.auditLog().slice().reverse();
-    const actionLabel = {
-      BOOTSTRAP: 'הפעלת ניהול',
-      GRANT_CAPABILITY: 'הענקת הרשאה',
-      REVOKE_CAPABILITY: 'הסרת הרשאה',
-      SET_INVITE_POLICY: 'שינוי מדיניות הזמנות',
-      SET_GROUP_METADATA: 'עריכת פרטי הקבוצה',
-      BLOCKLIST_CHANGED: 'שינוי רשימת חסימה',
-      MEMBER_ACTIVE: 'חבר אושר',
-      MEMBER_REMOVED: 'חבר הוסר',
-      MEMBER_BLOCKED: 'חבר נחסם',
-    };
-    body.innerHTML =
-      '<p class="gap-sub">יומן זה נבנה מאירועים חתומים ומאומתים בלבד (שרשרת בקרה + אירועי חברות).</p>' +
-      '<table id="sosGapAudit"><thead><tr><th>זמן</th><th>פעולה</th><th>מבצע</th><th>יעד</th><th>פרט</th></tr></thead><tbody>' +
-      rows
-        .map(
-          (r) =>
-            '<tr><td>' + escapeHtml(r.createdAt ? new Date(r.createdAt * 1000).toLocaleString('he-IL') : '') + '</td>' +
-            '<td>' + escapeHtml(actionLabel[r.action] || r.action) + '</td>' +
-            '<td class="gap-mono">' + escapeHtml(shortPk(r.actor)) + '</td>' +
-            '<td class="gap-mono">' + escapeHtml(r.target ? shortPk(r.target) : '') + '</td>' +
-            '<td>' + escapeHtml(f.CAP_LABELS[r.detail] || r.detail || '') + '</td></tr>'
-        )
-        .join('') +
-      '</tbody></table>';
-  }
-
-  /** Control plane (V2 + signed control chain) not active: read-only view, every mutation fails closed. */
-  function renderInactive(body) {
-    const f = FGA();
-    const g = GCS();
-    const roots = g && typeof g.configuredRootPubkeys === 'function' ? g.configuredRootPubkeys() : [];
-    const root = roots[0] || '';
-    const info = groupInfo();
-    body.innerHTML =
-      '<div class="gap-card" id="sosGapControlStatus" data-status="CONTROL_PLANE_NOT_ACTIVE" style="margin-bottom:12px">' +
-      '<strong>מצב שליטה: לא פעיל</strong>' +
-      '<div class="gap-sub">מערכת השליטה החתומה על הקבוצה עדיין לא הופעלה. אי אפשר לבצע שינויים עד להפעלתה (CONTROL_PLANE_NOT_ACTIVE).</div></div>' +
-      '<div class="gap-cards">' +
-      '<div class="gap-card">שם הקבוצה<b id="sosGapViewName">' + escapeHtml(info.displayName) + '</b></div>' +
-      '<div class="gap-card">מזהה<b class="gap-mono">' + escapeHtml(f.FIRST_GROUP_ID) + '</b></div>' +
-      '<div class="gap-card">חברים<b id="sosGapMemberCount">—</b></div>' +
-      '<div class="gap-card">מנהלים<b>' + (root ? 1 : 0) + '</b></div>' +
-      '<div class="gap-card">הזמנות<b>—</b></div>' +
-      '</div>' +
-      '<h3 style="margin-top:14px">מנהל ראשי</h3>' +
-      '<div class="gap-list"><div class="gap-item" id="sosGapRootCard" data-root="1"><div><div>' + escapeHtml(f.roleLabel('ROOT')) + '</div>' +
-      '<div class="gap-sub gap-mono">' + escapeHtml(root) + '</div></div><span class="gap-sub">מוגן — לא ניתן לשנות או להסיר</span></div></div>' +
-      '<h3 style="margin-top:14px">תפקידים</h3>' +
-      '<table><thead><tr><th>תפקיד</th><th>הרשאות</th></tr></thead><tbody>' +
-      f.ROLES.map(
-        (r) =>
-          '<tr><td>' + escapeHtml(r.label) + '</td><td>' +
-          escapeHtml(r.id === 'ROOT' ? 'כל ההרשאות (לא ניתן להעברה)' : r.preset ? r.preset.map((c) => f.CAP_LABELS[c]).join(', ') : r.id === 'MEMBER' ? 'חברות פעילה' : 'שילוב הרשאות') +
-          '</td></tr>'
-      ).join('') +
-      '</tbody></table>' +
-      '<h3 style="margin-top:14px">הרשאות</h3>' +
-      '<div class="gap-caps" id="sosGapCapsCatalog">' +
-      Object.keys(f.CAP_LABELS)
-        .map((c) => '<label><input type="checkbox" data-cap="' + c + '" disabled> ' + escapeHtml(f.CAP_LABELS[c]) + '</label>')
-        .join('') +
-      '</div>' +
-      '<div class="gap-actions">' +
-      '<button type="button" class="gap-btn" disabled>' + LABELS.SAVE_DETAILS + '</button>' +
-      '<button type="button" class="gap-btn" disabled>' + LABELS.ADD_ADMIN + '</button>' +
-      '<button type="button" class="gap-btn" disabled>' + LABELS.CREATE_INVITE + '</button></div>';
+  function closeDrawer() {
+    selectedMember = '';
+    draftCaps = null;
+    renderDrawer();
   }
 
   function renderTab(tabId) {
     if (!shellEl) return;
-    const body0 = document.getElementById('sosGapBody');
+    const body = document.getElementById('sosGapBody');
     if (!pinUnlocked()) {
-      if (body0) body0.innerHTML = '';
+      if (body) body.innerHTML = '';
       close();
       return;
     }
-    if (!isV2()) {
-      activeTab = 'home';
-      refreshChrome();
-      shellEl.querySelectorAll('#sosGapTabs button').forEach((b) => {
-        const on = b.dataset.tab === 'home';
-        b.hidden = !on;
-        b.style.display = on ? '' : 'none';
-      });
-      const role = shellEl.querySelector('#sosGapRole');
-      if (role) role.textContent = 'מנהל ראשי · לא פעיל';
-      if (body0) renderInactive(body0);
-      return;
-    }
-    const s = sections();
-    let tab = tabId;
-    if (!tabAllowed(tab, s)) tab = 'home';
+    const s = isV2() ? sections() : null;
+    let tab = TAB_ALIASES[tabId] || tabId;
+    if (!tabAllowed(tab, s)) tab = 'members';
     activeTab = tab;
     renderedFingerprint = stateFingerprint();
     refreshChrome();
-    const body = document.getElementById('sosGapBody');
+    renderTop();
     if (!body) return;
-    if (!canSeeGroupAdminMenu()) {
+    if (isV2() && !canSeeGroupAdminMenu() && !needsBootstrap()) {
       body.innerHTML = '<p>אין לכם הרשאות ניהול בקבוצה.</p>';
+      closeDrawer();
       return;
     }
-    if (tab === 'home') renderHome(body);
-    else if (tab === 'details') renderDetails(body);
-    else if (tab === 'members') renderMembers(body);
-    else if (tab === 'admins') renderAdmins(body);
-    else if (tab === 'roles') renderRoles(body);
+    if (tab === 'admins') renderAdmins(body);
     else if (tab === 'invites') renderInvites(body);
-    else if (tab === 'qr') renderQr(body);
-    else if (tab === 'settings') renderSettings(body);
-    else if (tab === 'security') renderSecurity(body);
+    else if (tab === 'activity') renderActivity(body);
+    else renderMembers(body);
+    body.insertAdjacentHTML('beforeend', advancedHtml());
+    bindAdvanced();
+    renderDrawer();
   }
 
   // ---------------------------------------------------------------- actions
@@ -825,7 +1091,43 @@
   async function onAction(act, el) {
     const f = FGA();
     const pk = el.getAttribute('data-pk') || '';
+    if (act === 'select-member') {
+      if (!/^[0-9a-f]{64}$/.test(pk)) return null;
+      if (pk !== selectedMember) draftCaps = null;
+      selectedMember = pk;
+      renderDrawer();
+      return { ok: true };
+    }
+    if (act === 'close-user') return closeDrawer();
+    if (act === 'pick-role') {
+      const role = el.getAttribute('data-role');
+      draftCaps = rolePreset(role);
+      renderDrawer();
+      const again = document.querySelector('#sosGapRoleOptions [data-role="' + role + '"]');
+      if (again) again.focus();
+      return null;
+    }
     if (act === 'bootstrap') return run('הפעלת ניהול', () => f.bootstrapFirstGroup({}));
+    if (act === 'save-user') {
+      const target = selectedMember;
+      if (!target) return null;
+      const before = f.authorityFor(target).assigned;
+      const caps = draftCaps ? draftCaps.slice() : before.slice();
+      const removing = before.some((c) => caps.indexOf(c) === -1);
+      const res = await run('שמירת שינויים', () => f.setPermissions(target, caps), removing ? 'לשמור את השינויים? חלק מההרשאות יוסרו.' : null);
+      if (res && res.ok) draftCaps = null;
+      renderDrawer();
+      return res;
+    }
+    if (act === 'invite-user') {
+      const res = await run(LABELS.CREATE_INVITE, () => f.createInvite());
+      if (res && res.ok) {
+        lastInvite = res.invite;
+        closeDrawer();
+        renderTab('invites');
+      }
+      return res;
+    }
     if (act === 'save-details') {
       const name = (document.getElementById('sosGapName') || {}).value;
       const desc = (document.getElementById('sosGapDesc') || {}).value;
@@ -840,48 +1142,23 @@
       return res;
     }
     if (act === 'remove-logo') return run('הסרת לוגו', () => f.updateMetadata({ logoRef: '' }), 'להסיר את לוגו הקבוצה?');
-    if (act === 'select-member') {
-      selectedMember = pk;
-      return renderTab('members');
-    }
     if (act === 'remove-member') {
-      return run(LABELS.REMOVE_MEMBER, () => f.removeMember(pk), 'להסיר את החבר מהקבוצה? כל ההרשאות שלו יבוטלו.');
-    }
-    if (act === 'edit-perms') {
-      rolesTarget = pk;
-      return renderTab('roles');
+      const res = await run(LABELS.REMOVE_MEMBER, () => f.removeMember(pk), 'להסיר את החבר מהקבוצה? כל ההרשאות שלו יבוטלו.');
+      if (res && res.ok) closeDrawer();
+      return res;
     }
     if (act === 'load-joins') return loadJoins();
     if (act === 'approve-join') {
       return run(LABELS.APPROVE_JOIN, () => f.approveJoin(pk, el.getAttribute('data-invite')), 'לאשר את הצטרפות המשתמש לקבוצה?');
     }
-    if (act === 'promote') {
-      const sel = document.getElementById('sosGapPromoteSel');
-      const target = sel && sel.value;
-      if (!target) return null;
-      return run(LABELS.ADD_ADMIN, () => f.promoteAdmin(target), 'להפוך את החבר למנהל (ניהול חברים)?');
-    }
     if (act === 'demote') {
       return run(LABELS.REMOVE_ADMIN, () => f.demoteAdmin(pk), 'להסיר את הרשאות הניהול של המשתמש?');
-    }
-    if (act === 'save-perms') {
-      const caps = Array.from(document.querySelectorAll('#sosGapCaps input[type=checkbox]'))
-        .filter((c) => c.checked)
-        .map((c) => c.getAttribute('data-cap'));
-      const target = rolesTarget;
-      const before = f.authorityFor(target).assigned;
-      const removing = before.some((c) => caps.indexOf(c) === -1);
-      return run(LABELS.SAVE_PERMISSIONS, () => f.setPermissions(target, caps), removing ? 'לשמור הרשאות? חלק מההרשאות יוסרו.' : null);
-    }
-    if (act === 'assign-role') {
-      const role = el.getAttribute('data-role');
-      return run('הגדרת תפקיד', () => f.assignRole(rolesTarget, role));
     }
     if (act === 'create-invite') {
       const res = await run(LABELS.CREATE_INVITE, () => f.createInvite());
       if (res && res.ok) {
         lastInvite = res.invite;
-        renderTab(activeTab === 'qr' ? 'qr' : 'invites');
+        renderTab('invites');
       }
       return res;
     }
@@ -904,7 +1181,7 @@
       window.__SOS_GAP_LAST_COPIED__ = url;
       return { ok: true };
     }
-    if (act === 'show-qr') return renderTab('qr');
+    if (act === 'show-qr') return renderTab('invites');
     if (act === 'revoke-invite') {
       const row = f.listMyInvites()[Number(el.getAttribute('data-idx'))];
       if (!row) return null;
@@ -912,13 +1189,6 @@
       if (res && res.ok && lastInvite && lastInvite.eventId === row.eventId) lastInvite = null;
       renderTab('invites');
       return res;
-    }
-    if (act === 'parse-qr') {
-      const val = (document.getElementById('sosGapQrParse') || {}).value || '';
-      const r = f.parseInviteQr(val);
-      const out = document.getElementById('sosGapQrParseOut');
-      if (out) out.textContent = r.ok ? 'קוד הזמנה תקין: ' + r.code : 'קישור לא תקין (' + r.code + ')';
-      return r;
     }
     if (act === 'save-policy') {
       const v = (document.getElementById('sosGapPolicy') || {}).value;
@@ -934,9 +1204,10 @@
     shellEl.id = 'sosGroupAdminShell';
     shellEl.innerHTML =
       '<div class="gap-panel" role="dialog" aria-modal="true" aria-labelledby="sosGapTitle">' +
-      '<div class="gap-head"><div class="gap-brand"><img id="sosGapLogo" alt="" style="display:none"><h2 id="sosGapTitle">ניהול קבוצה</h2>' +
+      '<div class="gap-head"><div class="gap-brand"><img id="sosGapLogo" alt="" style="display:none"><h2 id="sosGapTitle">ניהול הקבוצה</h2>' +
       '<span class="gap-role" id="sosGapRole"></span></div>' +
       '<button type="button" class="gap-btn" id="sosGapClose">סגור</button></div>' +
+      '<div class="gap-top" id="sosGapTop"></div>' +
       '<div class="gap-tabs" id="sosGapTabs" role="tablist"></div>' +
       '<div class="gap-body" id="sosGapBody"></div>' +
       '<div class="gap-msg" id="sosGapMsg" role="status"></div>' +
@@ -959,9 +1230,31 @@
     shellEl.addEventListener('click', (ev) => {
       const p = PIN();
       if (p) p.touch();
+      if (ev.target instanceof HTMLElement && ev.target.id === 'sosGapMemberDetail') {
+        closeDrawer();
+        return;
+      }
       const t = ev.target instanceof HTMLElement ? ev.target.closest('[data-act]') : null;
       if (!t || t.hasAttribute('disabled')) return;
       onAction(t.getAttribute('data-act'), t);
+    });
+    shellEl.addEventListener('change', (ev) => {
+      const t = ev.target;
+      if (!(t instanceof HTMLInputElement) || !t.closest('#sosGapCaps')) return;
+      draftCaps = Array.from(document.querySelectorAll('#sosGapCaps input[data-cap]'))
+        .filter((c) => c.checked)
+        .map((c) => c.getAttribute('data-cap'));
+      updateRoleHighlight();
+    });
+    document.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Escape' && selectedMember && isOpen()) closeDrawer();
+    });
+    shellEl.addEventListener('keydown', (ev) => {
+      const t = ev.target;
+      if ((ev.key === 'Enter' || ev.key === ' ') && t instanceof HTMLElement && t.classList.contains('gap-user')) {
+        ev.preventDefault();
+        t.click();
+      }
     });
   }
 
@@ -996,6 +1289,7 @@
   function close() {
     if (!shellEl) return;
     shellEl.classList.remove('is-open');
+    closeDrawer();
   }
 
   function isOpen() {
@@ -1028,7 +1322,10 @@
       chromeOwner = actor();
       lastInvite = null;
       selectedMember = '';
-      rolesTarget = '';
+      draftCaps = null;
+      searchQuery = '';
+      const top = document.getElementById('sosGapTop');
+      if (top) top.innerHTML = '';
       window.__SOS_GAP_LOGO_DATA__ = '';
       if (isOpen()) close();
     }

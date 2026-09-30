@@ -913,11 +913,17 @@ async function main() {
     await sleep(200);
     const rootDetail = await ev(ua.page, () => {
       const d = document.getElementById('sosGapMemberDetail');
-      return { shown: !!d, remove: !!(d && d.querySelector('[data-act="remove-member"]')), edit: !!(d && d.querySelector('[data-act="edit-perms"]')) };
+      return {
+        shown: !!d,
+        locked: !!(d && d.querySelector('#sosGapRootLocked')),
+        remove: !!(d && d.querySelector('[data-act="remove-member"]')),
+        edit: !!(d && (d.querySelector('[data-act="save-user"]') || d.querySelector('#sosGapCaps'))),
+      };
     });
+    await ev(ua.page, () => document.querySelector('#sosGapMemberDetail [data-act="close-user"]')?.click());
     set(
       'ROOT_CARD_PROTECTED',
-      rootCard.found && rootCard.protectedLabel && !rootCard.demoteBtn && !rootDetail.remove && !rootDetail.edit && Object.values(rootOps).every((c) => /ROOT_/.test(String(c))),
+      rootCard.found && rootCard.protectedLabel && !rootCard.demoteBtn && rootDetail.shown && rootDetail.locked && !rootDetail.remove && !rootDetail.edit && Object.values(rootOps).every((c) => /ROOT_/.test(String(c))),
       { rootCard, rootDetail, rootOps }
     );
     await openUi(ua.page, 'members');
@@ -925,18 +931,35 @@ async function main() {
     await sleep(200);
     const bCard = await ev(ua.page, () => {
       const d = document.getElementById('sosGapMemberDetail');
-      return { remove: !!(d && d.querySelector('[data-act="remove-member"]')), edit: !!(d && d.querySelector('[data-act="edit-perms"]')) };
+      const save = d && d.querySelector('[data-act="save-user"]');
+      return { remove: !!(d && d.querySelector('[data-act="remove-member"]')), edit: !!save && !save.disabled };
     });
-    await domClick(ua.page, '#sosGapBody [data-act="edit-perms"]');
-    await sleep(300);
     const editor = await ev(ua.page, (b) => ({
-      target: document.getElementById('sosGapRoleTarget')?.value || '',
+      target: document.getElementById('sosGapMemberDetail')?.getAttribute('data-pk') || '',
       caps: Array.from(document.querySelectorAll('#sosGapCaps input[data-cap]')).map((c) => c.getAttribute('data-cap')),
       canonical: Object.keys(window.NostrApp.FirstGroupAdmin.CAP_LABELS),
       enabled: Array.from(document.querySelectorAll('#sosGapCaps input[data-cap]')).filter((c) => !c.disabled).length,
-      roleButtons: document.querySelectorAll('#sosGapBody [data-act="assign-role"]').length,
+      roleButtons: document.querySelectorAll('#sosGapRoleOptions [data-role]:not([disabled])').length,
       b,
     }), B.pub);
+    // Per-user panel save (V2 on, enforcement on): signed control change + Admin 2FA attestation, then revert.
+    await ev(ua.page, () => document.querySelector('#sosGapCaps input[data-cap="MODERATE_CONTENT"]').click());
+    const uiSave = await act(ua.page, '#sosGapMemberDetail [data-act="save-user"]');
+    const bMod = await waitView(ub.page, B.pub, "v.caps.indexOf('MODERATE_CONTENT') !== -1", 30000);
+    await domClick(ua.page, `#sosGapBody [data-act="select-member"][data-pk="${B.pub}"]`);
+    await ev(ua.page, () => {
+      document.querySelector('#sosGapCaps input[data-cap="MODERATE_CONTENT"]').click();
+      const m = document.getElementById('sosGapMsg');
+      m.textContent = '';
+      m.className = 'gap-msg';
+      document.querySelector('#sosGapMemberDetail [data-act="save-user"]').click();
+    });
+    await waitSel(ua.page, '#sosGapConfirm.is-open');
+    await ev(ua.page, () => document.getElementById('sosGapConfirmOk').click());
+    const uiRevert = await waitMsg(ua.page);
+    const bUnmod = await waitView(ub.page, B.pub, "v.caps.indexOf('MODERATE_CONTENT') === -1", 30000);
+    set('PER_USER_PANEL_SAVE_ATTESTED', uiSave.ok && bMod.ok && uiRevert.ok && bUnmod.ok, { uiSave, bMod: bMod.ok, uiRevert, bUnmod: bUnmod.ok });
+    await ev(ua.page, () => document.querySelector('#sosGapMemberDetail [data-act="close-user"]')?.click());
     set(
       'MEMBER_CARD_CONTROLS_FOLLOW_POLICY',
       bCard.remove && bCard.edit && editor.target === B.pub && JSON.stringify(editor.caps) === JSON.stringify(editor.canonical) && editor.enabled > 0 && editor.roleButtons > 0,
@@ -1566,7 +1589,8 @@ async function main() {
     set('ONE_RELAY_DOWN_CONVERGES', oneRelayGrant === 'APPLIED' && bOneRelay.ok && bOneStatus.ok && bOneStatus.relaysOk === 1, { oneRelayGrant, ms: Date.now() - tOne, bOneStatus });
     r2.up();
     await sleep(500);
-    const r2Missing = !r2.all([39001]).some((e) => JSON.parse(e.content).capabilities && (JSON.parse(e.content).capabilities[B.pub] || []).includes('MODERATE_CONTENT'));
+    const r2Tip = r2.all([39001]).reduce((best, e) => (!best || e.created_at > best.created_at || (e.created_at === best.created_at && (JSON.parse(e.content).controlEpoch || 0) > (JSON.parse(best.content).controlEpoch || 0)) ? e : best), null);
+    const r2Missing = !!r2Tip && !((JSON.parse(r2Tip.content).capabilities || {})[B.pub] || []).includes('MODERATE_CONTENT');
     const obs2 = await newProfile('OBS_RECONNECT', { persistent: false });
     await openPage(obs2, mkKey());
     const obs2View = await view(obs2.page, B.pub);
@@ -1632,12 +1656,17 @@ async function main() {
     await closeProfile(ul);
 
     // ================================================================ admin UI tabs over network state (A)
-    const tabs = ['home', 'details', 'members', 'admins', 'roles', 'invites', 'qr', 'settings', 'security'];
+    const tabs = ['members', 'admins', 'invites', 'activity'];
     const tabRes = {};
     for (const t of tabs) {
       tabRes[t] = await openUi(ua.page, t);
-      if (['details', 'members', 'admins', 'roles', 'invites', 'qr', 'settings'].includes(t)) await shot(ua.page, 'a-tab-' + t);
+      await shot(ua.page, 'a-tab-' + t);
     }
+    await ev(ua.page, () => {
+      const d = document.getElementById('sosGapAdvanced');
+      if (d) d.open = true;
+    });
+    await shot(ua.page, 'a-advanced-settings');
     const aDir = await ev(ua.page, () => window.NostrApp.FirstGroupAdmin.directory('').map((r) => r.pubkey.slice(0, 8) + ':' + r.status + ':' + r.role));
     await ua.page.setViewportSize({ width: 390, height: 844 });
     await openUi(ua.page, 'members');

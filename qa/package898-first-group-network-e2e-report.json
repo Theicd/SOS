@@ -7,7 +7,7 @@
     "ws://127.0.0.1:7792"
   ],
   "status": "PASS",
-  "ts": "2026-09-30T10:51:34.294Z",
+  "ts": "2026-09-30T12:01:54.529Z",
   "results": {
     "CONFIG_TEST_TRANSFORMS_APPLIED": {
       "ok": true,
@@ -99,8 +99,8 @@
     "CONTROL_RECEIVED_FROM_NETWORK": {
       "ok": true,
       "detail": {
-        "bMs": 10,
-        "cMs": 6
+        "bMs": 16,
+        "cMs": 7
       }
     },
     "REMOTE_MEMBERSHIP_GRANT": {
@@ -110,13 +110,13 @@
         "redB": {
           "ok": true,
           "stage": "mark",
-          "inviteEventId": "81494de2e43d2ed26750112ca78ba8bcaf68302cd353e8966d1d2a959a61775a",
-          "inviter": "4b04119898d0ba9c6c7b0fcf5c06ab01d68e0c4aab8b647f142df355b6556228",
-          "usedId": "7fe978d3c1989047d674d961efe7a078417bf594ff42123ff0984fb1986b4491"
+          "inviteEventId": "0200b72635973f70fb4367cae681a829b20f087e3ab7c49d0ef8f722a3c8387a",
+          "inviter": "51a041286b0cd0607b7c7080fe61a22b53c54f79954c5f91809046718bc8b97b",
+          "usedId": "8fe801eb10199d9d8227a1f9b122bee86a5b14e503fe02a36bc764e60383e1b7"
         },
         "bOnB": {
           "ok": true,
-          "ms": 45
+          "ms": 41
         },
         "bOnA": true
       }
@@ -162,6 +162,7 @@
         },
         "rootDetail": {
           "shown": true,
+          "locked": true,
           "remove": false,
           "edit": false
         },
@@ -170,6 +171,21 @@
           "demote": "ROOT_IMMUTABLE",
           "revoke": "ROOT_TARGET_FORBIDDEN"
         }
+      }
+    },
+    "PER_USER_PANEL_SAVE_ATTESTED": {
+      "ok": true,
+      "detail": {
+        "uiSave": {
+          "ok": true,
+          "text": "שמירת שינויים — בוצע"
+        },
+        "bMod": true,
+        "uiRevert": {
+          "ok": true,
+          "text": "שמירת שינויים — בוצע"
+        },
+        "bUnmod": true
       }
     },
     "MEMBER_CARD_CONTROLS_FOLLOW_POLICY": {
@@ -182,7 +198,7 @@
         "target": true,
         "caps": 9,
         "enabled": 9,
-        "roleButtons": 4
+        "roleButtons": 5
       }
     },
     "MEMBER_CANNOT_OPEN_CONTROL": {
@@ -196,7 +212,7 @@
       "ok": true,
       "detail": {
         "grant": "APPLIED",
-        "latencyMs": 506,
+        "latencyMs": 789,
         "assigned": [
           "INVITE_USERS"
         ],
@@ -253,11 +269,11 @@
         "redC": {
           "ok": true,
           "stage": "mark",
-          "inviteEventId": "4d7848b5db62d7af100a3b2cc5b4483f6ce14fc77a6e85e35bcdd7a3d6d609c8",
-          "inviter": "8570c54e868f04599efaeffb9bca92cf3c7a6bbde81468ebc0fa0c96d6da5bac",
-          "usedId": "9bc2ebd437580da25c42b0cefd362790867c2bf706ec257a7046ff0f124c8718"
+          "inviteEventId": "3f7722a43e849d9e56247f837142787ae8d842e0507fe382695db8625c41c115",
+          "inviter": "11b44fe7f34be8ee87008dcbee62e6e13d98e203789a871b33a88dff2faa9aeb",
+          "usedId": "02ac669c92618c96fb6a56c3a6c54ed4e61fb7bb85a9fdccfcf7e4abd4c14b79"
         },
-        "cOnC": 49,
+        "cOnC": 40,
         "cOnA": true,
         "cOnB": true,
         "aSeesC": true,
@@ -278,17 +294,14 @@
       "ok": true,
       "detail": {
         "promote": "SAVED",
-        "ms": 326,
+        "ms": 367,
         "caps": [
           "INVITE_USERS",
           "MANAGE_MEMBERS"
         ],
         "bAdminTabs": [
-          "home",
-          "details",
           "members",
-          "invites",
-          "qr"
+          "invites"
         ],
         "bSeesC": true
       }
@@ -310,7 +323,7 @@
           "isRoot": false,
           "member": "ACTIVE",
           "control": "VERIFIED",
-          "epoch": 4,
+          "epoch": 6,
           "net": "SYNCED"
         },
         "aView": {
@@ -327,7 +340,7 @@
       "ok": true,
       "detail": {
         "revoke": "APPLIED",
-        "ms": 336,
+        "ms": 445,
         "remaining": [
           "INVITE_USERS"
         ],
@@ -343,8 +356,7 @@
           "INVITE_USERS"
         ],
         "bDemotedTabs": [
-          "invites",
-          "qr"
+          "invites"
         ]
       }
     },
@@ -369,8 +381,8 @@
     "OFFLINE_RECONNECT": {
       "ok": true,
       "detail": {
-        "tab1": 1417,
-        "tab2": 15
+        "tab1": 595,
+        "tab2": 85
       }
     },
     "MULTITAB_REVOCATION": {
@@ -397,8 +409,8 @@
       "ok": true,
       "detail": {
         "removeC": "REMOVED",
-        "ms": 463,
-        "onB": 14,
+        "ms": 606,
+        "onB": 8,
         "cOps": {
           "menu": false,
           "invite": "UNAUTHORIZED",
@@ -411,7 +423,7 @@
     "STALE_EVENT": {
       "ok": true,
       "detail": {
-        "replayed": 8,
+        "replayed": 10,
         "same": [
           true,
           true,
@@ -530,7 +542,7 @@
       "detail": {
         "bothValidated": true,
         "accepted": 1,
-        "winner": "D",
+        "winner": "E",
         "loser": {
           "result": "ALREADY_REDEEMED",
           "error": "ההזמנה כבר נוצלה"
@@ -615,7 +627,7 @@
       "ok": true,
       "detail": {
         "oneRelayGrant": "APPLIED",
-        "ms": 2101,
+        "ms": 2784,
         "bOneStatus": {
           "ok": true,
           "relaysOk": 1
@@ -647,7 +659,7 @@
           "code": "NETWORK_AUTHORITY_UNVERIFIED",
           "detail": "RELAY_UNAVAILABLE"
         },
-        "silentMs": 12343,
+        "silentMs": 12349,
         "backOp": "APPLIED"
       }
     },
@@ -667,22 +679,17 @@
       "ok": true,
       "detail": {
         "tabRes": {
-          "home": true,
-          "details": true,
           "members": true,
           "admins": true,
-          "roles": true,
           "invites": true,
-          "qr": true,
-          "settings": true,
-          "security": true
+          "activity": true
         },
         "aDir": [
-          "17ba116f:ACTIVE:MEMBER",
-          "690d5d98:REMOVED:MEMBER",
-          "8570c54e:ACTIVE:MODERATOR",
-          "8c28ed08:ACTIVE:MEMBER",
-          "4b041198:ACTIVE:ROOT"
+          "11b44fe7:ACTIVE:MODERATOR",
+          "a00c7896:ACTIVE:MEMBER",
+          "a49212de:ACTIVE:MEMBER",
+          "afb59f73:REMOVED:MEMBER",
+          "51a04128:ACTIVE:ROOT"
         ],
         "mobileOverflow": false
       }
@@ -690,7 +697,7 @@
     "ACCOUNT_SWITCH": {
       "ok": true,
       "detail": {
-        "pub": "690d5d98eaed1622fdbb6e65ae704645500a93c95d8d3e43175acc1a35c8b951",
+        "pub": "afb59f733b7923732d4705f4e9793d0e836747453046bfd4eafbc463bccc55fb",
         "menu": false,
         "open": false,
         "invitesAfter": 0,
@@ -706,7 +713,7 @@
         "conflictOp": {
           "code": "TEMPORARILY_UNAVAILABLE",
           "control": "VERIFIED",
-          "eventId": "48695b5a9f76cd457dc55695cce2ab012f8db693e3abc83c11c9e54a09063b7d"
+          "eventId": "af3df3364646114c736036ce111b18e6f78b3ae1b831a6576c0837fde6eefa7c"
         },
         "conflictMenu": true,
         "outcome": "UNATTESTED_FORKS_REJECTED"
@@ -725,8 +732,8 @@
     "RELAY_SECRET_LEAK_SCAN": {
       "ok": true,
       "detail": {
-        "events": 73,
-        "authEvents": 39,
+        "events": 79,
+        "authEvents": 41,
         "secretHits": 0,
         "plaintextInviteCodeHits": 0,
         "nsecHits": 0,
@@ -779,25 +786,25 @@
         ],
         "delegates": [
           {
-            "pubkey": "d2177f2305f29baf5b04024fd7ef06e748e68a9381cb33ae92a74e3dcc12a437",
+            "pubkey": "56b55dd60a76cae0192e9eb1aeba81f212872eabb2281cc85279826d272d705e",
             "status": "ACTIVE"
           }
         ]
       },
       "delegateByNonRoot": "UNAUTHORIZED"
     },
-    "JOIN_APPROVAL_LATENCY_MS_B": 262,
-    "REALTIME_GRANT_LATENCY_MS": 506,
-    "JOIN_APPROVAL_LATENCY_MS_C": 49,
-    "REALTIME_PROMOTE_LATENCY_MS": 681,
+    "JOIN_APPROVAL_LATENCY_MS_B": 271,
+    "REALTIME_GRANT_LATENCY_MS": 789,
+    "JOIN_APPROVAL_LATENCY_MS_C": 40,
+    "REALTIME_PROMOTE_LATENCY_MS": 940,
     "B_ADMIN_PIN_ENROLL": "PIN_SET",
-    "REALTIME_REVOKE_LATENCY_MS": 1204,
+    "REALTIME_REVOKE_LATENCY_MS": 1517,
     "REPROMOTE_BEFORE_DEMOTE": {
       "repromote": "SAVED",
       "ok": true
     },
-    "RECONNECT_CONVERGENCE_MS": 1439,
-    "REALTIME_REMOVE_LATENCY_MS": 914,
+    "RECONNECT_CONVERGENCE_MS": 695,
+    "REALTIME_REMOVE_LATENCY_MS": 1188,
     "GRANT_PM_FOR_FORK": "APPLIED",
     "FORK_EVENTS": {
       "a": true,
@@ -811,19 +818,17 @@
     "qa/package898-a-sees-c.png",
     "qa/package898-b-admin-members.png",
     "qa/package898-a-loading-state.png",
-    "qa/package898-a-tab-details.png",
     "qa/package898-a-tab-members.png",
     "qa/package898-a-tab-admins.png",
-    "qa/package898-a-tab-roles.png",
     "qa/package898-a-tab-invites.png",
-    "qa/package898-a-tab-qr.png",
-    "qa/package898-a-tab-settings.png",
+    "qa/package898-a-tab-activity.png",
+    "qa/package898-a-advanced-settings.png",
     "qa/package898-a-mobile-members.png"
   ],
   "ADMISSION_SERVICE": {
     "mode": "local-workerd",
     "url": "http://127.0.0.1:8799",
-    "servicePubkey": "d2177f2305f29baf5b04024fd7ef06e748e68a9381cb33ae92a74e3dcc12a437"
+    "servicePubkey": "56b55dd60a76cae0192e9eb1aeba81f212872eabb2281cc85279826d272d705e"
   },
   "FIRST_GROUP_ID": "israel-network",
   "ADMISSION_DELEGATION_OK": true,
@@ -886,7 +891,7 @@
       ]
     },
     "39001": {
-      "n": 16,
+      "n": 18,
       "tags": [
         "d",
         "sos-control",
@@ -943,27 +948,27 @@
   "NSEC_EXPOSED": false,
   "relayStats": {
     "r1": {
-      "received": 126,
+      "received": 136,
       "rejectedInvalid": 0,
-      "replaced": 9,
-      "duplicates": 44
+      "replaced": 5,
+      "duplicates": 51
     },
     "r2": {
-      "received": 119,
+      "received": 129,
       "rejectedInvalid": 0,
-      "replaced": 8,
-      "duplicates": 40
+      "replaced": 5,
+      "duplicates": 47
     },
-    "r1Events": 73,
-    "r2Events": 71
+    "r1Events": 79,
+    "r2Events": 77
   },
   "pageErrorsCount": 0,
   "ADMIN_2FA": {
     "enforced": true,
-    "signer": "c7e3be6f6862dd1982531e11f66c9e51a92725a95454ef1fabdb8d5dedc63fe4",
-    "stepUpDialogsAnswered": 5
+    "signer": "cd06c528785cff2826f039ea5ac09409c697dcfd3404443efa0b243fc815fd45",
+    "stepUpDialogsAnswered": 6
   },
-  "passed": 52,
+  "passed": 53,
   "failed": 0,
   "failedKeys": [],
   "THREE_BROWSER_NETWORK_E2E": true,

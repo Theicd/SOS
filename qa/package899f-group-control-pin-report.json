@@ -2,7 +2,7 @@
   "gate": "PACKAGE899F_GROUP_CONTROL_PIN",
   "ACCESS_CONTROL_V2": "OFF (served unchanged)",
   "status": "PASS",
-  "ts": "2026-09-30T10:43:14.492Z",
+  "ts": "2026-09-30T11:53:45.409Z",
   "results": {
     "ENV_V2_OFF_TEST_ROOT": {
       "ok": true,
@@ -107,16 +107,115 @@
       "detail": {
         "status": "CONTROL_PLANE_NOT_ACTIVE",
         "name": "SOS",
-        "members": "—",
+        "members": "עדיין אין נתונים",
         "roles": 7,
         "caps": 9,
-        "capsDisabled": true
+        "capsInAdvanced": true
       }
     },
     "NO_ENABLED_MUTATION_CONTROLS_INACTIVE": {
       "ok": true,
       "detail": {
         "enabledButtons": 0
+      }
+    },
+    "UX_MAIN_PAGE": {
+      "ok": true,
+      "detail": {
+        "title": "ניהול הקבוצה",
+        "tabs": [
+          "חברים",
+          "מנהלים",
+          "הזמנות",
+          "פעילות ניהולית"
+        ],
+        "summary": "חברים: עדיין אין נתונים\nמנהלים: 1\nהזמנות פעילות: עדיין אין נתונים"
+      }
+    },
+    "UX_TECHNICAL_INFO_ONLY_IN_ADVANCED": {
+      "ok": true,
+      "detail": {
+        "advancedCollapsed": true
+      }
+    },
+    "MEMBER_LIST": {
+      "ok": true,
+      "detail": {
+        "inList": true,
+        "text": "ב\nבעלים לבדיקה\n05cbf4a2…85dc\nמנהל ראשי\nמוגן\nניהול",
+        "avatar": true,
+        "manage": true,
+        "fullKey": false
+      }
+    },
+    "USER_SEARCH": {
+      "ok": true,
+      "detail": {
+        "text": "מ\nמשתמשת חיפוש\nc4c187e9…6064\nעדיין אין נתוני חברות\nניהול",
+        "avatar": true,
+        "short": true
+      }
+    },
+    "SELECT_USER_PANEL": {
+      "ok": true,
+      "detail": {
+        "pk": true,
+        "title": "ניהול משתמש"
+      }
+    },
+    "PER_USER_PERMISSION_EDITOR": {
+      "ok": true,
+      "detail": {
+        "roles": [
+          "חבר",
+          "מזמין",
+          "מפקח תוכן",
+          "מנהל",
+          "מנהל בכיר"
+        ],
+        "caps": 9,
+        "afterToggle": "MODERATOR",
+        "afterRole": {
+          "active": "ADMIN",
+          "checked": [
+            "MANAGE_MEMBERS"
+          ]
+        }
+      }
+    },
+    "WRITE_ACTIONS_DISABLED": {
+      "ok": true,
+      "detail": {
+        "saveDisabled": true,
+        "note": "ניתן לשמור לאחר הפעלת מערכת הניהול",
+        "enabledMutations": 0,
+        "addDisabled": true
+      }
+    },
+    "READ_NAVIGATION_ENABLED": {
+      "ok": true,
+      "detail": {
+        "nav": [
+          "admins",
+          "invites",
+          "activity",
+          "members"
+        ],
+        "adminsRoot": true
+      }
+    },
+    "ROOT_OWNER_IMMUTABLE": {
+      "ok": true,
+      "detail": {
+        "rootPanel": {
+          "locked": true,
+          "editor": false,
+          "save": false
+        },
+        "rootOps": {
+          "demote": "V2_REQUIRED",
+          "remove": "V2_REQUIRED"
+        }
       }
     },
     "CONTROL_PLANE_NOT_ACTIVE_FAIL_CLOSED": {
@@ -288,7 +387,7 @@
       "ok": true,
       "detail": {
         "before": true,
-        "pub": "7d6c56192c365dc7a5a5ef8c9da8d0ff8eb5fa2ecff4e6bfe9255c75f80ed482",
+        "pub": "c4c187e97ffb9e085ef9c560222340859ecbddc42cc54f746e64a511dc9d6064",
         "unlocked": false,
         "open": false,
         "menu": false,
@@ -311,7 +410,7 @@
     "RESTART_CLEARS_UNLOCK": {
       "ok": true,
       "detail": {
-        "pub": "46dfb3abe642ca1b10d2220f4de9adc66586ff7c58e0346b26f80304c4e7c24c",
+        "pub": "05cbf4a2678cd6033a38e358fbbcfd3f9b0b99469897e3a3eddd2538608185dc",
         "unlocked": false,
         "hasPin": true,
         "menu": true
@@ -320,8 +419,8 @@
     "PIN_NOT_IN_CONSOLE_OR_NETWORK": {
       "ok": true,
       "detail": {
-        "requests": 2909,
-        "consoleLines": 3199,
+        "requests": 3145,
+        "consoleLines": 5163,
         "serviceLogClean": true
       }
     },
@@ -331,8 +430,8 @@
     }
   },
   "info_afterTimeoutMutation": "V2_REQUIRED",
-  "passed": 34,
-  "total": 34,
+  "passed": 43,
+  "total": 43,
   "PIN_ONLY_ADMIN_AUTHORIZATION": false,
   "PIN_LOGGED": false
 }

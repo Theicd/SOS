@@ -256,13 +256,168 @@ const panel = (page) =>
       name: document.getElementById('sosGapViewName')?.textContent || '',
       root: document.getElementById('sosGapRootCard')?.textContent || '',
       members: document.getElementById('sosGapMemberCount')?.textContent || '',
-      caps: Array.from(document.querySelectorAll('#sosGapCapsCatalog input[data-cap]')).map((c) => c.getAttribute('data-cap')),
-      capsDisabled: Array.from(document.querySelectorAll('#sosGapCapsCatalog input')).every((c) => c.disabled),
-      roles: document.querySelectorAll('#sosGapBody table tbody tr').length,
-      enabledMutations: Array.from(document.querySelectorAll('#sosGapBody button')).filter((b) => !b.disabled).length,
+      caps: Array.from(document.querySelectorAll('#sosGapCapsCatalog [data-cap]')).map((c) => c.getAttribute('data-cap')),
+      capsInAdvanced: !!document.querySelector('#sosGapAdvanced #sosGapCapsCatalog') && !document.querySelector('#sosGapCapsCatalog input:not([disabled])'),
+      roles: document.querySelectorAll('#sosGapAdvanced table tbody tr').length,
+      enabledMutations: Array.from(document.querySelectorAll('#sosGroupAdminShell [data-mutation]')).filter((b) => !b.disabled).length,
       bodyLen: (document.getElementById('sosGapBody')?.innerHTML || '').length,
     };
   });
+
+/** User-centric group control (V2 off): search → select → role + permissions; save disabled, navigation enabled. */
+async function groupControlUx(page, A, M) {
+  const ROOT_NAME = 'בעלים לבדיקה';
+  const USER_NAME = 'משתמשת חיפוש';
+  const stranger = mkKey().pub;
+  await page.evaluate(
+    ({ a, m, rn, un }) => {
+      const App = window.NostrApp;
+      App.profileCache.set(a, { name: rn, picture: '' });
+      App.profileCache.set(m, { name: un, picture: '' });
+      App.GroupAdminProductUi.renderTab('members');
+    },
+    { a: A.pub, m: M.pub, rn: ROOT_NAME, un: USER_NAME }
+  );
+  const main0 = await page.evaluate(() => {
+    const adv = document.getElementById('sosGapAdvanced');
+    const top = document.getElementById('sosGapTop');
+    const body = document.getElementById('sosGapBody');
+    const primary = (top ? top.innerText : '') + '\n' + (body ? body.innerText : '');
+    return {
+      title: document.getElementById('sosGapTitle')?.textContent || '',
+      status: document.getElementById('sosGapControlStatus')?.textContent || '',
+      searchLabel: document.querySelector('label[for="sosGapUserSearch"]')?.textContent || '',
+      placeholder: document.getElementById('sosGapUserSearch')?.getAttribute('placeholder') || '',
+      tabs: Array.from(document.querySelectorAll('#sosGapTabs button')).filter((b) => !b.hidden && b.style.display !== 'none').map((b) => b.textContent),
+      advancedCollapsed: !!adv && adv.open === false,
+      advancedHasGroupId: !!adv && adv.textContent.includes('israel-network'),
+      primary,
+      summary: document.getElementById('sosGapSummary')?.innerText || '',
+    };
+  });
+  set(
+    'UX_MAIN_PAGE',
+    main0.title === 'ניהול הקבוצה' &&
+      main0.status === 'מערכת הניהול עדיין לא הופעלה. ניתן לצפות ולהכין הרשאות, אך לא לשמור שינויים.' &&
+      main0.searchLabel === 'חיפוש משתמש' &&
+      main0.placeholder === 'חפש לפי שם או מזהה משתמש' &&
+      JSON.stringify(main0.tabs) === JSON.stringify(['חברים', 'מנהלים', 'הזמנות', 'פעילות ניהולית']) &&
+      /חברים: עדיין אין נתונים/.test(main0.summary) && /מנהלים: 1/.test(main0.summary) && !/—/.test(main0.summary),
+    { title: main0.title, tabs: main0.tabs, summary: main0.summary }
+  );
+  set(
+    'UX_TECHNICAL_INFO_ONLY_IN_ADVANCED',
+    main0.advancedCollapsed && main0.advancedHasGroupId && !/CONTROL_PLANE_NOT_ACTIVE/.test(main0.primary) && !main0.primary.includes(A.pub) && !/israel-network/.test(main0.primary),
+    { advancedCollapsed: main0.advancedCollapsed }
+  );
+
+  const list = await page.evaluate((a) => {
+    const card = document.getElementById('sosGapRootCard');
+    return {
+      inList: !!card && !!card.closest('#sosGapMemberList'),
+      text: card ? card.innerText : '',
+      avatar: !!(card && card.querySelector('.gap-avatar')),
+      manage: !!(card && Array.from(card.querySelectorAll('button')).some((b) => b.textContent === 'ניהול')),
+      fullKey: card ? card.innerText.includes(a) : true,
+    };
+  }, A.pub);
+  set('MEMBER_LIST', list.inList && list.avatar && list.manage && list.text.includes(ROOT_NAME) && /מנהל ראשי/.test(list.text) && /מוגן/.test(list.text) && !list.fullKey, list);
+
+  await page.fill('#sosGapUserSearch', 'משתמשת');
+  await page.waitForFunction((m) => !!document.querySelector(`#sosGapSearchResults [data-act="select-member"][data-pk="${m}"]`), M.pub, { polling: 200, timeout: 20000 });
+  const hit = await page.evaluate((m) => {
+    const row = document.querySelector(`#sosGapSearchResults [data-pk="${m}"]`);
+    return { text: row ? row.innerText : '', avatar: !!(row && row.querySelector('.gap-avatar')), short: !!row && row.innerText.includes(m.slice(0, 8)) };
+  }, M.pub);
+  await page.fill('#sosGapUserSearch', stranger);
+  await page.waitForFunction((s) => !!document.querySelector(`#sosGapSearchResults [data-pk="${s}"]`), stranger, { polling: 200, timeout: 20000 });
+  set('USER_SEARCH', hit.text.includes(USER_NAME) && hit.avatar && hit.short && /עדיין אין נתוני חברות/.test(hit.text), hit);
+
+  await page.fill('#sosGapUserSearch', 'משתמשת');
+  await page.waitForFunction((m) => !!document.querySelector(`#sosGapSearchResults [data-pk="${m}"]`), M.pub, { polling: 200, timeout: 20000 });
+  await page.$eval(`#sosGapSearchResults [data-pk="${M.pub}"]`, (el) => el.click());
+  await page.waitForSelector('#sosGapMemberDetail', { timeout: 5000 });
+  const drawer = await page.evaluate(() => {
+    const d = document.getElementById('sosGapMemberDetail');
+    return {
+      pk: d.getAttribute('data-pk'),
+      title: d.querySelector('#sosGapUserTitle')?.textContent || '',
+      text: d.innerText,
+      avatar: !!d.querySelector('.gap-avatar.lg'),
+      roles: Array.from(d.querySelectorAll('#sosGapRoleOptions [data-role]')).map((b) => b.textContent),
+      caps: Array.from(d.querySelectorAll('#sosGapCaps input[data-cap]')).map((c) => c.getAttribute('data-cap')),
+      capsEnabled: Array.from(d.querySelectorAll('#sosGapCaps input[data-cap]')).every((c) => !c.disabled),
+    };
+  });
+  const canonical = await page.evaluate(() => Object.keys(window.NostrApp.FirstGroupAdmin.CAP_LABELS));
+  set(
+    'SELECT_USER_PANEL',
+    drawer.pk === M.pub && drawer.title === 'ניהול משתמש' && drawer.avatar && drawer.text.includes(USER_NAME) && drawer.text.includes(M.pub.slice(0, 8)) && /תפקיד/.test(drawer.text),
+    { pk: drawer.pk === M.pub, title: drawer.title }
+  );
+
+  await page.click('#sosGapCaps input[data-cap="MODERATE_CONTENT"]');
+  const afterToggle = await page.evaluate(() => document.querySelector('#sosGapRoleOptions .active')?.getAttribute('data-role') || '');
+  await page.click('#sosGapRoleOptions [data-role="ADMIN"]');
+  const afterRole = await page.evaluate(() => ({
+    active: document.querySelector('#sosGapRoleOptions .active')?.getAttribute('data-role') || '',
+    checked: Array.from(document.querySelectorAll('#sosGapCaps input[data-cap]')).filter((c) => c.checked).map((c) => c.getAttribute('data-cap')),
+  }));
+  set(
+    'PER_USER_PERMISSION_EDITOR',
+    JSON.stringify(drawer.roles) === JSON.stringify(['חבר', 'מזמין', 'מפקח תוכן', 'מנהל', 'מנהל בכיר']) &&
+      JSON.stringify(drawer.caps) === JSON.stringify(canonical) && drawer.capsEnabled &&
+      afterToggle === 'MODERATOR' && afterRole.active === 'ADMIN' && JSON.stringify(afterRole.checked) === JSON.stringify(['MANAGE_MEMBERS']),
+    { roles: drawer.roles, caps: drawer.caps.length, afterToggle, afterRole }
+  );
+
+  const save = await page.evaluate(() => ({
+    saveDisabled: document.getElementById('sosGapSaveUser')?.disabled === true,
+    note: document.getElementById('sosGapSaveNote')?.textContent || '',
+    enabledMutations: Array.from(document.querySelectorAll('#sosGroupAdminShell [data-mutation]')).filter((b) => !b.disabled).length,
+    addDisabled: Array.from(document.querySelectorAll('#sosGapMemberDetail button')).some((b) => b.textContent === 'הוסף לקבוצה' && b.disabled),
+  }));
+  await page.screenshot({ path: path.join(ROOT, 'qa', 'group-control-ux-user-panel.png') }).catch(() => {});
+  set('WRITE_ACTIONS_DISABLED', save.saveDisabled && save.note === 'ניתן לשמור לאחר הפעלת מערכת הניהול' && save.enabledMutations === 0 && save.addDisabled, save);
+
+  await page.keyboard.press('Escape');
+  const nav = [];
+  for (const t of ['admins', 'invites', 'activity', 'members']) {
+    await page.click(`#sosGapTabs button[data-tab="${t}"]`);
+    nav.push(await page.evaluate(() => document.querySelector('#sosGapTabs button.active')?.dataset.tab || ''));
+  }
+  const adminsRoot = await page.evaluate((a) => {
+    window.NostrApp.GroupAdminProductUi.renderTab('admins');
+    const row = document.querySelector(`#sosGapAdminList [data-admin="${a}"]`);
+    return !!row && /מוגן/.test(row.textContent) && !row.querySelector('[data-act="demote"]');
+  }, A.pub);
+  await page.evaluate(() => window.NostrApp.GroupAdminProductUi.renderTab('members'));
+  set('READ_NAVIGATION_ENABLED', JSON.stringify(nav) === JSON.stringify(['admins', 'invites', 'activity', 'members']) && adminsRoot, { nav, adminsRoot });
+
+  await page.$eval('#sosGapRootCard', (el) => el.click());
+  await page.waitForSelector('#sosGapMemberDetail', { timeout: 5000 });
+  const rootPanel = await page.evaluate(() => {
+    const d = document.getElementById('sosGapMemberDetail');
+    return {
+      locked: !!d.querySelector('#sosGapRootLocked'),
+      editor: !!d.querySelector('#sosGapCaps') || !!d.querySelector('#sosGapRoleOptions'),
+      save: !!d.querySelector('[data-act="save-user"]'),
+      allDisabled: Array.from(d.querySelectorAll('input')).every((i) => i.disabled),
+      text: d.innerText,
+    };
+  });
+  const rootOps = await page.evaluate(async (a) => {
+    const F = window.NostrApp.FirstGroupAdmin;
+    return { demote: (await F.demoteAdmin(a)).code, remove: (await F.removeMember(a)).code };
+  }, A.pub);
+  await page.keyboard.press('Escape');
+  set(
+    'ROOT_OWNER_IMMUTABLE',
+    rootPanel.locked && !rootPanel.editor && !rootPanel.save && rootPanel.allDisabled && rootPanel.text.includes(ROOT_NAME) &&
+      Object.values(rootOps).every((c) => c !== 'SAVED' && c !== 'OK' && c !== undefined),
+    { rootPanel: { locked: rootPanel.locked, editor: rootPanel.editor, save: rootPanel.save }, rootOps }
+  );
+}
 
 async function main() {
   const A = mkKey();
@@ -323,11 +478,13 @@ async function main() {
     set('SETUP_OK_PANEL_OPENS', p1.open && !(await dialog(ua.page)), { open: p1.open });
     set(
       'PANEL_INACTIVE_CONTENT',
-      p1.status === 'CONTROL_PLANE_NOT_ACTIVE' && p1.name === 'SOS' && p1.root.includes(A.pub) && /מוגן/.test(p1.root) && p1.members === '—' && p1.roles >= 7 && JSON.stringify(p1.caps) === JSON.stringify(capLabels) && p1.capsDisabled,
-      { status: p1.status, name: p1.name, members: p1.members, roles: p1.roles, caps: p1.caps.length, capsDisabled: p1.capsDisabled }
+      p1.status === 'CONTROL_PLANE_NOT_ACTIVE' && p1.name === 'SOS' && p1.root.includes(A.pub.slice(0, 8)) && !p1.root.includes(A.pub) && /מוגן/.test(p1.root) &&
+        p1.members === 'עדיין אין נתונים' && p1.roles >= 7 && JSON.stringify(p1.caps) === JSON.stringify(capLabels) && p1.capsInAdvanced,
+      { status: p1.status, name: p1.name, members: p1.members, roles: p1.roles, caps: p1.caps.length, capsInAdvanced: p1.capsInAdvanced }
     );
     set('NO_ENABLED_MUTATION_CONTROLS_INACTIVE', p1.enabledMutations === 0 && /מוגן/.test(p1.root), { enabledButtons: p1.enabledMutations });
     await ua.page.screenshot({ path: path.join(ROOT, 'qa', 'package899f-panel-inactive.png') }).catch(() => {});
+    await groupControlUx(ua.page, A, M);
 
     // ---- mutations fail closed while control plane is inactive
     const mut = await ua.page.evaluate(async () => {
