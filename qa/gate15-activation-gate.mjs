@@ -152,7 +152,9 @@ function transformConfig(src) {
 }
 const servedFlags = () => {
   const prod = JSON.parse(fs.readFileSync(path.join(ROOT, 'runtime-feature-flags.json'), 'utf8'));
-  return Object.assign({}, prod, { admin2faSignerPubkey: COSIGN.pub });
+  const pre = Object.assign({}, prod, { accessControlV2: false, admin2faSignerPubkey: COSIGN.pub });
+  delete pre.accessControlV2Scope;
+  return pre;
 };
 function startServer() {
   const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.webp': 'image/webp' };

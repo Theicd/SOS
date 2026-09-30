@@ -158,7 +158,9 @@ function transformConfig(src) {
 }
 const servedFlags = () => {
   const prod = JSON.parse(fs.readFileSync(path.join(ROOT, 'runtime-feature-flags.json'), 'utf8'));
-  return Object.assign({}, prod, { admin2faSignerPubkey: COSIGN.pub });
+  const pre = Object.assign({}, prod, { accessControlV2: false, admin2faSignerPubkey: COSIGN.pub });
+  delete pre.accessControlV2Scope;
+  return pre;
 };
 let fgaPinned = false;
 function startServer() {

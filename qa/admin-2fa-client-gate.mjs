@@ -216,7 +216,7 @@ const post = (author, tags) => finalizeEvent({ kind: 1, created_at: nowSec(), ta
 async function main() {
   // =============== enforcement configuration
   const prod = await makeEnv(PROD_CONFIG);
-  check('PRODUCTION_CONFIG_ENFORCED_PINNED_SIGNER', prod.P.isEnforced() === true && prod.P.activeSignerPubkey() === PROD_SIGNER && prod.App.FeatureFlags.snapshot().canonicalAccessControlV2 === false);
+  check('PRODUCTION_CONFIG_ENFORCED_PINNED_SIGNER', prod.P.isEnforced() === true && prod.P.activeSignerPubkey() === PROD_SIGNER && prod.App.FeatureFlags.snapshot().canonicalAccessControlV2 === true && prod.App.FeatureFlags.accessControlV2Scope() === 'CONTROL_PLANE');
   const prodTries = await makeEnv(PROD_CONFIG, {
     search: '?admin2fa=0&admin2faEnforcement=false&admin2faSignerPubkey=' + X.pub,
     localStorage: [['sos_admin2fa_enforcement', 'false']],
@@ -503,7 +503,7 @@ async function main() {
     'PRODUCTION_PINS_CONFIG_ONLY',
     /const BUILD_ENFORCEMENT = false;/.test(p2fa) &&
       /const PINNED_SIGNER_PUBKEY = '';/.test(p2fa) &&
-      PROD_CONFIG.trim() === JSON.stringify({ schema: 'sos-feature-flags-v1', accessControlV2: false, admin2faEnforcement: true, admin2faSignerPubkey: PROD_SIGNER })
+      PROD_CONFIG.trim() === JSON.stringify({ schema: 'sos-feature-flags-v1', accessControlV2: true, accessControlV2Scope: 'CONTROL_PLANE', admin2faEnforcement: true, admin2faSignerPubkey: PROD_SIGNER })
   );
   const secretHex = /['"`][0-9a-f]{64}['"`]/;
   const clientFiles = fs.readdirSync(ROOT).filter((f) => /\.(js|html)$/.test(f));

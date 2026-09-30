@@ -757,7 +757,7 @@ async function main() {
     eol(gitFlags) === eol(read('runtime-feature-flags.json')) &&
       prodFlags.admin2faEnforcement === true &&
       prodFlags.admin2faSignerPubkey === '74c4bb0fb6b87b69cc2a95a80b4b5fa616cde3f917ef1894594606d30062edfa' &&
-      prodFlags.accessControlV2 !== true &&
+      (prodFlags.accessControlV2 !== true || prodFlags.accessControlV2Scope === 'CONTROL_PLANE') &&
       /const BUILD_ENFORCEMENT = false;/.test(read('admin-2fa-protocol.js')) &&
       /App\.FIRST_GROUP_ADMISSION_URL = '(?:|https:\/\/sos-first-group-admission\.dror201031-b16\.workers\.dev)';/.test(read('config.js')) &&
       !/location\.search|URLSearchParams|localStorage|sessionStorage/.test(clientSrc)
