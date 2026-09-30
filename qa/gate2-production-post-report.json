@@ -1,0 +1,184 @@
+{
+  "mode": "post",
+  "flags": {
+    "accessControlV2": false,
+    "admin2faEnforcement": true,
+    "admin2faSignerPubkey": "74c4bb0fb6b87b69cc2a95a80b4b5fa616cde3f917ef1894594606d30062edfa"
+  },
+  "perRelay": [
+    {
+      "relay": "wss://relay.snort.social",
+      "eose": true,
+      "code": "EOSE",
+      "control39001": 0,
+      "attestations39004": 0,
+      "membership39003": 0,
+      "delegation": "NOT_FOUND",
+      "delegationEventId": null,
+      "delegationAttestation": "NOT_FOUND",
+      "tipEventId": null,
+      "verification": "FAIL"
+    },
+    {
+      "relay": "wss://nos.lol",
+      "eose": true,
+      "code": "EOSE",
+      "control39001": 2,
+      "attestations39004": 2,
+      "membership39003": 0,
+      "delegation": "FOUND",
+      "delegationEventId": "02263f81915e0b8fd34cc92d6acbd590560d426d003d850492a8e1f8257d2833",
+      "delegationAttestation": "FOUND",
+      "tipEventId": "02263f81915e0b8fd34cc92d6acbd590560d426d003d850492a8e1f8257d2833",
+      "verification": "PASS"
+    },
+    {
+      "relay": "wss://nostr-relay.xbytez.io",
+      "eose": true,
+      "code": "EOSE",
+      "control39001": 2,
+      "attestations39004": 2,
+      "membership39003": 0,
+      "delegation": "FOUND",
+      "delegationEventId": "02263f81915e0b8fd34cc92d6acbd590560d426d003d850492a8e1f8257d2833",
+      "delegationAttestation": "FOUND",
+      "tipEventId": "02263f81915e0b8fd34cc92d6acbd590560d426d003d850492a8e1f8257d2833",
+      "verification": "PASS"
+    },
+    {
+      "relay": "wss://nostr-02.uid.ovh",
+      "eose": true,
+      "code": "EOSE",
+      "control39001": 2,
+      "attestations39004": 2,
+      "membership39003": 0,
+      "delegation": "FOUND",
+      "delegationEventId": "02263f81915e0b8fd34cc92d6acbd590560d426d003d850492a8e1f8257d2833",
+      "delegationAttestation": "FOUND",
+      "tipEventId": "02263f81915e0b8fd34cc92d6acbd590560d426d003d850492a8e1f8257d2833",
+      "verification": "PASS"
+    }
+  ],
+  "INDEPENDENT_CONTROL_STATUS": "ACTIVE",
+  "BOOTSTRAP_EVENT_ID": "69a27d4a441dc5e9067567332c02641db11733d988228e24fc4869604db20df3",
+  "CONTROL_TIP_EVENT_ID": "02263f81915e0b8fd34cc92d6acbd590560d426d003d850492a8e1f8257d2833",
+  "CONTROL_EPOCH": 2,
+  "MEMBERSHIP_EPOCH": 1,
+  "ROOT": "ede1e7fabb758aca75ae548680a206a234c6d6b257834b111d284c3692e67601",
+  "ADMIN_2FA_SIGNER": "74c4bb0fb6b87b69cc2a95a80b4b5fa616cde3f917ef1894594606d30062edfa",
+  "CAPABILITIES": {
+    "752f47fa926d1833a451bdc97f3f2967ae4bc6452d0356bc7919c6928e4611ef": [
+      "FINALIZE_MEMBERSHIP_ADMISSION"
+    ]
+  },
+  "CONTROL_EVENTS_TOTAL": 2,
+  "CONFLICTS": 0,
+  "ACTIVE_ADMISSION_DELEGATES": [
+    "752f47fa926d1833a451bdc97f3f2967ae4bc6452d0356bc7919c6928e4611ef"
+  ],
+  "DELEGATION_ACTIVE": true,
+  "DELEGATION_EVENT_ID": "02263f81915e0b8fd34cc92d6acbd590560d426d003d850492a8e1f8257d2833",
+  "DELEGATION_ATTESTATION_ID": "73cbc1c1d753ad8b5ed167c3af1566629d8adee058c7b5df0dcdd1b5bfb2e0ef",
+  "DELEGATION_ATTESTATION_VERIFY": "ADMIN_2FA_VERIFIED",
+  "DELEGATION_ATTESTATION_OPERATIONS": [
+    "CREATE_ADMISSION_DELEGATION"
+  ],
+  "DELEGATION_ATTESTATION_STEP_UP": true,
+  "service": {
+    "controlPlane": "ACTIVE",
+    "controlStatus": "VERIFIED",
+    "bootstrapEventId": "69a27d4a441dc5e9067567332c02641db11733d988228e24fc4869604db20df3",
+    "controlTipEventId": "02263f81915e0b8fd34cc92d6acbd590560d426d003d850492a8e1f8257d2833",
+    "controlEpoch": 2,
+    "controlRootPubkey": "ede1e7fabb758aca75ae548680a206a234c6d6b257834b111d284c3692e67601",
+    "admin2faEnforced": true,
+    "admin2faSignerPubkey": "74c4bb0fb6b87b69cc2a95a80b4b5fa616cde3f917ef1894594606d30062edfa",
+    "servicePubkey": "752f47fa926d1833a451bdc97f3f2967ae4bc6452d0356bc7919c6928e4611ef",
+    "delegationActive": true,
+    "delegatedCapabilities": [
+      "FINALIZE_MEMBERSHIP_ADMISSION"
+    ],
+    "lastRelayRefresh": {
+      "at": 1790801707,
+      "relaysOk": 4,
+      "relaysTotal": 4
+    }
+  },
+  "negative": [
+    {
+      "name": "REAL_DELEGATION_WITH_ATTESTATION_ACTIVE",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "active": true,
+        "epoch": 2
+      }
+    },
+    {
+      "name": "DELEGATION_WITHOUT_ATTESTATION_NOT_ACCEPTED",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "active": false,
+        "epoch": 1
+      }
+    },
+    {
+      "name": "FORGED_ATTESTATION_REJECTED",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "active": false,
+        "epoch": 1
+      }
+    },
+    {
+      "name": "NON_ROOT_CONFLICTING_DELEGATION_IGNORED",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "active": true,
+        "epoch": 2
+      }
+    },
+    {
+      "name": "NON_ROOT_DELEGATION_TO_SERVICE_REJECTED",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "active": false,
+        "epoch": 1
+      }
+    },
+    {
+      "name": "ATTESTATION_BOUND_TO_OTHER_EVENT_REJECTED",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_EVENT_MISMATCH"
+    },
+    {
+      "name": "WRONG_GROUP_REJECTED",
+      "ok": true,
+      "detail": "ADMIN_2FA_GROUP_SCOPE"
+    },
+    {
+      "name": "WRONG_SERVICE_PUBKEY_NOT_DELEGATED",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "NON_ROOT_REVOCATION_REJECTED",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "active": true,
+        "epoch": 2
+      }
+    },
+    {
+      "name": "AUTHORITY_NEGATIVES_DISPOSABLE_CHAIN",
+      "ok": true,
+      "detail": "GATE2_NEGATIVE_GATE=PASS (35/35)"
+    }
+  ],
+  "GATE2_NEGATIVE_GATE": "PASS"
+}
