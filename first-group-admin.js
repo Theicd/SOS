@@ -420,6 +420,139 @@
     }
   }
 
+  /** Read-only control-chain probe from the relays; works with ACCESS_CONTROL_V2 off. */
+  async function probeNetworkControl() {
+    const n = NA();
+    const g = GCS();
+    if (!n || typeof n.fetchFromRelays !== 'function' || !g) return fail('NETWORK_AUTHORITY_MISSING');
+    const gid = FIRST_GROUP.groupId;
+    const res = await n.fetchFromRelays([
+      { kinds: [39001], '#t': [gid], limit: 500 },
+      { kinds: [39004], '#t': [gid], limit: 2000 },
+    ]);
+    const control = res.events.filter((e) => e && e.kind === 39001);
+    const out = {
+      ok: true,
+      relaysOk: res.relaysOk,
+      relaysTotal: res.relaysTotal,
+      controlEvents: control.length,
+      status: 'MISSING',
+      controlEpoch: null,
+      rootAdminPubkey: null,
+      admin2faSignerPubkey: null,
+      eventId: null,
+    };
+    if (!control.length) return out;
+    const A = App.Admin2faProtocol;
+    if (A) A.ingestAttestations(res.events.filter((e) => e && e.kind === 39004));
+    g.ingestControlEvents(control, { groupId: gid });
+    out.status = g.getStatus(gid);
+    const st = out.status === 'VERIFIED' ? g.getVerifiedControlState(gid) : null;
+    const ev = st ? g.getVerifiedControlEvent(gid) : null;
+    if (st) {
+      out.controlEpoch = st.controlEpoch;
+      out.rootAdminPubkey = st.rootAdminPubkey;
+      out.admin2faSignerPubkey = st.admin2faSignerPubkey || null;
+      out.eventId = ev ? ev.id : null;
+    }
+    return out;
+  }
+
+  /** Exact Gate 1.5 genesis shape plus the attestation, verified locally before anything is published. */
+  function checkGate15Package(ev, att, root, signer) {
+    const A = App.Admin2faProtocol;
+    const g = GCS();
+    const gid = FIRST_GROUP.groupId;
+    const tags = JSON.stringify([['d', gid + ':1'], ['t', gid], ['sos-control', 'v1']]);
+    if (!ev || ev.kind !== 39001 || ev.pubkey !== root || JSON.stringify(ev.tags) !== tags) return fail('GATE15_EVENT_INVALID');
+    if (typeof App.strictVerifyNostrEvent !== 'function' || App.strictVerifyNostrEvent(ev) !== true) return fail('GATE15_EVENT_INVALID');
+    let rec = null;
+    try {
+      rec = g.parseAndValidateRecord(ev.content);
+    } catch (_e) {
+      return fail('GATE15_RECORD_INVALID');
+    }
+    if (
+      rec.groupId !== gid ||
+      rec.controlEpoch !== 1 ||
+      rec.membershipEpoch !== 1 ||
+      rec.rootAdminPubkey !== root ||
+      Object.keys(rec.capabilities || {}).length !== 0 ||
+      (rec.blockedPubkeys || []).length !== 0 ||
+      rec.invitePolicy !== 'AUTHORIZED_USERS_ONLY' ||
+      rec.admin2faSignerPubkey !== signer
+    ) {
+      return fail('GATE15_RECORD_INVALID');
+    }
+    const v = A.verifyAdmin2faAttestation(ev, att, {
+      groupId: gid,
+      rootPubkey: root,
+      signerPubkey: signer,
+      expectedOperations: ['BOOTSTRAP_GROUP_CONTROL'],
+      controlEpoch: 1,
+      nowSec: Math.floor(Date.now() / 1000),
+      requireUnexpired: true,
+    });
+    if (!v.ok) return fail(v.code);
+    const p = g.previewControlTransition(ev, { groupId: gid });
+    if (!p.ok) return fail(p.code || 'GATE15_PREVIEW_FAILED');
+    return { ok: true };
+  }
+
+  async function publishCounted(ev) {
+    let list;
+    try {
+      list = await Promise.resolve(App.pool.publish(App.relayUrls, ev));
+    } catch (_e) {
+      return 0;
+    }
+    if (!Array.isArray(list)) return 1;
+    const timed = list.map((p) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('TIMEOUT')), 10000))]));
+    const r = await Promise.allSettled(timed);
+    return r.filter((x) => x.status === 'fulfilled').length;
+  }
+
+  /**
+   * Gate 1.5 (owner): relays confirm no control exists, then the attested BOOTSTRAP package is verified locally and
+   * published, attestation first. No membership, delegation or other grant is created.
+   */
+  async function activateGroupControl() {
+    const me = actor();
+    if (!me || App.guestMode === true) return fail('NO_IDENTITY');
+    if (!isConfiguredRoot(me)) return fail('FIRST_GROUP_ROOT_NOT_CONFIGURED');
+    const sa = SA();
+    const s = sa && sa.checkSessionForSensitiveOp ? sa.checkSessionForSensitiveOp('FIRST_GROUP_ADMIN:BOOTSTRAP') : null;
+    if (!s || s.ok !== true) return fail((s && s.code) || 'SESSION_REVOKED');
+    const ctx = contextCheck();
+    if (!ctx.ok) return ctx;
+    const A = App.Admin2faProtocol;
+    const signer = A && typeof A.activeSignerPubkey === 'function' ? A.activeSignerPubkey() : '';
+    if (!A || A.isEnforced() !== true || !signer || A.canonicalRootPubkey() !== me) return fail('ADMIN_2FA_SERVICE_UNAVAILABLE');
+    if (!App.pool || !Array.isArray(App.relayUrls) || !App.relayUrls.length) return fail('NETWORK_AUTHORITY_UNVERIFIED');
+    const pre = await probeNetworkControl();
+    if (!pre.ok) return pre;
+    if (pre.relaysOk < 2) return fail('NETWORK_AUTHORITY_UNVERIFIED');
+    if (pre.controlEvents > 0) return fail('ALREADY_BOOTSTRAPPED');
+    const pkg = await prepareGate15Package({ displayName: 'SOS', invitePolicy: 'AUTHORIZED_USERS_ONLY' });
+    if (!pkg.ok) return pkg;
+    const check = checkGate15Package(pkg.event, pkg.attestation, me, signer);
+    if (!check.ok) return check;
+    const attAcks = await publishCounted(pkg.attestation);
+    if (!attAcks) return fail('PUBLISH_FAILED', { stage: 'attestation' });
+    const evAcks = await publishCounted(pkg.event);
+    if (!evAcks) return fail('PUBLISH_FAILED', { stage: 'event', attestationId: pkg.attestation.id });
+    A.ingestAttestations([pkg.attestation]);
+    const acc = GCS().acceptControlEvent(pkg.event, { groupId: FIRST_GROUP.groupId, persist: true });
+    return done({
+      ok: true,
+      code: 'GATE15_PUBLISHED',
+      eventId: pkg.event.id,
+      attestationId: pkg.attestation.id,
+      relayAcks: { attestation: attAcks, event: evAcks },
+      accepted: !!(acc && acc.ok),
+    });
+  }
+
   async function bootstrapFirstGroup(opts) {
     if (!isV2()) return fail('V2_REQUIRED');
     const me = actor();
@@ -1054,6 +1187,8 @@
     roleLabel,
     bootstrapFirstGroup,
     prepareGate15Package,
+    probeNetworkControl,
+    activateGroupControl,
     updateMetadata,
     grantCapability,
     revokeCapability,

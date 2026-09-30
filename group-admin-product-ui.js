@@ -21,6 +21,7 @@
   const EDITABLE_ROLES = Object.freeze(['MEMBER', 'INVITER', 'MODERATOR', 'ADMIN', 'SENIOR_ADMIN']);
   const INACTIVE_STATUS_TEXT = 'מערכת הניהול עדיין לא הופעלה. ניתן לצפות ולהכין הרשאות, אך לא לשמור שינויים.';
   const SAVE_AFTER_ACTIVATION_TEXT = 'ניתן לשמור לאחר הפעלת מערכת הניהול';
+  const ACTIVE_WRITES_OFF_TEXT = 'מערכת הניהול הופעלה. שמירת שינויים תיפתח בשלב הבא.';
   const NO_DATA_TEXT = 'עדיין אין נתונים';
 
   const LABELS = Object.freeze({
@@ -63,6 +64,8 @@
   let searchSeq = 0;
   let searchTimer = null;
   let advancedOpen = false;
+  let controlProbe = null;
+  let probeBusy = false;
   const profiles = new Map();
 
   function isV2() {
@@ -100,6 +103,33 @@
     if (/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(s)) return s;
     if (/^https:\/\/[^\s"'<>()\\`]{1,500}$/.test(s)) return s;
     return '';
+  }
+
+  /** V2 off: read-only relay probe of the control chain for the root, used by the status line and Gate 1.5. */
+  function refreshControlProbe() {
+    const f = FGA();
+    if (isV2() || probeBusy || !f || typeof f.probeNetworkControl !== 'function' || !f.isConfiguredRoot(actor())) return;
+    probeBusy = true;
+    const who = actor();
+    f.probeNetworkControl()
+      .then((r) => {
+        if (actor() === who) controlProbe = r;
+      })
+      .catch(() => {})
+      .then(() => {
+        probeBusy = false;
+        if (isOpen() && actor() === who) renderTab(activeTab);
+      });
+  }
+
+  function controlActiveWritesOff() {
+    return !isV2() && !!controlProbe && controlProbe.status === 'VERIFIED';
+  }
+
+  function canActivateControl() {
+    const f = FGA();
+    const p = controlProbe;
+    return !isV2() && !!p && p.ok === true && p.controlEvents === 0 && p.relaysOk >= 2 && !!f && f.isConfiguredRoot(actor());
   }
 
   function needsBootstrap() {
@@ -268,6 +298,8 @@
 
   const ERROR_TEXT = {
     UNAUTHORIZED: 'אין הרשאה לפעולה זו',
+    ALREADY_BOOTSTRAPPED: 'מערכת הניהול כבר הופעלה',
+    NETWORK_AUTHORITY_UNVERIFIED: 'אין חיבור מספיק לשרתי הרשת. נסו שוב בעוד רגע.',
     SESSION_REVOKED: 'ההתחברות אינה בתוקף. התחברו מחדש.',
     SESSION_ACCOUNT_MISMATCH: 'החשבון השתנה. רעננו את הדף.',
     STALE_BASE: 'המצב התעדכן בלשונית אחרת. נסו שוב.',
@@ -596,9 +628,10 @@
       });
     }
     const st = document.getElementById('sosGapControlStatus');
-    st.setAttribute('data-status', controlStatus());
-    st.className = 'gap-status' + (isV2() ? '' : ' inactive');
-    if (!isV2()) st.textContent = INACTIVE_STATUS_TEXT;
+    const activeWritesOff = controlActiveWritesOff();
+    st.setAttribute('data-status', activeWritesOff ? 'CONTROL_ACTIVE_WRITES_OFF' : controlStatus());
+    st.className = 'gap-status' + (isV2() || activeWritesOff ? '' : ' inactive');
+    if (!isV2()) st.textContent = activeWritesOff ? ACTIVE_WRITES_OFF_TEXT : INACTIVE_STATUS_TEXT;
     else if (needsBootstrap()) {
       st.innerHTML =
         'ניהול הקבוצה עדיין לא הופעל. אתם המנהל הראשי המוגדר. ' +
@@ -841,8 +874,16 @@
         '</select></div>' +
         '<div class="gap-actions"><button type="button" class="gap-btn primary" data-act="save-policy" data-mutation="1">שמירת הגדרות</button></div>';
     }
+    if (canActivateControl()) {
+      html +=
+        '<h3>הפעלת מערכת הניהול</h3>' +
+        '<p class="gap-sub">פעולה חד־פעמית של המנהל הראשי: יוצרת את שרשרת הבקרה החתומה של הקבוצה, בלי מנהלים נוספים ובלי חברים. תתבקשו לאשר בקוד מנהל.</p>' +
+        '<div class="gap-actions"><button type="button" class="gap-btn primary" id="sosGapActivateControl" data-act="activate-control" data-gate15="1">הפעלת מערכת הניהול</button></div>';
+    }
+    const signerPk = controlProbe && controlProbe.admin2faSignerPubkey;
     html +=
       '<h3>מידע טכני</h3><ul class="gap-ref">' +
+      (signerPk ? '<li>חותם אימות מנהל: <span class="gap-mono" id="sosGapAdmin2faSigner">' + escapeHtml(signerPk) + '</span></li>' : '') +
       '<li>מזהה קבוצה: <span class="gap-mono">' + escapeHtml(f.FIRST_GROUP_ID) + '</span></li>' +
       '<li>מצב מערכת הניהול: <span class="gap-mono" id="sosGapControlCode">' + escapeHtml(controlStatus()) + '</span></li>' +
       '<li>מצב שרשרת הבקרה: <span class="gap-mono">' + escapeHtml(g && typeof g.getStatus === 'function' ? String(g.getStatus(f.FIRST_GROUP_ID) || '') : '') + '</span></li>' +
@@ -1088,6 +1129,40 @@
 
   // ---------------------------------------------------------------- actions
 
+  /** Gate 1.5: the root publishes the attested genesis. Needs a server admin session; nothing else is written. */
+  async function activateControl() {
+    const f = FGA();
+    if (busy || !canActivateControl() || typeof f.activateGroupControl !== 'function') return null;
+    const unlocked = await adminSession();
+    if (!unlocked.ok) {
+      setMsg(errText({ code: unlocked.code === 'ADMIN_2FA_SERVICE_UNAVAILABLE' ? unlocked.code : 'ADMIN_PIN_REQUIRED' }), 'err');
+      return unlocked;
+    }
+    const yes = await confirmAction('להפעיל את מערכת הניהול של הקבוצה? זו פעולה חד־פעמית: נוצרת שרשרת בקרה חתומה עם המנהל הראשי בלבד.');
+    if (!yes) {
+      setMsg('הפעולה בוטלה', '');
+      return { ok: false, code: 'CANCELLED' };
+    }
+    busy = true;
+    setMsg('הפעלת מערכת הניהול…', '');
+    let res;
+    try {
+      res = await f.activateGroupControl();
+    } catch (e) {
+      res = { ok: false, code: (e && e.code) || 'ERROR' };
+    }
+    busy = false;
+    if (res && res.ok) {
+      const p = PIN();
+      if (p) p.touch();
+      setMsg('מערכת הניהול הופעלה', 'ok');
+    } else setMsg(errText(res), 'err');
+    controlProbe = null;
+    renderTab(activeTab);
+    refreshControlProbe();
+    return res;
+  }
+
   async function onAction(act, el) {
     const f = FGA();
     const pk = el.getAttribute('data-pk') || '';
@@ -1108,6 +1183,7 @@
       return null;
     }
     if (act === 'bootstrap') return run('הפעלת ניהול', () => f.bootstrapFirstGroup({}));
+    if (act === 'activate-control') return activateControl();
     if (act === 'save-user') {
       const target = selectedMember;
       if (!target) return null;
@@ -1274,6 +1350,7 @@
     ensureShell();
     shellEl.classList.add('is-open');
     renderTab(tab || 'home');
+    refreshControlProbe();
     return { ok: true, code: controlStatus() };
   }
 
@@ -1324,6 +1401,7 @@
       selectedMember = '';
       draftCaps = null;
       searchQuery = '';
+      controlProbe = null;
       const top = document.getElementById('sosGapTop');
       if (top) top.innerHTML = '';
       window.__SOS_GAP_LOGO_DATA__ = '';

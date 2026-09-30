@@ -1,1 +1,1 @@
-{"schema":"sos-feature-flags-v1","accessControlV2":false}
+{"schema":"sos-feature-flags-v1","accessControlV2":false,"admin2faEnforcement":true,"admin2faSignerPubkey":"74c4bb0fb6b87b69cc2a95a80b4b5fa616cde3f917ef1894594606d30062edfa"}

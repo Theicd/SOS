@@ -48,6 +48,8 @@ function negative(name, verdict, expectOk) {
 
 // ------------------------------------------------------------ browser-like VM environment
 const PROD_CONFIG = read('runtime-feature-flags.json');
+const PROD_SIGNER = '74c4bb0fb6b87b69cc2a95a80b4b5fa616cde3f917ef1894594606d30062edfa';
+const OFF_CONFIG = JSON.stringify({ schema: 'sos-feature-flags-v1', accessControlV2: false });
 const MODULES = [
   'nostr-event-integrity.js',
   'feature-flags.js',
@@ -213,9 +215,22 @@ const post = (author, tags) => finalizeEvent({ kind: 1, created_at: nowSec(), ta
 // ------------------------------------------------------------ main
 async function main() {
   // =============== enforcement configuration
-  const off = await makeEnv(PROD_CONFIG);
-  check('PRODUCTION_CONFIG_ENFORCEMENT_OFF', off.P.isEnforced() === false && off.App.FeatureFlags.snapshot().admin2faEnforcement === false && off.ctx.SOS_ACCESS_CONTROL_V2 === true);
-  const tries = await makeEnv(PROD_CONFIG, {
+  const prod = await makeEnv(PROD_CONFIG);
+  check('PRODUCTION_CONFIG_ENFORCED_PINNED_SIGNER', prod.P.isEnforced() === true && prod.P.activeSignerPubkey() === PROD_SIGNER && prod.App.FeatureFlags.snapshot().accessControlV2 === false);
+  const prodTries = await makeEnv(PROD_CONFIG, {
+    search: '?admin2fa=0&admin2faEnforcement=false&admin2faSignerPubkey=' + X.pub,
+    localStorage: [['sos_admin2fa_enforcement', 'false']],
+    preset: (c) => {
+      c.SOS_ADMIN_2FA_ENFORCEMENT = false;
+    },
+  });
+  try {
+    prodTries.App.FeatureFlags = Object.freeze({ isAdmin2faEnforced: () => false, admin2faSignerPubkey: () => X.pub });
+  } catch (_e) {}
+  check('PRODUCTION_ENFORCEMENT_NOT_OVERRIDABLE', prodTries.P.isEnforced() === true && prodTries.P.activeSignerPubkey() === PROD_SIGNER);
+  const off = await makeEnv(OFF_CONFIG);
+  check('ENFORCEMENT_OFF_CONFIG_BASELINE', off.P.isEnforced() === false && off.App.FeatureFlags.snapshot().admin2faEnforcement === false && off.ctx.SOS_ACCESS_CONTROL_V2 === true);
+  const tries = await makeEnv(OFF_CONFIG, {
     search: '?admin2fa=1&admin2faEnforcement=true',
     localStorage: [
       ['sos_admin2fa_enforcement', 'true'],
@@ -447,7 +462,7 @@ async function main() {
   );
   check('ORDINARY_EVENT_KINDS_NOT_PRIVILEGED', [1, 3, 7, 4, 1059, 9735].every((k) => P.PRIVILEGED_EVENT_KINDS.indexOf(k) === -1));
 
-  // =============== enforcement OFF: current production behavior unchanged
+  // =============== enforcement OFF config: legacy behavior unchanged
   off.G.clearAllStores();
   const offGenesis = off.G.acceptControlEvent(signControl(off.G, JSON.parse(off.G.serializeRecord(off.G.buildBootstrapRecord({ groupId: GROUP, rootAdminPubkey: R.pub, invitePolicy: 'AUTHORIZED_USERS_ONLY' }))), R), {
     groupId: GROUP,
@@ -484,7 +499,12 @@ async function main() {
   const rootOnlyCount = audit.filter((a) => a.rootOnlyBefore && !a.routed).length;
   check('ROOT_ONLY_PRIVILEGED_WEB_PATH_COUNT_ZERO', rootOnlyCount === 0, audit.map((a) => a.file + ':' + (a.routed ? 'ROUTED' : 'NOT_ROUTED')));
   const p2fa = src['admin-2fa-protocol.js'];
-  check('PRODUCTION_PINS_INACTIVE', /const BUILD_ENFORCEMENT = false;/.test(p2fa) && /const PINNED_SIGNER_PUBKEY = '';/.test(p2fa) && PROD_CONFIG.trim() === '{"schema":"sos-feature-flags-v1","accessControlV2":false}');
+  check(
+    'PRODUCTION_PINS_CONFIG_ONLY',
+    /const BUILD_ENFORCEMENT = false;/.test(p2fa) &&
+      /const PINNED_SIGNER_PUBKEY = '';/.test(p2fa) &&
+      PROD_CONFIG.trim() === JSON.stringify({ schema: 'sos-feature-flags-v1', accessControlV2: false, admin2faEnforcement: true, admin2faSignerPubkey: PROD_SIGNER })
+  );
   const secretHex = /['"`][0-9a-f]{64}['"`]/;
   const clientFiles = fs.readdirSync(ROOT).filter((f) => /\.(js|html)$/.test(f));
   const secretNames = clientFiles.filter((f) => /ADMIN_COSIGN_SK|ADMIN_PIN_PEPPER|ADMISSION_SK/.test(read(f)));

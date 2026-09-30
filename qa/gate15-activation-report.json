@@ -1,0 +1,241 @@
+{
+  "gate": "GATE15_ACTIVATION",
+  "status": "PASS",
+  "ts": "2026-09-30T13:02:57.460Z",
+  "results": {
+    "ENV_PRODUCTION_FLAG_SHAPE": {
+      "ok": true,
+      "detail": {
+        "v2": false,
+        "enforced": true,
+        "signer": "cc33b99b87a6178c0e1ae51dfd645d8f9249f69dd33c88349fed9a0fcdd6ccb7",
+        "relays": [
+          "ws://127.0.0.1:7781",
+          "ws://127.0.0.1:7782"
+        ]
+      }
+    },
+    "NON_ROOT_CANNOT_ACTIVATE": {
+      "ok": true,
+      "detail": {
+        "menu": false,
+        "act": "FIRST_GROUP_ROOT_NOT_CONFIGURED"
+      }
+    },
+    "BEFORE_INACTIVE_WITH_ACTIVATE_BUTTON": {
+      "ok": true,
+      "detail": {
+        "pinCode": "PIN_SET",
+        "open": true,
+        "status": "CONTROL_PLANE_NOT_ACTIVE",
+        "text": "מערכת הניהול עדיין לא הופעלה. ניתן לצפות ולהכין הרשאות, אך לא לשמור שינויים.",
+        "activate": true,
+        "signer": "",
+        "enabledMutations": 0,
+        "msg": "",
+        "v2": false
+      }
+    },
+    "ACTIVATE_VIA_UI": {
+      "ok": true,
+      "detail": {
+        "msg": "מערכת הניהול הופעלה"
+      }
+    },
+    "PUBLISHED_ATTESTED_GENESIS_ONLY": {
+      "ok": true,
+      "detail": [
+        {
+          "c39001": 1,
+          "c39004": 1,
+          "c39003": 0,
+          "order": [
+            39004,
+            39001
+          ]
+        },
+        {
+          "c39001": 1,
+          "c39004": 1,
+          "c39003": 0,
+          "order": [
+            39004,
+            39001
+          ]
+        }
+      ]
+    },
+    "GENESIS_SHAPE": {
+      "ok": true,
+      "detail": {
+        "tags": [
+          [
+            "d",
+            "israel-network:1"
+          ],
+          [
+            "t",
+            "israel-network"
+          ],
+          [
+            "sos-control",
+            "v1"
+          ]
+        ],
+        "keys": [
+          "admin2faSignerPubkey",
+          "blockedPubkeys",
+          "capabilities",
+          "controlEpoch",
+          "createdAt",
+          "groupId",
+          "groupSettings",
+          "invitePolicy",
+          "membershipEpoch",
+          "membershipRoot",
+          "resolution",
+          "rootAdminPubkey",
+          "schema",
+          "version"
+        ]
+      }
+    },
+    "ADMIN_2FA_SIGNER_PINNED_IN_GENESIS": {
+      "ok": true,
+      "detail": {
+        "signer": "cc33b99b87a6178c0e1ae51dfd645d8f9249f69dd33c88349fed9a0fcdd6ccb7"
+      }
+    },
+    "ATTESTATION_BINDS_GENESIS": {
+      "ok": true,
+      "detail": {
+        "operations": [
+          "BOOTSTRAP_GROUP_CONTROL"
+        ],
+        "controlEpoch": 1
+      }
+    },
+    "AFTER_ACTIVE_WRITES_OFF": {
+      "ok": true,
+      "detail": {
+        "open": true,
+        "status": "CONTROL_ACTIVE_WRITES_OFF",
+        "text": "מערכת הניהול הופעלה. שמירת שינויים תיפתח בשלב הבא.",
+        "activate": false,
+        "signer": "cc33b99b87a6178c0e1ae51dfd645d8f9249f69dd33c88349fed9a0fcdd6ccb7",
+        "enabledMutations": 0,
+        "msg": "מערכת הניהול הופעלה",
+        "v2": false
+      }
+    },
+    "SECOND_ACTIVATION_REFUSED": {
+      "ok": true,
+      "detail": {
+        "again": "ALREADY_BOOTSTRAPPED"
+      }
+    },
+    "CLEAN_VERIFIER_ACTIVE": {
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "epoch": 1,
+        "root": "8b9997b83cc3c50df78567d2e3119231c50b50d86a78895f6a8dcd0dc2e7de73",
+        "signer": "cc33b99b87a6178c0e1ae51dfd645d8f9249f69dd33c88349fed9a0fcdd6ccb7",
+        "eventId": "8516d245c3aa0a152d720b5bca3307b38e9c16fb534e7dfd3476d789e6bb9688",
+        "identity": false
+      }
+    },
+    "NEG_REAL_GENESIS_ACCEPTED_WITH_ATTESTATION": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "code": "VERIFIED"
+      }
+    },
+    "NEG_GENESIS_WITHOUT_ATTESTATION_REJECTED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "ADMIN_2FA_REQUIRED"
+      }
+    },
+    "NEG_FORGED_ATTESTATION_REJECTED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "ADMIN_2FA_REQUIRED"
+      }
+    },
+    "NEG_ROOT_ONLY_BOOTSTRAP_REJECTED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "ADMIN_2FA_REQUIRED"
+      }
+    },
+    "NEG_ATTESTATION_OTHER_EVENT_ID_REJECTED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "ADMIN_2FA_REQUIRED"
+      }
+    },
+    "NEG_WRONG_ROOT_REJECTED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "NO_TIP"
+      }
+    },
+    "NEG_WRONG_GROUP_REJECTED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "CROSS_GROUP"
+      }
+    },
+    "NEG_WRONG_SIGNER_REJECTED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "ADMIN_2FA_SIGNER_NOT_BOUND"
+      }
+    },
+    "NEG_COMPETING_GENESIS_AND_ROOT_REPLACEMENT_REJECTED": {
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "tipIsGenesis": true,
+        "epoch": 1,
+        "root": "8b9997b83cc3c50df78567d2e3119231c50b50d86a78895f6a8dcd0dc2e7de73"
+      }
+    },
+    "NEG_SELF_GRANT_MEMBERSHIP_REJECTED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "detail": {
+          "GRANT_ACTIVE": {
+            "ok": false,
+            "code": "V2_REQUIRED"
+          },
+          "BOOTSTRAP_ACTIVE": {
+            "ok": false,
+            "code": "V2_REQUIRED"
+          }
+        },
+        "allSelfGrant": true
+      }
+    },
+    "NO_SECRETS_IN_SERVICE_LOG": {
+      "ok": true,
+      "detail": null
+    },
+    "NO_PAGE_ERRORS": {
+      "ok": true,
+      "detail": []
+    }
+  },
+  "passed": 23,
+  "total": 23
+}

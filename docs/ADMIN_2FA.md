@@ -122,3 +122,15 @@ an admin asks for the PIN twice (remove + demote cleanup).
 - Rollout order: server (co-sign + pepper secrets, `ADMISSION_SK` untouched), web with `admin2faEnforcement` off,
   owner enrolls the PIN in the UI, verify `rootPinConfigured=true`, then enable enforcement. Gate 1.5 stays frozen.
 - Web package `2026.09.30-web-899p4` (`?pkg=899p4` on every script changed since 899g).
+
+## Gate 1.5: attested genesis (web `2026.09.30-web-899g15`)
+
+- `runtime-feature-flags.json`: `admin2faEnforcement: true`, `admin2faSignerPubkey` = the production co-sign public key.
+  `ACCESS_CONTROL_V2` stays off. From here every privileged event needs a server attestation.
+- Owner flow: "ניהול הקבוצה" → "הגדרות מתקדמות" → "הפעלת מערכת הניהול" (root only, shown only when the relays report no
+  control events). `FirstGroupAdmin.activateGroupControl()` probes the relays, signs the exact BOOTSTRAP (signer pinned),
+  gets the attestation inside the admin PIN session, verifies both locally, then publishes the attestation and the event.
+  No membership, delegation or other grant.
+- `FirstGroupAdmin.probeNetworkControl()` is a read-only relay check that works with V2 off (used by the status line:
+  "מערכת הניהול הופעלה. שמירת שינויים תיפתח בשלב הבא.").
+- Gate: `qa/gate15-activation-gate.mjs` (local relays + local service, production flag shape).

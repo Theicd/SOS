@@ -753,9 +753,10 @@ async function main() {
   const prodFlags = JSON.parse(read('runtime-feature-flags.json'));
   const clientSrc = read('admin-2fa-client.js');
   check(
-    'ENFORCEMENT_PRODUCTION_OFF_NO_OVERRIDES',
+    'ENFORCEMENT_DEPLOYMENT_CONFIG_NO_OVERRIDES',
     eol(gitFlags) === eol(read('runtime-feature-flags.json')) &&
-      prodFlags.admin2faEnforcement !== true &&
+      prodFlags.admin2faEnforcement === true &&
+      prodFlags.admin2faSignerPubkey === '74c4bb0fb6b87b69cc2a95a80b4b5fa616cde3f917ef1894594606d30062edfa' &&
       prodFlags.accessControlV2 !== true &&
       /const BUILD_ENFORCEMENT = false;/.test(read('admin-2fa-protocol.js')) &&
       /App\.FIRST_GROUP_ADMISSION_URL = '(?:|https:\/\/sos-first-group-admission\.dror201031-b16\.workers\.dev)';/.test(read('config.js')) &&
