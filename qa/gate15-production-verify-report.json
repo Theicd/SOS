@@ -1,0 +1,157 @@
+{
+  "flags": {
+    "accessControlV2": false,
+    "admin2faEnforcement": true,
+    "admin2faSignerPubkey": "74c4bb0fb6b87b69cc2a95a80b4b5fa616cde3f917ef1894594606d30062edfa"
+  },
+  "perRelay": [
+    {
+      "relay": "wss://relay.snort.social",
+      "eose": true,
+      "code": "EOSE",
+      "genesis": "FOUND",
+      "control39001": 1,
+      "attestations39004": 1,
+      "membership39003": 0,
+      "eventId": "69a27d4a441dc5e9067567332c02641db11733d988228e24fc4869604db20df3",
+      "verification": "PASS"
+    },
+    {
+      "relay": "wss://nos.lol",
+      "eose": true,
+      "code": "EOSE",
+      "genesis": "FOUND",
+      "control39001": 1,
+      "attestations39004": 1,
+      "membership39003": 0,
+      "eventId": "69a27d4a441dc5e9067567332c02641db11733d988228e24fc4869604db20df3",
+      "verification": "PASS"
+    },
+    {
+      "relay": "wss://nostr-relay.xbytez.io",
+      "eose": true,
+      "code": "EOSE",
+      "genesis": "FOUND",
+      "control39001": 1,
+      "attestations39004": 1,
+      "membership39003": 0,
+      "eventId": "69a27d4a441dc5e9067567332c02641db11733d988228e24fc4869604db20df3",
+      "verification": "PASS"
+    },
+    {
+      "relay": "wss://nostr-02.uid.ovh",
+      "eose": true,
+      "code": "EOSE",
+      "genesis": "FOUND",
+      "control39001": 1,
+      "attestations39004": 1,
+      "membership39003": 0,
+      "eventId": "69a27d4a441dc5e9067567332c02641db11733d988228e24fc4869604db20df3",
+      "verification": "PASS"
+    }
+  ],
+  "INDEPENDENT_CONTROL_STATUS": "ACTIVE",
+  "BOOTSTRAP_EVENT_ID": "69a27d4a441dc5e9067567332c02641db11733d988228e24fc4869604db20df3",
+  "ADMIN_2FA_ATTESTATION_ID": "13bde7b07fa1bef91e8dfbd1ae891785e3a013c1dada67748ff56a91e1771be8",
+  "ROOT": "ede1e7fabb758aca75ae548680a206a234c6d6b257834b111d284c3692e67601",
+  "CONTROL_EPOCH": 1,
+  "MEMBERSHIP_EPOCH": 1,
+  "ADMIN_2FA_SIGNER": "74c4bb0fb6b87b69cc2a95a80b4b5fa616cde3f917ef1894594606d30062edfa",
+  "CAPABILITIES": {},
+  "ATTESTATION_VERIFY": "ADMIN_2FA_VERIFIED",
+  "control39001Total": 1,
+  "membership39003Total": 0,
+  "conflicts": 0,
+  "DELEGATION_ACTIVE": false,
+  "negative": [
+    {
+      "name": "REAL_GENESIS_WITH_ATTESTATION_ACCEPTED",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "code": "VERIFIED"
+      }
+    },
+    {
+      "name": "ROOT_BOOTSTRAP_WITHOUT_ATTESTATION_REJECTED",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "ADMIN_2FA_REQUIRED"
+      }
+    },
+    {
+      "name": "BOOTSTRAP_WRONG_ROOT_REJECTED",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "NO_TIP"
+      }
+    },
+    {
+      "name": "BOOTSTRAP_WRONG_GROUP_REJECTED",
+      "ok": true,
+      "detail": [
+        {
+          "ok": false,
+          "code": "CROSS_GROUP"
+        },
+        {
+          "ok": false,
+          "code": "STRICT_VERIFY_FAILED"
+        }
+      ]
+    },
+    {
+      "name": "BOOTSTRAP_WRONG_ADMIN_2FA_SIGNER_REJECTED",
+      "ok": true,
+      "detail": [
+        {
+          "ok": false,
+          "code": "STRICT_VERIFY_FAILED"
+        },
+        "ADMIN_2FA_ATTESTATION_WRONG_SIGNER"
+      ]
+    },
+    {
+      "name": "FORGED_ATTESTATION_REJECTED",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "ADMIN_2FA_REQUIRED"
+      }
+    },
+    {
+      "name": "ATTESTATION_BOUND_TO_DIFFERENT_EVENT_REJECTED",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_EVENT_MISMATCH"
+    },
+    {
+      "name": "SECOND_COMPETING_GENESIS_IGNORED",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED"
+      }
+    },
+    {
+      "name": "ROOT_REPLACEMENT_REJECTED",
+      "ok": true,
+      "detail": {
+        "epoch": 1,
+        "root": "ede1e7fabb758aca75ae548680a206a234c6d6b257834b111d284c3692e67601"
+      }
+    },
+    {
+      "name": "SELF_GRANT_ROOT_MEMBERSHIP_REJECTED",
+      "ok": true,
+      "detail": {
+        "genesisWithForeignSigner": "ADMIN_2FA_REQUIRED",
+        "selfGrant": {
+          "GRANT_ACTIVE": "SELF_GRANT",
+          "BOOTSTRAP_ACTIVE": "SELF_GRANT"
+        }
+      }
+    }
+  ],
+  "GATE15_NEGATIVE_GATE": "PASS"
+}
