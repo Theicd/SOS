@@ -1,14 +1,18 @@
 /**
  * Package 899f — Web first-group control panel + 6-digit admin PIN lock gate (V2 OFF, production flag state).
  * Local static server; runtime-feature-flags.json served unchanged (ACCESS_CONTROL_V2 OFF).
- * config.js is served with the first-group root replaced by a disposable test root (A). Never deploys.
+ * config.js is served with the first-group root replaced by a disposable test root (A) and the admission URL pointed
+ * at a local `wrangler dev --local` admin PIN service (Admin 2FA Phase 3: the server is the only PIN authority).
+ * Disposable service keys + pepper go to the gitignored admission-service/.dev.vars (deleted on exit). Never deploys.
  * The test PIN is random per run and is never printed or written to the report.
  * Active-control (V2 ON) PIN enforcement is covered by package898-first-group-network-e2e.mjs.
  */
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
 import crypto from 'node:crypto';
+import { spawn, execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { generateSecretKey, getPublicKey } from 'nostr-tools';
@@ -19,6 +23,9 @@ const OUT = path.join(ROOT, 'qa', 'package899f-group-control-pin-report.json');
 const PORT = Number(process.env.SOS_899F_PORT || 8799);
 const URL0 = `http://127.0.0.1:${PORT}/videos.html`;
 const PROD_ROOT = 'ede1e7fabb758aca75ae548680a206a234c6d6b257834b111d284c3692e67601';
+const SVC_DIR = path.join(ROOT, 'admission-service');
+const ADM_PORT = Number(process.env.SOS_899F_ADM_PORT || 8794);
+const ADM_URL = `http://127.0.0.1:${ADM_PORT}`;
 
 const hex = (b) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -75,7 +82,7 @@ function startServer() {
         return;
       }
       if (p === '/config.js') {
-        const src = fs.readFileSync(fp, 'utf8').replace(PROD_ROOT, ROOT_PUB);
+        const src = fs.readFileSync(fp, 'utf8').replace(PROD_ROOT, ROOT_PUB).replace("App.FIRST_GROUP_ADMISSION_URL = '';", () => `App.FIRST_GROUP_ADMISSION_URL = '${ADM_URL}';`);
         res.writeHead(200, { 'Content-Type': types['.js'], 'Cache-Control': 'no-store' });
         res.end(src);
         return;
@@ -93,6 +100,67 @@ function startServer() {
   });
 }
 
+// ---------------------------------------------------------------- local admin PIN service (disposable keys)
+let wr = null;
+let wrLog = '';
+const persistDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sos-899f-adm-'));
+const SECRETS = [];
+async function startService(rootPub) {
+  const svcHex = hex(generateSecretKey());
+  const cosignHex = hex(generateSecretKey());
+  const pepper = crypto.randomBytes(32).toString('hex');
+  SECRETS.push(svcHex, cosignHex, pepper);
+  fs.writeFileSync(
+    path.join(SVC_DIR, '.dev.vars'),
+    `ROOT_PUBKEY=${rootPub}\nADMISSION_SK=${svcHex}\nADMIN_COSIGN_SK=${cosignHex}\nADMIN_PIN_PEPPER=${pepper}\nTEST_FAULTS=1\nALLOWED_ORIGINS=http://127.0.0.1:${PORT}\n`
+  );
+  wr = spawn('npx', ['wrangler', 'dev', '--local', '--ip', '127.0.0.1', '--port', String(ADM_PORT), '--persist-to', persistDir, '--show-interactive-dev-session=false'], {
+    cwd: SVC_DIR,
+    shell: true,
+    env: Object.assign({}, process.env, { WRANGLER_SEND_METRICS: 'false', NO_COLOR: '1' }),
+  });
+  wr.stdout.on('data', (d) => (wrLog += d.toString()));
+  wr.stderr.on('data', (d) => (wrLog += d.toString()));
+  for (let i = 0; i < 120; i++) {
+    try {
+      const r = await fetch(ADM_URL + '/v1/health');
+      if (r.ok && (await r.json()).adminPinService === true) return;
+    } catch (_e) {}
+    await sleep(500);
+  }
+  throw new Error('local admin PIN service did not start');
+}
+function stopService() {
+  if (wr) {
+    try {
+      execSync(`taskkill /pid ${wr.pid} /T /F`, { stdio: 'ignore' });
+    } catch (_e) {
+      try {
+        wr.kill('SIGKILL');
+      } catch (_e2) {}
+    }
+    wr = null;
+  }
+  try {
+    fs.rmSync(path.join(SVC_DIR, '.dev.vars'), { force: true });
+  } catch (_e) {}
+  try {
+    fs.rmSync(persistDir, { recursive: true, force: true });
+  } catch (_e) {}
+}
+async function serverInspect() {
+  const r = await fetch(ADM_URL + '/v1/test/pin-inspect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ groupId: 'israel-network' }) });
+  return r.json();
+}
+
+// The page clock of user A is faked (lockout / inactivity tests); the service follows it via the TEST_FAULTS-only
+// x-sos-test-now header, injected at the network layer so the page itself sends no extra header.
+let srvOffset = 0;
+async function fastForward(page, ms) {
+  await page.clock.fastForward(ms);
+  srvOffset += ms;
+}
+
 const ALLOWED = new Set(['127.0.0.1', 'cdn.jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com']);
 const consoleLog = [];
 
@@ -105,7 +173,11 @@ async function newUser(browser, label) {
     try {
       host = new URL(req.url()).hostname;
     } catch (_e) {}
-    return ALLOWED.has(host) ? route.continue() : route.abort();
+    if (!ALLOWED.has(host)) return route.abort();
+    if (label === 'A' && req.url().startsWith(ADM_URL + '/')) {
+      return route.continue({ headers: Object.assign({}, req.headers(), { 'x-sos-test-now': String(Date.now() + srvOffset) }) });
+    }
+    return route.continue();
   });
   await ctx.addInitScript(() => {
     try {
@@ -199,6 +271,7 @@ async function main() {
   const server = await startServer();
   const browser = await chromium.launch({ headless: true });
   try {
+    await startService(A.pub);
     const ua = await newUser(browser, 'A');
     const um = await newUser(browser, 'M');
     const ug = await newUser(browser, 'G');
@@ -208,7 +281,7 @@ async function main() {
     await boot(um.page, M);
     await waitApp(ug.page);
     const flags = await ua.page.evaluate(() => ({ v2: window.SOS_ACCESS_CONTROL_V2 === true, root: window.NostrApp.FirstGroupAdmin.isConfiguredRoot(window.NostrApp.publicKey), admission: window.NostrApp.FIRST_GROUP_ADMISSION_URL || '' }));
-    set('ENV_V2_OFF_TEST_ROOT', pa === A.pub && !flags.v2 && flags.root && flags.admission === '', flags);
+    set('ENV_V2_OFF_TEST_ROOT', pa === A.pub && !flags.v2 && flags.root && flags.admission === ADM_URL, flags);
 
     // ---- menu visibility
     const mA = await menuState(ua.page);
@@ -272,46 +345,24 @@ async function main() {
     });
     set('CONTROL_PLANE_NOT_ACTIVE_FAIL_CLOSED', mut.unlocked && mut.ui === 'CONTROL_PLANE_NOT_ACTIVE' && ['bootstrap', 'meta', 'grant', 'invite'].every((x) => mut[x] === 'V2_REQUIRED') && mut.flagsFlag === true && mut.pinOnly === false, mut);
 
-    // ---- storage / leak checks (PIN never persisted in plaintext)
+    // ---- storage / leak checks: the verifier lives only on the server; the browser keeps nothing PIN-related
     const store = await ua.page.evaluate(async () => {
-      const toHex = (u8) => Array.from(u8, (x) => x.toString(16).padStart(2, '0')).join('');
-      const dump = await new Promise((resolve) => {
-        const r = indexedDB.open('sos-admin-pin-v1');
-        r.onsuccess = () => {
-          const db = r.result;
-          const tx = db.transaction(['pin', 'wrap'], 'readonly');
-          const out = { pin: [], wrap: [] };
-          tx.objectStore('pin').openCursor().onsuccess = (e) => {
-            const c = e.target.result;
-            if (c) {
-              const v = c.value;
-              out.pin.push({ key: c.key, fields: Object.keys(v), sealedFields: Object.keys(v.sealed || {}), iterations: v.sealed?.iterations, ivHex: toHex(v.sealed?.iv || []), ctHex: toHex(v.sealed?.ct || []), failures: v.failures });
-              c.continue();
-            }
-          };
-          tx.objectStore('wrap').openCursor().onsuccess = (e) => {
-            const c = e.target.result;
-            if (c) {
-              out.wrap.push({ extractable: c.value.extractable, alg: c.value.algorithm && c.value.algorithm.name, usages: c.value.usages });
-              c.continue();
-            }
-          };
-          tx.oncomplete = () => resolve(out);
-        };
-      });
+      const dbs = indexedDB.databases ? (await indexedDB.databases()).map((d) => d.name) : [];
       const ls = [];
       for (let i = 0; i < localStorage.length; i++) ls.push(localStorage.key(i) + '=' + localStorage.getItem(localStorage.key(i)));
       const ss = [];
       for (let i = 0; i < sessionStorage.length; i++) ss.push(sessionStorage.key(i) + '=' + sessionStorage.getItem(sessionStorage.key(i)));
-      return { dump, ls: ls.join('\n'), ss: ss.join('\n'), url: location.href, dom: document.documentElement.outerHTML };
+      return { dbs, ls: ls.join('\n'), ss: ss.join('\n'), url: location.href, dom: document.documentElement.outerHTML };
     });
-    const rec = store.dump.pin[0] || {};
+    const insp = await serverInspect();
+    const rec = (insp.pins || []).find((p) => p.principal === A.pub) || {};
     const pinHex = Buffer.from(PIN).toString('hex');
-    const noPlain = ![store.ls, store.ss, store.url, store.dom, JSON.stringify(store.dump)].some((s) => s.includes(PIN) || s.includes(pinHex));
+    const noPlain = ![store.ls, store.ss, store.url, store.dom, JSON.stringify(insp)].some((s) => s.includes(PIN) || s.includes(pinHex));
+    const localPinKeys = (store.ls + '\n' + store.ss).split('\n').filter((l) => /admin[-_]?pin|sosAdminPin/i.test(l.split('=')[0]));
     set(
-      'PIN_STORED_AS_SEALED_SLOW_VERIFIER',
-      store.dump.pin.length === 1 && rec.key === A.pub && !rec.fields.some((f) => /pin|hash|salt/i.test(f)) && rec.iterations === 600000 && rec.ctHex.length === (16 + 32 + 16) * 2 && store.dump.wrap.length === 1 && store.dump.wrap[0].extractable === false && store.dump.wrap[0].alg === 'AES-GCM',
-      { records: store.dump.pin.length, keyIsIdentity: rec.key === A.pub, fields: rec.fields, sealedFields: rec.sealedFields, iterations: rec.iterations, ctBytes: (rec.ctHex || '').length / 2, wrap: store.dump.wrap }
+      'PIN_VERIFIER_SERVER_ONLY',
+      !store.dbs.includes('sos-admin-pin-v1') && localPinKeys.length === 0 && (insp.pins || []).length === 1 && rec.saltHexLen >= 32 && rec.verifierHexLen === 64 && !(insp.columns || []).some((c) => /^pin$|plain/i.test(c)),
+      { localIdb: store.dbs.includes('sos-admin-pin-v1'), localKeys: localPinKeys.length, serverRecords: (insp.pins || []).length, keyIsIdentity: rec.principal === A.pub, saltHexLen: rec.saltHexLen, verifierHexLen: rec.verifierHexLen, columns: insp.columns }
     );
     set('PIN_NOT_IN_STORAGE_URL_DOM', noPlain);
 
@@ -340,14 +391,14 @@ async function main() {
     for (let i = 1; i <= 3; i++) lockout.push(await verify(WRONG));
     const f4 = await verify(WRONG);
     const during4 = await verify(PIN);
-    await ua.page.clock.fastForward(31000);
+    await fastForward(ua.page, 31000);
     const f5 = await verify(WRONG);
-    await ua.page.clock.fastForward(61000);
+    await fastForward(ua.page, 61000);
     const f6 = await verify(WRONG);
     const during6 = await verify(PIN);
-    await ua.page.clock.fastForward(5 * 60 * 1000 + 1000);
+    await fastForward(ua.page, 5 * 60 * 1000 + 1000);
     const f7 = await verify(WRONG);
-    await ua.page.clock.fastForward(10 * 60 * 1000 + 1000);
+    await fastForward(ua.page, 10 * 60 * 1000 + 1000);
     const okAfter = await verify(PIN);
     const stAfter = await ua.page.evaluate(() => window.NostrApp.AdminPinLock.lockoutState());
     set('FAILURES_1_TO_3_NO_DELAY', lockout.every((r, i) => r.code === 'PIN_WRONG' && r.retryAfterMs === 0 && r.failures === i + 1), lockout);
@@ -360,11 +411,11 @@ async function main() {
     const t = await ua.page.evaluate(() => window.NostrApp.AdminPinLock.isUnlocked());
     await ua.page.evaluate(() => window.NostrApp.GroupAdminProductUi.open('home'));
     await sleep(200);
-    await ua.page.clock.fastForward(10 * 60 * 1000);
+    await fastForward(ua.page, 10 * 60 * 1000);
     await ua.page.evaluate(() => window.NostrApp.AdminPinLock.touch());
-    await ua.page.clock.fastForward(10 * 60 * 1000);
+    await fastForward(ua.page, 10 * 60 * 1000);
     const refreshed = await ua.page.evaluate(() => window.NostrApp.AdminPinLock.isUnlocked());
-    await ua.page.clock.fastForward(16 * 60 * 1000);
+    await fastForward(ua.page, 16 * 60 * 1000);
     await sleep(300);
     const timedOut = await ua.page.evaluate(() => ({ unlocked: window.NostrApp.AdminPinLock.isUnlocked(), open: window.NostrApp.GroupAdminProductUi.isOpen(), body: (document.getElementById('sosGapBody')?.innerHTML || '').length }));
     const afterTimeoutMut = await ua.page.evaluate(async () => (await window.NostrApp.FirstGroupAdmin.updateMetadata({ description: 'y' })).code);
@@ -411,7 +462,7 @@ async function main() {
 
     // ---- identity-bound verifier: another identity cannot unlock with A's PIN
     const mVerify = await um.page.evaluate(async (p) => (await window.NostrApp.AdminPinLock.verifyPin(p)).code, PIN);
-    set('PIN_BOUND_TO_IDENTITY', mVerify === 'PIN_NOT_SET', { mVerify });
+    set('PIN_BOUND_TO_IDENTITY', mVerify === 'UNAUTHORIZED' || mVerify === 'PIN_NOT_SET', { mVerify });
 
     // ---- browser restart (reload) clears unlock, verifier persists
     await verify(PIN);
@@ -424,7 +475,8 @@ async function main() {
     // ---- no PIN in console / network
     const netHit = netLog.some((s) => s.includes(PIN));
     const conHit = consoleLog.some((s) => s.includes(PIN) || s.includes(WRONG));
-    set('PIN_NOT_IN_CONSOLE_OR_NETWORK', !netHit && !conHit, { requests: netLog.length, consoleLines: consoleLog.length });
+    const svcHit = wrLog.includes(PIN) || wrLog.includes(WRONG) || SECRETS.some((s) => wrLog.includes(s));
+    set('PIN_NOT_IN_CONSOLE_OR_NETWORK', !netHit && !conHit && !svcHit, { requests: netLog.length, consoleLines: consoleLog.length, serviceLogClean: !svcHit });
     set('NO_PIN_MODULE_PAGE_ERRORS', !(report.pageErrors || []).length, report.pageErrors || []);
     await ua.page.screenshot({ path: path.join(ROOT, 'qa', 'package899f-after.png') }).catch(() => {});
   } catch (e) {
@@ -432,6 +484,7 @@ async function main() {
   } finally {
     await browser.close().catch(() => {});
     server.close();
+    stopService();
   }
   const vals = Object.values(report.results);
   report.passed = vals.filter((r) => r.ok).length;

@@ -366,6 +366,54 @@
     return res && res.ok ? done(res) : res || fail('MUTATION_FAILED');
   }
 
+  function attestPrivileged(event, extra) {
+    const C = App.Admin2faClient;
+    if (C && typeof C.attest === 'function') return C.attest(event, extra);
+    const A = App.Admin2faProtocol;
+    return Promise.resolve(A && A.isEnforced() ? fail('ADMIN_2FA_SERVICE_UNAVAILABLE') : { ok: true, skipped: true });
+  }
+
+  /** ROOT-signed BOOTSTRAP (binding the configured Admin 2FA signer) plus its verified attestation. Publishes nothing. */
+  async function signAttestedBootstrap(me, o) {
+    const g = GCS();
+    const A = App.Admin2faProtocol;
+    const signer = A && typeof A.activeSignerPubkey === 'function' ? A.activeSignerPubkey() : '';
+    const record = g.buildBootstrapRecord({
+      groupId: FIRST_GROUP.groupId,
+      rootAdminPubkey: me,
+      creatorPubkey: me,
+      displayName: String(o.displayName || 'SOS'),
+      invitePolicy: o.invitePolicy || 'AUTHORIZED_USERS_ONLY',
+      admin2faSignerPubkey: signer || undefined,
+    });
+    const event = await g.signControlRecord(record);
+    const att = await attestPrivileged(event, { expectedOperations: ['BOOTSTRAP_GROUP_CONTROL'] });
+    if (!att.ok) return fail(att.code);
+    return { ok: true, event, attestation: att.attestation || null };
+  }
+
+  /**
+   * Gate 1.5 package: ROOT-signed BOOTSTRAP + server attestation, verified locally. Nothing is published or
+   * applied; publishing the package is a separate, owner-approved step.
+   */
+  async function prepareGate15Package(opts) {
+    const me = actor();
+    if (!me || App.guestMode === true) return fail('NO_IDENTITY');
+    if (!isConfiguredRoot(me)) return fail('FIRST_GROUP_ROOT_NOT_CONFIGURED');
+    const C = App.Admin2faClient;
+    if (!C || !C.required()) return fail('ADMIN_2FA_SERVICE_UNAVAILABLE');
+    sync();
+    if (verifiedControl()) return fail('ALREADY_BOOTSTRAPPED');
+    try {
+      const r = await signAttestedBootstrap(me, opts || {});
+      if (!r.ok) return r;
+      if (!r.attestation) return fail('ADMIN_2FA_REQUIRED');
+      return { ok: true, code: 'GATE15_PACKAGE_READY', published: false, event: r.event, attestation: r.attestation };
+    } catch (e) {
+      return fail((e && e.code) || 'BOOTSTRAP_FAILED');
+    }
+  }
+
   async function bootstrapFirstGroup(opts) {
     if (!isV2()) return fail('V2_REQUIRED');
     const me = actor();
@@ -387,16 +435,12 @@
     const g = GCS();
     const o = opts || {};
     try {
-      const record = g.buildBootstrapRecord({
-        groupId: FIRST_GROUP.groupId,
-        rootAdminPubkey: me,
-        creatorPubkey: me,
-        displayName: String(o.displayName || 'SOS'),
-        invitePolicy: o.invitePolicy || 'AUTHORIZED_USERS_ONLY',
-      });
-      const ev = await g.signControlRecord(record);
+      const signedBootstrap = await signAttestedBootstrap(me, o);
+      if (!signedBootstrap.ok) return signedBootstrap;
+      const ev = signedBootstrap.event;
       if (!o.skipPublish && App.pool && Array.isArray(App.relayUrls) && App.relayUrls.length) {
         try {
+          if (signedBootstrap.attestation) await App.pool.publish(App.relayUrls, signedBootstrap.attestation);
           await App.pool.publish(App.relayUrls, ev);
         } catch (_p) {}
       }
@@ -414,13 +458,19 @@
             baseEvent: g.getVerifiedControlEvent(FIRST_GROUP.groupId),
             targetPubkey: me,
           });
-          if (!o.skipPublish && App.pool && Array.isArray(App.relayUrls) && App.relayUrls.length) {
-            try {
-              await App.pool.publish(App.relayUrls, memEv);
-            } catch (_p2) {}
+          const matt = await attestPrivileged(memEv);
+          if (!matt.ok) {
+            member = { ok: false, code: matt.code, reason: matt.reason, detail: matt.detail };
+          } else {
+            if (!o.skipPublish && App.pool && Array.isArray(App.relayUrls) && App.relayUrls.length) {
+              try {
+                if (matt.attestation) await App.pool.publish(App.relayUrls, matt.attestation);
+                await App.pool.publish(App.relayUrls, memEv);
+              } catch (_p2) {}
+            }
+            const macc = m.acceptMembershipEvent(memEv, verifiedControl(), { groupId: FIRST_GROUP.groupId });
+            member = { ok: !!(macc && macc.ok), code: macc && macc.code };
           }
-          const macc = m.acceptMembershipEvent(memEv, verifiedControl(), { groupId: FIRST_GROUP.groupId });
-          member = { ok: !!(macc && macc.ok), code: macc && macc.code };
         }
       } catch (e2) {
         member = { ok: false, code: (e2 && e2.code) || 'ROOT_MEMBERSHIP_FAILED' };
@@ -997,6 +1047,7 @@
     grantableCapsFor,
     roleLabel,
     bootstrapFirstGroup,
+    prepareGate15Package,
     updateMetadata,
     grantCapability,
     revokeCapability,

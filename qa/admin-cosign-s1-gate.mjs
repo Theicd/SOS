@@ -327,9 +327,10 @@ async function main() {
   const badStep = await pinCall(R, 'cosign', { event: e1, sessionId: session, stepUp: dOther });
   const cos1 = await pinCall(R, 'cosign', { event: e1, sessionId: session, stepUp: dGood });
   check('COSIGN_REQUIRES_PIN_SESSION', noSess.json.code === 'NO_SESSION' && fakeSess.json.code === 'NO_SESSION', [noSess.json.code, fakeSess.json.code]);
-  check('GENESIS_REQUIRES_STEP_UP', noStep.json.result === 'STEP_UP_REQUIRED' && badStep.json.code === 'WRONG_PIN' && cos1.json.result === 'COSIGNED', [
+  // Phase 3 canonical re-auth policy: BOOTSTRAP needs the PIN session only (not a sensitive re-auth operation).
+  check('GENESIS_SESSION_ONLY_CANONICAL_STEP_UP_POLICY', noStep.json.result === 'COSIGNED' && noStep.json.stepUp === false && badStep.json.result === 'COSIGNED' && cos1.json.result === 'COSIGNED', [
     noStep.json.result,
-    badStep.json.code,
+    badStep.json.result,
     cos1.json.result,
   ]);
   const att = cos1.json.attestation || {};
@@ -356,7 +357,7 @@ async function main() {
       JSON.stringify(attBody.operations) === '["BOOTSTRAP_GROUP_CONTROL"]' &&
       attBody.expiresAt === attBody.issuedAt + 600 &&
       attBody.requestId === cos1.auth.id &&
-      attBody.stepUp === true,
+      attBody.stepUp === false,
     { kind: att.kind, controlEpoch: attBody.controlEpoch, operations: attBody.operations }
   );
   const clientVerdict = P.verifyAdmin2faAttestation(e1, att, {
@@ -398,7 +399,8 @@ async function main() {
   const skip = nextControl(() => {}, R, 3);
   const badTransition = await pinCall(R, 'cosign', { event: skip.ev, sessionId: session });
   const kindEv = finalizeEvent({ kind: 39003, created_at: nowSec(), tags: [['t', GROUP]], content: '{}' }, R.sk);
-  const badKind = await pinCall(R, 'cosign', { event: kindEv, sessionId: session });
+  const badMember = await pinCall(R, 'cosign', { event: kindEv, sessionId: session });
+  const badKind = await pinCall(R, 'cosign', { event: finalizeEvent({ kind: 30078, created_at: nowSec(), tags: [['t', GROUP]], content: '{}' }, R.sk), sessionId: session });
   const tampered = Object.assign({}, add.ev, { content: add.ev.content.replace('INVITE_USERS', 'MANAGE_ADMINS') });
   const badSigEv = await pinCall(R, 'cosign', { event: tampered, sessionId: session });
   const staleEv = await pinCall(R, 'cosign', { event: e1, sessionId: session, stepUp: dGood });
@@ -407,9 +409,11 @@ async function main() {
     issuerMismatch.json.code === 'ISSUER_MISMATCH' &&
       badTransition.json.code === 'INVALID_TRANSITION' &&
       badKind.json.code === 'KIND_NOT_COSIGNABLE' &&
+      badMember.json.code === 'INVALID_MEMBERSHIP' &&
+      !badMember.json.attestation &&
       badSigEv.json.code === 'STRICT_VERIFY_FAILED' &&
       staleEv.json.code === 'INVALID_TRANSITION',
-    [issuerMismatch.json.code, badTransition.json.code, badTransition.json.reason, badKind.json.code, badSigEv.json.code, staleEv.json.code]
+    [issuerMismatch.json.code, badTransition.json.code, badTransition.json.reason, badKind.json.code, badMember.json.code, badSigEv.json.code, staleEv.json.code]
   );
   const outsiderCosign = await pinCall(X, 'cosign', { event: byOutsider, sessionId: session });
   check('SESSION_BOUND_TO_PRINCIPAL', outsiderCosign.json.code === 'NOT_ADMIN', outsiderCosign.json.code);
@@ -418,24 +422,32 @@ async function main() {
   tip = add.rec;
   await ingest();
 
-  // ---------------- destructive changes need step-up
+  // ---------------- canonical sensitive re-auth (P.requiresStepUp): demote, policy, blocking an admin
   const removeCap = nextControl((r) => delete r.capabilities[B.pub]);
+  const demote = nextControl((r) => delete r.capabilities[A2.pub]);
   const policy = nextControl((r) => (r.invitePolicy = 'ADMINS_ONLY'));
   const block = nextControl((r) => r.blockedPubkeys.push(X.pub));
+  const blockAdmin = nextControl((r) => r.blockedPubkeys.push(A2.pub));
   const rmNo = await pinCall(R, 'cosign', { event: removeCap.ev, sessionId: session });
+  const demNo = await pinCall(R, 'cosign', { event: demote.ev, sessionId: session });
   const polNo = await pinCall(R, 'cosign', { event: policy.ev, sessionId: session });
   const blkNo = await pinCall(R, 'cosign', { event: block.ev, sessionId: session });
-  const rmYes = await pinCall(R, 'cosign', { event: removeCap.ev, sessionId: session, stepUp: dGood });
+  const blkAdmNo = await pinCall(R, 'cosign', { event: blockAdmin.ev, sessionId: session });
+  const demBad = await pinCall(R, 'cosign', { event: demote.ev, sessionId: session, stepUp: dOther });
+  const demYes = await pinCall(R, 'cosign', { event: demote.ev, sessionId: session, stepUp: dGood });
   check(
-    'DESTRUCTIVE_CHANGE_REQUIRES_STEP_UP',
-    rmNo.json.result === 'STEP_UP_REQUIRED' &&
+    'SENSITIVE_CHANGE_REQUIRES_STEP_UP',
+    rmNo.json.result === 'COSIGNED' &&
+      rmNo.json.stepUp === false &&
+      demNo.json.result === 'STEP_UP_REQUIRED' &&
       (polNo.json.result === 'STEP_UP_REQUIRED' || polNo.json.code === 'INVALID_TRANSITION') &&
-      blkNo.json.result === 'STEP_UP_REQUIRED' &&
-      rmYes.json.result === 'COSIGNED' &&
-      rmYes.json.stepUp === true,
-    [rmNo.json.result, polNo.json.result + '/' + (polNo.json.code || ''), blkNo.json.result, rmYes.json.result]
+      blkNo.json.result === 'COSIGNED' &&
+      blkAdmNo.json.result === 'STEP_UP_REQUIRED' &&
+      demBad.json.code === 'WRONG_PIN' &&
+      demYes.json.result === 'COSIGNED' &&
+      demYes.json.stepUp === true,
+    [rmNo.json.result, demNo.json.result, polNo.json.result + '/' + (polNo.json.code || ''), blkNo.json.result, blkAdmNo.json.result, demBad.json.code, demYes.json.result]
   );
-
   // ---------------- delegated admin vs non-admin
   const a2p = await pinCall(A2, 'params', {});
   const bp = await pinCall(B, 'params', {});
@@ -491,9 +503,18 @@ async function main() {
 
   // ---------------- no generic signer
   const genericKinds = await Promise.all(
-    [1, 0, 39003, 27235].map((k) => pinCall(R, 'cosign', { event: finalizeEvent({ kind: k, created_at: nowSec(), tags: [], content: 'x' }, R.sk), sessionId: vAfter.json.sessionId }))
+    [1, 0, 7, 27235, 39004, 30078].map((k) => pinCall(R, 'cosign', { event: finalizeEvent({ kind: k, created_at: nowSec(), tags: [], content: 'x' }, R.sk), sessionId: vAfter.json.sessionId }))
   );
-  check('GENERIC_SIGNER_EXPOSED_FALSE', genericKinds.every((r) => r.json.code === 'KIND_NOT_COSIGNABLE' && !r.json.attestation));
+  // Allowlisted kinds with no valid privileged meaning are refused too (no attestation, no arbitrary signing).
+  const junkPrivileged = await Promise.all(
+    [39002, 39003, 37380, 5].map((k) => pinCall(R, 'cosign', { event: finalizeEvent({ kind: k, created_at: nowSec(), tags: [['t', GROUP]], content: 'x' }, R.sk), sessionId: vAfter.json.sessionId }))
+  );
+  check(
+    'GENERIC_SIGNER_EXPOSED_FALSE',
+    genericKinds.every((r) => r.json.code === 'KIND_NOT_COSIGNABLE' && !r.json.attestation) &&
+      junkPrivileged.every((r) => r.json.result !== 'COSIGNED' && !r.json.attestation),
+    junkPrivileged.map((r) => r.json.code)
+  );
 
   // ---------------- log privacy
   stopWrangler();

@@ -187,7 +187,7 @@
     };
     if (typeof gs.description === 'string' && gs.description) groupSettings.description = gs.description;
     if (typeof gs.logoRef === 'string' && gs.logoRef) groupSettings.logoRef = gs.logoRef;
-    return {
+    const out = {
       schema: SCHEMA_CONTROL,
       version: 1,
       groupId: state.groupId,
@@ -202,6 +202,9 @@
       membershipRoot: state.membershipRoot || null,
       resolution: null,
     };
+    // The bound Admin 2FA signer is immutable; every later epoch carries it unchanged.
+    if (isHex64(state.admin2faSignerPubkey)) out.admin2faSignerPubkey = state.admin2faSignerPubkey.toLowerCase();
+    return out;
   }
 
   function parseControlRecordFromEvent(event) {
@@ -262,7 +265,7 @@
       if (description) groupSettings.description = description;
       if (logoRef) groupSettings.logoRef = logoRef;
       // Root-only bootstrap: rootAdminPubkey must equal actor
-      return {
+      const genesis = {
         schema: SCHEMA_CONTROL,
         version: 1,
         groupId,
@@ -277,6 +280,11 @@
         membershipRoot: null,
         resolution: null,
       };
+      if (p.admin2faSignerPubkey != null) {
+        if (!isHex64(p.admin2faSignerPubkey)) fail('BAD_ADMIN_2FA_SIGNER');
+        genesis.admin2faSignerPubkey = p.admin2faSignerPubkey.trim().toLowerCase();
+      }
+      return genesis;
     }
 
     if (!baseRecord) fail('NO_BASE');
@@ -584,6 +592,38 @@
     return m[type] || null;
   }
 
+  // Admin 2FA request auth (kind 27235), Phase 1 protocol `sos-admin-pin v1`. The caller supplies only these
+  // narrow fields; kind, tags and content are fixed here, so this cannot sign anything else.
+  const ADMIN_2FA_AUTH_KIND = 27235;
+  const ADMIN_2FA_AUTH_ACTIONS = Object.freeze(['params', 'enroll', 'verify', 'session', 'cosign', 'lock']);
+
+  function buildAdmin2faAuthDraft(req, actorPubkey) {
+    const r = req && typeof req === 'object' && !Array.isArray(req) ? req : fail('MALFORMED_REQUEST');
+    if (hasProtoPollution(r)) fail('PROTOTYPE_POLLUTION');
+    const allowed = ['action', 'payloadHash', 'groupId', 'nonce'];
+    if (Object.keys(r).some((k) => allowed.indexOf(k) === -1)) fail('ARBITRARY_EVENT_FIELDS');
+    if (ADMIN_2FA_AUTH_ACTIONS.indexOf(r.action) === -1) fail('BAD_ADMIN_2FA_ACTION');
+    if (!/^[0-9a-f]{64}$/.test(String(r.payloadHash))) fail('BAD_PAYLOAD_HASH');
+    if (!/^[0-9a-f]{32,64}$/.test(String(r.nonce))) fail('BAD_NONCE');
+    if (r.groupId !== 'israel-network') fail('BAD_GROUP');
+    const actor = normalizePubkey(actorPubkey);
+    if (!actor) fail('NO_ACTOR');
+    return {
+      kind: ADMIN_2FA_AUTH_KIND,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [
+        ['u', 'sos-admin-pin:v1:' + r.action],
+        ['method', 'POST'],
+        ['payload', r.payloadHash],
+        ['t', r.groupId],
+        ['nonce', r.nonce],
+        ['sos-admin-pin', 'v1'],
+      ],
+      content: '',
+      pubkey: actor,
+    };
+  }
+
   const api = Object.freeze({
     PROTOCOL_VERSION,
     GROUP_CONTROL_KIND,
@@ -614,6 +654,9 @@
     applyMembershipOperation,
     buildMembershipDraft,
     mapLegacyMutationType,
+    ADMIN_2FA_AUTH_KIND,
+    ADMIN_2FA_AUTH_ACTIONS,
+    buildAdmin2faAuthDraft,
     isControlOp: (op) => CONTROL_OPS.has(op),
     isMemberOp: (op) => MEMBER_OPS.has(op),
     ADMIN_SIGNER_CAN_PROVE_BASE_IS_LATEST: false,

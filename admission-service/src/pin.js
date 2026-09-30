@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
-import { Admin2fa, configure, Policy, strictVerify } from './authority.js';
+import { Admin2fa, configure, Membership, Moderation, Policy, strictVerify } from './authority.js';
 import { cosignPubkey, pepperBytes, signAttestation } from './cosign-keys.js';
 
 /**
@@ -12,6 +12,13 @@ import { cosignPubkey, pepperBytes, signAttestation } from './cosign-keys.js';
  */
 export const PBKDF2_ITERATIONS = 600000;
 const CONTROL_KIND = 39001;
+const MODERATION_KIND = 39002;
+const MEMBERSHIP_KIND = 39003;
+const INVITE_KIND = 37378;
+const INVITE_REVOKE_KIND = 37380;
+const DELETION_KIND = 5;
+const CONTENT_KIND = 1;
+const ADMISSION_CAPS = ['FINALIZE_MEMBERSHIP_ADMISSION', 'FINALIZE_MEMBERSHIP_ADMISSION_RETIRED'];
 const HEX64 = /^[0-9a-f]{64}$/;
 const AUTH_FRESHNESS_SEC = 120;
 const USED_AUTH_RETENTION_SEC = 600;
@@ -22,7 +29,7 @@ const MAX_PARAMS_CHARS = 200000;
 // Instance-wide ceiling on PIN comparisons, on top of the per-principal lockout.
 const GUESS_WINDOW_MS = 60000;
 const GUESS_WINDOW_MAX = 30;
-const ACTIONS = new Set(['params', 'enroll', 'verify', 'cosign', 'lock']);
+const ACTIONS = new Set(['params', 'session', 'enroll', 'verify', 'cosign', 'lock']);
 
 const enc = new TextEncoder();
 
@@ -68,19 +75,12 @@ export function delayForFailures(n) {
   return Math.min(300000 * Math.pow(2, n - 6), 3600000);
 }
 
-/** Changes that need the PIN re-entered even inside an unlocked session. */
-export function needsStepUp(prev, next) {
-  if (!prev) return true;
-  const caps = (s, pk) => (s && s.capabilities && Array.isArray(s.capabilities[pk]) ? s.capabilities[pk] : []);
-  for (const pk of Object.keys(prev.capabilities || {})) {
-    const after = caps(next, pk);
-    if (caps(prev, pk).some((c) => after.indexOf(c) === -1)) return true;
-  }
-  if (prev.invitePolicy !== next.invitePolicy) return true;
-  const a = (prev.blockedPubkeys || []).slice().sort().join(',');
-  const b = (next.blockedPubkeys || []).slice().sort().join(',');
-  if (a !== b) return true;
-  return prev.membershipEpoch !== next.membershipEpoch;
+function capsOf(state, pk) {
+  return state && state.capabilities && Array.isArray(state.capabilities[pk]) ? state.capabilities[pk] : [];
+}
+
+function strictContent(ev) {
+  return !!ev && typeof ev === 'object' && ev.kind === CONTENT_KIND && HEX64.test(String(ev.id || '')) && strictVerify(ev);
 }
 
 export class AdminPinAuthority extends DurableObject {
@@ -228,6 +228,69 @@ export class AdminPinAuthority extends DurableObject {
     return row;
   }
 
+  /**
+   * Maps a signed privileged event to its canonical operations using the same validators receivers run.
+   * Only allowlisted kinds with a server-validated authority check are co-signed; nothing else is signed.
+   */
+  async classify(ev, params, principal, group, root) {
+    const P = Admin2fa();
+    if (ev.kind === CONTROL_KIND) {
+      const v = await this.groupCall('/validate', { event: ev });
+      if (!v || !v.ok || !v.next) throw fail('INVALID', 'INVALID_TRANSITION', { reason: (v && v.code) || null });
+      if (v.next.admin2faSignerPubkey !== cosignPubkey(this.env)) throw fail('INVALID', 'SIGNER_NOT_BOUND');
+      return {
+        operations: P.classifyControlTransition(v.prev, v.next),
+        controlEpoch: v.next.controlEpoch,
+        targetIsAdmin: P.controlTargetsAdmin(v.prev, v.next),
+      };
+    }
+
+    const snap = await this.groupCall('/snapshot');
+    const state = snap && snap.state && snap.state.groupId === group ? snap.state : null;
+
+    if (ev.kind === DELETION_KIND) {
+      // Legacy cross-author removal: exactly one target, which must be another user's post or comment.
+      const target = params.target;
+      if (!strictContent(target)) throw fail('INVALID', 'TARGET_REQUIRED');
+      const e = (ev.tags || []).filter((t) => Array.isArray(t) && t[0] === 'e');
+      if (e.length !== 1 || String(e[0][1]).toLowerCase() !== target.id) throw fail('INVALID', 'TARGET_MISMATCH');
+      if (!(ev.tags || []).some((t) => Array.isArray(t) && t[0] === 't' && t[1] === group)) throw fail('INVALID', 'CROSS_GROUP');
+      if (String(target.pubkey).toLowerCase() === principal) throw fail('INVALID', 'OWN_CONTENT_NOT_PRIVILEGED');
+      const mayModerate = principal === root || (state && Moderation().hasCap(principal, state, 'MODERATE_CONTENT'));
+      if (!mayModerate) throw fail('UNAUTHORIZED', 'NO_MODERATE_CAP');
+      return { operations: [P.contentRemovalOperation(target)], controlEpoch: state ? state.controlEpoch : 0, targetIsAdmin: false };
+    }
+
+    if (!state) throw fail('INVALID', 'NO_VERIFIED_CONTROL');
+
+    if (ev.kind === MODERATION_KIND) {
+      const target = params.target;
+      if (!strictContent(target)) throw fail('INVALID', 'TARGET_REQUIRED');
+      const v = Moderation().validateModerationEvent(ev, target, state);
+      if (!v.ok) throw fail('INVALID', 'INVALID_MODERATION', { reason: v.code });
+      return { operations: [P.contentRemovalOperation(target)], controlEpoch: state.controlEpoch, targetIsAdmin: false };
+    }
+
+    if (ev.kind === MEMBERSHIP_KIND) {
+      if (capsOf(state, principal).some((c) => ADMISSION_CAPS.indexOf(c) !== -1)) throw fail('INVALID', 'ADMISSION_NOT_COSIGNABLE');
+      const v = Membership().validateMembershipEventStructural(ev, state, { groupId: group });
+      if (!v.ok) throw fail('INVALID', 'INVALID_MEMBERSHIP', { reason: v.code });
+      const op = P.membershipOperation(v.body.transition);
+      if (!op) throw fail('INVALID', 'OPERATION_NOT_PRIVILEGED');
+      return { operations: [op], controlEpoch: state.controlEpoch, targetIsAdmin: P.isAdminTier(capsOf(state, v.memberPubkey)) };
+    }
+
+    // INVITE_REVOKE_KIND: only revoking another author's invite is an admin action.
+    const invite = params.invite;
+    if (!invite || typeof invite !== 'object' || invite.kind !== INVITE_KIND || !strictVerify(invite)) {
+      throw fail('INVALID', 'INVITE_REQUIRED');
+    }
+    if (String(invite.pubkey).toLowerCase() === principal) throw fail('INVALID', 'OWN_INVITE_NOT_PRIVILEGED');
+    const v = Policy().validateRevokeEvent(ev, invite, state);
+    if (!v.ok) throw fail('INVALID', 'INVALID_REVOKE', { reason: v.code });
+    return { operations: ['REVOKE_INVITE'], controlEpoch: state.controlEpoch, targetIsAdmin: false };
+  }
+
   async handle(action, body, nowMs) {
     const { root, group } = configure(this.env);
     pepperBytes(this.env);
@@ -281,24 +344,42 @@ export class AdminPinAuthority extends DurableObject {
       return out('OK', { adminState: 'LOCKED' });
     }
 
+    if (action === 'session') {
+      const row = await this.params(principal);
+      let active = false;
+      let expired = false;
+      if (row.verifier && typeof params.sessionId === 'string') {
+        try {
+          await this.requireSession(principal, params.sessionId, nowMs);
+          active = true;
+        } catch (_e) {
+          expired = true;
+        }
+      }
+      return out('OK', {
+        adminState: active ? 'UNLOCKED' : row.verifier ? 'LOCKED' : 'SETUP_REQUIRED',
+        enrolled: !!row.verifier,
+        sessionExpired: expired,
+        idleMs: SESSION_IDLE_MS,
+        retryAfterMs: row.lock_until > nowMs ? row.lock_until - nowMs : 0,
+      });
+    }
+
     // cosign
     await this.requireSession(principal, params.sessionId, nowMs);
     const ev = params.event;
     if (!ev || typeof ev !== 'object') throw fail('INVALID', 'NO_EVENT');
-    if (ev.kind !== CONTROL_KIND) throw fail('INVALID', 'KIND_NOT_COSIGNABLE');
+    if (Admin2fa().PRIVILEGED_EVENT_KINDS.indexOf(ev.kind) === -1) throw fail('INVALID', 'KIND_NOT_COSIGNABLE');
     if (!strictVerify(ev)) throw fail('INVALID', 'STRICT_VERIFY_FAILED');
     if (String(ev.pubkey).toLowerCase() !== principal) throw fail('UNAUTHORIZED', 'ISSUER_MISMATCH');
     const P = Admin2fa();
     const nowSec = Math.floor(nowMs / 1000);
     if (Math.abs(nowSec - ev.created_at) > P.ATTESTATION_TTL_SEC) throw fail('INVALID', 'STALE_EVENT');
-    const v = await this.groupCall('/validate', { event: ev });
-    if (!v || !v.ok || !v.next) throw fail('INVALID', 'INVALID_TRANSITION', { reason: (v && v.code) || null });
-    if (v.next.admin2faSignerPubkey !== cosignPubkey(this.env)) throw fail('INVALID', 'SIGNER_NOT_BOUND');
-    const operations = P.classifyControlTransition(v.prev, v.next);
+    const { operations, controlEpoch, targetIsAdmin } = await this.classify(ev, params, principal, group, root);
     if (!operations.length || operations.some((op) => P.PRIVILEGED_OPERATIONS.indexOf(op) === -1)) {
       throw fail('INVALID', 'OPERATION_NOT_PRIVILEGED');
     }
-    const stepUp = needsStepUp(v.prev, v.next);
+    const stepUp = P.requiresStepUp(operations, { targetIsAdmin });
     if (stepUp) {
       if (params.stepUp == null) throw fail('STEP_UP_REQUIRED', 'STEP_UP_REQUIRED');
       await this.checkPin(principal, params.stepUp, nowMs);
@@ -310,7 +391,7 @@ export class AdminPinAuthority extends DurableObject {
         rootPubkey: root,
         event: ev,
         operations,
-        controlEpoch: v.next.controlEpoch,
+        controlEpoch,
         principal,
         stepUp,
         issuedAt: nowSec,

@@ -564,6 +564,14 @@
     return NT.finalizeEvent(copy, sessionPrivHex);
   }
 
+  function signAdmin2faAuth(request) {
+    requireReady();
+    loadNostrTools();
+    const P = self.SosAdminSigningPolicy;
+    if (!P || typeof P.buildAdmin2faAuthDraft !== 'function') fail('ADMIN_POLICY_MISSING', 'AdminSigningPolicy not loaded in worker');
+    return NT.finalizeEvent(P.buildAdmin2faAuthDraft(request, sessionPubHex), sessionPrivHex);
+  }
+
   function getNip44() {
     loadNostrTools();
     const nip44 = NT.nip44;
@@ -725,6 +733,8 @@
         return null;
       case 'SIGN_ADMIN_TYPED':
         return signAdminTyped(params && params.request);
+      case 'SIGN_ADMIN_2FA_AUTH':
+        return signAdmin2faAuth(params && params.request);
       case 'SIGN_EMAIL_REGISTRY':
         return signTyped('SIGN_EMAIL_REGISTRY', params && params.draft);
       case 'SIGN_BLOSSOM_AUTH':

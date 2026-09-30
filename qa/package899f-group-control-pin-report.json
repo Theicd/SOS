@@ -2,14 +2,14 @@
   "gate": "PACKAGE899F_GROUP_CONTROL_PIN",
   "ACCESS_CONTROL_V2": "OFF (served unchanged)",
   "status": "PASS",
-  "ts": "2026-09-29T21:58:17.654Z",
+  "ts": "2026-09-30T09:37:19.668Z",
   "results": {
     "ENV_V2_OFF_TEST_ROOT": {
       "ok": true,
       "detail": {
         "v2": false,
         "root": true,
-        "admission": ""
+        "admission": "http://127.0.0.1:8794"
       }
     },
     "MENU_VISIBLE_ROOT": {
@@ -132,35 +132,22 @@
         "pinOnly": false
       }
     },
-    "PIN_STORED_AS_SEALED_SLOW_VERIFIER": {
+    "PIN_VERIFIER_SERVER_ONLY": {
       "ok": true,
       "detail": {
-        "records": 1,
+        "localIdb": false,
+        "localKeys": 0,
+        "serverRecords": 1,
         "keyIsIdentity": true,
-        "fields": [
-          "v",
-          "sealed",
+        "saltHexLen": 32,
+        "verifierHexLen": 64,
+        "columns": [
+          "principal",
+          "salt",
+          "verifier",
+          "enrolled_at",
           "failures",
-          "lockUntil",
-          "createdAt"
-        ],
-        "sealedFields": [
-          "iv",
-          "ct",
-          "saltLength",
-          "iterations"
-        ],
-        "iterations": 600000,
-        "ctBytes": 64,
-        "wrap": [
-          {
-            "extractable": false,
-            "alg": "AES-GCM",
-            "usages": [
-              "encrypt",
-              "decrypt"
-            ]
-          }
+          "lock_until"
         ]
       }
     },
@@ -264,7 +251,8 @@
         "okAfter": "UNLOCKED",
         "stAfter": {
           "failures": 0,
-          "retryAfterMs": 0
+          "retryAfterMs": 0,
+          "enrolled": true
         },
         "capMs": [
           3600000,
@@ -300,7 +288,7 @@
       "ok": true,
       "detail": {
         "before": true,
-        "pub": "d32f21a8e887d5ecae7ad7f9f99b45bd69209d2413dd74ecded4c23562e04b22",
+        "pub": "e8a3dd896d819e4dbd6dbd2d9c55a827b3aaffaa9260ebc6e4edce8b3fb582c7",
         "unlocked": false,
         "open": false,
         "menu": false,
@@ -317,13 +305,13 @@
     "PIN_BOUND_TO_IDENTITY": {
       "ok": true,
       "detail": {
-        "mVerify": "PIN_NOT_SET"
+        "mVerify": "UNAUTHORIZED"
       }
     },
     "RESTART_CLEARS_UNLOCK": {
       "ok": true,
       "detail": {
-        "pub": "b8cc2743a79e1c9b11f26bf60b0233db262a1febae40a4509d1e7525fd6d8a97",
+        "pub": "93ccbdc98ef4009014e49b7466f47261a699c635e115777dbebfd548336494cb",
         "unlocked": false,
         "hasPin": true,
         "menu": true
@@ -332,8 +320,9 @@
     "PIN_NOT_IN_CONSOLE_OR_NETWORK": {
       "ok": true,
       "detail": {
-        "requests": 1517,
-        "consoleLines": 1198
+        "requests": 2756,
+        "consoleLines": 3651,
+        "serviceLogClean": true
       }
     },
     "NO_PIN_MODULE_PAGE_ERRORS": {

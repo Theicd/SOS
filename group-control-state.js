@@ -1366,6 +1366,7 @@
           logoRef: (record.groupSettings && record.groupSettings.logoRef) || undefined,
           invitePolicy: record.invitePolicy,
           groupId: record.groupId,
+          admin2faSignerPubkey: record.admin2faSignerPubkey || undefined,
         })
       );
     }

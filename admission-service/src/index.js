@@ -7,6 +7,7 @@ export { InviteLedger, GroupAuthority, AdminPinAuthority };
 
 const PIN_ROUTES = {
   '/v1/admin-pin/params': '/params',
+  '/v1/admin-pin/session': '/session',
   '/v1/admin-pin/enroll': '/enroll',
   '/v1/admin-pin/verify': '/verify',
   '/v1/admin-pin/cosign': '/cosign',

@@ -7,7 +7,7 @@
     "ws://127.0.0.1:7792"
   ],
   "status": "PASS",
-  "ts": "2026-09-29T22:00:34.358Z",
+  "ts": "2026-09-30T09:51:25.532Z",
   "results": {
     "CONFIG_TEST_TRANSFORMS_APPLIED": {
       "ok": true,
@@ -71,7 +71,8 @@
         "bootRes": {
           "ok": true,
           "code": "BOOTSTRAPPED",
-          "member": "SELF_GRANT"
+          "member": "ADMIN_2FA_DENIED",
+          "memberDetail": "SELF_GRANT"
         },
         "preBoot": {
           "relaysOk": 2,
@@ -81,9 +82,13 @@
           1,
           1
         ],
-        "relayMember": [
+        "relayAttest": [
           1,
           1
+        ],
+        "relayMember": [
+          0,
+          0
         ]
       }
     },
@@ -94,8 +99,8 @@
     "CONTROL_RECEIVED_FROM_NETWORK": {
       "ok": true,
       "detail": {
-        "bMs": 8,
-        "cMs": 10
+        "bMs": 11,
+        "cMs": 14
       }
     },
     "REMOTE_MEMBERSHIP_GRANT": {
@@ -105,13 +110,13 @@
         "redB": {
           "ok": true,
           "stage": "mark",
-          "inviteEventId": "5cb866db045d98ce7038fbb1accd1a069bc509cc732317b72c6f09f8c34d1da7",
-          "inviter": "91dded6c655eae85560cde571fe07ce1c12ef2f2b2eb7aae92ea0fe73464f9e7",
-          "usedId": "0778aaea4486aaadeddb67fb6f795861acccbb467e97819c62136eebfe5ce013"
+          "inviteEventId": "74dd0780f4d5ad22e60661c6b5ebcf62e70518c7ca1fdd08fc36b6af81470bdb",
+          "inviter": "cb3b67daf6afa1313a10e820c652c56ba4146263bcc91915c65d86a40e249157",
+          "usedId": "e7c6f12287dead051b5dfeb6e5f36c0d3209fdd786f4df0f9ade3026f7fc12e8"
         },
         "bOnB": {
           "ok": true,
-          "ms": 38
+          "ms": 46
         },
         "bOnA": true
       }
@@ -191,7 +196,7 @@
       "ok": true,
       "detail": {
         "grant": "APPLIED",
-        "latencyMs": 285,
+        "latencyMs": 682,
         "assigned": [
           "INVITE_USERS"
         ],
@@ -237,11 +242,11 @@
         "redC": {
           "ok": true,
           "stage": "mark",
-          "inviteEventId": "240f356b11bad5c6bd3740fcc9d5e277354115e92e5093a196fcbc8a39cf5383",
-          "inviter": "29d472c0fb569f8c1da5bcbbf2ca68d20ea8ce5425744ea42c64bf2221dc756d",
-          "usedId": "4703191eef09caf9b9ac32edc6ac14f6df15b700a28e27391bfaf7187255ebc1"
+          "inviteEventId": "36e4e6d7e4151c3b0b9973cab1c795c864c1232ff49e580b459da70020413fd5",
+          "inviter": "d2a43df3a9968b980c20dbb88553085fd9f142c33b4a822c4b27105b011bed4e",
+          "usedId": "86b574a9ab762957a006ddfb4601638b96a8d77beef16d7c26906981ab0c78e7"
         },
-        "cOnC": 38,
+        "cOnC": 60,
         "cOnA": true,
         "cOnB": true,
         "aSeesC": true,
@@ -262,7 +267,7 @@
       "ok": true,
       "detail": {
         "promote": "SAVED",
-        "ms": 224,
+        "ms": 428,
         "caps": [
           "INVITE_USERS",
           "MANAGE_MEMBERS"
@@ -311,7 +316,7 @@
       "ok": true,
       "detail": {
         "revoke": "APPLIED",
-        "ms": 230,
+        "ms": 427,
         "remaining": [
           "INVITE_USERS"
         ],
@@ -326,7 +331,11 @@
         "caps": [
           "INVITE_USERS"
         ],
-        "bDemotedTabs": []
+        "bDemotedTabs": [
+          "home",
+          "invites",
+          "qr"
+        ]
       }
     },
     "OFFLINE_STALE_CACHE_FAIL_CLOSED": {
@@ -350,8 +359,8 @@
     "OFFLINE_RECONNECT": {
       "ok": true,
       "detail": {
-        "tab1": 207,
-        "tab2": 6
+        "tab1": 813,
+        "tab2": 8
       }
     },
     "MULTITAB_REVOCATION": {
@@ -378,8 +387,8 @@
       "ok": true,
       "detail": {
         "removeC": "REMOVED",
-        "ms": 219,
-        "onB": 9530,
+        "ms": 499,
+        "onB": 3,
         "cOps": {
           "menu": false,
           "invite": "UNAUTHORIZED",
@@ -596,7 +605,7 @@
       "ok": true,
       "detail": {
         "oneRelayGrant": "APPLIED",
-        "ms": 556,
+        "ms": 2431,
         "bOneStatus": {
           "ok": true,
           "relaysOk": 1
@@ -628,7 +637,7 @@
           "code": "NETWORK_AUTHORITY_UNVERIFIED",
           "detail": "RELAY_UNAVAILABLE"
         },
-        "silentMs": 12369,
+        "silentMs": 12340,
         "backOp": "APPLIED"
       }
     },
@@ -659,11 +668,11 @@
           "security": true
         },
         "aDir": [
-          "29d472c0:ACTIVE:MODERATOR",
-          "6315746f:ACTIVE:MEMBER",
-          "be46ebd3:REMOVED:MEMBER",
-          "d1adfb11:ACTIVE:MEMBER",
-          "91dded6c:ACTIVE:ROOT"
+          "231212fd:ACTIVE:MEMBER",
+          "5bbd4020:ACTIVE:MEMBER",
+          "d2a43df3:ACTIVE:MODERATOR",
+          "fcbf22a2:REMOVED:MEMBER",
+          "cb3b67da:ACTIVE:ROOT"
         ],
         "mobileOverflow": false
       }
@@ -671,7 +680,7 @@
     "ACCOUNT_SWITCH": {
       "ok": true,
       "detail": {
-        "pub": "be46ebd32b5512418efeaa8929ba0a9815fb1a62cad7227a1eaa422a8bd83ae2",
+        "pub": "fcbf22a284c49973df2edd80d23aab04ae798c17a23ed6f0aa92242146ace6ba",
         "menu": false,
         "open": false,
         "invitesAfter": 0,
@@ -685,10 +694,12 @@
       "ok": true,
       "detail": {
         "conflictOp": {
-          "code": "CONTROL_CONFLICT",
-          "control": "CONTROL_CONFLICT"
+          "code": "TEMPORARILY_UNAVAILABLE",
+          "control": "VERIFIED",
+          "eventId": "40737c5e7942c8c228c0cef69ca8f015d43b14f8b7b4cf300af59f290f3752d8"
         },
-        "conflictMenu": false
+        "conflictMenu": true,
+        "outcome": "UNATTESTED_FORKS_REJECTED"
       }
     },
     "TYPED_SIGNER_ONLY": {
@@ -704,8 +715,8 @@
     "RELAY_SECRET_LEAK_SCAN": {
       "ok": true,
       "detail": {
-        "events": 59,
-        "authEvents": 40,
+        "events": 75,
+        "authEvents": 39,
         "secretHits": 0,
         "plaintextInviteCodeHits": 0,
         "nsecHits": 0,
@@ -758,24 +769,25 @@
         ],
         "delegates": [
           {
-            "pubkey": "36ee92564ad6f2d989f5b9cefec45672bfc98a5f735ff4b661b568f396130712",
+            "pubkey": "aae29b5d31bff2a4286fbee339f9f85e87a3f6ed05faf8e8102e2850c560e56a",
             "status": "ACTIVE"
           }
         ]
       },
       "delegateByNonRoot": "UNAUTHORIZED"
     },
-    "JOIN_APPROVAL_LATENCY_MS_B": 266,
-    "REALTIME_GRANT_LATENCY_MS": 285,
-    "JOIN_APPROVAL_LATENCY_MS_C": 38,
-    "REALTIME_PROMOTE_LATENCY_MS": 381,
-    "REALTIME_REVOKE_LATENCY_MS": 392,
+    "JOIN_APPROVAL_LATENCY_MS_B": 280,
+    "REALTIME_GRANT_LATENCY_MS": 682,
+    "JOIN_APPROVAL_LATENCY_MS_C": 60,
+    "REALTIME_PROMOTE_LATENCY_MS": 850,
+    "B_ADMIN_PIN_ENROLL": "PIN_SET",
+    "REALTIME_REVOKE_LATENCY_MS": 1609,
     "REPROMOTE_BEFORE_DEMOTE": {
       "repromote": "SAVED",
       "ok": true
     },
-    "RECONNECT_CONVERGENCE_MS": 231,
-    "REALTIME_REMOVE_LATENCY_MS": 358,
+    "RECONNECT_CONVERGENCE_MS": 838,
+    "REALTIME_REMOVE_LATENCY_MS": 977,
     "GRANT_PM_FOR_FORK": "APPLIED",
     "FORK_EVENTS": {
       "a": true,
@@ -801,7 +813,7 @@
   "ADMISSION_SERVICE": {
     "mode": "local-workerd",
     "url": "http://127.0.0.1:8799",
-    "servicePubkey": "36ee92564ad6f2d989f5b9cefec45672bfc98a5f735ff4b661b568f396130712"
+    "servicePubkey": "aae29b5d31bff2a4286fbee339f9f85e87a3f6ed05faf8e8102e2850c560e56a"
   },
   "FIRST_GROUP_ID": "israel-network",
   "ADMISSION_DELEGATION_OK": true,
@@ -871,6 +883,7 @@
         "t"
       ],
       "contentKeys": [
+        "admin2faSignerPubkey",
         "blockedPubkeys",
         "capabilities",
         "controlEpoch",
@@ -887,7 +900,7 @@
       ]
     },
     "39003": {
-      "n": 9,
+      "n": 8,
       "tags": [
         "admission",
         "control-epoch",
@@ -920,21 +933,26 @@
   "NSEC_EXPOSED": false,
   "relayStats": {
     "r1": {
-      "received": 109,
+      "received": 129,
       "rejectedInvalid": 0,
-      "replaced": 5,
-      "duplicates": 45
+      "replaced": 7,
+      "duplicates": 46
     },
     "r2": {
-      "received": 103,
+      "received": 122,
       "rejectedInvalid": 0,
-      "replaced": 4,
-      "duplicates": 41
+      "replaced": 6,
+      "duplicates": 42
     },
-    "r1Events": 59,
-    "r2Events": 58
+    "r1Events": 75,
+    "r2Events": 73
   },
   "pageErrorsCount": 0,
+  "ADMIN_2FA": {
+    "enforced": true,
+    "signer": "a4d9321c106cdd1cc75b3081e837cc9d4e328cf9f0346ba1565f5b92f68839ce",
+    "stepUpDialogsAnswered": 5
+  },
   "passed": 51,
   "failed": 0,
   "failedKeys": [],

@@ -68,6 +68,7 @@
       createdAt: Math.floor(Date.now() / 1000),
       membershipRoot: state.membershipRoot || null,
       resolution: null,
+      admin2faSignerPubkey: state.admin2faSignerPubkey || null,
     };
   }
 
@@ -414,6 +415,14 @@
    * Full pipeline: authorize → build → sign → publish → verify → apply.
    * Returns result; does not optimistically grant authority.
    */
+  /** Admin 2FA attestation for a signed privileged event; fails closed when enforced and the client is missing. */
+  function attestPrivileged(event, extra) {
+    const C = App.Admin2faClient;
+    if (C && typeof C.attest === 'function') return C.attest(event, extra);
+    const A = App.Admin2faProtocol;
+    return Promise.resolve(A && A.isEnforced() ? { ok: false, code: 'ADMIN_2FA_SERVICE_UNAVAILABLE' } : { ok: true, skipped: true });
+  }
+
   async function applyControlMutation(mutation, actorPubkey, opts) {
     const options = opts || {};
     const GCS = getGCS();
@@ -493,15 +502,20 @@
       return { ok: false, code: 'SIGN_FAILED', error: e && e.message };
     }
 
+    // Signed but not published: the Admin 2FA attestation must be issued and verified locally first.
+    const att = await attestPrivileged(signed);
+    if (!att.ok) return { ok: false, code: att.code, event: signed, built };
+
     if (options.skipPublish) {
       const acc = GCS.acceptControlEvent(signed, { groupId: scope });
-      return { ok: acc.ok, code: acc.code || acc.status, accept: acc, event: signed, built };
+      return { ok: acc.ok, code: acc.code || acc.status, accept: acc, event: signed, built, attestation: att.attestation || null };
     }
 
     if (!App.pool || !Array.isArray(App.relayUrls) || !App.relayUrls.length) {
       return { ok: false, code: 'NO_RELAYS', event: signed, built };
     }
     try {
+      if (att.attestation) await App.pool.publish(App.relayUrls, att.attestation);
       await App.pool.publish(App.relayUrls, signed);
     } catch (e) {
       return { ok: false, code: 'PUBLISH_FAILED', error: e && e.message, event: signed, built };
@@ -519,6 +533,7 @@
     DISPLAY_NAME_MAX,
     buildNextControlState,
     applyControlMutation,
+    attestPrivileged,
     sanitizeDisplayName,
     normalizePubkey,
     memberStatus,

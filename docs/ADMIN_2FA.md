@@ -73,3 +73,42 @@ Gates: `qa/admin-2fa-client-gate.mjs` 69/69 (negatives 34/34), `qa/admin-cosign-
 
 Known limits: the attestation store is memory-only; non-39001 privileged kinds cannot be co-signed yet, so they
 fail closed under enforcement until Phase 3.
+
+## Phase 3 — web UI + server integration (branch `local/admin-2fa-p3`, local only)
+
+The server is the only PIN authority. The existing Hebrew dialogs (`הגדרת קוד מנהל`, `קוד מנהל`) and the
+`שליטה על הקבוצה` menu are kept; `admin-pin-lock.js` is now a facade over `admin-2fa-client.js` and has no local
+verifier (IndexedDB code removed, old local data neither uploaded nor migrated).
+
+- `admin-2fa-client.js`: admin state from `/v1/admin-pin/session` (`PIN_NOT_CONFIGURED`, `PIN_CONFIGURED_LOCKED`,
+  `ADMIN_SESSION_ACTIVE`, `ADMIN_2FA_SERVICE_UNAVAILABLE`). Enrollment / verify use the Phase 1 protocol (PBKDF2
+  600k on the client, pepper + slow verifier on the server, server lockout). The admin session lives in memory only,
+  15 min idle, bound to identity, session generation, group and protocol; logout, account switch or mismatch clear it.
+  Every request is signed with kind 27235 through `SosCryptoSigner.signAdmin2faAuth` (fixed action set, no generic signing).
+- Privileged pipeline (all senders): build → sign → `attest()` (push control, server co-sign, local
+  `verifyAdmin2faAttestation`) → publish attestation → publish event. Any failure publishes nothing.
+  Senders: `group-control-mutations.js`, `member-admin-operations.js`, `invite-policy.js`, `invite-service.js`,
+  `feed.js` (moderation / other-user deletion), `first-group-admin.js` (BOOTSTRAP).
+- Server co-sign (`admission-service/src/pin.js` `classify`) accepts only: control transitions (39001), moderation
+  (39002), non-admission membership (39003), revoke of another author's invite (37380), kind 5 of another author's
+  post. Own content / own invites are rejected as not privileged. Role / permission changes are attested as
+  capability diffs.
+- Canonical re-auth policy (`STEP_UP_OPERATIONS`, `STEP_UP_WHEN_TARGET_IS_ADMIN` in `admin-2fa-protocol.js`, used by
+  the server): a fresh PIN is required for DEMOTE_ADMIN, CHANGE_GROUP_POLICY, admission delegation create / revoke,
+  and removing or blocking an admin. Viewing never needs re-auth.
+- The group-control panel needs a server admin session for the root and admin-tier principals. Invite-only helpers
+  hold no admin power and get no server session.
+- Receivers fetch kind 39004 attestations with the control / feed filters.
+- Service down or not configured: fail closed with `שירות אימות המנהל אינו זמין כרגע`. No ROOT-only fallback.
+- Gate 1.5 package: `FirstGroupAdmin.prepareGate15Package()` returns the ROOT-signed BOOTSTRAP + its verified
+  attestation, publishes and applies nothing.
+- Production unchanged: `admin2faEnforcement` off, `ACCESS_CONTROL_V2` off, `FIRST_GROUP_ADMISSION_URL` empty, so the
+  admin panel stays closed (fail closed) until Phase 4 configures the service.
+
+Gates: `qa/admin-2fa-phase3-gate.mjs` 48/48, `qa/admin-cosign-s1-gate.mjs` 40/40, `qa/admin-2fa-client-gate.mjs`
+69/69, `qa/package899f-group-control-pin-gate.mjs` 34/34 (local service), `qa/package898-first-group-network-e2e.mjs`
+51/51 (enforcement on, local relays + local service).
+
+Known limits: the attestation store is memory-only (cached control needs its attestations from relays); the ROOT
+self-membership record at bootstrap is rejected by membership rules (`SELF_GRANT`) and is not co-signed; removing
+an admin asks for the PIN twice (remove + demote cleanup).

@@ -91,6 +91,21 @@
     'MANAGE_MEMBERS',
     'MANAGE_BLOCKLIST',
   ]);
+  /**
+   * Sensitive re-auth: these need the PIN entered again for the request itself, even inside an active session.
+   * Removing or blocking a member is sensitive only when the target holds an admin-tier capability.
+   * Read-only panel viewing never needs re-auth.
+   */
+  const STEP_UP_OPERATIONS = Object.freeze([
+    'DEMOTE_ADMIN',
+    'CHANGE_GROUP_POLICY',
+    'CREATE_ADMISSION_DELEGATION',
+    'REVOKE_ADMISSION_DELEGATION',
+    'ROTATE_MEMBERSHIP_EPOCH',
+    'RESOLVE_CONTROL_CONFLICT',
+  ]);
+  const STEP_UP_WHEN_TARGET_IS_ADMIN = Object.freeze(['REMOVE_MEMBER', 'BLOCK_MEMBER', 'CHANGE_BLOCKLIST']);
+
   const ADMISSION_CAP = 'FINALIZE_MEMBERSHIP_ADMISSION';
   const ADMISSION_RETIRED_CAP = 'FINALIZE_MEMBERSHIP_ADMISSION_RETIRED';
 
@@ -204,8 +219,37 @@
     return isComment ? 'DELETE_OTHER_USER_COMMENT' : 'DELETE_OTHER_USER_POST';
   }
 
+  /**
+   * Operations a receiver may check for a removal target. With the full target event the operation is exact;
+   * a receiver that only knows the target id/author tries both removal operations (the attestation still binds
+   * the exact event id, principal and signer).
+   */
+  function contentRemovalCandidates(targetEvent) {
+    if (targetEvent && Array.isArray(targetEvent.tags)) return [contentRemovalOperation(targetEvent)];
+    return ['DELETE_OTHER_USER_POST', 'DELETE_OTHER_USER_COMMENT'];
+  }
+
   function membershipOperation(transition) {
     return MEMBERSHIP_TRANSITION_OPERATION[transition] || '';
+  }
+
+  function isAdminTier(caps) {
+    return (Array.isArray(caps) ? caps : []).some((c) => ADMIN_TIER_CAPABILITIES.indexOf(c) !== -1);
+  }
+
+  /** Canonical sensitive re-auth policy. ctx.targetIsAdmin: the removed/blocked member holds admin-tier caps. */
+  function requiresStepUp(operations, ctx) {
+    const ops = Array.isArray(operations) ? operations : [];
+    if (ops.some((op) => STEP_UP_OPERATIONS.indexOf(op) !== -1)) return true;
+    return !!(ctx && ctx.targetIsAdmin === true) && ops.some((op) => STEP_UP_WHEN_TARGET_IS_ADMIN.indexOf(op) !== -1);
+  }
+
+  /** Control transition: did it remove or block someone who held admin-tier capabilities before? */
+  function controlTargetsAdmin(prev, next) {
+    if (!prev || !next) return false;
+    const pc = prev.capabilities || {};
+    const before = new Set(prev.blockedPubkeys || []);
+    return (next.blockedPubkeys || []).some((pk) => !before.has(pk) && isAdminTier(pc[pk]));
   }
 
   // ------------------------------------------------------------ attestation (issuer side builds, verifier checks)
@@ -413,9 +457,28 @@
     const deleter = String((event && event.pubkey) || '').toLowerCase();
     const cross = list.filter((t) => t && t.author && t.author !== deleter);
     if (!cross.length) return { ok: false, enforced: true, code: 'NO_CROSS_AUTHOR_TARGETS', allowUnknownAuthor: false };
-    const ops = Array.from(new Set(cross.map((t) => contentRemovalOperation(t.targetEvent)))).sort();
-    const r = requireForEvent(event, ops, context);
-    return Object.assign({}, r, { enforced: true, allowUnknownAuthor: false, operations: ops });
+    // Server-issued removal attestations cover exactly one target, so the candidate sets come from that target.
+    const candidateSets =
+      cross.length === 1
+        ? contentRemovalCandidates(cross[0].targetEvent).map((op) => [op])
+        : [Array.from(new Set(cross.map((t) => contentRemovalOperation(t.targetEvent)))).sort()];
+    let r = fail('ADMIN_2FA_REQUIRED');
+    for (let i = 0; i < candidateSets.length; i++) {
+      r = requireForEvent(event, candidateSets[i], context);
+      if (r.ok) return Object.assign({}, r, { enforced: true, allowUnknownAuthor: false, operations: candidateSets[i] });
+    }
+    return Object.assign({}, r, { enforced: true, allowUnknownAuthor: false, operations: candidateSets[0] });
+  }
+
+  /** First cross-author removal that verifies against any of the candidate operations. */
+  function requireForContentRemoval(event, targetEvent, context) {
+    const cands = contentRemovalCandidates(targetEvent);
+    let r = fail('ADMIN_2FA_REQUIRED');
+    for (let i = 0; i < cands.length; i++) {
+      r = requireForEvent(event, [cands[i]], context);
+      if (r.ok) return r;
+    }
+    return r;
   }
 
   const api = Object.freeze({
@@ -439,9 +502,17 @@
     isEnforced,
     activeSignerPubkey,
     canonicalRootPubkey,
+    STEP_UP_OPERATIONS,
+    STEP_UP_WHEN_TARGET_IS_ADMIN,
+    SENSITIVE_ADMIN_REAUTH_POLICY_CANONICAL: true,
     classifyControlTransition,
     contentRemovalOperation,
+    contentRemovalCandidates,
     membershipOperation,
+    isAdminTier,
+    requiresStepUp,
+    controlTargetsAdmin,
+    requireForContentRemoval,
     buildAttestationDraft,
     verifyAdmin2faAttestation,
     ingestAttestations,

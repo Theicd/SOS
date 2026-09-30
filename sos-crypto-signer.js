@@ -359,6 +359,21 @@
     return finalizeWithSession(copy);
   }
 
+  /** Admin 2FA request auth (kind 27235): narrow fields only, the policy fixes kind, tags and content. */
+  function signAdmin2faAuth(request) {
+    requireValidSession('SIGN_ADMIN_2FA_AUTH');
+    const P = policy();
+    if (!P || typeof P.buildAdmin2faAuthDraft !== 'function') fail('ADMIN_POLICY_MISSING', 'AdminSigningPolicy required');
+    if (isWorkerAuthoritative()) {
+      return workerRpc('SIGN_ADMIN_2FA_AUTH', { request: request || {} });
+    }
+    let actor = currentPubkey();
+    if (!/^[0-9a-f]{64}$/.test(actor)) actor = String(NT.getPublicKey(hexToBytes(requireSessionKeyHex()))).toLowerCase();
+    const draft = P.buildAdmin2faAuthDraft(request || {}, actor);
+    requireValidSession('SIGN_ADMIN_2FA_AUTH');
+    return finalizeWithSession(draft);
+  }
+
   function broadAdminSignRemoved() {
     fail('BROAD_ADMIN_SIGN_REMOVED', 'Use signTypedAdminOperation (AC9)');
   }
@@ -676,6 +691,7 @@
       return broadAdminSignRemoved();
     },
     signTypedAdminOperation,
+    signAdmin2faAuth,
     nip44ChatEncrypt,
     nip44ChatDecrypt,
     nip44P2pEncrypt,

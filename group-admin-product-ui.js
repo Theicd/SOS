@@ -117,6 +117,7 @@
   }
 
   function pinUnlocked() {
+    if (!needsAdminSession()) return true;
     const p = PIN();
     return !!(p && p.isUnlocked(actor()));
   }
@@ -131,6 +132,23 @@
 
   function controlStatus() {
     return isV2() ? 'ACTIVE_PATH' : 'CONTROL_PLANE_NOT_ACTIVE';
+  }
+
+  /** Root and admin-tier principals need a server admin session; the server issues none to invite-only helpers. */
+  function needsAdminSession() {
+    const f = FGA();
+    if (!f) return true;
+    if (f.isConfiguredRoot(actor()) === true) return true;
+    const a = typeof f.myAuthority === 'function' ? f.myAuthority() : null;
+    const P = App.Admin2faProtocol;
+    if (!a || !P || typeof P.isAdminTier !== 'function') return true;
+    return a.isRoot === true || P.isAdminTier(a.caps);
+  }
+
+  function adminSession() {
+    const p = PIN();
+    if (!needsAdminSession()) return Promise.resolve({ ok: true, code: 'NOT_ADMIN_TIER' });
+    return p ? p.requestUnlock() : Promise.resolve({ ok: false });
   }
 
   function isActiveMember() {
@@ -243,7 +261,32 @@
     CONTROL_PLANE_NOT_ACTIVE: 'מערכת השליטה על הקבוצה עדיין לא הופעלה',
     V2_REQUIRED: 'מערכת השליטה על הקבוצה עדיין לא הופעלה',
     ADMIN_PIN_REQUIRED: 'נדרש קוד מנהל',
+    ADMIN_2FA_SERVICE_UNAVAILABLE: 'שירות אימות המנהל אינו זמין כרגע',
+    ADMIN_SESSION_EXPIRED: 'פג תוקף אימות המנהל. הזינו שוב את קוד המנהל',
+    ADMIN_STEP_UP_CANCELLED: 'פעולה רגישה דורשת הזנה חוזרת של קוד המנהל',
+    ADMIN_STEP_UP_REQUIRED: 'פעולה רגישה דורשת הזנה חוזרת של קוד המנהל',
+    ADMIN_2FA_DENIED: 'שרת אימות המנהל לא אישר את הפעולה',
+    PIN_WRONG: 'קוד שגוי',
+    PIN_LOCKED: 'יותר מדי ניסיונות. נסו שוב מאוחר יותר',
   };
+
+  /** Short status line when the panel itself is not open (e.g. the admin service is unavailable). */
+  function notice(text) {
+    try {
+      let el = document.getElementById('sosGapNotice');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'sosGapNotice';
+        el.setAttribute('role', 'status');
+        el.style.cssText =
+          'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:12300;background:#2a1d1d;color:#ffd7d7;padding:10px 14px;border-radius:10px;direction:rtl;font-size:.95rem;';
+        document.body.appendChild(el);
+      }
+      el.textContent = text;
+      clearTimeout(notice.timer);
+      notice.timer = setTimeout(() => el.remove(), 5000);
+    } catch (_e) {}
+  }
 
   function errText(res) {
     const code = (res && res.code) || 'ERROR';
@@ -276,11 +319,11 @@
 
   async function run(label, fn, confirmText) {
     if (busy) return { ok: false, code: 'BUSY' };
-    const p = PIN();
-    const unlocked = p ? await p.requestUnlock() : { ok: false };
+    const unlocked = await adminSession();
     if (!unlocked.ok) {
-      setMsg(errText({ code: 'ADMIN_PIN_REQUIRED' }), 'err');
-      return { ok: false, code: 'ADMIN_PIN_REQUIRED' };
+      const code = unlocked.code === 'ADMIN_2FA_SERVICE_UNAVAILABLE' ? unlocked.code : 'ADMIN_PIN_REQUIRED';
+      setMsg(errText({ code }), 'err');
+      return { ok: false, code };
     }
     if (!isV2()) {
       setMsg(errText({ code: 'CONTROL_PLANE_NOT_ACTIVE' }), 'err');
@@ -302,6 +345,7 @@
       res = { ok: false, code: (e && e.code) || 'ERROR', error: String((e && e.message) || e) };
     }
     busy = false;
+    const p = PIN();
     if (res && res.ok && p) p.touch();
     if (res && res.ok) setMsg(label + ' — בוצע', 'ok');
     else setMsg(errText(res), 'err');
@@ -940,7 +984,11 @@
     const p = PIN();
     if (!p) return { ok: false, code: 'ADMIN_PIN_REQUIRED' };
     const who = actor();
-    const u = await p.requestUnlock();
+    const u = await adminSession();
+    if (!u.ok && u.code === 'ADMIN_2FA_SERVICE_UNAVAILABLE') {
+      notice(ERROR_TEXT.ADMIN_2FA_SERVICE_UNAVAILABLE);
+      return { ok: false, code: u.code };
+    }
     if (!u.ok || actor() !== who || !canSeeGroupControl()) return { ok: false, code: u.ok ? 'UNAUTHORIZED' : 'ADMIN_PIN_REQUIRED' };
     ensureShell();
     shellEl.classList.add('is-open');

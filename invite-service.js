@@ -538,13 +538,28 @@
       typeof signer.signInviteRevokeEvent === 'function'
         ? await Promise.resolve(signer.signInviteRevokeEvent(draft))
         : await Promise.resolve(signer.signInviteEvent(draft));
+    // Revoking another author's invite is an admin action: attest and verify before the service or relays see it.
+    let attestation = null;
+    if (String(ev.pubkey || '').toLowerCase() !== String(App.publicKey || '').toLowerCase()) {
+      const C = App.Admin2faClient;
+      const A2 = App.Admin2faProtocol;
+      const att =
+        C && typeof C.attest === 'function'
+          ? await C.attest(signed, { invite: ev })
+          : A2 && A2.isEnforced()
+            ? { ok: false, code: 'ADMIN_2FA_SERVICE_UNAVAILABLE' }
+            : { ok: true };
+      if (!att.ok) throw Object.assign(new Error(att.code), { code: att.code });
+      attestation = att.attestation || null;
+    }
     const A = admission();
     if (A) {
       const r = await A.revoke(signed);
       if (r.result !== 'REVOKED') throw admissionError(r.result, 'REVOKE_FAILED');
     }
+    if (attestation) await App.pool.publish(App.relayUrls, attestation);
     await App.pool.publish(App.relayUrls, signed);
-    return { ok: true, event: signed };
+    return { ok: true, event: signed, attestation };
   }
 
   function openWhatsAppInvite(whatsappUrl) {

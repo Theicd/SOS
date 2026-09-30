@@ -162,6 +162,14 @@
     }
   }
 
+  /** Admin 2FA attestation for a signed privileged event; fails closed when enforced and the client is missing. */
+  function attestPrivileged(event, extra) {
+    const C = App.Admin2faClient;
+    if (C && typeof C.attest === 'function') return C.attest(event, extra);
+    const A = App.Admin2faProtocol;
+    return Promise.resolve(A && A.isEnforced() ? { ok: false, code: 'ADMIN_2FA_SERVICE_UNAVAILABLE' } : { ok: true, skipped: true });
+  }
+
   async function signAndAcceptMembership(draftOrReq, opts) {
     const options = opts || {};
     const ms = MS();
@@ -229,14 +237,21 @@
         return { ok: false, code: 'SIGN_FAILED', error: e && e.message };
       }
     }
+    let attestation = null;
+    if (!options.preSigned) {
+      const att = await attestPrivileged(signed);
+      if (!att.ok) return { ok: false, code: att.code, event: signed };
+      attestation = att.attestation || null;
+    }
     if (options.skipPublish) {
       const acc = ms.acceptMembershipEvent(signed);
-      return { ok: acc.ok === true, code: acc.code || acc.status, accept: acc, event: signed };
+      return { ok: acc.ok === true, code: acc.code || acc.status, accept: acc, event: signed, attestation };
     }
     if (!App.pool || !Array.isArray(App.relayUrls) || !App.relayUrls.length) {
       return { ok: false, code: 'NO_RELAYS', event: signed };
     }
     try {
+      if (attestation) await App.pool.publish(App.relayUrls, attestation);
       await App.pool.publish(App.relayUrls, signed);
     } catch (e) {
       return { ok: false, code: 'PUBLISH_FAILED', error: e && e.message, event: signed };

@@ -1,7 +1,7 @@
 {
   "gate": "ADMIN_COSIGN_STAGE1_GATE",
   "mode": "local-workerd",
-  "generatedAt": "2026-09-29T23:49:17.371Z",
+  "generatedAt": "2026-09-30T09:31:13.337Z",
   "status": "PASS",
   "results": {
     "HEALTH_EXPOSES_COSIGN_PUBKEY_ONLY": "PASS",
@@ -24,7 +24,7 @@
     "GENESIS_MUST_BIND_COSIGN_SIGNER": "PASS",
     "STALE_EVENT_NOT_COSIGNED": "PASS",
     "COSIGN_REQUIRES_PIN_SESSION": "PASS",
-    "GENESIS_REQUIRES_STEP_UP": "PASS",
+    "GENESIS_SESSION_ONLY_CANONICAL_STEP_UP_POLICY": "PASS",
     "ATTESTATION_SHAPE_AND_SIGNATURE": "PASS",
     "PHASE1_PHASE2_PROTOCOL_MATCH": "PASS",
     "COSIGN_IS_DRY_RUN_NO_CONTROL_MUTATION": "PASS",
@@ -33,7 +33,7 @@
     "SERVER_OPERATIONS_MATCH_CLIENT_CLASSIFIER": "PASS",
     "COSIGN_REJECTS_INVALID_EVENTS": "PASS",
     "SESSION_BOUND_TO_PRINCIPAL": "PASS",
-    "DESTRUCTIVE_CHANGE_REQUIRES_STEP_UP": "PASS",
+    "SENSITIVE_CHANGE_REQUIRES_STEP_UP": "PASS",
     "DELEGATED_ADMIN_OWN_ENROLLMENT_ONLY": "PASS",
     "ROOT_SESSION_NOT_USABLE_BY_OTHER_ADMIN": "PASS",
     "SESSION_IDLE_TIMEOUT": "PASS",
@@ -179,11 +179,11 @@
       ]
     },
     {
-      "name": "GENESIS_REQUIRES_STEP_UP",
+      "name": "GENESIS_SESSION_ONLY_CANONICAL_STEP_UP_POLICY",
       "ok": true,
       "detail": [
-        "STEP_UP_REQUIRED",
-        "WRONG_PIN",
+        "COSIGNED",
+        "COSIGNED",
         "COSIGNED"
       ]
     },
@@ -247,6 +247,7 @@
         "INVALID_TRANSITION",
         "BAD_EPOCH_STEP",
         "KIND_NOT_COSIGNABLE",
+        "INVALID_MEMBERSHIP",
         "STRICT_VERIFY_FAILED",
         "INVALID_TRANSITION"
       ]
@@ -257,12 +258,15 @@
       "detail": "NOT_ADMIN"
     },
     {
-      "name": "DESTRUCTIVE_CHANGE_REQUIRES_STEP_UP",
+      "name": "SENSITIVE_CHANGE_REQUIRES_STEP_UP",
       "ok": true,
       "detail": [
+        "COSIGNED",
         "STEP_UP_REQUIRED",
         "STEP_UP_REQUIRED/STEP_UP_REQUIRED",
+        "COSIGNED",
         "STEP_UP_REQUIRED",
+        "WRONG_PIN",
         "COSIGNED"
       ]
     },
@@ -328,14 +332,20 @@
     },
     {
       "name": "GENERIC_SIGNER_EXPOSED_FALSE",
-      "ok": true
+      "ok": true,
+      "detail": [
+        "TARGET_REQUIRED",
+        "INVALID_MEMBERSHIP",
+        "INVITE_REQUIRED",
+        "TARGET_REQUIRED"
+      ]
     },
     {
       "name": "SERVICE_LOG_PRIVACY",
       "ok": true,
       "detail": {
         "leaks": 0,
-        "logBytes": 7071
+        "logBytes": 7628
       }
     }
   ],

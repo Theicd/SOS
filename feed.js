@@ -2642,6 +2642,38 @@
     } catch (err) {}
   }
 
+  // Removals rejected only for a missing Admin 2FA attestation wait here until their attestation arrives.
+  const PENDING_ADMIN_2FA_MAX = 500;
+  const pendingAdmin2fa = new Map();
+
+  function deferForAdmin2fa(event, code, seenSet) {
+    if (!event || !event.id || !/^ADMIN_2FA_/.test(String(code || ''))) return;
+    if (seenSet instanceof Set) seenSet.delete(event.id);
+    if (!pendingAdmin2fa.has(event.id) && pendingAdmin2fa.size >= PENDING_ADMIN_2FA_MAX) {
+      pendingAdmin2fa.delete(pendingAdmin2fa.keys().next().value);
+    }
+    pendingAdmin2fa.set(event.id, event);
+  }
+
+  function registerAdmin2faAttestation(event) {
+    const A = App.Admin2faProtocol;
+    if (!A || !event || event.kind !== A.ATTESTATION_KIND) return false;
+    if (!A.ingestAttestations([event])) return false;
+    const e = Array.isArray(event.tags) ? event.tags.find((t) => Array.isArray(t) && t[0] === 'e') : null;
+    const pending = e ? pendingAdmin2fa.get(String(e[1])) : null;
+    if (!pending) return true;
+    pendingAdmin2fa.delete(pending.id);
+    if (pending.kind === 5) registerDeletion(pending);
+    else if (pending.kind === 39002) registerModeration(pending);
+    return true;
+  }
+
+  function admin2faFeedActive() {
+    const A = App.Admin2faProtocol;
+    const C = App.Admin2faClient;
+    return !!((A && A.isEnforced()) || (C && typeof C.required === 'function' && C.required()));
+  }
+
   function registerDeletion(event) {
     if (!event || !Array.isArray(event.tags)) {
       logDeletionDebug('skip deletion event: missing tags', { event });
@@ -2668,11 +2700,18 @@
     if (isAdmin && A2FA && A2FA.isEnforced()) {
       const targets = event.tags
         .filter((t) => Array.isArray(t) && (t[0] === 'e' || t[0] === 'a') && t[1])
-        .map((t) => ({ id: t[1], author: App.eventAuthorById?.get(t[1])?.toLowerCase?.() || '' }));
+        .map((t) => ({
+          id: t[1],
+          author: App.eventAuthorById?.get(t[1])?.toLowerCase?.() || '',
+          targetEvent: resolveTargetEvent(t[1]) || undefined,
+        }));
       const verdict = A2FA.authorizeAdminContentRemoval(event, targets, { groupId: A2FA.FIRST_GROUP_ID });
       isAdmin = verdict.ok === true;
       adminMayRemoveUnknownAuthor = false;
-      if (!verdict.ok) logDeletionDebug('admin removal needs Admin 2FA attestation', { code: verdict.code });
+      if (!verdict.ok) {
+        logDeletionDebug('admin removal needs Admin 2FA attestation', { code: verdict.code });
+        deferForAdmin2fa(event, verdict.code, App._seenDeletionEventIds);
+      }
     }
     let anyNew = false;
     event.tags.forEach((tag) => {
@@ -2756,6 +2795,7 @@
     const verdict = MP.validateModerationEvent(event, targetEvent, null);
     if (!verdict.ok) {
       logDeletionDebug('rejected group moderation', { code: verdict.code, id: event && event.id });
+      deferForAdmin2fa(event, verdict.code, App._seenModerationEventIds);
       return false;
     }
     const isNew = applyDeletion(verdict.targetEventId, {
@@ -3897,6 +3937,11 @@ function buildCoreFeedFilters(sinceTimestamp = 0) {
     modNet.since = delNet.since;
   }
   filters.push(modNet);
+  if (admin2faFeedActive()) {
+    const attNet = { kinds: [39004], '#t': tags, limit: 200 };
+    if (deletionsHydrated) attNet.since = delNet.since;
+    filters.push(attNet);
+  }
   // בנוסף, מביאים מחיקות ספציפיות מאדמינים (גם אם אין להם תגית רשת)
   if (deletionAuthors.size > 0) {
     const delAuthors = { kinds: [5], authors: Array.from(deletionAuthors), limit: 40 };
@@ -4144,6 +4189,10 @@ async function loadFeed() {
               registerModeration(event);
               return;
             }
+            if (event.kind === 39004) {
+              registerAdmin2faAttestation(event);
+              return;
+            }
             if (event.kind === 7) {
               registerLike(event);
               return;
@@ -4247,6 +4296,10 @@ async function loadFeed() {
         }
         if (event.kind === 39002) {
           registerModeration(event);
+          return;
+        }
+        if (event.kind === 39004) {
+          registerAdmin2faAttestation(event);
           return;
         }
         if (event.kind === 7) {
@@ -4652,6 +4705,27 @@ async function loadFeed() {
     deletionPublishRetryTimers.set(eventId, timer);
   }
 
+  /** Removing another user's content: Admin 2FA attestation first (fails closed when required and unavailable). */
+  function attestAdminRemoval(event, targetEvent) {
+    const C = App.Admin2faClient;
+    if (C && typeof C.attest === 'function') {
+      if (C.required() && !targetEvent) return Promise.resolve({ ok: false, code: 'ADMIN_2FA_TARGET_REQUIRED' });
+      return C.attest(event, { target: targetEvent });
+    }
+    const A = App.Admin2faProtocol;
+    return Promise.resolve(A && A.isEnforced() ? { ok: false, code: 'ADMIN_2FA_SERVICE_UNAVAILABLE' } : { ok: true });
+  }
+
+  function notifyAdminAuthFailure(code, quiet) {
+    if (quiet || code !== 'ADMIN_2FA_SERVICE_UNAVAILABLE') return;
+    const C = App.Admin2faClient;
+    const text = (C && C.SERVICE_UNAVAILABLE_TEXT) || 'שירות אימות המנהל אינו זמין כרגע';
+    try {
+      if (typeof App.showToast === 'function') App.showToast(text);
+      else console.warn(text);
+    } catch (_e) {}
+  }
+
   async function publishModerationEvent(eventId, options = {}) {
     const quiet = !!(options && options.quiet);
     const MP = moderationPolicy();
@@ -4684,12 +4758,19 @@ async function loadFeed() {
       logDeleteLifecycle('MOD_PUBLISH_FAIL', { id: eventId, reason: 'sign' });
       return false;
     }
+    const att = await attestAdminRemoval(event, targetEvent);
+    if (!att.ok) {
+      logDeleteLifecycle('MOD_PUBLISH_FAIL', { id: eventId, reason: att.code });
+      notifyAdminAuthFailure(att.code, quiet);
+      return false;
+    }
     const verdict = MP.validateModerationEvent(event, targetEvent, null);
     if (!verdict.ok) {
       logDeleteLifecycle('MOD_PUBLISH_FAIL', { id: eventId, reason: verdict.code });
       return false;
     }
     try {
+      if (att.attestation) await App.pool.publish(App.relayUrls, att.attestation);
       await App.pool.publish(App.relayUrls, event);
       markDeletionPublishState(eventId, 'confirmed', event.id);
       logDeleteLifecycle('MOD_PUBLISH_OK', { id: eventId, moderationEventId: event.id });
@@ -4742,10 +4823,23 @@ async function loadFeed() {
       scheduleDeletionPublishRetry(eventId);
       return false;
     }
+    // Own-content deletion never needs Admin 2FA; another user's content does (legacy admin kind 5).
+    let removalAttestation = null;
+    if (!isOwn) {
+      const att = await attestAdminRemoval(event, resolveTargetEvent(eventId));
+      if (!att.ok) {
+        logDeleteLifecycle('PUBLISH_FAIL', { id: eventId, reason: att.code });
+        markDeletionPublishState(eventId, 'failed');
+        notifyAdminAuthFailure(att.code, quiet);
+        return false;
+      }
+      removalAttestation = att.attestation || null;
+    }
     logDeleteLifecycle('PUBLISH_START', { id: eventId, deletionEventId: event.id });
     if (quiet) logDeletionPublish('publishing delete (quiet)', { eventId, relays: App.relayUrls });
     else logDeletionPublish('publishing delete', { eventId, relays: App.relayUrls, pubkey: event.pubkey });
     try {
+      if (removalAttestation) await App.pool.publish(App.relayUrls, removalAttestation);
       await App.pool.publish(App.relayUrls, event);
       markDeletionPublishState(eventId, 'confirmed', event.id);
       logDeleteLifecycle('PUBLISH_OK', { id: eventId, deletionEventId: event.id });

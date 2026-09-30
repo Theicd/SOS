@@ -1,0 +1,387 @@
+{
+  "gate": "ADMIN_2FA_PHASE3_GATE",
+  "mode": "local-workerd + VM browser modules",
+  "generatedAt": "2026-09-30T09:55:49.767Z",
+  "status": "ADMIN_2FA_PHASE3_PASS",
+  "tests": "48/48",
+  "matrix": [
+    {
+      "case": "First server enrollment",
+      "expected": "PASS",
+      "result": "PASS",
+      "code": "PIN_SET"
+    },
+    {
+      "case": "Second enrollment",
+      "expected": "DENY",
+      "result": "PASS",
+      "code": "ALREADY_ENROLLED"
+    },
+    {
+      "case": "Correct PIN",
+      "expected": "admin session",
+      "result": "PASS",
+      "code": "UNLOCKED"
+    },
+    {
+      "case": "Wrong PIN",
+      "expected": "DENY",
+      "result": "PASS",
+      "code": "PIN_WRONG"
+    },
+    {
+      "case": "Logout",
+      "expected": "session invalidated",
+      "result": "PASS",
+      "code": "false"
+    },
+    {
+      "case": "Account switch",
+      "expected": "session invalidated",
+      "result": "PASS",
+      "code": "false"
+    },
+    {
+      "case": "Other-user deletion without attestation",
+      "expected": "DENY",
+      "result": "PASS",
+      "code": "ADMIN_2FA_REQUIRED"
+    },
+    {
+      "case": "Other-user deletion with attestation",
+      "expected": "ACCEPT",
+      "result": "PASS",
+      "code": "ACCEPTED"
+    },
+    {
+      "case": "Own-content deletion",
+      "expected": "unaffected",
+      "result": "PASS",
+      "code": "OWN_CONTENT_NOT_PRIVILEGED"
+    },
+    {
+      "case": "Valid event + attestation",
+      "expected": "ACCEPT",
+      "result": "PASS",
+      "code": 12
+    },
+    {
+      "case": "ROOT event without attestation",
+      "expected": "DENY",
+      "result": "PASS",
+      "code": "ADMIN_2FA_REQUIRED"
+    },
+    {
+      "case": "Forged attestation",
+      "expected": "DENY",
+      "result": "PASS",
+      "code": "ADMIN_2FA_ATTESTATION_WRONG_SIGNER"
+    },
+    {
+      "case": "Wrong-event attestation",
+      "expected": "DENY",
+      "result": "PASS",
+      "code": "ADMIN_2FA_ATTESTATION_EVENT_MISMATCH"
+    },
+    {
+      "case": "ROOT key without PIN",
+      "expected": "DENY",
+      "result": "PASS",
+      "code": "ADMIN_PIN_REQUIRED/NO_VERIFIED_CONTROL/NO_SESSION"
+    },
+    {
+      "case": "Publish before attestation",
+      "expected": "DENY / impossible",
+      "result": "PASS",
+      "code": "ADMIN_STEP_UP_CANCELLED"
+    },
+    {
+      "case": "Expired session",
+      "expected": "privileged op DENY",
+      "result": "PASS",
+      "code": "ADMIN_PIN_REQUIRED"
+    },
+    {
+      "case": "Service unavailable",
+      "expected": "DENY",
+      "result": "PASS",
+      "code": "ADMIN_2FA_SERVICE_UNAVAILABLE/ADMIN_2FA_SERVICE_UNAVAILABLE/ADMIN_2FA_SERVICE_UNAVAILABLE"
+    },
+    {
+      "case": "Rate limit",
+      "expected": "PASS",
+      "result": "PASS",
+      "code": "0,0,0,30000,PIN_LOCKED"
+    }
+  ],
+  "results": {
+    "LOCAL_SERVICE_READY": "PASS",
+    "CLIENT_FLAGS_SERVER_AUTHORITATIVE": "PASS",
+    "ADMIN_STATE_SERVER_DERIVED": "PASS",
+    "ENROLL_INPUT_RULES": "PASS",
+    "FIRST_TIME_SERVER_ENROLLMENT_GATE": "PASS",
+    "MATRIX_FIRST_SERVER_ENROLLMENT": "PASS",
+    "SECOND_ENROLLMENT_REJECTED": "PASS",
+    "MATRIX_SECOND_ENROLLMENT": "PASS",
+    "NO_PIN_OR_SESSION_IN_BROWSER_STORAGE": "PASS",
+    "LOCAL_PIN_VERIFIER_MIGRATED_AS_SECRET_FALSE": "PASS",
+    "MATRIX_CORRECT_PIN": "PASS",
+    "MATRIX_WRONG_PIN": "PASS",
+    "MATRIX_LOGOUT": "PASS",
+    "MATRIX_ACCOUNT_SWITCH": "PASS",
+    "ADMIN_SESSION_IDENTITY_BOUND": "PASS",
+    "ADMIN_SESSION_GROUP_BOUND": "PASS",
+    "GATE15_ADMIN_2FA_FLOW_READY": "PASS",
+    "BOOTSTRAP_WITH_ADMIN_2FA": "PASS",
+    "CONTROL_AND_MEMBERSHIP_ATTESTED": "PASS",
+    "DEMOTE_ADMIN_REQUIRES_FRESH_PIN": "PASS",
+    "REMOVE_ADMIN_REQUIRES_FRESH_PIN": "PASS",
+    "OWN_INVITE_REVOKE_NOT_ATTESTED": "PASS",
+    "MATRIX_OTHER_USER_DELETION_WITHOUT_ATTESTATION": "PASS",
+    "MATRIX_OTHER_USER_DELETION_WITH_ATTESTATION": "PASS",
+    "LEGACY_KIND5_CROSS_AUTHOR_ATTESTED": "PASS",
+    "MATRIX_OWN_CONTENT_DELETION": "PASS",
+    "OWN_CONTENT_DELETE_2FA_REQUIRED_FALSE": "PASS",
+    "PRIVILEGED_OPERATION_ATTESTATION_COVERAGE_COMPLETE": "PASS",
+    "PUBLISH_ONLY_AFTER_VERIFIED_ATTESTATION": "PASS",
+    "SENSITIVE_ADMIN_REAUTH_POLICY_CANONICAL": "PASS",
+    "MATRIX_VALID_EVENT_ATTESTATION": "PASS",
+    "MATRIX_ROOT_EVENT_WITHOUT_ATTESTATION": "PASS",
+    "MATRIX_FORGED_ATTESTATION": "PASS",
+    "MATRIX_WRONG_EVENT_ATTESTATION": "PASS",
+    "MATRIX_ROOT_KEY_WITHOUT_PIN": "PASS",
+    "ROOT_KEY_ONLY_ADMIN_ACCESS_FALSE": "PASS",
+    "MATRIX_PUBLISH_BEFORE_ATTESTATION": "PASS",
+    "MATRIX_EXPIRED_SESSION": "PASS",
+    "MATRIX_SERVICE_UNAVAILABLE": "PASS",
+    "ADMIN_2FA_SERVICE_FAILURE_FAIL_CLOSED": "PASS",
+    "ROOT_ONLY_FALLBACK_FALSE": "PASS",
+    "GROUP_CONTROL_REQUIRES_SERVER_ADMIN_SESSION": "PASS",
+    "ENFORCEMENT_PRODUCTION_OFF_NO_OVERRIDES": "PASS",
+    "SENDERS_ATTEST_BEFORE_PUBLISH": "PASS",
+    "RECEIVERS_FETCH_ATTESTATIONS": "PASS",
+    "MATRIX_RATE_LIMIT": "PASS",
+    "SERVER_SIDE_PIN_RATE_LIMIT_AUTHORITATIVE": "PASS",
+    "SERVICE_LOG_PRIVACY": "PASS"
+  },
+  "details": [
+    {
+      "name": "LOCAL_SERVICE_READY",
+      "detail": {
+        "adminPinService": true
+      }
+    },
+    {
+      "name": "ADMIN_STATE_SERVER_DERIVED",
+      "detail": {
+        "state": "PIN_NOT_CONFIGURED"
+      }
+    },
+    {
+      "name": "ENROLL_INPUT_RULES",
+      "detail": [
+        "PIN_MISMATCH",
+        "PIN_TOO_SIMPLE",
+        "PIN_FORMAT"
+      ]
+    },
+    {
+      "name": "FIRST_TIME_SERVER_ENROLLMENT_GATE",
+      "detail": [
+        "PIN_SET",
+        "ADMIN_SESSION_ACTIVE"
+      ]
+    },
+    {
+      "name": "MATRIX_FIRST_SERVER_ENROLLMENT",
+      "detail": "PIN_SET"
+    },
+    {
+      "name": "SECOND_ENROLLMENT_REJECTED",
+      "detail": [
+        "PIN_ALREADY_SET",
+        "ALREADY_ENROLLED"
+      ]
+    },
+    {
+      "name": "MATRIX_SECOND_ENROLLMENT",
+      "detail": "ALREADY_ENROLLED"
+    },
+    {
+      "name": "NO_PIN_OR_SESSION_IN_BROWSER_STORAGE",
+      "detail": {
+        "storageKeys": 0
+      }
+    },
+    {
+      "name": "MATRIX_CORRECT_PIN",
+      "detail": "UNLOCKED"
+    },
+    {
+      "name": "MATRIX_WRONG_PIN",
+      "detail": "PIN_WRONG"
+    },
+    {
+      "name": "MATRIX_LOGOUT",
+      "detail": "false"
+    },
+    {
+      "name": "MATRIX_ACCOUNT_SWITCH",
+      "detail": "false"
+    },
+    {
+      "name": "GATE15_ADMIN_2FA_FLOW_READY",
+      "detail": {
+        "code": "GATE15_PACKAGE_READY",
+        "verdict": "ADMIN_2FA_VERIFIED",
+        "published": false
+      }
+    },
+    {
+      "name": "BOOTSTRAP_WITH_ADMIN_2FA",
+      "detail": [
+        "BOOTSTRAPPED",
+        "SELF_GRANT"
+      ]
+    },
+    {
+      "name": "CONTROL_AND_MEMBERSHIP_ATTESTED",
+      "detail": [
+        "APPLIED",
+        "APPLIED",
+        "APPLIED",
+        "APPLIED",
+        "APPLIED",
+        "APPLIED"
+      ]
+    },
+    {
+      "name": "DEMOTE_ADMIN_REQUIRES_FRESH_PIN",
+      "detail": [
+        "ADMIN_STEP_UP_CANCELLED",
+        "PIN_WRONG",
+        "APPLIED"
+      ]
+    },
+    {
+      "name": "REMOVE_ADMIN_REQUIRES_FRESH_PIN",
+      "detail": [
+        "ADMIN_STEP_UP_CANCELLED",
+        "REMOVED",
+        "APPLIED"
+      ]
+    },
+    {
+      "name": "OWN_INVITE_REVOKE_NOT_ATTESTED",
+      "detail": "ADMIN_2FA_DENIED"
+    },
+    {
+      "name": "MATRIX_OTHER_USER_DELETION_WITHOUT_ATTESTATION",
+      "detail": "ADMIN_2FA_REQUIRED"
+    },
+    {
+      "name": "MATRIX_OTHER_USER_DELETION_WITH_ATTESTATION",
+      "detail": "ACCEPTED"
+    },
+    {
+      "name": "LEGACY_KIND5_CROSS_AUTHOR_ATTESTED",
+      "detail": [
+        "ADMIN_2FA_REQUIRED",
+        "ADMIN_2FA_ATTESTED",
+        "ADMIN_2FA_VERIFIED"
+      ]
+    },
+    {
+      "name": "MATRIX_OWN_CONTENT_DELETION",
+      "detail": "OWN_CONTENT_NOT_PRIVILEGED"
+    },
+    {
+      "name": "PRIVILEGED_OPERATION_ATTESTATION_COVERAGE_COMPLETE",
+      "detail": {
+        "BOOTSTRAP_GROUP_CONTROL": true,
+        "PROMOTE_ADMIN": true,
+        "DEMOTE_ADMIN": true,
+        "CHANGE_ROLE": true,
+        "CHANGE_PERMISSION": true,
+        "GRANT_CAPABILITY": true,
+        "REVOKE_CAPABILITY": true,
+        "REMOVE_MEMBER": true,
+        "REVOKE_INVITE": true,
+        "CHANGE_GROUP_POLICY": true,
+        "DELETE_OTHER_USER_POST": true,
+        "DELETE_OTHER_USER_COMMENT": true,
+        "CREATE_ADMISSION_DELEGATION": true,
+        "REVOKE_ADMISSION_DELEGATION": true
+      }
+    },
+    {
+      "name": "PUBLISH_ONLY_AFTER_VERIFIED_ATTESTATION",
+      "detail": {
+        "violations": 0,
+        "published": 28
+      }
+    },
+    {
+      "name": "MATRIX_VALID_EVENT_ATTESTATION",
+      "detail": 12
+    },
+    {
+      "name": "MATRIX_ROOT_EVENT_WITHOUT_ATTESTATION",
+      "detail": "ADMIN_2FA_REQUIRED"
+    },
+    {
+      "name": "MATRIX_FORGED_ATTESTATION",
+      "detail": "ADMIN_2FA_ATTESTATION_WRONG_SIGNER"
+    },
+    {
+      "name": "MATRIX_WRONG_EVENT_ATTESTATION",
+      "detail": "ADMIN_2FA_ATTESTATION_EVENT_MISMATCH"
+    },
+    {
+      "name": "MATRIX_ROOT_KEY_WITHOUT_PIN",
+      "detail": "ADMIN_PIN_REQUIRED/NO_VERIFIED_CONTROL/NO_SESSION"
+    },
+    {
+      "name": "MATRIX_PUBLISH_BEFORE_ATTESTATION",
+      "detail": "ADMIN_STEP_UP_CANCELLED"
+    },
+    {
+      "name": "MATRIX_EXPIRED_SESSION",
+      "detail": "ADMIN_PIN_REQUIRED"
+    },
+    {
+      "name": "MATRIX_SERVICE_UNAVAILABLE",
+      "detail": "ADMIN_2FA_SERVICE_UNAVAILABLE/ADMIN_2FA_SERVICE_UNAVAILABLE/ADMIN_2FA_SERVICE_UNAVAILABLE"
+    },
+    {
+      "name": "SENDERS_ATTEST_BEFORE_PUBLISH",
+      "detail": {
+        "group-control-mutations.js": true,
+        "member-admin-operations.js": true,
+        "invite-policy.js": true,
+        "invite-service.js": true,
+        "feed.js": true,
+        "first-group-admin.js": true
+      }
+    },
+    {
+      "name": "MATRIX_RATE_LIMIT",
+      "detail": "0,0,0,30000,PIN_LOCKED"
+    },
+    {
+      "name": "SERVICE_LOG_PRIVACY",
+      "detail": {
+        "leaks": 0
+      }
+    }
+  ],
+  "invariants": {
+    "ADMIN_2FA_ENFORCEMENT_PRODUCTION": false,
+    "ACCESS_CONTROL_V2": false,
+    "PRODUCTION_DEPLOYED": false,
+    "GATE15_PUBLISHED": false,
+    "DELEGATION_ACTIVE": false,
+    "APK_BUILT": false
+  },
+  "secretsInReport": false
+}

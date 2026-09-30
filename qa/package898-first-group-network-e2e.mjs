@@ -293,7 +293,7 @@ function startServer() {
       if (p === '/') p = '/videos.html';
       if (p === '/runtime-feature-flags.json') {
         res.writeHead(200, { 'Content-Type': types['.json'], 'Cache-Control': 'no-store' });
-        res.end('{"schema":"sos-feature-flags-v1","accessControlV2":true}');
+        res.end(JSON.stringify({ schema: 'sos-feature-flags-v1', accessControlV2: true, admin2faEnforcement: true, admin2faSignerPubkey: COSIGN.pub }));
         return;
       }
       const fp = path.join(ROOT, p.replace(/^\//, ''));
@@ -324,10 +324,13 @@ function startServer() {
 let admProc = null;
 let admLog = '';
 const admPersist = path.join(os.tmpdir(), 'sos898-adm-' + Date.now());
+// Admin 2FA Phase 3: disposable co-sign key + pepper; served flags enforce attestations with this signer (local only).
+const COSIGN = mkKey();
+const PIN_PEPPER = crypto.randomBytes(32).toString('hex');
 async function startAdmission(rootPub, svcHex) {
   fs.writeFileSync(
     path.join(ADM_DIR, '.dev.vars'),
-    `ROOT_PUBKEY=${rootPub}\nADMISSION_SK=${svcHex}\nTEST_FAULTS=1\nALLOWED_ORIGINS=http://127.0.0.1:${PORT}\n`
+    `ROOT_PUBKEY=${rootPub}\nADMISSION_SK=${svcHex}\nADMIN_COSIGN_SK=${COSIGN.hex}\nADMIN_PIN_PEPPER=${PIN_PEPPER}\nTEST_FAULTS=1\nALLOWED_ORIGINS=http://127.0.0.1:${PORT}\n`
   );
   admProc = spawn('npx', ['wrangler', 'dev', '--local', '--ip', '127.0.0.1', '--port', String(ADM_PORT), '--persist-to', admPersist, '--show-interactive-dev-session=false'], {
     cwd: ADM_DIR,
@@ -491,6 +494,40 @@ async function pinReady(page) {
     const r = (await P.hasPin()) ? await P.verifyPin(pin) : await P.setupPin(pin, pin);
     return r.code;
   }, TEST_PIN);
+}
+
+// Sensitive admin operations (demote, remove admin, policy, delegation) open the step-up dialog; answer it like a user.
+let stepUpTimer = null;
+const stepUpStats = { filled: 0 };
+function startStepUpResponder() {
+  let busy = false;
+  stepUpTimer = setInterval(async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      for (const u of USERS.slice()) {
+        for (const page of u.ctx ? u.ctx.pages() : []) {
+          const isStepUp = await page
+            .evaluate(() => {
+              const d = document.getElementById('sosAdminPinDialog');
+              const ok = document.getElementById('sosAdminPinOk');
+              return !!d && /פעולה רגישה/.test(d.textContent || '') && !!ok && !ok.disabled;
+            })
+            .catch(() => false);
+          if (!isStepUp) continue;
+          await page.fill('#sosAdminPinInput', TEST_PIN, { timeout: 2000 }).catch(() => {});
+          await page.click('#sosAdminPinOk', { timeout: 2000 }).catch(() => {});
+          stepUpStats.filled++;
+        }
+      }
+    } finally {
+      busy = false;
+    }
+  }, 250);
+}
+function stopStepUpResponder() {
+  if (stepUpTimer) clearInterval(stepUpTimer);
+  stepUpTimer = null;
 }
 
 async function openPage(u, key) {
@@ -705,7 +742,7 @@ async function main() {
   const Z = mkKey();
   const W = mkKey();
   const S = mkKey(); // disposable admission service key (QA only)
-  const SECRET_HEXES = [A, B, C, D, E, X, Y, Z, W, S].map((k) => k.hex);
+  const SECRET_HEXES = [A, B, C, D, E, X, Y, Z, W, S, COSIGN].map((k) => k.hex).concat([PIN_PEPPER]);
   globalThis.__SOS_SECRET_HEXES = SECRET_HEXES;
   ROOT_PUB = A.pub;
   fs.mkdirSync(PROFILES, { recursive: true });
@@ -715,6 +752,7 @@ async function main() {
   report.ADMISSION_SERVICE = { mode: 'local-workerd', url: ADM_URL, servicePubkey: S.pub };
   const server = await startServer();
   sharedBrowser = await chromium.launch({ headless: true, args: CHROME_ARGS });
+  startStepUpResponder();
   const shot = async (page, name) => {
     const file = path.join(ROOT, 'qa', `package898-${name}.png`);
     try {
@@ -764,17 +802,25 @@ async function main() {
     const menuBeforeControl = await ev(ub.page, () => window.NostrApp.FirstGroupAdmin.canSeeAdminMenu());
     const bootRes = await ev(ua.page, async () => {
       const r = await window.NostrApp.FirstGroupAdmin.bootstrapFirstGroup({ displayName: 'SOS' });
-      return { ok: r.ok, code: r.code, member: r.rootMembership && r.rootMembership.code };
+      return { ok: r.ok, code: r.code, member: r.rootMembership && r.rootMembership.code, memberDetail: r.rootMembership && r.rootMembership.detail };
     });
     await sleep(600);
     const relayControl = allRelays.map((r) => r.all([39001]).length);
+    const relayAttest = allRelays.map((r) => r.all([39004]).length);
     const relayMember = allRelays.map((r) => r.all([39003]).length);
-    set('ROOT_BOOTSTRAP_PUBLISHED_TO_RELAYS', bootRes.ok && relayControl.every((n) => n >= 1) && relayMember.every((n) => n >= 1), {
-      bootRes,
-      preBoot: { relaysOk: preBoot.relaysOk, lastError: preBoot.lastError },
-      relayControl,
-      relayMember,
-    });
+    // Admin 2FA: the BOOTSTRAP goes out with its server attestation. The ROOT self-membership record is rejected by
+    // membership rules (SELF_GRANT), so the server refuses to co-sign it and it is never published.
+    set(
+      'ROOT_BOOTSTRAP_PUBLISHED_TO_RELAYS',
+      bootRes.ok && relayControl.every((n) => n >= 1) && relayAttest.every((n) => n >= 1) && relayMember.every((n) => n === 0) && bootRes.memberDetail === 'SELF_GRANT',
+      {
+        bootRes,
+        preBoot: { relaysOk: preBoot.relaysOk, lastError: preBoot.lastError },
+        relayControl,
+        relayAttest,
+        relayMember,
+      }
+    );
     set('NO_ADMIN_UI_WITHOUT_NETWORK_CONTROL', menuBeforeControl === false);
 
     // ROOT delegates only FINALIZE_MEMBERSHIP_ADMISSION to the service key (root key never leaves the browser).
@@ -1013,6 +1059,8 @@ async function main() {
     const promote = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.promoteAdmin(pk)).code, B.pub);
     const bAdmin = await waitView(ub.page, B.pub, "v.caps.indexOf('MANAGE_MEMBERS') !== -1", 30000);
     info('REALTIME_PROMOTE_LATENCY_MS', Date.now() - tPromote);
+    // Admin 2FA: a newly promoted admin enrolls their own server PIN before the admin panel opens.
+    info('B_ADMIN_PIN_ENROLL', await pinReady(ub.page));
     await openUi(ub.page, 'members');
     await sleep(400);
     const bAdminTabs = await visibleTabs(ub.page);
@@ -1624,6 +1672,7 @@ async function main() {
     const grantPM = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.grantCapability(pk, 'MANAGE_PERMISSIONS')).code, B.pub);
     await waitView(ub.page, B.pub, "v.caps.indexOf('MANAGE_PERMISSIONS') !== -1", 20000);
     info('GRANT_PM_FOR_FORK', grantPM);
+    const ctlBefore = await ev(ub.page, () => (window.NostrApp.GroupControlState.getVerifiedControlState('israel-network') || {}).eventId || '');
     const forkA = await forgeControl(ua.page, A, `r.controlEpoch += 1; r.groupSettings = Object.assign({}, r.groupSettings, { description: 'fork-root' }); return r;`).catch((e) => ({ err: String(e.message || e) }));
     const forkB = await forgeControl(ua.page, B, `r.controlEpoch += 1; r.capabilities = Object.assign({}, r.capabilities, { ['${expectedWinner.pub}']: ['INVITE_USERS'] }); return r;`).catch((e) => ({ err: String(e.message || e) }));
     info('FORK_EVENTS', { a: !!(forkA && forkA.id), b: !!(forkB && forkB.id) });
@@ -1633,10 +1682,19 @@ async function main() {
       await sleep(1200);
       const conflictOp = await ev(ub.page, async () => {
         const r = await window.NostrApp.FirstGroupAdmin.createInvite();
-        return { code: r.code, detail: r.detail, control: window.NostrApp.GroupControlState.getStatus('israel-network') };
+        const G = window.NostrApp.GroupControlState;
+        return { code: r.code, detail: r.detail, control: G.getStatus('israel-network'), eventId: (G.getVerifiedControlState('israel-network') || {}).eventId || '' };
       });
       const conflictMenu = await ev(ub.page, () => window.NostrApp.FirstGroupAdmin.canSeeAdminMenu());
-      set('CONTROL_CONFLICT_FAIL_CLOSED', conflictOp.code !== 'CREATED' && (conflictOp.control === 'CONTROL_CONFLICT' || /CONFLICT/.test(String(conflictOp.detail))), { conflictOp, conflictMenu });
+      // Admin 2FA enforced: forks without a server attestation never enter verified state (the server co-signs one
+      // event per epoch), so the fail-closed outcome is "forks rejected, state unchanged" rather than a visible conflict.
+      const forkRejected = conflictOp.control === 'VERIFIED' && !!ctlBefore && conflictOp.eventId === ctlBefore && conflictOp.eventId !== forkA.id && conflictOp.eventId !== forkB.id;
+      const legacyConflict = conflictOp.control === 'CONTROL_CONFLICT' || /CONFLICT/.test(String(conflictOp.detail));
+      set('CONTROL_CONFLICT_FAIL_CLOSED', forkRejected || (legacyConflict && conflictOp.code !== 'CREATED'), {
+        conflictOp,
+        conflictMenu,
+        outcome: forkRejected ? 'UNATTESTED_FORKS_REJECTED' : legacyConflict ? 'CONTROL_CONFLICT' : 'UNEXPECTED',
+      });
     } else {
       set('CONTROL_CONFLICT_FAIL_CLOSED', false, { forkA, forkB });
     }
@@ -1693,6 +1751,8 @@ async function main() {
     report.fatal = String((e && e.stack) || e).slice(0, 1500);
     console.error('FATAL', e);
   } finally {
+    stopStepUpResponder();
+    report.ADMIN_2FA = { enforced: true, signer: COSIGN.pub, stepUpDialogsAnswered: stepUpStats.filled };
     for (const u of USERS.slice()) await closeProfile(u);
     try {
       await sharedBrowser.close();

@@ -380,11 +380,20 @@
           undefined,
       })
     );
+    const C = App.Admin2faClient;
+    const A = App.Admin2faProtocol;
+    const att =
+      C && typeof C.attest === 'function'
+        ? await C.attest(event)
+        : A && A.isEnforced()
+          ? { ok: false, code: 'ADMIN_2FA_SERVICE_UNAVAILABLE' }
+          : { ok: true };
+    if (!att.ok) throw Object.assign(new Error(att.code), { code: att.code });
     const acc = GCS.acceptControlEvent(event);
     if (!acc.ok) {
       throw Object.assign(new Error(acc.code || 'ACCEPT_FAILED'), { code: acc.code || 'ACCEPT_FAILED' });
     }
-    return { event, record: acc.record, audit: built.audit };
+    return { event, record: acc.record, audit: built.audit, attestation: att.attestation || null };
   }
 
   function getInvitePolicy() {

@@ -21,6 +21,8 @@
   const GROUP_ID = 'israel-network';
   const KIND_CONTROL = 39001;
   const KIND_MEMBERSHIP = 39003;
+  const KIND_ATTESTATION = 39004;
+  const MAX_ATTESTATIONS = 4000;
   const QUERY_TIMEOUT_MS = 6000;
   const CONNECT_TIMEOUT_MS = 4000;
   const POLL_INTERVAL_MS = 15000;
@@ -47,6 +49,7 @@
     fingerprint: '',
   };
   const networkEvents = new Map();
+  const attestations = new Map();
   let inflight = null;
   let started = false;
   let pollTimer = null;
@@ -158,8 +161,24 @@
     return { relaysOk: ok, relaysTotal: relays.length, events: Array.from(byId.values()), codes: results.map((r) => r.code) };
   }
 
+  /** Admin 2FA attestations are fetched only when enforcement is on or the deployment requires attestations. */
+  function admin2faActive() {
+    const A = App.Admin2faProtocol;
+    const C = App.Admin2faClient;
+    return !!((A && A.isEnforced()) || (C && typeof C.required === 'function' && C.required()));
+  }
+
   function authorityFilters() {
-    return [{ kinds: [KIND_CONTROL, KIND_MEMBERSHIP], '#t': [GROUP_ID], limit: 2000 }];
+    const f = [{ kinds: [KIND_CONTROL, KIND_MEMBERSHIP], '#t': [GROUP_ID], limit: 2000 }];
+    if (admin2faActive()) f.push({ kinds: [KIND_ATTESTATION], '#t': [GROUP_ID], limit: 2000 });
+    return f;
+  }
+
+  function keepAttestation(ev) {
+    if (!ev || ev.kind !== KIND_ATTESTATION || !ev.id || attestations.has(ev.id)) return false;
+    if (attestations.size >= MAX_ATTESTATIONS) attestations.delete(attestations.keys().next().value);
+    attestations.set(ev.id, ev);
+    return true;
   }
 
   function localControlEvents() {
@@ -184,6 +203,8 @@
     const g = GCS();
     const m = MS();
     if (!g || !m) return { ok: false, code: 'STORES_MISSING' };
+    const A = App.Admin2faProtocol;
+    const attested = A && attestations.size ? A.ingestAttestations(Array.from(attestations.values())) : 0;
     const control = [];
     const membership = [];
     networkEvents.forEach((ev) => {
@@ -204,8 +225,8 @@
     (m.exportMembershipEvents(GROUP_ID) || []).forEach((ev) => {
       if (!seenMem.has(ev.id)) membership.push(ev);
     });
-    const fp = st.eventId + '|' + membership.map((e) => e.id).sort().join(',');
-    const changed = fp !== state.fingerprint;
+    const fp = st.eventId + '|' + attestations.size + '|' + membership.map((e) => e.id).sort().join(',');
+    const changed = fp !== state.fingerprint || attested > 0;
     if (changed) {
       m.rebuildFromEvents(membership, st);
       state.fingerprint = fp;
@@ -236,6 +257,7 @@
     }
     res.events.forEach((ev) => {
       if (ev.kind === KIND_CONTROL || ev.kind === KIND_MEMBERSHIP) networkEvents.set(ev.id, ev);
+      else keepAttestation(ev);
     });
     const applied = applyEventSet();
     state.lastLatencyMs = Date.now() - t0;
@@ -266,8 +288,13 @@
   }
 
   function onLiveEvent(ev) {
-    if (!ev || (ev.kind !== KIND_CONTROL && ev.kind !== KIND_MEMBERSHIP) || networkEvents.has(ev.id)) return;
-    networkEvents.set(ev.id, ev);
+    if (!ev) return;
+    if (ev.kind === KIND_ATTESTATION) {
+      if (!keepAttestation(ev)) return;
+    } else {
+      if ((ev.kind !== KIND_CONTROL && ev.kind !== KIND_MEMBERSHIP) || networkEvents.has(ev.id)) return;
+      networkEvents.set(ev.id, ev);
+    }
     clearTimeout(liveTimer);
     liveTimer = setTimeout(() => {
       const applied = applyEventSet();
@@ -285,7 +312,13 @@
     try {
       liveSub = App.pool.subscribeMany(
         relayList(),
-        [{ kinds: [KIND_CONTROL, KIND_MEMBERSHIP], '#t': [GROUP_ID], since: Math.floor(Date.now() / 1000) - 5 }],
+        [
+          {
+            kinds: admin2faActive() ? [KIND_CONTROL, KIND_MEMBERSHIP, KIND_ATTESTATION] : [KIND_CONTROL, KIND_MEMBERSHIP],
+            '#t': [GROUP_ID],
+            since: Math.floor(Date.now() / 1000) - 5,
+          },
+        ],
         {
           onevent(ev) {
             onLiveEvent(ev);

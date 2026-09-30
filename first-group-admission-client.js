@@ -285,6 +285,8 @@
     UNSERIALIZED_FALLBACK_ENABLED: false,
     configured,
     message,
+    post,
+    pushControl,
     syncControl,
     registerInvite,
     redeem,
