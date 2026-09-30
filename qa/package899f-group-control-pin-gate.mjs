@@ -1,6 +1,6 @@
 /**
  * Package 899f — Web first-group control panel + 6-digit admin PIN lock gate (V2 OFF, production flag state).
- * Local static server; runtime-feature-flags.json served unchanged (ACCESS_CONTROL_V2 OFF).
+ * Local static server; runtime-feature-flags.json served with ACCESS_CONTROL_V2 OFF (pre-activation stage).
  * config.js is served with the first-group root replaced by a disposable test root (A) and the admission URL pointed
  * at a local `wrangler dev --local` admin PIN service (Admin 2FA Phase 3: the server is the only PIN authority).
  * Disposable service keys + pepper go to the gitignored admission-service/.dev.vars (deleted on exit). Never deploys.
@@ -85,6 +85,13 @@ function startServer() {
         const src = fs.readFileSync(fp, 'utf8').replace(PROD_ROOT, ROOT_PUB).replace(/App\.FIRST_GROUP_ADMISSION_URL = '[^']*';/, () => `App.FIRST_GROUP_ADMISSION_URL = '${ADM_URL}';`);
         res.writeHead(200, { 'Content-Type': types['.js'], 'Cache-Control': 'no-store' });
         res.end(src);
+        return;
+      }
+      if (p === '/runtime-feature-flags.json') {
+        const pre = Object.assign(JSON.parse(fs.readFileSync(fp, 'utf8')), { accessControlV2: false });
+        delete pre.accessControlV2Scope;
+        res.writeHead(200, { 'Content-Type': types['.json'], 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify(pre));
         return;
       }
       res.writeHead(200, { 'Content-Type': types[path.extname(fp).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-store' });
