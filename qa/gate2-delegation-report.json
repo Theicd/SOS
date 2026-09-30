@@ -1,0 +1,251 @@
+{
+  "gate": "GATE2_DELEGATION_LOCAL",
+  "status": "PASS",
+  "ts": "2026-09-30T14:24:32.850Z",
+  "results": {
+    "SERVED_FGA_PINS_PRODUCTION_SERVICE_KEY": {
+      "ok": true,
+      "detail": null
+    },
+    "ENV_V2_OFF_ENFORCED": {
+      "ok": true,
+      "detail": {
+        "v2": false,
+        "enforced": true,
+        "signer": "4fbbdd1cae321fc42e9a848246de69903fc0d5df9913bc532f2d00345877d28b"
+      }
+    },
+    "PRECONDITION_GENESIS_PUBLISHED": {
+      "ok": true,
+      "detail": {
+        "pinCode": "PIN_SET",
+        "g15": "GATE15_PUBLISHED"
+      }
+    },
+    "SERVICE_CONTROL_FROM_RELAYS": {
+      "ok": true,
+      "detail": {
+        "firstHealth": "MISSING",
+        "controlPlane": "ACTIVE",
+        "epoch": 1,
+        "relay": {
+          "at": 1790778298,
+          "relaysOk": 2,
+          "relaysTotal": 2
+        }
+      }
+    },
+    "NON_ROOT_CANNOT_ACTIVATE_ADMISSION": {
+      "ok": true,
+      "detail": {
+        "mRes": "FIRST_GROUP_ROOT_NOT_CONFIGURED"
+      }
+    },
+    "UI_BEFORE_OWNER_BUTTON": {
+      "ok": true,
+      "detail": {
+        "open": true,
+        "status": "CONTROL_ACTIVE_WRITES_OFF",
+        "activate": true,
+        "deactivate": false,
+        "explain": "שירות הקבלה יקבל הרשאה מוגבלת לאשר הצטרפות חברים בלבד. תתבקשו לאשר בקוד מנהל.",
+        "admissionActive": "0",
+        "enabledMutations": 0,
+        "msg": "",
+        "v2": false
+      }
+    },
+    "STEP_UP_CANCEL_PUBLISHES_NOTHING": {
+      "ok": true,
+      "detail": {
+        "msg": "פעולה רגישה דורשת הזנה חוזרת של קוד המנהל",
+        "counts": [
+          {
+            "c39001": 1,
+            "c39004": 1,
+            "c39003": 0,
+            "order": [
+              39004,
+              39001
+            ]
+          },
+          {
+            "c39001": 1,
+            "c39004": 1,
+            "c39003": 0,
+            "order": [
+              39004,
+              39001
+            ]
+          }
+        ]
+      }
+    },
+    "ACTIVATE_VIA_UI_WITH_STEP_UP": {
+      "ok": true,
+      "detail": {
+        "msg": "שירות קבלת החברים הופעל"
+      }
+    },
+    "PUBLISHED_ATTESTATION_THEN_DELEGATION_ONLY": {
+      "ok": true,
+      "detail": [
+        {
+          "c39001": 2,
+          "c39004": 2,
+          "c39003": 0,
+          "order": [
+            39004,
+            39001,
+            39004,
+            39001
+          ]
+        },
+        {
+          "c39001": 2,
+          "c39004": 2,
+          "c39003": 0,
+          "order": [
+            39004,
+            39001,
+            39004,
+            39001
+          ]
+        }
+      ]
+    },
+    "DELEGATION_EXACT_SINGLE_CAPABILITY": {
+      "ok": true,
+      "detail": {
+        "caps": {
+          "69a88aa01940f864d101b677bd5802676c76526d8720886ceea6d3f404e18d2a": [
+            "FINALIZE_MEMBERSHIP_ADMISSION"
+          ]
+        },
+        "epoch": 2
+      }
+    },
+    "ATTESTATION_BINDS_DELEGATION_WITH_STEP_UP": {
+      "ok": true,
+      "detail": {
+        "operations": [
+          "CREATE_ADMISSION_DELEGATION"
+        ],
+        "stepUp": true,
+        "controlEpoch": 2
+      }
+    },
+    "SERVICE_DELEGATION_ACTIVE": {
+      "ok": true,
+      "detail": {
+        "delegationActive": true,
+        "caps": [
+          "FINALIZE_MEMBERSHIP_ADMISSION"
+        ],
+        "epoch": 2
+      }
+    },
+    "HEALTH_HAS_NO_SERVICE_SECRET": {
+      "ok": true,
+      "detail": null
+    },
+    "UI_AFTER_ACTIVE_WRITES_OFF": {
+      "ok": true,
+      "detail": {
+        "open": true,
+        "status": "CONTROL_ACTIVE_WRITES_OFF",
+        "activate": false,
+        "deactivate": true,
+        "explain": "",
+        "admissionActive": "1",
+        "enabledMutations": 0,
+        "msg": "שירות קבלת החברים הופעל",
+        "v2": false
+      }
+    },
+    "SECOND_DELEGATION_REFUSED": {
+      "ok": true,
+      "detail": {
+        "again": "DELEGATION_EXISTS"
+      }
+    },
+    "SERVICE_REBUILD_FROM_RELAYS_ONLY": {
+      "ok": true,
+      "detail": {
+        "delegationActive": true,
+        "relay": {
+          "at": 1790778309,
+          "relaysOk": 2,
+          "relaysTotal": 2
+        }
+      }
+    },
+    "LOCAL_PIN_RE_ENROLLED_AFTER_REBUILD": {
+      "ok": true,
+      "detail": {
+        "pin2": "PIN_SET"
+      }
+    },
+    "GATE2_PREPUBLISH_VALIDATION_REAL_PASSES": {
+      "ok": true,
+      "detail": "PASS"
+    },
+    "GATE2_PREPUBLISH_VALIDATION_NEGATIVES": {
+      "ok": true,
+      "detail": {
+        "real": "PASS",
+        "wrongTarget": "GATE2_RECORD_INVALID",
+        "extraCapability": "GATE2_RECORD_INVALID",
+        "secondDelegate": "GATE2_RECORD_INVALID",
+        "selfGrant": "GATE2_RECORD_INVALID",
+        "rootMutation": "GATE2_RECORD_INVALID",
+        "policyChange": "GATE2_RECORD_INVALID",
+        "signerChange": "GATE2_RECORD_INVALID",
+        "wrongGroup": "GATE2_EVENT_INVALID",
+        "notRootSigned": "GATE2_EVENT_INVALID",
+        "wrongEpoch": "GATE2_EVENT_INVALID",
+        "attWrongOperation": "ADMIN_2FA_ATTESTATION_OPERATION_MISMATCH",
+        "attExpired": "ADMIN_2FA_ATTESTATION_BEFORE_EVENT",
+        "attOtherEvent": "ADMIN_2FA_ATTESTATION_EVENT_MISMATCH",
+        "attForged": "ADMIN_2FA_ATTESTATION_WRONG_SIGNER"
+      }
+    },
+    "DELEGATION_REVOCATION_PATH_READY": {
+      "ok": true,
+      "detail": {
+        "msg": "שירות קבלת החברים הושבת",
+        "caps": {},
+        "ops": [
+          "REVOKE_ADMISSION_DELEGATION"
+        ],
+        "serviceActive": false
+      }
+    },
+    "SERVICE_REJECTS_UNATTESTED_OR_FORGED_ROOT_EVENT": {
+      "ok": true,
+      "detail": {
+        "i1": 3,
+        "i2": 3,
+        "epoch": 3,
+        "active": false
+      }
+    },
+    "SERVICE_REFRESH_WRONG_GROUP_REJECTED": {
+      "ok": true,
+      "detail": {
+        "result": "INVALID",
+        "code": "WRONG_GROUP"
+      }
+    },
+    "NO_SECRETS_IN_SERVICE_LOG": {
+      "ok": true,
+      "detail": null
+    },
+    "NO_PAGE_ERRORS": {
+      "ok": true,
+      "detail": []
+    }
+  },
+  "passed": 24,
+  "total": 24
+}

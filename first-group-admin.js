@@ -62,6 +62,8 @@
 
   const DOUBLE_REDEEM_SCOPE = 'NETWORK_SERIALIZED_AUTHORITY';
   const ADMISSION_CAPS = Object.freeze(['FINALIZE_MEMBERSHIP_ADMISSION', 'FINALIZE_MEMBERSHIP_ADMISSION_RETIRED']);
+  /** Production admission service key (public). The ROOT delegates FINALIZE_MEMBERSHIP_ADMISSION to it only. */
+  const ADMISSION_SERVICE_PUBKEY = '752f47fa926d1833a451bdc97f3f2967ae4bc6452d0356bc7919c6928e4611ef';
   const E2E_SCOPE = 'NETWORK_BACKED_E2E';
 
   function isV2() {
@@ -420,6 +422,9 @@
     }
   }
 
+  /** Signed events seen by the last relay probe (untrusted input; the service re-verifies them). */
+  let lastProbeEvents = { control: [], attestations: [] };
+
   /** Read-only control-chain probe from the relays; works with ACCESS_CONTROL_V2 off. */
   async function probeNetworkControl() {
     const n = NA();
@@ -431,6 +436,10 @@
       { kinds: [39004], '#t': [gid], limit: 2000 },
     ]);
     const control = res.events.filter((e) => e && e.kind === 39001);
+    lastProbeEvents = {
+      control: control.slice(0, 500),
+      attestations: res.events.filter((e) => e && e.kind === 39004).slice(0, 500),
+    };
     const out = {
       ok: true,
       relaysOk: res.relaysOk,
@@ -441,6 +450,10 @@
       rootAdminPubkey: null,
       admin2faSignerPubkey: null,
       eventId: null,
+      bootstrapEventId: null,
+      admissionServicePubkey: ADMISSION_SERVICE_PUBKEY,
+      admissionServiceCaps: [],
+      admissionDelegates: [],
     };
     if (!control.length) return out;
     const A = App.Admin2faProtocol;
@@ -454,6 +467,13 @@
       out.rootAdminPubkey = st.rootAdminPubkey;
       out.admin2faSignerPubkey = st.admin2faSignerPubkey || null;
       out.eventId = ev ? ev.id : null;
+      const chain = g.getVerifiedControlChain(gid);
+      out.bootstrapEventId = chain.length ? chain[0].eventId : null;
+      const caps = st.capabilities || {};
+      out.admissionServiceCaps = (caps[ADMISSION_SERVICE_PUBKEY] || []).slice();
+      out.admissionDelegates = Object.keys(caps)
+        .filter((pk) => (caps[pk] || []).some((c) => ADMISSION_CAPS.indexOf(c) !== -1))
+        .sort();
     }
     return out;
   }
@@ -551,6 +571,219 @@
       relayAcks: { attestation: attAcks, event: evAcks },
       accepted: !!(acc && acc.ok),
     });
+  }
+
+  // ---------------------------------------------------------------- Gate 2: admission service delegation (V2 off, ROOT)
+
+  const DELEGATION_CHANGE = Object.freeze({
+    ACTIVATE: Object.freeze({
+      id: 'ACTIVATE',
+      op: 'GRANT_CAPABILITY',
+      operations: Object.freeze(['CREATE_ADMISSION_DELEGATION']),
+      session: 'FIRST_GROUP_ADMIN:SET_ADMISSION_DELEGATE',
+    }),
+    REVOKE: Object.freeze({
+      id: 'REVOKE',
+      op: 'REVOKE_CAPABILITY',
+      operations: Object.freeze(['REVOKE_ADMISSION_DELEGATION']),
+      session: 'FIRST_GROUP_ADMIN:REVOKE_ADMISSION_DELEGATE',
+    }),
+  });
+
+  function stable(v) {
+    if (Array.isArray(v)) return '[' + v.map(stable).join(',') + ']';
+    if (v && typeof v === 'object') {
+      return '{' + Object.keys(v).sort().map((k) => JSON.stringify(k) + ':' + stable(v[k])).join(',') + '}';
+    }
+    return JSON.stringify(v === undefined ? null : v);
+  }
+
+  function settingsView(s) {
+    const o = s || {};
+    return {
+      displayName: o.displayName || '',
+      networkTag: o.networkTag || '',
+      description: o.description || '',
+      logoRef: o.logoRef || '',
+    };
+  }
+
+  /** Expected capabilities map after the change: only FINALIZE_MEMBERSHIP_ADMISSION on the service key moves. */
+  function expectedDelegationCaps(prevCaps, change) {
+    const caps = JSON.parse(JSON.stringify(prevCaps || {}));
+    const svc = ADMISSION_SERVICE_PUBKEY;
+    if (change.id === 'ACTIVATE') caps[svc] = ['FINALIZE_MEMBERSHIP_ADMISSION'];
+    else {
+      caps[svc] = (caps[svc] || []).filter((c) => c !== 'FINALIZE_MEMBERSHIP_ADMISSION');
+      if (!caps[svc].length) delete caps[svc];
+    }
+    return caps;
+  }
+
+  /** Gate 2 pre-publish validation: exact single-capability transition + bound, unexpired attestation. */
+  function checkDelegationPackage(ev, att, prev, root, signer, change) {
+    const A = App.Admin2faProtocol;
+    const g = GCS();
+    const gid = FIRST_GROUP.groupId;
+    if (!prev || prev.rootAdminPubkey !== root || prev.admin2faSignerPubkey !== signer) return fail('GATE2_BASE_INVALID');
+    const epoch = prev.controlEpoch + 1;
+    const tags = JSON.stringify([['d', gid + ':' + epoch], ['t', gid], ['sos-control', 'v1']]);
+    if (!ev || ev.kind !== 39001 || ev.pubkey !== root || JSON.stringify(ev.tags) !== tags) return fail('GATE2_EVENT_INVALID');
+    if (typeof App.strictVerifyNostrEvent !== 'function' || App.strictVerifyNostrEvent(ev) !== true) return fail('GATE2_EVENT_INVALID');
+    if (ADMISSION_SERVICE_PUBKEY === root || ev.pubkey === ADMISSION_SERVICE_PUBKEY) return fail('SELF_GRANT_FORBIDDEN');
+    let next = null;
+    try {
+      next = g.parseAndValidateRecord(ev.content);
+    } catch (_e) {
+      return fail('GATE2_RECORD_INVALID');
+    }
+    if (
+      next.groupId !== gid ||
+      next.controlEpoch !== epoch ||
+      next.membershipEpoch !== prev.membershipEpoch ||
+      next.rootAdminPubkey !== root ||
+      next.admin2faSignerPubkey !== signer ||
+      next.invitePolicy !== prev.invitePolicy ||
+      next.resolution ||
+      (next.membershipRoot || null) !== (prev.membershipRoot || null) ||
+      stable((next.blockedPubkeys || []).slice().sort()) !== stable((prev.blockedPubkeys || []).slice().sort()) ||
+      stable(settingsView(next.groupSettings)) !== stable(settingsView(prev.groupSettings)) ||
+      stable(next.capabilities) !== stable(expectedDelegationCaps(prev.capabilities, change))
+    ) {
+      return fail('GATE2_RECORD_INVALID');
+    }
+    const ops = A.classifyControlTransition(prev, next).slice().sort();
+    if (ops.join(',') !== change.operations.join(',')) return fail('GATE2_OPERATION_MISMATCH');
+    const v = A.verifyAdmin2faAttestation(ev, att, {
+      groupId: gid,
+      rootPubkey: root,
+      signerPubkey: signer,
+      expectedOperations: change.operations.slice(),
+      controlEpoch: epoch,
+      nowSec: Math.floor(Date.now() / 1000),
+      requireUnexpired: true,
+    });
+    if (!v.ok) return fail(v.code);
+    const p = g.previewControlTransition(ev, { groupId: gid });
+    if (!p.ok) return fail(p.code || 'GATE2_PREVIEW_FAILED');
+    return { ok: true, operations: ops, controlEpoch: epoch };
+  }
+
+  /** The admission service must verify the same control tip (read from relays) before it can co-sign. */
+  async function serviceControlSummary(adm, tipId) {
+    const gid = FIRST_GROUP.groupId;
+    let r = await adm.post('/v1/control/refresh', { groupId: gid });
+    if (r && r.tipEventId === tipId) return r;
+    await adm.post('/v1/control/ingest', {
+      groupId: gid,
+      events: lastProbeEvents.control,
+      attestations: lastProbeEvents.attestations,
+    });
+    r = await adm.post('/v1/control/refresh', { groupId: gid });
+    return r || { result: 'TEMPORARILY_UNAVAILABLE' };
+  }
+
+  async function changeAdmissionDelegation(change) {
+    const me = actor();
+    if (!me || App.guestMode === true) return fail('NO_IDENTITY');
+    if (!isConfiguredRoot(me)) return fail('FIRST_GROUP_ROOT_NOT_CONFIGURED');
+    const sa = SA();
+    const s = sa && sa.checkSessionForSensitiveOp ? sa.checkSessionForSensitiveOp(change.session) : null;
+    if (!s || s.ok !== true) return fail((s && s.code) || 'SESSION_REVOKED');
+    const ctx = contextCheck();
+    if (!ctx.ok) return ctx;
+    const A = App.Admin2faProtocol;
+    const C = App.Admin2faClient;
+    const signer = A && typeof A.activeSignerPubkey === 'function' ? A.activeSignerPubkey() : '';
+    if (!A || A.isEnforced() !== true || !signer || A.canonicalRootPubkey() !== me) return fail('ADMIN_2FA_SERVICE_UNAVAILABLE');
+    if (!C || typeof C.required !== 'function' || !C.required()) return fail('ADMIN_2FA_SERVICE_UNAVAILABLE');
+    const adm = App.FirstGroupAdmission;
+    if (!adm || !adm.configured()) return fail('ADMISSION_SERVICE_NOT_CONFIGURED');
+    if (!App.pool || !Array.isArray(App.relayUrls) || !App.relayUrls.length) return fail('NETWORK_AUTHORITY_UNVERIFIED');
+    if (me === ADMISSION_SERVICE_PUBKEY) return fail('ROOT_TARGET_FORBIDDEN');
+
+    const pre = await probeNetworkControl();
+    if (!pre.ok) return pre;
+    if (pre.relaysOk < 2) return fail('NETWORK_AUTHORITY_UNVERIFIED');
+    if (pre.status === 'CONTROL_CONFLICT') return fail('CONTROL_CONFLICT');
+    if (pre.status !== 'VERIFIED' || pre.rootAdminPubkey !== me || pre.admin2faSignerPubkey !== signer) {
+      return fail('NETWORK_AUTHORITY_UNVERIFIED');
+    }
+    if (change.id === 'ACTIVATE') {
+      if (pre.admissionDelegates.length) return fail('DELEGATION_EXISTS');
+      if (pre.admissionServiceCaps.length) return fail('DELEGATE_HAS_OTHER_CAPABILITIES');
+    } else if (pre.admissionServiceCaps.indexOf('FINALIZE_MEMBERSHIP_ADMISSION') === -1) {
+      return fail('DELEGATION_NOT_ACTIVE');
+    }
+    const g = GCS();
+    const gid = FIRST_GROUP.groupId;
+    const base = g.getVerifiedControlEvent(gid);
+    const prev = g.getVerifiedControlState(gid);
+    if (!base || !prev || base.id !== pre.eventId) return fail('STALE_BASE');
+
+    const svc = await serviceControlSummary(adm, base.id);
+    if (!svc || svc.status !== 'VERIFIED' || svc.tipEventId !== base.id || svc.rootAdminPubkey !== me) {
+      return fail('ADMISSION_SERVICE_CONTROL_MISMATCH', { serviceStatus: (svc && (svc.status || svc.code)) || null });
+    }
+    if (change.id === 'ACTIVATE' && svc.servicePubkey !== ADMISSION_SERVICE_PUBKEY) return fail('ADMISSION_SERVICE_KEY_MISMATCH');
+
+    const S = App.SosCryptoSigner;
+    if (!S || typeof S.signTypedAdminOperation !== 'function') return fail('SIGNER_MISSING');
+    let signed;
+    try {
+      signed = await Promise.resolve(
+        S.signTypedAdminOperation({
+          version: 1,
+          operation: change.op,
+          groupId: gid,
+          baseEvent: base,
+          controlConflict: false,
+          actorMembershipStatus: 'UNKNOWN',
+          targetPubkey: ADMISSION_SERVICE_PUBKEY,
+          capability: 'FINALIZE_MEMBERSHIP_ADMISSION',
+        })
+      );
+    } catch (e) {
+      return fail((e && e.code) || 'SIGN_FAILED');
+    }
+    const att = await attestPrivileged(signed, { expectedOperations: change.operations.slice(), controlEpoch: prev.controlEpoch + 1 });
+    if (!att || !att.ok) return fail((att && att.code) || 'ADMIN_2FA_REQUIRED');
+    if (!att.attestation) return fail('ADMIN_2FA_REQUIRED');
+    A.ingestAttestations([att.attestation]);
+    const check = checkDelegationPackage(signed, att.attestation, prev, me, signer, change);
+    if (!check.ok) return check;
+
+    const attAcks = await publishCounted(att.attestation);
+    if (!attAcks) return fail('PUBLISH_FAILED', { stage: 'attestation' });
+    const evAcks = await publishCounted(signed);
+    if (!evAcks) return fail('PUBLISH_FAILED', { stage: 'event', attestationId: att.attestation.id });
+    const acc = g.acceptControlEvent(signed, { groupId: gid, persist: true });
+    const pushed = await adm.post('/v1/control/ingest', {
+      groupId: gid,
+      events: lastProbeEvents.control.concat([signed]),
+      attestations: lastProbeEvents.attestations.concat([att.attestation]),
+    });
+    return done({
+      ok: true,
+      code: change.id === 'ACTIVATE' ? 'GATE2_DELEGATION_PUBLISHED' : 'DELEGATION_REVOKED',
+      eventId: signed.id,
+      attestationId: att.attestation.id,
+      delegatePubkey: ADMISSION_SERVICE_PUBKEY,
+      controlEpoch: check.controlEpoch,
+      relayAcks: { attestation: attAcks, event: evAcks },
+      accepted: !!(acc && acc.ok),
+      serviceIngest: pushed ? pushed.result : null,
+    });
+  }
+
+  /** Owner: delegate FINALIZE_MEMBERSHIP_ADMISSION (only) to the admission service key. V2 stays off. */
+  function activateAdmissionService() {
+    return changeAdmissionDelegation(DELEGATION_CHANGE.ACTIVATE);
+  }
+
+  /** Owner: remove the admission service delegation (compromise path). Not run in Gate 2. */
+  function deactivateAdmissionService() {
+    return changeAdmissionDelegation(DELEGATION_CHANGE.REVOKE);
   }
 
   async function bootstrapFirstGroup(opts) {
@@ -1189,6 +1422,11 @@
     prepareGate15Package,
     probeNetworkControl,
     activateGroupControl,
+    ADMISSION_SERVICE_PUBKEY,
+    activateAdmissionService,
+    deactivateAdmissionService,
+    checkDelegationPackage,
+    DELEGATION_CHANGE,
     updateMetadata,
     grantCapability,
     revokeCapability,

@@ -1,9 +1,9 @@
 {
     "callSignalGiftWrapRequired": true,
-    "version": "2026.09.30-web-899g15",
-    "buildTime": "2026-09-30T16:40:00+03:00",
+    "version": "2026.09.30-web-899g2",
+    "buildTime": "2026-09-30T19:00:00+03:00",
     "e2eeSendRequired": true,
     "minSecureChatEpoch": 2,
     "mediaServerE2eeRequired": true,
-    "notes": "Web Package 899 / sos-cache-v899. Realtime performance: P2P transfer flow control, voice P2P E2EE, call relay health failover and ring latency. Secure incoming-call receiver starts on identity readiness (no outgoing-call priming). Security closure: mesh relay signals are recipient-bound P2pSecureV2 ciphertext only; outgoing call signaling is kind 1059 only (no 25050 downgrade on policy failure). First-group network-backed administration (israel-network). Group control panel behind a 6-digit admin PIN lock with server-side Admin 2FA (server PIN verifier + attestation signer; enforcement ships OFF until owner enrollment). User-centric group control UX (search, per-user role and permissions; saving disabled until the control plane is activated). Admin 2FA enforcement ON with the pinned production signer; root-only Gate 1.5 activation (attested genesis, no grants). ACCESS_CONTROL_V2 ships OFF. Multi-community network deferred. MD4 not started. Android/APK frozen."
+    "notes": "Web Package 899 / sos-cache-v899. Realtime performance: P2P transfer flow control, voice P2P E2EE, call relay health failover and ring latency. Secure incoming-call receiver starts on identity readiness (no outgoing-call priming). Security closure: mesh relay signals are recipient-bound P2pSecureV2 ciphertext only; outgoing call signaling is kind 1059 only (no 25050 downgrade on policy failure). First-group network-backed administration (israel-network). Group control panel behind a 6-digit admin PIN lock with server-side Admin 2FA (server PIN verifier + attestation signer; enforcement ships OFF until owner enrollment). User-centric group control UX (search, per-user role and permissions; saving disabled until the control plane is activated). Admin 2FA enforcement ON with the pinned production signer; root-only Gate 1.5 activation (attested genesis, no grants). Gate 2: owner-activated admission service delegation (single FINALIZE_MEMBERSHIP_ADMISSION capability, Admin 2FA attested). ACCESS_CONTROL_V2 ships OFF. Multi-community network deferred. MD4 not started. Android/APK frozen."
 }

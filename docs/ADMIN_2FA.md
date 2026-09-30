@@ -134,3 +134,17 @@ an admin asks for the PIN twice (remove + demote cleanup).
 - `FirstGroupAdmin.probeNetworkControl()` is a read-only relay check that works with V2 off (used by the status line:
   "מערכת הניהול הופעלה. שמירת שינויים תיפתח בשלב הבא.").
 - Gate: `qa/gate15-activation-gate.mjs` (local relays + local service, production flag shape).
+
+## Gate 2: admission service delegation (web `2026.09.30-web-899g2`)
+
+- Admission service reads the control chain itself: kinds 39001/39004 from `CONTROL_RELAYS` (EOSE required per relay),
+  on `/v1/health` (background, throttled 20s), `POST /v1/control/refresh` and a 10-minute cron. It enforces Admin 2FA
+  attestations with the pinned `ADMIN_2FA_SIGNER_PUBKEY` (off-to-on only). Health reports `controlPlane`,
+  `bootstrapEventId`, `controlTipEventId`, `delegatedCapabilities`, `lastRelayRefresh`. No V2 dependency.
+- Owner flow: advanced settings, "admission service" section. `FirstGroupAdmin.activateAdmissionService()` probes the
+  relays (fails if a delegation already exists), checks the service sees the same tip, signs one typed
+  `GRANT_CAPABILITY` of `FINALIZE_MEMBERSHIP_ADMISSION` to the pinned service key, gets the attestation inside the PIN
+  session, runs `checkDelegationPackage` (exact record delta, operations, attestation, transition preview), then
+  publishes the attestation and the event. `deactivateAdmissionService()` is the same path with `REVOKE_CAPABILITY`.
+- Gates: `qa/gate2-negatives.mjs` (offline), `qa/gate2-delegation-gate.mjs` (local relays + local service),
+  `qa/gate2-production-verify.mjs pre|post` (read-only production check).

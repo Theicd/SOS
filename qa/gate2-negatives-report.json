@@ -1,0 +1,299 @@
+{
+  "gate": "GATE2_NEGATIVE_GATE",
+  "ts": "2026-09-30T14:20:22.803Z",
+  "passed": 35,
+  "total": 35,
+  "status": "PASS",
+  "results": [
+    {
+      "name": "BASELINE_DELEGATION_ACTIVE",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "epoch": 2
+      }
+    },
+    {
+      "name": "DELEGATED_CAPABILITY_COUNT_1",
+      "ok": true,
+      "detail": [
+        "FINALIZE_MEMBERSHIP_ADMISSION"
+      ]
+    },
+    {
+      "name": "ROOT_OWNER_IMMUTABLE_AFTER_DELEGATION",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "SERVICE_CANNOT_PROMOTE_ADMIN",
+      "ok": true,
+      "detail": {
+        "preview": "ADMISSION_DELEGATE_NOT_CONTROL_ISSUER",
+        "accept": "NOT_APPLIED"
+      }
+    },
+    {
+      "name": "SERVICE_CANNOT_DEMOTE_ADMIN",
+      "ok": true,
+      "detail": {
+        "preview": "ADMISSION_DELEGATE_NOT_CONTROL_ISSUER",
+        "accept": "NOT_APPLIED"
+      }
+    },
+    {
+      "name": "SERVICE_CANNOT_CHANGE_PERMISSIONS",
+      "ok": true,
+      "detail": {
+        "preview": "ADMISSION_DELEGATE_NOT_CONTROL_ISSUER",
+        "accept": "NOT_APPLIED"
+      }
+    },
+    {
+      "name": "SERVICE_CANNOT_REMOVE_MEMBER_BLOCKLIST",
+      "ok": true,
+      "detail": {
+        "preview": "ADMISSION_DELEGATE_NOT_CONTROL_ISSUER",
+        "accept": "NOT_APPLIED"
+      }
+    },
+    {
+      "name": "SERVICE_CANNOT_CHANGE_POLICY",
+      "ok": true,
+      "detail": {
+        "preview": "ADMISSION_DELEGATE_NOT_CONTROL_ISSUER",
+        "accept": "NOT_APPLIED"
+      }
+    },
+    {
+      "name": "SERVICE_CANNOT_REPLACE_ROOT",
+      "ok": true,
+      "detail": {
+        "preview": "ROOT_IMMUTABLE",
+        "accept": "NOT_APPLIED"
+      }
+    },
+    {
+      "name": "SERVICE_CANNOT_SELF_GRANT_MORE",
+      "ok": true,
+      "detail": {
+        "preview": "ADMISSION_DELEGATE_NOT_CONTROL_ISSUER",
+        "accept": "NOT_APPLIED"
+      }
+    },
+    {
+      "name": "SERVICE_CANNOT_DELEGATE_ONWARD",
+      "ok": true,
+      "detail": {
+        "preview": "ADMISSION_DELEGATE_NOT_CONTROL_ISSUER",
+        "accept": "NOT_APPLIED"
+      }
+    },
+    {
+      "name": "SERVICE_CANNOT_CHANGE_SIGNER",
+      "ok": true,
+      "detail": {
+        "preview": "ADMIN_2FA_SIGNER_IMMUTABLE",
+        "accept": "NOT_APPLIED"
+      }
+    },
+    {
+      "name": "CONTROL_ROOT_SAME_CHANGE_ACCEPTED",
+      "ok": true,
+      "detail": "VERIFIED"
+    },
+    {
+      "name": "SERVICE_CANNOT_SIGN_ARBITRARY_TYPED_OP",
+      "ok": true,
+      "detail": [
+        {
+          "op": "GRANT_CAPABILITY",
+          "code": "UNAUTHORIZED"
+        },
+        {
+          "op": "GRANT_CAPABILITY",
+          "code": "UNAUTHORIZED"
+        },
+        {
+          "op": "GRANT_CAPABILITY",
+          "code": "UNAUTHORIZED"
+        },
+        {
+          "op": "REVOKE_CAPABILITY",
+          "code": "UNAUTHORIZED"
+        },
+        {
+          "op": "SET_INVITE_POLICY",
+          "code": "UNAUTHORIZED"
+        },
+        {
+          "op": "ADD_MEMBER_TO_BLOCKLIST",
+          "code": "UNAUTHORIZED"
+        },
+        {
+          "op": "SET_GROUP_DISPLAY_NAME",
+          "code": "UNAUTHORIZED"
+        }
+      ]
+    },
+    {
+      "name": "CONTROL_ROOT_TYPED_OP_BUILDS",
+      "ok": true,
+      "detail": "BUILT"
+    },
+    {
+      "name": "GENERIC_SIGNER_EXPOSED_FALSE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "SERVICE_CANNOT_CREATE_INVITE",
+      "ok": true,
+      "detail": {
+        "root": "V2_OK",
+        "service": "CREATOR_UNAUTHORIZED:AUTHORIZED_DENIED"
+      }
+    },
+    {
+      "name": "SERVICE_CANNOT_REVOKE_ARBITRARY_INVITE",
+      "ok": true,
+      "detail": {
+        "root": "REVOKED",
+        "service": "UNAUTHORIZED_REVOKE"
+      }
+    },
+    {
+      "name": "SERVICE_CANNOT_MODERATE_CONTENT",
+      "ok": true,
+      "detail": {
+        "root": "ACCEPTED",
+        "service": "UNAUTHORIZED_MODERATION"
+      }
+    },
+    {
+      "name": "SERVICE_CANNOT_REMOVE_OR_BLOCK_MEMBER",
+      "ok": true,
+      "detail": {
+        "REMOVE": {
+          "root": "STRUCTURAL_OK",
+          "service": "ADMISSION_DELEGATE_GRANT_ONLY",
+          "ok": true
+        },
+        "BLOCK": {
+          "root": "STRUCTURAL_OK",
+          "service": "ADMISSION_DELEGATE_GRANT_ONLY",
+          "ok": true
+        }
+      }
+    },
+    {
+      "name": "SERVICE_GRANT_WITHOUT_INVITE_BINDING_REJECTED",
+      "ok": true,
+      "detail": "ADMISSION_INVITE_REQUIRED"
+    },
+    {
+      "name": "WRONG_SERVICE_PUBKEY_NOT_ACTIVE_FOR_SERVICE",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "active": false
+      }
+    },
+    {
+      "name": "WRONG_GROUP_DELEGATION_REJECTED",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "active": false
+      }
+    },
+    {
+      "name": "ROOT_ONLY_DELEGATION_WITHOUT_ATTESTATION_REJECTED",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "active": false,
+        "code": "ADMIN_2FA_REQUIRED"
+      }
+    },
+    {
+      "name": "FORGED_ATTESTATION_REJECTED",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "active": false
+      }
+    },
+    {
+      "name": "ATTESTATION_WRONG_OPERATION_REJECTED",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "active": false
+      }
+    },
+    {
+      "name": "ATTESTATION_WRONG_EPOCH_REJECTED",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "active": false
+      }
+    },
+    {
+      "name": "DELEGATION_WITH_EXTRA_CAPABILITY_NEEDS_OTHER_OPS",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "active": false
+      }
+    },
+    {
+      "name": "SECOND_CONFLICTING_DELEGATION_FAILS_CLOSED",
+      "ok": true,
+      "detail": {
+        "status": "CONTROL_CONFLICT",
+        "active": false
+      }
+    },
+    {
+      "name": "REVOKED_DELEGATION_NOT_ACTIVE",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "active": false
+      }
+    },
+    {
+      "name": "REVOCATION_WITHOUT_ATTESTATION_REJECTED",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "active": true
+      }
+    },
+    {
+      "name": "RETIRED_DELEGATION_NOT_ACTIVE",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "active": false
+      }
+    },
+    {
+      "name": "EXPIRED_ATTESTATION_REJECTED_BEFORE_PUBLISH",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_EXPIRED"
+    },
+    {
+      "name": "ROOT_SELF_DELEGATION_BLOCKED_BY_TYPED_SIGNER",
+      "ok": true,
+      "detail": "ROOT_TARGET_FORBIDDEN"
+    },
+    {
+      "name": "STEP_UP_REQUIRED_FOR_DELEGATION",
+      "ok": true,
+      "detail": null
+    }
+  ]
+}

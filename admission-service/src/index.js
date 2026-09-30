@@ -84,7 +84,7 @@ const ROUTES = {
 };
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(request, env) });
     if (request.method === 'GET' && url.pathname === '/v1/health') {
@@ -100,8 +100,17 @@ export default {
         testFaults: env.TEST_FAULTS === '1',
         durableObjectReachable: false,
         controlStatus: null,
+        controlPlane: 'INACTIVE',
+        bootstrapEventId: null,
+        controlTipEventId: null,
+        controlEpoch: null,
+        controlRootPubkey: null,
+        admin2faEnforced: false,
+        admin2faSignerPubkey: null,
         servicePubkey: null,
         delegationActive: false,
+        delegatedCapabilities: [],
+        lastRelayRefresh: null,
         cosignPubkey: null,
         adminPinService: false,
         rootPinConfigured: false,
@@ -117,8 +126,23 @@ export default {
         const snap = await (await stub.fetch('https://group/snapshot')).json();
         health.durableObjectReachable = true;
         health.controlStatus = snap.status || snap.code || null;
+        const st = snap.state || null;
+        health.controlPlane = snap.status === 'VERIFIED' && st ? 'ACTIVE' : 'INACTIVE';
+        health.bootstrapEventId = snap.bootstrapEventId || null;
+        health.controlTipEventId = snap.tipId || null;
+        health.controlEpoch = st ? st.controlEpoch : null;
+        health.controlRootPubkey = st ? st.rootAdminPubkey : null;
+        health.admin2faSignerPubkey = st ? st.admin2faSignerPubkey || null : null;
+        health.admin2faEnforced = /^[0-9a-f]{64}$/.test(String(env.ADMIN_2FA_SIGNER_PUBKEY || ''));
         health.servicePubkey = snap.delegate ? snap.delegate.pubkey : null;
         health.delegationActive = !!(snap.delegate && snap.delegate.active);
+        health.delegatedCapabilities = Array.isArray(snap.delegatedCapabilities) ? snap.delegatedCapabilities : [];
+        health.lastRelayRefresh = snap.lastRefresh
+          ? { at: Math.floor(snap.lastRefresh.atMs / 1000), relaysOk: snap.lastRefresh.relaysOk, relaysTotal: snap.lastRefresh.relaysTotal }
+          : null;
+        if (ctx && typeof ctx.waitUntil === 'function') {
+          ctx.waitUntil(stub.fetch('https://group/refresh', { method: 'POST' }).catch(() => null));
+        }
       } catch (_e) {
         health.result = 'DEGRADED';
       }
@@ -154,9 +178,17 @@ export default {
         const stub = env.GROUP.get(env.GROUP.idFromName(env.FIRST_GROUP_ID));
         const res = await stub.fetch('https://group/ingest', {
           method: 'POST',
-          body: JSON.stringify({ events: Array.isArray(body.events) ? body.events.slice(0, 500) : [] }),
+          body: JSON.stringify({
+            events: Array.isArray(body.events) ? body.events.slice(0, 500) : [],
+            attestations: Array.isArray(body.attestations) ? body.attestations.slice(0, 500) : [],
+          }),
         });
         return reply(request, env, await res.json());
+      }
+      if (url.pathname === '/v1/control/refresh') {
+        const stub = env.GROUP.get(env.GROUP.idFromName(env.FIRST_GROUP_ID));
+        const res = await stub.fetch('https://group/refresh', { method: 'POST' });
+        return reply(request, env, await res.json(), res.status === 503 ? 503 : 200);
       }
       const pinInner = PIN_ROUTES[url.pathname];
       if (pinInner) {
@@ -189,5 +221,11 @@ export default {
     } catch (_e) {
       return reply(request, env, { result: 'TEMPORARILY_UNAVAILABLE', code: 'UPSTREAM' }, 503);
     }
+  },
+
+  /** Cron: re-read the published control chain from the canonical relays (no client push needed). */
+  async scheduled(_controller, env, ctx) {
+    const stub = env.GROUP.get(env.GROUP.idFromName(env.FIRST_GROUP_ID));
+    ctx.waitUntil(stub.fetch('https://group/refresh', { method: 'POST' }).catch(() => null));
   },
 };

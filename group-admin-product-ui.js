@@ -21,6 +21,7 @@
   const EDITABLE_ROLES = Object.freeze(['MEMBER', 'INVITER', 'MODERATOR', 'ADMIN', 'SENIOR_ADMIN']);
   const INACTIVE_STATUS_TEXT = 'מערכת הניהול עדיין לא הופעלה. ניתן לצפות ולהכין הרשאות, אך לא לשמור שינויים.';
   const SAVE_AFTER_ACTIVATION_TEXT = 'ניתן לשמור לאחר הפעלת מערכת הניהול';
+  const ADMISSION_EXPLAIN_TEXT = 'שירות הקבלה יקבל הרשאה מוגבלת לאשר הצטרפות חברים בלבד.';
   const ACTIVE_WRITES_OFF_TEXT = 'מערכת הניהול הופעלה. שמירת שינויים תיפתח בשלב הבא.';
   const NO_DATA_TEXT = 'עדיין אין נתונים';
 
@@ -130,6 +131,31 @@
     const f = FGA();
     const p = controlProbe;
     return !isV2() && !!p && p.ok === true && p.controlEvents === 0 && p.relaysOk >= 2 && !!f && f.isConfiguredRoot(actor());
+  }
+
+  /** Gate 2: chain verified from relays, no admission delegation yet, root only, V2 off. */
+  function canActivateAdmission() {
+    const f = FGA();
+    const p = controlProbe;
+    return (
+      !isV2() &&
+      !!p &&
+      p.ok === true &&
+      p.status === 'VERIFIED' &&
+      p.relaysOk >= 2 &&
+      Array.isArray(p.admissionDelegates) &&
+      p.admissionDelegates.length === 0 &&
+      Array.isArray(p.admissionServiceCaps) &&
+      p.admissionServiceCaps.length === 0 &&
+      !!f &&
+      typeof f.activateAdmissionService === 'function' &&
+      f.isConfiguredRoot(actor())
+    );
+  }
+
+  function admissionServiceActive() {
+    const p = controlProbe;
+    return !!p && p.status === 'VERIFIED' && Array.isArray(p.admissionServiceCaps) && p.admissionServiceCaps.indexOf('FINALIZE_MEMBERSHIP_ADMISSION') !== -1;
   }
 
   function needsBootstrap() {
@@ -299,6 +325,12 @@
   const ERROR_TEXT = {
     UNAUTHORIZED: 'אין הרשאה לפעולה זו',
     ALREADY_BOOTSTRAPPED: 'מערכת הניהול כבר הופעלה',
+    DELEGATION_EXISTS: 'שירות קבלת החברים כבר הופעל',
+    DELEGATION_NOT_ACTIVE: 'שירות קבלת החברים אינו פעיל',
+    DELEGATE_HAS_OTHER_CAPABILITIES: 'למפתח השירות יש כבר הרשאות אחרות. הפעולה נעצרה.',
+    ADMISSION_SERVICE_NOT_CONFIGURED: 'שירות הקבלה אינו מוגדר',
+    ADMISSION_SERVICE_CONTROL_MISMATCH: 'שירות הקבלה עדיין לא רואה את מצב הניהול העדכני. נסו שוב בעוד דקה.',
+    ADMISSION_SERVICE_KEY_MISMATCH: 'מפתח שירות הקבלה אינו תואם. הפעולה נעצרה.',
     NETWORK_AUTHORITY_UNVERIFIED: 'אין חיבור מספיק לשרתי הרשת. נסו שוב בעוד רגע.',
     SESSION_REVOKED: 'ההתחברות אינה בתוקף. התחברו מחדש.',
     SESSION_ACCOUNT_MISMATCH: 'החשבון השתנה. רעננו את הדף.',
@@ -880,10 +912,25 @@
         '<p class="gap-sub">פעולה חד־פעמית של המנהל הראשי: יוצרת את שרשרת הבקרה החתומה של הקבוצה, בלי מנהלים נוספים ובלי חברים. תתבקשו לאשר בקוד מנהל.</p>' +
         '<div class="gap-actions"><button type="button" class="gap-btn primary" id="sosGapActivateControl" data-act="activate-control" data-gate15="1">הפעלת מערכת הניהול</button></div>';
     }
+    if (canActivateAdmission()) {
+      html +=
+        '<h3>שירות קבלת חברים</h3>' +
+        '<p class="gap-sub" id="sosGapAdmissionExplain">' + escapeHtml(ADMISSION_EXPLAIN_TEXT) + ' תתבקשו לאשר בקוד מנהל.</p>' +
+        '<div class="gap-actions"><button type="button" class="gap-btn primary" id="sosGapActivateAdmission" data-act="activate-admission" data-gate2="1">הפעל שירות קבלת חברים</button></div>';
+    } else if (!isV2() && admissionServiceActive() && f.isConfiguredRoot(actor())) {
+      html +=
+        '<h3>שירות קבלת חברים</h3>' +
+        '<p class="gap-sub" id="sosGapAdmissionActive">שירות קבלת החברים פעיל. ההרשאה שלו מוגבלת לאישור הצטרפות חברים בלבד.</p>' +
+        '<div class="gap-actions"><button type="button" class="gap-btn danger" id="sosGapDeactivateAdmission" data-act="deactivate-admission" data-gate2="1">השבת שירות קבלת חברים</button></div>';
+    }
     const signerPk = controlProbe && controlProbe.admin2faSignerPubkey;
     html +=
       '<h3>מידע טכני</h3><ul class="gap-ref">' +
       (signerPk ? '<li>חותם אימות מנהל: <span class="gap-mono" id="sosGapAdmin2faSigner">' + escapeHtml(signerPk) + '</span></li>' : '') +
+      (controlProbe && controlProbe.status === 'VERIFIED'
+        ? '<li>שירות קבלת חברים: <span id="sosGapAdmissionState" data-active="' + (admissionServiceActive() ? '1' : '0') + '">' +
+          (admissionServiceActive() ? 'פעיל' : 'לא פעיל') + '</span></li>'
+        : '') +
       '<li>מזהה קבוצה: <span class="gap-mono">' + escapeHtml(f.FIRST_GROUP_ID) + '</span></li>' +
       '<li>מצב מערכת הניהול: <span class="gap-mono" id="sosGapControlCode">' + escapeHtml(controlStatus()) + '</span></li>' +
       '<li>מצב שרשרת הבקרה: <span class="gap-mono">' + escapeHtml(g && typeof g.getStatus === 'function' ? String(g.getStatus(f.FIRST_GROUP_ID) || '') : '') + '</span></li>' +
@@ -1163,6 +1210,46 @@
     return res;
   }
 
+  /** Gate 2: owner-only admission service delegation change (step-up PIN through the Admin 2FA dialog). */
+  async function changeAdmission(activate) {
+    const f = FGA();
+    const fn = f && (activate ? f.activateAdmissionService : f.deactivateAdmissionService);
+    if (busy || typeof fn !== 'function') return null;
+    if (activate ? !canActivateAdmission() : !admissionServiceActive()) return null;
+    const unlocked = await adminSession();
+    if (!unlocked.ok) {
+      setMsg(errText({ code: unlocked.code === 'ADMIN_2FA_SERVICE_UNAVAILABLE' ? unlocked.code : 'ADMIN_PIN_REQUIRED' }), 'err');
+      return unlocked;
+    }
+    const yes = await confirmAction(
+      activate
+        ? ADMISSION_EXPLAIN_TEXT + ' להפעיל את שירות קבלת החברים?'
+        : 'להשבית את שירות קבלת החברים? הצטרפויות חדשות דרך השירות ייעצרו.'
+    );
+    if (!yes) {
+      setMsg('הפעולה בוטלה', '');
+      return { ok: false, code: 'CANCELLED' };
+    }
+    busy = true;
+    setMsg(activate ? 'הפעלת שירות קבלת חברים…' : 'השבתת שירות קבלת חברים…', '');
+    let res;
+    try {
+      res = await fn.call(f);
+    } catch (e) {
+      res = { ok: false, code: (e && e.code) || 'ERROR' };
+    }
+    busy = false;
+    if (res && res.ok) {
+      const p = PIN();
+      if (p) p.touch();
+      setMsg(activate ? 'שירות קבלת החברים הופעל' : 'שירות קבלת החברים הושבת', 'ok');
+    } else setMsg(errText(res), 'err');
+    controlProbe = null;
+    renderTab(activeTab);
+    refreshControlProbe();
+    return res;
+  }
+
   async function onAction(act, el) {
     const f = FGA();
     const pk = el.getAttribute('data-pk') || '';
@@ -1184,6 +1271,8 @@
     }
     if (act === 'bootstrap') return run('הפעלת ניהול', () => f.bootstrapFirstGroup({}));
     if (act === 'activate-control') return activateControl();
+    if (act === 'activate-admission') return changeAdmission(true);
+    if (act === 'deactivate-admission') return changeAdmission(false);
     if (act === 'save-user') {
       const target = selectedMember;
       if (!target) return null;

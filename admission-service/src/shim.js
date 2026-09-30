@@ -29,3 +29,10 @@ App.NETWORK_TAG = 'israel-network';
 App.COMMUNITY_CONTEXT = 'yalacommunity';
 App.adminSourceKeys = [];
 App.guestMode = false;
+
+/** Admin 2FA for the control chain comes only from deployment env (configure()); it can only go from off to on. */
+export const serviceAdmin2fa = { signer: '' };
+App.FeatureFlags = {
+  isAdmin2faEnforced: () => /^[0-9a-f]{64}$/.test(serviceAdmin2fa.signer),
+  admin2faSignerPubkey: () => serviceAdmin2fa.signer,
+};

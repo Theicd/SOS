@@ -1,0 +1,84 @@
+{
+  "mode": "pre",
+  "flags": {
+    "accessControlV2": false,
+    "admin2faEnforcement": true,
+    "admin2faSignerPubkey": "74c4bb0fb6b87b69cc2a95a80b4b5fa616cde3f917ef1894594606d30062edfa"
+  },
+  "perRelay": [
+    {
+      "relay": "wss://relay.snort.social",
+      "eose": true,
+      "code": "EOSE",
+      "control39001": 1,
+      "attestations39004": 1,
+      "membership39003": 0,
+      "delegation": "NOT_FOUND",
+      "delegationEventId": null,
+      "delegationAttestation": "NOT_FOUND",
+      "tipEventId": "69a27d4a441dc5e9067567332c02641db11733d988228e24fc4869604db20df3",
+      "verification": "PASS"
+    },
+    {
+      "relay": "wss://nos.lol",
+      "eose": true,
+      "code": "EOSE",
+      "control39001": 1,
+      "attestations39004": 1,
+      "membership39003": 0,
+      "delegation": "NOT_FOUND",
+      "delegationEventId": null,
+      "delegationAttestation": "NOT_FOUND",
+      "tipEventId": "69a27d4a441dc5e9067567332c02641db11733d988228e24fc4869604db20df3",
+      "verification": "PASS"
+    },
+    {
+      "relay": "wss://nostr-relay.xbytez.io",
+      "eose": true,
+      "code": "EOSE",
+      "control39001": 1,
+      "attestations39004": 1,
+      "membership39003": 0,
+      "delegation": "NOT_FOUND",
+      "delegationEventId": null,
+      "delegationAttestation": "NOT_FOUND",
+      "tipEventId": "69a27d4a441dc5e9067567332c02641db11733d988228e24fc4869604db20df3",
+      "verification": "PASS"
+    },
+    {
+      "relay": "wss://nostr-02.uid.ovh",
+      "eose": true,
+      "code": "EOSE",
+      "control39001": 1,
+      "attestations39004": 1,
+      "membership39003": 0,
+      "delegation": "NOT_FOUND",
+      "delegationEventId": null,
+      "delegationAttestation": "NOT_FOUND",
+      "tipEventId": "69a27d4a441dc5e9067567332c02641db11733d988228e24fc4869604db20df3",
+      "verification": "PASS"
+    }
+  ],
+  "INDEPENDENT_CONTROL_STATUS": "ACTIVE",
+  "BOOTSTRAP_EVENT_ID": "69a27d4a441dc5e9067567332c02641db11733d988228e24fc4869604db20df3",
+  "CONTROL_TIP_EVENT_ID": "69a27d4a441dc5e9067567332c02641db11733d988228e24fc4869604db20df3",
+  "CONTROL_EPOCH": 1,
+  "MEMBERSHIP_EPOCH": 1,
+  "ROOT": "ede1e7fabb758aca75ae548680a206a234c6d6b257834b111d284c3692e67601",
+  "ADMIN_2FA_SIGNER": "74c4bb0fb6b87b69cc2a95a80b4b5fa616cde3f917ef1894594606d30062edfa",
+  "CAPABILITIES": {},
+  "CONTROL_EVENTS_TOTAL": 1,
+  "CONFLICTS": 0,
+  "ACTIVE_ADMISSION_DELEGATES": [],
+  "DELEGATION_ACTIVE": false,
+  "DELEGATION_EVENT_ID": null,
+  "DELEGATION_ATTESTATION_ID": null,
+  "DELEGATION_ATTESTATION_VERIFY": "NO_ATTESTATION",
+  "DELEGATION_ATTESTATION_OPERATIONS": null,
+  "DELEGATION_ATTESTATION_STEP_UP": false,
+  "service": {
+    "controlStatus": "MISSING",
+    "servicePubkey": "752f47fa926d1833a451bdc97f3f2967ae4bc6452d0356bc7919c6928e4611ef",
+    "delegationActive": false
+  }
+}
