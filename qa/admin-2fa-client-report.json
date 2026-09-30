@@ -1,0 +1,587 @@
+{
+  "gate": "ADMIN_2FA_PHASE2_CLIENT_VERIFICATION_GATE",
+  "mode": "node-vm (real browser modules), deterministic, no network",
+  "generatedAt": "2026-09-29T23:48:56.104Z",
+  "status": "PASS",
+  "results": {
+    "PRODUCTION_CONFIG_ENFORCEMENT_OFF": "PASS",
+    "NO_QUERY_STORAGE_WINDOW_OVERRIDE": "PASS",
+    "MALFORMED_CONFIG_FAILS_CLOSED_TO_DEFAULT": "PASS",
+    "ENFORCEMENT_ON_FROM_CANONICAL_CONFIG_ONLY_AND_MONOTONIC": "PASS",
+    "PROTOCOL_MODULE_FROZEN": "PASS",
+    "NEG_VALID_ROOT_EVENT_VALID_ATTESTATION_ACCEPT": "PASS",
+    "NEG_NO_ATTESTATION": "PASS",
+    "NEG_FORGED_ATTESTATION_SIGNATURE": "PASS",
+    "NEG_FORGED_ATTESTATION_CONTENT_UNSIGNED": "PASS",
+    "NEG_WRONG_SERVER_SIGNER": "PASS",
+    "NEG_ROOT_KEY_AS_SERVER_SIGNER": "PASS",
+    "NEG_ATTESTATION_FOR_ANOTHER_EVENT": "PASS",
+    "NEG_ATTESTATION_FOR_ANOTHER_OPERATION": "PASS",
+    "NEG_ATTESTATION_EXTRA_OPERATION": "PASS",
+    "NEG_WRONG_GROUP_ATTESTATION": "PASS",
+    "NEG_WRONG_GROUP_CONTEXT": "PASS",
+    "NEG_TAMPERED_ROOT_EVENT_UNSIGNED": "PASS",
+    "NEG_TAMPERED_ROOT_EVENT_RESIGNED_WITH_ROOT_KEY": "PASS",
+    "NEG_EXPIRED_ATTESTATION_EVENT_OUTSIDE_WINDOW": "PASS",
+    "NEG_EXPIRED_ATTESTATION_LIVE_CHECK": "PASS",
+    "NEG_ATTESTATION_BEFORE_EVENT": "PASS",
+    "NEG_ATTESTATION_FROM_FUTURE": "PASS",
+    "NEG_MALFORMED_NOT_JSON": "PASS",
+    "NEG_MALFORMED_EXTRA_FIELD": "PASS",
+    "NEG_MALFORMED_MISSING_FIELD": "PASS",
+    "NEG_MALFORMED_BAD_NONCE": "PASS",
+    "NEG_MALFORMED_EXPIRY_MISMATCH": "PASS",
+    "NEG_MALFORMED_ISSUED_AT_MISMATCH": "PASS",
+    "NEG_WRONG_PROTOCOL_VERSION": "PASS",
+    "NEG_WRONG_PROTOCOL_NAME": "PASS",
+    "NEG_WRONG_ATTESTATION_KIND": "PASS",
+    "NEG_EXTRA_ATTESTATION_TAG": "PASS",
+    "NEG_WRONG_ROOT_IN_ATTESTATION": "PASS",
+    "NEG_WRONG_ROOT_CONTEXT": "PASS",
+    "NEG_PRINCIPAL_MISMATCH": "PASS",
+    "NEG_EPOCH_MISMATCH": "PASS",
+    "NEG_NON_PRIVILEGED_OPERATION_CONTEXT": "PASS",
+    "NEG_SIGNER_NOT_CONFIGURED_CONTEXT": "PASS",
+    "NEG_REPLAY_AGAINST_SECOND_EVENT": "PASS",
+    "ATTESTATION_EVENT_ID_BOUND": "PASS",
+    "ATTESTATION_OPERATION_BOUND": "PASS",
+    "ATTESTATION_ROOT_BOUND": "PASS",
+    "ATTESTATION_GROUP_BOUND": "PASS",
+    "STORE_REJECTS_FOREIGN_SIGNERS": "PASS",
+    "BOOTSTRAP_REQUIRES_ADMIN_2FA": "PASS",
+    "ROOT_EVENT_WITHOUT_ATTESTATION_ACCEPTED_FALSE": "PASS",
+    "GENESIS_MUST_BIND_ADMIN_2FA_SIGNER": "PASS",
+    "NON_CANONICAL_ROOT_GENESIS_REJECTED": "PASS",
+    "ATTESTED_GENESIS_ACCEPTED": "PASS",
+    "ADMIN_2FA_BYPASS_VIA_DIRECT_EVENT_FALSE": "PASS",
+    "COMPROMISED_ROOT_WITHOUT_PIN_CLIENT_GATE": "PASS",
+    "ATTESTED_ROOT_OPERATION_ACCEPTED": "PASS",
+    "CHAIN_OPERATION_MISMATCH_REJECTED": "PASS",
+    "DELEGATED_ADMIN_NEEDS_ATTESTATION_TOO": "PASS",
+    "ATTESTED_CHAIN_RECONSTRUCTS_ORDER_INDEPENDENT": "PASS",
+    "MODERATION_REQUIRES_ATTESTATION": "PASS",
+    "MEMBERSHIP_ADMIN_TRANSITION_REQUIRES_ATTESTATION": "PASS",
+    "REVOKE_OTHER_USER_INVITE_REQUIRES_ATTESTATION": "PASS",
+    "LEGACY_ADMIN_DELETE_REQUIRES_ATTESTATION": "PASS",
+    "ORDINARY_USER_ACTIONS_UNAFFECTED": "PASS",
+    "ORDINARY_EVENT_KINDS_NOT_PRIVILEGED": "PASS",
+    "ENFORCEMENT_OFF_BEHAVIOR_UNCHANGED": "PASS",
+    "ENFORCED_WITHOUT_SIGNER_FAILS_CLOSED": "PASS",
+    "ROOT_ONLY_PRIVILEGED_WEB_PATH_COUNT_ZERO": "PASS",
+    "PRODUCTION_PINS_INACTIVE": "PASS",
+    "ADMIN_2FA_PRIVATE_KEY_CLIENT_EXPOSED_FALSE": "PASS",
+    "SERVER_PIN_SECRET_CLIENT_EXPOSED_FALSE": "PASS",
+    "GENERIC_SIGNER_EXPOSED_FALSE": "PASS",
+    "RUNTIME_FEATURE_FLAGS_JSON_UNCHANGED": "PASS"
+  },
+  "checks": [
+    {
+      "name": "PRODUCTION_CONFIG_ENFORCEMENT_OFF",
+      "ok": true
+    },
+    {
+      "name": "NO_QUERY_STORAGE_WINDOW_OVERRIDE",
+      "ok": true,
+      "detail": {
+        "replacedFlagsObject": true
+      }
+    },
+    {
+      "name": "MALFORMED_CONFIG_FAILS_CLOSED_TO_DEFAULT",
+      "ok": true
+    },
+    {
+      "name": "ENFORCEMENT_ON_FROM_CANONICAL_CONFIG_ONLY_AND_MONOTONIC",
+      "ok": true,
+      "detail": {
+        "replacedFlagsObject": true
+      }
+    },
+    {
+      "name": "PROTOCOL_MODULE_FROZEN",
+      "ok": true
+    },
+    {
+      "name": "NEG_VALID_ROOT_EVENT_VALID_ATTESTATION_ACCEPT",
+      "ok": true,
+      "detail": "ADMIN_2FA_VERIFIED"
+    },
+    {
+      "name": "NEG_NO_ATTESTATION",
+      "ok": true,
+      "detail": "ADMIN_2FA_REQUIRED"
+    },
+    {
+      "name": "NEG_FORGED_ATTESTATION_SIGNATURE",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_SIGNATURE_INVALID"
+    },
+    {
+      "name": "NEG_FORGED_ATTESTATION_CONTENT_UNSIGNED",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_SIGNATURE_INVALID"
+    },
+    {
+      "name": "NEG_WRONG_SERVER_SIGNER",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_WRONG_SIGNER"
+    },
+    {
+      "name": "NEG_ROOT_KEY_AS_SERVER_SIGNER",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_WRONG_SIGNER"
+    },
+    {
+      "name": "NEG_ATTESTATION_FOR_ANOTHER_EVENT",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_EVENT_MISMATCH"
+    },
+    {
+      "name": "NEG_ATTESTATION_FOR_ANOTHER_OPERATION",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_OPERATION_MISMATCH"
+    },
+    {
+      "name": "NEG_ATTESTATION_EXTRA_OPERATION",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_OPERATION_MISMATCH"
+    },
+    {
+      "name": "NEG_WRONG_GROUP_ATTESTATION",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_TAGS_INVALID"
+    },
+    {
+      "name": "NEG_WRONG_GROUP_CONTEXT",
+      "ok": true,
+      "detail": "ADMIN_2FA_GROUP_SCOPE"
+    },
+    {
+      "name": "NEG_TAMPERED_ROOT_EVENT_UNSIGNED",
+      "ok": true,
+      "detail": "ADMIN_2FA_ROOT_EVENT_INVALID"
+    },
+    {
+      "name": "NEG_TAMPERED_ROOT_EVENT_RESIGNED_WITH_ROOT_KEY",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_EVENT_MISMATCH"
+    },
+    {
+      "name": "NEG_EXPIRED_ATTESTATION_EVENT_OUTSIDE_WINDOW",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_EXPIRED"
+    },
+    {
+      "name": "NEG_EXPIRED_ATTESTATION_LIVE_CHECK",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_EXPIRED"
+    },
+    {
+      "name": "NEG_ATTESTATION_BEFORE_EVENT",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_BEFORE_EVENT"
+    },
+    {
+      "name": "NEG_ATTESTATION_FROM_FUTURE",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_EXPIRED"
+    },
+    {
+      "name": "NEG_MALFORMED_NOT_JSON",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_MALFORMED"
+    },
+    {
+      "name": "NEG_MALFORMED_EXTRA_FIELD",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_MALFORMED"
+    },
+    {
+      "name": "NEG_MALFORMED_MISSING_FIELD",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_MALFORMED"
+    },
+    {
+      "name": "NEG_MALFORMED_BAD_NONCE",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_NONCE_INVALID"
+    },
+    {
+      "name": "NEG_MALFORMED_EXPIRY_MISMATCH",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_MALFORMED"
+    },
+    {
+      "name": "NEG_MALFORMED_ISSUED_AT_MISMATCH",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_MALFORMED"
+    },
+    {
+      "name": "NEG_WRONG_PROTOCOL_VERSION",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_PROTOCOL"
+    },
+    {
+      "name": "NEG_WRONG_PROTOCOL_NAME",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_PROTOCOL"
+    },
+    {
+      "name": "NEG_WRONG_ATTESTATION_KIND",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_KIND"
+    },
+    {
+      "name": "NEG_EXTRA_ATTESTATION_TAG",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_EVENT_MISMATCH"
+    },
+    {
+      "name": "NEG_WRONG_ROOT_IN_ATTESTATION",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_ROOT_MISMATCH"
+    },
+    {
+      "name": "NEG_WRONG_ROOT_CONTEXT",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_ROOT_MISMATCH"
+    },
+    {
+      "name": "NEG_PRINCIPAL_MISMATCH",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_TAGS_INVALID"
+    },
+    {
+      "name": "NEG_EPOCH_MISMATCH",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_EPOCH_MISMATCH"
+    },
+    {
+      "name": "NEG_NON_PRIVILEGED_OPERATION_CONTEXT",
+      "ok": true,
+      "detail": "ADMIN_2FA_OPERATION_NOT_PRIVILEGED"
+    },
+    {
+      "name": "NEG_SIGNER_NOT_CONFIGURED_CONTEXT",
+      "ok": true,
+      "detail": "ADMIN_2FA_SIGNER_NOT_CONFIGURED"
+    },
+    {
+      "name": "NEG_REPLAY_AGAINST_SECOND_EVENT",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_EVENT_MISMATCH"
+    },
+    {
+      "name": "ATTESTATION_EVENT_ID_BOUND",
+      "ok": true
+    },
+    {
+      "name": "ATTESTATION_OPERATION_BOUND",
+      "ok": true
+    },
+    {
+      "name": "ATTESTATION_ROOT_BOUND",
+      "ok": true
+    },
+    {
+      "name": "ATTESTATION_GROUP_BOUND",
+      "ok": true
+    },
+    {
+      "name": "STORE_REJECTS_FOREIGN_SIGNERS",
+      "ok": true
+    },
+    {
+      "name": "BOOTSTRAP_REQUIRES_ADMIN_2FA",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "status": "ADMIN_2FA_REQUIRED",
+        "code": "ADMIN_2FA_REQUIRED"
+      }
+    },
+    {
+      "name": "ROOT_EVENT_WITHOUT_ATTESTATION_ACCEPTED_FALSE",
+      "ok": true
+    },
+    {
+      "name": "GENESIS_MUST_BIND_ADMIN_2FA_SIGNER",
+      "ok": true,
+      "detail": "ADMIN_2FA_SIGNER_NOT_BOUND"
+    },
+    {
+      "name": "NON_CANONICAL_ROOT_GENESIS_REJECTED",
+      "ok": true,
+      "detail": "NO_TIP"
+    },
+    {
+      "name": "ATTESTED_GENESIS_ACCEPTED",
+      "ok": true
+    },
+    {
+      "name": "ADMIN_2FA_BYPASS_VIA_DIRECT_EVENT_FALSE",
+      "ok": true,
+      "detail": "ADMIN_2FA_REQUIRED"
+    },
+    {
+      "name": "COMPROMISED_ROOT_WITHOUT_PIN_CLIENT_GATE",
+      "ok": true,
+      "detail": [
+        "GRANT_ADMIN_TO_ATTACKER:ADMIN_2FA_REQUIRED",
+        "CREATE_ADMISSION_DELEGATION:ADMIN_2FA_REQUIRED",
+        "CHANGE_POLICY:ADMIN_2FA_REQUIRED",
+        "BLOCK_MEMBER:ADMIN_2FA_REQUIRED",
+        "REPLAY_GENESIS_ATTESTATION:ADMIN_2FA_REQUIRED",
+        "SELF_SIGNED_ATTESTATION_WITH_ROOT_KEY:ADMIN_2FA_REQUIRED",
+        "ATTESTATION_FROM_ATTACKER_SERVER:ADMIN_2FA_REQUIRED",
+        "REBIND_SIGNER_TO_ATTACKER:NOT_APPLIED",
+        "ALTERNATE_GENESIS:ADMIN_2FA_REQUIRED",
+        "MODERATE_OTHER_USER_POST:ADMIN_2FA_REQUIRED",
+        "REMOVE_MEMBER:ADMIN_2FA_REQUIRED",
+        "REVOKE_OTHER_USER_INVITE:ADMIN_2FA_REQUIRED",
+        "LEGACY_KIND5_DELETE_OTHER_USER_POST:ADMIN_2FA_REQUIRED"
+      ]
+    },
+    {
+      "name": "ATTESTED_ROOT_OPERATION_ACCEPTED",
+      "ok": true,
+      "detail": [
+        "GRANT_CAPABILITY",
+        "PROMOTE_ADMIN"
+      ]
+    },
+    {
+      "name": "CHAIN_OPERATION_MISMATCH_REJECTED",
+      "ok": true,
+      "detail": "ADMIN_2FA_ATTESTATION_OPERATION_MISMATCH"
+    },
+    {
+      "name": "DELEGATED_ADMIN_NEEDS_ATTESTATION_TOO",
+      "ok": true,
+      "detail": [
+        "ADMIN_2FA_REQUIRED",
+        [
+          "CHANGE_GROUP_SETTINGS"
+        ]
+      ]
+    },
+    {
+      "name": "ATTESTED_CHAIN_RECONSTRUCTS_ORDER_INDEPENDENT",
+      "ok": true
+    },
+    {
+      "name": "MODERATION_REQUIRES_ATTESTATION",
+      "ok": true,
+      "detail": [
+        "ADMIN_2FA_REQUIRED",
+        "ACCEPTED",
+        "ADMIN_2FA_TARGET_REQUIRED",
+        "ADMIN_2FA_ATTESTATION_OPERATION_MISMATCH"
+      ]
+    },
+    {
+      "name": "MEMBERSHIP_ADMIN_TRANSITION_REQUIRES_ATTESTATION",
+      "ok": true,
+      "detail": [
+        "ADMIN_2FA_REQUIRED",
+        "STRUCTURAL_OK"
+      ]
+    },
+    {
+      "name": "REVOKE_OTHER_USER_INVITE_REQUIRES_ATTESTATION",
+      "ok": true,
+      "detail": [
+        "ADMIN_2FA_REQUIRED",
+        "REVOKED"
+      ]
+    },
+    {
+      "name": "LEGACY_ADMIN_DELETE_REQUIRES_ATTESTATION",
+      "ok": true,
+      "detail": [
+        "ADMIN_2FA_VERIFIED",
+        "ADMIN_2FA_ROOT_EVENT_GROUP_MISMATCH"
+      ]
+    },
+    {
+      "name": "ORDINARY_USER_ACTIONS_UNAFFECTED",
+      "ok": true,
+      "detail": {
+        "ownRevoke": "REVOKED",
+        "ownDelete": "OWN_CONTENT",
+        "ownKind5": "author path (no admin check)",
+        "memberGrantByNonAdmin": "UNAUTHORIZED_ISSUER"
+      }
+    },
+    {
+      "name": "ORDINARY_EVENT_KINDS_NOT_PRIVILEGED",
+      "ok": true
+    },
+    {
+      "name": "ENFORCEMENT_OFF_BEHAVIOR_UNCHANGED",
+      "ok": true,
+      "detail": [
+        null,
+        "ACCEPTED"
+      ]
+    },
+    {
+      "name": "ENFORCED_WITHOUT_SIGNER_FAILS_CLOSED",
+      "ok": true,
+      "detail": "ADMIN_2FA_SIGNER_NOT_CONFIGURED"
+    },
+    {
+      "name": "ROOT_ONLY_PRIVILEGED_WEB_PATH_COUNT_ZERO",
+      "ok": true,
+      "detail": [
+        "group-control-state.js:ROUTED",
+        "moderation-policy.js:ROUTED",
+        "membership-state.js:ROUTED",
+        "invite-policy.js:ROUTED",
+        "feed.js registerDeletion:ROUTED"
+      ]
+    },
+    {
+      "name": "PRODUCTION_PINS_INACTIVE",
+      "ok": true
+    },
+    {
+      "name": "ADMIN_2FA_PRIVATE_KEY_CLIENT_EXPOSED_FALSE",
+      "ok": true,
+      "detail": {
+        "filesNamingServerSecrets": []
+      }
+    },
+    {
+      "name": "SERVER_PIN_SECRET_CLIENT_EXPOSED_FALSE",
+      "ok": true
+    },
+    {
+      "name": "GENERIC_SIGNER_EXPOSED_FALSE",
+      "ok": true
+    },
+    {
+      "name": "RUNTIME_FEATURE_FLAGS_JSON_UNCHANGED",
+      "ok": true
+    }
+  ],
+  "ADMIN_2FA_CLIENT_NEGATIVE_TESTS": "34/34",
+  "compromisedRootAttacks": [
+    {
+      "label": "GRANT_ADMIN_TO_ATTACKER",
+      "accepted": false,
+      "code": "ADMIN_2FA_REQUIRED"
+    },
+    {
+      "label": "CREATE_ADMISSION_DELEGATION",
+      "accepted": false,
+      "code": "ADMIN_2FA_REQUIRED"
+    },
+    {
+      "label": "CHANGE_POLICY",
+      "accepted": false,
+      "code": "ADMIN_2FA_REQUIRED"
+    },
+    {
+      "label": "BLOCK_MEMBER",
+      "accepted": false,
+      "code": "ADMIN_2FA_REQUIRED"
+    },
+    {
+      "label": "REPLAY_GENESIS_ATTESTATION",
+      "accepted": false,
+      "code": "ADMIN_2FA_REQUIRED"
+    },
+    {
+      "label": "SELF_SIGNED_ATTESTATION_WITH_ROOT_KEY",
+      "accepted": false,
+      "code": "ADMIN_2FA_REQUIRED"
+    },
+    {
+      "label": "ATTESTATION_FROM_ATTACKER_SERVER",
+      "accepted": false,
+      "code": "ADMIN_2FA_REQUIRED"
+    },
+    {
+      "label": "REBIND_SIGNER_TO_ATTACKER",
+      "accepted": false,
+      "code": "NOT_APPLIED"
+    },
+    {
+      "label": "ALTERNATE_GENESIS",
+      "accepted": false,
+      "code": "ADMIN_2FA_REQUIRED"
+    },
+    {
+      "label": "MODERATE_OTHER_USER_POST",
+      "accepted": false,
+      "code": "ADMIN_2FA_REQUIRED"
+    },
+    {
+      "label": "REMOVE_MEMBER",
+      "accepted": false,
+      "code": "ADMIN_2FA_REQUIRED"
+    },
+    {
+      "label": "REVOKE_OTHER_USER_INVITE",
+      "accepted": false,
+      "code": "ADMIN_2FA_REQUIRED"
+    },
+    {
+      "label": "LEGACY_KIND5_DELETE_OTHER_USER_POST",
+      "accepted": false,
+      "code": "ADMIN_2FA_REQUIRED"
+    }
+  ],
+  "privilegedPathAudit": [
+    {
+      "path": "GROUP_CONTROL chain (39001) — all admin/capability/policy/delegation/bootstrap ops",
+      "file": "group-control-state.js",
+      "rootOnlyBefore": true,
+      "routed": true
+    },
+    {
+      "path": "Group moderation hide (39002) — delete other user post/comment (V2)",
+      "file": "moderation-policy.js",
+      "rootOnlyBefore": true,
+      "routed": true
+    },
+    {
+      "path": "Admin membership transitions (39003 REMOVE/BLOCK/UNBLOCK/ROOT_SET_STATE/manual GRANT)",
+      "file": "membership-state.js",
+      "rootOnlyBefore": true,
+      "routed": true
+    },
+    {
+      "path": "Revoke another user invite (37380)",
+      "file": "invite-policy.js",
+      "rootOnlyBefore": true,
+      "routed": true
+    },
+    {
+      "path": "Legacy admin kind-5 delete of other users content (V2 off)",
+      "file": "feed.js registerDeletion",
+      "rootOnlyBefore": true,
+      "routed": true
+    }
+  ],
+  "notAuthorityPaths": [
+    "feed.js canViewerDeletePost/canViewerDeleteComment, videos.js isAdminUser, profile-post.js isAdminUser: delete-button visibility only (receivers decide)",
+    "moderation-policy.js canModerateContent: sender-side UI gate; acceptance is validateModerationEvent",
+    "first-group-admin.js / group-control-mutations.js / member-admin-operations.js / admin-signing-policy.js: build and sign drafts; acceptance is the chain above",
+    "access-control.js LegacyRootAuthorityProvider: V2-off capability snapshot for UI; grants nothing to received events",
+    "market-dashboard.js: admin analytics counters drop kind-5 targets (no state change for users)",
+    "live-tv-catalog.js hidden list (kind 30078): not ROOT-only — accepted from any author; separate finding, not changed here"
+  ],
+  "ROOT_ONLY_PRIVILEGED_WEB_PATH_COUNT": 0,
+  "ADMIN_2FA_CLIENT_VERIFIER_CANONICAL": true,
+  "ROOT_EVENT_WITHOUT_ATTESTATION_ACCEPTED": false,
+  "BOOTSTRAP_REQUIRES_ADMIN_2FA": true,
+  "ADMIN_2FA_BYPASS_VIA_DIRECT_EVENT": false,
+  "COMPROMISED_ROOT_WITHOUT_PIN_CLIENT_GATE": "PASS",
+  "ADMIN_2FA_ENFORCEMENT_PRODUCTION": false,
+  "ADMIN_2FA_PRIVATE_KEY_CLIENT_EXPOSED": false,
+  "SERVER_PIN_SECRET_CLIENT_EXPOSED": false,
+  "GENERIC_SIGNER_EXPOSED": false,
+  "QA_KEYS": "disposable, generated per run, never written"
+}

@@ -2661,7 +2661,19 @@
     const eventPubkey = typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
     const MP = moderationPolicy();
     const v2 = !!(MP && MP.isV2 && MP.isV2());
-    const isAdmin = !v2 && eventPubkey && adminKeys.has(eventPubkey);
+    let isAdmin = !v2 && eventPubkey && adminKeys.has(eventPubkey);
+    // Admin 2FA: the admin key alone may not remove other users' content once enforcement is active.
+    let adminMayRemoveUnknownAuthor = isAdmin;
+    const A2FA = App.Admin2faProtocol;
+    if (isAdmin && A2FA && A2FA.isEnforced()) {
+      const targets = event.tags
+        .filter((t) => Array.isArray(t) && (t[0] === 'e' || t[0] === 'a') && t[1])
+        .map((t) => ({ id: t[1], author: App.eventAuthorById?.get(t[1])?.toLowerCase?.() || '' }));
+      const verdict = A2FA.authorizeAdminContentRemoval(event, targets, { groupId: A2FA.FIRST_GROUP_ID });
+      isAdmin = verdict.ok === true;
+      adminMayRemoveUnknownAuthor = false;
+      if (!verdict.ok) logDeletionDebug('admin removal needs Admin 2FA attestation', { code: verdict.code });
+    }
     let anyNew = false;
     event.tags.forEach((tag) => {
       if (!Array.isArray(tag)) return;
@@ -2692,7 +2704,7 @@
             });
             return;
           }
-          if (!isAdmin && !author) {
+          if ((!isAdmin || !adminMayRemoveUnknownAuthor) && !author) {
             // בלי לוג חוזר לכל ריליי — מספיק silent defer אחרי seed authors | HYPER CORE TECH
             return;
           }

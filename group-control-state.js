@@ -399,12 +399,22 @@
       });
     }
 
+    // Admin 2FA signer pinned by the chain (canonical lowercase 64-hex x-only public key).
+    let admin2faSignerPubkey = null;
+    if (raw.admin2faSignerPubkey != null) {
+      if (typeof raw.admin2faSignerPubkey !== 'string' || !/^[0-9a-f]{64}$/.test(raw.admin2faSignerPubkey)) {
+        throw Object.assign(new Error('BAD_ADMIN_2FA_SIGNER'), { code: 'BAD_ADMIN_2FA_SIGNER' });
+      }
+      admin2faSignerPubkey = raw.admin2faSignerPubkey;
+    }
+
     return deepFreeze({
       schema: SCHEMA_NAME,
       version: SCHEMA_VERSION,
       groupId: raw.groupId.trim(),
       controlEpoch: raw.controlEpoch,
       rootAdminPubkey: root,
+      admin2faSignerPubkey,
       capabilities: deepFreeze(capabilities),
       invitePolicy: raw.invitePolicy,
       blockedPubkeys: Object.freeze(blockedPubkeys.slice()),
@@ -452,6 +462,7 @@
     if (record.groupSettings.description) obj.groupSettings.description = record.groupSettings.description;
     if (record.groupSettings.logoRef) obj.groupSettings.logoRef = record.groupSettings.logoRef;
     if (record.membershipRoot) obj.membershipRoot = record.membershipRoot;
+    if (record.admin2faSignerPubkey) obj.admin2faSignerPubkey = record.admin2faSignerPubkey;
     if (record.resolution) {
       obj.resolution = {
         type: record.resolution.type,
@@ -480,21 +491,21 @@
     };
     if (opts && opts.description) groupSettings.description = String(opts.description);
     if (opts && opts.logoRef) groupSettings.logoRef = String(opts.logoRef);
-    return parseAndValidateRecord(
-      JSON.stringify({
-        schema: SCHEMA_NAME,
-        version: SCHEMA_VERSION,
-        groupId,
-        controlEpoch: 1,
-        rootAdminPubkey: root,
-        capabilities: {},
-        invitePolicy,
-        blockedPubkeys: [],
-        membershipEpoch: 1,
-        groupSettings,
-        createdAt,
-      })
-    );
+    const rec = {
+      schema: SCHEMA_NAME,
+      version: SCHEMA_VERSION,
+      groupId,
+      controlEpoch: 1,
+      rootAdminPubkey: root,
+      capabilities: {},
+      invitePolicy,
+      blockedPubkeys: [],
+      membershipEpoch: 1,
+      groupSettings,
+      createdAt,
+    };
+    if (opts && opts.admin2faSignerPubkey) rec.admin2faSignerPubkey = String(opts.admin2faSignerPubkey);
+    return parseAndValidateRecord(JSON.stringify(rec));
   }
 
   function strictVerifyEvent(event) {
@@ -601,6 +612,12 @@
     }
 
     const isRoot = issuer === prev.rootAdminPubkey;
+    if (prev.admin2faSignerPubkey && next.admin2faSignerPubkey !== prev.admin2faSignerPubkey) {
+      throw Object.assign(new Error('ADMIN_2FA_SIGNER_IMMUTABLE'), { code: 'ADMIN_2FA_SIGNER_IMMUTABLE' });
+    }
+    if (!prev.admin2faSignerPubkey && next.admin2faSignerPubkey && !isRoot) {
+      throw Object.assign(new Error('ADMIN_2FA_SIGNER_ROOT_ONLY'), { code: 'ADMIN_2FA_SIGNER_ROOT_ONLY' });
+    }
     if (!isRoot && issuerCapsFromPrevious(prev, issuer).length === 0) {
       throw Object.assign(new Error('BAD_ISSUER'), { code: 'BAD_ISSUER' });
     }
@@ -659,6 +676,23 @@
     return true;
   }
 
+  /** Rejections by the Admin 2FA rule in the last reconstruct (eventId -> code). */
+  let admin2faRejections = new Map();
+
+  /** Chain step = signed authorization (authorizeTransition) + Admin 2FA attestation when enforced (first group). */
+  function authorizeChainStep(prev, row) {
+    authorizeTransition(prev, row.record, row.event.pubkey);
+    const A = App.Admin2faProtocol;
+    if (row.record.groupId === FIRST_GROUP_NETWORK_TAG && A && A.isEnforced()) {
+      const v = A.requireForControlTransition(row.event, prev, row.record);
+      if (!v.ok) {
+        admin2faRejections.set(String(row.event.id), v.code);
+        throw Object.assign(new Error(v.code), { code: v.code });
+      }
+    }
+    return true;
+  }
+
   function cacheKey(groupId) {
     return CACHE_PREFIX + String(groupId || resolveGroupId());
   }
@@ -706,6 +740,7 @@
 
   function reconstructControlState() {
     conflictCandidates = [];
+    admin2faRejections = new Map();
     const rows = [];
     controlEvents.forEach((row) => rows.push(row));
     if (!rows.length) {
@@ -769,7 +804,7 @@
         }
         // Validate resolve against tip
         try {
-          authorizeTransition(tipRecord, uniq[0].record, uniq[0].event.pubkey);
+          authorizeChainStep(tipRecord, uniq[0]);
           chosen = uniq[0];
         } catch (err) {
           // invalid resolve — ignore for chain
@@ -783,7 +818,7 @@
         atEpoch.forEach((r) => {
           if (r.record.resolution) return; // non-chosen resolves already handled
           try {
-            authorizeTransition(tipRecord, r.record, r.event.pubkey);
+            authorizeChainStep(tipRecord, r);
             const fp = contentFingerprint(r.record);
             if (seenFp.has(fp)) return;
             seenFp.add(fp);
@@ -817,7 +852,7 @@
           });
           if (uniqResolves.length === 1) {
             try {
-              authorizeTransition(tipRecord, uniqResolves[0].record, uniqResolves[0].event.pubkey);
+              authorizeChainStep(tipRecord, uniqResolves[0]);
               tipRecord = uniqResolves[0].record;
               chain.push(uniqResolves[0]);
               tipEvent = uniqResolves[0].event;
@@ -980,6 +1015,9 @@
           event: result.event || null,
         };
       }
+      if (admin2faRejections.has(eventId) && !(result.event && String(result.event.id) === eventId)) {
+        return { ok: false, status: 'ADMIN_2FA_REQUIRED', code: admin2faRejections.get(eventId) };
+      }
       if (!result.ok) {
         return { ok: false, status: result.status || storeStatus, code: result.code || 'REJECTED' };
       }
@@ -1020,6 +1058,51 @@
     } finally {
       syncOut();
     }
+  }
+
+  /**
+   * Dry run of a new control event against the current verified tip: envelope + signed authorization only.
+   * No attestation (the event is not attested yet), no store mutation. Used by the Admin 2FA issuer.
+   */
+  function previewControlTransition(event, options) {
+    const expectedGroup = resolveExpectedGroup(options || {});
+    bindStore(expectedGroup);
+    try {
+      if (!event || typeof event !== 'object' || event.kind !== GROUP_CONTROL_EVENT_KIND) return { ok: false, code: 'BAD_KIND' };
+      if (!strictVerifyEvent(event)) return { ok: false, code: 'STRICT_VERIFY_FAILED' };
+      if (typeof event.created_at === 'number' && event.created_at > Math.floor(Date.now() / 1000) + MAX_CREATED_AT_SKEW_SEC) {
+        return { ok: false, code: 'FUTURE_CREATED_AT' };
+      }
+      const record = parseAndValidateRecord(event.content);
+      if (record.groupId !== expectedGroup) return { ok: false, code: 'CROSS_GROUP' };
+      const d = Array.isArray(event.tags) ? event.tags.filter((t) => Array.isArray(t) && t[0] === 'd').map((t) => String(t[1] || '')) : [];
+      if (!d.length || d.some((v) => v !== d[0])) return { ok: false, code: 'BAD_D_TAG' };
+      if (d[0] !== record.groupId && d[0] !== record.groupId + ':' + record.controlEpoch) return { ok: false, code: 'WRONG_D_TAG' };
+      if (storeStatus === 'CONTROL_CONFLICT') return { ok: false, code: 'CONTROL_CONFLICT' };
+      const prev = verified && verified.record ? verified.record : null;
+      let occupied = false;
+      controlEvents.forEach((row, id) => {
+        if (id !== String(event.id) && row.record.controlEpoch === record.controlEpoch) occupied = true;
+      });
+      if (occupied) return { ok: false, code: 'EPOCH_OCCUPIED' };
+      authorizeTransition(prev, record, event.pubkey);
+      return {
+        ok: true,
+        code: 'PREVIEW_OK',
+        prev: prev ? JSON.parse(JSON.stringify(prev)) : null,
+        next: JSON.parse(JSON.stringify(record)),
+      };
+    } catch (e) {
+      return { ok: false, code: (e && e.code) || 'REJECTED' };
+    }
+  }
+
+  function getAdmin2faRejections() {
+    const out = {};
+    admin2faRejections.forEach((code, id) => {
+      out[id] = code;
+    });
+    return out;
   }
 
   function ingestControlEvents(eventList, options) {
@@ -1108,6 +1191,7 @@
       groupId: r.groupId,
       controlEpoch: r.controlEpoch,
       rootAdminPubkey: r.rootAdminPubkey,
+      admin2faSignerPubkey: r.admin2faSignerPubkey || null,
       capabilities: caps,
       invitePolicy: r.invitePolicy,
       blockedPubkeys: r.blockedPubkeys.slice(),
@@ -1325,6 +1409,9 @@
     signControlRecord,
     acceptControlEvent,
     ingestControlEvents,
+    previewControlTransition,
+    getAdmin2faRejections,
+    ADMIN_2FA_CONTROL_CHAIN_ENFORCED_WHEN_ACTIVE: true,
     reconstructControlState,
     clearVerified,
     revalidateFromCache,

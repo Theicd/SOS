@@ -1,7 +1,7 @@
 {
   "gate": "ADMIN_COSIGN_STAGE1_GATE",
   "mode": "local-workerd",
-  "generatedAt": "2026-09-29T23:20:53.154Z",
+  "generatedAt": "2026-09-29T23:49:17.371Z",
   "status": "PASS",
   "results": {
     "HEALTH_EXPOSES_COSIGN_PUBKEY_ONLY": "PASS",
@@ -21,12 +21,16 @@
     "SUCCESS_RESETS_FAILURE_COUNTER": "PASS",
     "LOCKOUT_ESCALATES": "PASS",
     "ADMIN_PIN_SERVER_AUTHORITATIVE": "PASS",
+    "GENESIS_MUST_BIND_COSIGN_SIGNER": "PASS",
+    "STALE_EVENT_NOT_COSIGNED": "PASS",
     "COSIGN_REQUIRES_PIN_SESSION": "PASS",
     "GENESIS_REQUIRES_STEP_UP": "PASS",
     "ATTESTATION_SHAPE_AND_SIGNATURE": "PASS",
+    "PHASE1_PHASE2_PROTOCOL_MATCH": "PASS",
     "COSIGN_IS_DRY_RUN_NO_CONTROL_MUTATION": "PASS",
     "CONTROL_BOOTSTRAP_INGESTED": "PASS",
     "ADDITIVE_CHANGE_COSIGNED_WITHOUT_STEP_UP": "PASS",
+    "SERVER_OPERATIONS_MATCH_CLIENT_CLASSIFIER": "PASS",
     "COSIGN_REJECTS_INVALID_EVENTS": "PASS",
     "SESSION_BOUND_TO_PRINCIPAL": "PASS",
     "DESTRUCTIVE_CHANGE_REQUIRES_STEP_UP": "PASS",
@@ -154,6 +158,19 @@
       "ok": true
     },
     {
+      "name": "GENESIS_MUST_BIND_COSIGN_SIGNER",
+      "ok": true,
+      "detail": [
+        "SIGNER_NOT_BOUND",
+        "SIGNER_NOT_BOUND"
+      ]
+    },
+    {
+      "name": "STALE_EVENT_NOT_COSIGNED",
+      "ok": true,
+      "detail": "STALE_EVENT"
+    },
+    {
       "name": "COSIGN_REQUIRES_PIN_SESSION",
       "ok": true,
       "detail": [
@@ -175,8 +192,16 @@
       "ok": true,
       "detail": {
         "kind": 39004,
-        "controlEpoch": 1
+        "controlEpoch": 1,
+        "operations": [
+          "BOOTSTRAP_GROUP_CONTROL"
+        ]
       }
+    },
+    {
+      "name": "PHASE1_PHASE2_PROTOCOL_MATCH",
+      "ok": true,
+      "detail": "ADMIN_2FA_VERIFIED"
     },
     {
       "name": "COSIGN_IS_DRY_RUN_NO_CONTROL_MUTATION",
@@ -202,6 +227,17 @@
       "name": "ADDITIVE_CHANGE_COSIGNED_WITHOUT_STEP_UP",
       "ok": true,
       "detail": "COSIGNED"
+    },
+    {
+      "name": "SERVER_OPERATIONS_MATCH_CLIENT_CLASSIFIER",
+      "ok": true,
+      "detail": [
+        "ADMIN_2FA_VERIFIED",
+        [
+          "GRANT_CAPABILITY",
+          "PROMOTE_ADMIN"
+        ]
+      ]
     },
     {
       "name": "COSIGN_REJECTS_INVALID_EVENTS",
@@ -299,7 +335,7 @@
       "ok": true,
       "detail": {
         "leaks": 0,
-        "logBytes": 6901
+        "logBytes": 7071
       }
     }
   ],

@@ -22,7 +22,7 @@
   const READY_EVENT = 'sos-feature-flags-ready';
   const FETCH_TIMEOUT_MS = 5000;
   const MAX_CONFIG_BYTES = 2048;
-  const ALLOWED_KEYS = ['schema', 'accessControlV2'];
+  const ALLOWED_KEYS = ['schema', 'accessControlV2', 'admin2faEnforcement', 'admin2faSignerPubkey'];
 
   const App = window.NostrApp || (window.NostrApp = {});
 
@@ -65,6 +65,9 @@
     source: 'default_off',
     errorCode: null,
     guardInstalled: false,
+    // Admin 2FA: canonical config only (no local override on any host).
+    admin2faEnforcement: false,
+    admin2faSignerPubkey: '',
   };
 
   function effective() {
@@ -97,6 +100,10 @@
       if (ALLOWED_KEYS.indexOf(keys[i]) === -1) return 'UNKNOWN_KEY';
     }
     if (typeof obj.accessControlV2 !== 'boolean') return 'INVALID_VALUE';
+    if (obj.admin2faEnforcement != null && typeof obj.admin2faEnforcement !== 'boolean') return 'INVALID_VALUE';
+    if (obj.admin2faSignerPubkey != null && !/^[0-9a-f]{64}$/.test(String(obj.admin2faSignerPubkey))) {
+      return 'INVALID_VALUE';
+    }
     return null;
   }
 
@@ -112,6 +119,7 @@
       productionHost: hostIsProduction(),
       localOverrideAllowed,
       guardInstalled: state.guardInstalled,
+      admin2faEnforcement: state.admin2faEnforcement,
     };
   }
 
@@ -174,6 +182,8 @@
       }
       const err = validate(obj);
       if (err) return finish(false, 'default_off', err);
+      state.admin2faEnforcement = obj.admin2faEnforcement === true;
+      state.admin2faSignerPubkey = obj.admin2faSignerPubkey || '';
       return finish(obj.accessControlV2 === true, 'canonical_config', null);
     }).then(() => snapshot());
   }
@@ -189,6 +199,8 @@
     FAIL_CLOSED: true,
     isResolved: () => state.resolved,
     isAccessControlV2Enabled: effective,
+    isAdmin2faEnforced: () => state.resolved && state.admin2faEnforcement === true,
+    admin2faSignerPubkey: () => (state.resolved ? state.admin2faSignerPubkey : ''),
     whenReady: () => ready,
     snapshot,
     validate,

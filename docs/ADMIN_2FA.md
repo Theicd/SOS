@@ -48,3 +48,28 @@ Cloudflare; it is created at deploy time (Phase 4) and its public key is then re
 
 Proposed PIN reset (not implemented): ROOT-signed reset request plus an out-of-band confirmation, then a 24–72 h
 waiting period during which the current PIN can cancel.
+
+## Phase 2 — client verification (branch `local/admin-2fa-p2`, local only)
+
+One protocol module, `admin-2fa-protocol.js`, is shared by the web client and the admission Worker (the Worker
+imports it through `shim.js`). There is no second format.
+
+- Attestation content (Phase 1 content plus): `protocol:'sos-admin-2fa-v1'`, `rootPubkey`, `operations` (sorted),
+  `issuedAt` (= `created_at`), `expiresAt` (= `issuedAt` + 600), `requestId` (= auth event id). Tags are exactly
+  `d`, `e`, `p`, `t`, `sos-cosign`. `signAttestation` refuses any other shape.
+- `verifyAdmin2faAttestation(rootEvent, attestation, context)` checks kind, signature, pinned signer, group,
+  canonical ROOT, exact event id / kind / epoch / principal, exact operations, `issuedAt`/`expiresAt`, request id,
+  and the privileged event's own signature. Anything missing or malformed fails closed.
+- Enforcement: `admin2faEnforcement` + `admin2faSignerPubkey` in the canonical `runtime-feature-flags.json`, or
+  the build constant. No query / localStorage / window override. Enforced with no signer rejects everything.
+  Production stays OFF.
+- Routed paths when enforced: control chain (`group-control-state.js`, all reconstruct call sites), moderation,
+  membership (non-admission), revoke of another user's invite, kind 5 deletion of another user's post.
+  An unattested event returns `ADMIN_2FA_REQUIRED`. Own-content actions are unchanged.
+- Genesis must bind `admin2faSignerPubkey`; it is immutable and root-only afterwards.
+- The Worker validates with `previewControlTransition` (dry run, no attestation needed) before co-signing.
+
+Gates: `qa/admin-2fa-client-gate.mjs` 69/69 (negatives 34/34), `qa/admin-cosign-s1-gate.mjs` 40/40.
+
+Known limits: the attestation store is memory-only; non-39001 privileged kinds cannot be co-signed yet, so they
+fail closed under enforcement until Phase 3.

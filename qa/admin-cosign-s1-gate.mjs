@@ -50,12 +50,13 @@ const origLog = console.log;
 const origWarn = console.warn;
 console.log = () => {};
 console.warn = () => {};
-for (const f of ['nostr-event-integrity.js', 'group-control-state.js']) {
+for (const f of ['nostr-event-integrity.js', 'group-control-state.js', 'admin-2fa-protocol.js']) {
   vm.runInThisContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), { filename: f });
 }
 console.log = origLog;
 console.warn = origWarn;
 const G = globalThis.NostrApp.GroupControlState;
+const P = globalThis.NostrApp.Admin2faProtocol;
 
 // ------------------------------------------------------------ disposable keys + QA PINs
 const R = mkKey(); // QA root
@@ -297,8 +298,26 @@ async function main() {
   if (session) SENSITIVE.push(session);
   check('ADMIN_PIN_SERVER_AUTHORITATIVE', unlock3.json.result === 'OK');
 
+  // ---------------- co-sign: genesis must bind this signer
+  const unbound = signControl(JSON.parse(G.serializeRecord(G.buildBootstrapRecord({ groupId: GROUP, rootAdminPubkey: R.pub, createdAt: nowSec() }))), R);
+  const unboundRes = await pinCall(R, 'cosign', { event: unbound, sessionId: session, stepUp: dGood });
+  const otherSigner = mkKey();
+  const wrongBound = signControl(
+    JSON.parse(G.serializeRecord(G.buildBootstrapRecord({ groupId: GROUP, rootAdminPubkey: R.pub, createdAt: nowSec(), admin2faSignerPubkey: otherSigner.pub }))),
+    R
+  );
+  const wrongBoundRes = await pinCall(R, 'cosign', { event: wrongBound, sessionId: session, stepUp: dGood });
+  check('GENESIS_MUST_BIND_COSIGN_SIGNER', unboundRes.json.code === 'SIGNER_NOT_BOUND' && wrongBoundRes.json.code === 'SIGNER_NOT_BOUND', [unboundRes.json.code, wrongBoundRes.json.code]);
+  const staleBoot = signControl(
+    JSON.parse(G.serializeRecord(G.buildBootstrapRecord({ groupId: GROUP, rootAdminPubkey: R.pub, createdAt: nowSec() - 3600, admin2faSignerPubkey: C.pub }))),
+    R
+  );
+  const staleBootEv = finalizeEvent({ kind: staleBoot.kind, created_at: nowSec() - 3600, tags: staleBoot.tags, content: staleBoot.content }, R.sk);
+  const staleRes = await pinCall(R, 'cosign', { event: staleBootEv, sessionId: session, stepUp: dGood });
+  check('STALE_EVENT_NOT_COSIGNED', staleRes.json.code === 'STALE_EVENT', staleRes.json.code);
+
   // ---------------- co-sign: genesis requires session + step-up
-  const boot = G.buildBootstrapRecord({ groupId: GROUP, rootAdminPubkey: R.pub, invitePolicy: 'AUTHORIZED_USERS_ONLY' });
+  const boot = G.buildBootstrapRecord({ groupId: GROUP, rootAdminPubkey: R.pub, invitePolicy: 'AUTHORIZED_USERS_ONLY', admin2faSignerPubkey: C.pub });
   const bootRec = JSON.parse(G.serializeRecord(boot));
   bootRec.createdAt = nowSec();
   const e1 = signControl(bootRec, R);
@@ -329,12 +348,26 @@ async function main() {
       t('p') === R.pub &&
       t('t') === GROUP &&
       attBody.schema === 'sos-admin-cosign' &&
+      attBody.protocol === 'sos-admin-2fa-v1' &&
       attBody.eventId === e1.id &&
       attBody.controlEpoch === 1 &&
       attBody.principal === R.pub &&
+      attBody.rootPubkey === R.pub &&
+      JSON.stringify(attBody.operations) === '["BOOTSTRAP_GROUP_CONTROL"]' &&
+      attBody.expiresAt === attBody.issuedAt + 600 &&
+      attBody.requestId === cos1.auth.id &&
       attBody.stepUp === true,
-    { kind: att.kind, controlEpoch: attBody.controlEpoch }
+    { kind: att.kind, controlEpoch: attBody.controlEpoch, operations: attBody.operations }
   );
+  const clientVerdict = P.verifyAdmin2faAttestation(e1, att, {
+    groupId: GROUP,
+    rootPubkey: R.pub,
+    signerPubkey: C.pub,
+    expectedOperations: P.classifyControlTransition(null, boot),
+    controlEpoch: 1,
+    nowSec: nowSec(),
+  });
+  check('PHASE1_PHASE2_PROTOCOL_MATCH', clientVerdict.ok === true, clientVerdict.code);
   const snapAfterCosign = await post('/v1/control/ingest', { groupId: GROUP, events: [] });
   check('COSIGN_IS_DRY_RUN_NO_CONTROL_MUTATION', snapAfterCosign.json.controlEpoch == null, snapAfterCosign.json);
 
@@ -350,6 +383,14 @@ async function main() {
   });
   const cosAdd = await pinCall(R, 'cosign', { event: add.ev, sessionId: session });
   check('ADDITIVE_CHANGE_COSIGNED_WITHOUT_STEP_UP', cosAdd.json.result === 'COSIGNED' && cosAdd.json.stepUp === false, cosAdd.json.result);
+  const addVerdict = P.verifyAdmin2faAttestation(add.ev, cosAdd.json.attestation, {
+    groupId: GROUP,
+    rootPubkey: R.pub,
+    signerPubkey: C.pub,
+    expectedOperations: P.classifyControlTransition(tip, add.rec),
+    controlEpoch: 2,
+  });
+  check('SERVER_OPERATIONS_MATCH_CLIENT_CLASSIFIER', addVerdict.ok === true && cosAdd.json.operations.join(',') === 'GRANT_CAPABILITY,PROMOTE_ADMIN', [addVerdict.code, cosAdd.json.operations]);
 
   // ---------------- rejected co-sign inputs
   const byOutsider = signControl(Object.assign(JSON.parse(G.serializeRecord(add.rec)), { createdAt: nowSec() }), X);
@@ -412,7 +453,8 @@ async function main() {
   const touchRes = [];
   for (let i = 0; i < 3; i++) {
     clockOffset += 10 * 60 * 1000;
-    touchRes.push(await pinCall(R, 'cosign', { event: removeCap.ev, sessionId: session, stepUp: dGood }));
+    const fresh = nextControl((r) => delete r.capabilities[B.pub]);
+    touchRes.push(await pinCall(R, 'cosign', { event: fresh.ev, sessionId: session, stepUp: dGood }));
   }
   check('SESSION_ACTIVITY_EXTENDS_IDLE', touchRes.every((r) => r.json.result === 'COSIGNED'), touchRes.map((r) => r.json.result));
   const lockRes = await pinCall(R, 'lock', { sessionId: session });

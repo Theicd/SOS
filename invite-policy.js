@@ -276,6 +276,17 @@
     if (eRef && eRef.toLowerCase() !== inviteId) return { ok: false, code: 'BAD_E_REF' };
     const auth = canRevokeInvite(revokeEvent.pubkey, inviteEvent, controlState);
     if (!auth.ok) return { ok: false, code: 'UNAUTHORIZED_REVOKE' };
+    // Revoking someone else's invite is an admin action; revoking your own is not.
+    const A = App.Admin2faProtocol;
+    if (
+      A &&
+      A.isEnforced() &&
+      groupId === A.FIRST_GROUP_ID &&
+      normalizePubkey(revokeEvent.pubkey) !== normalizePubkey(inviteEvent.pubkey)
+    ) {
+      const v = A.requireForEvent(revokeEvent, ['REVOKE_INVITE'], { groupId });
+      if (!v.ok) return { ok: false, code: v.code };
+    }
     return { ok: true, code: 'REVOKED', by: normalizePubkey(revokeEvent.pubkey) };
   }
 

@@ -2,6 +2,7 @@ import './shim.js';
 import '../../nostr-event-integrity.js';
 import '../../group-control-state.js';
 import '../../invite-policy.js';
+import '../../admin-2fa-protocol.js';
 
 const App = globalThis.NostrApp;
 let configuredRoot = '';
@@ -20,4 +21,5 @@ export function configure(env) {
 
 export const GCS = () => App.GroupControlState;
 export const Policy = () => App.InvitePolicy;
+export const Admin2fa = () => App.Admin2faProtocol;
 export const strictVerify = (ev) => App.strictVerifyNostrEvent(ev) === true;

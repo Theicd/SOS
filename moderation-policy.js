@@ -352,6 +352,17 @@
     const auth = canModerateContent(moderator, targetAuthor, targetKind, state);
     if (!auth.ok) return { ok: false, code: 'UNAUTHORIZED_MODERATION', detail: auth.code };
 
+    const A = App.Admin2faProtocol;
+    if (A && A.isEnforced() && groupId === A.FIRST_GROUP_ID) {
+      // The operation (post vs comment) is bound from the target itself; unknown target fails closed.
+      if (!targetEvent) return { ok: false, code: 'ADMIN_2FA_TARGET_REQUIRED' };
+      const v = A.requireForEvent(modEvent, [A.contentRemovalOperation(targetEvent)], {
+        groupId,
+        rootPubkey: state.rootAdminPubkey,
+      });
+      if (!v.ok) return { ok: false, code: v.code };
+    }
+
     return {
       ok: true,
       code: 'ACCEPTED',

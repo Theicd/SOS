@@ -555,6 +555,16 @@
       return { ok: false, code: 'ROOT_CHECKPOINT_REQUIRED' };
     }
 
+    // Admin-issued transitions (not the admission delegate's GRANT) need an Admin 2FA attestation when enforced.
+    const A = App.Admin2faProtocol;
+    if (!admission && A && A.isEnforced() && groupId === A.FIRST_GROUP_ID) {
+      const v = A.requireForEvent(event, [A.membershipOperation(transition)], {
+        groupId,
+        rootPubkey: state.rootAdminPubkey,
+      });
+      if (!v.ok) return { ok: false, code: v.code };
+    }
+
     return {
       ok: true,
       code: 'STRUCTURAL_OK',

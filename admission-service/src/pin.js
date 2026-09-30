@@ -1,6 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
-import { configure, Policy, strictVerify } from './authority.js';
-import { ATTESTATION_KIND, pepperBytes, signAttestation } from './cosign-keys.js';
+import { Admin2fa, configure, Policy, strictVerify } from './authority.js';
+import { cosignPubkey, pepperBytes, signAttestation } from './cosign-keys.js';
 
 /**
  * Server-authoritative admin PIN + co-sign (one instance per group: idFromName('admin-pin:' + groupId)).
@@ -10,7 +10,6 @@ import { ATTESTATION_KIND, pepperBytes, signAttestation } from './cosign-keys.js
  * Every request carries a fresh, single-use kind 27235 auth event signed by the admin key, so a PIN alone is
  * useless without the key, and a leaked key alone cannot obtain a co-signature without the PIN.
  */
-export const AUTH_KIND = 27235;
 export const PBKDF2_ITERATIONS = 600000;
 const CONTROL_KIND = 39001;
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -115,9 +114,9 @@ export class AdminPinAuthority extends DurableObject {
   async authenticate(body, action, nowMs, group, root) {
     const auth = body.auth;
     if (!auth || typeof auth !== 'object') throw fail('UNAUTHORIZED', 'NO_AUTH');
-    if (auth.kind !== AUTH_KIND) throw fail('UNAUTHORIZED', 'BAD_AUTH_KIND');
+    if (auth.kind !== Admin2fa().AUTH_KIND) throw fail('UNAUTHORIZED', 'BAD_AUTH_KIND');
     if (!strictVerify(auth)) throw fail('UNAUTHORIZED', 'STRICT_VERIFY_FAILED');
-    if (tag(auth, 'u') !== 'sos-admin-pin:v1:' + action) throw fail('UNAUTHORIZED', 'WRONG_ACTION');
+    if (tag(auth, 'u') !== Admin2fa().AUTH_U_PREFIX + action) throw fail('UNAUTHORIZED', 'WRONG_ACTION');
     if (tag(auth, 'method') !== 'POST') throw fail('UNAUTHORIZED', 'WRONG_METHOD');
     if (tag(auth, 't') !== group) throw fail('UNAUTHORIZED', 'CROSS_GROUP');
     // Distinct ids for identical requests in the same second (ids are the single-use replay key).
@@ -150,7 +149,7 @@ export class AdminPinAuthority extends DurableObject {
       else sql.exec('INSERT INTO used_auth (id, created_at) VALUES (?, ?)', String(auth.id), auth.created_at);
     });
     if (replay) throw fail('UNAUTHORIZED', 'AUTH_REPLAY');
-    return { principal, params };
+    return { principal, params, requestId: String(auth.id).toLowerCase() };
   }
 
   row(principal) {
@@ -232,7 +231,7 @@ export class AdminPinAuthority extends DurableObject {
   async handle(action, body, nowMs) {
     const { root, group } = configure(this.env);
     pepperBytes(this.env);
-    const { principal, params } = await this.authenticate(body, action, nowMs, group, root);
+    const { principal, params, requestId } = await this.authenticate(body, action, nowMs, group, root);
 
     if (action === 'params') {
       const row = await this.params(principal);
@@ -289,35 +288,36 @@ export class AdminPinAuthority extends DurableObject {
     if (ev.kind !== CONTROL_KIND) throw fail('INVALID', 'KIND_NOT_COSIGNABLE');
     if (!strictVerify(ev)) throw fail('INVALID', 'STRICT_VERIFY_FAILED');
     if (String(ev.pubkey).toLowerCase() !== principal) throw fail('UNAUTHORIZED', 'ISSUER_MISMATCH');
+    const P = Admin2fa();
+    const nowSec = Math.floor(nowMs / 1000);
+    if (Math.abs(nowSec - ev.created_at) > P.ATTESTATION_TTL_SEC) throw fail('INVALID', 'STALE_EVENT');
     const v = await this.groupCall('/validate', { event: ev });
     if (!v || !v.ok || !v.next) throw fail('INVALID', 'INVALID_TRANSITION', { reason: (v && v.code) || null });
+    if (v.next.admin2faSignerPubkey !== cosignPubkey(this.env)) throw fail('INVALID', 'SIGNER_NOT_BOUND');
+    const operations = P.classifyControlTransition(v.prev, v.next);
+    if (!operations.length || operations.some((op) => P.PRIVILEGED_OPERATIONS.indexOf(op) === -1)) {
+      throw fail('INVALID', 'OPERATION_NOT_PRIVILEGED');
+    }
     const stepUp = needsStepUp(v.prev, v.next);
     if (stepUp) {
       if (params.stepUp == null) throw fail('STEP_UP_REQUIRED', 'STEP_UP_REQUIRED');
       await this.checkPin(principal, params.stepUp, nowMs);
     }
-    const attestation = signAttestation(this.env, {
-      kind: ATTESTATION_KIND,
-      created_at: Math.floor(nowMs / 1000),
-      tags: [
-        ['d', group + ':' + ev.id],
-        ['e', ev.id],
-        ['p', principal],
-        ['t', group],
-        ['sos-cosign', 'v1'],
-      ],
-      content: JSON.stringify({
-        schema: 'sos-admin-cosign',
-        version: 1,
+    const attestation = signAttestation(
+      this.env,
+      P.buildAttestationDraft({
         groupId: group,
-        eventId: ev.id,
-        eventKind: CONTROL_KIND,
+        rootPubkey: root,
+        event: ev,
+        operations,
         controlEpoch: v.next.controlEpoch,
         principal,
         stepUp,
-      }),
-    });
-    return out('COSIGNED', { attestation, stepUp });
+        issuedAt: nowSec,
+        requestId,
+      })
+    );
+    return out('COSIGNED', { attestation, stepUp, operations });
   }
 
   /** Test-only shape check; never returns salts, verifiers or session ids. */

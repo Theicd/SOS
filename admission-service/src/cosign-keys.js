@@ -1,11 +1,11 @@
 import { finalizeEvent, getPublicKey } from 'nostr-tools';
+import { Admin2fa } from './authority.js';
 
 /**
  * Admin co-sign key (env.ADMIN_COSIGN_SK, Cloudflare secret) and PIN pepper (env.ADMIN_PIN_PEPPER, secret).
- * The co-sign key signs exactly one thing: kind 39004 attestations for control events that passed an admin PIN
- * session check. It must differ from the admission key. Neither value is ever returned or logged.
+ * The co-sign key signs exactly one thing: Admin 2FA attestations (admin-2fa-protocol.js format) for events that
+ * passed an admin PIN session check. It must differ from the admission key. Neither value is ever returned or logged.
  */
-export const ATTESTATION_KIND = 39004;
 const HEX64 = /^[0-9a-f]{64}$/i;
 let cache = { raw: null, sk: null, pk: '' };
 
@@ -37,15 +37,23 @@ export function pepperBytes(env) {
   return hexToBytes(raw);
 }
 
-/** Signs only a 39004 attestation that names one control event id. */
+/** Signs only an attestation draft that names one event id in the canonical protocol shape. */
 export function signAttestation(env, draft) {
-  if (!draft || draft.kind !== ATTESTATION_KIND) throw Object.assign(new Error('bad kind'), { code: 'SIGN_REFUSED' });
+  const P = Admin2fa();
+  if (!draft || draft.kind !== P.ATTESTATION_KIND) throw Object.assign(new Error('bad kind'), { code: 'SIGN_REFUSED' });
   const e = (draft.tags || []).filter((t) => Array.isArray(t) && t[0] === 'e');
   let body = null;
   try {
     body = JSON.parse(draft.content);
   } catch (_e) {}
-  if (e.length !== 1 || !body || body.schema !== 'sos-admin-cosign' || body.eventId !== e[0][1]) {
+  if (
+    e.length !== 1 ||
+    !body ||
+    body.schema !== P.ATTESTATION_SCHEMA ||
+    body.protocol !== P.PROTOCOL ||
+    body.eventId !== e[0][1] ||
+    Object.keys(body).sort().join(',') !== P.CONTENT_KEYS.slice().sort().join(',')
+  ) {
     throw Object.assign(new Error('bad attestation'), { code: 'SIGN_REFUSED' });
   }
   return finalizeEvent(draft, load(env).sk);
