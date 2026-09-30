@@ -1,0 +1,214 @@
+{
+  "gate": "gate4-v2-scope",
+  "CURRENT_KNOWN_FIRST_GROUP_USERS": 87,
+  "CURRENT_KNOWN_ACTIVE_LAST_30D": 62,
+  "CURRENT_VALID_MEMBERSHIP_EVENTS": 0,
+  "FULL_SCOPE": {
+    "USERS_ALLOWED": 1,
+    "USERS_DENIED": 86
+  },
+  "CONTROL_PLANE_SCOPE": {
+    "USERS_ALLOWED": 87,
+    "USERS_DENIED": 0
+  },
+  "ROOT_ALLOWED_AFTER_V2": true,
+  "results": [
+    {
+      "name": "FLAG_CONTROL_PLANE_SCOPE_PARSED",
+      "ok": true,
+      "detail": {
+        "v2": true,
+        "scope": "CONTROL_PLANE",
+        "member": false,
+        "err": null,
+        "tamper": false
+      }
+    },
+    {
+      "name": "FLAG_SCOPE_ABSENT_DEFAULTS_FULL",
+      "ok": true,
+      "detail": {
+        "v2": true,
+        "scope": "FULL",
+        "member": true,
+        "err": null,
+        "tamper": false
+      }
+    },
+    {
+      "name": "FLAG_INVALID_SCOPE_FAILS_CLOSED_V2_OFF",
+      "ok": true,
+      "detail": {
+        "v2": false,
+        "scope": "FULL",
+        "member": false,
+        "err": "INVALID_VALUE",
+        "tamper": false
+      }
+    },
+    {
+      "name": "FLAG_SCOPE_WITH_V2_OFF_STAYS_OFF",
+      "ok": true,
+      "detail": {
+        "v2": false,
+        "scope": "CONTROL_PLANE",
+        "member": false,
+        "err": null,
+        "tamper": false
+      }
+    },
+    {
+      "name": "FLAG_PRODUCTION_OVERRIDES_IGNORED",
+      "ok": true,
+      "detail": {
+        "writeIgnored": true,
+        "apiFrozen": true
+      }
+    },
+    {
+      "name": "PRODUCTION_CHAIN_VERIFIED",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "chain": [
+          "69a27d4a441dc5e9067567332c02641db11733d988228e24fc4869604db20df3",
+          "02263f81915e0b8fd34cc92d6acbd590560d426d003d850492a8e1f8257d2833"
+        ],
+        "perControlRelay": [
+          {
+            "relay": "wss://nos.lol",
+            "code": "EOSE",
+            "events": 4
+          },
+          {
+            "relay": "wss://nostr-relay.xbytez.io",
+            "code": "EOSE",
+            "events": 4
+          },
+          {
+            "relay": "wss://nostr-02.uid.ovh",
+            "code": "EOSE",
+            "events": 4
+          }
+        ]
+      }
+    },
+    {
+      "name": "KNOWN_USERS_FOUND",
+      "ok": true,
+      "detail": {
+        "users": 87,
+        "perUserRelay": [
+          {
+            "relay": "wss://nos.lol",
+            "code": "EOSE",
+            "posts": 6
+          },
+          {
+            "relay": "wss://nostr-relay.xbytez.io",
+            "code": "EOSE",
+            "posts": 456
+          },
+          {
+            "relay": "wss://nostr-02.uid.ovh",
+            "code": "EOSE",
+            "posts": 320
+          },
+          {
+            "relay": "wss://relay.snort.social",
+            "code": "EOSE",
+            "posts": 0
+          }
+        ]
+      }
+    },
+    {
+      "name": "FULL_SCOPE_WOULD_LOCK_OUT_EXISTING_USERS",
+      "ok": true,
+      "detail": {
+        "denied": 86,
+        "allowed": 0,
+        "rootOk": true,
+        "codes": {
+          "UNKNOWN_MEMBER": 430
+        }
+      }
+    },
+    {
+      "name": "CONTROL_PLANE_SCOPE_NO_EXISTING_USER_LOCKOUT",
+      "ok": true,
+      "detail": {
+        "denied": 0,
+        "allowed": 86,
+        "rootOk": true,
+        "codes": {}
+      }
+    },
+    {
+      "name": "NO_USER_GAINS_CAPABILITY_IN_EITHER_SCOPE",
+      "ok": true,
+      "detail": {
+        "FULL": {
+          "userCaps": 0,
+          "inviteCreate": 0,
+          "delegatedUse": 0,
+          "rootCaps": true
+        },
+        "CONTROL_PLANE": {
+          "userCaps": 0,
+          "inviteCreate": 0,
+          "delegatedUse": 0,
+          "rootCaps": true
+        }
+      }
+    },
+    {
+      "name": "INVITE_CREATE_AND_DELEGATED_USE_STILL_MEMBERSHIP_GATED",
+      "ok": true,
+      "detail": {
+        "userCaps": 0,
+        "inviteCreate": 0,
+        "delegatedUse": 0,
+        "rootCaps": true
+      }
+    },
+    {
+      "name": "ROOT_KEEPS_ALL_CAPABILITIES",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "GUEST_AND_UNKNOWN_PRINCIPAL_NO_CAPABILITY",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ADMISSION_SERVICE_HAS_NO_ADMIN_CAPABILITY",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "CONTROL_PLANE_BLOCKLISTED_USER_DENIED",
+      "ok": true,
+      "detail": {
+        "status": "VERIFIED",
+        "x": "BLOCKLIST_PARTIAL",
+        "y": "CONTROL_PLANE_SCOPE"
+      }
+    },
+    {
+      "name": "LEGACY_P2P_RECEIVE_UNCHANGED_IN_CONTROL_PLANE",
+      "ok": true,
+      "detail": {
+        "cp": "OK",
+        "full": "NETWORK_BINDING_MISSING"
+      }
+    },
+    {
+      "name": "MULTI_COMMUNITY_AND_P2P_SCOPE_CHECKS_PRESENT",
+      "ok": true,
+      "detail": []
+    }
+  ],
+  "GATE4_V2_SCOPE_GATE": "PASS"
+}

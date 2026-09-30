@@ -28,10 +28,16 @@
   /** C0: explicit Community networkTag for feed/content. */
   App.feedByNetworkTag = App.feedByNetworkTag instanceof Map ? App.feedByNetworkTag : new Map();
 
+  function v2CommunityScope() {
+    if (window.SOS_ACCESS_CONTROL_V2 !== true) return false;
+    const FF = App.FeatureFlags;
+    return !(FF && typeof FF.accessControlV2Scope === 'function' && FF.accessControlV2Scope() === 'CONTROL_PLANE');
+  }
+
   function resolveFeedNetworkTag(explicit) {
     if (typeof explicit === 'string' && explicit.trim()) return explicit.trim();
     const CC = App.CommunityContext || window.SosCommunityContext;
-    if (window.SOS_ACCESS_CONTROL_V2 === true && CC && typeof CC.snapshot === 'function') {
+    if (v2CommunityScope() && CC && typeof CC.snapshot === 'function') {
       const snap = CC.snapshot();
       // Inside a non-global community: scope feed to that community only.
       if (snap && snap.networkTag && snap.communityId && snap.communityId !== 'sos010') {
@@ -49,7 +55,7 @@
       return explicit.map((t) => String(t || '').trim()).filter(Boolean);
     }
     const CC = App.CommunityContext || window.SosCommunityContext;
-    if (window.SOS_ACCESS_CONTROL_V2 === true && CC && typeof CC.snapshot === 'function') {
+    if (v2CommunityScope() && CC && typeof CC.snapshot === 'function') {
       const snap = CC.snapshot();
       if (snap && snap.communityId && snap.communityId !== 'sos010' && snap.networkTag) {
         return [snap.networkTag];

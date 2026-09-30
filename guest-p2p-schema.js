@@ -262,7 +262,11 @@
       return reject(classified.reason || 'UNKNOWN_TYPE');
     }
 
-    const v2On = typeof window !== 'undefined' && window.SOS_ACCESS_CONTROL_V2 === true;
+    const FF = typeof window !== 'undefined' && window.NostrApp ? window.NostrApp.FeatureFlags : null;
+    const v2On =
+      typeof window !== 'undefined' &&
+      window.SOS_ACCESS_CONTROL_V2 === true &&
+      !(FF && typeof FF.accessControlV2Scope === 'function' && FF.accessControlV2Scope() === 'CONTROL_PLANE');
     let allowLegacy;
     if (direction !== 'receive') {
       allowLegacy = false;

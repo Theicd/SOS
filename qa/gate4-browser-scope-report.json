@@ -1,0 +1,64 @@
+{
+  "gate": "gate4-browser-scope-check",
+  "checks": {
+    "CP_V2_ON_SCOPE_CONTROL_PLANE": true,
+    "CP_CONTROL_CHAIN_VERIFIED_EPOCH_2": true,
+    "CP_NO_MULTI_COMMUNITY_BUTTON": true,
+    "CP_UNKNOWN_USER_CAN_POST_REACT_P2P": true,
+    "CP_UNKNOWN_USER_CANNOT_CREATE_INVITE": true,
+    "CP_FEED_STAYS_ISRAEL_NETWORK": true,
+    "FULL_SCOPE_WOULD_DENY_UNKNOWN_POST": true,
+    "FULL_SCOPE_SHOWS_MULTI_COMMUNITY_BUTTON": true
+  },
+  "CONTROL_PLANE": {
+    "v2": true,
+    "scope": "CONTROL_PLANE",
+    "controlStatus": "VERIFIED",
+    "controlEpoch": 2,
+    "feedSelectionButton": false,
+    "post": {
+      "ok": true,
+      "code": "CONTROL_PLANE_SCOPE"
+    },
+    "reaction": {
+      "ok": true,
+      "code": "CONTROL_PLANE_SCOPE"
+    },
+    "p2p": {
+      "ok": true,
+      "code": "CONTROL_PLANE_SCOPE"
+    },
+    "inviteCreate": {
+      "ok": false,
+      "code": "UNKNOWN_MEMBER"
+    },
+    "feedTag": "israel-network",
+    "errors": []
+  },
+  "FULL": {
+    "v2": true,
+    "scope": "FULL",
+    "controlStatus": "VERIFIED",
+    "controlEpoch": 2,
+    "feedSelectionButton": true,
+    "post": {
+      "ok": false,
+      "code": "UNKNOWN_MEMBER"
+    },
+    "reaction": {
+      "ok": false,
+      "code": "UNKNOWN_MEMBER"
+    },
+    "p2p": {
+      "ok": false,
+      "code": "UNKNOWN_MEMBER"
+    },
+    "inviteCreate": {
+      "ok": false,
+      "code": "UNKNOWN_MEMBER"
+    },
+    "feedTag": "israel-network",
+    "errors": []
+  },
+  "GATE4_BROWSER_SCOPE": "PASS"
+}

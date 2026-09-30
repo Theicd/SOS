@@ -915,7 +915,10 @@
       tags: event.tags,
       content: typeof event.content === 'string' ? event.content : '',
     };
-    const v2On = window.SOS_ACCESS_CONTROL_V2 === true;
+    const FF = App.FeatureFlags;
+    const v2On =
+      window.SOS_ACCESS_CONTROL_V2 === true &&
+      !(FF && typeof FF.accessControlV2Scope === 'function' && FF.accessControlV2Scope() === 'CONTROL_PLANE');
     const result = S.validateGuest30078(draft, {
       direction: 'receive',
       allowLegacyNoNetwork: !v2On,

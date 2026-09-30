@@ -97,6 +97,8 @@
   // otherwise the legacy ambient NETWORK_TAG would scope posts/feed with V2 OFF.
   function restoreActiveIfV2() {
     if (window.SOS_ACCESS_CONTROL_V2 !== true) return;
+    const FF = window.NostrApp && window.NostrApp.FeatureFlags;
+    if (FF && typeof FF.accessControlV2Scope === 'function' && FF.accessControlV2Scope() === 'CONTROL_PLANE') return;
     try {
       const activeId = window.localStorage.getItem(ACTIVE_STORAGE_KEY);
       if (activeId && byCommunityId.has(activeId) && (!active || active.communityId !== activeId)) {

@@ -148,3 +148,15 @@ an admin asks for the PIN twice (remove + demote cleanup).
   publishes the attestation and the event. `deactivateAdmissionService()` is the same path with `REVOKE_CAPABILITY`.
 - Gates: `qa/gate2-negatives.mjs` (offline), `qa/gate2-delegation-gate.mjs` (local relays + local service),
   `qa/gate2-production-verify.mjs pre|post` (read-only production check).
+- Control relays (service `CONTROL_RELAYS` and production readback): nos.lol, nostr-relay.xbytez.io, nostr-02.uid.ovh.
+  relay.snort.social answers OK to kinds 39001/39004 but does not retain them, so it is not a control relay.
+
+## Gate 4: V2 scope (web `2026.10.01-web-899g4`)
+
+- `runtime-feature-flags.json` `accessControlV2Scope`: `FULL` (default when absent) or `CONTROL_PLANE`; any other
+  value fails closed to V2 off. Older clients treat the key as unknown and stay V2 off.
+- `CONTROL_PLANE`: V2 governs the control chain, admin capabilities, moderation, invites and admission. Member content
+  (post, comment, reaction, group P2P, group media) is not membership-gated (blocked / removed / blocklisted users are
+  still denied), and the multi-community UI, feed scoping and legacy P2P receive stay as with V2 off. Existing network
+  users keep posting without membership events; nobody gains a capability.
+- Gates: `qa/gate4-v2-scope-gate.mjs` (flag parsing + live-chain lockout simulation), `qa/gate4-browser-scope-check.mjs`.

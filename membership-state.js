@@ -158,6 +158,14 @@
     'group_media_publish',
     'delegated_capability_use',
   ]);
+  /** Member content / group P2P actions: gated only in the FULL V2 scope. */
+  const MEMBER_CONTENT_ACTIONS = Object.freeze([
+    'post_create',
+    'comment_reply',
+    'reaction',
+    'group_p2p_signal',
+    'group_media_publish',
+  ]);
   const NON_MEMBERSHIP_GATED_ACTIONS = Object.freeze([
     'public_read_feed',
     'direct_private_chat',
@@ -197,6 +205,11 @@
 
   function isV2() {
     return window.SOS_ACCESS_CONTROL_V2 === true;
+  }
+
+  function isControlPlaneScope() {
+    const FF = window.NostrApp && window.NostrApp.FeatureFlags;
+    return !!(FF && typeof FF.accessControlV2Scope === 'function' && FF.accessControlV2Scope() === 'CONTROL_PLANE');
   }
 
   function normalizePubkey(value) {
@@ -887,6 +900,12 @@
     }
     const st = getMemberState(pk);
     if (st === STATUS.CONFLICT) return { ok: false, code: 'CONFLICT' };
+    if (MEMBER_CONTENT_ACTIONS.indexOf(action) !== -1 && isControlPlaneScope()) {
+      if (st === STATUS.BLOCKED) return { ok: false, code: 'BLOCKED' };
+      if (st === STATUS.REMOVED) return { ok: false, code: 'REMOVED' };
+      if (inBlockedPubkeys(pk, state)) return { ok: false, code: 'BLOCKLIST_PARTIAL' };
+      return { ok: true, code: 'CONTROL_PLANE_SCOPE' };
+    }
     if (action === 'invite_redeem') {
       if (st === STATUS.BLOCKED) return { ok: false, code: 'BLOCKED' };
       if (inBlockedPubkeys(pk, state)) return { ok: false, code: 'BLOCKLIST_PARTIAL' };
@@ -1325,7 +1344,9 @@
     ADMISSION_PROOF_MODEL,
     admissionConfigured,
     MEMBERSHIP_GATED_ACTIONS,
+    MEMBER_CONTENT_ACTIONS,
     NON_MEMBERSHIP_GATED_ACTIONS,
+    isControlPlaneScope,
     BLOCKED_USER_PUBLIC_READ_POLICY,
     REMOVED_USER_PUBLIC_READ_POLICY,
     isV2,

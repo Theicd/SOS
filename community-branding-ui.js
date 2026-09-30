@@ -14,7 +14,10 @@
   }
 
   function applyBranding(snap) {
-    const v2 = window.SOS_ACCESS_CONTROL_V2 === true;
+    const FF = App.FeatureFlags;
+    const v2 =
+      window.SOS_ACCESS_CONTROL_V2 === true &&
+      !(FF && typeof FF.accessControlV2Scope === 'function' && FF.accessControlV2Scope() === 'CONTROL_PLANE');
     const meta = v2 ? snap || (CC() && CC().snapshot && CC().snapshot()) || null : null;
     const isGlobal = !meta || meta.communityId === 'sos010';
     const logoRef = isGlobal ? SOS_LOGO : meta.logoRef || SOS_LOGO;

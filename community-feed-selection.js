@@ -12,7 +12,9 @@
   }
 
   function isV2() {
-    return window.SOS_ACCESS_CONTROL_V2 === true;
+    if (window.SOS_ACCESS_CONTROL_V2 !== true) return false;
+    const FF = App.FeatureFlags;
+    return !(FF && typeof FF.accessControlV2Scope === 'function' && FF.accessControlV2Scope() === 'CONTROL_PLANE');
   }
 
   function ensureStyles() {

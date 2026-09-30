@@ -1,0 +1,28 @@
+
+gate4-v2-scope-gate exit=0 14s :: PASS LEGACY_P2P_RECEIVE_UNCHANGED_IN_CONTROL_PLANE | PASS MULTI_COMMUNITY_AND_P2P_SCOPE_CHECKS_PRESENT | GATE4_V2_SCOPE_GATE=PASS (17/17)
+gate2-negatives exit=0 3s :: PASS ROOT_SELF_DELEGATION_BLOCKED_BY_TYPED_SIGNER "ROOT_TARGET_FORBIDDEN" | PASS STEP_UP_REQUIRED_FOR_DELEGATION  | GATE2_NEGATIVE_GATE=PASS (35/35)
+package896-rc-gate exit=1 119s :: PASS DOC_896_RELEASE_PLAN  | STATUS FAIL | MISSING PACKAGE896_SURGICAL_DELTA,PACKAGE896_VERSION_GATE,PACKAGE896_CACHE_GATE,SHIPPED_CONFIG_V2_OFF,FLAG_LOADS_BEFORE_V2_SYNC,V2_UI_BOOTS_ON_RESOLVED_FLAG,COMMUNITY_PRODUCT_SUITE,BROWSER_PACKAGE_896,FORCED_UI_V2_OFF_REJECTED,FLAG_ON_CREATE_GROUP_VISIBLE,BROWSER_SUITE
+admin-cosign-s1-gate exit=0 15s :: PASS GENERIC_SIGNER_EXPOSED_FALSE ["TARGET_REQUIRED","INVALID_MEMBERSHIP","INVITE_REQUIRED","TARGET_REQUIRED"] | PASS SERVICE_LOG_PRIVACY {"leaks":0,"logBytes":7625} | ADMIN_COSIGN_STAGE1_GATE=PASS (40/40)
+admin-2fa-client-gate exit=0 2s :: PASS GENERIC_SIGNER_EXPOSED_FALSE | PASS RUNTIME_FEATURE_FLAGS_JSON_UNCHANGED | ADMIN_2FA_CLIENT_GATE=PASS (71/71) NEGATIVE=34/34
+admin-2fa-phase3-gate exit=0 25s :: PASS SERVER_SIDE_PIN_RATE_LIMIT_AUTHORITATIVE | PASS SERVICE_LOG_PRIVACY {"leaks":0} | ADMIN_2FA_PHASE3_GATE=PASS (53/53)
+package899f-group-control-pin-gate exit=1 40s :: PASS USER_SEARCH {"text":"??\n?????¬?????¬ ?ק?ש???ץ??\n2d59defc?א?b9a0\n???ף?ש?ש?ƒ ?נ?ש?ƒ ???¬?ץ???ש ?ק?ס?¿?ץ?¬\n???ש?פ?ץ?£","avatar":true,"short":true} | FAIL GATE_EXCEPTION "page.waitForFunction: Timeout 20000ms exceeded.\n    at groupControlUx (C:\\BRAIN\\SOS-gate15\\qa\\package899f-group-control-pin-gate.mjs:337:14)\n    at async main (C:\\BRAIN\\SOS-gate15\\qa\\package899f-group-control-pin-gate.mjs:487:5)" | FAIL 18/19
+package898-admission-service-gate exit=0 40s :: PASS LEDGER_DURABLE_ACROSS_RESTART ["ALREADY_REDEEMED","ACCEPTED"] | PASS SERVICE_LOG_PRIVACY {"leaks":0,"logBytes":29407} | PACKAGE898_ADMISSION_SERVICE_GATE=PASS (46/46)
+package898-first-group-network-e2e exit=0 223s :: PASS RELAY_SECRET_LEAK_SCAN {"events":78,"authEvents":41,"secretHits":0,"plaintextInviteCodeHits":0,"nsecHits":0,"privFields":0} | PASS DOM_SECRET_SCAN [{"label":"USER_A","secretHits":0,"nsec":false},{"label":"USER_B","secretHits":0,"nsec":false},{"label":"USER_C","secretHits":0,"nsec":false},{"label":"USER_X","secretHits":0,"nsec":false},{"label":"USER_D","secretHits":0,"nsec":false},{"label":"USER_E","secretHits":0,"nsec":false}] | RESULT PASS passed 53 failed
+gate15-activation-gate exit=0 11s :: PASS NO_SECRETS_IN_SERVICE_LOG  | PASS NO_PAGE_ERRORS [] | GATE15_ACTIVATION=PASS (23/23)
+gate2-delegation-gate exit=0 42s :: PASS NO_SECRETS_IN_SERVICE_LOG  | PASS NO_PAGE_ERRORS [] | GATE2_DELEGATION_LOCAL=PASS (24/24)
+access-control-ac1-gate exit=0 0s :: "PASS rejects nsec input helper", |     "PASS access-control.js never calls getPublicKey", |     "PASS SOS_ACCESS_CONTROL_V2 default false"
+access-control-ac2-group-control-gate exit=0 1s :: "CONTROL_CONFLICT_FAILS_CLOSED": true, |   "DELEGATED_USER_CAN_ESCALATE_BEYOND_AUTHORITY": false, |   "ACCESS_CONTROL_V2_QA_PASS": true,
+access-control-ac2-control-convergence-gate exit=0 1s :: "DELEGATED_ADMIN_CAN_RESOLVE_CONTROL_CONFLICT": true, |   "CONTROL_CONFLICT_FAILS_CLOSED": true, |   "CONTROL_COLD_START_RECONSTRUCTION_PASS": true,
+access-control-ac3-invite-policy-gate exit=0 1s :: "UNFOLLOW_PASS": true, |   "GUEST_P2P_PASS": true, |   "GUEST_TORRENT_PASS": true,
+access-control-ac4-moderation-gate exit=0 1s :: "UNFOLLOW_PASS": true, |   "GUEST_P2P_PASS": true, |   "GUEST_TORRENT_PASS": true,
+access-control-ac5-membership-gate exit=0 1s :: "GUEST_P2P_PASS": true, |   "GUEST_TORRENT_PASS": true, |     "qa/access-control-ac5-membership-gate.mjs"
+access-control-ac5-membership-convergence-gate exit=0 1s :: "MEMBERSHIP_TAMPER_MATRIX_PASS": true, |     "qa/access-control-ac5-membership-gate.mjs", |     "qa/access-control-ac5-membership-convergence-gate.mjs"
+access-control-ac7-member-directory-gate exit=0 2s :: "GUEST_P2P_PASS": true, |   "GUEST_TORRENT_PASS": true, |     "qa/access-control-ac7-member-directory-gate.mjs"
+access-control-ac8-guest-hardening-gate exit=0 0s :: [AC8] PASS shared validator symbols |   "STATUS": "PASS", |   "FAIL_NOTES": []
+access-control-ac9-typed-admin-signer-gate exit=0 1s :: [AC9] PASS V2 default false in source | [AC9] STATUS=PASS | [AC9] report=C:\BRAIN\SOS-gate15\qa\ac9-typed-admin-signer-report.json
+access-control-ac10-adversarial-authorization-gate exit=0 2s :: [AC10] PASS V2 default false | [AC10] STATUS=PASS | [AC10] report=C:\BRAIN\SOS-gate15\qa\ac10-adversarial-authorization-report.json
+identity-key-preservation-gate exit=0 0s :: PASS M NORMALIZATION 0x/upper ?זע same P, no generate | PASS M NORMALIZATION comma-bytes ?זע same K/P, no generate | TOTAL 32 FAIL 0
+identity-logout-switch-atomicity-gate exit=0 0s :: PASS M 5E-B ensureKeys still no generation | PASS M 5E-C mismatch overwrite still blocked in lifecycle sync path | TOTAL 22 FAIL 0
+package899-web-security-closure-gate exit=0 2s :: CALL_RING_SECURITY_GATE=PASS | LEGACY_25050_READ_COMPATIBILITY_GATE=PASS | SECRET_SIGNER_INVARIANT_SOURCE_GATE=PASS
+access-control-ac6-admin-ui-gate exit=1 0s :: at loadModules (file:///C:/BRAIN/SOS-gate15/qa/access-control-ac6-admin-ui-gate.mjs:130:8) |     at file:///C:/BRAIN/SOS-gate15/qa/access-control-ac6-admin-ui-gate.mjs:204:13 |     at file:///C:/BRAIN/SOS-gate15/qa/access-control-ac6-admin-ui-gate.mjs:568:3
+ALL_DONE

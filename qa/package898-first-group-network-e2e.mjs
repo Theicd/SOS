@@ -293,7 +293,9 @@ function startServer() {
       if (p === '/') p = '/videos.html';
       if (p === '/runtime-feature-flags.json') {
         res.writeHead(200, { 'Content-Type': types['.json'], 'Cache-Control': 'no-store' });
-        res.end(JSON.stringify({ schema: 'sos-feature-flags-v1', accessControlV2: true, admin2faEnforcement: true, admin2faSignerPubkey: COSIGN.pub }));
+        const flags = { schema: 'sos-feature-flags-v1', accessControlV2: true, admin2faEnforcement: true, admin2faSignerPubkey: COSIGN.pub };
+        if (process.env.SOS_GATE_V2_SCOPE) flags.accessControlV2Scope = process.env.SOS_GATE_V2_SCOPE;
+        res.end(JSON.stringify(flags));
         return;
       }
       const fp = path.join(ROOT, p.replace(/^\//, ''));

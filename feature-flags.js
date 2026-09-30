@@ -22,7 +22,10 @@
   const READY_EVENT = 'sos-feature-flags-ready';
   const FETCH_TIMEOUT_MS = 5000;
   const MAX_CONFIG_BYTES = 2048;
-  const ALLOWED_KEYS = ['schema', 'accessControlV2', 'admin2faEnforcement', 'admin2faSignerPubkey'];
+  const ALLOWED_KEYS = ['schema', 'accessControlV2', 'accessControlV2Scope', 'admin2faEnforcement', 'admin2faSignerPubkey'];
+  // FULL: V2 also gates member content/P2P and enables the multi-community UI.
+  // CONTROL_PLANE: V2 governs admin/control/invite/admission only; member content, P2P and the single-network UI stay as V2 off.
+  const V2_SCOPES = ['FULL', 'CONTROL_PLANE'];
 
   const App = window.NostrApp || (window.NostrApp = {});
 
@@ -68,6 +71,7 @@
     // Admin 2FA: canonical config only (no local override on any host).
     admin2faEnforcement: false,
     admin2faSignerPubkey: '',
+    v2Scope: 'FULL',
   };
 
   function effective() {
@@ -100,6 +104,7 @@
       if (ALLOWED_KEYS.indexOf(keys[i]) === -1) return 'UNKNOWN_KEY';
     }
     if (typeof obj.accessControlV2 !== 'boolean') return 'INVALID_VALUE';
+    if (obj.accessControlV2Scope != null && V2_SCOPES.indexOf(obj.accessControlV2Scope) === -1) return 'INVALID_VALUE';
     if (obj.admin2faEnforcement != null && typeof obj.admin2faEnforcement !== 'boolean') return 'INVALID_VALUE';
     if (obj.admin2faSignerPubkey != null && !/^[0-9a-f]{64}$/.test(String(obj.admin2faSignerPubkey))) {
       return 'INVALID_VALUE';
@@ -120,6 +125,7 @@
       localOverrideAllowed,
       guardInstalled: state.guardInstalled,
       admin2faEnforcement: state.admin2faEnforcement,
+      accessControlV2Scope: state.v2Scope,
     };
   }
 
@@ -184,6 +190,7 @@
       if (err) return finish(false, 'default_off', err);
       state.admin2faEnforcement = obj.admin2faEnforcement === true;
       state.admin2faSignerPubkey = obj.admin2faSignerPubkey || '';
+      state.v2Scope = obj.accessControlV2Scope || 'FULL';
       return finish(obj.accessControlV2 === true, 'canonical_config', null);
     }).then(() => snapshot());
   }
@@ -201,6 +208,9 @@
     isAccessControlV2Enabled: effective,
     isAdmin2faEnforced: () => state.resolved && state.admin2faEnforcement === true,
     admin2faSignerPubkey: () => (state.resolved ? state.admin2faSignerPubkey : ''),
+    accessControlV2Scope: () => state.v2Scope,
+    /** V2 member-content / multi-community gating (true only for V2 on + FULL scope). */
+    isV2MemberScopeEnabled: () => effective() && state.v2Scope === 'FULL',
     whenReady: () => ready,
     snapshot,
     validate,
