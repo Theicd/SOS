@@ -384,6 +384,9 @@
     if (!started) {
       started = true;
       window.addEventListener('online', () => reconcile('online'));
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && isV2()) reconcile('visible');
+      });
       pollTimer = setInterval(() => {
         if (isV2()) reconcile('poll');
       }, POLL_INTERVAL_MS);

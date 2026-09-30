@@ -325,6 +325,19 @@
     };
   }
 
+  /** Privileged action: pull the current control tip + memberships from relays before deciding. */
+  async function refreshInviteAuthority() {
+    const MS = App.MembershipState || window.SosMembershipState;
+    const NA = App.FirstGroupNetworkAuthority || window.SosFirstGroupNetworkAuthority;
+    if (!MS || typeof MS.isV2 !== 'function' || !MS.isV2()) return null;
+    if (!NA || typeof NA.reconcile !== 'function') return null;
+    try {
+      return await NA.reconcile('invite-create');
+    } catch (_e) {
+      return null;
+    }
+  }
+
   async function createInvite() {
     if (!App.SosCryptoSigner?.hasIdentityKey() || App.guestMode) {
       throw new Error('רק משתמש מחובר יכול להזמין');
@@ -333,6 +346,7 @@
       throw new Error('אין חיבור לריליים');
     }
 
+    await refreshInviteAuthority();
     const MS = App.MembershipState || window.SosMembershipState;
     if (MS && typeof MS.isV2 === 'function' && MS.isV2()) {
       if (typeof MS.ensureCache === 'function') MS.ensureCache();
@@ -584,5 +598,6 @@
     revokeInvite,
     openWhatsAppInvite,
     canCreateInviteUi,
+    refreshInviteAuthority,
   });
 })(window);

@@ -1143,6 +1143,11 @@
           return;
         }
 
+        if (typeof App.refreshInviteAuthority === 'function') {
+          btnOpenInviteFriend.disabled = true;
+          await App.refreshInviteAuthority();
+          btnOpenInviteFriend.disabled = false;
+        }
         if (typeof App.canCreateInviteUi === 'function' && !App.canCreateInviteUi()) {
           alert('אין הרשאה ליצור הזמנה');
           return;

@@ -1101,6 +1101,33 @@ async function main() {
     });
     set('JOIN_OBSERVABILITY', audit.includes('MEMBER_ACTIVE') && aSeesC, { audit, bObservesVia: 'membership state (B has no member-list section)' });
 
+    // ================================================================ top-bar invite button: canonical V2 capability, refreshed on click
+    const topUi = async (page) => ev(page, async () => {
+      const App = window.NostrApp;
+      await App.refreshInviteAuthority();
+      return App.canCreateInviteUi();
+    });
+    const bTop = await topUi(ub.page);
+    const cTopNoCap = await topUi(uc.page);
+    await ev(uc.page, () => window.NostrApp.FirstGroupNetworkAuthority.stop());
+    const staleGrant = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.grantCapability(pk, 'INVITE_USERS')).code, C.pub);
+    await sleep(2500);
+    const cStale = await ev(uc.page, () => window.NostrApp.canCreateInviteUi());
+    const cTopGranted = await topUi(uc.page);
+    const staleRevoke = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.revokeCapability(pk, 'INVITE_USERS')).code, C.pub);
+    await sleep(1500);
+    const cTopRevoked = await topUi(uc.page);
+    await ev(uc.page, () => window.NostrApp.FirstGroupNetworkAuthority.start());
+    set('TOPBAR_INVITE_AUTHORIZED_MEMBER', bTop === true, { bTop });
+    set('TOPBAR_INVITE_MEMBER_WITHOUT_CAP_DENIED', cTopNoCap === false, { cTopNoCap });
+    set('TOPBAR_INVITE_LIVE_PROPAGATION', staleGrant === 'APPLIED' && cTopGranted === true && staleRevoke === 'APPLIED' && cTopRevoked === false, {
+      staleGrant,
+      cStaleBeforeRefresh: cStale,
+      cTopGranted,
+      staleRevoke,
+      cTopRevoked,
+    });
+
     // ================================================================ A promotes B to admin
     const tPromote = Date.now();
     const promote = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.promoteAdmin(pk)).code, B.pub);
