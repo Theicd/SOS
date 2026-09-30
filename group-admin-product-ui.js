@@ -117,7 +117,6 @@
   }
 
   function pinUnlocked() {
-    if (!needsAdminSession()) return true;
     const p = PIN();
     return !!(p && p.isUnlocked(actor()));
   }
@@ -134,20 +133,9 @@
     return isV2() ? 'ACTIVE_PATH' : 'CONTROL_PLANE_NOT_ACTIVE';
   }
 
-  /** Root and admin-tier principals need a server admin session; the server issues none to invite-only helpers. */
-  function needsAdminSession() {
-    const f = FGA();
-    if (!f) return true;
-    if (f.isConfiguredRoot(actor()) === true) return true;
-    const a = typeof f.myAuthority === 'function' ? f.myAuthority() : null;
-    const P = App.Admin2faProtocol;
-    if (!a || !P || typeof P.isAdminTier !== 'function') return true;
-    return a.isRoot === true || P.isAdminTier(a.caps);
-  }
-
+  /** Every panel open and action needs a server admin session; only root / admin-tier principals can see the panel. */
   function adminSession() {
     const p = PIN();
-    if (!needsAdminSession()) return Promise.resolve({ ok: true, code: 'NOT_ADMIN_TIER' });
     return p ? p.requestUnlock() : Promise.resolve({ ok: false });
   }
 

@@ -956,8 +956,12 @@ async function main() {
     info('REALTIME_GRANT_LATENCY_MS', grantLatency);
     const bView1 = await view(ub.page, B.pub);
     const bSections = await ev(ub.page, () => window.NostrApp.FirstGroupAdmin.visibleSections());
+    // Invite-only helper: no "שליטה על הקבוצה", no panel, no PIN prompt; invites through the normal invite UX.
     const bMenu = await menuVisible(ub.page);
-    await openUi(ub.page, 'invites');
+    const bOpen = await ev(ub.page, async () => {
+      const r = await window.NostrApp.GroupAdminProductUi.open('invites');
+      return { code: r.code, open: window.NostrApp.GroupAdminProductUi.isOpen(), dialog: !!document.getElementById('sosAdminPinDialog'), canSee: window.NostrApp.GroupAdminProductUi.canSeeGroupAdminMenu() };
+    });
     const bTabs = await visibleTabs(ub.page);
     await shot(ub.page, 'b-inviter-only-tabs');
     const bEsc = await ev(
@@ -984,22 +988,40 @@ async function main() {
         !bSections.roles &&
         !bSections.members &&
         !bSections.settings &&
-        bMenu &&
+        !bMenu &&
         !bTabs.includes('roles') &&
         !bTabs.includes('admins'),
-      { grant, latencyMs: grantLatency, assigned: bView1.assigned, bTabs }
+      { grant, latencyMs: grantLatency, assigned: bView1.assigned, bTabs, bMenu }
+    );
+    set(
+      'INVITE_ONLY_NO_GROUP_CONTROL',
+      !bMenu && bOpen.code === 'UNAUTHORIZED' && !bOpen.open && !bOpen.dialog && !bOpen.canSee && bTabs.length === 0,
+      { bMenu, bOpen, bTabs }
     );
     set('INVITER_CANNOT_ESCALATE', Object.values(bEsc).every((c) => c !== 'APPLIED' && c !== 'SAVED' && c !== 'REMOVED' && c !== 'OK'), bEsc);
 
-    // ================================================================ B creates an invite + QR; C scans and joins
-    await openUi(ub.page, 'invites');
-    const bInv = await act(ub.page, '#sosGroupAdminShell [data-act="create-invite"]');
-    const bUrl = await ev(ub.page, () => (document.getElementById('sosGapInviteUrl') || {}).value || '');
-    await domClick(ub.page, '#sosGroupAdminShell [data-act="show-qr"]');
-    await waitSel(ub.page, '#sosGapQrCanvas');
+    // ================================================================ B creates an invite + QR through the normal invite UX; C scans and joins
+    await ev(ub.page, () => {
+      window.open = () => null; // the WhatsApp share popup is out of scope
+      window.alert = (m) => {
+        window.__lastAlert = String(m);
+      };
+    });
+    await domClick(ub.page, '#topBarInviteFriend');
+    await ub.page.waitForFunction(() => {
+      const m = document.getElementById('sosInviteQrModal');
+      return (!!m && !m.hidden && !!m.dataset.inviteUrl) || !!window.__lastAlert;
+    }, null, { polling: 200, timeout: 60000 });
     await sleep(600);
-    const qrData = await ev(ub.page, () => document.getElementById('sosGapQrCanvas').toDataURL('image/png'));
+    const bUi = await ev(ub.page, () => {
+      const m = document.getElementById('sosInviteQrModal');
+      return { url: (m && m.dataset.inviteUrl) || '', alert: window.__lastAlert || '', panelOpen: window.NostrApp.GroupAdminProductUi.isOpen() };
+    });
+    const bInv = { ok: !!bUi.url && !bUi.alert && !bUi.panelOpen, via: 'topBarInviteFriend', alert: bUi.alert };
+    const bUrl = bUi.url;
+    const qrData = await ev(ub.page, () => document.getElementById('sosInviteQrCanvas').toDataURL('image/png'));
     await shot(ub.page, 'b-invite-qr');
+    await ev(ub.page, () => window.NostrApp.closeInviteQrModal && window.NostrApp.closeInviteQrModal());
     const qrText = decodeQrDataUrl(qrData);
     const bCode = bUrl ? new URL(bUrl).searchParams.get('invite') : '';
     createdCodes.push(bCode);

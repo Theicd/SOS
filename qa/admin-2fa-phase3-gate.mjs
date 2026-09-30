@@ -42,8 +42,9 @@ const W = mkKey(); // forger
 const A2 = mkKey(); // delegated admin
 const B = mkKey(); // member
 const X = mkKey(); // outsider
+const I = mkKey(); // invite-only helper
 const PEPPER = crypto.randomBytes(32).toString('hex');
-const SECRETS = [R.hex, S.hex, C.hex, W.hex, A2.hex, B.hex, X.hex, PEPPER];
+const SECRETS = [R.hex, S.hex, C.hex, W.hex, A2.hex, B.hex, X.hex, I.hex, PEPPER];
 const SENSITIVE = [];
 
 const checks = [];
@@ -327,6 +328,7 @@ async function makeClient(identity, opts) {
     MP: App.ModerationPolicy,
     MS: App.MembershipState,
     F: App.FirstGroupAdmin,
+    App,
   };
 }
 
@@ -467,6 +469,52 @@ async function main() {
   const admitB = await r.MAO.grantMemberActiveFromInvite(B.pub, crypto.randomBytes(32).toString('hex'), R.pub);
   const admitA2 = await r.MAO.grantMemberActiveFromInvite(A2.pub, crypto.randomBytes(32).toString('hex'), R.pub);
   check('CONTROL_AND_MEMBERSHIP_ATTESTED', grantA2.ok && grantA2b.ok && grantB.ok && revokeB.ok && admitB.ok && admitA2.ok, [grantA2.code, grantA2b.code, grantB.code, revokeB.code, admitB.code, admitA2.code]);
+
+  // invite-only helper (INVITE_USERS only, ACTIVE member): no group control, no PIN bypass, invite capability kept
+  const grantI = await r.M.applyControlMutation({ type: 'GRANT_CAPABILITY', targetPubkey: I.pub, capability: 'INVITE_USERS' }, R.pub);
+  const admitI = await r.MAO.grantMemberActiveFromInvite(I.pub, crypto.randomBytes(32).toString('hex'), R.pub);
+  const rootMenu = r.F.canSeeAdminMenu();
+  const pubBeforeI = r.pubLog.length;
+  let inviteOnly = {};
+  r.App.publicKey = I.pub;
+  try {
+    const a = r.F.myAuthority();
+    inviteOnly = {
+      caps: a.caps.slice(),
+      member: a.membership,
+      menu: r.F.canSeeAdminMenu(),
+      sections: r.F.visibleSections(),
+      canInvite: r.IP.canCreateInvite(I.pub, r.G.getVerifiedControlState(GROUP)),
+      grant: (await r.F.grantCapability(X.pub, 'MODERATE_CONTENT')).code,
+      meta: (await r.F.updateMetadata({ description: 'invite-only' })).code,
+      remove: (await r.F.removeMember(B.pub)).code,
+    };
+  } finally {
+    r.App.publicKey = R.pub;
+  }
+  const uiSrc0 = read('group-admin-product-ui.js');
+  check(
+    'INVITE_ONLY_USER_GROUP_CONTROL_MENU_VISIBLE_FALSE',
+    grantI.ok && admitI.ok && rootMenu === true && inviteOnly.caps.join() === 'INVITE_USERS' && inviteOnly.member === 'ACTIVE' && inviteOnly.menu === false,
+    { grantI: grantI.code, admitI: admitI.code, rootMenu, caps: inviteOnly.caps, member: inviteOnly.member, menu: inviteOnly.menu }
+  );
+  check(
+    'INVITE_ONLY_USER_GROUP_CONTROL_PANEL_ACCESS_FALSE',
+    inviteOnly.menu === false &&
+      /return f\.canSeeAdminMenu\(\) \|\| needsBootstrap\(\);/.test(uiSrc0) &&
+      /if \(!canSeeGroupControl\(\)\) return \{ ok: false, code: 'UNAUTHORIZED' \};/.test(uiSrc0) &&
+      !inviteOnly.sections.admins && !inviteOnly.sections.roles && !inviteOnly.sections.members && !inviteOnly.sections.settings
+  );
+  check(
+    'INVITE_ONLY_USER_ADMIN_PIN_BYPASS_FALSE',
+    ['grant', 'meta', 'remove'].every((k) => !/APPLIED|SAVED|REMOVED/.test(String(inviteOnly[k]))) && r.pubLog.length === pubBeforeI && !/needsAdminSession|NOT_ADMIN_TIER/.test(uiSrc0),
+    { grant: inviteOnly.grant, meta: inviteOnly.meta, remove: inviteOnly.remove }
+  );
+  check(
+    'INVITE_ONLY_USER_INVITE_CAPABILITY_PRESERVED',
+    !!inviteOnly.canInvite && inviteOnly.canInvite.ok === true && inviteOnly.sections.invites === true && /id="topBarInviteFriend"/.test(read('videos.html')),
+    { canInvite: inviteOnly.canInvite && inviteOnly.canInvite.code, invitesSection: inviteOnly.sections.invites }
+  );
 
   // sensitive re-auth: DEMOTE_ADMIN (admin loses every admin-tier cap) needs a fresh PIN even inside the session;
   // revoking one cap while admin-tier caps remain is an ordinary REVOKE_CAPABILITY
@@ -681,7 +729,9 @@ async function main() {
     'GROUP_CONTROL_REQUIRES_SERVER_ADMIN_SESSION',
     /const u = await adminSession\(\)/.test(uiSrc) &&
       /const unlocked = await adminSession\(\)/.test(uiSrc) &&
-      /f\.isConfiguredRoot\(actor\(\)\) === true\) return true;[\s\S]{0,300}return a\.isRoot === true \|\| P\.isAdminTier\(a\.caps\)/.test(uiSrc) &&
+      /function adminSession\(\) \{\s*const p = PIN\(\);\s*return p \? p\.requestUnlock\(\) : Promise\.resolve\(\{ ok: false \}\);/.test(uiSrc) &&
+      !/needsAdminSession|NOT_ADMIN_TIER/.test(uiSrc) &&
+      /return a\.verified && \(a\.isRoot \|\| isGroupAdminTier\(a\.caps\)\)/.test(fgaSrc) &&
       /p\.isUnlocked\(me\) !== true\) return fail\('ADMIN_PIN_REQUIRED'\)/.test(fgaSrc) &&
       /isUnlocked\(pubkey\) \{\s*const c = C\(\);\s*return !!c && c\.isActive\(pubkey\)/.test(read('admin-pin-lock.js')) &&
       /'שליטה על הקבוצה'/.test(uiSrc) &&

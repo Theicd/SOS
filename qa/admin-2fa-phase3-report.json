@@ -1,9 +1,9 @@
 {
   "gate": "ADMIN_2FA_PHASE3_GATE",
   "mode": "local-workerd + VM browser modules",
-  "generatedAt": "2026-09-30T09:55:49.767Z",
+  "generatedAt": "2026-09-30T10:28:04.776Z",
   "status": "ADMIN_2FA_PHASE3_PASS",
-  "tests": "48/48",
+  "tests": "52/52",
   "matrix": [
     {
       "case": "First server enrollment",
@@ -63,7 +63,7 @@
       "case": "Valid event + attestation",
       "expected": "ACCEPT",
       "result": "PASS",
-      "code": 12
+      "code": 13
     },
     {
       "case": "ROOT event without attestation",
@@ -134,6 +134,10 @@
     "GATE15_ADMIN_2FA_FLOW_READY": "PASS",
     "BOOTSTRAP_WITH_ADMIN_2FA": "PASS",
     "CONTROL_AND_MEMBERSHIP_ATTESTED": "PASS",
+    "INVITE_ONLY_USER_GROUP_CONTROL_MENU_VISIBLE_FALSE": "PASS",
+    "INVITE_ONLY_USER_GROUP_CONTROL_PANEL_ACCESS_FALSE": "PASS",
+    "INVITE_ONLY_USER_ADMIN_PIN_BYPASS_FALSE": "PASS",
+    "INVITE_ONLY_USER_INVITE_CAPABILITY_PRESERVED": "PASS",
     "DEMOTE_ADMIN_REQUIRES_FRESH_PIN": "PASS",
     "REMOVE_ADMIN_REQUIRES_FRESH_PIN": "PASS",
     "OWN_INVITE_REVOKE_NOT_ATTESTED": "PASS",
@@ -256,6 +260,34 @@
       ]
     },
     {
+      "name": "INVITE_ONLY_USER_GROUP_CONTROL_MENU_VISIBLE_FALSE",
+      "detail": {
+        "grantI": "APPLIED",
+        "admitI": "APPLIED",
+        "rootMenu": true,
+        "caps": [
+          "INVITE_USERS"
+        ],
+        "member": "ACTIVE",
+        "menu": false
+      }
+    },
+    {
+      "name": "INVITE_ONLY_USER_ADMIN_PIN_BYPASS_FALSE",
+      "detail": {
+        "grant": "UNAUTHORIZED",
+        "meta": "UNAUTHORIZED",
+        "remove": "UNAUTHORIZED"
+      }
+    },
+    {
+      "name": "INVITE_ONLY_USER_INVITE_CAPABILITY_PRESERVED",
+      "detail": {
+        "canInvite": "AUTHORIZED",
+        "invitesSection": true
+      }
+    },
+    {
       "name": "DEMOTE_ADMIN_REQUIRES_FRESH_PIN",
       "detail": [
         "ADMIN_STEP_UP_CANCELLED",
@@ -318,12 +350,12 @@
       "name": "PUBLISH_ONLY_AFTER_VERIFIED_ATTESTATION",
       "detail": {
         "violations": 0,
-        "published": 28
+        "published": 32
       }
     },
     {
       "name": "MATRIX_VALID_EVENT_ATTESTATION",
-      "detail": 12
+      "detail": 13
     },
     {
       "name": "MATRIX_ROOT_EVENT_WITHOUT_ATTESTATION",

@@ -262,7 +262,13 @@
     if (!contextCheck().ok) return false;
     if (!networkSynced()) return false;
     const a = myAuthority();
-    return a.verified && (a.isRoot || a.caps.length > 0);
+    return a.verified && (a.isRoot || isGroupAdminTier(a.caps));
+  }
+
+  /** Canonical admin-tier set (same list the Admin 2FA server uses). Invite-only helpers are not admins. */
+  function isGroupAdminTier(caps) {
+    const P = App.Admin2faProtocol;
+    return !!P && typeof P.isAdminTier === 'function' && P.isAdminTier(caps) === true;
   }
 
   function isConfiguredRoot(pk) {

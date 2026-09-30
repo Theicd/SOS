@@ -2,7 +2,7 @@
   "gate": "PACKAGE899F_GROUP_CONTROL_PIN",
   "ACCESS_CONTROL_V2": "OFF (served unchanged)",
   "status": "PASS",
-  "ts": "2026-09-30T09:37:19.668Z",
+  "ts": "2026-09-30T10:33:11.735Z",
   "results": {
     "ENV_V2_OFF_TEST_ROOT": {
       "ok": true,
@@ -288,7 +288,7 @@
       "ok": true,
       "detail": {
         "before": true,
-        "pub": "e8a3dd896d819e4dbd6dbd2d9c55a827b3aaffaa9260ebc6e4edce8b3fb582c7",
+        "pub": "e2f6891a91d40f7c6d8a66f5d1c350c299aaf2e414bc1f0b6bd4d6dfe08a3880",
         "unlocked": false,
         "open": false,
         "menu": false,
@@ -311,7 +311,7 @@
     "RESTART_CLEARS_UNLOCK": {
       "ok": true,
       "detail": {
-        "pub": "93ccbdc98ef4009014e49b7466f47261a699c635e115777dbebfd548336494cb",
+        "pub": "02ededdd099c88d1cb1b699ed79959c587fbdf0b980efe6bc128a741541b2fa0",
         "unlocked": false,
         "hasPin": true,
         "menu": true
@@ -320,8 +320,8 @@
     "PIN_NOT_IN_CONSOLE_OR_NETWORK": {
       "ok": true,
       "detail": {
-        "requests": 2756,
-        "consoleLines": 3651,
+        "requests": 2539,
+        "consoleLines": 3306,
         "serviceLogClean": true
       }
     },
