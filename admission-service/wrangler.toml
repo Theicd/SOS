@@ -77,7 +77,7 @@ ALLOWED_ORIGINS = "https://sos010.com"
 TEST_FAULTS = "0"
 # Same signer the genesis binds; the control chain is accepted only with its attestations.
 ADMIN_2FA_SIGNER_PUBKEY = "74c4bb0fb6b87b69cc2a95a80b4b5fa616cde3f917ef1894594606d30062edfa"
-CONTROL_RELAYS = "wss://relay.snort.social,wss://nos.lol,wss://nostr-relay.xbytez.io,wss://nostr-02.uid.ovh"
+CONTROL_RELAYS = "wss://nos.lol,wss://nostr-relay.xbytez.io,wss://nostr-02.uid.ovh"
 
 [env.production.triggers]
 crons = ["*/10 * * * *"]

@@ -7,19 +7,6 @@
   },
   "perRelay": [
     {
-      "relay": "wss://relay.snort.social",
-      "eose": true,
-      "code": "EOSE",
-      "control39001": 0,
-      "attestations39004": 0,
-      "membership39003": 0,
-      "delegation": "NOT_FOUND",
-      "delegationEventId": null,
-      "delegationAttestation": "NOT_FOUND",
-      "tipEventId": null,
-      "verification": "FAIL"
-    },
-    {
       "relay": "wss://nos.lol",
       "eose": true,
       "code": "EOSE",
@@ -99,9 +86,9 @@
       "FINALIZE_MEMBERSHIP_ADMISSION"
     ],
     "lastRelayRefresh": {
-      "at": 1790801707,
-      "relaysOk": 4,
-      "relaysTotal": 4
+      "at": 1790803081,
+      "relaysOk": 3,
+      "relaysTotal": 3
     }
   },
   "negative": [

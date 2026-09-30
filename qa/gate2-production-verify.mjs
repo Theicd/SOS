@@ -18,7 +18,7 @@ const SIGNER = '74c4bb0fb6b87b69cc2a95a80b4b5fa616cde3f917ef1894594606d30062edfa
 const SERVICE = '752f47fa926d1833a451bdc97f3f2967ae4bc6452d0356bc7919c6928e4611ef';
 const SERVICE_URL = 'https://sos-first-group-admission.dror201031-b16.workers.dev';
 const ADM = 'FINALIZE_MEMBERSHIP_ADMISSION';
-const PROD_RELAYS = ['wss://relay.snort.social', 'wss://nos.lol', 'wss://nostr-relay.xbytez.io', 'wss://nostr-02.uid.ovh'];
+const PROD_RELAYS = ['wss://nos.lol', 'wss://nostr-relay.xbytez.io', 'wss://nostr-02.uid.ovh'];
 const mode = process.argv[2] === 'post' ? 'post' : 'pre';
 
 const flags = await (await fetch('https://sos010.com/runtime-feature-flags.json?ts=' + Date.now())).json();

@@ -14,7 +14,7 @@ const NT = require('nostr-tools');
 const GROUP = 'israel-network';
 const ROOT = 'ede1e7fabb758aca75ae548680a206a234c6d6b257834b111d284c3692e67601';
 const SIGNER = '74c4bb0fb6b87b69cc2a95a80b4b5fa616cde3f917ef1894594606d30062edfa';
-const PROD_RELAYS = ['wss://relay.snort.social', 'wss://nos.lol', 'wss://nostr-relay.xbytez.io', 'wss://nostr-02.uid.ovh'];
+const PROD_RELAYS = ['wss://nos.lol', 'wss://nostr-relay.xbytez.io', 'wss://nostr-02.uid.ovh'];
 const mode = process.argv[2] || '';
 
 const flags =
