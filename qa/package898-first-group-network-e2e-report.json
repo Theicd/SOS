@@ -7,7 +7,7 @@
     "ws://127.0.0.1:7792"
   ],
   "status": "PASS",
-  "ts": "2026-09-30T10:29:40.699Z",
+  "ts": "2026-09-30T10:51:34.294Z",
   "results": {
     "CONFIG_TEST_TRANSFORMS_APPLIED": {
       "ok": true,
@@ -99,7 +99,7 @@
     "CONTROL_RECEIVED_FROM_NETWORK": {
       "ok": true,
       "detail": {
-        "bMs": 9,
+        "bMs": 10,
         "cMs": 6
       }
     },
@@ -110,9 +110,9 @@
         "redB": {
           "ok": true,
           "stage": "mark",
-          "inviteEventId": "d5aa439295a754541e2899d146f41a3c2c119d26a1fdcfb6288cf4fe769f1583",
-          "inviter": "6c8f7b366a416064fd2f0c1617bcb53d83d5d8b03fc1c992d642532483d4a5c8",
-          "usedId": "fb29af5cd156c6a5318e84166d38d2c1956d7f3e2d4bb566fac2003e0ead4520"
+          "inviteEventId": "81494de2e43d2ed26750112ca78ba8bcaf68302cd353e8966d1d2a959a61775a",
+          "inviter": "4b04119898d0ba9c6c7b0fcf5c06ab01d68e0c4aab8b647f142df355b6556228",
+          "usedId": "7fe978d3c1989047d674d961efe7a078417bf594ff42123ff0984fb1986b4491"
         },
         "bOnB": {
           "ok": true,
@@ -253,11 +253,11 @@
         "redC": {
           "ok": true,
           "stage": "mark",
-          "inviteEventId": "668fb3173d08c22db4380a84840e4c0074e5967588686a1339adb984e145743a",
-          "inviter": "4d538bc620e6cb2f5ab2c8e7e4e56199d185aac229ed10101cec61dc7f914773",
-          "usedId": "140b707a4786ab5bfd21316499c86042cddc86f4abbddc7f5a689f66f7151b73"
+          "inviteEventId": "4d7848b5db62d7af100a3b2cc5b4483f6ce14fc77a6e85e35bcdd7a3d6d609c8",
+          "inviter": "8570c54e868f04599efaeffb9bca92cf3c7a6bbde81468ebc0fa0c96d6da5bac",
+          "usedId": "9bc2ebd437580da25c42b0cefd362790867c2bf706ec257a7046ff0f124c8718"
         },
-        "cOnC": 38,
+        "cOnC": 49,
         "cOnA": true,
         "cOnB": true,
         "aSeesC": true,
@@ -278,7 +278,7 @@
       "ok": true,
       "detail": {
         "promote": "SAVED",
-        "ms": 347,
+        "ms": 326,
         "caps": [
           "INVITE_USERS",
           "MANAGE_MEMBERS"
@@ -327,7 +327,7 @@
       "ok": true,
       "detail": {
         "revoke": "APPLIED",
-        "ms": 357,
+        "ms": 336,
         "remaining": [
           "INVITE_USERS"
         ],
@@ -369,7 +369,7 @@
     "OFFLINE_RECONNECT": {
       "ok": true,
       "detail": {
-        "tab1": 1433,
+        "tab1": 1417,
         "tab2": 15
       }
     },
@@ -397,8 +397,8 @@
       "ok": true,
       "detail": {
         "removeC": "REMOVED",
-        "ms": 444,
-        "onB": 5,
+        "ms": 463,
+        "onB": 14,
         "cOps": {
           "menu": false,
           "invite": "UNAUTHORIZED",
@@ -615,7 +615,7 @@
       "ok": true,
       "detail": {
         "oneRelayGrant": "APPLIED",
-        "ms": 2155,
+        "ms": 2101,
         "bOneStatus": {
           "ok": true,
           "relaysOk": 1
@@ -647,7 +647,7 @@
           "code": "NETWORK_AUTHORITY_UNVERIFIED",
           "detail": "RELAY_UNAVAILABLE"
         },
-        "silentMs": 12347,
+        "silentMs": 12343,
         "backOp": "APPLIED"
       }
     },
@@ -678,11 +678,11 @@
           "security": true
         },
         "aDir": [
-          "02d0b5c1:REMOVED:MEMBER",
-          "4d538bc6:ACTIVE:MODERATOR",
-          "6e2b895e:ACTIVE:MEMBER",
-          "7e877d1f:ACTIVE:MEMBER",
-          "6c8f7b36:ACTIVE:ROOT"
+          "17ba116f:ACTIVE:MEMBER",
+          "690d5d98:REMOVED:MEMBER",
+          "8570c54e:ACTIVE:MODERATOR",
+          "8c28ed08:ACTIVE:MEMBER",
+          "4b041198:ACTIVE:ROOT"
         ],
         "mobileOverflow": false
       }
@@ -690,7 +690,7 @@
     "ACCOUNT_SWITCH": {
       "ok": true,
       "detail": {
-        "pub": "02d0b5c10114d0ec6b19b1e1b1aa870eb654a2ac4d579c7a6b29af1e79e25c4c",
+        "pub": "690d5d98eaed1622fdbb6e65ae704645500a93c95d8d3e43175acc1a35c8b951",
         "menu": false,
         "open": false,
         "invitesAfter": 0,
@@ -706,7 +706,7 @@
         "conflictOp": {
           "code": "TEMPORARILY_UNAVAILABLE",
           "control": "VERIFIED",
-          "eventId": "dbdb28db4e0d768ce0e6f346cfc44b9d31e4d70530b941b59b50508b92e674ae"
+          "eventId": "48695b5a9f76cd457dc55695cce2ab012f8db693e3abc83c11c9e54a09063b7d"
         },
         "conflictMenu": true,
         "outcome": "UNATTESTED_FORKS_REJECTED"
@@ -779,25 +779,25 @@
         ],
         "delegates": [
           {
-            "pubkey": "0ae608adfd65524e5e50416834a23e882136c861111804172f3b98a41f447213",
+            "pubkey": "d2177f2305f29baf5b04024fd7ef06e748e68a9381cb33ae92a74e3dcc12a437",
             "status": "ACTIVE"
           }
         ]
       },
       "delegateByNonRoot": "UNAUTHORIZED"
     },
-    "JOIN_APPROVAL_LATENCY_MS_B": 274,
+    "JOIN_APPROVAL_LATENCY_MS_B": 262,
     "REALTIME_GRANT_LATENCY_MS": 506,
-    "JOIN_APPROVAL_LATENCY_MS_C": 38,
-    "REALTIME_PROMOTE_LATENCY_MS": 705,
+    "JOIN_APPROVAL_LATENCY_MS_C": 49,
+    "REALTIME_PROMOTE_LATENCY_MS": 681,
     "B_ADMIN_PIN_ENROLL": "PIN_SET",
-    "REALTIME_REVOKE_LATENCY_MS": 1240,
+    "REALTIME_REVOKE_LATENCY_MS": 1204,
     "REPROMOTE_BEFORE_DEMOTE": {
       "repromote": "SAVED",
       "ok": true
     },
-    "RECONNECT_CONVERGENCE_MS": 1458,
-    "REALTIME_REMOVE_LATENCY_MS": 890,
+    "RECONNECT_CONVERGENCE_MS": 1439,
+    "REALTIME_REMOVE_LATENCY_MS": 914,
     "GRANT_PM_FOR_FORK": "APPLIED",
     "FORK_EVENTS": {
       "a": true,
@@ -823,7 +823,7 @@
   "ADMISSION_SERVICE": {
     "mode": "local-workerd",
     "url": "http://127.0.0.1:8799",
-    "servicePubkey": "0ae608adfd65524e5e50416834a23e882136c861111804172f3b98a41f447213"
+    "servicePubkey": "d2177f2305f29baf5b04024fd7ef06e748e68a9381cb33ae92a74e3dcc12a437"
   },
   "FIRST_GROUP_ID": "israel-network",
   "ADMISSION_DELEGATION_OK": true,
@@ -943,16 +943,16 @@
   "NSEC_EXPOSED": false,
   "relayStats": {
     "r1": {
-      "received": 123,
+      "received": 126,
       "rejectedInvalid": 0,
-      "replaced": 6,
-      "duplicates": 43
+      "replaced": 9,
+      "duplicates": 44
     },
     "r2": {
-      "received": 116,
+      "received": 119,
       "rejectedInvalid": 0,
-      "replaced": 6,
-      "duplicates": 39
+      "replaced": 8,
+      "duplicates": 40
     },
     "r1Events": 73,
     "r2Events": 71
@@ -960,7 +960,7 @@
   "pageErrorsCount": 0,
   "ADMIN_2FA": {
     "enforced": true,
-    "signer": "9f990becb3778a4b779e3e694ffb7e458b390a4b34ac4c253412d89cb3bb7cbe",
+    "signer": "c7e3be6f6862dd1982531e11f66c9e51a92725a95454ef1fabdb8d5dedc63fe4",
     "stepUpDialogsAnswered": 5
   },
   "passed": 52,

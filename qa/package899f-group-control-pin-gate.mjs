@@ -82,7 +82,7 @@ function startServer() {
         return;
       }
       if (p === '/config.js') {
-        const src = fs.readFileSync(fp, 'utf8').replace(PROD_ROOT, ROOT_PUB).replace("App.FIRST_GROUP_ADMISSION_URL = '';", () => `App.FIRST_GROUP_ADMISSION_URL = '${ADM_URL}';`);
+        const src = fs.readFileSync(fp, 'utf8').replace(PROD_ROOT, ROOT_PUB).replace(/App\.FIRST_GROUP_ADMISSION_URL = '[^']*';/, () => `App.FIRST_GROUP_ADMISSION_URL = '${ADM_URL}';`);
         res.writeHead(200, { 'Content-Type': types['.js'], 'Cache-Control': 'no-store' });
         res.end(src);
         return;

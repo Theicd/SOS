@@ -1,9 +1,9 @@
 {
   "gate": "ADMIN_2FA_PHASE3_GATE",
   "mode": "local-workerd + VM browser modules",
-  "generatedAt": "2026-09-30T10:28:04.776Z",
+  "generatedAt": "2026-09-30T10:41:32.110Z",
   "status": "ADMIN_2FA_PHASE3_PASS",
-  "tests": "52/52",
+  "tests": "53/53",
   "matrix": [
     {
       "case": "First server enrollment",
@@ -122,6 +122,7 @@
     "FIRST_TIME_SERVER_ENROLLMENT_GATE": "PASS",
     "MATRIX_FIRST_SERVER_ENROLLMENT": "PASS",
     "SECOND_ENROLLMENT_REJECTED": "PASS",
+    "HEALTH_ROOT_PIN_CONFIGURED_BOOLEAN_ONLY": "PASS",
     "MATRIX_SECOND_ENROLLMENT": "PASS",
     "NO_PIN_OR_SESSION_IN_BROWSER_STORAGE": "PASS",
     "LOCAL_PIN_VERIFIER_MIGRATED_AS_SECRET_FALSE": "PASS",
@@ -206,6 +207,14 @@
         "PIN_ALREADY_SET",
         "ALREADY_ENROLLED"
       ]
+    },
+    {
+      "name": "HEALTH_ROOT_PIN_CONFIGURED_BOOLEAN_ONLY",
+      "detail": {
+        "before": false,
+        "after": true,
+        "statusRoute": 404
+      }
     },
     {
       "name": "MATRIX_SECOND_ENROLLMENT",

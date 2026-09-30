@@ -104,6 +104,7 @@ export default {
         delegationActive: false,
         cosignPubkey: null,
         adminPinService: false,
+        rootPinConfigured: false,
       };
       try {
         health.cosignPubkey = cosignPubkey(env);
@@ -120,6 +121,14 @@ export default {
         health.delegationActive = !!(snap.delegate && snap.delegate.active);
       } catch (_e) {
         health.result = 'DEGRADED';
+      }
+      if (health.adminPinService) {
+        try {
+          const pin = env.ADMIN_PIN.get(env.ADMIN_PIN.idFromName('admin-pin:' + env.FIRST_GROUP_ID));
+          health.rootPinConfigured = (await (await pin.fetch('https://admin-pin/status')).json()).rootPinConfigured === true;
+        } catch (_e) {
+          health.result = 'DEGRADED';
+        }
       }
       return reply(request, env, health);
     }

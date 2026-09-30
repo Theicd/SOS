@@ -112,3 +112,13 @@ Gates: `qa/admin-2fa-phase3-gate.mjs` 48/48, `qa/admin-cosign-s1-gate.mjs` 40/40
 Known limits: the attestation store is memory-only (cached control needs its attestations from relays); the ROOT
 self-membership record at bootstrap is rejected by membership rules (`SELF_GRANT`) and is not co-signed; removing
 an admin asks for the PIN twice (remove + demote cleanup).
+
+## Phase 4: production rollout
+
+- `config.js` `FIRST_GROUP_ADMISSION_URL` points at the production Worker. With `ACCESS_CONTROL_V2` off this only
+  enables the Admin 2FA calls (invite admission and control push still need V2 / a verified control state).
+- `/v1/health` reports `rootPinConfigured` (boolean only, from the `AdminPinAuthority` internal `status` action; no
+  public route). Used to verify owner enrollment without any PIN material.
+- Rollout order: server (co-sign + pepper secrets, `ADMISSION_SK` untouched), web with `admin2faEnforcement` off,
+  owner enrolls the PIN in the UI, verify `rootPinConfigured=true`, then enable enforcement. Gate 1.5 stays frozen.
+- Web package `2026.09.30-web-899p4` (`?pkg=899p4` on every script changed since 899g).

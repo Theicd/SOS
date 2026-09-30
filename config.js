@@ -352,7 +352,7 @@
   App.ENCRYPTED_CHANNEL_KIND = 4;
   App.COMMUNITY_CONTEXT = 'yalacommunity';
   // Package 898: first-group admission service (Cloudflare Worker). Empty = not configured; V2 redemption fails closed.
-  App.FIRST_GROUP_ADMISSION_URL = '';
+  App.FIRST_GROUP_ADMISSION_URL = 'https://sos-first-group-admission.dror201031-b16.workers.dev';
 
   // AC1: adminSourceKeys are PUBLIC keys only. Never treat 64-hex as private K.
   const adminSourceKeys = ['ede1e7fabb758aca75ae548680a206a234c6d6b257834b111d284c3692e67601'];

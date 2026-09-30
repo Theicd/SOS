@@ -393,6 +393,14 @@ async function main() {
   const secondRaw = await rawPin(R, 'enroll', { salt: p.salt, derived: derivedWrong });
   const secondOk = second.code === 'PIN_ALREADY_SET' && secondRaw.code === 'ALREADY_ENROLLED';
   check('SECOND_ENROLLMENT_REJECTED', secondOk, [second.code, secondRaw.code]);
+  const healthAfter = await (await fetch(BASE + '/v1/health')).json();
+  const statusRoute = await fetch(BASE + '/v1/admin-pin/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ groupId: GROUP }) });
+  check(
+    'HEALTH_ROOT_PIN_CONFIGURED_BOOLEAN_ONLY',
+    health.rootPinConfigured === false && healthAfter.rootPinConfigured === true && statusRoute.status === 404 &&
+      !/salt|verifier|session/i.test(JSON.stringify(healthAfter)),
+    { before: health.rootPinConfigured, after: healthAfter.rootPinConfigured, statusRoute: statusRoute.status }
+  );
   row('Second enrollment', 'DENY', secondOk, secondRaw.code);
   const storageValues = Array.from(r.mem.values()).join('|');
   check(
@@ -750,7 +758,7 @@ async function main() {
       prodFlags.admin2faEnforcement !== true &&
       prodFlags.accessControlV2 !== true &&
       /const BUILD_ENFORCEMENT = false;/.test(read('admin-2fa-protocol.js')) &&
-      /App\.FIRST_GROUP_ADMISSION_URL = '';/.test(read('config.js')) &&
+      /App\.FIRST_GROUP_ADMISSION_URL = '(?:|https:\/\/sos-first-group-admission\.dror201031-b16\.workers\.dev)';/.test(read('config.js')) &&
       !/location\.search|URLSearchParams|localStorage|sessionStorage/.test(clientSrc)
   );
 

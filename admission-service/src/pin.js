@@ -419,11 +419,19 @@ export class AdminPinAuthority extends DurableObject {
     });
   }
 
+  /** Public health fact: whether the canonical root has an enrolled PIN. Nothing else about the row. */
+  publicStatus() {
+    const root = String(this.env.ROOT_PUBKEY || '').toLowerCase();
+    const row = this.ctx.storage.sql.exec('SELECT verifier FROM admin_pin WHERE principal = ?', root).toArray()[0];
+    return out('OK', { rootPinConfigured: !!(row && row.verifier) });
+  }
+
   async fetch(request) {
     try {
       const url = new URL(request.url);
       const action = url.pathname.replace(/^\//, '');
       if (action === 'inspect' && this.env.TEST_FAULTS === '1') return Response.json(this.inspect());
+      if (action === 'status') return Response.json(this.publicStatus());
       if (!ACTIONS.has(action)) return Response.json(out('INVALID', { code: 'NOT_FOUND' }), { status: 404 });
       const body = await request.json();
       return Response.json(await this.handle(action, body, this.now(request)));

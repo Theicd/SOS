@@ -254,7 +254,7 @@ let ROOT_PUB = '';
 const CONFIG_TRANSFORMS = { root: false, relays: false, p2p: false, sanitizer: false, admission: false };
 function transformConfig(src) {
   let out = src;
-  out = out.replace("App.FIRST_GROUP_ADMISSION_URL = '';", () => {
+  out = out.replace(/App\.FIRST_GROUP_ADMISSION_URL = '[^']*';/, () => {
     CONFIG_TRANSFORMS.admission = true;
     return `App.FIRST_GROUP_ADMISSION_URL = '${ADM_URL}';`;
   });

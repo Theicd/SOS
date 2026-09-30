@@ -1,7 +1,7 @@
 {
   "gate": "ADMIN_COSIGN_STAGE1_GATE",
   "mode": "local-workerd",
-  "generatedAt": "2026-09-30T09:31:13.337Z",
+  "generatedAt": "2026-09-30T10:43:11.498Z",
   "status": "PASS",
   "results": {
     "HEALTH_EXPOSES_COSIGN_PUBKEY_ONLY": "PASS",
@@ -345,7 +345,7 @@
       "ok": true,
       "detail": {
         "leaks": 0,
-        "logBytes": 7628
+        "logBytes": 7626
       }
     }
   ],

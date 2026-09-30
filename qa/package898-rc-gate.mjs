@@ -158,7 +158,7 @@ async function main() {
   const ui = read('group-admin-product-ui.js');
   const admClient = read('first-group-admission-client.js');
   const cfg = read('config.js');
-  set('SHIPPED_ADMISSION_URL_EMPTY', /App\.FIRST_GROUP_ADMISSION_URL = '';/.test(cfg), 'production admission service not configured in 898');
+  set('SHIPPED_ADMISSION_URL_EMPTY', /App\.FIRST_GROUP_ADMISSION_URL = '(?:|https:\/\/sos-first-group-admission\.dror201031-b16\.workers\.dev)';/.test(cfg), 'admission URL empty or the production worker only (Admin 2FA Phase 4)');
   set(
     'UNSERIALIZED_FALLBACK_DISABLED',
     /UNSERIALIZED_FALLBACK_ENABLED:\s*false/.test(na) &&
