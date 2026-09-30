@@ -7,7 +7,7 @@
     "ws://127.0.0.1:7792"
   ],
   "status": "PASS",
-  "ts": "2026-09-30T12:01:54.529Z",
+  "ts": "2026-09-30T12:20:48.579Z",
   "results": {
     "CONFIG_TEST_TRANSFORMS_APPLIED": {
       "ok": true,
@@ -99,8 +99,8 @@
     "CONTROL_RECEIVED_FROM_NETWORK": {
       "ok": true,
       "detail": {
-        "bMs": 16,
-        "cMs": 7
+        "bMs": 8,
+        "cMs": 6
       }
     },
     "REMOTE_MEMBERSHIP_GRANT": {
@@ -110,13 +110,13 @@
         "redB": {
           "ok": true,
           "stage": "mark",
-          "inviteEventId": "0200b72635973f70fb4367cae681a829b20f087e3ab7c49d0ef8f722a3c8387a",
-          "inviter": "51a041286b0cd0607b7c7080fe61a22b53c54f79954c5f91809046718bc8b97b",
-          "usedId": "8fe801eb10199d9d8227a1f9b122bee86a5b14e503fe02a36bc764e60383e1b7"
+          "inviteEventId": "aee2916cfc821a4bf5ec6f77765c97b785fc24f3917de052e7189af7d67ce048",
+          "inviter": "432b730bd73818ba3546234a4047caa24a96b3c08378e39b9340aa23ef535030",
+          "usedId": "95e7b2a809e1a60ee61154049be6f97a81979b22adcad51f9b09218f8ecfcb1e"
         },
         "bOnB": {
           "ok": true,
-          "ms": 41
+          "ms": 85
         },
         "bOnA": true
       }
@@ -212,7 +212,7 @@
       "ok": true,
       "detail": {
         "grant": "APPLIED",
-        "latencyMs": 789,
+        "latencyMs": 903,
         "assigned": [
           "INVITE_USERS"
         ],
@@ -269,11 +269,11 @@
         "redC": {
           "ok": true,
           "stage": "mark",
-          "inviteEventId": "3f7722a43e849d9e56247f837142787ae8d842e0507fe382695db8625c41c115",
-          "inviter": "11b44fe7f34be8ee87008dcbee62e6e13d98e203789a871b33a88dff2faa9aeb",
-          "usedId": "02ac669c92618c96fb6a56c3a6c54ed4e61fb7bb85a9fdccfcf7e4abd4c14b79"
+          "inviteEventId": "a1d2e3c0158cf117a55a15d01c93591b3d0c53fa83dc0e5cc7829c6b519fe46a",
+          "inviter": "d2675c3204019ac4f8b86274179698856350c6bd0c8c68c3fc08558562f31db0",
+          "usedId": "177ff002a72457501dc3dbc2549c72aa7c402e11689da51b2559342c7d2a73c7"
         },
-        "cOnC": 40,
+        "cOnC": 57,
         "cOnA": true,
         "cOnB": true,
         "aSeesC": true,
@@ -294,7 +294,7 @@
       "ok": true,
       "detail": {
         "promote": "SAVED",
-        "ms": 367,
+        "ms": 417,
         "caps": [
           "INVITE_USERS",
           "MANAGE_MEMBERS"
@@ -340,7 +340,7 @@
       "ok": true,
       "detail": {
         "revoke": "APPLIED",
-        "ms": 445,
+        "ms": 433,
         "remaining": [
           "INVITE_USERS"
         ],
@@ -381,8 +381,8 @@
     "OFFLINE_RECONNECT": {
       "ok": true,
       "detail": {
-        "tab1": 595,
-        "tab2": 85
+        "tab1": 947,
+        "tab2": 10
       }
     },
     "MULTITAB_REVOCATION": {
@@ -409,8 +409,8 @@
       "ok": true,
       "detail": {
         "removeC": "REMOVED",
-        "ms": 606,
-        "onB": 8,
+        "ms": 551,
+        "onB": 4,
         "cOps": {
           "menu": false,
           "invite": "UNAUTHORIZED",
@@ -627,7 +627,7 @@
       "ok": true,
       "detail": {
         "oneRelayGrant": "APPLIED",
-        "ms": 2784,
+        "ms": 2489,
         "bOneStatus": {
           "ok": true,
           "relaysOk": 1
@@ -659,7 +659,7 @@
           "code": "NETWORK_AUTHORITY_UNVERIFIED",
           "detail": "RELAY_UNAVAILABLE"
         },
-        "silentMs": 12349,
+        "silentMs": 12346,
         "backOp": "APPLIED"
       }
     },
@@ -685,11 +685,11 @@
           "activity": true
         },
         "aDir": [
-          "11b44fe7:ACTIVE:MODERATOR",
-          "a00c7896:ACTIVE:MEMBER",
-          "a49212de:ACTIVE:MEMBER",
-          "afb59f73:REMOVED:MEMBER",
-          "51a04128:ACTIVE:ROOT"
+          "3f72f077:ACTIVE:MEMBER",
+          "d2675c32:ACTIVE:MODERATOR",
+          "dd05b311:REMOVED:MEMBER",
+          "ee00df82:ACTIVE:MEMBER",
+          "432b730b:ACTIVE:ROOT"
         ],
         "mobileOverflow": false
       }
@@ -697,7 +697,7 @@
     "ACCOUNT_SWITCH": {
       "ok": true,
       "detail": {
-        "pub": "afb59f733b7923732d4705f4e9793d0e836747453046bfd4eafbc463bccc55fb",
+        "pub": "dd05b311216fdd00845797e45944f7dba8416be387776a8b5e6701afa1527f76",
         "menu": false,
         "open": false,
         "invitesAfter": 0,
@@ -713,7 +713,7 @@
         "conflictOp": {
           "code": "TEMPORARILY_UNAVAILABLE",
           "control": "VERIFIED",
-          "eventId": "af3df3364646114c736036ce111b18e6f78b3ae1b831a6576c0837fde6eefa7c"
+          "eventId": "10849d762ca6bc0fcc26f4f083ae1ec4195604d5c84a8f499bbb701a593034a5"
         },
         "conflictMenu": true,
         "outcome": "UNATTESTED_FORKS_REJECTED"
@@ -732,7 +732,7 @@
     "RELAY_SECRET_LEAK_SCAN": {
       "ok": true,
       "detail": {
-        "events": 79,
+        "events": 78,
         "authEvents": 41,
         "secretHits": 0,
         "plaintextInviteCodeHits": 0,
@@ -786,25 +786,25 @@
         ],
         "delegates": [
           {
-            "pubkey": "56b55dd60a76cae0192e9eb1aeba81f212872eabb2281cc85279826d272d705e",
+            "pubkey": "95a3893cde7b184fd618537d593f087c0138af7d02e7c62cfe16a525300791ca",
             "status": "ACTIVE"
           }
         ]
       },
       "delegateByNonRoot": "UNAUTHORIZED"
     },
-    "JOIN_APPROVAL_LATENCY_MS_B": 271,
-    "REALTIME_GRANT_LATENCY_MS": 789,
-    "JOIN_APPROVAL_LATENCY_MS_C": 40,
-    "REALTIME_PROMOTE_LATENCY_MS": 940,
+    "JOIN_APPROVAL_LATENCY_MS_B": 296,
+    "REALTIME_GRANT_LATENCY_MS": 903,
+    "JOIN_APPROVAL_LATENCY_MS_C": 58,
+    "REALTIME_PROMOTE_LATENCY_MS": 1008,
     "B_ADMIN_PIN_ENROLL": "PIN_SET",
-    "REALTIME_REVOKE_LATENCY_MS": 1517,
+    "REALTIME_REVOKE_LATENCY_MS": 1599,
     "REPROMOTE_BEFORE_DEMOTE": {
       "repromote": "SAVED",
       "ok": true
     },
-    "RECONNECT_CONVERGENCE_MS": 695,
-    "REALTIME_REMOVE_LATENCY_MS": 1188,
+    "RECONNECT_CONVERGENCE_MS": 967,
+    "REALTIME_REMOVE_LATENCY_MS": 1158,
     "GRANT_PM_FOR_FORK": "APPLIED",
     "FORK_EVENTS": {
       "a": true,
@@ -828,7 +828,7 @@
   "ADMISSION_SERVICE": {
     "mode": "local-workerd",
     "url": "http://127.0.0.1:8799",
-    "servicePubkey": "56b55dd60a76cae0192e9eb1aeba81f212872eabb2281cc85279826d272d705e"
+    "servicePubkey": "95a3893cde7b184fd618537d593f087c0138af7d02e7c62cfe16a525300791ca"
   },
   "FIRST_GROUP_ID": "israel-network",
   "ADMISSION_DELEGATION_OK": true,
@@ -948,24 +948,24 @@
   "NSEC_EXPOSED": false,
   "relayStats": {
     "r1": {
-      "received": 136,
+      "received": 137,
       "rejectedInvalid": 0,
-      "replaced": 5,
-      "duplicates": 51
+      "replaced": 8,
+      "duplicates": 50
     },
     "r2": {
-      "received": 129,
+      "received": 130,
       "rejectedInvalid": 0,
-      "replaced": 5,
-      "duplicates": 47
+      "replaced": 8,
+      "duplicates": 46
     },
-    "r1Events": 79,
-    "r2Events": 77
+    "r1Events": 78,
+    "r2Events": 76
   },
   "pageErrorsCount": 0,
   "ADMIN_2FA": {
     "enforced": true,
-    "signer": "cd06c528785cff2826f039ea5ac09409c697dcfd3404443efa0b243fc815fd45",
+    "signer": "a4a67a5c7c8c342ecab7a3bc9052d2bdacabb46e40d8cd9ab7dc5960c94580fe",
     "stepUpDialogsAnswered": 6
   },
   "passed": 53,
