@@ -1,0 +1,44 @@
+{
+  "checks": {
+    "PROD_V2_ON_CONTROL_PLANE": true,
+    "PROD_CHAIN_VERIFIED": true,
+    "PROD_NO_MULTI_COMMUNITY_UI": true,
+    "PROD_UNKNOWN_USER_CONTENT_NOT_GATED": true,
+    "PROD_UNKNOWN_USER_NO_INVITE_NO_CAPS": true,
+    "PROD_NO_PAGE_ERRORS": true
+  },
+  "out": {
+    "version": "https://sos010.com/feature-flags.js?pkg=899g4",
+    "v2": true,
+    "scope": "CONTROL_PLANE",
+    "admin2fa": true,
+    "controlStatus": "VERIFIED",
+    "controlEpoch": 2,
+    "root": "ede1e7fabb758aca75ae548680a206a234c6d6b257834b111d284c3692e67601",
+    "chain": [
+      "69a27d4a441dc5e9067567332c02641db11733d988228e24fc4869604db20df3",
+      "02263f81915e0b8fd34cc92d6acbd590560d426d003d850492a8e1f8257d2833"
+    ],
+    "feedSelectionButton": false,
+    "post": {
+      "ok": true,
+      "code": "CONTROL_PLANE_SCOPE"
+    },
+    "reaction": {
+      "ok": true,
+      "code": "CONTROL_PLANE_SCOPE"
+    },
+    "p2p": {
+      "ok": true,
+      "code": "CONTROL_PLANE_SCOPE"
+    },
+    "inviteCreate": {
+      "ok": false,
+      "code": "UNKNOWN_MEMBER"
+    },
+    "unknownCaps": [],
+    "feedTag": "israel-network"
+  },
+  "errors": [],
+  "GATE4_PRODUCTION_BROWSER": "PASS"
+}
