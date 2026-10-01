@@ -127,7 +127,7 @@
     try {
       window.localStorage.setItem(
         STATE_PREFIX + active.pubkey,
-        JSON.stringify({ pubkey: active.pubkey, confirmed: true, confirmedAt: Date.now(), sessionId, signerOrigin: active.origin })
+        JSON.stringify({ pubkey: active.pubkey, confirmed: true, keyFileExported: true, confirmedAt: Date.now(), sessionId, signerOrigin: active.origin })
       );
     } catch (_e) {}
   }
@@ -147,7 +147,7 @@
       if (!active.sealed.has(sessionId) && d.sameIdentity !== true) return;
       active.acked.add(sessionId);
       emit('IN_SIGNER');
-    } else if (d.type === 'SOS_F5B6W_BACKUP_CONFIRMED') {
+    } else if (d.type === 'SOS_F5B6W_KEY_EXPORTED') {
       if (normalizePubkey(d.pubkey) !== active.pubkey || !active.acked.has(sessionId)) return;
       writeConfirmed(sessionId);
       emit('CONFIRMED');
@@ -188,17 +188,17 @@
       el(
         'p',
         { style: 'margin:0 0 10px;' },
-        'המפתח הפרטי של החשבון הזה נשמר רק במנגנון האבטחה של הדפדפן הזה, ועדיין לא נוצר לו גיבוי לשחזור.'
+        'המפתח האישי של החשבון הזה נשמר רק במנגנון האבטחה של הדפדפן הזה, ועדיין לא שמרת אותו כקובץ.'
       )
     );
     box.appendChild(
       el('p', { style: 'margin:0 0 16px;font-weight:bold;' }, 'התנתקות או מחיקת נתוני האתר יסירו לצמיתות את הגישה לזהות הזו. לא ניתן יהיה לשחזר אותה.')
     );
     const status = el('p', { id: 'sosRecoveryLogoutGuardStatus', style: 'min-height:20px;margin:0 0 10px;color:#ffc107;' }, '');
-    const primary = el('button', { type: 'button', class: 'button-primary', id: 'sosRecoveryGuardBackup', style: 'width:100%;padding:12px;margin-bottom:8px;' }, 'צור גיבוי לשחזור');
+    const primary = el('button', { type: 'button', class: 'button-primary', id: 'sosRecoveryGuardBackup', style: 'width:100%;padding:12px;margin-bottom:8px;' }, 'קבלת המפתח האישי');
     primary.addEventListener('click', () => {
       const r = start();
-      status.textContent = r.ok ? 'המשיכו בחלון הגיבוי המאובטח (signer.sos010.com).' : r.code === 'POPUP_BLOCKED' ? 'הדפדפן חסם את חלון הגיבוי.' : 'לא ניתן לפתוח את חלון הגיבוי.';
+      status.textContent = r.ok ? 'המשיכו בחלון המאובטח (signer.sos010.com).' : r.code === 'POPUP_BLOCKED' ? 'הדפדפן חסם את החלון המאובטח.' : 'לא ניתן לפתוח את החלון המאובטח.';
     });
     const cancel = el('button', { type: 'button', class: 'button-secondary', id: 'sosRecoveryGuardCancel', style: 'width:100%;padding:12px;margin-bottom:14px;' }, 'ביטול — הישאר מחובר');
     cancel.addEventListener('click', closeLogoutGuard);
@@ -208,7 +208,7 @@
 
     const details = el('details', { style: 'border-top:1px solid #444;padding-top:10px;' });
     details.appendChild(el('summary', { style: 'cursor:pointer;color:#f44336;' }, 'מחיקת החשבון מהדפדפן לצמיתות'));
-    details.appendChild(el('p', { style: 'margin:8px 0;' }, 'כדי להתנתק בלי גיבוי, הקלידו: ' + DESTROY_PHRASE));
+    details.appendChild(el('p', { style: 'margin:8px 0;' }, 'כדי להתנתק בלי לשמור את המפתח, הקלידו: ' + DESTROY_PHRASE));
     const input = el('input', { type: 'text', id: 'sosRecoveryGuardPhrase', autocomplete: 'off', style: 'width:100%;padding:8px;margin-bottom:8px;box-sizing:border-box;' });
     const destroy = el('button', { type: 'button', id: 'sosRecoveryGuardDestroy', disabled: 'disabled', style: 'width:100%;padding:10px;background:#b71c1c;color:#fff;border:none;border-radius:6px;' }, 'התנתק ומחק לצמיתות');
     input.addEventListener('input', () => {
@@ -233,11 +233,11 @@
       }
       const st = ev && ev.detail && ev.detail.state;
       if (st === 'CONFIRMED') {
-        status.textContent = 'הגיבוי הושלם. כעת ניתן להתנתק בבטחה.';
+        status.textContent = 'המפתח נשמר בהצלחה. כעת ניתן להתנתק בבטחה.';
         status.style.color = '#4caf50';
         primary.hidden = true;
       } else if (st === 'ERROR') {
-        status.textContent = 'הגיבוי נכשל: ' + ((ev.detail && ev.detail.code) || 'שגיאה');
+        status.textContent = 'קבלת המפתח נכשלה: ' + ((ev.detail && ev.detail.code) || 'שגיאה');
       }
     });
     return { ok: true };
@@ -250,6 +250,7 @@
     start,
     isWorkerIdentity,
     isBackupConfirmed,
+    isPersonalKeyExported: isBackupConfirmed,
     needsBackup,
     openLogoutGuard,
     closeLogoutGuard,

@@ -70,9 +70,9 @@
       textarea.value = pub
         ? 'PUBLIC_KEY=' + pub + (fp ? '\nFINGERPRINT=' + fp : '') +
           '\n\nהמפתח הפרטי נשמר במנגנון האבטחה של SOS ואינו מוצג במסך הרגיל.' +
-          '\nגיבוי לשחזור החשבון: ' + (backedUp ? 'נוצר ואושר' : 'טרם נוצר')
+          '\nהמפתח האישי: ' + (backedUp ? 'נשמר כקובץ' : 'עדיין לא נשמר כקובץ')
         : '';
-      setStatus(pub ? (backedUp ? 'קיים גיבוי לשחזור.' : 'מומלץ ליצור גיבוי לשחזור החשבון.') : 'אין זהות פעילה.', pub ? 'info' : 'error');
+      setStatus(pub ? (backedUp ? 'המפתח האישי נשמר.' : 'מומלץ לקבל את המפתח האישי ולשמור אותו כקובץ.') : 'אין זהות פעילה.', pub ? 'info' : 'error');
       const backupBtn = document.getElementById('keyViewerBackupBtn');
       if (backupBtn) backupBtn.hidden = !pub || backedUp || !RB;
       modal.style.display = 'flex';

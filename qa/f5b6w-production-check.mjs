@@ -2,13 +2,16 @@
  * F5B6-W production check (https://sos010.com + https://signer.sos010.com), disposable identity only.
  *
  * Relay WebSockets are stubbed in the test browser, so nothing is published to production relays.
- * Worker identity is created in the test browser only; recovery material is read from the signer canvas
- * draw call, kept in memory, and never printed or written to the report.
+ * Worker identity is created in the test browser only (mobile viewport). The personal key file downloaded
+ * from the signer is copied to a temporary path outside the repo, read only by this process, never printed or
+ * written to the report, and deleted at the end.
  */
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright';
+import { chromium, devices } from 'playwright';
 import { getPublicKey, nip19 } from 'nostr-tools';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -31,7 +34,7 @@ const set = (k, ok, detail) => {
 const consoleTexts = [];
 const networkPayloads = [];
 async function newContext(browser) {
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 } });
+  const ctx = await browser.newContext({ ...devices['Pixel 7'], acceptDownloads: true });
   await ctx.addInitScript(() => {
     if (location.hostname === 'sos010.com' || location.hostname === 'www.sos010.com') {
       class NoRelaySocket extends EventTarget {
@@ -118,6 +121,7 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   let recoveryKey = '';
   let kHex = '';
+  let keyFilePath = '';
   let stage = 'boot';
   try {
     const ctxA = await newContext(browser);
@@ -132,11 +136,12 @@ async function main() {
         scope: f.accessControlV2Scope,
         signerOrigin: window.SosRecoveryBackup.signerOrigin(),
         workerDonePanel: !!document.getElementById('workerIdentityDone'),
-        backupBtn: !!document.getElementById('btnRecoveryBackup'),
+        backupBtn: /קבלת המפתח ושמירה כקובץ/.test(document.getElementById('btnRecoveryBackup')?.textContent || ''),
+        loginKeyFile: !!document.getElementById('loginKeyFileInput'),
         refreshInvite: typeof window.NostrApp.refreshInviteAuthority === 'function',
       };
     });
-    set('LIVE_BUILD_899H', live.version === '2026.10.01-web-899h' && live.workerDonePanel && live.backupBtn && live.refreshInvite, live);
+    set('LIVE_BUILD_899I', live.version === '2026.10.01-web-899i' && live.workerDonePanel && live.backupBtn && live.loginKeyFile && live.refreshInvite, live);
     set('LIVE_FLAGS_V2_CONTROL_PLANE', live.v2 && live.scope === 'CONTROL_PLANE', { v2: live.v2, scope: live.scope });
     set('LIVE_SIGNER_ORIGIN_PRODUCTION', live.signerOrigin === SIGNER);
 
@@ -166,7 +171,7 @@ async function main() {
     set('PROD_WORKER_IDENTITY_CREATED', created.ok && created.worker && created.needsBackup && /^[0-9a-f]{64}$/.test(created.pk || ''), { ok: created.ok, worker: created.worker, needsBackup: created.needsBackup });
     const originalPub = created.pk;
 
-    // ---- logout guard (real modal) -> "צור גיבוי לשחזור"
+    // ---- logout guard (real modal) -> "קבלת המפתח האישי"
     stage = 'guard';
     const guard = await page.evaluate(() => {
       const r = window.NostrApp.logoutIdentity({ redirect: false });
@@ -209,7 +214,17 @@ async function main() {
     await popup.waitForSelector('#continueBtn', { state: 'visible', timeout: 30000 });
     await popup.click('#continueBtn');
     await popup.waitForFunction(() => window.__F5B5_WA4?.getUiState?.() === 'revealed', null, { timeout: 30000 });
-    recoveryKey = await popup.evaluate(() => window.__qaRevealCapture.slice(-2).join(''));
+    const canvasKey = await popup.evaluate(() => window.__qaRevealCapture.slice(-2).join(''));
+    set('PROD_NOT_EXPORTED_BEFORE_FILE_SAVE', (await page.evaluate((pk) => window.SosRecoveryBackup.isPersonalKeyExported(pk), originalPub)) === false);
+
+    stage = 'save-file';
+    const [download] = await Promise.all([popup.waitForEvent('download', { timeout: 20000 }), popup.click('#saveKeyFileBtn')]);
+    const fileName = download.suggestedFilename();
+    keyFilePath = path.join(os.tmpdir(), `sos-prod-${crypto.randomBytes(6).toString('hex')}-${fileName}`);
+    await download.saveAs(keyFilePath);
+    await download.delete().catch(() => {});
+    const fileText = fs.readFileSync(keyFilePath, 'utf8');
+    recoveryKey = fileText.trim();
     let validSame = false;
     try {
       const d = nip19.decode(recoveryKey);
@@ -218,13 +233,12 @@ async function main() {
         validSame = getPublicKey(d.data) === originalPub;
       }
     } catch (_e) {}
-    set('PROD_RECOVERY_MATERIAL_VALID_FOR_SAME_IDENTITY', validSame);
+    set('PROD_PERSONAL_KEY_FILE_NAME', fileName === `SOS-personal-key-${originalPub.slice(0, 8)}-${originalPub.slice(-8)}.txt`, { fileName });
+    set('PROD_PERSONAL_KEY_FILE_REAL', validSame && fileText === recoveryKey + '\n' && canvasKey === recoveryKey, { bytes: fileText.length });
 
-    stage = 'confirm';
-    await popup.waitForSelector('#panelBackupConfirm', { state: 'visible', timeout: 15000 });
-    await popup.click('#backupConfirmBtn');
-    await page.waitForFunction((pk) => window.SosRecoveryBackup.isBackupConfirmed(pk), originalPub, { timeout: 15000 });
-    set('PROD_RECOVERY_BACKUP_CONFIRMED_AFTER_REVEAL', states.includes('CONFIRMED') && (await page.evaluate(() => window.SosRecoveryBackup.needsBackup())) === false, { states });
+    await page.waitForFunction((pk) => window.SosRecoveryBackup.isPersonalKeyExported(pk), originalPub, { timeout: 15000 });
+    await popup.waitForSelector('#panelKeySaved', { state: 'visible', timeout: 15000 });
+    set('PROD_PERSONAL_KEY_EXPORTED_STATE', states.includes('CONFIRMED') && (await page.evaluate(() => window.SosRecoveryBackup.needsBackup())) === false, { states });
 
     stage = 'scan';
     const scan = await page.evaluate(() => {
@@ -253,8 +267,7 @@ async function main() {
     const ctxB = await newContext(browser);
     const pageB = await openMain(ctxB);
     await pageB.evaluate(() => window.NostrApp.openAuthPrompt('', { step: 'login' }));
-    await pageB.fill('#loginKeyInput', recoveryKey);
-    await Promise.all([pageB.waitForEvent('load', { timeout: 60000 }), pageB.click('#btnLoginSubmit')]);
+    await Promise.all([pageB.waitForEvent('load', { timeout: 60000 }), pageB.setInputFiles('#loginKeyFileInput', keyFilePath)]);
     await pageB.waitForFunction(() => /^[0-9a-f]{64}$/.test(String(window.NostrApp?.publicKey || '')), null, { polling: 300, timeout: 90000 });
     const recovered = await pageB.evaluate(() => String(window.NostrApp.publicKey || '').toLowerCase());
     set('PROD_RECOVERED_PUBLIC_KEY_MATCH', recovered === originalPub);
@@ -279,6 +292,9 @@ async function main() {
   } finally {
     recoveryKey = '';
     kHex = '';
+    try {
+      if (keyFilePath && fs.existsSync(keyFilePath)) fs.unlinkSync(keyFilePath);
+    } catch (_e) {}
     await browser.close().catch(() => {});
   }
   const all = Object.values(report.results);

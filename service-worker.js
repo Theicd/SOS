@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v899h'; // I2 pending package only. Delete flag stays false. Not deployed by packaging.
+  const CACHE_NAME = 'sos-cache-v899i'; // I2 pending package only. Delete flag stays false. Not deployed by packaging.
   const PRECACHE_URLS = [
     './',
     './videos.html',
@@ -81,12 +81,12 @@
     './config.js?pkg=899',
     './keys.js?pkg=899',
     './app.js?pkg=899',
-    './identity-lifecycle.js?pkg=899h',
-    './f5b6w-handoff-client.js?pkg=899h',
+    './identity-lifecycle.js?pkg=899i',
+    './f5b6w-handoff-client.js?pkg=899i',
     './signer-outage-isolation.js',
     './isolated-signer-trusted-import.js',
     './account.js?pkg=899',
-    './key-viewer.js?pkg=899h',
+    './key-viewer.js?pkg=899i',
     './sw-register.js?pkg=899',
   ];
 

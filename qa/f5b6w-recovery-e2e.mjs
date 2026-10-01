@@ -4,28 +4,30 @@
  * Main app (this repo) on http://127.0.0.1:8788 with two local NIP-01 relays; isolated signer
  * (C:\BRAIN\SOS-signer-f5b6w, tools/dev-server.mjs) on http://localhost:8787.
  *
- * Flow: real onboarding (Worker create) -> truthful key step -> logout guard -> "גיבוי לשחזור החשבון"
- * -> signer handoff popup (sealed envelope) -> Passkey enroll (CDP virtual authenticator) -> F5B5 reveal
- * -> confirm inside signer -> backup confirmed on main -> logout -> clean browser -> login with the
- * recovery key -> same public key.
+ * Flow (mobile viewport by default; SOS_E2E_DESKTOP=1 for desktop): real onboarding (Worker create)
+ * -> "המפתח האישי שלך" -> logout guard -> "קבלת המפתח ושמירה כקובץ" -> signer handoff popup (sealed envelope)
+ * -> Passkey enroll (CDP virtual authenticator) -> F5B5 reveal -> "שמירת המפתח כקובץ" (real download)
+ * -> PERSONAL_KEY_EXPORTED on main -> logout -> clean browser -> login with the key file -> same public key.
  *
- * The recovery key is read only from the signer canvas draw call (what the user reads on screen),
- * kept in memory, compared in Node, and never printed, logged or written to the report.
+ * The key file is read only by this Node process (temporary download path, deleted at the end), kept in memory,
+ * compared in Node, and never printed, logged or written to the report.
  */
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { spawn, execSync } from 'node:child_process';
-import { chromium } from 'playwright';
+import { chromium, devices } from 'playwright';
 import { WebSocketServer } from 'ws';
 import { verifyEvent, getPublicKey, nip19 } from 'nostr-tools';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const SIGNER_ROOT = process.env.SOS_SIGNER_ROOT || 'C:\\BRAIN\\SOS-signer-f5b6w';
-const OUT = path.join(ROOT, 'qa', 'f5b6w-recovery-e2e-report.json');
+const DESKTOP = process.env.SOS_E2E_DESKTOP === '1';
+const OUT = path.join(ROOT, 'qa', DESKTOP ? 'f5b6w-recovery-e2e-desktop-report.json' : 'f5b6w-recovery-e2e-report.json');
 const PORT = 8788;
 const SIGNER_PORT = 8787;
 const SIGNER_ORIGIN = `http://localhost:${SIGNER_PORT}`;
@@ -35,7 +37,7 @@ const RELAYS = RELAY_PORTS.map((p) => `ws://127.0.0.1:${p}`);
 const URL0 = `${MAIN_ORIGIN}/videos.html`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const report = { gate: 'F5B6W_RECOVERY_E2E', status: 'FAIL', ts: new Date().toISOString(), results: {} };
+const report = { gate: 'F5B6W_RECOVERY_E2E', mode: DESKTOP ? 'desktop' : 'mobile-pixel7', status: 'FAIL', ts: new Date().toISOString(), results: {} };
 const SECRET_SHAPE = /nsec1[a-z0-9]{20,}/i;
 function safeDetail(detail) {
   if (detail === undefined) return null;
@@ -197,7 +199,8 @@ const consoleTexts = [];
 const networkPayloads = [];
 
 async function newContext(browser) {
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 860 } });
+  const base = DESKTOP ? { viewport: { width: 1280, height: 860 } } : { ...devices['Pixel 7'] };
+  const ctx = await browser.newContext({ ...base, acceptDownloads: true });
   await ctx.route('**/*', (route) => {
     let host = '';
     try {
@@ -280,6 +283,8 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   let recoveryKey = '';
   let kHex = '';
+  let keyFilePath = '';
+  let keyFileDownload = null;
   let stage = 'boot';
   let popup = null;
   try {
@@ -335,13 +340,16 @@ async function main() {
         pkOk: /^[0-9a-f]{64}$/.test(pk),
         pubShown: document.getElementById('workerIdentityPubkey')?.textContent === pk,
         fpShown: (document.getElementById('workerIdentityFingerprint')?.textContent || '').startsWith(pk.slice(0, 8)),
-        successText: /הזהות שלך נוצרה בהצלחה/.test(panel.textContent),
-        truthText: /המפתח הפרטי שלך נשמר במנגנון האבטחה של SOS ואינו מוצג במסך הרגיל/.test(panel.textContent),
-        statusNotCreated: /טרם נוצר/.test(document.getElementById('recoveryBackupStatus')?.textContent || ''),
-        backupBtn: vis('btnRecoveryBackup') && /גיבוי לשחזור החשבון/.test(document.getElementById('btnRecoveryBackup').textContent),
+        title: document.getElementById('authKeyTitle')?.textContent === 'המפתח האישי שלך',
+        successText: /הזהות שלך נוצרה\. נשאר שלב אחד/.test(panel.textContent),
+        truthText: /המפתח האישי מאפשר לך לחזור לאותו חשבון אם תחליף או תאבד את המכשיר/.test(panel.textContent),
+        statusNotCreated: /עדיין לא נשמר כקובץ/.test(document.getElementById('recoveryBackupStatus')?.textContent || ''),
+        backupBtn: vis('btnRecoveryBackup') && /קבלת המפתח ושמירה כקובץ/.test(document.getElementById('btnRecoveryBackup').textContent),
+        continueHidden: !vis('btnWorkerIdentityContinue'),
+        skipHonest: vis('btnWorkerIdentitySkip') && /עדיין לא נשמר/.test(document.getElementById('btnWorkerIdentitySkip').textContent),
         oldConfirmVisible: vis('legacyKeyConfirm'),
         textareaVisible: vis('generatedKeyDisplay'),
-        claimsRecoverable: /ניתן לשחזר|שוחזר|נוצר ואושר/.test(panel.textContent),
+        claimsRecoverable: /נשמר בהצלחה|שמרתי את המפתח|גיבוי/.test(panel.innerText),
         worker: App.SosCryptoSigner?.isWorkerAuthoritative?.() === true,
         privInMemory: !!App.privateKey,
         needsBackup: window.SosRecoveryBackup.needsBackup(),
@@ -349,7 +357,7 @@ async function main() {
     });
     set(
       'ONBOARDING_TRUTHFUL_DONE_STATE',
-      done.pkOk && done.pubShown && done.fpShown && done.successText && done.truthText && done.statusNotCreated && done.backupBtn && !done.oldConfirmVisible && !done.textareaVisible && !done.claimsRecoverable,
+      done.pkOk && done.pubShown && done.fpShown && done.title && done.successText && done.truthText && done.statusNotCreated && done.backupBtn && done.continueHidden && done.skipHonest && !done.oldConfirmVisible && !done.textareaVisible && !done.claimsRecoverable,
       done,
     );
     set('WORKER_IDENTITY_CREATED', done.worker && !done.privInMemory && done.needsBackup, { worker: done.worker, privInMemory: done.privInMemory });
@@ -363,7 +371,7 @@ async function main() {
       const stillPk = String(App.publicKey || '').toLowerCase();
       const meta = await window.SosCryptoWorkerVault.rpc('GET_IDENTITY_META', {}).catch((e) => ({ err: e && e.code }));
       const destroyDisabled = document.getElementById('sosRecoveryGuardDestroy')?.disabled === true;
-      const hasBackupBtn = /צור גיבוי לשחזור/.test(document.getElementById('sosRecoveryGuardBackup')?.textContent || '');
+      const hasBackupBtn = /קבלת המפתח האישי/.test(document.getElementById('sosRecoveryGuardBackup')?.textContent || '');
       document.getElementById('sosRecoveryGuardCancel')?.click();
       return { blocked: r && r.blocked === true, result: r && r.result, modal, stillPk, metaPk: meta && meta.pubkey, destroyDisabled, hasBackupBtn };
     });
@@ -375,6 +383,7 @@ async function main() {
 
     // ---- 3. forged confirmation from a non-signer origin is ignored
     const forged = await page.evaluate(async (pk) => {
+      window.postMessage({ protocol: 1, type: 'SOS_F5B6W_KEY_EXPORTED', sessionId: 'ab'.repeat(16), pubkey: pk }, '*');
       window.postMessage({ protocol: 1, type: 'SOS_F5B6W_BACKUP_CONFIRMED', sessionId: 'ab'.repeat(16), pubkey: pk }, '*');
       await new Promise((r) => setTimeout(r, 300));
       return window.SosRecoveryBackup.isBackupConfirmed(pk);
@@ -415,8 +424,21 @@ async function main() {
     stage = 'reveal';
     await popup.click('#continueBtn');
     await popup.waitForFunction(() => window.__F5B5_WA4?.getUiState?.() === 'revealed', null, { timeout: 20000 });
-    stage = 'confirm';
-    recoveryKey = await popup.evaluate(() => window.__qaRevealCapture.slice(-2).join(''));
+    stage = 'save-file';
+    const canvasKey = await popup.evaluate(() => window.__qaRevealCapture.slice(-2).join(''));
+    const revealUi = await popup.evaluate(() => ({
+      saveEnabled: document.getElementById('saveKeyFileBtn')?.disabled === false,
+      manualConfirm: !!document.getElementById('backupConfirmBtn'),
+    }));
+    const beforeSave = await page.evaluate((pk) => window.SosRecoveryBackup.isPersonalKeyExported(pk), originalPub);
+    set('NO_MANUAL_SAVED_CONFIRMATION_BEFORE_EXPORT', revealUi.saveEnabled && !revealUi.manualConfirm && beforeSave === false, { ...revealUi, beforeSave });
+    const [download] = await Promise.all([popup.waitForEvent('download', { timeout: 15000 }), popup.click('#saveKeyFileBtn')]);
+    keyFileDownload = download;
+    const fileName = download.suggestedFilename();
+    keyFilePath = path.join(os.tmpdir(), `sos-e2e-${crypto.randomBytes(6).toString('hex')}-${fileName}`);
+    await download.saveAs(keyFilePath);
+    const fileText = fs.readFileSync(keyFilePath, 'utf8');
+    recoveryKey = fileText.trim();
     let decodedOk = false;
     try {
       const d = nip19.decode(recoveryKey);
@@ -425,21 +447,29 @@ async function main() {
         decodedOk = getPublicKey(d.data) === originalPub;
       }
     } catch (_e) {}
-    set('RECOVERY_MATERIAL_VALID_FOR_SAME_IDENTITY', decodedOk);
+    set('PERSONAL_KEY_FILE_NAME', fileName === `SOS-personal-key-${originalPub.slice(0, 8)}-${originalPub.slice(-8)}.txt`, { fileName });
+    set('PERSONAL_KEY_FILE_REAL', decodedOk && fileText === recoveryKey + '\n' && /^nsec1[02-9ac-hj-np-z]{58}$/.test(recoveryKey), { bytes: fileText.length });
+    set('PERSONAL_KEY_FILE_MATCHES_SIGNER_REVEAL', canvasKey === recoveryKey);
 
-    await popup.waitForSelector('#panelBackupConfirm', { state: 'visible', timeout: 10000 });
-    const beforeConfirm = await page.evaluate((pk) => window.SosRecoveryBackup.isBackupConfirmed(pk), originalPub);
-    await popup.click('#backupConfirmBtn');
-    await page.waitForFunction((pk) => window.SosRecoveryBackup.isBackupConfirmed(pk), originalPub, { timeout: 10000 });
-    const confirmedUi = await page.evaluate(() => ({
-      status: document.getElementById('recoveryBackupStatus')?.textContent || '',
-      btnHidden: document.getElementById('btnRecoveryBackup')?.hidden === true,
-      needsBackup: window.SosRecoveryBackup.needsBackup(),
-    }));
+    await page.waitForFunction((pk) => window.SosRecoveryBackup.isPersonalKeyExported(pk), originalPub, { timeout: 10000 });
+    await popup.waitForSelector('#panelKeySaved', { state: 'visible', timeout: 10000 });
+    const confirmedUi = await page.evaluate(() => {
+      const vis = (id) => {
+        const el = document.getElementById(id);
+        return !!(el && !el.hidden && el.offsetParent !== null);
+      };
+      return {
+        status: document.getElementById('recoveryBackupStatus')?.textContent || '',
+        btnHidden: !vis('btnRecoveryBackup'),
+        continueVisible: vis('btnWorkerIdentityContinue'),
+        skipHidden: !vis('btnWorkerIdentitySkip'),
+        needsBackup: window.SosRecoveryBackup.needsBackup(),
+      };
+    });
     set(
-      'RECOVERY_BACKUP_CONFIRMED_ONLY_AFTER_REVEAL',
-      beforeConfirm === false && states.includes('CONFIRMED') && /נוצר ואושר/.test(confirmedUi.status) && confirmedUi.btnHidden && confirmedUi.needsBackup === false,
-      { beforeConfirm, states, needsBackup: confirmedUi.needsBackup },
+      'PERSONAL_KEY_EXPORTED_STATE',
+      states.includes('CONFIRMED') && /המפתח נשמר בהצלחה/.test(confirmedUi.status) && confirmedUi.btnHidden && confirmedUi.continueVisible && confirmedUi.skipHidden && confirmedUi.needsBackup === false,
+      { states, ...confirmedUi, status: undefined },
     );
 
     // ---- 6. normal page exposure scans (main origin)
@@ -608,8 +638,7 @@ async function main() {
     const pageB = await openMain(ctxB);
     const freshPk = await pageB.evaluate(() => String(window.NostrApp.publicKey || '').toLowerCase());
     await pageB.evaluate(() => window.NostrApp.openAuthPrompt('', { step: 'login' }));
-    await pageB.fill('#loginKeyInput', recoveryKey);
-    await Promise.all([pageB.waitForEvent('load', { timeout: 30000 }), pageB.click('#btnLoginSubmit')]);
+    await Promise.all([pageB.waitForEvent('load', { timeout: 30000 }), pageB.setInputFiles('#loginKeyFileInput', keyFilePath)]);
     await pageB.waitForFunction(() => /^[0-9a-f]{64}$/.test(String(window.NostrApp?.publicKey || '')), null, { polling: 200, timeout: 60000 });
     const recovered = await pageB.evaluate(() => String(window.NostrApp.publicKey || '').toLowerCase());
     set('RECOVERED_PUBLIC_KEY_MATCH', recovered === originalPub && freshPk !== originalPub, { match: recovered === originalPub, freshDiffers: freshPk !== originalPub });
@@ -634,6 +663,12 @@ async function main() {
   } finally {
     recoveryKey = '';
     kHex = '';
+    try {
+      if (keyFileDownload) await keyFileDownload.delete();
+    } catch (_e) {}
+    try {
+      if (keyFilePath && fs.existsSync(keyFilePath)) fs.unlinkSync(keyFilePath);
+    } catch (_e) {}
     try {
       await browser.close();
     } catch (_e) {}

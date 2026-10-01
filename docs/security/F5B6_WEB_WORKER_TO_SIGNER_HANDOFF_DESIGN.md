@@ -31,9 +31,12 @@ Result: `CRITICAL_RECOVERY_GAP=true`. The missing piece is exactly the MD0 §16 
    (ciphertext). `assertNoKeyLeak` still applies.
 5. Page relays the envelope to the signer window. Signer decrypts in memory, derives pub(K), requires `=== expectedPubkey`,
    imports via the existing `importTrustedIdentity(privHex, {expectedPubkey})`, zeroises, replies `F5B6W_ACK{pubkey}`.
-6. Signer immediately offers the existing F5B5 reveal (WebAuthn UV → 30 s canvas). User confirms "רשמתי את המפתח" **inside the signer**.
-   Signer posts `F5B6W_BACKUP_CONFIRMED{pubkey, sessionId}`.
-7. Main page stores `recoveryBackupConfirmed` (pubkey-scoped, non-secret) → onboarding/logout state flips.
+6. Signer offers the existing F5B5 reveal (WebAuthn UV → 30 s canvas) with one owner-approved action (899i):
+   "שמירת המפתח כקובץ" — a local download of `SOS-personal-key-<fp8>-<fp8>.txt` containing only the nsec line, available
+   only while the reveal is active, no upload/share. There is no manual "I saved it" button.
+   After the file is handed to the browser, the signer posts `SOS_F5B6W_KEY_EXPORTED{pubkey, sessionId}` (no secret).
+7. Main page stores `PERSONAL_KEY_EXPORTED` (`sos_recovery_backup_v1:<P>` with `confirmed/keyFileExported`, pubkey-scoped,
+   non-secret) → onboarding/logout state flips. Login accepts the key file (read locally into the existing login path).
 
 Page never sees plaintext K: it only relays `recipientPub` and the ciphertext.
 
@@ -66,9 +69,9 @@ Before this change: `ACCOUNT_LOST_ON_LOGOUT=true`. This design trades a bounded 
 ## 5. Logout / onboarding (Phase A/B, independent of §3)
 
 * Onboarding: remove textarea + fake "העתק"/"שמור כקובץ"; show "הזהות שלך נוצרה בהצלחה", public key, fingerprint,
-  and the real action "גיבוי לשחזור החשבון". Never claim recoverable before `F5B6W_BACKUP_CONFIRMED`.
+  and the real action "קבלת המפתח ושמירה כקובץ" under "המפתח האישי שלך". Never claim saved before `SOS_F5B6W_KEY_EXPORTED`.
 * Logout for a Worker identity with `recoveryBackupConfirmed=false`: blocked by a severe warning; primary
-  "צור גיבוי לשחזור"; destructive path requires typing a confirmation phrase.
+  "קבלת המפתח האישי"; destructive path requires typing a confirmation phrase.
 
 ## 6. Recovery on a clean browser
 

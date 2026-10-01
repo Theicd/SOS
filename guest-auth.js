@@ -483,12 +483,14 @@
       var statusEl = document.getElementById('recoveryBackupStatus');
       var btn = document.getElementById('btnRecoveryBackup');
       var RB = App.RecoveryBackup;
-      var confirmed = !!(RB && RB.isBackupConfirmed(App.publicKey));
+      var exported = !!(RB && RB.isPersonalKeyExported(App.publicKey));
       if (statusEl) {
-        statusEl.textContent = confirmed ? 'גיבוי לשחזור החשבון: נוצר ואושר' : 'גיבוי לשחזור החשבון: טרם נוצר';
-        statusEl.style.color = confirmed ? '#4caf50' : '#ffc107';
+        statusEl.textContent = exported ? 'המפתח נשמר בהצלחה' : 'המפתח האישי עדיין לא נשמר כקובץ';
+        statusEl.style.color = exported ? '#4caf50' : '#ffc107';
       }
-      if (btn) btn.hidden = confirmed;
+      setBlockVisible(btn, !exported);
+      setBlockVisible(document.getElementById('btnWorkerIdentityContinue'), exported);
+      setBlockVisible(document.getElementById('btnWorkerIdentitySkip'), !exported);
     }
 
     function showWorkerIdentityDone() {
@@ -504,7 +506,7 @@
       setBlockVisible(btnFinalConnect, false);
       setBlockVisible(document.getElementById('workerIdentityDone'), true);
       var title = document.getElementById('authKeyTitle');
-      if (title) title.textContent = 'הזהות שלך נוצרה בהצלחה';
+      if (title) title.textContent = 'המפתח האישי שלך';
       renderRecoveryBackupStatus();
     }
 
@@ -514,25 +516,27 @@
         var RB = App.RecoveryBackup;
         var r = RB && typeof RB.start === 'function' ? RB.start() : { ok: false, code: 'UNAVAILABLE' };
         if (!r || !r.ok) {
-          setStatus('keyStatus', r && r.code === 'POPUP_BLOCKED' ? 'הדפדפן חסם את חלון הגיבוי. אפשרו חלונות קופצים ונסו שוב.' : 'לא ניתן לפתוח את חלון הגיבוי כרגע.', true);
+          setStatus('keyStatus', r && r.code === 'POPUP_BLOCKED' ? 'הדפדפן חסם את החלון המאובטח. אפשרו חלונות קופצים ונסו שוב.' : 'לא ניתן לפתוח את החלון המאובטח כרגע.', true);
           return;
         }
-        setStatus('keyStatus', 'המשיכו בחלון הגיבוי המאובטח (signer.sos010.com).', false);
+        setStatus('keyStatus', 'המשיכו בחלון המאובטח (signer.sos010.com): אימות במכשיר ושמירת המפתח כקובץ.', false);
       });
     }
     window.addEventListener('sos-recovery-backup-state', function(ev) {
       renderRecoveryBackupStatus();
       var st = ev && ev.detail && ev.detail.state;
-      if (st === 'CONFIRMED') setStatus('keyStatus', 'הגיבוי לשחזור החשבון הושלם.', false);
-      else if (st === 'IN_SIGNER') setStatus('keyStatus', 'המפתח הועבר לחותם המאובטח. השלימו את הגיבוי בחלון החותם.', false);
-      else if (st === 'ERROR') setStatus('keyStatus', 'הגיבוי נכשל: ' + ((ev.detail && ev.detail.code) || 'שגיאה'), true);
+      if (st === 'CONFIRMED') setStatus('keyStatus', 'המפתח נשמר בהצלחה.', false);
+      else if (st === 'IN_SIGNER') setStatus('keyStatus', 'המפתח הועבר לחותם המאובטח. השלימו את שמירת הקובץ בחלון החותם.', false);
+      else if (st === 'ERROR') setStatus('keyStatus', 'קבלת המפתח נכשלה: ' + ((ev.detail && ev.detail.code) || 'שגיאה'), true);
     });
-    var btnWorkerIdentityContinue = document.getElementById('btnWorkerIdentityContinue');
-    if (btnWorkerIdentityContinue) {
-      btnWorkerIdentityContinue.addEventListener('click', function() {
-        window.location.reload();
-      });
-    }
+    ['btnWorkerIdentityContinue', 'btnWorkerIdentitySkip'].forEach(function(id) {
+      var b = document.getElementById(id);
+      if (b) {
+        b.addEventListener('click', function() {
+          window.location.reload();
+        });
+      }
+    });
 
     function updateFinalConnectState() {
       if (!btnFinalConnect) return;
@@ -596,6 +600,37 @@
           setStatus('loginStatus', 'לא ניתן לגשת ללוח – הדביקו ידנית בשדה', true);
           try { loginKeyInput.focus(); } catch (__) {}
         }
+      });
+    }
+
+    // טעינת קובץ המפתח האישי (SOS-personal-key-*.txt) – נקרא מקומית בלבד
+    var btnLoginKeyFile = document.getElementById('btnLoginKeyFile');
+    var loginKeyFileInput = document.getElementById('loginKeyFileInput');
+    if (btnLoginKeyFile && loginKeyFileInput && loginKeyInput) {
+      btnLoginKeyFile.addEventListener('click', function() {
+        loginKeyFileInput.value = '';
+        loginKeyFileInput.click();
+      });
+      loginKeyFileInput.addEventListener('change', function() {
+        var file = loginKeyFileInput.files && loginKeyFileInput.files[0];
+        loginKeyFileInput.value = '';
+        if (!file) return;
+        if (file.size > 4096) {
+          setStatus('loginStatus', 'הקובץ אינו קובץ מפתח של SOS', true);
+          return;
+        }
+        file.text().then(function(text) {
+          var m = String(text || '').match(/\b(nsec1[02-9ac-hj-np-z]{58}|[0-9a-fA-F]{64})\b/);
+          text = null;
+          if (!m) {
+            setStatus('loginStatus', 'לא נמצא מפתח תקין בקובץ', true);
+            return;
+          }
+          loginKeyInput.value = m[1];
+          if (btnLoginSubmit) btnLoginSubmit.click();
+        }).catch(function() {
+          setStatus('loginStatus', 'לא ניתן לקרוא את הקובץ', true);
+        });
       });
     }
 
