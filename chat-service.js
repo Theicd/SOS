@@ -894,11 +894,13 @@
   async function resolveProfile(pubkey) {
     const normalized = pubkey?.toLowerCase?.() || '';
     const nowSec = Math.floor(Date.now() / 1000);
-    const ttl = PROFILE_TTL_SECONDS;
+    const ttl = Math.min(PROFILE_TTL_SECONDS, 3600);
 
     // חלק קאש פרופילים (chat-service.js) – מנסה להשתמש בפרופיל שמור עם TTL לפני פנייה לריליי | HYPER CORE TECH
     const existing = App.chatState?.contacts?.get?.(normalized);
-    if (existing?.profileFetchedAt && (nowSec - existing.profileFetchedAt) < ttl) {
+    const existingIsStub = !existing?.picture &&
+      (!existing?.name || /^משתמש( [0-9a-f]{8})?$/i.test(String(existing.name).trim()));
+    if (existing?.profileFetchedAt && (nowSec - existing.profileFetchedAt) < (existingIsStub ? 120 : ttl)) {
       return { name: existing.name, picture: existing.picture, initials: existing.initials, profileFetchedAt: existing.profileFetchedAt };
     }
 
@@ -1754,7 +1756,23 @@
     }, 30000);
   }
 
+  function refreshStubChatContacts() {
+    const contacts = App.chatState?.contacts;
+    if (!(contacts instanceof Map)) return;
+    Array.from(contacts.entries())
+      .filter(([pk, c]) => /^[0-9a-f]{64}$/.test(pk) && !c?.picture &&
+        (!c?.name || /^משתמש( [0-9a-f]{8})?$/i.test(String(c.name).trim())))
+      .slice(0, CONTACT_FETCH_LIMIT)
+      .forEach(([pk]) => {
+        resolveProfile(pk).then((raw) => {
+          const profile = normalizeProfileData(raw, pk);
+          App.ensureChatContact(pk, { ...profile, profileFetchedAt: Math.floor(Date.now() / 1000) });
+        }).catch(() => {});
+      });
+  }
+
   async function bootstrapContactsFromFeed() {
+    refreshStubChatContacts();
     if (!Array.isArray(App.notifications)) {
       return;
     }

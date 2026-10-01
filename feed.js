@@ -1405,6 +1405,15 @@
     }
     const found = new Set();
     if (Array.isArray(events)) {
+      // כמה ריליים מחזירים גרסאות שונות – רק kind 0 החדש ביותר לכל מחבר נחשב.
+      const newest = new Map();
+      events.forEach((ev) => {
+        const author = typeof ev?.pubkey === 'string' ? ev.pubkey.toLowerCase() : '';
+        if (!author) return;
+        const prev = newest.get(author);
+        if (!prev || (ev.created_at || 0) > (prev.created_at || 0)) newest.set(author, ev);
+      });
+      events = Array.from(newest.values());
       events.forEach((ev) => {
         const author = typeof ev?.pubkey === 'string' ? ev.pubkey.toLowerCase() : '';
         if (!author || !ev?.content) return;

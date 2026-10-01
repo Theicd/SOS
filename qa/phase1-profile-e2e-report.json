@@ -1,0 +1,113 @@
+{
+  "gate": "PHASE1_PROFILE_E2E",
+  "status": "PASS",
+  "ts": "2026-10-01T11:02:37.492Z",
+  "results": {
+    "A_IDENTITY_CREATED": {
+      "ok": true,
+      "detail": {
+        "ok": true
+      }
+    },
+    "REGISTRATION_KIND0_PUBLISHED": {
+      "ok": true,
+      "detail": [
+        {
+          "name": "Alice",
+          "pictureHttps": true
+        },
+        {
+          "name": "Alice",
+          "pictureHttps": true
+        }
+      ]
+    },
+    "REGISTRATION_PICTURE_DURABLE_URL": {
+      "ok": true,
+      "detail": {
+        "uploads": 1
+      }
+    },
+    "PROFILE_PAGE_SIGNER_READY": {
+      "ok": true,
+      "detail": {
+        "samePk": true
+      }
+    },
+    "PROFILE_WRITE_PUBLISHED": {
+      "ok": true,
+      "detail": [
+        {
+          "name": "Alice2",
+          "count": 2
+        },
+        {
+          "name": "Alice2",
+          "count": 2
+        }
+      ]
+    },
+    "PROFILE_AVATAR_PUBLISHED_DURABLE": {
+      "ok": true,
+      "detail": {
+        "uploads": 1,
+        "pictureHttps": [
+          true,
+          true
+        ]
+      }
+    },
+    "NO_EMPTY_PICTURE_EVENT_ON_REPLACE": {
+      "ok": true,
+      "detail": {
+        "ok": true
+      }
+    },
+    "AVATAR_SAVE_STATUS_SHOWN": {
+      "ok": true,
+      "detail": {
+        "title": "התמונה נשמרה"
+      }
+    },
+    "PROFILE_NAME_PERSISTENCE": {
+      "ok": true,
+      "detail": {
+        "name": "Alice2"
+      }
+    },
+    "PROFILE_AVATAR_PERSISTENCE": {
+      "ok": true,
+      "detail": {
+        "pictureHttps": true
+      }
+    },
+    "PROFILE_REFRESH_WITHOUT_RELOGIN": {
+      "ok": true,
+      "detail": {
+        "samePk": true
+      }
+    },
+    "B_IDENTITY_CREATED": {
+      "ok": true,
+      "detail": {
+        "ok": true
+      }
+    },
+    "CROSS_USER_PROFILE_RESOLUTION": {
+      "ok": true,
+      "detail": {
+        "name": "Alice2",
+        "pictureHttps": true
+      }
+    },
+    "CONVERSATION_PROFILE_RESOLUTION": {
+      "ok": true,
+      "detail": {
+        "after": "Alice2",
+        "picture": true
+      }
+    }
+  },
+  "passed": 14,
+  "failed": 0
+}

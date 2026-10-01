@@ -427,7 +427,8 @@
       let profile = App.profileCache instanceof Map ? App.profileCache.get(pubkey) : null;
       
       // ניסיון לטעון פרופיל אם לא קיים בקאש
-      if (!profile && typeof App.fetchProfile === 'function') {
+      const isStub = !profile || (!profile.picture && (!profile.name || profile.name === `משתמש ${String(pubkey).slice(0, 8)}`));
+      if (isStub && typeof App.fetchProfile === 'function') {
         try {
           profile = await App.fetchProfile(pubkey);
         } catch (err) {

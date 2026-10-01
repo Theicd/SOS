@@ -2,7 +2,7 @@
   "gate": "F5B6W_RECOVERY_E2E",
   "mode": "mobile-pixel7",
   "status": "PASS",
-  "ts": "2026-10-01T02:53:03.060Z",
+  "ts": "2026-10-01T11:02:54.902Z",
   "results": {
     "ONBOARDING_KEY_STEP_WORKER_MODE": {
       "ok": true,
@@ -93,7 +93,7 @@
     "PERSONAL_KEY_FILE_NAME": {
       "ok": true,
       "detail": {
-        "fileName": "SOS-personal-key-8006845f-e79a8796.txt"
+        "fileName": "SOS-personal-key-17ed666e-24854524.txt"
       }
     },
     "PERSONAL_KEY_FILE_REAL": {
@@ -138,14 +138,14 @@
     "PRIVATE_KEY_LOGGING": {
       "ok": true,
       "detail": {
-        "consoleLines": 190
+        "consoleLines": 201
       }
     },
     "PRIVATE_KEY_NETWORK_RETURN_TO_SOS010": {
       "ok": true,
       "detail": {
-        "requests": 386,
-        "relayFrames": 94
+        "requests": 396,
+        "relayFrames": 104
       }
     },
     "SEAL_WRONG_PUBKEY_REFUSED": {

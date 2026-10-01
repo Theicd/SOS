@@ -549,7 +549,8 @@
 
   function ensureProfile(pk) {
     if (!/^[0-9a-f]{64}$/.test(pk) || profiles.has(pk) || typeof App.fetchProfile !== 'function') return;
-    if (App.profileCache instanceof Map && App.profileCache.has(pk)) return;
+    const c = App.profileCache instanceof Map ? App.profileCache.get(pk) : null;
+    if (c && (c.picture || (c.name && c.name !== 'משתמש ' + pk.slice(0, 8)))) return;
     profiles.set(pk, {});
     Promise.resolve()
       .then(() => App.fetchProfile(pk))
@@ -1496,35 +1497,11 @@
       window.__SOS_GAP_LOGO_DATA__ = '';
       if (isOpen()) close();
     }
-    let btn = document.getElementById('sosGroupAdminMenuEntry');
-    if (!btn) {
-      btn = document.createElement('button');
-      btn.id = 'sosGroupAdminMenuEntry';
-      btn.type = 'button';
-      btn.textContent = 'ניהול קבוצה';
-      btn.className = 'gap-btn';
-      btn.style.cssText =
-        'position:fixed;bottom:140px;inset-inline-end:12px;z-index:9000;padding:10px 14px;border-radius:999px;border:0;background:#3d7eff;color:#fff;cursor:pointer;';
-      btn.addEventListener('click', () => open('home'));
-      document.body.appendChild(btn);
-    }
-    let more = document.getElementById('sosGroupAdminMoreItem');
-    if (!more) {
-      const drawer = document.querySelector('#moreOptionsPanel, .more-options, #moreMenu, [data-more-options]') || null;
-      if (drawer) {
-        more = document.createElement('button');
-        more.id = 'sosGroupAdminMoreItem';
-        more.type = 'button';
-        more.textContent = 'ניהול קבוצה';
-        more.className = 'nav-item';
-        more.addEventListener('click', () => open('home'));
-        drawer.appendChild(more);
-      }
-    }
-    const showAdmin = canSeeGroupAdminMenu();
-    btn.classList.toggle('is-visible', showAdmin);
-    btn.style.display = showAdmin ? 'inline-flex' : 'none';
-    if (more) more.style.display = showAdmin ? '' : 'none';
+    // The only management entry is the profile-menu item "שליטה על הקבוצה".
+    ['sosGroupAdminMenuEntry', 'sosGroupAdminMoreItem'].forEach((id) => {
+      const stale = document.getElementById(id);
+      if (stale) stale.remove();
+    });
     const showControl = canSeeGroupControl();
     let item = document.getElementById('sosGroupControlMenuItem');
     const menu = document.getElementById('topBarProfileMenu');

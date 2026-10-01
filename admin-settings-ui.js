@@ -494,25 +494,10 @@
     modalEl.setAttribute('aria-hidden', 'true');
   }
 
+  /** No floating home button: group management opens only from the profile menu ("שליטה על הקבוצה"). */
   function ensureEntryButton() {
-    if (!isV2() || !canSeeAdminEntry()) {
-      const existing = document.getElementById('sosAdminSettingsEntry');
-      if (existing) existing.style.display = 'none';
-      return;
-    }
-    ensureStyles();
-    let btn = document.getElementById('sosAdminSettingsEntry');
-    if (!btn) {
-      btn = document.createElement('button');
-      btn.id = 'sosAdminSettingsEntry';
-      btn.type = 'button';
-      btn.textContent = 'ניהול קבוצה';
-      btn.style.cssText =
-        'position:fixed;bottom:88px;inset-inline-end:12px;z-index:9000;padding:10px 12px;border-radius:999px;border:0;background:#2a3142;color:#fff;cursor:pointer;';
-      btn.addEventListener('click', open);
-      document.body.appendChild(btn);
-    }
-    btn.style.display = 'inline-flex';
+    const existing = document.getElementById('sosAdminSettingsEntry');
+    if (existing) existing.remove();
   }
 
   let booted = false;

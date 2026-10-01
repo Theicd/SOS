@@ -108,29 +108,34 @@
     if (!(App.profileCache instanceof Map)) {
       App.profileCache = new Map();
     }
-    if (App.profileCache.has(normalized)) {
-      return App.profileCache.get(normalized);
-    }
     const fallback = {
       name: `משתמש ${normalized.slice(0, 8)}`,
       bio: '',
       picture: '',
       initials: typeof App.getInitials === 'function' ? App.getInitials(normalized) : normalized.slice(0, 2).toUpperCase(),
     };
-    App.profileCache.set(normalized, fallback);
+    const cached = App.profileCache.get(normalized);
+    if (cached && (cached.picture || (cached.name && cached.name !== fallback.name))) {
+      return cached;
+    }
     if (!App.pool || !Array.isArray(App.relayUrls) || App.relayUrls.length === 0) {
-      return fallback;
+      return cached || fallback;
     }
     try {
-      const filter = { kinds: [0], authors: [normalized], limit: 1 };
-      const metadataEvent = typeof App.pool.get === 'function'
-        ? await App.pool.get(App.relayUrls, filter)
-        : Array.isArray(App.relayUrls) && typeof App.pool.list === 'function'
-        ? (await App.pool.list(App.relayUrls, [filter]))?.[0]
-        : null;
+      const filter = { kinds: [0], authors: [normalized] };
+      let metadataEvent = null;
+      if (typeof App.pool.querySync === 'function') {
+        const list = await App.pool.querySync(App.relayUrls, filter, { maxWait: 4000 });
+        (Array.isArray(list) ? list : []).forEach((ev) => {
+          if (ev && (!metadataEvent || (ev.created_at || 0) > (metadataEvent.created_at || 0))) metadataEvent = ev;
+        });
+      } else if (typeof App.pool.get === 'function') {
+        metadataEvent = await App.pool.get(App.relayUrls, filter);
+      }
       if (metadataEvent?.content) {
         const parsed = JSON.parse(metadataEvent.content);
-        const name = parsed.name ? parsed.name.toString().trim() : fallback.name;
+        const displayName = typeof parsed.display_name === 'string' ? parsed.display_name.trim() : '';
+        const name = displayName || (parsed.name ? parsed.name.toString().trim() : fallback.name);
         const bio = parsed.about ? parsed.about.toString().trim() : '';
         const picture = parsed.picture ? parsed.picture.toString().trim() : '';
         const enriched = {

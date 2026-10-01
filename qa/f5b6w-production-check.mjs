@@ -141,7 +141,7 @@ async function main() {
         refreshInvite: typeof window.NostrApp.refreshInviteAuthority === 'function',
       };
     });
-    set('LIVE_BUILD_899I', live.version === '2026.10.01-web-899i' && live.workerDonePanel && live.backupBtn && live.loginKeyFile && live.refreshInvite, live);
+    set('LIVE_BUILD_899I', /^2026\.10\.01-web-899[ij]$/.test(live.version) && live.workerDonePanel && live.backupBtn && live.loginKeyFile && live.refreshInvite, live);
     set('LIVE_FLAGS_V2_CONTROL_PLANE', live.v2 && live.scope === 'CONTROL_PLANE', { v2: live.v2, scope: live.scope });
     set('LIVE_SIGNER_ORIGIN_PRODUCTION', live.signerOrigin === SIGNER);
 

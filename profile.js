@@ -303,7 +303,7 @@
 
     const messageEl = dialog.querySelector('.profile-dialog__message');
     if (messageEl) {
-      messageEl.textContent = 'התמונה הנוכחית תימחק ונפתח עבורך חלון לבחירת תמונה חדשה מהמכשיר. האם להמשיך?';
+      messageEl.textContent = 'נפתח עבורך חלון לבחירת תמונה חדשה מהמכשיר. התמונה החדשה תחליף את הנוכחית. האם להמשיך?';
     }
 
     confirmButton.addEventListener('click', () => {
@@ -684,7 +684,6 @@
       if (!shouldReplace) {
         return;
       }
-      deleteProfileImage();
       const tempInput = document.createElement('input');
       tempInput.type = 'file';
       tempInput.accept = 'image/*';
@@ -777,14 +776,18 @@
         initials: App.profile.avatarInitials,
       });
     }
+    let result = null;
     try {
-      await publishProfileMetadata();
+      result = await publishProfileMetadata();
     } catch (err) {
       console.warn('Profile: quick avatar publish failed', err);
     }
+    const saved = Boolean(result && result.ok && result.pictureDurable);
     showProfileDialog({
-      title: 'רענון מומלץ',
-      message: 'התמונה עודכנה. אם אינך רואה שינוי מידי, רענן את הדף.',
+      title: saved ? 'התמונה נשמרה' : 'התמונה לא נשמרה',
+      message: saved
+        ? 'תמונת הפרופיל עודכנה וגלויה לכולם.'
+        : 'לא הצלחנו לשמור את התמונה ברשת. בדוק חיבור ונסה שוב.',
     });
   }
 
@@ -1348,12 +1351,71 @@
     return true;
   }
 
-  async function publishProfileMetadata() {
-    if (!App.pool || !App.publicKey) {
-      App.metadataPublishQueued = true;
-      return;
+  function profileDataUrlToBlob(dataUrl) {
+    const match = /^data:([^;,]*)(;base64)?,([\s\S]*)$/.exec(dataUrl);
+    if (!match) return null;
+    const mime = match[1] || 'application/octet-stream';
+    if (!match[2]) return new Blob([decodeURIComponent(match[3])], { type: mime });
+    const binary = atob(match[3]);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+
+  function persistDurableProfileField(field, url) {
+    try {
+      const stored = JSON.parse(window.localStorage.getItem('nostr_profile') || '{}') || {};
+      stored[field] = url;
+      window.localStorage.setItem('nostr_profile', JSON.stringify(stored));
+    } catch (err) {
+      console.warn('Profile: failed persisting durable image url', err);
     }
+    const keys = [App.publicKey, typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : '', 'self'];
+    [App.profileCache, App.feedAuthorProfiles, App.authorProfiles].forEach((map) => {
+      if (!(map instanceof Map)) return;
+      keys.forEach((key) => {
+        if (key && map.has(key)) map.set(key, Object.assign({}, map.get(key), { [field]: url }));
+      });
+    });
+  }
+
+  // תמונה inline (data:) לא שורדת רענון ונחתכת במגבלת kind 0 – מעלים ל-Blossom ושומרים https.
+  async function ensureDurableProfileImage(field) {
+    const value = App.profile && App.profile[field];
+    if (typeof value !== 'string' || !value.startsWith('data:')) return true;
+    if (typeof App.uploadToBlossom !== 'function') return false;
+    try {
+      const blob = profileDataUrlToBlob(value);
+      if (!blob) return false;
+      const url = await App.uploadToBlossom(blob);
+      if (typeof url !== 'string' || !/^https:\/\//i.test(url)) return false;
+      if (App.profile[field] === value) App.profile[field] = url;
+      persistDurableProfileField(field, url);
+      return true;
+    } catch (err) {
+      console.warn('Profile: durable image upload failed', field, err && err.message);
+      return false;
+    }
+  }
+
+  async function publishProfileMetadata() {
+    if (!App.pool || !App.publicKey || typeof App.SosCryptoSigner?.signProfileEvent !== 'function') {
+      App.metadataPublishQueued = true;
+      App.lastProfilePublish = { ok: false, reason: 'not-ready' };
+      if (!App._profilePublishRetryTimer && (App._profilePublishRetries || 0) < 15) {
+        App._profilePublishRetries = (App._profilePublishRetries || 0) + 1;
+        App._profilePublishRetryTimer = setTimeout(() => {
+          App._profilePublishRetryTimer = null;
+          if (App.metadataPublishQueued) publishProfileMetadata();
+        }, 2000);
+      }
+      return App.lastProfilePublish;
+    }
+    App._profilePublishRetries = 0;
     App.metadataPublishQueued = false;
+
+    const pictureDurable = await ensureDurableProfileImage('picture');
+    const coverDurable = await ensureDurableProfileImage('cover');
 
     const metadata = {
       name: App.profile.name,
@@ -1430,26 +1492,42 @@
     }
     if (finalLength > maxLength) {
       console.warn('Metadata content still too large after trimming, skipping publish');
-      return;
+      App.lastProfilePublish = { ok: false, reason: 'too-large', pictureDurable, coverDurable };
+      return App.lastProfilePublish;
     }
 
+    // kind 0 replaceable: same-second edits must not tie, or relays may keep the older one.
+    const createdAt = Math.max(Math.floor(Date.now() / 1000), (App._lastProfileCreatedAt || 0) + 1);
+    App._lastProfileCreatedAt = createdAt;
     const draft = {
       kind: 0,
       pubkey: App.publicKey,
-      created_at: Math.floor(Date.now() / 1000),
+      created_at: createdAt,
       tags: [['t', App.NETWORK_TAG]],
-      content,
+      content: content.length > maxLength ? JSON.stringify(metadata) : content,
     };
 
-    const event = App.SosCryptoSigner.signProfileEvent(draft);
-
+    let acks = 0;
+    let eventId = '';
     try {
-      await App.pool.publish(App.relayUrls, event);
-      console.log('Profile metadata published');
+      const event = await App.SosCryptoSigner.signProfileEvent(draft);
+      eventId = event && typeof event.id === 'string' ? event.id : '';
+      const pending = App.pool.publish(App.relayUrls, event);
+      const list = Array.isArray(pending) ? pending : [pending];
+      const timed = list.map((p) => Promise.race([
+        Promise.resolve(p),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), 10000)),
+      ]));
+      const settled = await Promise.allSettled(timed);
+      acks = settled.filter((r) => r.status === 'fulfilled').length;
     } catch (err) {
-      App.metadataPublishQueued = true;
-      console.error('Failed to publish profile metadata', err);
+      console.error('Failed to publish profile metadata', err && err.message);
     }
+    const ok = acks > 0;
+    if (!ok) App.metadataPublishQueued = true;
+    else console.log('Profile metadata published', { acks });
+    App.lastProfilePublish = { ok, acks, eventId, pictureDurable, coverDurable };
+    return App.lastProfilePublish;
   }
 
   function openProfileSettings() {
@@ -1578,7 +1656,13 @@
           initials: App.profile.avatarInitials,
         });
       }
-      publishProfileMetadata();
+      publishProfileMetadata().then((result) => {
+        if (result && result.ok && result.pictureDurable !== false) return;
+        showProfileDialog({
+          title: 'הפרופיל לא נשמר',
+          message: 'לא הצלחנו לשמור את הפרופיל ברשת. בדוק חיבור ונסה שוב.',
+        });
+      });
     };
 
     if (fileInput && fileInput.files && fileInput.files[0]) {

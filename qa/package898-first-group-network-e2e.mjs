@@ -677,8 +677,8 @@ async function visibleTabs(page) {
 async function menuVisible(page) {
   return page.evaluate(() => {
     window.NostrApp.GroupAdminProductUi.ensureMenuEntry();
-    const el = document.getElementById('sosGroupAdminMenuEntry');
-    return !!el && getComputedStyle(el).display !== 'none';
+    const el = document.getElementById('sosGroupControlMenuItem');
+    return !!el && !el.hidden && el.style.display !== 'none';
   });
 }
 function decodeQrDataUrl(dataUrl) {
