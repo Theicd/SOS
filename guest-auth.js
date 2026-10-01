@@ -452,9 +452,91 @@
     var keyPolicyCheckbox = document.getElementById('keyPolicyAgree');
     var keyRightsCheckbox = document.getElementById('keyRightsConfirm');
 
+    // Several key-step blocks carry inline display styles, which override the hidden attribute.
+    function setBlockVisible(el, visible) {
+      if (!el) return;
+      el.hidden = !visible;
+      if (!visible) {
+        if (el.style.display !== 'none') el.setAttribute('data-sos-display', el.style.display || '');
+        el.style.display = 'none';
+      } else if (el.style.display === 'none') {
+        el.style.display = el.getAttribute('data-sos-display') || '';
+      }
+    }
+
+    function setWorkerKeyMode(on) {
+      var show = function(id, visible) {
+        setBlockVisible(document.getElementById(id), visible);
+      };
+      show('workerKeyIntro', on);
+      show('legacyKeyWarning', !on);
+      show('generatedKeyDisplay', !on);
+      show('legacyKeyActions', !on);
+      show('legacyKeyConfirm', !on);
+      show('workerIdentityDone', false);
+      var title = document.getElementById('authKeyTitle');
+      if (title) title.textContent = on ? 'יצירת הזהות שלך' : 'זה המפתח האישי שלך!';
+      if (generatedKeyDisplay) generatedKeyDisplay.value = '';
+    }
+
+    function renderRecoveryBackupStatus() {
+      var statusEl = document.getElementById('recoveryBackupStatus');
+      var btn = document.getElementById('btnRecoveryBackup');
+      var RB = App.RecoveryBackup;
+      var confirmed = !!(RB && RB.isBackupConfirmed(App.publicKey));
+      if (statusEl) {
+        statusEl.textContent = confirmed ? 'גיבוי לשחזור החשבון: נוצר ואושר' : 'גיבוי לשחזור החשבון: טרם נוצר';
+        statusEl.style.color = confirmed ? '#4caf50' : '#ffc107';
+      }
+      if (btn) btn.hidden = confirmed;
+    }
+
+    function showWorkerIdentityDone() {
+      var pub = String(App.publicKey || '').toLowerCase();
+      var pubEl = document.getElementById('workerIdentityPubkey');
+      var fpEl = document.getElementById('workerIdentityFingerprint');
+      if (pubEl) pubEl.textContent = pub;
+      if (fpEl) fpEl.textContent = pub ? pub.slice(0, 8) + '…' + pub.slice(-8) : '';
+      ['workerKeyIntro', 'legacyKeyActions', 'legacyKeyConfirm'].forEach(function(id) {
+        setBlockVisible(document.getElementById(id), false);
+      });
+      setBlockVisible(document.querySelector('#authStepKey .auth-legal-block'), false);
+      setBlockVisible(btnFinalConnect, false);
+      setBlockVisible(document.getElementById('workerIdentityDone'), true);
+      var title = document.getElementById('authKeyTitle');
+      if (title) title.textContent = 'הזהות שלך נוצרה בהצלחה';
+      renderRecoveryBackupStatus();
+    }
+
+    var btnRecoveryBackup = document.getElementById('btnRecoveryBackup');
+    if (btnRecoveryBackup) {
+      btnRecoveryBackup.addEventListener('click', function() {
+        var RB = App.RecoveryBackup;
+        var r = RB && typeof RB.start === 'function' ? RB.start() : { ok: false, code: 'UNAVAILABLE' };
+        if (!r || !r.ok) {
+          setStatus('keyStatus', r && r.code === 'POPUP_BLOCKED' ? 'הדפדפן חסם את חלון הגיבוי. אפשרו חלונות קופצים ונסו שוב.' : 'לא ניתן לפתוח את חלון הגיבוי כרגע.', true);
+          return;
+        }
+        setStatus('keyStatus', 'המשיכו בחלון הגיבוי המאובטח (signer.sos010.com).', false);
+      });
+    }
+    window.addEventListener('sos-recovery-backup-state', function(ev) {
+      renderRecoveryBackupStatus();
+      var st = ev && ev.detail && ev.detail.state;
+      if (st === 'CONFIRMED') setStatus('keyStatus', 'הגיבוי לשחזור החשבון הושלם.', false);
+      else if (st === 'IN_SIGNER') setStatus('keyStatus', 'המפתח הועבר לחותם המאובטח. השלימו את הגיבוי בחלון החותם.', false);
+      else if (st === 'ERROR') setStatus('keyStatus', 'הגיבוי נכשל: ' + ((ev.detail && ev.detail.code) || 'שגיאה'), true);
+    });
+    var btnWorkerIdentityContinue = document.getElementById('btnWorkerIdentityContinue');
+    if (btnWorkerIdentityContinue) {
+      btnWorkerIdentityContinue.addEventListener('click', function() {
+        window.location.reload();
+      });
+    }
+
     function updateFinalConnectState() {
       if (!btnFinalConnect) return;
-      var confirmChecked = keyConfirmCheckbox ? keyConfirmCheckbox.checked : true;
+      var confirmChecked = signupData.workerCreate ? true : keyConfirmCheckbox ? keyConfirmCheckbox.checked : true;
       var policyChecked = keyPolicyCheckbox ? keyPolicyCheckbox.checked : true;
       var rightsChecked = keyRightsCheckbox ? keyRightsCheckbox.checked : true;
       btnFinalConnect.disabled = !(confirmChecked && policyChecked && rightsChecked);
@@ -788,13 +870,12 @@
           signupData.privateKey = '';
           signupData.workerCreate = true;
           signupData.createNonce = 'c' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
-          if (generatedKeyDisplay) {
-            generatedKeyDisplay.value = 'WORKER_VAULT_CREATE — המפתח נוצר בכספת מאובטחת ולא מוצג בעמוד. ייצוא מאובטח יגיע בשלב מאוחר יותר.';
-            generatedKeyDisplay.readOnly = true;
-          }
-          setStatus('keyStatus', 'זהות חדשה תיווצר בכספת Worker ללא חשיפת מפתח בעמוד.', false);
+          setWorkerKeyMode(true);
+          setStatus('keyStatus', '', false);
+          updateFinalConnectState();
           return;
         }
+        setWorkerKeyMode(false);
         var privateKeyHex = generatePrivateKeyHex();
         var displayValue = encodeKeyForDisplay(privateKeyHex);
         signupData.privateKey = privateKeyHex;
@@ -809,6 +890,7 @@
     // העתקת מפתח
     if (btnCopyKey) {
       btnCopyKey.addEventListener('click', async function() {
+        if (signupData.workerCreate || !generatedKeyDisplay || !generatedKeyDisplay.value) return;
         try {
           await navigator.clipboard.writeText(generatedKeyDisplay.value);
           setStatus('keyStatus', 'המפתח הועתק ללוח', false);
@@ -821,6 +903,7 @@
     // הורדת מפתח
     if (btnDownloadKey) {
       btnDownloadKey.addEventListener('click', function() {
+        if (signupData.workerCreate || !generatedKeyDisplay || !generatedKeyDisplay.value) return;
         var blob = new Blob([generatedKeyDisplay.value], { type: 'text/plain' });
         var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
@@ -1115,6 +1198,11 @@
             }
           }
 
+          if (signupData.workerCreate) {
+            setStatus('keyStatus', '', false);
+            showWorkerIdentityDone();
+            return;
+          }
           setStatus('keyStatus', 'מתחבר לרשת...', false);
           setTimeout(function() {
             window.location.reload();

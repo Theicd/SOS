@@ -1,0 +1,245 @@
+{
+  "gate": "F5B6W_RECOVERY_E2E",
+  "status": "PASS",
+  "ts": "2026-10-01T00:38:02.932Z",
+  "results": {
+    "ONBOARDING_KEY_STEP_WORKER_MODE": {
+      "ok": true,
+      "detail": {
+        "workerIntro": true,
+        "textareaVisible": false,
+        "textareaValueLen": 0,
+        "copyVisible": false,
+        "downloadVisible": false,
+        "legacyConfirmVisible": false,
+        "legacyWarningVisible": false
+      }
+    },
+    "ONBOARDING_TRUTHFUL_DONE_STATE": {
+      "ok": true,
+      "detail": {
+        "pkOk": true,
+        "pubShown": true,
+        "fpShown": true,
+        "successText": true,
+        "truthText": true,
+        "statusNotCreated": true,
+        "backupBtn": true,
+        "oldConfirmVisible": false,
+        "textareaVisible": false,
+        "claimsRecoverable": false,
+        "worker": true,
+        "privInMemory": false,
+        "needsBackup": true
+      }
+    },
+    "WORKER_IDENTITY_CREATED": {
+      "ok": true,
+      "detail": {
+        "worker": true,
+        "privInMemory": false
+      }
+    },
+    "WORKER_ACCOUNT_LOGOUT_WITHOUT_BACKUP_PROTECTED": {
+      "ok": true,
+      "detail": {
+        "blocked": true,
+        "result": "LOGOUT_BLOCKED_NO_RECOVERY_BACKUP",
+        "modal": true,
+        "destroyDisabled": true,
+        "hasBackupBtn": true,
+        "metaSame": true
+      }
+    },
+    "FORGED_BACKUP_CONFIRMATION_IGNORED": {
+      "ok": true,
+      "detail": null
+    },
+    "HANDOFF_IMPORTED_INTO_SIGNER": {
+      "ok": true,
+      "detail": {
+        "states": [
+          "OPENED",
+          "SEALED",
+          "IN_SIGNER",
+          "CONFIRMED"
+        ]
+      }
+    },
+    "BACKUP_NOT_CONFIRMED_BEFORE_REVEAL": {
+      "ok": true,
+      "detail": null
+    },
+    "HANDOFF_URL_HAS_NO_SECRET": {
+      "ok": true,
+      "detail": null
+    },
+    "PASSKEY_ENROLLED": {
+      "ok": true,
+      "detail": null
+    },
+    "RECOVERY_MATERIAL_VALID_FOR_SAME_IDENTITY": {
+      "ok": true,
+      "detail": null
+    },
+    "RECOVERY_BACKUP_CONFIRMED_ONLY_AFTER_REVEAL": {
+      "ok": true,
+      "detail": {
+        "beforeConfirm": false,
+        "states": [
+          "OPENED",
+          "SEALED",
+          "IN_SIGNER",
+          "CONFIRMED"
+        ],
+        "needsBackup": false
+      }
+    },
+    "PRIVATE_KEY_NORMAL_PAGE_EXPOSURE_DOM": {
+      "ok": true,
+      "detail": null
+    },
+    "PRIVATE_KEY_NORMAL_PAGE_EXPOSURE_STORAGE": {
+      "ok": true,
+      "detail": null
+    },
+    "PRIVATE_KEY_MESSAGES_TO_SOS010": {
+      "ok": true,
+      "detail": {
+        "messageCount": 4
+      }
+    },
+    "PRIVATE_KEY_LOGGING": {
+      "ok": true,
+      "detail": {
+        "consoleLines": 220
+      }
+    },
+    "PRIVATE_KEY_NETWORK_RETURN_TO_SOS010": {
+      "ok": true,
+      "detail": {
+        "requests": 413,
+        "relayFrames": 118
+      }
+    },
+    "SEAL_WRONG_PUBKEY_REFUSED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "HANDOFF_PUBKEY_MISMATCH"
+      }
+    },
+    "SEAL_BAD_RECIPIENT_REFUSED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "HANDOFF_BAD_RECIPIENT"
+      }
+    },
+    "SEAL_LONG_TTL_REFUSED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "HANDOFF_EXPIRED"
+      }
+    },
+    "SEAL_KEY_FIELD_INJECTION_REFUSED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "WORKER_REJECTS_PAGE_K"
+      }
+    },
+    "RAW_EXPORT_OP_REFUSED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "UNKNOWN_OP"
+      }
+    },
+    "SEAL_COUNT_AFTER_REAL_HANDOFF": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "sealsRemaining": 2,
+        "keys": [
+          "protocol",
+          "pubkey",
+          "sealCount",
+          "sealsRemaining",
+          "lastSealAt"
+        ]
+      }
+    },
+    "SEAL_REPLAY_REFUSED": {
+      "ok": true,
+      "detail": {
+        "seal2": true,
+        "replay": "HANDOFF_REPLAY"
+      }
+    },
+    "SEAL_LIFETIME_CAP_3": {
+      "ok": true,
+      "detail": {
+        "seal3": true,
+        "seal4": "HANDOFF_LIMIT_REACHED"
+      }
+    },
+    "SEAL_RESPONSE_HAS_NO_KEY_FIELDS": {
+      "ok": true,
+      "detail": [
+        "protocol",
+        "sessionId",
+        "expectedPubkey",
+        "recipientPub",
+        "senderEphemeralPub",
+        "exp",
+        "iv",
+        "ciphertext",
+        "sealCount",
+        "sealsRemaining"
+      ]
+    },
+    "SIGNER_HANDOFF_FOREIGN_ORIGIN_OR_OTHER_IDENTITY_NO_OFFER": {
+      "ok": true,
+      "detail": {
+        "offers": 0
+      }
+    },
+    "SIGNER_HANDOFF_WITHOUT_OPENER_REFUSED": {
+      "ok": true,
+      "detail": {
+        "boot": "BAD_REQUEST"
+      }
+    },
+    "SIGNER_HANDOFF_IFRAME_REFUSED": {
+      "ok": true,
+      "detail": {
+        "boot": "NOT_LOADED"
+      }
+    },
+    "LOGOUT_AFTER_BACKUP_ALLOWED": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "result": "LOGOUT_COMPLETE",
+        "modal": false
+      }
+    },
+    "BROWSER_IDENTITY_CLEARED": {
+      "ok": true,
+      "detail": {
+        "hasBlob": false
+      }
+    },
+    "RECOVERED_PUBLIC_KEY_MATCH": {
+      "ok": true,
+      "detail": {
+        "match": true,
+        "freshDiffers": true
+      }
+    }
+  },
+  "passed": 31,
+  "failed": 0
+}

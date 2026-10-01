@@ -2144,7 +2144,8 @@
     <script src="./nostr-event-integrity.js?pkg=899" defer></script>
     <script src="./secure-channel.js" defer></script>
     <script src="./keys.js?pkg=899" defer></script>
-    <script src="./identity-lifecycle.js?pkg=899" defer></script>
+    <script src="./f5b6w-handoff-client.js?pkg=899h" defer></script>
+    <script src="./identity-lifecycle.js?pkg=899h" defer></script>
     <script src="./session-authority.js?pkg=899" defer></script>
     <script src="./native-typed-crypto-bridge.js?pkg=899" defer></script>
     <script src="./signer-outage-isolation.js?v=20260923f5b4r" defer></script>
@@ -2152,7 +2153,7 @@
     <script src="./profile.js?v=20260914logpriv2" defer></script>
     <!-- חלק הצגת מפתח (videos.html) — טעינת מודול ניהול חשבון להצגת המפתח | HYPER CORE TECH -->
     <script src="./account.js?pkg=899" defer></script>
-    <script src="./key-viewer.js?pkg=899" defer></script>
+    <script src="./key-viewer.js?pkg=899h" defer></script>
     <script src="./media-cache.js?v=20260902feed9" defer></script>
     <script src="./media-mirror.js?v=20260914logpriv2" defer></script>
     <script src="./media-recheck.js" defer></script>
@@ -2167,7 +2168,7 @@
     <script src="./contract-dashboard-v2.js" defer></script>
     <script src="./app.js?pkg=899" defer></script>
     <script src="./sos-crypto-signer.js?pkg=899p4" defer></script>
-    <script src="./sos-crypto-worker-vault.js?pkg=899" defer></script>
+    <script src="./sos-crypto-worker-vault.js?pkg=899h" defer></script>
     <!-- חלק ניווט (videos.html) — הגדרת לשונית פעילה לוידאו וטעינת מודול הניווט | HYPER CORE TECH -->
     <script>
       (function(){
@@ -2244,18 +2245,18 @@
     <script src="./group-control-mutations.js?pkg=899p4" defer></script>
     <script src="./member-admin-operations.js?pkg=899p4" defer></script>
     <script src="./first-group-admission-client.js?pkg=899p4" defer></script>
-    <script src="./first-group-network-authority.js?pkg=899p4" defer></script>
+    <script src="./first-group-network-authority.js?pkg=899h" defer></script>
     <script src="./admin-2fa-client.js?pkg=899p4" defer></script>
     <script src="./admin-pin-lock.js?pkg=899p4" defer></script>
     <script src="./first-group-admin.js?pkg=899g2" defer></script>
     <script src="./admin-settings-ui.js?v=20260923ac6" defer></script>
     <script src="./member-directory-ui.js?v=20260923ac7" defer></script>
     <script src="./group-admin-product-ui.js?pkg=899g2" defer></script>
-    <script src="./invite-service.js?pkg=899p4" defer></script>
+    <script src="./invite-service.js?pkg=899h" defer></script>
     <script src="./vendor/qrcode-browser.js?v=20260926web1" defer></script>
     <script src="./sos-invite-qr-ui.js?v=20260926web1" defer></script>
     <script src="./sos-md2-pairing-qr.js?v=20260926web1" defer></script>
-    <script src="./guest-auth.js?v=20260922guestHdr1" defer></script>
+    <script src="./guest-auth.js?pkg=899h" defer></script>
     <!-- מודולי צ'אט (videos.html) — זהים לעמודים הראשיים | HYPER CORE TECH -->
     <script src="./chat-state.js?v=20260920pres2" defer></script>
     <script src="./chat-e2ee.js?v=20260929cb1" defer></script>
@@ -2617,7 +2618,7 @@
     </main>
 
     <!-- חלק הצגת מפתח (videos.html) — מודל ההצגה המשותף לכל העמודים | HYPER CORE TECH -->
-    <div class="modal" id="keyModal" aria-hidden="true"><div class="modal-content key-modal"><h2>המפתח הפרטי שלך</h2><textarea id="keyViewerTextarea" readonly></textarea><div class="modal-actions key-modal__actions"><button type="button" class="button-secondary" onclick="closeKeyViewer()">סגור</button><button type="button" class="icon-button" onclick="copyKeyViewer()">העתק</button><button type="button" class="button-secondary key-modal__logout" onclick="logoutAndSwitchUser()">התנתק</button></div><div class="p2p-status" id="keyViewerStatus"></div></div></div>
+    <div class="modal" id="keyModal" aria-hidden="true"><div class="modal-content key-modal"><h2>המפתח הפרטי שלך</h2><textarea id="keyViewerTextarea" readonly></textarea><div class="modal-actions key-modal__actions"><button type="button" class="button-secondary" onclick="closeKeyViewer()">סגור</button><button type="button" class="icon-button" onclick="copyKeyViewer()">העתק</button><button type="button" class="button-secondary" id="keyViewerBackupBtn" hidden onclick="window.NostrApp.RecoveryBackup.start()">גיבוי לשחזור החשבון</button><button type="button" class="button-secondary key-modal__logout" onclick="logoutAndSwitchUser()">התנתק</button></div><div class="p2p-status" id="keyViewerStatus"></div></div></div>
 
     <!-- חלק לוח גידול (videos.html) — פאנל דשבורד נתוני רשת לשימוש כפתור הפרופיל | HYPER CORE TECH -->
     <section class="growth-dashboard" id="growthDashboard" aria-hidden="true"><div class="growth-dashboard__backdrop" onclick="closeGrowthDashboard()"></div><article class="growth-dashboard__panel" role="dialog" aria-modal="true"><header class="growth-dashboard__header"><div class="growth-dashboard__title"><i class="fa-solid fa-chart-line"></i><div><h2>מדד גידול הרשת</h2><p>נתוני מובילים בזמן אמת של SphereOne Social</p></div></div><button class="growth-dashboard__close" type="button" aria-label="סגירת לוח הגידול" onclick="closeGrowthDashboard()"><i class="fa-solid fa-xmark"></i></button></header><nav class="growth-dashboard__tabs" role="tablist"><button class="growth-dashboard__tab is-active" data-tab="overview" role="tab">סקירה</button><button class="growth-dashboard__tab" data-tab="activity" role="tab">מובילים</button><button class="growth-dashboard__tab" data-tab="leaders" role="tab">מובילים</button></nav><div class="growth-dashboard__content"><section class="growth-dashboard__section" data-pane="overview"><div class="growth-metrics" id="growthMetrics"></div><div class="growth-chart" id="growthChartContainer"><div class="growth-chart__ranges" role="group" aria-label="טווח היסטוריה"><button type="button" class="growth-chart__range-button" data-range="1d">יום</button><button type="button" class="growth-chart__range-button" data-range="1w">שנה</button><button type="button" class="growth-chart__range-button is-active" data-range="1m">חודש</button><button type="button" class="growth-chart__range-button" data-range="3m">שנה</button><button type="button" class="growth-chart__range-button" data-range="1y">שנה</button></div><canvas id="growthChart" aria-label="גרף מגמת פעילות"></canvas></div></section><section class="growth-dashboard__section is-hidden" data-pane="activity"><div class="growth-activity" id="growthActivity"></div></section><section class="growth-dashboard__section is-hidden" data-pane="leaders"><div class="growth-leaders" id="growthLeaders"></div></section></div><footer class="growth-dashboard__footer"><div class="growth-dashboard__status" id="growthStatus">מתחבר למדד...</div><div class="growth-dashboard__actions"><label class="growth-dashboard__toggle"><input type="checkbox" id="growthAutoRefresh"><span>רענון אוטומטי</span></label><button class="growth-dashboard__refresh" type="button" onclick="refreshGrowthDashboard()"><i class="fa-solid fa-rotate"></i>רענן כעת</button></div></footer></article></section>
@@ -3019,8 +3020,13 @@
 
         <!-- שלב 4 הרשמה: הצגת מפתח -->
         <div id="authStepKey" class="auth-step" style="display:none;">
-          <h2 style="margin-bottom: 15px; font-size: 22px; color: #ffffff;">זה המפתח האישי שלך!</h2>
-          <div style="background: rgba(255, 193, 7, 0.15); border: 2px solid #ffc107; border-radius: 10px; padding: 15px; margin-bottom: 20px; text-align: right;">
+          <h2 id="authKeyTitle" style="margin-bottom: 15px; font-size: 22px; color: #ffffff;">זה המפתח האישי שלך!</h2>
+          <div id="workerKeyIntro" hidden style="background: rgba(76, 175, 80, 0.12); border: 1px solid rgba(76, 175, 80, 0.6); border-radius: 10px; padding: 15px; margin-bottom: 20px; text-align: right;">
+            <p style="font-size: 14px; color: #ffffff; margin: 0; line-height: 1.6;">
+              בלחיצה על "התחבר לרשת" תיווצר הזהות שלך. המפתח הפרטי שלך נשמר במנגנון האבטחה של SOS ואינו מוצג במסך הרגיל.
+            </p>
+          </div>
+          <div id="legacyKeyWarning" style="background: rgba(255, 193, 7, 0.15); border: 2px solid #ffc107; border-radius: 10px; padding: 15px; margin-bottom: 20px; text-align: right;">
             <p style="font-size: 14px; color: #ffc107; margin: 0; line-height: 1.6;">
               ⚠️ <strong>חשוב מאוד!</strong> שמור את המפתח הזה במקום בטוח. <strong>לא ניתן לשחזר אותו!</strong>
             </p>
@@ -3040,7 +3046,7 @@
             </label>
           </div>
           <textarea id="generatedKeyDisplay" readonly style="width: 100%; min-height: 100px; padding: 12px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; font-family: monospace; font-size: 13px; resize: vertical; margin-bottom: 15px; background: #0f0f1e; color: #ffffff;"></textarea>
-          <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+          <div id="legacyKeyActions" style="display: flex; gap: 10px; margin-bottom: 20px;">
             <button type="button" class="button-secondary" id="btnCopyKey" style="flex: 1; padding: 10px; font-size: 14px;">
               📋 העתק
             </button>
@@ -3048,7 +3054,18 @@
               💾 שמור כקובץ
             </button>
           </div>
-          <label style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 20px; cursor: pointer;">
+          <div id="workerIdentityDone" hidden style="text-align: right; margin-bottom: 20px;">
+            <p style="font-size: 18px; color: #4caf50; margin: 0 0 10px; font-weight: bold;">הזהות שלך נוצרה בהצלחה</p>
+            <p style="font-size: 14px; color: #ffffff; margin: 0 0 12px; line-height: 1.6;">המפתח הפרטי שלך נשמר במנגנון האבטחה של SOS ואינו מוצג במסך הרגיל.</p>
+            <p style="font-size: 13px; color: #aaa; margin: 0 0 4px;">PUBLIC KEY</p>
+            <p id="workerIdentityPubkey" dir="ltr" style="font-family: monospace; font-size: 12px; color: #ffffff; word-break: break-all; margin: 0 0 10px;"></p>
+            <p style="font-size: 13px; color: #aaa; margin: 0 0 4px;">FINGERPRINT</p>
+            <p id="workerIdentityFingerprint" dir="ltr" style="font-family: monospace; font-size: 14px; color: #ffffff; margin: 0 0 14px;"></p>
+            <p id="recoveryBackupStatus" style="font-size: 14px; color: #ffc107; margin: 0 0 12px;">גיבוי לשחזור החשבון: טרם נוצר</p>
+            <button type="button" class="button-primary" id="btnRecoveryBackup" style="width: 100%; padding: 12px; font-size: 15px; margin-bottom: 10px;">גיבוי לשחזור החשבון</button>
+            <button type="button" class="button-secondary" id="btnWorkerIdentityContinue" style="width: 100%; padding: 12px; font-size: 15px;">המשך</button>
+          </div>
+          <label id="legacyKeyConfirm" style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 20px; cursor: pointer;">
             <input type="checkbox" id="keyConfirmCheckbox" style="width: 18px; height: 18px; cursor: pointer;" />
             <span style="font-size: 15px; color: #ffffff;">שמרתי את המפתח במקום בטוח</span>
           </label>

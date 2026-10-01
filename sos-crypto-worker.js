@@ -684,6 +684,88 @@
     if (banned.indexOf(op) !== -1) fail('UNKNOWN_OP', 'banned operation');
   }
 
+  // F5B6-W — sealed one-way handoff of K to the isolated signer (docs/security/F5B6_WEB_WORKER_TO_SIGNER_HANDOFF_DESIGN.md).
+  const HANDOFF_PROTOCOL = 'sos-f5b6w-v1';
+  const HANDOFF_MAX_SEALS = 3;
+  const HANDOFF_MAX_TTL_MS = 120000;
+  const HANDOFF_RECORD_KEY = 'f5b6w_handoff';
+
+  async function readHandoffSeals() {
+    const rec = await idbGet('metadata', HANDOFF_RECORD_KEY);
+    return rec && rec.pubkey === sessionPubHex && Array.isArray(rec.seals) ? rec.seals : [];
+  }
+
+  async function handoffStatus() {
+    requireReady();
+    const seals = await readHandoffSeals();
+    return {
+      protocol: HANDOFF_PROTOCOL,
+      pubkey: sessionPubHex,
+      sealCount: seals.length,
+      sealsRemaining: Math.max(0, HANDOFF_MAX_SEALS - seals.length),
+      lastSealAt: seals.length ? seals[seals.length - 1].at : null,
+    };
+  }
+
+  async function sealIdentityForSigner(params) {
+    requireReady();
+    const p = params || {};
+    const sessionId = String(p.sessionId || '').toLowerCase();
+    const expectedPubkey = String(p.expectedPubkey || '').toLowerCase();
+    const recipientPub = String(p.recipientPub || '').toLowerCase();
+    const exp = Number(p.exp);
+    if (!/^[0-9a-f]{32}$/.test(sessionId)) fail('HANDOFF_BAD_SESSION', 'bad session id');
+    if (expectedPubkey !== sessionPubHex) fail('HANDOFF_PUBKEY_MISMATCH', 'expected pubkey mismatch');
+    if (!/^04[0-9a-f]{128}$/.test(recipientPub)) fail('HANDOFF_BAD_RECIPIENT', 'bad recipient key');
+    const now = Date.now();
+    if (!Number.isFinite(exp) || exp <= now || exp - now > HANDOFF_MAX_TTL_MS) fail('HANDOFF_EXPIRED', 'offer expired');
+
+    const seals = await readHandoffSeals();
+    if (seals.some((s) => s.sessionId === sessionId)) fail('HANDOFF_REPLAY', 'session already used');
+    if (seals.length >= HANDOFF_MAX_SEALS) fail('HANDOFF_LIMIT_REACHED', 'handoff limit reached');
+    // Count the attempt before sealing; fail closed if it cannot be persisted.
+    const nextSeals = seals.concat([{ sessionId, at: now }]);
+    await idbPut('metadata', HANDOFF_RECORD_KEY, { pubkey: sessionPubHex, seals: nextSeals });
+    const persisted = await readHandoffSeals();
+    if (persisted.length !== nextSeals.length) fail('HANDOFF_STATE_PERSIST_FAILED', 'handoff state not persisted');
+
+    const subtle = crypto.subtle;
+    const enc = new TextEncoder();
+    const eph = await subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);
+    const senderEphemeralPub = bytesToHex(new Uint8Array(await subtle.exportKey('raw', eph.publicKey)));
+    const peer = await subtle.importKey('raw', hexToBytes(recipientPub), { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+    const shared = await subtle.deriveBits({ name: 'ECDH', public: peer }, eph.privateKey, 256);
+    const hkdf = await subtle.importKey('raw', shared, 'HKDF', false, ['deriveKey']);
+    const aes = await subtle.deriveKey(
+      { name: 'HKDF', hash: 'SHA-256', salt: enc.encode(sessionId), info: enc.encode('SOS|f5b6w|v1|' + sessionPubHex + '|' + sessionId) },
+      hkdf,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt'],
+    );
+    const header = JSON.stringify({ v: HANDOFF_PROTOCOL, sessionId, expectedPubkey: sessionPubHex, recipientPub, senderEphemeralPub, exp });
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const kBytes = hexToBytes(sessionPrivHex);
+    let ct;
+    try {
+      ct = await subtle.encrypt({ name: 'AES-GCM', iv, additionalData: enc.encode(header) }, aes, kBytes);
+    } finally {
+      kBytes.fill(0);
+    }
+    return {
+      protocol: HANDOFF_PROTOCOL,
+      sessionId,
+      expectedPubkey: sessionPubHex,
+      recipientPub,
+      senderEphemeralPub,
+      exp,
+      iv: bytesToHex(iv),
+      ciphertext: bytesToHex(new Uint8Array(ct)),
+      sealCount: nextSeals.length,
+      sealsRemaining: HANDOFF_MAX_SEALS - nextSeals.length,
+    };
+  }
+
   async function dispatch(op, params) {
     rejectBannedOps(op);
     switch (op) {
@@ -693,6 +775,10 @@
         return identityMeta();
       case 'CREATE_BROWSER_IDENTITY':
         return createBrowserIdentity(params || {});
+      case 'SEAL_IDENTITY_FOR_SIGNER':
+        return sealIdentityForSigner(params);
+      case 'GET_HANDOFF_STATUS':
+        return handoffStatus();
       case 'SIGN_CHAT_EVENT':
         return signTyped('SIGN_CHAT_EVENT', params && params.draft);
       case 'SIGN_PROFILE_EVENT':

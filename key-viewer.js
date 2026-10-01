@@ -34,7 +34,7 @@
       return null;
     }
     // F5A: normal key-viewer must NOT read App.privateKey / raw K.
-    // Explicit recovery/export remains deferred (trusted UI boundary).
+    // Raw K never leaves the Worker; recovery is only via the isolated signer (F5B6-W handoff, then F5B5 reveal).
     if (
       App.SosCryptoSigner &&
       typeof App.SosCryptoSigner.isWorkerAuthoritative === 'function' &&
@@ -65,10 +65,16 @@
     ) {
       const pub = App.publicKey || '';
       const fp = pub ? pub.slice(0, 8) + '…' + pub.slice(-8) : '';
+      const RB = App.RecoveryBackup;
+      const backedUp = !!(RB && RB.isBackupConfirmed(pub));
       textarea.value = pub
-        ? 'PUBLIC_KEY=' + pub + (fp ? '\nFINGERPRINT=' + fp : '') + '\n\n(ייצוא מפתח פרטי דורש ממשק אמון נפרד — F5B)'
+        ? 'PUBLIC_KEY=' + pub + (fp ? '\nFINGERPRINT=' + fp : '') +
+          '\n\nהמפתח הפרטי נשמר במנגנון האבטחה של SOS ואינו מוצג במסך הרגיל.' +
+          '\nגיבוי לשחזור החשבון: ' + (backedUp ? 'נוצר ואושר' : 'טרם נוצר')
         : '';
-      setStatus(pub ? 'תצוגת מטא-דאטה בלבד (ללא מפתח פרטי).' : 'אין זהות פעילה.', pub ? 'info' : 'error');
+      setStatus(pub ? (backedUp ? 'קיים גיבוי לשחזור.' : 'מומלץ ליצור גיבוי לשחזור החשבון.') : 'אין זהות פעילה.', pub ? 'info' : 'error');
+      const backupBtn = document.getElementById('keyViewerBackupBtn');
+      if (backupBtn) backupBtn.hidden = !pub || backedUp || !RB;
       modal.style.display = 'flex';
       modal.setAttribute('aria-hidden', 'false');
       return;
@@ -132,6 +138,7 @@
     closeKeyViewer();
     if (typeof App.logoutIdentity === 'function') {
       const result = App.logoutIdentity({ redirect: true, redirectUrl: 'videos.html' });
+      if (result && result.blocked === true) return;
       if (!result || result.ok !== true) {
         setStatus('התנתקות נכשלה — נדרש שחזור זהות.', 'error');
         try {

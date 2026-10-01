@@ -188,8 +188,23 @@
   /**
    * Atomic logout. Never generates. If Native shell present and clear fails → not success.
    */
+  /** Worker-Vault identity without a confirmed recovery backup must not be silently removed from this browser. */
+  function recoveryGuardBlocks(opts) {
+    if (opts.destroyIdentityConfirmed === true) return false;
+    const RB = App.RecoveryBackup || window.SosRecoveryBackup;
+    return !!(RB && typeof RB.needsBackup === 'function' && RB.needsBackup());
+  }
+
   function logoutIdentity(options) {
     const opts = options && typeof options === 'object' ? options : {};
+    if (recoveryGuardBlocks(opts)) {
+      logMarker('LOGOUT_BLOCKED_NO_RECOVERY_BACKUP');
+      try {
+        const RB = App.RecoveryBackup || window.SosRecoveryBackup;
+        if (opts.showGuard !== false && RB && typeof RB.openLogoutGuard === 'function') RB.openLogoutGuard(opts);
+      } catch (_g) {}
+      return { ok: false, blocked: true, state: App.identityState, result: 'LOGOUT_BLOCKED_NO_RECOVERY_BACKUP' };
+    }
     const oldPubkey = String(App.publicKey || '').trim().toLowerCase();
     logTransition('LOGOUT_IN_PROGRESS');
 
@@ -304,6 +319,14 @@
     }
 
     const oldPubkey = String(App.publicKey || '').trim().toLowerCase();
+    if (oldPubkey && oldPubkey !== prepared.publicKey && recoveryGuardBlocks(opts)) {
+      logMarker('ACCOUNT_SWITCH_BLOCKED_NO_RECOVERY_BACKUP');
+      try {
+        const RB = App.RecoveryBackup || window.SosRecoveryBackup;
+        if (opts.showGuard !== false && RB && typeof RB.openLogoutGuard === 'function') RB.openLogoutGuard({});
+      } catch (_g) {}
+      return { ok: false, blocked: true, reason: 'ACCOUNT_SWITCH_BLOCKED_NO_RECOVERY_BACKUP', code: 'ACCOUNT_SWITCH_BLOCKED_NO_RECOVERY_BACKUP' };
+    }
     logTransition('SWITCH_IN_PROGRESS');
     App._accountSwitchInProgress = true;
 
