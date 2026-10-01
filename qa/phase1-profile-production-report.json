@@ -1,0 +1,101 @@
+{
+  "gate": "PHASE1_PROFILE_PRODUCTION_CHECK",
+  "status": "PASS",
+  "ts": "2026-10-01T11:05:34.046Z",
+  "results": {
+    "LIVE_BUILD_899J": {
+      "ok": true,
+      "detail": {
+        "version": "2026.10.01-web-899j",
+        "v2": true,
+        "scope": "CONTROL_PLANE",
+        "profilePageSigner": true
+      }
+    },
+    "LIVE_FLAGS_V2_CONTROL_PLANE": {
+      "ok": true,
+      "detail": {
+        "v2": true,
+        "scope": "CONTROL_PLANE"
+      }
+    },
+    "PROD_DISPOSABLE_IDENTITY": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "worker": true
+      }
+    },
+    "HOME_GROUP_MANAGEMENT_BUTTON_PRESENT_FALSE": {
+      "ok": true,
+      "detail": {
+        "floating": false,
+        "blueText": false
+      }
+    },
+    "PROD_PROFILE_PAGE_SIGNER_READY": {
+      "ok": true,
+      "detail": null
+    },
+    "PROFILE_WRITE_PUBLISHED": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "acks": 4
+      }
+    },
+    "PROFILE_PICTURE_DURABLE_URL": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "acks": 4,
+        "durable": true
+      }
+    },
+    "PROD_RELAY_READBACK_NEWEST": {
+      "ok": true,
+      "detail": {
+        "relaysWithEvent": 3,
+        "name": true,
+        "pictureHttps": true
+      }
+    },
+    "PROD_PICTURE_URL_REACHABLE": {
+      "ok": true,
+      "detail": {
+        "status": 200
+      }
+    },
+    "PROFILE_NAME_PERSISTENCE": {
+      "ok": true,
+      "detail": {
+        "same": true
+      }
+    },
+    "PROFILE_AVATAR_PERSISTENCE": {
+      "ok": true,
+      "detail": {
+        "https": true
+      }
+    },
+    "PROFILE_REFRESH_WITHOUT_RELOGIN": {
+      "ok": true,
+      "detail": null
+    },
+    "CROSS_USER_PROFILE_RESOLUTION": {
+      "ok": true,
+      "detail": {
+        "name": true,
+        "picture": true
+      }
+    },
+    "CONVERSATION_PROFILE_RESOLUTION": {
+      "ok": true,
+      "detail": {
+        "same": true
+      }
+    }
+  },
+  "passed": 14,
+  "failed": 0
+}
