@@ -2651,6 +2651,25 @@ try {
   _app.purgeDeletedVideo = purgeDeletedVideo;
 } catch (_) {}
 
+function isVideoAuthorSuppressed(video) {
+  const MP = window.NostrApp?.ModerationPolicy || window.SosModerationPolicy;
+  return !!(video && video.pubkey && MP && typeof MP.isAuthorSuppressed === 'function' && MP.isAuthorSuppressed(video.pubkey));
+}
+
+function purgeSuppressedVideoAuthors() {
+  const lists = [state.videos, state.ownPostsVideos, state.liveTvVideos];
+  const ids = new Set();
+  lists.forEach((list) => {
+    if (Array.isArray(list)) list.forEach((v) => { if (isVideoAuthorSuppressed(v)) ids.add(v.id); });
+  });
+  ids.forEach((id) => purgeDeletedVideo(id));
+  if (ids.size) saveFeedCache(state.videos);
+}
+
+window.addEventListener('sos-first-group-state-changed', () => {
+  try { purgeSuppressedVideoAuthors(); } catch (_) {}
+});
+
 function truncateFeedLength() {
   if (state.videos.length <= FEED_CACHE_LIMIT) {
     return;
@@ -3013,6 +3032,7 @@ function upsertVideoInState(video, options = {}) {
     try { console.log('[DELETE-LIFECYCLE] FILTER_BLOCK', { id: video.id, source: 'upsertVideoInState' }); } catch (_) {}
     return;
   }
+  if (isVideoAuthorSuppressed(video)) return;
   if (isMediaUnavailable(video)) {
     console.log('[videos] skip unavailable media post', { id: video.id });
     return;
@@ -5261,6 +5281,24 @@ function renderVideoCard(video) {
     actionsDiv.appendChild(deleteBtn);
   }
 
+  if (!isSelf && !video.liveCatalog && /^[0-9a-f]{64}$/.test(String(video.id || ''))) {
+    const reportBtn = document.createElement('button');
+    reportBtn.type = 'button';
+    reportBtn.className = 'videos-feed__action videos-feed__action--report';
+    reportBtn.setAttribute('data-report-event', video.id);
+    reportBtn.title = 'דווח';
+    reportBtn.innerHTML = '<i class="fa-solid fa-flag"></i><span>דווח</span>';
+    reportBtn.addEventListener('click', (evt) => {
+      evt.preventDefault();
+      evt.stopPropagation();
+      const appRef = window.NostrApp;
+      if (typeof appRef?.reportEvent === 'function') {
+        appRef.reportEvent(video.id, '', { pubkey: video.pubkey, kind: 1, content: video.content || '' });
+      }
+    });
+    actionsDiv.appendChild(reportBtn);
+  }
+
   const infoDiv = document.createElement('div');
   infoDiv.className = 'videos-feed__info';
 
@@ -6546,6 +6584,23 @@ async function loadCommentsForPost(eventId) {
         }
       });
       headerRow.appendChild(deleteBtn);
+    }
+    if (!isOwn && authorKey && /^[0-9a-f]{64}$/.test(String(comment?.id || ''))) {
+      const reportBtn = document.createElement('button');
+      reportBtn.type = 'button';
+      reportBtn.className = 'videos-comment-report';
+      reportBtn.setAttribute('data-report-event', comment.id);
+      reportBtn.setAttribute('aria-label', 'דווח על תגובה');
+      reportBtn.title = 'דווח';
+      reportBtn.innerHTML = '<i class="fa-solid fa-flag" aria-hidden="true"></i>';
+      reportBtn.addEventListener('click', (evt) => {
+        evt.preventDefault();
+        evt.stopPropagation();
+        if (typeof app?.reportEvent === 'function') {
+          app.reportEvent(comment.id, eventId, { pubkey: authorKey, kind: 1, content: comment.content || '' });
+        }
+      });
+      headerRow.appendChild(reportBtn);
     }
 
     contentWrap.appendChild(headerRow);
@@ -9480,7 +9535,7 @@ function getDisplayVideos() {
   }
   const all = Array.isArray(state.videos) ? state.videos : [];
   const filtered = sortVideosByCreatedAtDesc(
-    all.filter((v) => isGeneralFeedVideo(v) && !isMediaUnavailable(v))
+    all.filter((v) => isGeneralFeedVideo(v) && !isMediaUnavailable(v) && !isVideoAuthorSuppressed(v))
   );
   if (filtered.length) {
     try {

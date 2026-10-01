@@ -31,7 +31,7 @@
     INVITE_USERS: 'הזמנת חברים',
     MANAGE_INVITES: 'ניהול כל ההזמנות',
     MANAGE_MEMBERS: 'ניהול חברים',
-    MANAGE_BLOCKLIST: 'חסימת חברים',
+    MANAGE_BLOCKLIST: 'חסימת משתמשים',
     VIEW_AUDIT_LOG: 'צפייה בפעילות ניהולית',
   });
 
@@ -244,7 +244,19 @@
       settings: has(a, 'MANAGE_INVITES') || a.isRoot,
       security: has(a, 'VIEW_AUDIT_LOG'),
       moderation: has(a, 'MODERATE_CONTENT'),
+      blockMembers: hasAny(a, ['MANAGE_BLOCKLIST', 'MANAGE_MEMBERS']),
+      reports: hasAny(a, ['MODERATE_CONTENT', 'MANAGE_BLOCKLIST']),
+      userSearch: hasAny(a, ['MANAGE_MEMBERS', 'MANAGE_BLOCKLIST', 'MODERATE_CONTENT', 'MANAGE_ADMINS', 'MANAGE_PERMISSIONS']),
     };
+  }
+
+  /** Content moderators (not admin tier) get the control panel limited to reports and user content. */
+  function canSeeModeration() {
+    if (!isV2() || App.guestMode === true) return false;
+    if (!contextCheck().ok) return false;
+    if (!networkSynced()) return false;
+    const a = myAuthority();
+    return a.verified && (a.isRoot || hasAny(a, ['MODERATE_CONTENT', 'MANAGE_BLOCKLIST']));
   }
 
   function inviteCreateAllowed(a) {
@@ -318,6 +330,8 @@
     'SET_PERMISSIONS',
     'DEMOTE_ADMIN',
     'REMOVE_MEMBER',
+    'BLOCK_MEMBER',
+    'UNBLOCK_MEMBER',
     'GRANT_MEMBER_ACTIVE',
     'SET_INVITE_POLICY',
     'CREATE_INVITE',
@@ -971,6 +985,69 @@
     return res && res.ok ? done(res) : res || fail('REMOVE_FAILED');
   }
 
+  function blockTargetGuard(g, targetPubkey) {
+    const target = normalizePubkey(targetPubkey);
+    if (!target) return fail('BAD_PUBKEY');
+    if (target === g.actor) return fail('SELF_TARGET_FORBIDDEN');
+    if (isConfiguredRoot(target) || authorityFor(target).isRoot) return fail('ROOT_PROTECTED');
+    return null;
+  }
+
+  /**
+   * Members: two-phase canonical BLOCK (blocklist + membership tip). Non-members: blocklist entry only,
+   * so they can never redeem an invite or publish into the group.
+   */
+  async function blockMember(targetPubkey, opts) {
+    const g = await nguard('BLOCK_MEMBER', ['MANAGE_BLOCKLIST', 'MANAGE_MEMBERS']);
+    if (!g.ok) return g;
+    const bad = blockTargetGuard(g, targetPubkey);
+    if (bad) return bad;
+    const target = normalizePubkey(targetPubkey);
+    const ms = MS();
+    const mao = MAO();
+    if (!ms || !mao) return fail('NO_MEMBER_OPS');
+    const st = ms.getMemberState(target);
+    const listed = ms.inBlockedPubkeys(target);
+    let res;
+    if (st === 'BLOCKED' && listed) return fail('ALREADY_BLOCKED');
+    if (st === 'ACTIVE' && listed) res = await mao.resumeBlock(target, g.actor, opts || {});
+    else if (st === 'ACTIVE') res = await mao.blockMember(target, g.actor, opts || {});
+    else if (!listed) return mutate({ type: 'ADD_TO_BLOCKLIST', targetPubkey: target }, opts);
+    else return fail('ALREADY_BLOCKED');
+    if (res && res.code === 'PARTIAL_BLOCK') notifyChanged('partial-block');
+    return res && res.ok ? done(res) : res || fail('BLOCK_FAILED');
+  }
+
+  /** Lifts the block only; a REMOVED member stays removed and revoked capabilities are not recreated. */
+  async function unblockMember(targetPubkey, opts) {
+    const g = await nguard('UNBLOCK_MEMBER', ['MANAGE_BLOCKLIST', 'MANAGE_MEMBERS']);
+    if (!g.ok) return g;
+    const bad = blockTargetGuard(g, targetPubkey);
+    if (bad) return bad;
+    const target = normalizePubkey(targetPubkey);
+    const ms = MS();
+    const mao = MAO();
+    if (!ms || !mao) return fail('NO_MEMBER_OPS');
+    const st = ms.getMemberState(target);
+    const listed = ms.inBlockedPubkeys(target);
+    let res;
+    if (st === 'BLOCKED') res = await mao.unblockMember(target, g.actor, opts || {});
+    else if (st === 'ACTIVE' && listed) res = await mao.resumeUnblock(target, g.actor, opts || {});
+    else if (listed) return mutate({ type: 'REMOVE_FROM_BLOCKLIST', targetPubkey: target }, opts);
+    else return fail('NOT_BLOCKED');
+    if (res && res.phase1 && res.phase1.ok && !res.ok) notifyChanged('partial-unblock');
+    return res && res.ok ? done(res) : res || fail('UNBLOCK_FAILED');
+  }
+
+  /** Block state for the user panel: BLOCKED (tip), LISTED (blocklist only) or NONE. */
+  function blockStateOf(targetPubkey) {
+    const ms = MS();
+    const pk = normalizePubkey(targetPubkey);
+    if (!ms || !pk) return 'NONE';
+    if (ms.getMemberState(pk) === 'BLOCKED') return 'BLOCKED';
+    return ms.inBlockedPubkeys(pk) ? 'LISTED' : 'NONE';
+  }
+
   /** Invite-bound admission is final only through the canonical admission service (single-use atomic claim). */
   async function approveJoin(memberPubkey, inviteEventId) {
     const g = await nguard('GRANT_MEMBER_ACTIVE', ['MANAGE_MEMBERS']);
@@ -1292,9 +1369,10 @@
           rows.push(Object.assign({ action: 'SET_GROUP_METADATA', target: '', detail: k }, base));
         }
       });
-      const pb = (prev.blockedPubkeys || []).join(',');
-      const nb = (r.blockedPubkeys || []).join(',');
-      if (pb !== nb) rows.push(Object.assign({ action: 'BLOCKLIST_CHANGED', target: '', detail: '' }, base));
+      const pb = prev.blockedPubkeys || [];
+      const nb = r.blockedPubkeys || [];
+      nb.filter((pk) => pb.indexOf(pk) === -1).forEach((pk) => rows.push(Object.assign({ action: 'BLOCKLIST_CHANGED', target: pk, detail: 'ADDED' }, base)));
+      pb.filter((pk) => nb.indexOf(pk) === -1).forEach((pk) => rows.push(Object.assign({ action: 'BLOCKLIST_CHANGED', target: pk, detail: 'REMOVED' }, base)));
     }
     const mem = m && typeof m.exportMembershipEvents === 'function' ? m.exportMembershipEvents(FIRST_GROUP.groupId) : [];
     mem.forEach((ev) => {
@@ -1436,6 +1514,10 @@
     promoteAdmin,
     demoteAdmin,
     removeMember,
+    blockMember,
+    unblockMember,
+    blockStateOf,
+    canSeeModeration,
     approveJoin,
     ADMISSION_CAPS,
     setAdmissionDelegate,

@@ -364,9 +364,9 @@ async function groupControlUx(page, A, M) {
   });
   set(
     'PERMISSION_UI_PRIMARY_AND_ADVANCED',
-    JSON.stringify(drawer.primaryVisible) === JSON.stringify(['INVITE_USERS', 'MODERATE_CONTENT', 'MANAGE_MEMBERS']) &&
-      JSON.stringify(drawer.advanced.slice().sort()) === JSON.stringify(['MANAGE_ADMINS', 'MANAGE_BLOCKLIST', 'MANAGE_GROUP_SETTINGS', 'MANAGE_INVITES', 'MANAGE_PERMISSIONS', 'VIEW_AUDIT_LOG']) &&
-      drawer.advancedCollapsed && drawer.advancedTitle === 'הרשאות ניהול מתקדמות' && drawer.moderateLabel === 'מחיקת פוסטים ותגובות' && drawer.helpCount === 3,
+    JSON.stringify(drawer.primaryVisible) === JSON.stringify(['INVITE_USERS', 'MODERATE_CONTENT', 'MANAGE_MEMBERS', 'MANAGE_BLOCKLIST']) &&
+      JSON.stringify(drawer.advanced.slice().sort()) === JSON.stringify(['MANAGE_ADMINS', 'MANAGE_GROUP_SETTINGS', 'MANAGE_INVITES', 'MANAGE_PERMISSIONS', 'VIEW_AUDIT_LOG']) &&
+      drawer.advancedCollapsed && drawer.advancedTitle === 'הרשאות ניהול מתקדמות' && drawer.moderateLabel === 'מחיקת פוסטים ותגובות' && drawer.helpCount === 4,
     { primary: drawer.primaryVisible, advanced: drawer.advanced.length, collapsed: drawer.advancedCollapsed, label: drawer.moderateLabel, help: drawer.helpCount }
   );
   await page.screenshot({ path: path.join(ROOT, 'qa', 'permission-ui-user-panel.png') }).catch(() => {});

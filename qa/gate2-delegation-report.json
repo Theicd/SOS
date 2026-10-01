@@ -1,7 +1,7 @@
 {
   "gate": "GATE2_DELEGATION_LOCAL",
   "status": "PASS",
-  "ts": "2026-09-30T14:24:32.850Z",
+  "ts": "2026-10-01T14:05:20.779Z",
   "results": {
     "SERVED_FGA_PINS_PRODUCTION_SERVICE_KEY": {
       "ok": true,
@@ -12,7 +12,7 @@
       "detail": {
         "v2": false,
         "enforced": true,
-        "signer": "4fbbdd1cae321fc42e9a848246de69903fc0d5df9913bc532f2d00345877d28b"
+        "signer": "33689ce3786785ef5b1ee32c2a39805d3b6c381787fc3741e052079d8610df89"
       }
     },
     "PRECONDITION_GENESIS_PUBLISHED": {
@@ -29,7 +29,7 @@
         "controlPlane": "ACTIVE",
         "epoch": 1,
         "relay": {
-          "at": 1790778298,
+          "at": 1790863545,
           "relaysOk": 2,
           "relaysTotal": 2
         }
@@ -118,7 +118,7 @@
       "ok": true,
       "detail": {
         "caps": {
-          "69a88aa01940f864d101b677bd5802676c76526d8720886ceea6d3f404e18d2a": [
+          "d1963bf9152d037d261142ed78ea493db9c2d0f6b95ee849e02aa299e76ba662": [
             "FINALIZE_MEMBERSHIP_ADMISSION"
           ]
         },
@@ -174,7 +174,7 @@
       "detail": {
         "delegationActive": true,
         "relay": {
-          "at": 1790778309,
+          "at": 1790863555,
           "relaysOk": 2,
           "relaysTotal": 2
         }

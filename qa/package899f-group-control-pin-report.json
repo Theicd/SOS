@@ -2,7 +2,7 @@
   "gate": "PACKAGE899F_GROUP_CONTROL_PIN",
   "ACCESS_CONTROL_V2": "OFF (served unchanged)",
   "status": "PASS",
-  "ts": "2026-10-01T11:57:23.853Z",
+  "ts": "2026-10-01T13:34:04.016Z",
   "results": {
     "ENV_V2_OFF_TEST_ROOT": {
       "ok": true,
@@ -142,7 +142,7 @@
       "ok": true,
       "detail": {
         "inList": true,
-        "text": "ב\nבעלים לבדיקה\n4330efda…1875\nמנהל ראשי\nמוגן\nניהול",
+        "text": "ב\nבעלים לבדיקה\n19bfc8f9…9dbe\nמנהל ראשי\nמוגן\nניהול",
         "avatar": true,
         "manage": true,
         "fullKey": false
@@ -151,7 +151,7 @@
     "USER_SEARCH": {
       "ok": true,
       "detail": {
-        "text": "מ\nמשתמשת חיפוש\n795f364c…ad0d\nעדיין אין נתוני חברות\nניהול",
+        "text": "מ\nמשתמשת חיפוש\nb2007304…63eb\nעדיין אין נתוני חברות\nניהול",
         "avatar": true,
         "short": true
       }
@@ -162,12 +162,13 @@
         "primary": [
           "INVITE_USERS",
           "MODERATE_CONTENT",
-          "MANAGE_MEMBERS"
+          "MANAGE_MEMBERS",
+          "MANAGE_BLOCKLIST"
         ],
-        "advanced": 6,
+        "advanced": 5,
         "collapsed": true,
         "label": "מחיקת פוסטים ותגובות",
-        "help": 3
+        "help": 4
       }
     },
     "SELECT_USER_PANEL": {
@@ -401,7 +402,7 @@
       "ok": true,
       "detail": {
         "before": true,
-        "pub": "795f364cd319299824ec3357c6652862fea48b32cd090a18b22d7a0ec73cad0d",
+        "pub": "b20073043f57c557787be7ff139448b30d33a97382847c47e098c7ca07e463eb",
         "unlocked": false,
         "open": false,
         "menu": false,
@@ -424,7 +425,7 @@
     "RESTART_CLEARS_UNLOCK": {
       "ok": true,
       "detail": {
-        "pub": "4330efda842d708b650b60251c99934834d145ecdb999f6b27b4e0b41c7d1875",
+        "pub": "19bfc8f9001f7617d6f56ea57e3630604551cdcf31f4532392df951ebb039dbe",
         "unlocked": false,
         "hasPin": true,
         "menu": true
@@ -433,8 +434,8 @@
     "PIN_NOT_IN_CONSOLE_OR_NETWORK": {
       "ok": true,
       "detail": {
-        "requests": 1212,
-        "consoleLines": 724,
+        "requests": 1159,
+        "consoleLines": 734,
         "serviceLogClean": true
       }
     },

@@ -1,9 +1,9 @@
 {
   "gate": "ADMIN_2FA_PHASE3_GATE",
   "mode": "local-workerd + VM browser modules",
-  "generatedAt": "2026-09-30T12:25:26.874Z",
+  "generatedAt": "2026-10-01T14:08:25.320Z",
   "status": "ADMIN_2FA_PHASE3_PASS",
-  "tests": "53/53",
+  "tests": "60/60",
   "matrix": [
     {
       "case": "First server enrollment",
@@ -63,7 +63,7 @@
       "case": "Valid event + attestation",
       "expected": "ACCEPT",
       "result": "PASS",
-      "code": 13
+      "code": 15
     },
     {
       "case": "ROOT event without attestation",
@@ -144,6 +144,13 @@
     "OWN_INVITE_REVOKE_NOT_ATTESTED": "PASS",
     "MATRIX_OTHER_USER_DELETION_WITHOUT_ATTESTATION": "PASS",
     "MATRIX_OTHER_USER_DELETION_WITH_ATTESTATION": "PASS",
+    "DELEGATED_MODERATOR_DENIED_WITHOUT_CAP": "PASS",
+    "DELEGATED_MODERATE_CONTENT_GRANT": "PASS",
+    "DELEGATED_MODERATOR_DELETES_OTHER_USER_POST": "PASS",
+    "DELEGATED_MODERATOR_DELETES_OTHER_USER_COMMENT": "PASS",
+    "DELEGATED_MODERATOR_ROOT_CONTENT_PROTECTED": "PASS",
+    "DELEGATED_MODERATOR_OWN_CONTENT_NO_CAP_NEEDED": "PASS",
+    "DELEGATED_MODERATE_CONTENT_REVOKE": "PASS",
     "LEGACY_KIND5_CROSS_AUTHOR_ATTESTED": "PASS",
     "MATRIX_OWN_CONTENT_DELETION": "PASS",
     "OWN_CONTENT_DELETE_2FA_REQUIRED_FALSE": "PASS",
@@ -162,7 +169,7 @@
     "ADMIN_2FA_SERVICE_FAILURE_FAIL_CLOSED": "PASS",
     "ROOT_ONLY_FALLBACK_FALSE": "PASS",
     "GROUP_CONTROL_REQUIRES_SERVER_ADMIN_SESSION": "PASS",
-    "ENFORCEMENT_PRODUCTION_OFF_NO_OVERRIDES": "PASS",
+    "ENFORCEMENT_DEPLOYMENT_CONFIG_NO_OVERRIDES": "PASS",
     "SENDERS_ATTEST_BEFORE_PUBLISH": "PASS",
     "RECEIVERS_FETCH_ATTESTATIONS": "PASS",
     "MATRIX_RATE_LIMIT": "PASS",
@@ -325,6 +332,48 @@
       "detail": "ACCEPTED"
     },
     {
+      "name": "DELEGATED_MODERATOR_DENIED_WITHOUT_CAP",
+      "detail": {
+        "admit": "APPLIED",
+        "before": "NO_MODERATE_CAP"
+      }
+    },
+    {
+      "name": "DELEGATED_MODERATE_CONTENT_GRANT",
+      "detail": {
+        "grant": "APPLIED",
+        "after": "MODERATE_CONTENT"
+      }
+    },
+    {
+      "name": "DELEGATED_MODERATOR_DELETES_OTHER_USER_POST",
+      "detail": {
+        "enroll": "PIN_SET",
+        "post": "ACCEPTED",
+        "op": "DELETE_OTHER_USER_POST"
+      }
+    },
+    {
+      "name": "DELEGATED_MODERATOR_DELETES_OTHER_USER_COMMENT",
+      "detail": {
+        "comment": "ACCEPTED",
+        "op": "DELETE_OTHER_USER_COMMENT"
+      }
+    },
+    {
+      "name": "DELEGATED_MODERATOR_ROOT_CONTENT_PROTECTED",
+      "detail": "ROOT_CONTENT_PROTECTED"
+    },
+    {
+      "name": "DELEGATED_MODERATE_CONTENT_REVOKE",
+      "detail": {
+        "revoke": "APPLIED",
+        "after": "NO_MODERATE_CAP",
+        "attest": "ADMIN_PIN_REQUIRED:",
+        "validate": "UNAUTHORIZED_MODERATION"
+      }
+    },
+    {
       "name": "LEGACY_KIND5_CROSS_AUTHOR_ATTESTED",
       "detail": [
         "ADMIN_2FA_REQUIRED",
@@ -359,12 +408,12 @@
       "name": "PUBLISH_ONLY_AFTER_VERIFIED_ATTESTATION",
       "detail": {
         "violations": 0,
-        "published": 32
+        "published": 38
       }
     },
     {
       "name": "MATRIX_VALID_EVENT_ATTESTATION",
-      "detail": 13
+      "detail": 15
     },
     {
       "name": "MATRIX_ROOT_EVENT_WITHOUT_ATTESTATION",

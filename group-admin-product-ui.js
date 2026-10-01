@@ -14,22 +14,23 @@
     { id: 'members', label: 'חברים' },
     { id: 'admins', label: 'מנהלים' },
     { id: 'invites', label: 'הזמנות' },
+    { id: 'reports', label: 'דיווחים' },
     { id: 'activity', label: 'פעילות ניהולית' },
   ]);
   // Older entry points (menu 'home', deep links) land on the matching new tab; group details live in advanced settings.
   const TAB_ALIASES = Object.freeze({ home: 'members', details: 'members', roles: 'members', settings: 'members', qr: 'invites', security: 'activity' });
   const EDITABLE_ROLES = Object.freeze(['MEMBER', 'INVITER', 'MODERATOR', 'ADMIN', 'SENIOR_ADMIN']);
   /** User-facing grouping only; the canonical capability set and its rules are unchanged. */
-  const PRIMARY_CAPS = Object.freeze(['INVITE_USERS', 'MODERATE_CONTENT', 'MANAGE_MEMBERS']);
+  const PRIMARY_CAPS = Object.freeze(['INVITE_USERS', 'MODERATE_CONTENT', 'MANAGE_MEMBERS', 'MANAGE_BLOCKLIST']);
   const CAP_HELP = Object.freeze({
     INVITE_USERS: 'מאפשר למשתמש ליצור הזמנות חדשות.',
-    MODERATE_CONTENT: 'מאפשר למשתמש להסיר פוסטים ותגובות של משתמשים אחרים בקבוצה (לא של המנהל הראשי).',
-    MANAGE_MEMBERS: 'מאפשר למשתמש להסיר חברים מהקבוצה ולנהל את מצב החברות שלהם. לא מאפשר לשנות הרשאות.',
+    MODERATE_CONTENT: 'מאפשר להסיר פוסטים ותגובות של משתמשים אחרים.',
+    MANAGE_MEMBERS: 'מאפשר להסיר חברים קיימים מהקבוצה. לא מאפשר לשנות הרשאות.',
+    MANAGE_BLOCKLIST: 'מאפשר לחסום ולשחרר חסימה של משתמשים בקבוצה.',
     MANAGE_ADMINS: 'מינוי והסרה של מנהלים.',
     MANAGE_PERMISSIONS: 'שינוי הרשאות של חברים.',
     MANAGE_GROUP_SETTINGS: 'שינוי שם, תיאור ולוגו של הקבוצה.',
     MANAGE_INVITES: 'יצירה וביטול של כל ההזמנות ושינוי מדיניות ההזמנות.',
-    MANAGE_BLOCKLIST: 'חסימה וביטול חסימה של חברים.',
     VIEW_AUDIT_LOG: 'צפייה ביומן הפעולות הניהוליות.',
   });
   const INACTIVE_STATUS_TEXT = 'מערכת הניהול עדיין לא הופעלה. ניתן לצפות ולהכין הרשאות, אך לא לשמור שינויים.';
@@ -80,6 +81,7 @@
   let advancedOpen = false;
   let controlProbe = null;
   let probeBusy = false;
+  let userContent = [];
   const profiles = new Map();
 
   function isV2() {
@@ -185,7 +187,13 @@
   function canSeeGroupAdminMenu() {
     const f = FGA();
     if (!f || !isV2() || App.guestMode) return false;
-    return f.canSeeAdminMenu() || needsBootstrap();
+    return f.canSeeAdminMenu() || canSeeModerationOnly() || needsBootstrap();
+  }
+
+  /** Content moderators without an admin-tier capability: reports + user content only. */
+  function canSeeModerationOnly() {
+    const f = FGA();
+    return !!f && typeof f.canSeeModeration === 'function' && f.canSeeModeration() === true;
   }
 
   function PIN() {
@@ -231,13 +239,20 @@
   /** V2 off: every tab is read-only navigation for the root. V2 on: tabs follow signed authority. */
   function tabAllowed(tabId, s) {
     const id = TAB_ALIASES[tabId] || tabId;
-    if (!isV2()) return TABS.some((t) => t.id === id);
+    if (!isV2()) return id !== 'reports' && TABS.some((t) => t.id === id);
     const v = s || sections();
-    if (id === 'members') return canSeeGroupAdminMenu();
+    const f = FGA();
+    if (id === 'members') return !!f && (f.canSeeAdminMenu() || needsBootstrap());
     if (id === 'admins') return !!v.admins;
     if (id === 'invites') return !!v.invites || !!v.createInvite;
+    if (id === 'reports') return !!v.reports;
     if (id === 'activity') return !!v.security;
     return false;
+  }
+
+  function firstAllowedTab(s) {
+    const t = TABS.find((x) => tabAllowed(x.id, s));
+    return t ? t.id : 'members';
   }
 
   // ---------------------------------------------------------------- styles
@@ -374,6 +389,14 @@
     ADMIN_STEP_UP_CANCELLED: 'פעולה רגישה דורשת הזנה חוזרת של קוד המנהל',
     ADMIN_STEP_UP_REQUIRED: 'פעולה רגישה דורשת הזנה חוזרת של קוד המנהל',
     ADMIN_2FA_DENIED: 'שרת אימות המנהל לא אישר את הפעולה',
+    ALREADY_BLOCKED: 'המשתמש כבר חסום',
+    NOT_BLOCKED: 'המשתמש אינו חסום',
+    TARGET_NOT_BLOCKED: 'המשתמש אינו חסום',
+    SELF_TARGET_FORBIDDEN: 'אי אפשר לבצע פעולה זו על עצמכם',
+    SELF_UNBLOCK: 'אי אפשר לבצע פעולה זו על עצמכם',
+    PARTIAL_BLOCK: 'החסימה הושלמה חלקית. נסו שוב כדי להשלים',
+    PARTIAL_UNBLOCK: 'הסרת החסימה הושלמה חלקית. נסו שוב כדי להשלים',
+    NO_MODERATORS: 'אין מנהלי תוכן זמינים',
     PIN_WRONG: 'קוד שגוי',
     PIN_LOCKED: 'יותר מדי ניסיונות. נסו שוב מאוחר יותר',
   };
@@ -478,6 +501,33 @@
     };
   }
 
+  function unresolvedReports() {
+    const R = App.GroupReports || window.SosGroupReports;
+    if (!R || !R.canModerateReports()) return 0;
+    const snap = R.snapshot();
+    return snap && snap.ok ? snap.unresolved : 0;
+  }
+
+  /** Unresolved-report count on the "שליטה על הקבוצה" menu item (existing in-app surface, no push). */
+  function refreshReportBadge() {
+    const item = document.getElementById('sosGroupControlMenuItem');
+    if (!item) return;
+    const n = unresolvedReports();
+    let badge = item.querySelector('.sos-report-badge');
+    if (!n) {
+      if (badge) badge.remove();
+      return;
+    }
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'sos-report-badge';
+      badge.setAttribute('aria-label', 'דיווחים פתוחים');
+      badge.style.cssText = 'margin-inline-start:auto;background:#d93838;color:#fff;border-radius:999px;padding:1px 7px;font-size:.75rem;font-weight:700;';
+      item.appendChild(badge);
+    }
+    badge.textContent = String(n);
+  }
+
   function refreshChrome() {
     if (!shellEl) return;
     const f = FGA();
@@ -499,7 +549,9 @@
       }
     }
     const s = isV2() ? sections() : null;
+    const unresolved = unresolvedReports();
     shellEl.querySelectorAll('#sosGapTabs button').forEach((b) => {
+      if (b.dataset.tab === 'reports') b.textContent = 'דיווחים' + (unresolved ? ' (' + unresolved + ')' : '');
       const allowed = tabAllowed(b.dataset.tab, s);
       b.hidden = !allowed;
       b.style.display = allowed ? '' : 'none';
@@ -528,7 +580,12 @@
     MEMBER_ACTIVE: 'חבר אושר',
     MEMBER_REMOVED: 'חבר הוסר',
     MEMBER_BLOCKED: 'חבר נחסם',
+    MEMBER_UNBLOCKED: 'חסימה הוסרה',
+    CONTENT_REMOVED: 'הסרת תוכן של משתמש אחר',
+    REPORT_RESOLVED: 'דיווח טופל',
+    REPORT_REJECTED: 'דיווח נדחה',
   });
+  const BLOCKLIST_DETAIL = Object.freeze({ ADDED: 'חסימה', REMOVED: 'הסרת חסימה' });
 
   function configuredRoot() {
     const g = GCS();
@@ -866,9 +923,130 @@
     }
   }
 
+  function GR() {
+    return App.GroupReports || window.SosGroupReports || null;
+  }
+
+  function reasonLabel(id) {
+    const r = GR() && GR().REASONS.find((x) => x.id === id);
+    return r ? r.label : 'אחר';
+  }
+
+  function reportRowHtml(r, s) {
+    const R = GR();
+    const pk = r.reportedPubkey;
+    const prof = profileOf(pk);
+    ensureProfile(pk);
+    const when = r.lastAt ? new Date(r.lastAt * 1000).toLocaleString('he-IL') : '';
+    const reasons = r.reasons.map((x) => reasonLabel(x.id) + (x.count > 1 ? ' ×' + x.count : '')).join(', ');
+    const closed = r.status === 'RESOLVED' || r.status === 'REJECTED';
+    const btn = (act, label, cls, extra) =>
+      '<button type="button" class="gap-btn' + (cls ? ' ' + cls : '') + '" data-act="' + act + '" data-target="' + escapeHtml(r.targetId) + '" data-pk="' + escapeHtml(pk) + '"' + (extra || '') + '>' + label + '</button>';
+    return (
+      '<div class="gap-item gap-report" data-report-target="' + escapeHtml(r.targetId) + '" data-report-status="' + escapeHtml(r.status) + '">' +
+      '<div class="gap-user-main" style="flex-basis:100%">' +
+      '<div><span class="gap-chip">' + escapeHtml(R.STATUSES[r.status] || r.status) + '</span> ' +
+      '<span class="gap-sub">' + escapeHtml(when) + ' · ' + r.reportCount + ' דיווחים</span></div>' +
+      '<div class="gap-report-preview" style="margin:6px 0">' + (r.removed ? '<i>התוכן הוסר</i>' : escapeHtml(r.preview || 'תוכן לא זמין')) + '</div>' +
+      '<div class="gap-sub">משתמש מדווח: <span data-name-pk="' + escapeHtml(pk) + '">' + escapeHtml(displayName(pk, prof)) + '</span> <span class="gap-mono">' + escapeHtml(shortPk(pk)) + '</span></div>' +
+      '<div class="gap-sub">סיבה: ' + escapeHtml(reasons) + '</div>' +
+      (r.notes.length ? '<div class="gap-sub">פרטים: ' + escapeHtml(r.notes.join(' | ')) + '</div>' : '') +
+      '</div><div class="gap-actions" style="margin-top:6px">' +
+      (s.moderation && !r.removed && r.event ? btn('report-remove', 'הסר תוכן', 'danger', ' data-mutation="1"') : '') +
+      (s.blockMembers ? btn('report-block', 'חסום משתמש', 'danger', ' data-mutation="1"') : '') +
+      btn('select-member', 'פתח פרופיל', '') +
+      (r.status === 'NEW' ? btn('report-status', 'בטיפול', '', ' data-status="IN_PROGRESS"') : '') +
+      (!closed ? btn('report-status', 'סגור דיווח', '', ' data-status="RESOLVED"') : '') +
+      (!closed ? btn('report-status', 'דחה', '', ' data-status="REJECTED"') : '') +
+      '</div></div>'
+    );
+  }
+
+  function renderReports(body) {
+    const R = GR();
+    const s = isV2() ? sections() : {};
+    if (!R) {
+      body.innerHTML = '<p class="gap-note">מודול הדיווחים לא נטען.</p>';
+      return;
+    }
+    const snap = R.snapshot();
+    const head =
+      '<div class="gap-summary"><span>דיווחים פתוחים: <b id="sosGapReportUnresolved">' + (snap.ok ? snap.unresolved : '—') + '</b></span></div>' +
+      '<div class="gap-actions"><button type="button" class="gap-btn" data-act="reports-refresh">רענון</button></div>';
+    const rows = snap.ok ? snap.rows : [];
+    body.innerHTML =
+      head +
+      '<div class="gap-list" id="sosGapReportList">' +
+      (snap.ok ? rows.map((r) => reportRowHtml(r, s)).join('') || '<p class="gap-note">אין דיווחים.</p>' : '<div class="gap-sub">טוען…</div>') +
+      '</div>';
+    if (!snap.ok || Date.now() - snap.loadedAt > 30000) {
+      R.loadInbox()
+        .then(() => {
+          if (isOpen() && activeTab === 'reports' && !busy) renderTab('reports');
+        })
+        .catch(() => {});
+    }
+  }
+
+  /** Recent posts/comments of one user from the group relays, for moderators. */
+  async function loadUserContent(pk) {
+    const box = document.getElementById('sosGapUserContent');
+    if (!box || !/^[0-9a-f]{64}$/.test(pk)) return;
+    box.innerHTML = '<div class="gap-sub">טוען…</div>';
+    const relays = Array.isArray(App.relayUrls) ? App.relayUrls : [];
+    let events = [];
+    try {
+      const filter = { kinds: [1], authors: [pk], limit: 30 };
+      if (App.pool && typeof App.pool.querySync === 'function') events = (await App.pool.querySync(relays, filter, { maxWait: 6000 })) || [];
+      else if (App.pool && typeof App.pool.list === 'function') events = (await App.pool.list(relays, [filter])) || [];
+    } catch (_e) {
+      events = [];
+    }
+    if (selectedMember !== pk || !document.getElementById('sosGapUserContent')) return;
+    const deleted = App.deletedEventIds instanceof Set ? App.deletedEventIds : new Set();
+    const seen = new Set();
+    userContent = events
+      .filter((e) => e && e.id && e.pubkey === pk && !seen.has(e.id) && seen.add(e.id) && !deleted.has(e.id))
+      .sort((a, b) => b.created_at - a.created_at)
+      .slice(0, 30);
+    const s = isV2() ? sections() : {};
+    box.innerHTML =
+      userContent
+        .map((e) => {
+          const isReply = (e.tags || []).some((t) => Array.isArray(t) && t[0] === 'e');
+          return (
+            '<div class="gap-item" data-content-id="' + escapeHtml(e.id) + '"><div class="gap-user-main">' +
+            '<div class="gap-sub">' + (isReply ? 'תגובה' : 'פוסט') + ' · ' + escapeHtml(new Date(e.created_at * 1000).toLocaleString('he-IL')) + '</div>' +
+            '<div>' + escapeHtml(String(e.content || '').slice(0, 200) || '—') + '</div></div>' +
+            (s.moderation ? '<button type="button" class="gap-btn danger" data-act="remove-content" data-mutation="1" data-target="' + escapeHtml(e.id) + '">הסר תוכן</button>' : '') +
+            '</div>'
+          );
+        })
+        .join('') || '<div class="gap-sub">לא נמצא תוכן של המשתמש.</div>';
+  }
+
+  /** Moderator removal of another user's content (canonical moderation event + Admin 2FA). */
+  async function removeContent(ev) {
+    if (!ev || typeof App.moderateRemoveEvent !== 'function') return { ok: false, code: 'NO_TARGET' };
+    return run('הסרת תוכן', () => App.moderateRemoveEvent(ev), 'להסיר את התוכן? הוא יוסתר לכל המשתמשים ב-SOS.');
+  }
+
   function renderActivity(body) {
     const f = FGA();
-    const rows = isV2() ? f.auditLog().slice().reverse().slice(0, 200) : [];
+    const extra = [];
+    if (isV2()) {
+      const tomb = App.deletionTombstones instanceof Map ? App.deletionTombstones : new Map();
+      tomb.forEach((m, id) => {
+        if (!m || m.source !== 'moderation') return;
+        const author = m.author || (App.eventAuthorById instanceof Map ? App.eventAuthorById.get(id) : '');
+        extra.push({ action: 'CONTENT_REMOVED', actor: m.deleter || '', target: author || '', createdAt: m.createdAt || 0, detail: '' });
+      });
+      const R = GR();
+      if (R && typeof R.resolutionAudit === 'function') R.resolutionAudit().forEach((r) => extra.push(r));
+    }
+    const rows = isV2()
+      ? f.auditLog().concat(extra).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)).reverse().slice(0, 200)
+      : [];
     if (!rows.length) {
       body.innerHTML = '<p class="gap-note">עדיין אין פעילות ניהולית.</p>';
       return;
@@ -878,9 +1056,10 @@
       '<div class="gap-list" id="sosGapAudit">' +
       rows
         .map((r) => {
-          const detail = f.CAP_LABELS[r.detail] || POLICY_LABELS[r.detail] || '';
+          const detail = f.CAP_LABELS[r.detail] || POLICY_LABELS[r.detail] || BLOCKLIST_DETAIL[r.detail] || '';
+          const action = r.action === 'MEMBER_ACTIVE' && /UNBLOCK/.test(String(r.detail || '')) ? 'MEMBER_UNBLOCKED' : r.action;
           return (
-            '<div class="gap-item"><div><div>' + escapeHtml(ACTION_LABELS[r.action] || 'פעולת ניהול') + (detail ? ' · ' + escapeHtml(detail) : '') + '</div>' +
+            '<div class="gap-item" data-audit-action="' + escapeHtml(action) + '"><div><div>' + escapeHtml(ACTION_LABELS[action] || 'פעולת ניהול') + (detail ? ' · ' + escapeHtml(detail) : '') + '</div>' +
             '<div class="gap-sub">' + escapeHtml(who(r.actor)) + (r.target ? ' ← ' + escapeHtml(who(r.target)) : '') + '</div></div>' +
             '<div class="gap-sub">' + escapeHtml(r.createdAt ? new Date(r.createdAt * 1000).toLocaleString('he-IL') : '') + '</div></div>'
           );
@@ -1089,6 +1268,26 @@
     );
   }
 
+  /** Remove / block / unblock / user content. ROOT and self never get these actions. */
+  function userActionsHtml(u, s, me) {
+    if (!isV2() || u.isRoot || u.pubkey === me) return '';
+    const f = FGA();
+    const blockState = typeof f.blockStateOf === 'function' ? f.blockStateOf(u.pubkey) : 'NONE';
+    const pk = escapeHtml(u.pubkey);
+    const btn = (act, label, cls) =>
+      '<button type="button" class="gap-btn' + (cls ? ' ' + cls : '') + '" data-act="' + act + '" data-pk="' + pk + '"' + (cls === 'danger' || act === 'unblock-user' ? ' data-mutation="1"' : '') + '>' + label + '</button>';
+    const btns = [];
+    if (s.removeMembers && (u.status === 'ACTIVE' || u.status === 'BLOCKED')) btns.push(btn('remove-member', 'הסר מהקבוצה', 'danger'));
+    if (s.blockMembers && (blockState === 'NONE' || (blockState === 'LISTED' && u.status === 'ACTIVE'))) btns.push(btn('block-user', 'חסום משתמש', 'danger'));
+    if (s.blockMembers && blockState !== 'NONE') btns.push(btn('unblock-user', 'הסר חסימה', ''));
+    if (s.moderation || s.reports) btns.push(btn('user-content', 'תוכן של המשתמש', ''));
+    if (!btns.length) return '';
+    return (
+      '<h3>פעולות</h3><div class="gap-actions" id="sosGapUserActions" data-block-state="' + escapeHtml(blockState) + '">' + btns.join('') + '</div>' +
+      '<div class="gap-list" id="sosGapUserContent"></div>'
+    );
+  }
+
   function renderDrawer() {
     if (!shellEl) return;
     let el = document.getElementById('sosGapMemberDetail');
@@ -1123,6 +1322,13 @@
       body +=
         '<p class="gap-note" id="sosGapRootLocked">המנהל הראשי הוא הבעלים של הקבוצה. התפקיד וההרשאות שלו מוגנים ולא ניתן לשנות או להסיר אותם.</p>' +
         '<h3>הרשאות</h3>' + capsEditorHtml(caps, () => true, () => false, false);
+    } else if (isV2() && (u.status === 'BLOCKED' || u.status === 'REMOVED')) {
+      body +=
+        '<p class="gap-note" id="sosGapUserStateNote">' +
+        (u.status === 'BLOCKED'
+          ? 'המשתמש חסום. הוא לא יכול לפרסם, להגיב, להזמין או לנהל, והתוכן שלו מוסתר ב-SOS.'
+          : 'המשתמש הוסר מהקבוצה. כדי לחזור הוא צריך הזמנה חדשה.') +
+        '</p>';
     } else if (isV2() && !u.member) {
       body +=
         '<h3>הוספה לקבוצה</h3>' +
@@ -1155,11 +1361,9 @@
         '<div class="gap-actions">' +
         '<button type="button" class="gap-btn primary" id="sosGapSaveUser" data-act="save-user" data-mutation="1"' + (canSave ? '' : ' disabled') + '>שמור שינויים</button>' +
         (!u.member ? '<button type="button" class="gap-btn" data-mutation="1" disabled>הוסף לקבוצה</button>' : '') +
-        (isV2() && s.removeMembers && u.member && u.pubkey !== me
-          ? '<button type="button" class="gap-btn danger" data-act="remove-member" data-mutation="1" data-pk="' + escapeHtml(u.pubkey) + '">הסרה מהקבוצה</button>'
-          : '') +
         '</div>';
     }
+    body += userActionsHtml(u, s, me);
     el.innerHTML =
       '<div class="gap-drawer"><div class="gap-head"><h2 id="sosGapUserTitle">ניהול משתמש</h2>' +
       '<button type="button" class="gap-btn" data-act="close-user">סגור</button></div>' +
@@ -1187,7 +1391,7 @@
     }
     const s = isV2() ? sections() : null;
     let tab = TAB_ALIASES[tabId] || tabId;
-    if (!tabAllowed(tab, s)) tab = 'members';
+    if (!tabAllowed(tab, s)) tab = firstAllowedTab(s);
     activeTab = tab;
     renderedFingerprint = stateFingerprint();
     refreshChrome();
@@ -1200,8 +1404,10 @@
     }
     if (tab === 'admins') renderAdmins(body);
     else if (tab === 'invites') renderInvites(body);
+    else if (tab === 'reports') renderReports(body);
     else if (tab === 'activity') renderActivity(body);
-    else renderMembers(body);
+    else if (tabAllowed('members', s)) renderMembers(body);
+    else body.innerHTML = '<p class="gap-note">חפשו משתמש כדי לראות את התוכן שלו.</p>';
     body.insertAdjacentHTML('beforeend', advancedHtml());
     bindAdvanced();
     renderDrawer();
@@ -1343,6 +1549,54 @@
     if (act === 'remove-member') {
       const res = await run(LABELS.REMOVE_MEMBER, () => f.removeMember(pk), 'להסיר את החבר מהקבוצה? כל ההרשאות שלו יבוטלו.');
       if (res && res.ok) closeDrawer();
+      return res;
+    }
+    if (act === 'block-user' || act === 'report-block') {
+      return run(
+        'חסימת משתמש',
+        () => f.blockMember(pk),
+        'לחסום את המשתמש? הוא לא יוכל לפרסם, להגיב, להזמין או לנהל, וכל התוכן שלו יוסתר ב-SOS.'
+      );
+    }
+    if (act === 'unblock-user') {
+      return run('הסרת חסימה', () => f.unblockMember(pk), 'להסיר את החסימה? משתמש שהוסר מהקבוצה לא יחזור אליה, והרשאות שבוטלו לא יחזרו.');
+    }
+    if (act === 'user-content') return loadUserContent(pk);
+    if (act === 'remove-content') {
+      const id = el.getAttribute('data-target') || '';
+      const ev = userContent.find((e) => e.id === id);
+      const res = await removeContent(ev);
+      if (res && res.ok && selectedMember) loadUserContent(selectedMember);
+      return res;
+    }
+    if (act === 'reports-refresh') {
+      const R = GR();
+      if (R) await R.loadInbox();
+      renderTab('reports');
+      return { ok: true };
+    }
+    if (act === 'report-remove') {
+      const R = GR();
+      const row = R && R.snapshot().rows.find((r) => r.targetId === el.getAttribute('data-target'));
+      const res = await removeContent(row && row.event);
+      if (res && res.ok && R) await R.setStatus(row.targetId, 'RESOLVED');
+      renderTab('reports');
+      return res;
+    }
+    if (act === 'report-status') {
+      const R = GR();
+      if (!R || busy) return null;
+      busy = true;
+      setMsg('מעדכן דיווח…', '');
+      let res;
+      try {
+        res = await R.setStatus(el.getAttribute('data-target'), el.getAttribute('data-status'));
+      } catch (_e) {
+        res = { ok: false, code: 'ERROR' };
+      }
+      busy = false;
+      setMsg(res && res.ok ? 'הדיווח עודכן' : errText(res), res && res.ok ? 'ok' : 'err');
+      renderTab('reports');
       return res;
     }
     if (act === 'load-joins') return loadJoins();
@@ -1553,6 +1807,7 @@
     if (item) {
       item.hidden = !showControl;
       item.style.display = showControl ? '' : 'none';
+      refreshReportBadge();
     }
     const createBtn = document.getElementById('sosGroupCreateMenuEntry');
     if (createBtn) createBtn.remove();
@@ -1582,6 +1837,10 @@
     window.addEventListener('sos-identity-ready', ensureMenuEntry);
     window.addEventListener('sos-access-control-v2-local', ensureMenuEntry);
     window.addEventListener('sos-first-group-state-changed', ensureMenuEntry);
+    window.addEventListener('sos-group-reports-updated', () => {
+      refreshReportBadge();
+      refreshChrome();
+    });
     setTimeout(ensureMenuEntry, 1200);
     setInterval(ensureMenuEntry, 15000);
   }

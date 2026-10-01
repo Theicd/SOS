@@ -3,19 +3,19 @@
   "gate": "PACKAGE898_ADMISSION_SERVICE_GATE",
   "mode": "local-workerd",
   "baseUrl": "local-workerd",
-  "generatedAt": "2026-09-27T23:53:40.969Z",
+  "generatedAt": "2026-10-01T11:08:44.146Z",
   "status": "PASS",
   "stress100": {
-    "p50": 391.3,
-    "p95": 653,
-    "max": 665,
+    "p50": 385.6,
+    "p95": 654.5,
+    "max": 671,
     "tally": {
       "ACCEPTED": 1,
       "ALREADY_REDEEMED": 99
     }
   },
   "raceOutcomes": [
-    "REVOKED/REVOKED",
+    "ALREADY_REDEEMED/ACCEPTED",
     "ALREADY_REDEEMED/ACCEPTED",
     "REVOKED/REVOKED",
     "REVOKED/REVOKED",
@@ -107,7 +107,8 @@
         "result": "OK",
         "status": "VERIFIED",
         "controlEpoch": 2,
-        "added": 1
+        "added": 1,
+        "attestationsAdded": 0
       }
     },
     {
@@ -117,7 +118,8 @@
         "result": "OK",
         "status": "VERIFIED",
         "controlEpoch": 2,
-        "added": 0
+        "added": 0,
+        "attestationsAdded": 0
       }
     },
     {
@@ -127,7 +129,8 @@
         "result": "OK",
         "status": "VERIFIED",
         "controlEpoch": 2,
-        "added": 0
+        "added": 0,
+        "attestationsAdded": 0
       }
     },
     {
@@ -136,7 +139,7 @@
       "detail": {
         "result": "REGISTERED",
         "replay": false,
-        "expiresAt": 1790556786
+        "expiresAt": 1790856488
       }
     },
     {
@@ -221,9 +224,9 @@
       "name": "STRESS_100_WAY_ONE_WINNER",
       "ok": true,
       "detail": {
-        "p50": 391.3,
-        "p95": 653,
-        "max": 665,
+        "p50": 385.6,
+        "p95": 654.5,
+        "max": 671,
         "tally": {
           "ACCEPTED": 1,
           "ALREADY_REDEEMED": 99
@@ -279,7 +282,7 @@
       "name": "INVITE_REVOKE_REDEEM_RACE_GATE",
       "ok": true,
       "detail": [
-        "REVOKED/REVOKED",
+        "ALREADY_REDEEMED/ACCEPTED",
         "ALREADY_REDEEMED/ACCEPTED",
         "REVOKED/REVOKED",
         "REVOKED/REVOKED",
@@ -442,7 +445,7 @@
       "ok": true,
       "detail": {
         "leaks": 0,
-        "logBytes": 29243
+        "logBytes": 29390
       }
     }
   ],

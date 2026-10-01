@@ -235,6 +235,32 @@
     };
   }
 
+  /**
+   * Blocked authors: every post/comment by a pubkey on the CURRENT verified blocklist (or with a BLOCKED
+   * membership tip) is hidden by official clients. Pubkey-level suppression, no per-event tombstones;
+   * ROOT is never suppressed. Applies in both V2 scopes (CONTROL_PLANE keeps blocked users denied).
+   */
+  const BLOCK_CONTENT_ENFORCEMENT_MODEL = 'pubkey_suppression_from_current_verified_blocklist';
+
+  function isAuthorSuppressed(authorPubkey, controlState) {
+    if (!isV2()) return false;
+    const author = normalizePubkey(authorPubkey);
+    if (!author) return false;
+    const state = controlState || getVerifiedControlOrNull();
+    if (!state) return false;
+    if (isRootAdmin(author, state)) return false;
+    if (Array.isArray(state.blockedPubkeys) && state.blockedPubkeys.indexOf(author) !== -1) return true;
+    const MS = App.MembershipState || window.SosMembershipState;
+    if (MS && typeof MS.getMemberState === 'function') {
+      try {
+        return MS.getMemberState(author) === 'BLOCKED';
+      } catch (_e) {
+        return false;
+      }
+    }
+    return false;
+  }
+
   /** Combined UI/action gate: own delete OR moderation. */
   function canViewerRemoveContent(viewerPubkey, targetAuthorPubkey, targetKind, controlState) {
     const own = canAuthorDelete(viewerPubkey, targetAuthorPubkey);
@@ -389,7 +415,9 @@
     MODERATION_HISTORY_DEPENDS_ON_UNRELIABLE_RELAY_HISTORY,
     ROOT_MODERATION_PERSISTENCE_MODEL,
     ACTION_HIDE,
+    BLOCK_CONTENT_ENFORCEMENT_MODEL,
     isV2,
+    isAuthorSuppressed,
     canAuthorDelete,
     canModerateContent,
     canViewerRemoveContent,

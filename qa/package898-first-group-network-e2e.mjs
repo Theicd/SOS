@@ -667,6 +667,19 @@ async function act(page, selector) {
   await domClick(page, selector);
   return waitMsg(page);
 }
+async function actConfirm(page, selector) {
+  await page.evaluate(() => {
+    const m = document.getElementById('sosGapMsg');
+    if (m) {
+      m.textContent = '';
+      m.className = 'gap-msg';
+    }
+  });
+  await domClick(page, selector);
+  await waitSel(page, '#sosGapConfirm.is-open', 15000);
+  await page.evaluate(() => document.getElementById('sosGapConfirmOk').click());
+  return waitMsg(page);
+}
 async function visibleTabs(page) {
   return page.evaluate(() =>
     Array.from(document.querySelectorAll('#sosGapTabs button'))
@@ -730,6 +743,49 @@ async function forgeMembership(page, signer, memberPub, transition, extra) {
     { memberPub, transition, issuer: signer.pub, extra }
   );
   return finalizeEvent({ kind: draft.kind, created_at: draft.created_at, tags: draft.tags, content: draft.content }, signer.sk);
+}
+
+/** Signed kind-1 group note (or reply) published through the app pool; returns the event. */
+async function publishNote(page, content, parentId) {
+  return page.evaluate(
+    async ({ content, parentId }) => {
+      const App = window.NostrApp;
+      const tags = [['t', App.NETWORK_TAG || 'israel-network']];
+      if (parentId) tags.unshift(['e', parentId, '', 'root'], ['e', parentId, '', 'reply']);
+      const ev = await Promise.resolve(App.SosCryptoSigner.signFeedEvent({ kind: 1, pubkey: App.publicKey, created_at: Math.floor(Date.now() / 1000), tags, content }));
+      const r = App.pool.publish(App.relayUrls, ev);
+      await (Array.isArray(r) ? Promise.any(r) : r);
+      return ev;
+    },
+    { content, parentId: parentId || '' }
+  );
+}
+
+async function modRemove(page, target) {
+  return page.evaluate(async (t) => {
+    const r = await window.NostrApp.moderateRemoveEvent(t);
+    return { ok: !!(r && r.ok), code: r && r.code };
+  }, target);
+}
+
+/** Content / participation view of `pk` from this page (no reconcile). */
+async function blockView(page, pk) {
+  return page.evaluate((pk) => {
+    const App = window.NostrApp;
+    const MS = App.MembershipState;
+    return {
+      member: MS.getMemberState(pk, 'israel-network'),
+      listed: MS.inBlockedPubkeys(pk),
+      suppressed: App.ModerationPolicy.isAuthorSuppressed(pk),
+      post: MS.canPerformMemberAction(pk, 'post_create').ok,
+      comment: MS.canPerformMemberAction(pk, 'comment_reply').ok,
+      reaction: MS.canPerformMemberAction(pk, 'reaction').ok,
+      p2p: MS.canPerformMemberAction(pk, 'group_p2p_signal').ok,
+      caps: App.FirstGroupAdmin.authorityFor(pk).caps.slice().sort(),
+      assigned: App.FirstGroupAdmin.authorityFor(pk).assigned.slice().sort(),
+      blockState: App.FirstGroupAdmin.blockStateOf(pk),
+    };
+  }, pk);
 }
 
 // ---------------------------------------------------------------- main
@@ -979,7 +1035,7 @@ async function main() {
     await sleep(200);
     const mmHelp = await ev(ua.page, () => document.querySelector('#sosGapCaps input[data-cap="MANAGE_MEMBERS"]')?.closest('label')?.querySelector('.gap-cap-help')?.textContent || '');
     await ev(ua.page, () => document.querySelector('#sosGapMemberDetail [data-act="close-user"]')?.click());
-    set('MANAGE_MEMBERS_DESCRIPTION', mmHelp === 'מאפשר למשתמש להסיר חברים מהקבוצה ולנהל את מצב החברות שלהם. לא מאפשר לשנות הרשאות.', { mmHelp });
+    set('MANAGE_MEMBERS_DESCRIPTION', mmHelp === 'מאפשר להסיר חברים קיימים מהקבוצה. לא מאפשר לשנות הרשאות.', { mmHelp });
     const pendingPk = mkKey().pub;
     const pending = await ev(ua.page, async (pk) => {
       const App = window.NostrApp;
@@ -1778,6 +1834,271 @@ async function main() {
     set('ACCOUNT_SWITCH', leak.pub === C.pub && !leak.menu && !leak.open && leak.invitesAfter === 0 && leak.codesInDom === 0 && leak.caps === 0 && leak.member === 'REMOVED' && leak.rootOp !== 'APPLIED', leak);
     await aTabSwitch.close();
     await boot(ua.page, A);
+
+    // ================================================================ Phase 1 extension: moderation, block, unblock, private reports
+    trace('phase1');
+    const T = expectedWinner.who === 'D' ? D : E; // ordinary member, author of disposable content
+    const tPage = expectedWinner.page;
+    await pinReady(ua.page);
+    await pinReady(ub.page);
+    const dropToInviteOnly = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.setPermissions(pk, ['INVITE_USERS'])).code, B.pub);
+    const bNoMod = await waitView(ub.page, B.pub, "v.caps.indexOf('MODERATE_CONTENT') === -1 && v.caps.indexOf('MANAGE_PERMISSIONS') === -1", 30000);
+    info('P1_B_RESET', { dropToInviteOnly, ok: bNoMod.ok });
+    const P1 = await publishNote(tPage, 'p1 disposable post ' + Date.now());
+    const C1 = await publishNote(tPage, 'p1 disposable comment ' + Date.now(), P1.id);
+    const P2 = await publishNote(tPage, 'p1 disposable post two ' + Date.now());
+    const noCap = await modRemove(ub.page, P1);
+    const grantMod = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.grantCapability(pk, 'MODERATE_CONTENT')).code, B.pub);
+    const bMod2 = await waitView(ub.page, B.pub, "v.caps.indexOf('MODERATE_CONTENT') !== -1", 30000);
+    const bModMenu = await ev(ub.page, () => {
+      const ui = window.NostrApp.GroupAdminProductUi;
+      ui.ensureMenuEntry();
+      return ui.canSeeGroupAdminMenu();
+    });
+    await openUi(ub.page, 'reports');
+    const bModTabs = await visibleTabs(ub.page);
+    await shot(ub.page, 'p1-moderator-tabs');
+    const modPost = await modRemove(ub.page, P1);
+    const modComment = await modRemove(ub.page, C1);
+    await sleep(800);
+    const modEvents = r1.all([39002]);
+    const obsVerdicts = await ev(
+      ua.page,
+      ({ mods, p1, c1 }) => {
+        const MP = window.NostrApp.ModerationPolicy;
+        const pick = (t) => mods.find((m) => (m.tags || []).some((x) => (x[0] === 'd' || x[0] === 'e') && x[1] === t.id));
+        const vp = pick(p1);
+        const vc = pick(c1);
+        return { post: vp ? MP.validateModerationEvent(vp, p1, null).ok : false, comment: vc ? MP.validateModerationEvent(vc, c1, null).ok : false };
+      },
+      { mods: modEvents, p1: P1, c1: C1 }
+    );
+    const bLocal = await ev(ub.page, ({ p, c }) => ({ p: window.NostrApp.deletedEventIds.has(p), c: window.NostrApp.deletedEventIds.has(c) }), { p: P1.id, c: C1.id });
+    set('MODERATE_POST_DELETE', !noCap.ok && grantMod === 'APPLIED' && bMod2.ok && modPost.ok && obsVerdicts.post && bLocal.p, { noCap, grantMod, modPost, obs: obsVerdicts.post });
+    set('MODERATE_COMMENT_DELETE', modComment.ok && obsVerdicts.comment && bLocal.c, { modComment, obs: obsVerdicts.comment });
+    set('MODERATOR_PANEL_REPORTS_ONLY', bModMenu && bModTabs.includes('reports') && !bModTabs.includes('admins') && !bModTabs.includes('activity'), { bModMenu, bModTabs });
+    const revokeMod = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.revokeCapability(pk, 'MODERATE_CONTENT')).code, B.pub);
+    const bLostMod = await waitView(ub.page, B.pub, "v.caps.indexOf('MODERATE_CONTENT') === -1", 30000);
+    const afterRevoke = await modRemove(ub.page, P2);
+    const ownDelete = await tPage.evaluate(async (p) => {
+      const App = window.NostrApp;
+      App.postsById.set(p.id, p);
+      App.eventAuthorById.set(p.id, p.pubkey);
+      const can = App.canViewerDeletePost(p.id) === true;
+      await App.deletePostQuiet(p.id);
+      return { can };
+    }, P2);
+    await sleep(800);
+    const kind5 = r1.all([5]).some((e) => e.pubkey === T.pub && e.tags.some((t) => t[0] === 'e' && t[1] === P2.id));
+    set('MODERATE_CONTENT_REVOKE', revokeMod === 'APPLIED' && bLostMod.ok && !afterRevoke.ok, { revokeMod, ms: bLostMod.ms, afterRevoke });
+    set('OWN_CONTENT_DELETE_STILL_ALLOWED', ownDelete.can && kind5, { ownDelete, kind5 });
+    report.MODERATION_PERMISSION_PROPAGATION = bMod2.ok && bLostMod.ok ? 'LIVE' : 'BROKEN';
+
+    // ---- block / unblock (canonical blocklist + membership tip), enforced for the blocked user and for viewers
+    const grantTInvite = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.grantCapability(pk, 'INVITE_USERS')).code, T.pub);
+    await waitView(tPage, T.pub, "v.caps.indexOf('INVITE_USERS') !== -1", 30000);
+    const PB = await publishNote(ub.page, 'p1 member post with replies ' + Date.now());
+    const P3 = await publishNote(tPage, 'p1 content of soon-blocked user ' + Date.now());
+    const C3 = await publishNote(tPage, 'p1 comment of soon-blocked user ' + Date.now(), PB.id);
+    for (const p of [ua.page, ub.page]) {
+      await p.evaluate(({ p3, c3, pb }) => {
+        const App = window.NostrApp;
+        App.postsById.set(p3.id, p3);
+        App.eventAuthorById.set(p3.id, p3.pubkey);
+        App.postsById.set(pb.id, pb);
+        App.registerComment(c3, pb.id);
+      }, { p3: P3, c3: C3, pb: PB });
+    }
+    const beforeBlock = await ev(ub.page, ({ p3, c3, parent }) => ({ post: window.NostrApp.postsById.has(p3), comment: window.NostrApp.listVisibleComments(parent).some((c) => c.id === c3) }), { p3: P3.id, c3: C3.id, parent: PB.id });
+    await openUi(ua.page, 'members');
+    await domClick(ua.page, `#sosGapBody [data-act="select-member"][data-pk="${T.pub}"]`);
+    await sleep(200);
+    const tDrawer = await ev(ua.page, () => {
+      const d = document.getElementById('sosGapMemberDetail');
+      const txt = (sel) => (d && d.querySelector(sel) ? d.querySelector(sel).textContent.trim() : '');
+      return { remove: txt('[data-act="remove-member"]'), block: txt('[data-act="block-user"]'), unblock: txt('[data-act="unblock-user"]'), content: txt('[data-act="user-content"]') };
+    });
+    const blockUi = await actConfirm(ua.page, '#sosGapMemberDetail [data-act="block-user"]').catch((e) => ({ ok: false, text: String(e.message || e).slice(0, 80) }));
+    const tBlockedOnT = await waitView(tPage, T.pub, "v.member === 'BLOCKED'", 30000);
+    const tBlockedOnB = await waitView(ub.page, T.pub, "v.member === 'BLOCKED'", 30000);
+    await sleep(800);
+    const tSelf = await tPage.evaluate(async () => {
+      const App = window.NostrApp;
+      const F = App.FirstGroupAdmin;
+      let commentErr = '';
+      try {
+        await App.postComment('ab'.repeat(32), 'blocked comment');
+      } catch (e) {
+        commentErr = String(e.message || e).slice(0, 80);
+      }
+      App.GroupAdminProductUi.ensureMenuEntry();
+      return {
+        invite: (await F.createInvite()).code,
+        menu: App.GroupAdminProductUi.canSeeGroupAdminMenu(),
+        caps: F.myAuthority().caps.length,
+        commentDenied: !!commentErr,
+        like: await App.likePost('cd'.repeat(32)),
+      };
+    });
+    const tOnB = await blockView(ub.page, T.pub);
+    const afterBlockB = await ev(ub.page, ({ p3, c3, parent }) => ({ post: window.NostrApp.postsById.has(p3), comment: window.NostrApp.listVisibleComments(parent).some((c) => c.id === c3) }), { p3: P3.id, c3: C3.id, parent: PB.id });
+    const afterBlockA = await ev(ua.page, ({ p3 }) => window.NostrApp.postsById.has(p3), { p3: P3.id });
+    await shot(ua.page, 'p1-blocked-user-drawer');
+    set('BLOCK_USER_UI', tDrawer.block === 'חסום משתמש' && tDrawer.remove === 'הסר מהקבוצה' && tDrawer.content === 'תוכן של המשתמש' && blockUi.ok, { tDrawer, blockUi });
+    set(
+      'BLOCK_USER_ENFORCED',
+      tBlockedOnT.ok && tBlockedOnB.ok && !tOnB.post && !tOnB.comment && !tOnB.reaction && !tOnB.p2p && tSelf.commentDenied && tSelf.like === null && tSelf.invite !== 'CREATED' && !tSelf.menu && tSelf.caps === 0,
+      { tOnB, tSelf }
+    );
+    set('BLOCKED_USER_CONTENT_HIDDEN', beforeBlock.post && beforeBlock.comment && tOnB.suppressed && !afterBlockB.post && !afterBlockB.comment && !afterBlockA, { beforeBlock, afterBlockB, afterBlockA });
+    report.BLOCKED_USER_CAN_POST = tOnB.post;
+    report.BLOCKED_USER_CAN_COMMENT = tOnB.comment || !tSelf.commentDenied;
+    report.BLOCKED_USER_CAN_INVITE = tSelf.invite === 'CREATED';
+    report.BLOCKED_USER_CAN_USE_GROUP_CONTROL = tSelf.menu;
+    report.BLOCKED_USER_CONTENT_VISIBLE_IN_SOS = afterBlockB.post || afterBlockB.comment || afterBlockA;
+
+    // capabilities are frozen (and inert) while blocked; unblock restores exactly the assigned set, then a revoke sticks
+    const tAssignedBlocked = (await blockView(ub.page, T.pub)).assigned;
+    const revokeWhileBlocked = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.revokeCapability(pk, 'INVITE_USERS')).code, T.pub);
+    await openUi(ua.page, 'members');
+    await domClick(ua.page, `#sosGapBody [data-act="select-member"][data-pk="${T.pub}"]`);
+    await sleep(200);
+    const unblockBtn = await ev(ua.page, () => document.querySelector('#sosGapMemberDetail [data-act="unblock-user"]')?.textContent.trim() || '');
+    const unblockUi = await actConfirm(ua.page, '#sosGapMemberDetail [data-act="unblock-user"]').catch((e) => ({ ok: false, text: String(e.message || e).slice(0, 80) }));
+    const tActive = await waitView(tPage, T.pub, "v.member === 'ACTIVE'", 30000);
+    await sleep(800);
+    const tAfterUnblock = await blockView(ub.page, T.pub);
+    const revokeAfterUnblock = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.revokeCapability(pk, 'INVITE_USERS')).code, T.pub);
+    const tRevoked = await waitView(ub.page, T.pub, "v.caps.indexOf('INVITE_USERS') === -1", 30000);
+    const tAfterRevoke = await blockView(ub.page, T.pub);
+    const sameSet = JSON.stringify(tAfterUnblock.assigned.slice().sort()) === JSON.stringify(tAssignedBlocked.slice().sort());
+    set('UNBLOCK_USER_UI', unblockBtn === 'הסר חסימה' && unblockUi.ok, { unblockBtn, unblockUi });
+    set(
+      'UNBLOCK_CANONICAL_STATE',
+      tActive.ok && tAfterUnblock.member === 'ACTIVE' && !tAfterUnblock.listed && !tAfterUnblock.suppressed && tAfterUnblock.post && tAfterUnblock.comment &&
+        revokeWhileBlocked === 'TARGET_BLOCKED' && sameSet && revokeAfterUnblock === 'APPLIED' && tRevoked.ok && !tAfterRevoke.assigned.includes('INVITE_USERS'),
+      { grantTInvite, revokeWhileBlocked, tAssignedBlocked, tAfterUnblock, revokeAfterUnblock, tAfterRevoke }
+    );
+    // a REMOVED member: block = blocklist entry only; unblock never restores the membership
+    const blockRemoved = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.blockMember(pk)).code, C.pub);
+    const waitListed = (want) =>
+      ub.page.waitForFunction((a) => window.NostrApp.MembershipState.inBlockedPubkeys(a.pk) === a.w, { pk: C.pub, w: want }, { polling: 250, timeout: 30000 }).catch(() => {});
+    await waitListed(true);
+    const cListed = await blockView(ub.page, C.pub);
+    const unblockRemoved = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.unblockMember(pk)).code, C.pub);
+    await waitListed(false);
+    const cAfter = await blockView(ub.page, C.pub);
+    const rootBlock = await ev(ub.page, async (a) => (await window.NostrApp.FirstGroupAdmin.blockMember(a)).code, A.pub);
+    const rootBlockByRoot = await ev(ua.page, async (a) => (await window.NostrApp.FirstGroupAdmin.blockMember(a)).code, A.pub);
+    set(
+      'UNBLOCK_DOES_NOT_RESTORE_REMOVED',
+      blockRemoved === 'APPLIED' && cListed.listed && cListed.member === 'REMOVED' && unblockRemoved === 'APPLIED' && !cAfter.listed && cAfter.member === 'REMOVED',
+      { blockRemoved, cListed: { member: cListed.member, listed: cListed.listed }, unblockRemoved, cAfter: { member: cAfter.member, listed: cAfter.listed } }
+    );
+    set('BLOCK_ROOT_REJECTED', rootBlock !== 'APPLIED' && rootBlock !== 'BLOCKED' && /ROOT|SELF/.test(String(rootBlockByRoot)), { rootBlock, rootBlockByRoot });
+
+    // ---- private reports: T reports a post by B; only the moderator (root A) can read it
+    const P4 = await publishNote(ub.page, 'p1 reported post ' + Date.now());
+    const guestReport = await ev(ux.page, (p) => {
+      const App = window.NostrApp;
+      const prev = App.guestMode;
+      App.requireAuth = () => false;
+      App.guestMode = true;
+      try {
+        return App.reportEvent(p.id, '', { pubkey: p.pubkey, content: p.content }).code;
+      } finally {
+        App.guestMode = prev;
+      }
+    }, P4);
+    const submit = await tPage.evaluate(async (p) => window.NostrApp.GroupReports.submitReport({ id: p.id, pubkey: p.pubkey, kind: 1, preview: p.content }, 'SPAM', ''), P4);
+    const dup = await tPage.evaluate(async (p) => (await window.NostrApp.GroupReports.submitReport({ id: p.id, pubkey: p.pubkey, kind: 1, preview: p.content }, 'SPAM', '')).code, P4);
+    await sleep(800);
+    const inboxA = await ev(ua.page, async (id) => {
+      const R = window.NostrApp.GroupReports;
+      const s = await R.loadInbox();
+      const row = s.rows.find((r) => r.targetId === id);
+      window.NostrApp.GroupAdminProductUi.ensureMenuEntry();
+      const badge = document.querySelector('#sosGroupControlMenuItem .sos-report-badge');
+      return { ok: s.ok, unresolved: s.unresolved, row: row ? { status: row.status, count: row.reportCount, reasons: row.reasons, reported: row.reportedPubkey } : null, badge: badge ? badge.textContent : '' };
+    }, P4.id);
+    const inboxB = await ev(ub.page, async () => {
+      const s = await window.NostrApp.GroupReports.loadInbox();
+      return { ok: s.ok, code: s.code, rows: s.rows.length };
+    });
+    const wraps = r1.all([39010]);
+    const wrapBlob = JSON.stringify(wraps);
+    const privacy = {
+      wraps: wraps.length,
+      reporterVisible: wraps.some((w) => w.pubkey === T.pub || w.tags.some((t) => t[1] === T.pub)) || wrapBlob.includes(T.pub),
+      targetVisible: wrapBlob.includes(P4.id) || wrapBlob.includes(B.pub),
+      reasonVisible: /SPAM|ספאם/.test(wrapBlob),
+      onlyPTagsToModerators: wraps.every((w) => w.tags.filter((t) => t[0] === 'p').every((t) => t[1] === A.pub)),
+    };
+    await openUi(ua.page, 'reports');
+    await sleep(300);
+    const reportRowUi = await ev(ua.page, (id) => {
+      const row = document.querySelector(`#sosGapReportList [data-report-target="${id}"]`);
+      const tab = document.querySelector('#sosGapTabs button[data-tab="reports"]');
+      return { row: !!row, text: row ? row.innerText : '', actions: row ? Array.from(row.querySelectorAll('button')).map((b) => b.textContent.trim()) : [], tab: tab ? tab.textContent : '' };
+    }, P4.id);
+    await shot(ua.page, 'p1-reports-inbox');
+    const removeRes = await actConfirm(ua.page, `#sosGapReportList [data-act="report-remove"][data-target="${P4.id}"]`).catch((e) => ({ ok: false, text: String(e.message || e).slice(0, 80) }));
+    await sleep(1200);
+    const resolved = await ev(ua.page, async (id) => {
+      const App = window.NostrApp;
+      const R = App.GroupReports;
+      const s = await R.loadInbox();
+      const row = s.rows.find((r) => r.targetId === id);
+      App.GroupAdminProductUi.ensureMenuEntry();
+      return {
+        status: row && row.status,
+        removed: App.deletedEventIds.has(id),
+        unresolved: s.unresolved,
+        badge: document.querySelector('#sosGroupControlMenuItem .sos-report-badge')?.textContent || '',
+        audit: R.resolutionAudit().map((r) => r.action),
+      };
+    }, P4.id);
+    const bAuditReports = await ev(ub.page, () => window.NostrApp.GroupReports.resolutionAudit().length);
+    // inbox dedupe even when the reporter clears the client limit; client flood limit per hour
+    const flood = await tPage.evaluate(async (p) => {
+      const R = window.NostrApp.GroupReports;
+      Object.keys(localStorage).filter((k) => k.startsWith('sos_group_reports_sent_v1:')).forEach((k) => localStorage.removeItem(k));
+      const again = (await R.submitReport({ id: p.id, pubkey: p.pubkey, kind: 1 }, 'HARASSMENT', '')).code;
+      const codes = [];
+      for (let i = 0; i < 10; i++) {
+        const id = Array.from(crypto.getRandomValues(new Uint8Array(32)), (x) => x.toString(16).padStart(2, '0')).join('');
+        codes.push((await R.submitReport({ id, pubkey: p.pubkey, kind: 1 }, 'SPAM', '')).code);
+      }
+      return { again, codes };
+    }, P4);
+    await sleep(800);
+    const dedupe = await ev(ua.page, async (id) => {
+      const s = await window.NostrApp.GroupReports.loadInbox();
+      const row = s.rows.find((r) => r.targetId === id);
+      return { count: row && row.reportCount, status: row && row.status };
+    }, P4.id);
+    await openUi(ua.page, 'activity');
+    await sleep(300);
+    const auditActions = await ev(ua.page, () => Array.from(new Set(Array.from(document.querySelectorAll('#sosGapAudit [data-audit-action]')).map((e) => e.getAttribute('data-audit-action')))));
+    await shot(ua.page, 'p1-activity');
+    set('REPORT_SUBMIT', submit.ok && submit.delivered >= 1 && dup === 'ALREADY_REPORTED' && guestReport === 'LOGIN_REQUIRED', { submit, dup, guestReport });
+    set('REPORT_PRIVATE_STORAGE', privacy.wraps >= 1 && !privacy.reporterVisible && !privacy.targetVisible && !privacy.reasonVisible && privacy.onlyPTagsToModerators, privacy);
+    set(
+      'REPORT_APPEARS_IN_MODERATION_INBOX',
+      inboxA.ok && inboxA.row && inboxA.row.status === 'NEW' && inboxA.row.count === 1 && inboxA.row.reported === B.pub && reportRowUi.row && /ספאם/.test(reportRowUi.text) && !inboxB.ok,
+      { inboxA, inboxB, actions: reportRowUi.actions }
+    );
+    set('REPORT_BADGE', inboxA.badge === String(inboxA.unresolved) && inboxA.unresolved >= 1 && /דיווחים \(\d+\)/.test(reportRowUi.tab) && resolved.badge === '', { before: inboxA.badge, tab: reportRowUi.tab, after: resolved.badge });
+    set('REPORT_RESOLUTION', removeRes.ok && resolved.status === 'RESOLVED' && resolved.removed && resolved.unresolved === 0 && resolved.audit.includes('REPORT_RESOLVED') && bAuditReports === 0, { removeRes, resolved, bAuditReports });
+    set('REPORT_FLOOD_PROTECTION', flood.again === 'DELIVERED' && dedupe.count === 1 && flood.codes.filter((c) => c === 'DELIVERED').length === 9 && flood.codes[9] === 'RATE_LIMITED', { flood, dedupe });
+    set('AUDIT_LOG_PHASE1', ['CONTENT_REMOVED', 'BLOCKLIST_CHANGED', 'MEMBER_BLOCKED', 'MEMBER_UNBLOCKED', 'REPORT_RESOLVED'].every((a) => auditActions.includes(a)), { auditActions });
+    report.REPORTED_CONTENT_VISIBLE_AFTER_REMOVAL = !resolved.removed;
+    report.NEW_REPORT_VISIBLE_TO_MODERATOR = !!(inboxA.row && reportRowUi.row);
+    report.REPORT_BUTTON_SOURCE = {
+      post: /data-report-event="\$\{event\.id\}"/.test(fs.readFileSync(path.join(ROOT, 'feed.js'), 'utf8')),
+      comment: /feed-comment__report/.test(fs.readFileSync(path.join(ROOT, 'feed.js'), 'utf8')) && /videos-comment-report/.test(fs.readFileSync(path.join(ROOT, 'videos.js'), 'utf8')),
+      video: /videos-feed__action--report/.test(fs.readFileSync(path.join(ROOT, 'videos.js'), 'utf8')),
+    };
 
     // ================================================================ control conflict: two authorized issuers sign the same epoch -> fail closed
     // (same-author forks share pubkey+kind+d, so NIP-01 relays keep only one of them; a visible fork needs two issuers)

@@ -2558,8 +2558,11 @@
     if (!(App.deletionTombstones instanceof Map)) App.deletionTombstones = new Map();
     const already = App.deletedEventIds.has(targetEventId);
     const prev = App.deletionTombstones.get(targetEventId) || {};
+    const knownAuthor = App.eventAuthorById instanceof Map ? App.eventAuthorById.get(targetEventId) : '';
     App.deletedEventIds.add(targetEventId);
     App.deletionTombstones.set(targetEventId, {
+      source: meta.source || prev.source || '',
+      author: prev.author || knownAuthor || '',
       deletionEventId: meta.deletionEventId || prev.deletionEventId || '',
       deleter: meta.deleter || prev.deleter || App.publicKey || '',
       createdAt: Number(meta.createdAt) || prev.createdAt || Math.floor(Date.now() / 1000),
@@ -2581,6 +2584,86 @@
 
   function moderationPolicy() {
     return App.ModerationPolicy || window.SosModerationPolicy || null;
+  }
+
+  function isAuthorSuppressed(pubkey) {
+    const MP = moderationPolicy();
+    return !!(MP && typeof MP.isAuthorSuppressed === 'function' && pubkey && MP.isAuthorSuppressed(pubkey));
+  }
+
+  /** Blocked authors: drop their posts/comments from state and DOM (no tombstone, so unblock can restore). */
+  function purgeSuppressedAuthors() {
+    const MP = moderationPolicy();
+    if (!MP || typeof MP.isAuthorSuppressed !== 'function') return 0;
+    const ids = new Set();
+    const check = (ev) => {
+      if (ev && ev.id && isAuthorSuppressed(ev.pubkey)) ids.add(ev.id);
+    };
+    if (App.postsById instanceof Map) App.postsById.forEach(check);
+    if (App.commentsByParent instanceof Map) App.commentsByParent.forEach((m) => m instanceof Map && m.forEach(check));
+    if (Array.isArray(allFeedEvents)) allFeedEvents.forEach(check);
+    ids.forEach((id) => purgeCanonicalPostState(id));
+    return ids.size;
+  }
+
+  /** Current membership policy for the viewer's own content actions ('' = allowed). */
+  function memberActionDenied(action) {
+    const MS = App.MembershipState || window.SosMembershipState;
+    if (!MS || typeof MS.isV2 !== 'function' || !MS.isV2() || typeof MS.canPerformMemberAction !== 'function') return '';
+    if (typeof MS.ensureCache === 'function') MS.ensureCache();
+    const gated = MS.canPerformMemberAction(App.publicKey, action);
+    return gated && gated.ok ? '' : (gated && gated.code) || 'DENIED';
+  }
+
+  let lastModerationFailure = '';
+
+  /** Moderator removal of another user's post/comment without a browser confirm (callers confirm). */
+  async function moderateRemoveEvent(targetEvent) {
+    const MP = moderationPolicy();
+    if (!MP || !targetEvent || !/^[0-9a-f]{64}$/.test(String(targetEvent.id || ''))) return { ok: false, code: 'NO_TARGET' };
+    const id = targetEvent.id;
+    const parentRow = (targetEvent.tags || []).find((t) => Array.isArray(t) && t[0] === 'e' && /^[0-9a-f]{64}$/.test(String(t[1] || '')));
+    if (parentRow) {
+      if (!(App.commentsByParent.get(parentRow[1]) instanceof Map)) App.commentsByParent.set(parentRow[1], new Map());
+      App.commentsByParent.get(parentRow[1]).set(id, targetEvent);
+    } else {
+      App.postsById.set(id, targetEvent);
+    }
+    App.eventAuthorById.set(id, String(targetEvent.pubkey || '').toLowerCase());
+    const auth = MP.canModerateContent(App.publicKey, targetEvent.pubkey, targetEvent.kind);
+    if (!auth.ok) return { ok: false, code: auth.code };
+    lastModerationFailure = '';
+    const ok = await publishModerationEvent(id, { quiet: true });
+    if (!ok) return { ok: false, code: lastModerationFailure || 'MODERATION_PUBLISH_FAILED' };
+    applyDeletion(id, { source: 'moderation', deleter: App.publicKey || '', publishState: 'confirmed', reason: 'moderation' });
+    return { ok: true, code: 'REMOVED', targetEventId: id };
+  }
+
+  window.addEventListener('sos-first-group-state-changed', () => {
+    try {
+      purgeSuppressedAuthors();
+    } catch (_) {}
+  });
+
+  /** "דווח" on a post / comment / video item. extra: { pubkey, kind, content } when the event is not in feed state. */
+  function reportEvent(eventId, parentId, extra) {
+    const R = App.GroupReports || window.SosGroupReports;
+    if (!R || !/^[0-9a-f]{64}$/.test(String(eventId || ''))) return { ok: false, code: 'UNAVAILABLE' };
+    let ev = App.postsById.get(eventId) || null;
+    if (!ev && parentId && App.commentsByParent.get(parentId) instanceof Map) ev = App.commentsByParent.get(parentId).get(eventId) || null;
+    if (!ev) {
+      App.commentsByParent.forEach((m) => {
+        if (!ev && m instanceof Map && m.has(eventId)) ev = m.get(eventId);
+      });
+    }
+    const x = extra || {};
+    return R.openReportDialog({
+      id: eventId,
+      pubkey: (ev && ev.pubkey) || x.pubkey || App.eventAuthorById.get(eventId) || '',
+      kind: (ev && ev.kind) || x.kind || 1,
+      parentId: parentId || '',
+      preview: (ev && ev.content) || x.content || '',
+    });
   }
 
   function resolveTargetAuthorPubkey(eventId, fallbackEvent) {
@@ -3045,6 +3128,9 @@
     if (App.deletedEventIds instanceof Set && event.id && App.deletedEventIds.has(event.id)) {
       return;
     }
+    if (isAuthorSuppressed(event.pubkey)) {
+      return;
+    }
     if (!App.commentsByParent.has(parentId)) {
       App.commentsByParent.set(parentId, new Map());
     }
@@ -3072,6 +3158,7 @@
     const comments = Array.from(commentMap.values()).filter((c) => {
       if (!c?.id) return false;
       if (deleted && deleted.has(c.id)) return false;
+      if (isAuthorSuppressed(c.pubkey)) return false;
       return true;
     });
     comments.sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
@@ -3147,6 +3234,9 @@
         const deleteBtnHtml = canDelete
           ? `<button type="button" class="feed-comment__delete" data-delete-comment="${comment.id}" data-parent-id="${parentId}" aria-label="מחק תגובה" title="מחק תגובה"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>`
           : '';
+        const reportBtnHtml = normalizedCommenter && normalizedCommenter !== String(App.publicKey || '').toLowerCase() && /^[0-9a-f]{64}$/.test(String(comment.id || ''))
+          ? `<button type="button" class="feed-comment__report" data-report-event="${comment.id}" onclick="NostrApp.reportEvent('${comment.id}', '${parentId}')" aria-label="דווח על תגובה" title="דווח"><i class="fa-solid fa-flag" aria-hidden="true"></i></button>`
+          : '';
         fragments.push(`
           <article class="feed-comment" data-comment-id="${comment.id || ''}">
             ${commenterAvatarHtml}
@@ -3155,6 +3245,7 @@
                 <button class="feed-comment__author" type="button" ${profileDataset}>${commenterName}</button>
                 ${timestamp ? `<time class="feed-comment__time">${timestamp}</time>` : ''}
                 ${deleteBtnHtml}
+                ${reportBtnHtml}
               </header>
               <div class="feed-comment__text">${safeContent}</div>
             </div>
@@ -3430,6 +3521,7 @@
         }
         return false;
       }
+      if (isAuthorSuppressed(event.pubkey)) return false;
       return true;
     });
 
@@ -3670,6 +3762,22 @@
         `
         : '';
 
+      const reportMenuHtml = ownPost
+        ? ''
+        : `
+          <div class="feed-post__menu-wrap" style="position:relative;display:inline-block;">
+            <button class="feed-post__menu-toggle" type="button" aria-haspopup="true" aria-expanded="false" data-post-menu-toggle="${event.id}" title="אפשרויות">
+              <i class="fa-solid fa-ellipsis"></i>
+            </button>
+            <div class="feed-post__menu" data-post-menu="${event.id}" hidden style="position:absolute; top:36px; inset-inline-end:0; min-width: 140px; background: var(--card); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.35); z-index:5;">
+              <button class="feed-post__action feed-post__action--report" type="button" data-report-event="${event.id}" onclick="NostrApp.reportEvent('${event.id}')">
+                <i class="fa-solid fa-flag"></i>
+                <span>דווח</span>
+              </button>
+              ${deleteButtonHtml}
+            </div>
+          </div>
+        `;
       // חלק כפתור עליון – אם זה פוסט של המשתמש, נציג כפתור 3 נקודות במקום כפתור עקוב
       const headerActionHtml = ownPost
         ? `
@@ -3683,7 +3791,7 @@
             </div>
           </div>
         `
-        : followButtonHtml;
+        : followButtonHtml + reportMenuHtml;
       if (!App.commentsByParent.has(event.id)) {
         App.commentsByParent.set(event.id, new Map());
       }
@@ -3899,6 +4007,10 @@
     // חלק פיד (feed.js) – מפרסם תגובת kind 1 עם תגיות root/commit כדי שכל הרשת תראה אותה
     if (!parentId || !content || !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey() || !App.pool) {
       throw new Error('Missing required context for posting comment');
+    }
+    const commentDenied = memberActionDenied('comment_reply');
+    if (commentDenied) {
+      throw new Error('אין הרשאה להגיב בקבוצה (' + commentDenied + ')');
     }
 
     const now = Math.floor(Date.now() / 1000);
@@ -4562,6 +4674,7 @@ async function loadFeed() {
       console.warn('likePost: signReactionEvent unavailable');
       return null;
     }
+    if (memberActionDenied('reaction')) return null;
     const me = String(App.publicKey).toLowerCase();
     const likeSet = App.likesByEventId instanceof Map ? App.likesByEventId.get(eventId) : null;
     const alreadyLiked = !!(likeSet && likeSet.has(me));
@@ -4752,6 +4865,7 @@ async function loadFeed() {
     }
     const auth = MP.canModerateContent(App.publicKey, targetEvent.pubkey, targetEvent.kind);
     if (!auth.ok) {
+      lastModerationFailure = auth.code || 'NOT_AUTHORIZED';
       logDeleteLifecycle('MOD_PUBLISH_FAIL', { id: eventId, reason: auth.code });
       return false;
     }
@@ -4775,12 +4889,14 @@ async function loadFeed() {
     }
     const att = await attestAdminRemoval(event, targetEvent);
     if (!att.ok) {
+      lastModerationFailure = att.code || 'ADMIN_2FA_FAILED';
       logDeleteLifecycle('MOD_PUBLISH_FAIL', { id: eventId, reason: att.code });
       notifyAdminAuthFailure(att.code, quiet);
       return false;
     }
     const verdict = MP.validateModerationEvent(event, targetEvent, null);
     if (!verdict.ok) {
+      lastModerationFailure = verdict.code || 'INVALID_MODERATION';
       logDeleteLifecycle('MOD_PUBLISH_FAIL', { id: eventId, reason: verdict.code });
       return false;
     }
@@ -4792,6 +4908,7 @@ async function loadFeed() {
       if (!quiet) logDeletionPublish('moderation published', { eventId, moderationEventId: event.id });
       return true;
     } catch (err) {
+      lastModerationFailure = 'PUBLISH_FAILED';
       markDeletionPublishState(eventId, 'failed', event.id);
       logDeleteLifecycle('MOD_PUBLISH_FAIL', { id: eventId, reason: err?.message || 'publish' });
       return false;
@@ -5433,6 +5550,10 @@ async function loadFeed() {
     registerModeration,
     canViewerDeletePost,
     canViewerDeleteComment,
+    isAuthorSuppressed,
+    purgeSuppressedAuthors,
+    moderateRemoveEvent,
+    reportEvent,
     registerLike,
     updateLikeIndicator,
     removePostElement,

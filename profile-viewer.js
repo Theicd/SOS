@@ -338,9 +338,20 @@
       .sort((a, b) => b.created_at - a.created_at);
   }
 
+  function isSuppressedByHostGroup(pubkey) {
+    try {
+      const host = window.parent && window.parent !== window ? window.parent : null;
+      const MP = host && host.NostrApp && host.NostrApp.ModerationPolicy;
+      return !!(MP && typeof MP.isAuthorSuppressed === 'function' && pubkey && MP.isAuthorSuppressed(pubkey));
+    } catch (_) {
+      return false;
+    }
+  }
+
   function renderTimeline(posts, replies) {
-    const sortedPosts = sortEvents(posts || []);
-    const sortedReplies = sortEvents(replies || []);
+    const notSuppressed = (event) => !isSuppressedByHostGroup(event && event.pubkey);
+    const sortedPosts = sortEvents((posts || []).filter(notSuppressed));
+    const sortedReplies = sortEvents((replies || []).filter(notSuppressed));
 
     if (typeof App.renderProfilePosts === 'function') {
       App.renderProfilePosts(sortedPosts, 'viewerTimeline');

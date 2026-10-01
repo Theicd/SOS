@@ -493,6 +493,7 @@ async function main() {
       caps: a.caps.slice(),
       member: a.membership,
       menu: r.F.canSeeAdminMenu(),
+      moderation: r.F.canSeeModeration(),
       sections: r.F.visibleSections(),
       canInvite: r.IP.canCreateInvite(I.pub, r.G.getVerifiedControlState(GROUP)),
       grant: (await r.F.grantCapability(X.pub, 'MODERATE_CONTENT')).code,
@@ -511,7 +512,8 @@ async function main() {
   check(
     'INVITE_ONLY_USER_GROUP_CONTROL_PANEL_ACCESS_FALSE',
     inviteOnly.menu === false &&
-      /return f\.canSeeAdminMenu\(\) \|\| needsBootstrap\(\);/.test(uiSrc0) &&
+      inviteOnly.moderation === false &&
+      /return f\.canSeeAdminMenu\(\) \|\| (canSeeModerationOnly\(\) \|\| )?needsBootstrap\(\);/.test(uiSrc0) &&
       /if \(!canSeeGroupControl\(\)\) return \{ ok: false, code: 'UNAUTHORIZED' \};/.test(uiSrc0) &&
       !inviteOnly.sections.admins && !inviteOnly.sections.roles && !inviteOnly.sections.members && !inviteOnly.sections.settings
   );

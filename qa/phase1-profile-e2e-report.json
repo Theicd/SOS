@@ -1,7 +1,7 @@
 {
   "gate": "PHASE1_PROFILE_E2E",
   "status": "PASS",
-  "ts": "2026-10-01T11:02:37.492Z",
+  "ts": "2026-10-01T14:06:02.615Z",
   "results": {
     "A_IDENTITY_CREATED": {
       "ok": true,
