@@ -1,17 +1,18 @@
 {
   "gate": "F5B6W_PRODUCTION_CHECK",
   "status": "PASS",
-  "ts": "2026-10-01T01:14:09.738Z",
+  "ts": "2026-10-01T02:55:55.383Z",
   "results": {
-    "LIVE_BUILD_899H": {
+    "LIVE_BUILD_899I": {
       "ok": true,
       "detail": {
-        "version": "2026.10.01-web-899h",
+        "version": "2026.10.01-web-899i",
         "v2": true,
         "scope": "CONTROL_PLANE",
         "signerOrigin": "https://signer.sos010.com",
         "workerDonePanel": true,
         "backupBtn": true,
+        "loginKeyFile": true,
         "refreshInvite": true
       }
     },
@@ -57,11 +58,23 @@
       "ok": true,
       "detail": null
     },
-    "PROD_RECOVERY_MATERIAL_VALID_FOR_SAME_IDENTITY": {
+    "PROD_NOT_EXPORTED_BEFORE_FILE_SAVE": {
       "ok": true,
       "detail": null
     },
-    "PROD_RECOVERY_BACKUP_CONFIRMED_AFTER_REVEAL": {
+    "PROD_PERSONAL_KEY_FILE_NAME": {
+      "ok": true,
+      "detail": {
+        "fileName": "SOS-personal-key-143854fc-3dd0d947.txt"
+      }
+    },
+    "PROD_PERSONAL_KEY_FILE_REAL": {
+      "ok": true,
+      "detail": {
+        "bytes": 64
+      }
+    },
+    "PROD_PERSONAL_KEY_EXPORTED_STATE": {
       "ok": true,
       "detail": {
         "states": [
@@ -89,7 +102,7 @@
     "PROD_PRIVATE_KEY_NETWORK_RETURN_TO_SOS010": {
       "ok": true,
       "detail": {
-        "requests": 388
+        "requests": 387
       }
     },
     "PROD_NO_RELAY_SOCKETS_OPENED": {
@@ -113,6 +126,6 @@
     "nav https://signer.sos010.com/enroll",
     "nav https://signer.sos010.com/export.html"
   ],
-  "passed": 16,
+  "passed": 18,
   "failed": 0
 }
