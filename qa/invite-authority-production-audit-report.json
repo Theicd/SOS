@@ -1,0 +1,68 @@
+{
+  "gate": "INVITE_AUTHORITY_PRODUCTION_AUDIT",
+  "ts": "2026-10-01T12:39:12.532Z",
+  "admissionService": {
+    "controlEpoch": 5,
+    "controlTipMatches": true,
+    "delegatedCapabilities": [
+      "FINALIZE_MEMBERSHIP_ADMISSION"
+    ],
+    "admin2faEnforced": true
+  },
+  "groupId": "israel-network",
+  "controlEpoch": 5,
+  "controlTip": "1413c4ac33a245e959a3759413b8353acbcce3a6bbb55ba5ed829ace1e2f1394",
+  "rootPubkey8": "ede1e7fa",
+  "INVITE_POLICY": "AUTHORIZED_USERS_ONLY",
+  "v2": true,
+  "scope": null,
+  "rows": [
+    {
+      "PUBLIC_KEY_SHORT": "ede1e7fa…7601",
+      "ROLE": "ROOT_OWNER",
+      "MEMBERSHIP_STATUS": "ROOT",
+      "MEMBERSHIP_ACTIVE": true,
+      "CAPABILITIES": [],
+      "INVITE_USERS": true,
+      "CAN_CREATE_INVITE": true,
+      "POLICY_CODE": "AUTHORIZED",
+      "SOURCE_OF_AUTHORITY": "ROOT"
+    },
+    {
+      "PUBLIC_KEY_SHORT": "170fe2a9…5e28",
+      "ROLE": "MODERATOR",
+      "MEMBERSHIP_STATUS": "ACTIVE",
+      "MEMBERSHIP_ACTIVE": true,
+      "CAPABILITIES": [
+        "MODERATE_CONTENT"
+      ],
+      "INVITE_USERS": false,
+      "CAN_CREATE_INVITE": false,
+      "POLICY_CODE": "AUTHORIZED_DENIED",
+      "SOURCE_OF_AUTHORITY": "NONE"
+    },
+    {
+      "PUBLIC_KEY_SHORT": "752f47fa…11ef",
+      "ROLE": "ADMISSION_SERVICE",
+      "MEMBERSHIP_STATUS": "NONE",
+      "MEMBERSHIP_ACTIVE": false,
+      "CAPABILITIES": [
+        "FINALIZE_MEMBERSHIP_ADMISSION"
+      ],
+      "INVITE_USERS": false,
+      "CAN_CREATE_INVITE": false,
+      "POLICY_CODE": "AUTHORIZED_DENIED",
+      "SOURCE_OF_AUTHORITY": "NONE"
+    }
+  ],
+  "KEY_POSSESSION_ALONE_CAN_CREATE_INVITE": false,
+  "freshKeyCode": "AUTHORIZED_DENIED",
+  "testUserInviteUsers": false,
+  "TOTAL_KNOWN_MEMBERS": 2,
+  "TOTAL_CAN_CREATE_INVITE": 1,
+  "INVITE_AUTHORIZED_PUBKEYS": [
+    "ede1e7fa…7601"
+  ],
+  "DEFAULT_MEMBER_CAN_CREATE_INVITE": false,
+  "UNAUTHORIZED_EXISTING_KEYS_CAN_INVITE": false
+}

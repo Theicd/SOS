@@ -973,6 +973,38 @@ async function main() {
     });
     set('MEMBER_CANNOT_OPEN_CONTROL', bNoPanel.code === 'UNAUTHORIZED' && !bNoPanel.dialog, bNoPanel);
 
+    // MANAGE_MEMBERS UX: accurate description; pending joins are read-only (admission is automatic).
+    await openUi(ua.page, 'members');
+    await domClick(ua.page, `#sosGapBody [data-act="select-member"][data-pk="${B.pub}"]`);
+    await sleep(200);
+    const mmHelp = await ev(ua.page, () => document.querySelector('#sosGapCaps input[data-cap="MANAGE_MEMBERS"]')?.closest('label')?.querySelector('.gap-cap-help')?.textContent || '');
+    await ev(ua.page, () => document.querySelector('#sosGapMemberDetail [data-act="close-user"]')?.click());
+    set('MANAGE_MEMBERS_DESCRIPTION', mmHelp === 'מאפשר למשתמש להסיר חברים מהקבוצה ולנהל את מצב החברות שלהם. לא מאפשר לשנות הרשאות.', { mmHelp });
+    const pendingPk = mkKey().pub;
+    const pending = await ev(ua.page, async (pk) => {
+      const App = window.NostrApp;
+      const real = App.FirstGroupAdmin;
+      App.FirstGroupAdmin = Object.assign({}, real, { listPendingJoins: async () => ({ ok: true, rows: [{ memberPubkey: pk, inviteEventId: 'ab'.repeat(32), status: 'NONE' }] }) });
+      try {
+        document.querySelector('#sosGapBody [data-act="load-joins"]').click();
+        for (let i = 0; i < 50 && !document.querySelector(`#sosGapJoinList [data-pending-pk="${pk}"]`); i++) await new Promise((r) => setTimeout(r, 100));
+        const row = document.querySelector(`#sosGapJoinList [data-pending-pk="${pk}"]`);
+        return {
+          row: !!row,
+          status: row ? row.querySelector('.gap-join-status')?.textContent || '' : '',
+          buttonsInRow: row ? row.querySelectorAll('button').length : -1,
+          approveAnywhere: document.querySelectorAll('#sosGroupAdminShell [data-act="approve-join"]').length,
+          approveText: /אישור הצטרפות/.test(document.getElementById('sosGapBody')?.innerText || ''),
+        };
+      } finally {
+        App.FirstGroupAdmin = real;
+      }
+    }, pendingPk);
+    set('PENDING_JOIN_MANUAL_APPROVE_VISIBLE_FALSE', pending.approveAnywhere === 0 && pending.buttonsInRow === 0 && !pending.approveText, pending);
+    set('PENDING_JOIN_READ_ONLY_STATUS', pending.row && pending.status === 'ממתין לאישור אוטומטי', pending);
+    const manualApprove = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.approveJoin(pk, 'ab'.repeat(32))).code, pendingPk);
+    set('ADMISSION_SERVICE_REQUIRED_PATH_UNCHANGED', manualApprove === 'ADMISSION_SERVICE_REQUIRED', { manualApprove });
+
     // ================================================================ A grants B INVITE_USERS only; B receives it from the network
     const tGrant = Date.now();
     const grant = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.grantCapability(pk, 'INVITE_USERS')).code, B.pub);

@@ -24,7 +24,7 @@
   const CAP_HELP = Object.freeze({
     INVITE_USERS: 'מאפשר למשתמש ליצור הזמנות חדשות.',
     MODERATE_CONTENT: 'מאפשר למשתמש להסיר פוסטים ותגובות של משתמשים אחרים בקבוצה (לא של המנהל הראשי).',
-    MANAGE_MEMBERS: 'מאפשר למשתמש לאשר הצטרפות ולהסיר חברים מהקבוצה. לא כולל שינוי הרשאות.',
+    MANAGE_MEMBERS: 'מאפשר למשתמש להסיר חברים מהקבוצה ולנהל את מצב החברות שלהם. לא מאפשר לשנות הרשאות.',
     MANAGE_ADMINS: 'מינוי והסרה של מנהלים.',
     MANAGE_PERMISSIONS: 'שינוי הרשאות של חברים.',
     MANAGE_GROUP_SETTINGS: 'שינוי שם, תיאור ולוגו של הקבוצה.',
@@ -48,7 +48,6 @@
     REVOKE_INVITE: 'ביטול הזמנה',
     SAVE_PERMISSIONS: 'שמירת הרשאות',
     SAVE_DETAILS: 'שמירת פרטים',
-    APPROVE_JOIN: 'אישור הצטרפות',
     CONFIRM: 'אישור',
     CANCEL: 'ביטול',
   });
@@ -769,7 +768,8 @@
     if (!others.length) html += '<p class="gap-note">אין עדיין חברים נוספים להצגה.</p>';
     if (s.removeMembers) {
       html +=
-        '<h3 style="margin-top:16px">בקשות הצטרפות</h3>' +
+        '<h3 style="margin-top:16px">הצטרפויות ממתינות</h3>' +
+        '<p class="gap-note">ההצטרפות מאושרת אוטומטית. משתמש שהצטרפותו הושלמה יופיע ברשימת החברים.</p>' +
         '<div class="gap-actions"><button type="button" class="gap-btn" data-act="load-joins">רענון בקשות</button></div>' +
         '<div class="gap-list" id="sosGapJoinList"></div>';
     }
@@ -792,9 +792,9 @@
           const pk = String(r.memberPubkey || '');
           const prof = profileOf(pk);
           return (
-            '<div class="gap-item">' + avatarHtml(pk, prof) +
+            '<div class="gap-item" data-pending-pk="' + escapeHtml(pk) + '">' + avatarHtml(pk, prof) +
             '<div class="gap-user-main"><div class="gap-user-name">' + escapeHtml(displayName(pk, prof)) + '</div><div class="gap-sub gap-mono">' + escapeHtml(shortPk(pk)) + '</div></div>' +
-            '<button type="button" class="gap-btn primary" data-act="approve-join" data-mutation="1" data-pk="' + escapeHtml(pk) + '" data-invite="' + escapeHtml(r.inviteEventId) + '">' + LABELS.APPROVE_JOIN + '</button></div>'
+            '<span class="gap-sub gap-join-status">ממתין לאישור אוטומטי</span></div>'
           );
         })
         .join('') || '<div class="gap-sub">אין בקשות ממתינות</div>';
@@ -1346,9 +1346,6 @@
       return res;
     }
     if (act === 'load-joins') return loadJoins();
-    if (act === 'approve-join') {
-      return run(LABELS.APPROVE_JOIN, () => f.approveJoin(pk, el.getAttribute('data-invite')), 'לאשר את הצטרפות המשתמש לקבוצה?');
-    }
     if (act === 'demote') {
       return run(LABELS.REMOVE_ADMIN, () => f.demoteAdmin(pk), 'להסיר את הרשאות הניהול של המשתמש?');
     }
