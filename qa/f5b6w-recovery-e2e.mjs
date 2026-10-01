@@ -404,6 +404,7 @@ async function main() {
     stage = 'enroll';
     await popup.click('#enrollLink');
     await popup.waitForSelector('#enrollBtn', { timeout: 15000 });
+    await popup.waitForFunction(() => /^ready /.test(document.getElementById('status')?.textContent || ''), null, { timeout: 15000 });
     await popup.fill('#labelInput', 'f5b6w-e2e');
     await popup.click('#enrollBtn');
     await popup.waitForFunction(() => parseInt(document.getElementById('credCount')?.textContent || '0', 10) >= 1, null, { timeout: 20000 });

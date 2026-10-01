@@ -1,0 +1,118 @@
+{
+  "gate": "F5B6W_PRODUCTION_CHECK",
+  "status": "PASS",
+  "ts": "2026-10-01T01:14:09.738Z",
+  "results": {
+    "LIVE_BUILD_899H": {
+      "ok": true,
+      "detail": {
+        "version": "2026.10.01-web-899h",
+        "v2": true,
+        "scope": "CONTROL_PLANE",
+        "signerOrigin": "https://signer.sos010.com",
+        "workerDonePanel": true,
+        "backupBtn": true,
+        "refreshInvite": true
+      }
+    },
+    "LIVE_FLAGS_V2_CONTROL_PLANE": {
+      "ok": true,
+      "detail": {
+        "v2": true,
+        "scope": "CONTROL_PLANE"
+      }
+    },
+    "LIVE_SIGNER_ORIGIN_PRODUCTION": {
+      "ok": true,
+      "detail": null
+    },
+    "PROD_WORKER_IDENTITY_CREATED": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "worker": true,
+        "needsBackup": true
+      }
+    },
+    "PROD_WORKER_ACCOUNT_LOGOUT_WITHOUT_BACKUP_PROTECTED": {
+      "ok": true,
+      "detail": {
+        "blocked": true,
+        "result": "LOGOUT_BLOCKED_NO_RECOVERY_BACKUP",
+        "modal": true
+      }
+    },
+    "PROD_HANDOFF_IMPORTED_INTO_SIGNER": {
+      "ok": true,
+      "detail": {
+        "states": [
+          "OPENED",
+          "SEALED",
+          "IN_SIGNER",
+          "CONFIRMED"
+        ]
+      }
+    },
+    "PROD_BACKUP_NOT_CONFIRMED_BEFORE_REVEAL": {
+      "ok": true,
+      "detail": null
+    },
+    "PROD_RECOVERY_MATERIAL_VALID_FOR_SAME_IDENTITY": {
+      "ok": true,
+      "detail": null
+    },
+    "PROD_RECOVERY_BACKUP_CONFIRMED_AFTER_REVEAL": {
+      "ok": true,
+      "detail": {
+        "states": [
+          "OPENED",
+          "SEALED",
+          "IN_SIGNER",
+          "CONFIRMED"
+        ]
+      }
+    },
+    "PROD_PRIVATE_KEY_NORMAL_PAGE_EXPOSURE": {
+      "ok": true,
+      "detail": null
+    },
+    "PROD_PRIVATE_KEY_MESSAGES_TO_SOS010": {
+      "ok": true,
+      "detail": {
+        "messageCount": 3
+      }
+    },
+    "PROD_PRIVATE_KEY_LOGGING": {
+      "ok": true,
+      "detail": null
+    },
+    "PROD_PRIVATE_KEY_NETWORK_RETURN_TO_SOS010": {
+      "ok": true,
+      "detail": {
+        "requests": 388
+      }
+    },
+    "PROD_NO_RELAY_SOCKETS_OPENED": {
+      "ok": true,
+      "detail": null
+    },
+    "PROD_LOGOUT_AFTER_BACKUP_ALLOWED": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "result": "LOGOUT_COMPLETE"
+      }
+    },
+    "PROD_RECOVERED_PUBLIC_KEY_MATCH": {
+      "ok": true,
+      "detail": null
+    }
+  },
+  "popupErrors": [
+    "nav https://signer.sos010.com/export",
+    "nav https://signer.sos010.com/enroll",
+    "nav https://signer.sos010.com/export.html"
+  ],
+  "passed": 16,
+  "failed": 0
+}

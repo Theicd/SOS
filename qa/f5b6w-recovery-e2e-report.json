@@ -1,7 +1,7 @@
 {
   "gate": "F5B6W_RECOVERY_E2E",
   "status": "PASS",
-  "ts": "2026-10-01T00:38:02.932Z",
+  "ts": "2026-10-01T01:16:05.368Z",
   "results": {
     "ONBOARDING_KEY_STEP_WORKER_MODE": {
       "ok": true,
@@ -112,14 +112,14 @@
     "PRIVATE_KEY_LOGGING": {
       "ok": true,
       "detail": {
-        "consoleLines": 220
+        "consoleLines": 206
       }
     },
     "PRIVATE_KEY_NETWORK_RETURN_TO_SOS010": {
       "ok": true,
       "detail": {
-        "requests": 413,
-        "relayFrames": 118
+        "requests": 399,
+        "relayFrames": 104
       }
     },
     "SEAL_WRONG_PUBKEY_REFUSED": {
