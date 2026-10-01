@@ -964,7 +964,7 @@ async function main() {
     await ev(ua.page, () => document.querySelector('#sosGapMemberDetail [data-act="close-user"]')?.click());
     set(
       'MEMBER_CARD_CONTROLS_FOLLOW_POLICY',
-      bCard.remove && bCard.edit && editor.target === B.pub && JSON.stringify(editor.caps) === JSON.stringify(editor.canonical) && editor.enabled > 0 && editor.roleButtons > 0,
+      bCard.remove && bCard.edit && editor.target === B.pub && JSON.stringify(editor.caps.slice().sort()) === JSON.stringify(editor.canonical.slice().sort()) && editor.enabled > 0 && editor.roleButtons > 0,
       { bCard, target: editor.target === B.pub, caps: editor.caps.length, enabled: editor.enabled, roleButtons: editor.roleButtons }
     );
     const bNoPanel = await ev(ub.page, async () => {

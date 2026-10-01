@@ -19,6 +19,19 @@
   // Older entry points (menu 'home', deep links) land on the matching new tab; group details live in advanced settings.
   const TAB_ALIASES = Object.freeze({ home: 'members', details: 'members', roles: 'members', settings: 'members', qr: 'invites', security: 'activity' });
   const EDITABLE_ROLES = Object.freeze(['MEMBER', 'INVITER', 'MODERATOR', 'ADMIN', 'SENIOR_ADMIN']);
+  /** User-facing grouping only; the canonical capability set and its rules are unchanged. */
+  const PRIMARY_CAPS = Object.freeze(['INVITE_USERS', 'MODERATE_CONTENT', 'MANAGE_MEMBERS']);
+  const CAP_HELP = Object.freeze({
+    INVITE_USERS: 'מאפשר למשתמש ליצור הזמנות חדשות.',
+    MODERATE_CONTENT: 'מאפשר למשתמש להסיר פוסטים ותגובות של משתמשים אחרים בקבוצה (לא של המנהל הראשי).',
+    MANAGE_MEMBERS: 'מאפשר למשתמש לאשר הצטרפות ולהסיר חברים מהקבוצה. לא כולל שינוי הרשאות.',
+    MANAGE_ADMINS: 'מינוי והסרה של מנהלים.',
+    MANAGE_PERMISSIONS: 'שינוי הרשאות של חברים.',
+    MANAGE_GROUP_SETTINGS: 'שינוי שם, תיאור ולוגו של הקבוצה.',
+    MANAGE_INVITES: 'יצירה וביטול של כל ההזמנות ושינוי מדיניות ההזמנות.',
+    MANAGE_BLOCKLIST: 'חסימה וביטול חסימה של חברים.',
+    VIEW_AUDIT_LOG: 'צפייה ביומן הפעולות הניהוליות.',
+  });
   const INACTIVE_STATUS_TEXT = 'מערכת הניהול עדיין לא הופעלה. ניתן לצפות ולהכין הרשאות, אך לא לשמור שינויים.';
   const SAVE_AFTER_ACTIVATION_TEXT = 'ניתן לשמור לאחר הפעלת מערכת הניהול';
   const ADMISSION_EXPLAIN_TEXT = 'שירות הקבלה יקבל הרשאה מוגבלת לאשר הצטרפות חברים בלבד.';
@@ -59,6 +72,7 @@
   let activeTab = 'members';
   let selectedMember = '';
   let draftCaps = null;
+  let advancedCapsOpen = false;
   let lastInvite = null;
   let busy = false;
   let searchQuery = '';
@@ -260,6 +274,10 @@
       '#sosGroupAdminShell .gap-mono{font-family:ui-monospace,monospace;font-size:.8rem;word-break:break-all;}' +
       '#sosGroupAdminShell .gap-caps{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;margin-top:8px;}' +
       '#sosGroupAdminShell .gap-caps label{display:flex;gap:8px;align-items:center;background:#1a1e29;border-radius:8px;padding:6px 8px;}' +
+      '#sosGroupAdminShell .gap-caps label.gap-cap{align-items:flex-start;}' +
+      '#sosGroupAdminShell .gap-cap-help{display:block;margin-top:2px;font-weight:normal;}' +
+      '#sosGroupAdminShell .gap-caps-advanced{grid-column:1/-1;display:grid;gap:6px;margin-top:6px;}' +
+      '#sosGroupAdminShell .gap-caps-advanced summary{cursor:pointer;padding:6px 2px;opacity:.85;}' +
       '#sosGroupAdminShell .gap-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}' +
       '#sosGroupAdminShell .gap-card{background:#1a1e29;border-radius:10px;padding:10px;}' +
       '#sosGroupAdminShell .gap-card b{display:block;font-size:1.2rem;}' +
@@ -1051,6 +1069,26 @@
     });
   }
 
+  /** Primary permissions first; the rest inside a collapsed "advanced" section. All inputs stay in #sosGapCaps. */
+  function capsEditorHtml(caps, isChecked, isEnabled, withIds) {
+    const f = FGA();
+    const item = (c) =>
+      '<label class="gap-cap"><input type="checkbox"' + (withIds ? ' data-cap="' + c + '"' : '') +
+      (isChecked(c) ? ' checked' : '') + (isEnabled(c) ? '' : ' disabled') + '> <span><b>' + escapeHtml(f.CAP_LABELS[c]) + '</b>' +
+      (CAP_HELP[c] ? '<span class="gap-sub gap-cap-help">' + escapeHtml(CAP_HELP[c]) + '</span>' : '') + '</span></label>';
+    const primary = PRIMARY_CAPS.filter((c) => caps.indexOf(c) !== -1);
+    const advanced = caps.filter((c) => PRIMARY_CAPS.indexOf(c) === -1);
+    return (
+      '<div class="gap-caps"' + (withIds ? ' id="sosGapCaps"' : '') + '>' +
+      primary.map(item).join('') +
+      (advanced.length
+        ? '<details class="gap-caps-advanced" id="sosGapAdvancedCaps"' + (advancedCapsOpen ? ' open' : '') + '><summary>הרשאות ניהול מתקדמות</summary>' +
+          advanced.map(item).join('') + '</details>'
+        : '') +
+      '</div>'
+    );
+  }
+
   function renderDrawer() {
     if (!shellEl) return;
     let el = document.getElementById('sosGapMemberDetail');
@@ -1084,9 +1122,7 @@
     if (u.isRoot) {
       body +=
         '<p class="gap-note" id="sosGapRootLocked">המנהל הראשי הוא הבעלים של הקבוצה. התפקיד וההרשאות שלו מוגנים ולא ניתן לשנות או להסיר אותם.</p>' +
-        '<h3>הרשאות</h3><div class="gap-caps">' +
-        caps.map((c) => '<label><input type="checkbox" checked disabled> ' + escapeHtml(f.CAP_LABELS[c]) + '</label>').join('') +
-        '</div>';
+        '<h3>הרשאות</h3>' + capsEditorHtml(caps, () => true, () => false, false);
     } else if (isV2() && !u.member) {
       body +=
         '<h3>הוספה לקבוצה</h3>' +
@@ -1111,15 +1147,8 @@
           );
         }).join('') +
         '</div>' +
-        '<h3>הרשאות</h3><div class="gap-caps" id="sosGapCaps">' +
-        caps
-          .map(
-            (c) =>
-              '<label><input type="checkbox" data-cap="' + c + '"' + (draft.indexOf(c) !== -1 ? ' checked' : '') + (grantable.indexOf(c) !== -1 ? '' : ' disabled') + '> ' +
-              escapeHtml(f.CAP_LABELS[c]) + '</label>'
-          )
-          .join('') +
-        '</div>';
+        '<h3>הרשאות</h3>' +
+        capsEditorHtml(caps, (c) => draft.indexOf(c) !== -1, (c) => grantable.indexOf(c) !== -1, true);
       const canSave = isV2() && u.member;
       foot =
         (isV2() ? '' : '<p class="gap-note" id="sosGapSaveNote">' + SAVE_AFTER_ACTIVATION_TEXT + '</p>') +
@@ -1137,11 +1166,14 @@
       '<div class="gap-drawer-body">' + body + '</div>' +
       (foot ? '<div class="gap-drawer-foot">' + foot + '</div>' : '') +
       '</div>';
+    const adv = document.getElementById('sosGapAdvancedCaps');
+    if (adv) adv.addEventListener('toggle', () => (advancedCapsOpen = adv.open));
   }
 
   function closeDrawer() {
     selectedMember = '';
     draftCaps = null;
+    advancedCapsOpen = false;
     renderDrawer();
   }
 

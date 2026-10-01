@@ -354,8 +354,22 @@ async function groupControlUx(page, A, M) {
       roles: Array.from(d.querySelectorAll('#sosGapRoleOptions [data-role]')).map((b) => b.textContent),
       caps: Array.from(d.querySelectorAll('#sosGapCaps input[data-cap]')).map((c) => c.getAttribute('data-cap')),
       capsEnabled: Array.from(d.querySelectorAll('#sosGapCaps input[data-cap]')).every((c) => !c.disabled),
+      primaryVisible: Array.from(d.querySelectorAll('#sosGapCaps > label input[data-cap]')).filter((c) => c.offsetParent !== null).map((c) => c.getAttribute('data-cap')),
+      advanced: Array.from(d.querySelectorAll('#sosGapAdvancedCaps input[data-cap]')).map((c) => c.getAttribute('data-cap')),
+      advancedCollapsed: !!d.querySelector('#sosGapAdvancedCaps') && d.querySelector('#sosGapAdvancedCaps').open === false,
+      advancedTitle: d.querySelector('#sosGapAdvancedCaps summary')?.textContent || '',
+      moderateLabel: d.querySelector('#sosGapCaps input[data-cap="MODERATE_CONTENT"]')?.closest('label')?.querySelector('b')?.textContent || '',
+      helpCount: d.querySelectorAll('#sosGapCaps > label .gap-cap-help').length,
     };
   });
+  set(
+    'PERMISSION_UI_PRIMARY_AND_ADVANCED',
+    JSON.stringify(drawer.primaryVisible) === JSON.stringify(['INVITE_USERS', 'MODERATE_CONTENT', 'MANAGE_MEMBERS']) &&
+      JSON.stringify(drawer.advanced.slice().sort()) === JSON.stringify(['MANAGE_ADMINS', 'MANAGE_BLOCKLIST', 'MANAGE_GROUP_SETTINGS', 'MANAGE_INVITES', 'MANAGE_PERMISSIONS', 'VIEW_AUDIT_LOG']) &&
+      drawer.advancedCollapsed && drawer.advancedTitle === 'הרשאות ניהול מתקדמות' && drawer.moderateLabel === 'מחיקת פוסטים ותגובות' && drawer.helpCount === 3,
+    { primary: drawer.primaryVisible, advanced: drawer.advanced.length, collapsed: drawer.advancedCollapsed, label: drawer.moderateLabel, help: drawer.helpCount }
+  );
+  await page.screenshot({ path: path.join(ROOT, 'qa', 'permission-ui-user-panel.png') }).catch(() => {});
   const canonical = await page.evaluate(() => Object.keys(window.NostrApp.FirstGroupAdmin.CAP_LABELS));
   set(
     'SELECT_USER_PANEL',
@@ -373,7 +387,7 @@ async function groupControlUx(page, A, M) {
   set(
     'PER_USER_PERMISSION_EDITOR',
     JSON.stringify(drawer.roles) === JSON.stringify(['חבר', 'מזמין', 'מפקח תוכן', 'מנהל', 'מנהל בכיר']) &&
-      JSON.stringify(drawer.caps) === JSON.stringify(canonical) && drawer.capsEnabled &&
+      JSON.stringify(drawer.caps.slice().sort()) === JSON.stringify(canonical.slice().sort()) && drawer.capsEnabled &&
       afterToggle === 'MODERATOR' && afterRole.active === 'ADMIN' && JSON.stringify(afterRole.checked) === JSON.stringify(['MANAGE_MEMBERS']),
     { roles: drawer.roles, caps: drawer.caps.length, afterToggle, afterRole }
   );

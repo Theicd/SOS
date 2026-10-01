@@ -26,10 +26,10 @@
   const CAP_LABELS = Object.freeze({
     MANAGE_ADMINS: 'ניהול מנהלים',
     MANAGE_PERMISSIONS: 'ניהול הרשאות',
-    MANAGE_GROUP_SETTINGS: 'עריכת פרטי הקבוצה והגדרות',
-    MODERATE_CONTENT: 'פיקוח תוכן',
+    MANAGE_GROUP_SETTINGS: 'עריכת פרטי הקבוצה',
+    MODERATE_CONTENT: 'מחיקת פוסטים ותגובות',
     INVITE_USERS: 'הזמנת חברים',
-    MANAGE_INVITES: 'ניהול הזמנות',
+    MANAGE_INVITES: 'ניהול כל ההזמנות',
     MANAGE_MEMBERS: 'ניהול חברים',
     MANAGE_BLOCKLIST: 'חסימת חברים',
     VIEW_AUDIT_LOG: 'צפייה בפעילות ניהולית',

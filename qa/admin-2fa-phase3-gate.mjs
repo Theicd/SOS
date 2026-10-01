@@ -43,8 +43,9 @@ const A2 = mkKey(); // delegated admin
 const B = mkKey(); // member
 const X = mkKey(); // outsider
 const I = mkKey(); // invite-only helper
+const M = mkKey(); // delegated moderator (MODERATE_CONTENT only)
 const PEPPER = crypto.randomBytes(32).toString('hex');
-const SECRETS = [R.hex, S.hex, C.hex, W.hex, A2.hex, B.hex, X.hex, I.hex, PEPPER];
+const SECRETS = [R.hex, S.hex, C.hex, W.hex, A2.hex, B.hex, X.hex, I.hex, M.hex, PEPPER];
 const SENSITIVE = [];
 
 const checks = [];
@@ -366,6 +367,7 @@ async function main() {
   const r = await makeClient(R);
   const PIN = nonTrivialPin(r.Cl.isTrivialPin);
   const WRONG = nonTrivialPin(r.Cl.isTrivialPin, PIN);
+  const PIN_M = nonTrivialPin(r.Cl.isTrivialPin, PIN);
   SECRETS.push(PIN, WRONG);
   check('CLIENT_FLAGS_SERVER_AUTHORITATIVE', r.Cl.SERVER_PIN_AUTHORITATIVE === true && r.Cl.LOCAL_UI_PIN_ONLY === false && r.Cl.ADMIN_SESSION_TTL_MINUTES === 15 && r.Cl.required() === true);
 
@@ -614,6 +616,73 @@ async function main() {
   ops.DELETE_OTHER_USER_COMMENT = modCommentAtt.ok && modCommentAtt.operations.join() === 'DELETE_OTHER_USER_COMMENT' && r.MP.validateModerationEvent(modComment, comment, null).ok === true;
   row('Other-user deletion without attestation', 'DENY', modPostNoAtt.ok === false && /ADMIN_2FA/.test(modPostNoAtt.code), modPostNoAtt.code);
   row('Other-user deletion with attestation', 'ACCEPT', modPostAfter.ok === true, modPostAfter.code);
+
+  // Delegated (non-ROOT) moderator: MODERATE_CONTENT only, own Admin PIN, grant -> delete post/comment -> revoke.
+  const asId = (k) => {
+    r.state.key = k;
+    r.App.publicKey = k.pub;
+  };
+  const modBy = (k, target) => {
+    const d = r.MP.buildModerationDraft(target, 'hide', r.G.getVerifiedControlState(GROUP));
+    return finalizeEvent({ kind: d.kind, created_at: d.created_at, tags: JSON.parse(JSON.stringify(d.tags)), content: d.content }, k.sk);
+  };
+  const dm = {};
+  const mPost = contentEvent(B);
+  const mComment = contentEvent(B, mPost.id);
+  const admitM = await r.MAO.grantMemberActiveFromInvite(M.pub, crypto.randomBytes(32).toString('hex'), R.pub);
+  asId(M);
+  dm.beforeGrant = r.MP.canModerateContent(M.pub, B.pub, 1).code;
+  asId(R);
+  await r.Cl.verify(PIN);
+  const grantM = await r.M.applyControlMutation({ type: 'GRANT_CAPABILITY', targetPubkey: M.pub, capability: 'MODERATE_CONTENT' }, R.pub);
+  await r.App.FirstGroupNetworkAuthority.pushControlToAdmission();
+  asId(M);
+  dm.afterGrant = r.MP.canModerateContent(M.pub, B.pub, 1).code;
+  dm.enroll = (await r.Cl.enroll(PIN_M, PIN_M)).code;
+  dm.verify = (await r.Cl.verify(PIN_M)).ok;
+  const mModPost = modBy(M, mPost);
+  const mPostAtt = await r.Cl.attest(mModPost, { target: mPost });
+  dm.post = r.MP.validateModerationEvent(mModPost, mPost, null).code;
+  dm.postOp = mPostAtt.ok ? mPostAtt.operations.join() : mPostAtt.code;
+  const mModComment = modBy(M, mComment);
+  const mCommentAtt = await r.Cl.attest(mModComment, { target: mComment });
+  dm.comment = r.MP.validateModerationEvent(mModComment, mComment, null).code;
+  dm.commentOp = mCommentAtt.ok ? mCommentAtt.operations.join() : mCommentAtt.code;
+  const rootPost = contentEvent(R);
+  dm.rootContent = r.MP.canModerateContent(M.pub, R.pub, 1).code;
+  const ownM = contentEvent(M);
+  dm.own = r.MP.canAuthorDelete(M.pub, ownM.pubkey).ok === true && r.MP.canModerateContent(M.pub, M.pub, 1).code === 'USE_AUTHOR_DELETE';
+  asId(R);
+  await r.Cl.verify(PIN);
+  r.state.stepPins = [PIN];
+  const stepBefore = r.state.stepCalls;
+  const revokeM = await r.M.applyControlMutation({ type: 'REVOKE_CAPABILITY', targetPubkey: M.pub, capability: 'MODERATE_CONTENT' }, R.pub);
+  console.log('INFO REVOKE_M_STEP', JSON.stringify({ calls: r.state.stepCalls - stepBefore, left: r.state.stepPins.length, code: revokeM.code, detail: revokeM.detail || revokeM.reason || null }));
+  await r.App.FirstGroupNetworkAuthority.pushControlToAdmission();
+  asId(M);
+  await r.Cl.verify(PIN_M);
+  dm.afterRevoke = r.MP.canModerateContent(M.pub, B.pub, 1).code;
+  const mPost2 = contentEvent(B);
+  const mModPost2 = modBy(M, mPost2);
+  const mPost2Att = await r.Cl.attest(mModPost2, { target: mPost2 });
+  dm.revokedAttest = mPost2Att.ok ? 'ATTESTED' : mPost2Att.code + ':' + (mPost2Att.reason || '');
+  dm.revokedValidate = r.MP.validateModerationEvent(mModPost2, mPost2, null).code;
+  dm.earlierHideAfterRevoke = r.MP.validateModerationEvent(mModPost, mPost, null).code;
+  asId(R);
+  await r.Cl.verify(PIN);
+  void rootPost;
+  check('DELEGATED_MODERATOR_DENIED_WITHOUT_CAP', admitM.ok && dm.beforeGrant === 'NO_MODERATE_CAP', { admit: admitM.code, before: dm.beforeGrant });
+  check('DELEGATED_MODERATE_CONTENT_GRANT', grantM.ok && dm.afterGrant === 'MODERATE_CONTENT', { grant: grantM.code, after: dm.afterGrant });
+  check('DELEGATED_MODERATOR_DELETES_OTHER_USER_POST', dm.verify && dm.post === 'ACCEPTED' && dm.postOp === 'DELETE_OTHER_USER_POST', { enroll: dm.enroll, post: dm.post, op: dm.postOp });
+  check('DELEGATED_MODERATOR_DELETES_OTHER_USER_COMMENT', dm.comment === 'ACCEPTED' && dm.commentOp === 'DELETE_OTHER_USER_COMMENT', { comment: dm.comment, op: dm.commentOp });
+  check('DELEGATED_MODERATOR_ROOT_CONTENT_PROTECTED', dm.rootContent === 'ROOT_CONTENT_PROTECTED', dm.rootContent);
+  check('DELEGATED_MODERATOR_OWN_CONTENT_NO_CAP_NEEDED', dm.own === true);
+  check(
+    'DELEGATED_MODERATE_CONTENT_REVOKE',
+    revokeM.ok && dm.afterRevoke === 'NO_MODERATE_CAP' && dm.revokedAttest !== 'ATTESTED' && dm.revokedValidate !== 'ACCEPTED',
+    { revoke: revokeM.code, after: dm.afterRevoke, attest: dm.revokedAttest, validate: dm.revokedValidate }
+  );
+  console.log('INFO DELEGATED_MODERATION_EARLIER_HIDE_AFTER_REVOKE ' + JSON.stringify(dm.earlierHideAfterRevoke));
 
   // legacy kind 5 (V2 off receivers): cross-author only with attestation; own content never needs one
   const post2 = contentEvent(B);

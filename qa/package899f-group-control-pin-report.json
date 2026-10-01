@@ -2,7 +2,7 @@
   "gate": "PACKAGE899F_GROUP_CONTROL_PIN",
   "ACCESS_CONTROL_V2": "OFF (served unchanged)",
   "status": "PASS",
-  "ts": "2026-09-30T12:19:56.872Z",
+  "ts": "2026-10-01T11:57:23.853Z",
   "results": {
     "ENV_V2_OFF_TEST_ROOT": {
       "ok": true,
@@ -142,7 +142,7 @@
       "ok": true,
       "detail": {
         "inList": true,
-        "text": "ב\nבעלים לבדיקה\n8a55eae5…1723\nמנהל ראשי\nמוגן\nניהול",
+        "text": "ב\nבעלים לבדיקה\n4330efda…1875\nמנהל ראשי\nמוגן\nניהול",
         "avatar": true,
         "manage": true,
         "fullKey": false
@@ -151,9 +151,23 @@
     "USER_SEARCH": {
       "ok": true,
       "detail": {
-        "text": "מ\nמשתמשת חיפוש\nb709432d…f91c\nעדיין אין נתוני חברות\nניהול",
+        "text": "מ\nמשתמשת חיפוש\n795f364c…ad0d\nעדיין אין נתוני חברות\nניהול",
         "avatar": true,
         "short": true
+      }
+    },
+    "PERMISSION_UI_PRIMARY_AND_ADVANCED": {
+      "ok": true,
+      "detail": {
+        "primary": [
+          "INVITE_USERS",
+          "MODERATE_CONTENT",
+          "MANAGE_MEMBERS"
+        ],
+        "advanced": 6,
+        "collapsed": true,
+        "label": "מחיקת פוסטים ותגובות",
+        "help": 3
       }
     },
     "SELECT_USER_PANEL": {
@@ -387,7 +401,7 @@
       "ok": true,
       "detail": {
         "before": true,
-        "pub": "b709432ddea9d83d6cae22f786b11c1a2f8b40ce7ff129926dce9e7e825df91c",
+        "pub": "795f364cd319299824ec3357c6652862fea48b32cd090a18b22d7a0ec73cad0d",
         "unlocked": false,
         "open": false,
         "menu": false,
@@ -410,7 +424,7 @@
     "RESTART_CLEARS_UNLOCK": {
       "ok": true,
       "detail": {
-        "pub": "8a55eae5092db03a04c0d8b97e64e6215cb4d16af9a29c4c9f0b5df7c8b01723",
+        "pub": "4330efda842d708b650b60251c99934834d145ecdb999f6b27b4e0b41c7d1875",
         "unlocked": false,
         "hasPin": true,
         "menu": true
@@ -419,8 +433,8 @@
     "PIN_NOT_IN_CONSOLE_OR_NETWORK": {
       "ok": true,
       "detail": {
-        "requests": 2759,
-        "consoleLines": 3203,
+        "requests": 1212,
+        "consoleLines": 724,
         "serviceLogClean": true
       }
     },
@@ -430,8 +444,8 @@
     }
   },
   "info_afterTimeoutMutation": "V2_REQUIRED",
-  "passed": 43,
-  "total": 43,
+  "passed": 44,
+  "total": 44,
   "PIN_ONLY_ADMIN_AUTHORIZATION": false,
   "PIN_LOGGED": false
 }
