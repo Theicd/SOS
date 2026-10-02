@@ -985,6 +985,22 @@
     return res && res.ok ? done(res) : res || fail('REMOVE_FAILED');
   }
 
+  /** Existing SOS identity → ACTIVE member (canonical GRANT_ACTIVE, Admin 2FA), then relay readback. */
+  async function addMember(targetPubkey, opts) {
+    const g = await nguard('GRANT_MEMBER_ACTIVE', ['MANAGE_MEMBERS']);
+    if (!g.ok) return g;
+    const mao = MAO();
+    const ms = MS();
+    if (!mao || !ms) return fail('NO_MEMBER_OPS');
+    const target = normalizePubkey(targetPubkey);
+    const res = await mao.addExistingMember(target, g.actor, opts || {});
+    if (!res || !res.ok) return res || fail('ADD_FAILED');
+    const n = NA();
+    const rb = n ? await n.reconcile('readback:add-member') : null;
+    const readback = rb && rb.ok && ms.getMemberState(target) === 'ACTIVE';
+    return done(Object.assign({}, res, { code: readback ? 'ADDED' : 'ADDED_PENDING_READBACK', readback: !!readback }));
+  }
+
   function blockTargetGuard(g, targetPubkey) {
     const target = normalizePubkey(targetPubkey);
     if (!target) return fail('BAD_PUBKEY');
@@ -1226,6 +1242,88 @@
       out.push({ memberPubkey: redeemer, inviteEventId: String(inv.id).toLowerCase(), inviterPubkey: normalizePubkey(inv.pubkey), status: memberStatus(redeemer) });
     });
     return { ok: true, rows: out };
+  }
+
+  const INVITE_MAX_TTL_SEC = 24 * 60 * 60;
+  const INVITE_REVOKE_KIND = 37380;
+  const REVOKE_REJECT_CODES = ['BAD_KIND', 'STRICT_VERIFY_FAILED', 'CROSS_GROUP', 'MISSING_D_TAG', 'NO_INVITE', 'WRONG_D_TAG', 'BAD_E_REF', 'UNAUTHORIZED_REVOKE'];
+
+  function inviteExpiresAt(inv) {
+    const tagExp = Number(readTag(inv, 'expiration'));
+    const cap = Number(inv.created_at) + INVITE_MAX_TTL_SEC;
+    return Number.isFinite(tagExp) && tagExp > 0 ? Math.min(tagExp, cap) : cap;
+  }
+
+  /**
+   * Invite lifecycle from relays: ACTIVE / USED / EXPIRED / REVOKED (24h effective lifetime, single use).
+   * Managers (ROOT / MANAGE_INVITES) see all group invites; inviters see their own. Never returns codes.
+   */
+  async function listInviteLifecycle() {
+    const g = await nguard('LIST_INVITES', ['INVITE_USERS', 'MANAGE_INVITES', 'MANAGE_MEMBERS']);
+    if (!g.ok) return g;
+    const P = IP();
+    const st = verifiedControl();
+    if (!P || !st) return fail('NO_VERIFIED_CONTROL');
+    const seeAll = g.auth.isRoot || hasAny(g.auth, ['MANAGE_INVITES', 'MANAGE_MEMBERS']);
+    let invites = [];
+    let used = [];
+    let revokes = [];
+    try {
+      const tagF = { '#t': [FIRST_GROUP.networkTag] };
+      const invF = Object.assign({ kinds: [App.INVITE_KIND || 37378], limit: 500 }, tagF);
+      if (!seeAll) invF.authors = [g.actor];
+      [invites, used, revokes] = await Promise.all([
+        queryRelays(invF),
+        queryRelays(Object.assign({ kinds: [App.INVITE_USED_KIND || 37379], limit: 1000 }, tagF)),
+        queryRelays(Object.assign({ kinds: [INVITE_REVOKE_KIND], limit: 500 }, tagF)),
+      ]);
+    } catch (_e) {
+      return fail('RELAY_QUERY_FAILED');
+    }
+    const now = Math.floor(Date.now() / 1000);
+    const seen = new Set();
+    const rows = [];
+    invites
+      .slice()
+      .sort((a, b) => b.created_at - a.created_at)
+      .forEach((inv) => {
+        const id = String(inv.id || '').toLowerCase();
+        if (!id || seen.has(id)) return;
+        seen.add(id);
+        const vi = P.validateInviteEvent(inv, st, {});
+        if (!vi.ok && vi.code !== 'CREATOR_UNAUTHORIZED') return;
+        const ih = readTag(inv, 'ih');
+        const u = used
+          .filter((x) => P.validateUsedEvent(x, inv, ih).ok)
+          .sort((a, b) => a.created_at - b.created_at)[0];
+        // Display only: the admission ledger enforces revocation; relay copies of admin revokes carry no attestation.
+        const rv = revokes.find((x) => {
+          const r = P.validateRevokeEvent(x, inv, st);
+          return r.ok || REVOKE_REJECT_CODES.indexOf(r.code) === -1;
+        });
+        const expiresAt = inviteExpiresAt(inv);
+        let status = 'ACTIVE';
+        if (rv && (!u || rv.created_at <= u.created_at)) status = 'REVOKED';
+        else if (u) status = 'USED';
+        else if (!vi.ok) status = 'REVOKED';
+        else if (now >= expiresAt) status = 'EXPIRED';
+        rows.push({
+          inviteEventId: id,
+          shortId: id.slice(0, 6),
+          creatorPubkey: normalizePubkey(inv.pubkey),
+          createdAt: inv.created_at,
+          expiresAt,
+          singleUse: true,
+          status,
+          usedBy: u ? normalizePubkey(u.pubkey) : '',
+          usedAt: u ? u.created_at : 0,
+          revokedAt: rv ? rv.created_at : 0,
+          event: inv,
+        });
+      });
+    const counts = { ACTIVE: 0, USED: 0, EXPIRED: 0, REVOKED: 0 };
+    rows.forEach((r) => counts[r.status]++);
+    return { ok: true, rows, counts, scope: seeAll ? 'GROUP' : 'OWN' };
   }
 
   function listMyInvites() {
@@ -1514,6 +1612,8 @@
     promoteAdmin,
     demoteAdmin,
     removeMember,
+    addMember,
+    listInviteLifecycle,
     blockMember,
     unblockMember,
     blockStateOf,

@@ -2,7 +2,7 @@
   "gate": "PACKAGE899F_GROUP_CONTROL_PIN",
   "ACCESS_CONTROL_V2": "OFF (served unchanged)",
   "status": "PASS",
-  "ts": "2026-10-01T13:34:04.016Z",
+  "ts": "2026-10-02T00:18:54.804Z",
   "results": {
     "ENV_V2_OFF_TEST_ROOT": {
       "ok": true,
@@ -142,7 +142,7 @@
       "ok": true,
       "detail": {
         "inList": true,
-        "text": "ב\nבעלים לבדיקה\n19bfc8f9…9dbe\nמנהל ראשי\nמוגן\nניהול",
+        "text": "ב\nבעלים לבדיקה\n567691c6…df07\nמנהל ראשי\nמוגן\nניהול",
         "avatar": true,
         "manage": true,
         "fullKey": false
@@ -151,7 +151,7 @@
     "USER_SEARCH": {
       "ok": true,
       "detail": {
-        "text": "מ\nמשתמשת חיפוש\nb2007304…63eb\nעדיין אין נתוני חברות\nניהול",
+        "text": "מ\nמשתמשת חיפוש\n6cf5e2fe…b4b5\nעדיין אין נתוני חברות\nניהול",
         "avatar": true,
         "short": true
       }
@@ -402,7 +402,7 @@
       "ok": true,
       "detail": {
         "before": true,
-        "pub": "b20073043f57c557787be7ff139448b30d33a97382847c47e098c7ca07e463eb",
+        "pub": "6cf5e2feae6078bd6b3610d067ad534bc38da64e416ceb3bb301c53e1f03b4b5",
         "unlocked": false,
         "open": false,
         "menu": false,
@@ -425,7 +425,7 @@
     "RESTART_CLEARS_UNLOCK": {
       "ok": true,
       "detail": {
-        "pub": "19bfc8f9001f7617d6f56ea57e3630604551cdcf31f4532392df951ebb039dbe",
+        "pub": "567691c66823b19dffad6ecb537df13da019438bd568904e5bf786b8692ddf07",
         "unlocked": false,
         "hasPin": true,
         "menu": true
@@ -434,8 +434,8 @@
     "PIN_NOT_IN_CONSOLE_OR_NETWORK": {
       "ok": true,
       "detail": {
-        "requests": 1159,
-        "consoleLines": 734,
+        "requests": 1178,
+        "consoleLines": 712,
         "serviceLogClean": true
       }
     },

@@ -36,7 +36,7 @@ const PROD_ROOT = 'ede1e7fabb758aca75ae548680a206a234c6d6b257834b111d284c3692e67
 const PROD_SERVICE = '752f47fa926d1833a451bdc97f3f2967ae4bc6452d0356bc7919c6928e4611ef';
 const GROUP = 'israel-network';
 const ADM = 'FINALIZE_MEMBERSHIP_ADMISSION';
-const EXPLAIN = 'שירות הקבלה יקבל הרשאה מוגבלת לאשר הצטרפות חברים בלבד.';
+const EXPLAIN = 'שירות הקבלה יקבל הרשאה מוגבלת לצירוף חברים שהשתמשו בהזמנה בלבד.';
 
 const hex = (b) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

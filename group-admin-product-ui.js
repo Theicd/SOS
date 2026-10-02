@@ -25,7 +25,7 @@
   const CAP_HELP = Object.freeze({
     INVITE_USERS: 'מאפשר למשתמש ליצור הזמנות חדשות.',
     MODERATE_CONTENT: 'מאפשר להסיר פוסטים ותגובות של משתמשים אחרים.',
-    MANAGE_MEMBERS: 'מאפשר להסיר חברים קיימים מהקבוצה. לא מאפשר לשנות הרשאות.',
+    MANAGE_MEMBERS: 'מאפשר להוסיף ולהסיר חברים קיימים מהקבוצה. לא מאפשר לשנות הרשאות.',
     MANAGE_BLOCKLIST: 'מאפשר לחסום ולשחרר חסימה של משתמשים בקבוצה.',
     MANAGE_ADMINS: 'מינוי והסרה של מנהלים.',
     MANAGE_PERMISSIONS: 'שינוי הרשאות של חברים.',
@@ -35,7 +35,7 @@
   });
   const INACTIVE_STATUS_TEXT = 'מערכת הניהול עדיין לא הופעלה. ניתן לצפות ולהכין הרשאות, אך לא לשמור שינויים.';
   const SAVE_AFTER_ACTIVATION_TEXT = 'ניתן לשמור לאחר הפעלת מערכת הניהול';
-  const ADMISSION_EXPLAIN_TEXT = 'שירות הקבלה יקבל הרשאה מוגבלת לאשר הצטרפות חברים בלבד.';
+  const ADMISSION_EXPLAIN_TEXT = 'שירות הקבלה יקבל הרשאה מוגבלת לצירוף חברים שהשתמשו בהזמנה בלבד.';
   const ACTIVE_WRITES_OFF_TEXT = 'מערכת הניהול הופעלה. שמירת שינויים תיפתח בשלב הבא.';
   const NO_DATA_TEXT = 'עדיין אין נתונים';
 
@@ -390,6 +390,9 @@
     ADMIN_STEP_UP_REQUIRED: 'פעולה רגישה דורשת הזנה חוזרת של קוד המנהל',
     ADMIN_2FA_DENIED: 'שרת אימות המנהל לא אישר את הפעולה',
     ALREADY_BLOCKED: 'המשתמש כבר חסום',
+    ALREADY_MEMBER: 'המשתמש כבר חבר בקבוצה',
+    TARGET_BLOCKED: 'המשתמש חסום. הסירו את החסימה לפני הוספה',
+    TARGET_NOT_ADDABLE: 'אי אפשר להוסיף את המשתמש כרגע',
     NOT_BLOCKED: 'המשתמש אינו חסום',
     TARGET_NOT_BLOCKED: 'המשתמש אינו חסום',
     SELF_TARGET_FORBIDDEN: 'אי אפשר לבצע פעולה זו על עצמכם',
@@ -564,7 +567,7 @@
 
   const USER_STATUS = Object.freeze({
     ROOT: 'בעלים של הקבוצה',
-    ACTIVE: 'חבר פעיל',
+    ACTIVE: 'חבר בקבוצה',
     REMOVED: 'הוסר מהקבוצה',
     BLOCKED: 'חסום',
     CONFLICT: 'בבדיקה',
@@ -577,7 +580,7 @@
     SET_INVITE_POLICY: 'שינוי מדיניות הזמנות',
     SET_GROUP_METADATA: 'עריכת פרטי הקבוצה',
     BLOCKLIST_CHANGED: 'שינוי רשימת חסימה',
-    MEMBER_ACTIVE: 'חבר אושר',
+    MEMBER_ACTIVE: 'חבר צורף',
     MEMBER_REMOVED: 'חבר הוסר',
     MEMBER_BLOCKED: 'חבר נחסם',
     MEMBER_UNBLOCKED: 'חסימה הוסרה',
@@ -891,7 +894,6 @@
       return;
     }
     const s = sections();
-    const rows = f.listMyInvites();
     let html =
       '<div class="gap-actions"><button type="button" class="gap-btn primary" data-act="create-invite" data-mutation="1"' + (s.createInvite ? '' : ' disabled') + '>' + LABELS.CREATE_INVITE + '</button></div>';
     if (lastInvite) {
@@ -901,26 +903,80 @@
         '<canvas id="sosGapQrCanvas" width="240" height="240" aria-label="קוד QR להזמנה"></canvas>' +
         '<p class="gap-note">שלחו את הקישור או את קוד ה-QR למשתמש. הקישור כולל קוד הזמנה בלבד.</p>';
     }
-    html +=
-      '<div class="gap-list" id="sosGapInviteList">' +
-      rows
-        .map(
-          (r, i) =>
-            '<div class="gap-item"><div><div>הזמנה ' + escapeHtml(r.code) + '</div><div class="gap-sub">' + (r.status === 'ACTIVE' ? 'פעילה' : 'בוטלה') + '</div></div>' +
-            (r.status === 'ACTIVE' && s.revokeInvites
-              ? '<button type="button" class="gap-btn danger" data-act="revoke-invite" data-mutation="1" data-idx="' + i + '">' + LABELS.REVOKE_INVITE + '</button>'
-              : '') +
-            '</div>'
-        )
-        .join('') +
-      '</div>' +
-      (rows.length ? '' : '<p class="gap-note">אין עדיין הזמנות.</p>');
+    html += '<p class="gap-note">הזמנה נועדה למי שעדיין לא משתמש ב-SOS. היא תקפה ל-24 שעות ולשימוש אחד בלבד.</p>';
+    html += '<div id="sosGapInviteLifecycle">' + inviteLifecycleHtml(s) + '</div>';
     body.innerHTML = html;
     if (lastInvite) {
       f.renderInviteQr(document.getElementById('sosGapQrCanvas'), lastInvite.inviteUrl).then((r) => {
         if (!r.ok) setMsg(errText(r), 'err');
       });
     }
+    if (!inviteLifecycle || Date.now() - inviteLifecycleAt > 30000) loadInviteLifecycle();
+  }
+
+  const INVITE_STATUS_LABEL = Object.freeze({ ACTIVE: 'פעילה', USED: 'נוצלה', EXPIRED: 'פגה', REVOKED: 'בוטלה' });
+  let inviteLifecycle = null;
+  let inviteLifecycleAt = 0;
+  let inviteLifecycleLoading = false;
+
+  function timeLeftText(sec) {
+    if (sec <= 0) return 'פג';
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    return h > 0 ? 'בתוקף לעוד ' + h + ' שעות' + (m ? ' ו-' + m + ' דקות' : '') : 'בתוקף לעוד ' + Math.max(1, m) + ' דקות';
+  }
+
+  function inviteRowHtml(r, s) {
+    const when = (t) => (t ? new Date(t * 1000).toLocaleString('he-IL') : '');
+    const now = Math.floor(Date.now() / 1000);
+    const creator = r.creatorPubkey ? displayName(r.creatorPubkey, profileOf(r.creatorPubkey)) : '';
+    let detail = 'נוצרה ' + when(r.createdAt);
+    if (r.status === 'ACTIVE') detail += ' · ' + timeLeftText(r.expiresAt - now);
+    if (r.status === 'EXPIRED') detail += ' · פגה ' + when(r.expiresAt);
+    if (r.status === 'REVOKED' && r.revokedAt) detail += ' · בוטלה ' + when(r.revokedAt);
+    if (r.status === 'USED') {
+      if (r.usedBy) ensureProfile(r.usedBy);
+      detail += ' · נוצלה' + (r.usedBy ? ' על ידי ' + escapeHtml(displayName(r.usedBy, profileOf(r.usedBy))) : '') + (r.usedAt ? ' ב-' + when(r.usedAt) : '');
+    }
+    return (
+      '<div class="gap-item" data-invite-id="' + escapeHtml(r.inviteEventId) + '" data-invite-status="' + escapeHtml(r.status) + '">' +
+      '<div class="gap-user-main"><div>הזמנה ' + escapeHtml(r.shortId) + ' <span class="gap-chip">' + escapeHtml(INVITE_STATUS_LABEL[r.status] || r.status) + '</span></div>' +
+      '<div class="gap-sub">' + detail + (creator ? ' · יצר: ' + escapeHtml(creator) : '') + '</div></div>' +
+      (r.status === 'ACTIVE' && s.revokeInvites
+        ? '<button type="button" class="gap-btn danger" data-act="revoke-invite" data-mutation="1" data-invite-id="' + escapeHtml(r.inviteEventId) + '">' + LABELS.REVOKE_INVITE + '</button>'
+        : '') +
+      '</div>'
+    );
+  }
+
+  function inviteLifecycleHtml(s) {
+    if (!inviteLifecycle) return '<p class="gap-sub">טוען הזמנות…</p>';
+    if (!inviteLifecycle.ok) return '<p class="gap-sub">' + escapeHtml(errText(inviteLifecycle)) + '</p>';
+    const active = inviteLifecycle.rows.filter((r) => r.status === 'ACTIVE');
+    const history = inviteLifecycle.rows.filter((r) => r.status !== 'ACTIVE');
+    return (
+      '<h3>הזמנות פעילות</h3><div class="gap-list" id="sosGapInviteList">' +
+      (active.map((r) => inviteRowHtml(r, s)).join('') || '<p class="gap-note">אין הזמנות פעילות.</p>') +
+      '</div>' +
+      '<details id="sosGapInviteHistory" style="margin-top:12px"><summary>היסטוריית הזמנות (' + history.length + ')</summary>' +
+      '<div class="gap-list">' + (history.map((r) => inviteRowHtml(r, s)).join('') || '<p class="gap-note">אין היסטוריה.</p>') + '</div></details>'
+    );
+  }
+
+  async function loadInviteLifecycle() {
+    const f = FGA();
+    if (inviteLifecycleLoading || !f || typeof f.listInviteLifecycle !== 'function') return;
+    inviteLifecycleLoading = true;
+    try {
+      inviteLifecycle = await f.listInviteLifecycle();
+    } catch (e) {
+      inviteLifecycle = { ok: false, code: (e && e.code) || 'RELAY_QUERY_FAILED' };
+    } finally {
+      inviteLifecycleLoading = false;
+      inviteLifecycleAt = Date.now();
+    }
+    const box = document.getElementById('sosGapInviteLifecycle');
+    if (box) box.innerHTML = inviteLifecycleHtml(isV2() ? sections() : {});
   }
 
   function GR() {
@@ -930,6 +986,13 @@
   function reasonLabel(id) {
     const r = GR() && GR().REASONS.find((x) => x.id === id);
     return r ? r.label : 'אחר';
+  }
+
+  function addMemberButtonHtml(u) {
+    return (
+      '<div class="gap-actions"><button type="button" class="gap-btn primary" id="sosGapAddMember" data-act="add-member" data-pk="' +
+      escapeHtml(u.pubkey) + '" data-mutation="1">הוסף לקבוצה</button></div>'
+    );
   }
 
   function reportRowHtml(r, s) {
@@ -1118,7 +1181,7 @@
     } else if (!isV2() && admissionServiceActive() && f.isConfiguredRoot(actor())) {
       html +=
         '<h3>שירות קבלת חברים</h3>' +
-        '<p class="gap-sub" id="sosGapAdmissionActive">שירות קבלת החברים פעיל. ההרשאה שלו מוגבלת לאישור הצטרפות חברים בלבד.</p>' +
+        '<p class="gap-sub" id="sosGapAdmissionActive">שירות קבלת החברים פעיל. ההרשאה שלו מוגבלת לצירוף חברים שהשתמשו בהזמנה.</p>' +
         '<div class="gap-actions"><button type="button" class="gap-btn danger" id="sosGapDeactivateAdmission" data-act="deactivate-admission" data-gate2="1">השבת שירות קבלת חברים</button></div>';
     }
     const signerPk = controlProbe && controlProbe.admin2faSignerPubkey;
@@ -1327,14 +1390,14 @@
         '<p class="gap-note" id="sosGapUserStateNote">' +
         (u.status === 'BLOCKED'
           ? 'המשתמש חסום. הוא לא יכול לפרסם, להגיב, להזמין או לנהל, והתוכן שלו מוסתר ב-SOS.'
-          : 'המשתמש הוסר מהקבוצה. כדי לחזור הוא צריך הזמנה חדשה.') +
+          : 'המשתמש הוסר מהקבוצה. אפשר להוסיף אותו שוב, בלי הרשאות.') +
         '</p>';
+      if (u.status === 'REMOVED' && s.removeMembers) foot = addMemberButtonHtml(u);
     } else if (isV2() && !u.member) {
       body +=
         '<h3>הוספה לקבוצה</h3>' +
-        '<p class="gap-note">הצטרפות לקבוצה נעשית בהזמנה אישית. צרו הזמנה ושלחו אותה למשתמש. אחרי שיצטרף תוכלו להעניק לו תפקיד.</p>';
-      foot =
-        '<div class="gap-actions"><button type="button" class="gap-btn primary" data-act="invite-user" data-mutation="1"' + (s.createInvite ? '' : ' disabled') + '>הוסף לקבוצה</button></div>';
+        '<p class="gap-note">המשתמש יצורף לקבוצה כחבר רגיל, בלי הרשאות. אחר כך תוכלו להעניק לו הרשאות.</p>';
+      foot = s.removeMembers ? addMemberButtonHtml(u) : '<p class="gap-note">רק מי שיש לו הרשאת ניהול חברים יכול להוסיף לקבוצה.</p>';
     } else {
       const current = u.assigned;
       const draft = draftCaps || current;
@@ -1523,13 +1586,10 @@
       renderDrawer();
       return res;
     }
-    if (act === 'invite-user') {
-      const res = await run(LABELS.CREATE_INVITE, () => f.createInvite());
-      if (res && res.ok) {
-        lastInvite = res.invite;
-        closeDrawer();
-        renderTab('invites');
-      }
+    if (act === 'add-member') {
+      const res = await run('הוספה לקבוצה', () => f.addMember(pk));
+      draftCaps = null;
+      if (selectedMember) renderDrawer();
       return res;
     }
     if (act === 'save-details') {
@@ -1607,6 +1667,7 @@
       const res = await run(LABELS.CREATE_INVITE, () => f.createInvite());
       if (res && res.ok) {
         lastInvite = res.invite;
+        inviteLifecycle = null;
         renderTab('invites');
       }
       return res;
@@ -1632,10 +1693,13 @@
     }
     if (act === 'show-qr') return renderTab('invites');
     if (act === 'revoke-invite') {
-      const row = f.listMyInvites()[Number(el.getAttribute('data-idx'))];
-      if (!row) return null;
+      const id = el.getAttribute('data-invite-id') || '';
+      const lc = inviteLifecycle && inviteLifecycle.ok ? inviteLifecycle.rows.find((r) => r.inviteEventId === id) : null;
+      if (!lc) return null;
+      const row = { eventId: lc.inviteEventId, event: lc.event };
       const res = await run(LABELS.REVOKE_INVITE, () => f.revokeInvite(row), 'לבטל את ההזמנה? הקישור יפסיק לעבוד.');
       if (res && res.ok && lastInvite && lastInvite.eventId === row.eventId) lastInvite = null;
+      inviteLifecycle = null;
       renderTab('invites');
       return res;
     }

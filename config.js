@@ -266,7 +266,10 @@
   App.INVITE_USED_TAG = window.localStorage.getItem('nostr_invite_used_tag') || 'sos-invite-used';
   App.INVITE_CODE_TAG = (window.localStorage.getItem('nostr_invite_code_tag') || 'i').slice(0, 1) || 'i';
   App.INVITE_PHONE_TAG = (window.localStorage.getItem('nostr_invite_phone_tag') || 'ph').slice(0, 2) || 'ph';
-  App.INVITE_TTL_SECONDS = Number(window.localStorage.getItem('nostr_invite_ttl_seconds')) || 7 * 24 * 60 * 60;
+  App.INVITE_DEFAULT_TTL_SECONDS = 24 * 60 * 60;
+  const inviteTtlOverride = Number(window.localStorage.getItem('nostr_invite_ttl_seconds'));
+  App.INVITE_TTL_SECONDS =
+    inviteTtlOverride > 0 && inviteTtlOverride < App.INVITE_DEFAULT_TTL_SECONDS ? inviteTtlOverride : App.INVITE_DEFAULT_TTL_SECONDS;
   // ברירת מחדל: חובת הזמנה. לביטול זמני: localStorage nostr_require_invite = '0'
   App.REQUIRE_INVITE_FOR_SIGNUP = window.localStorage.getItem('nostr_require_invite') !== '0';
   // חלק קונפיגורציה (config.js) – מגבלת אורך נתוני תמונה המוטמעת (Data URL) עבור resize ב-utils

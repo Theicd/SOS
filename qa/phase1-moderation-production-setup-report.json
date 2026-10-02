@@ -1,0 +1,98 @@
+{
+  "gate": "PHASE1_MODERATION_PRODUCTION",
+  "stage": "setup",
+  "status": "FAIL",
+  "ts": "2026-10-01T22:14:25.540Z",
+  "results": {
+    "INVITE_URL_PARSED": {
+      "ok": true,
+      "detail": {
+        "hasCode": true
+      }
+    },
+    "M_IDENTITY": {
+      "ok": true,
+      "detail": {
+        "created": true,
+        "pk8": "c0fed7a8"
+      }
+    },
+    "M_PROFILE_NAME_PUBLISHED": {
+      "ok": true,
+      "detail": {
+        "name": "QA Moderator c0fe"
+      }
+    },
+    "INVITE_REDEEM_PRODUCTION": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "stage": "mark",
+        "inviter8": "ede1e7fa",
+        "error": null
+      }
+    },
+    "ADMISSION_FINALIZATION_PRODUCTION": {
+      "ok": true,
+      "detail": {
+        "status": "ACTIVE",
+        "issuer8": "752f47fa",
+        "issuerCaps": [
+          "FINALIZE_MEMBERSHIP_ADMISSION"
+        ],
+        "transition": "GRANT_ACTIVE"
+      }
+    },
+    "INVITE_REUSE_REJECTED": {
+      "ok": false,
+      "detail": {
+        "ok": true,
+        "code": "SS8DNEMC",
+        "error": ""
+      }
+    },
+    "B_IDENTITY": {
+      "ok": true,
+      "detail": {
+        "pk8": "83641ad3"
+      }
+    },
+    "B_DISPOSABLE_CONTENT_PUBLISHED": {
+      "ok": true,
+      "detail": {
+        "acks": [
+          1,
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    "M_BLOCK_TEST_CONTENT_PUBLISHED": {
+      "ok": true,
+      "detail": {
+        "acks": [
+          1,
+          1
+        ]
+      }
+    },
+    "USER_CAN_DELETE_OWN_CONTENT": {
+      "ok": false,
+      "detail": {
+        "policy": "NO_EVENT",
+        "kind5": 0
+      }
+    },
+    "EXCEPTION": {
+      "ok": false,
+      "detail": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'id')\n    at eval (eval at evaluate (:302:30), <anonymous>:11:34)\n    at UtilityScript.evaluate (<anonymous>:304:16)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)"
+    }
+  },
+  "passed": 8,
+  "failed": 3,
+  "public": {
+    "M8": "c0fed7a8",
+    "nameM": "QA Moderator c0fe"
+  }
+}

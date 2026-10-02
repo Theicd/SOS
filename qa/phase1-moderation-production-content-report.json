@@ -1,0 +1,75 @@
+{
+  "gate": "PHASE1_MODERATION_PRODUCTION",
+  "stage": "content",
+  "status": "PASS",
+  "ts": "2026-10-01T22:17:58.436Z",
+  "results": {
+    "M_SAME_IDENTITY": {
+      "ok": true,
+      "detail": {
+        "same": true
+      }
+    },
+    "B_IDENTITY": {
+      "ok": true,
+      "detail": {
+        "pk8": "83641ad3"
+      }
+    },
+    "INVITE_REUSE_REJECTED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "ALREADY_REDEEMED",
+        "error": "ההזמנה כבר נוצלה"
+      }
+    },
+    "B_DISPOSABLE_CONTENT_PUBLISHED": {
+      "ok": true,
+      "detail": {
+        "acks": [
+          1,
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    "M_BLOCK_TEST_CONTENT_PUBLISHED": {
+      "ok": true,
+      "detail": {
+        "acks": [
+          1,
+          1
+        ]
+      }
+    },
+    "DISPOSABLE_CONTENT_ON_RELAYS": {
+      "ok": true,
+      "detail": {
+        "found": 6
+      }
+    },
+    "USER_CAN_DELETE_OWN_CONTENT": {
+      "ok": true,
+      "detail": {
+        "policy": "OWN_CONTENT",
+        "publish": "confirmed",
+        "kind5": 1
+      }
+    },
+    "MODERATE_DENIED_WITHOUT_CAP": {
+      "ok": true,
+      "detail": {
+        "policy": "NO_MODERATE_CAP",
+        "moderationEvents": 0
+      }
+    }
+  },
+  "passed": 8,
+  "failed": 0,
+  "public": {
+    "M8": "c0fed7a8",
+    "nameM": "QA Moderator c0fe"
+  }
+}

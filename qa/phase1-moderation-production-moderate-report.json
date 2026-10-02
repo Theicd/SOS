@@ -1,0 +1,122 @@
+{
+  "gate": "PHASE1_MODERATION_PRODUCTION",
+  "stage": "moderate",
+  "status": "FAIL",
+  "ts": "2026-10-01T22:52:39.829Z",
+  "results": {
+    "M_SAME_IDENTITY": {
+      "ok": true,
+      "detail": {
+        "same": true
+      }
+    },
+    "MODERATE_CONTENT_GRANT": {
+      "ok": true,
+      "detail": {
+        "epoch": 6,
+        "caps": [
+          "MODERATE_CONTENT"
+        ]
+      }
+    },
+    "M_ADMIN_PIN_ENROLLED": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "active": true
+      }
+    },
+    "MODERATE_POST_DELETE_PUBLISHED": {
+      "ok": false,
+      "detail": {
+        "policy": "MODERATE_CONTENT",
+        "publish": "pending",
+        "onRelays": 0
+      }
+    },
+    "MODERATE_COMMENT_DELETE_PUBLISHED": {
+      "ok": false,
+      "detail": {
+        "policy": "MODERATE_CONTENT",
+        "publish": "pending",
+        "onRelays": 0
+      }
+    },
+    "REPORT_SUBMIT": {
+      "ok": false,
+      "detail": {
+        "code": "ALREADY_REPORTED",
+        "delivered": 0,
+        "recipients": 0,
+        "again": "ALREADY_REPORTED"
+      }
+    },
+    "REPORT_PRIVATE_STORAGE": {
+      "ok": true,
+      "detail": {
+        "wrapsToModerator": 1,
+        "reporterVisible": false,
+        "targetVisible": false,
+        "reasonVisible": false,
+        "wrapAuthorsEphemeral": true
+      }
+    },
+    "MODERATION_INBOX": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "unresolved": 1,
+        "row": {
+          "status": "NEW",
+          "count": 1,
+          "reasons": [
+            "SPAM"
+          ],
+          "verified": true
+        },
+        "badge": "1"
+      }
+    },
+    "REPORT_BADGE": {
+      "ok": true,
+      "detail": {
+        "unresolved": 1,
+        "badge": "1"
+      }
+    },
+    "REPORT_RESOLUTION": {
+      "ok": false,
+      "detail": {
+        "remove": "ADMIN_2FA_DENIED",
+        "removeOk": false,
+        "status": "NEW",
+        "setStatus": null,
+        "audit": []
+      }
+    },
+    "MODERATE_POST_DELETE": {
+      "ok": false,
+      "detail": {
+        "guestHides": false
+      }
+    },
+    "MODERATE_COMMENT_DELETE": {
+      "ok": false,
+      "detail": {
+        "guestHides": false
+      }
+    },
+    "REPORTED_CONTENT_REMOVED_FOR_GUEST": {
+      "ok": false,
+      "detail": {
+        "guestHides": false
+      }
+    }
+  },
+  "passed": 6,
+  "failed": 7,
+  "public": {
+    "M8": "c0fed7a8",
+    "nameM": "QA Moderator c0fe"
+  }
+}

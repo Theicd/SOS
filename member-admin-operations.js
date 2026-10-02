@@ -570,6 +570,36 @@
     );
   }
 
+  /**
+   * Direct add of an existing SOS identity: manager-issued GRANT_MEMBER_ACTIVE (no invite), typed signer +
+   * Admin 2FA attestation. Membership only; capabilities are never touched.
+   */
+  async function addExistingMember(memberPubkey, actorPubkey, opts) {
+    const options = opts || {};
+    if (!isV2()) return { ok: false, code: 'V2_REQUIRED' };
+    const ctrl = controlOkForMemberMutation();
+    if (!ctrl.ok) return ctrl;
+    const actor = normalizePubkey(actorPubkey) || normalizePubkey(App.publicKey);
+    const target = normalizePubkey(memberPubkey);
+    if (!actor || !target) return { ok: false, code: 'BAD_PUBKEY' };
+    if (!actorIsRoot(actor, ctrl.control) && !hasCap(actor, 'MANAGE_MEMBERS', ctrl.control)) {
+      return { ok: false, code: 'UNAUTHORIZED' };
+    }
+    if (target === actor) return { ok: false, code: 'SELF_TARGET_FORBIDDEN' };
+    if (actorIsRoot(target, ctrl.control)) return { ok: false, code: 'ROOT_PROTECTED' };
+    const ms = MS();
+    if ((ctrl.control.blockedPubkeys || []).indexOf(target) !== -1) return { ok: false, code: 'TARGET_BLOCKED' };
+    const st = ms.getMemberState(target);
+    if (st === 'ACTIVE') return { ok: false, code: 'ALREADY_MEMBER' };
+    if (st !== 'UNKNOWN' && st !== 'REMOVED') return { ok: false, code: 'TARGET_NOT_ADDABLE', status: st };
+    try {
+      assertFresh(options.expected, target);
+    } catch (e) {
+      return { ok: false, code: e.code || 'STALE' };
+    }
+    return applyMembershipTransition(actor, target, 'GRANT_ACTIVE', null, options);
+  }
+
   function buildDirectoryRows(filter) {
     const ms = MS();
     const g = GCS();
@@ -647,6 +677,7 @@
     removeMember,
     resolveMembershipConflict,
     grantMemberActiveFromInvite,
+    addExistingMember,
     controlOkForMemberMutation,
     normalizePubkey,
   };

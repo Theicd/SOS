@@ -200,11 +200,14 @@
     return row ? String(row[1]) : '';
   }
 
+  /** Effective expiry: the tag, capped at created_at + 24h (also for invites issued before the 24h default). */
   function readInviteExpiry(event) {
     if (!event || !Array.isArray(event.tags)) return 0;
     const row = event.tags.find((t) => Array.isArray(t) && t[0] === 'expiration' && t[1]);
     const n = Number(row && row[1]);
-    return Number.isFinite(n) ? n : 0;
+    const cap = Number(event.created_at) > 0 ? Number(event.created_at) + 24 * 60 * 60 : 0;
+    if (Number.isFinite(n) && n > 0) return cap ? Math.min(n, cap) : n;
+    return cap;
   }
 
   async function validateInvite({ code, phone }) {
@@ -368,7 +371,8 @@
 
     const code = generateInviteCode();
     const now = Math.floor(Date.now() / 1000);
-    const ttl = Number(App.INVITE_TTL_SECONDS) || 7 * 24 * 60 * 60;
+    const maxTtl = 24 * 60 * 60;
+    const ttl = Math.min(Number(App.INVITE_TTL_SECONDS) || maxTtl, maxTtl);
     const codeTag = App.INVITE_CODE_TAG || 'i';
     const tags = [
       ['t', App.INVITE_TAG || 'sos-invite'],

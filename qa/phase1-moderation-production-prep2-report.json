@@ -1,0 +1,26 @@
+{
+  "gate": "PHASE1_MODERATION_PRODUCTION",
+  "stage": "prep2",
+  "status": "PASS",
+  "ts": "2026-10-01T22:57:45.178Z",
+  "results": {
+    "M2_IDENTITY": {
+      "ok": true,
+      "detail": {
+        "pk8": "7c6a5848"
+      }
+    },
+    "M2_PROFILE_NAME_PUBLISHED": {
+      "ok": true,
+      "detail": {
+        "name": "QA Moderator2 7c6a"
+      }
+    }
+  },
+  "passed": 2,
+  "failed": 0,
+  "public": {
+    "M8": "c0fed7a8",
+    "nameM": "QA Moderator c0fe"
+  }
+}

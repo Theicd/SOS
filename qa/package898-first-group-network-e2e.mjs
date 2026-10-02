@@ -1035,7 +1035,7 @@ async function main() {
     await sleep(200);
     const mmHelp = await ev(ua.page, () => document.querySelector('#sosGapCaps input[data-cap="MANAGE_MEMBERS"]')?.closest('label')?.querySelector('.gap-cap-help')?.textContent || '');
     await ev(ua.page, () => document.querySelector('#sosGapMemberDetail [data-act="close-user"]')?.click());
-    set('MANAGE_MEMBERS_DESCRIPTION', mmHelp === 'מאפשר להסיר חברים קיימים מהקבוצה. לא מאפשר לשנות הרשאות.', { mmHelp });
+    set('MANAGE_MEMBERS_DESCRIPTION', mmHelp === 'מאפשר להוסיף ולהסיר חברים קיימים מהקבוצה. לא מאפשר לשנות הרשאות.', { mmHelp });
     const pendingPk = mkKey().pub;
     const pending = await ev(ua.page, async (pk) => {
       const App = window.NostrApp;
@@ -1844,6 +1844,101 @@ async function main() {
     const dropToInviteOnly = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.setPermissions(pk, ['INVITE_USERS'])).code, B.pub);
     const bNoMod = await waitView(ub.page, B.pub, "v.caps.indexOf('MODERATE_CONTENT') === -1 && v.caps.indexOf('MANAGE_PERMISSIONS') === -1", 30000);
     info('P1_B_RESET', { dropToInviteOnly, ok: bNoMod.ok });
+
+    // ---- direct add of an existing SOS identity (canonical GRANT_ACTIVE, Admin 2FA, no invite)
+    const invitesBeforeAdd = r1.all([37378]).length;
+    const zBefore = await view(ua.page, Z.pub);
+    const bAddDenied = await ev(ub.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.addMember(pk)).code, Z.pub);
+    await openUi(ua.page, 'members');
+    await ev(ua.page, (pk) => {
+      const i = document.getElementById('sosGapUserSearch');
+      i.value = pk;
+      i.dispatchEvent(new Event('input', { bubbles: true }));
+    }, Z.pub);
+    await domClick(ua.page, `#sosGapSearchResults [data-act="select-member"][data-pk="${Z.pub}"]`);
+    await sleep(200);
+    const zDrawerBefore = await ev(ua.page, () => ({
+      text: document.querySelector('#sosGapMemberDetail .gap-who')?.innerText || '',
+      addBtn: document.querySelector('#sosGapMemberDetail #sosGapAddMember')?.textContent.trim() || '',
+      inviteBtn: !!document.querySelector('#sosGapMemberDetail [data-act="invite-user"]'),
+    }));
+    const addUi = await act(ua.page, '#sosGapMemberDetail #sosGapAddMember').catch((e) => ({ ok: false, text: String(e.message || e).slice(0, 80) }));
+    await sleep(300);
+    const zDrawerAfter = await ev(ua.page, (pk) => {
+      const d = document.getElementById('sosGapMemberDetail');
+      const tab = document.querySelector('#sosGapTabs button.active')?.dataset.tab || '';
+      return {
+        open: !!d && d.getAttribute('data-pk') === pk && !!d.innerHTML,
+        tab,
+        text: d?.querySelector('.gap-who')?.innerText || '',
+        caps: Array.from(d?.querySelectorAll('[data-cap]') || []).map((e) => e.getAttribute('data-cap')),
+        save: !!d?.querySelector('#sosGapSaveUser'),
+        remove: !!d?.querySelector('[data-act="remove-member"]'),
+        block: !!d?.querySelector('[data-act="block-user"]'),
+      };
+    }, Z.pub);
+    await shot(ua.page, 'p1-direct-add-drawer');
+    const zOnB = await waitView(ub.page, Z.pub, "v.member === 'ACTIVE'", 30000);
+    const zAfter = await view(ub.page, Z.pub);
+    const zProof = r1
+      .all([39003])
+      .filter((e) => e.pubkey === A.pub && e.tags.some((t) => t[0] === 'p' && t[1] === Z.pub))
+      .map((e) => JSON.parse(e.content))
+      .find((b) => b.transition === 'GRANT_ACTIVE');
+    const invitesAfterAdd = r1.all([37378]).length;
+    const zAgain = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.addMember(pk)).code, Z.pub);
+    set(
+      'EXISTING_USER_DIRECT_ADD',
+      zBefore.member !== 'ACTIVE' && /לא חבר בקבוצה/.test(zDrawerBefore.text) && zDrawerBefore.addBtn === 'הוסף לקבוצה' && !zDrawerBefore.inviteBtn &&
+        addUi.ok && zDrawerAfter.open && zDrawerAfter.tab === 'members' && /חבר בקבוצה/.test(zDrawerAfter.text) && zDrawerAfter.save && zDrawerAfter.remove && zDrawerAfter.block &&
+        zOnB.ok && zAfter.member === 'ACTIVE' && zAgain === 'ALREADY_MEMBER',
+      { zBefore: zBefore.member, zDrawerBefore, addUi, zDrawerAfter, zOnB: zOnB.ok, zAgain }
+    );
+    set('DIRECT_ADD_REQUIRES_MANAGE_MEMBERS', bAddDenied === 'UNAUTHORIZED', { bAddDenied });
+    set('DIRECT_ADD_TARGET_BOUND', !!zProof && zProof.memberPubkey === Z.pub && zProof.groupId === GROUP && !zProof.inviteEventId && !zProof.admission, {
+      proof: zProof ? { member: zProof.memberPubkey === Z.pub, group: zProof.groupId, invite: !!zProof.inviteEventId, admission: !!zProof.admission } : null,
+    });
+    set('DIRECT_ADD_NO_INVITE_NO_CAPS', invitesAfterAdd === invitesBeforeAdd && zAfter.assigned.length === 0 && zAfter.caps.length === 0, {
+      invitesBeforeAdd,
+      invitesAfterAdd,
+      assigned: zAfter.assigned,
+    });
+    await ev(ua.page, () => document.querySelector('#sosGapMemberDetail [data-act="close-user"]')?.click());
+
+    // ---- invite lifecycle: 24h single-use invites; lifecycle list with statuses
+    const lcInv = await ev(ua.page, async () => {
+      const F = window.NostrApp.FirstGroupAdmin;
+      const lc = await F.listInviteLifecycle();
+      const rows = lc.ok ? lc.rows : [];
+      return {
+        ok: lc.ok,
+        scope: lc.scope,
+        counts: lc.counts,
+        rows: rows.length,
+        maxTtl: rows.reduce((m, r) => Math.max(m, r.expiresAt - r.createdAt), 0),
+        allSingleUse: rows.every((r) => r.singleUse === true),
+        noCodes: rows.every((r) => !('code' in r) && !('inviteCode' in r)),
+      };
+    });
+    const tagTtls = r1.all([37378]).map((e) => Number((e.tags.find((t) => t[0] === 'expiration') || [])[1]) - e.created_at);
+    const tagTtl = tagTtls.length ? Math.max(...tagTtls) : 0;
+    await openUi(ua.page, 'invites');
+    await ua.page.waitForFunction(() => !!document.querySelector('#sosGapInviteList') && !!document.querySelector('#sosGapInviteHistory'), null, { timeout: 30000 }).catch(() => {});
+    const invUi = await ev(ua.page, () => ({
+      active: document.querySelectorAll('#sosGapInviteList [data-invite-status="ACTIVE"]').length,
+      history: Array.from(document.querySelectorAll('#sosGapInviteHistory [data-invite-status]')).map((e) => e.getAttribute('data-invite-status')),
+      collapsed: document.getElementById('sosGapInviteHistory')?.open === false,
+      labels: (document.getElementById('sosGapInviteHistory')?.innerText || '').match(/נוצלה|פגה|בוטלה/g) || [],
+      revokeBtn: !!document.querySelector('#sosGapInviteList [data-act="revoke-invite"]'),
+    }));
+    await shot(ua.page, 'p1-invite-lifecycle');
+    set(
+      'INVITE_LIFECYCLE_24H_SINGLE_USE',
+      lcInv.ok && lcInv.scope === 'GROUP' && lcInv.rows > 0 && lcInv.counts.ACTIVE >= 1 && lcInv.maxTtl <= 86400 && lcInv.allSingleUse && tagTtl > 0 && tagTtl <= 86400 && lcInv.noCodes,
+      Object.assign({ tagTtl }, lcInv)
+    );
+    set('INVITE_STATUS_UI', invUi.active >= 1 && invUi.revokeBtn && invUi.collapsed && invUi.history.includes('USED') && invUi.history.includes('REVOKED'), invUi);
+    report.INVITE_LIFECYCLE_COUNTS = lcInv.counts;
     const P1 = await publishNote(tPage, 'p1 disposable post ' + Date.now());
     const C1 = await publishNote(tPage, 'p1 disposable comment ' + Date.now(), P1.id);
     const P2 = await publishNote(tPage, 'p1 disposable post two ' + Date.now());
