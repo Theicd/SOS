@@ -7,6 +7,7 @@ const MAX_STORED = 2000;
 const MAX_ATTESTATIONS_PER_EVENT = 4;
 const REFRESH_MIN_INTERVAL_MS = 20000;
 const RELAY_TIMEOUT_MS = 8000;
+const MAX_SEEN_IDS = 10000;
 
 /**
  * One instance per group (idFromName(groupId)). Holds the root-signed GROUP_CONTROL event set and exposes the
@@ -27,6 +28,8 @@ export class GroupAuthority extends DurableObject {
     this.cached = null;
     this.lastRefresh = null;
     this.refreshing = null;
+    this.seen = new Set();
+    this.rejected = new Set();
   }
 
   load() {
@@ -46,7 +49,11 @@ export class GroupAuthority extends DurableObject {
   /** Synchronous: group-control-state is module-global, so reconstruct + read never spans an await. */
   snapshot() {
     if (this.cached) return this.cached;
-    const group = this.load();
+    return this.buildSnapshot(this.load());
+  }
+
+  /** Reads the snapshot from the module-global control store as it is right now (no reload). */
+  buildSnapshot(group) {
     const G = GCS();
     const status = G.getStatus(group);
     const state = status === 'VERIFIED' ? G.getVerifiedControlState(group) : null;
@@ -73,15 +80,28 @@ export class GroupAuthority extends DurableObject {
   }
 
   ingest(events, attestations) {
+    const attList = (Array.isArray(attestations) ? attestations : [])
+      .filter((e) => e && typeof e === 'object' && e.kind === RELAY_CONTROL_KINDS.attestation)
+      .slice(0, 2000);
+    const list = (Array.isArray(events) ? events : []).filter((e) => e && typeof e === 'object').slice(0, 500);
+    // Every online client pushes (subsets of) the same chain after each change. A rejected id stays rejected until
+    // the stored chain or its attestations change, so ids already decided against the current store are skipped.
+    const fresh = list.concat(attList).filter((e) => !this.seen.has(String(e.id)) && !this.rejected.has(String(e.id)));
+    if (!fresh.length) {
+      const snap = this.snapshot();
+      return {
+        result: snap.status === 'VERIFIED' ? 'OK' : 'INVALID',
+        status: snap.status,
+        controlEpoch: snap.state ? snap.state.controlEpoch : null,
+        added: 0,
+        attestationsAdded: 0,
+      };
+    }
     this.cached = null;
     const group = this.load();
     const G = GCS();
     const A = Admin2fa();
-    const attList = (Array.isArray(attestations) ? attestations : [])
-      .filter((e) => e && typeof e === 'object' && e.kind === RELAY_CONTROL_KINDS.attestation)
-      .slice(0, 2000);
     if (A && attList.length) A.ingestAttestations(attList);
-    const list = (Array.isArray(events) ? events : []).filter((e) => e && typeof e === 'object').slice(0, 500);
     if (list.length) G.ingestControlEvents(list, { groupId: group, persist: false });
     const status = G.getStatus(group);
     const keep = new Map();
@@ -135,14 +155,23 @@ export class GroupAuthority extends DurableObject {
       }
     });
     this.cached = null;
-    const snap = this.snapshot();
-    return {
+    const snap = this.buildSnapshot(group);
+    const result = {
       result: status === 'VERIFIED' ? 'OK' : 'INVALID',
       status: snap.status,
       controlEpoch: snap.state ? snap.state.controlEpoch : null,
       added,
       attestationsAdded: attAdded,
     };
+    if (this.seen.size > MAX_SEEN_IDS) this.seen.clear();
+    if (added || attAdded || this.rejected.size > MAX_SEEN_IDS) this.rejected.clear();
+    keep.forEach((_v, id) => this.seen.add(id));
+    keepAtts.forEach((a) => this.seen.add(String(a.id)));
+    list.concat(attList).forEach((e) => {
+      const id = String(e.id);
+      if (!this.seen.has(id)) this.rejected.add(id);
+    });
+    return result;
   }
 
   /** Public control summary (no secrets): what the service currently verifies. */

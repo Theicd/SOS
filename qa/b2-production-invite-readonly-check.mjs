@@ -48,7 +48,7 @@ try {
     REFRESH_BEFORE_CHECK_LIVE: r.refreshFn,
   });
   report.status =
-    /^2026\.10\.0[12]-web-899[hijklmn]$/.test(r.version) && r.v2 && r.synced && report.AUTHORIZED_MEMBER_WITH_INVITE_USERS_CAN_CREATE_INVITE && !report.NON_AUTHORIZED_CAN_CREATE_INVITE && r.refreshFn
+    /^2026\.10\.0[12]-web-899[hijklmno]$/.test(r.version) && r.v2 && r.synced && report.AUTHORIZED_MEMBER_WITH_INVITE_USERS_CAN_CREATE_INVITE && !report.NON_AUTHORIZED_CAN_CREATE_INVITE && r.refreshFn
       ? 'PASS'
       : 'FAIL';
 } catch (e) {

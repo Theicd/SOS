@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
-import { Admin2fa, configure, Membership, Moderation, Policy, strictVerify } from './authority.js';
+import { Admin2fa, configure, Membership, Moderation, Policy, strictVerify, validateBeforeAttestation } from './authority.js';
 import { cosignPubkey, pepperBytes, signAttestation } from './cosign-keys.js';
 
 /**
@@ -266,14 +266,14 @@ export class AdminPinAuthority extends DurableObject {
     if (ev.kind === MODERATION_KIND) {
       const target = params.target;
       if (!strictContent(target)) throw fail('INVALID', 'TARGET_REQUIRED');
-      const v = Moderation().validateModerationEvent(ev, target, state);
+      const v = validateBeforeAttestation(() => Moderation().validateModerationEvent(ev, target, state));
       if (!v.ok) throw fail('INVALID', 'INVALID_MODERATION', { reason: v.code });
       return { operations: [P.contentRemovalOperation(target)], controlEpoch: state.controlEpoch, targetIsAdmin: false };
     }
 
     if (ev.kind === MEMBERSHIP_KIND) {
       if (capsOf(state, principal).some((c) => ADMISSION_CAPS.indexOf(c) !== -1)) throw fail('INVALID', 'ADMISSION_NOT_COSIGNABLE');
-      const v = Membership().validateMembershipEventStructural(ev, state, { groupId: group });
+      const v = validateBeforeAttestation(() => Membership().validateMembershipEventStructural(ev, state, { groupId: group }));
       if (!v.ok) throw fail('INVALID', 'INVALID_MEMBERSHIP', { reason: v.code });
       const op = P.membershipOperation(v.body.transition);
       if (!op) throw fail('INVALID', 'OPERATION_NOT_PRIVILEGED');
@@ -286,7 +286,7 @@ export class AdminPinAuthority extends DurableObject {
       throw fail('INVALID', 'INVITE_REQUIRED');
     }
     if (String(invite.pubkey).toLowerCase() === principal) throw fail('INVALID', 'OWN_INVITE_NOT_PRIVILEGED');
-    const v = Policy().validateRevokeEvent(ev, invite, state);
+    const v = validateBeforeAttestation(() => Policy().validateRevokeEvent(ev, invite, state));
     if (!v.ok) throw fail('INVALID', 'INVALID_REVOKE', { reason: v.code });
     return { operations: ['REVOKE_INVITE'], controlEpoch: state.controlEpoch, targetIsAdmin: false };
   }

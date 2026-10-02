@@ -393,6 +393,11 @@
     ALREADY_MEMBER: 'המשתמש כבר חבר בקבוצה',
     TARGET_BLOCKED: 'המשתמש חסום. הסירו את החסימה לפני הוספה',
     TARGET_NOT_ADDABLE: 'אי אפשר להוסיף את המשתמש כרגע',
+    NOT_DEFAULT_COMMUNITY: 'השלמת חברות זמינה בקבוצה הראשית בלבד',
+    NOTHING_TO_RECONCILE: 'אין משתמשים להשלמת חברות',
+    RECONCILE_PARTIAL: 'השלמת החברות הושלמה חלקית. נסו שוב כדי להשלים',
+    RELAY_QUERY_FAILED: 'אין חיבור לשרתי הרשת. נסו שוב בעוד רגע.',
+    NO_MEMBER_OPS: 'מודול ניהול החברים לא נטען',
     NOT_BLOCKED: 'המשתמש אינו חסום',
     TARGET_NOT_BLOCKED: 'המשתמש אינו חסום',
     SELF_TARGET_FORBIDDEN: 'אי אפשר לבצע פעולה זו על עצמכם',
@@ -826,6 +831,7 @@
       others.map((u) => userRowHtml(u)).join('') +
       '</div>';
     if (!others.length) html += '<p class="gap-note">אין עדיין חברים נוספים להצגה.</p>';
+    if (s.removeMembers && f.defaultMembershipApplies()) html += membershipGapsHtml();
     if (s.removeMembers) {
       html +=
         '<h3 style="margin-top:16px">הצטרפויות ממתינות</h3>' +
@@ -834,6 +840,52 @@
         '<div class="gap-list" id="sosGapJoinList"></div>';
     }
     body.innerHTML = html;
+  }
+
+  let membershipGaps = null;
+  const registrationLookups = new Set();
+
+  function membershipGapsHtml() {
+    let html =
+      '<h3 style="margin-top:16px">משתמשים רשומים בלי חברות</h3>' +
+      '<p class="gap-note">כל מי שנרשם ל-SOS הוא חבר בקבוצה, חוץ ממי שהוסר או נחסם. כאן מוצגים משתמשים רשומים שהחברות שלהם עדיין לא נרשמה.</p>' +
+      '<div id="sosGapRegGaps">';
+    if (!membershipGaps) {
+      html += '<div class="gap-actions"><button type="button" class="gap-btn" data-act="load-gaps" id="sosGapLoadGaps">בדיקה</button></div>';
+    } else if (!membershipGaps.rows.length) {
+      html += '<div class="gap-sub" id="sosGapGapCount" data-count="0">אין משתמשים רשומים בלי חברות</div>';
+    } else {
+      const n = membershipGaps.rows.length;
+      html +=
+        '<div class="gap-sub" id="sosGapGapCount" data-count="' + n + '">' + n + ' משתמשים רשומים בלי חברות</div>' +
+        '<div class="gap-list" id="sosGapGapList">' +
+        membershipGaps.rows
+          .map((r) => {
+            const prof = profileOf(r.pubkey);
+            ensureProfile(r.pubkey);
+            return (
+              '<div class="gap-item" data-gap-pk="' + escapeHtml(r.pubkey) + '">' + avatarHtml(r.pubkey, prof) +
+              '<div class="gap-user-main"><div class="gap-user-name" data-name-pk="' + escapeHtml(r.pubkey) + '">' + escapeHtml(displayName(r.pubkey, prof)) + '</div><div class="gap-sub gap-mono">' + escapeHtml(shortPk(r.pubkey)) + '</div></div></div>'
+            );
+          })
+          .join('') +
+        '</div>' +
+        '<div class="gap-actions"><button type="button" class="gap-btn primary" id="sosGapReconcile" data-act="reconcile-members" data-mutation="1">השלמת חברות (' + n + ')</button></div>';
+    }
+    return html + '</div>';
+  }
+
+  async function loadGaps() {
+    const box = document.getElementById('sosGapRegGaps');
+    if (box) box.innerHTML = '<div class="gap-sub">בודק…</div>';
+    const res = await FGA().listMembershipGaps();
+    membershipGaps = res.ok ? res : null;
+    if (!res.ok) {
+      if (box) box.innerHTML = '<div class="gap-sub">' + escapeHtml(errText(res)) + '</div>';
+      return res;
+    }
+    if (activeTab === 'members') renderTab(activeTab);
+    return res;
   }
 
   async function loadJoins() {
@@ -1393,6 +1445,30 @@
           : 'המשתמש הוסר מהקבוצה. אפשר להוסיף אותו שוב, בלי הרשאות.') +
         '</p>';
       if (u.status === 'REMOVED' && s.removeMembers) foot = addMemberButtonHtml(u);
+    } else if (isV2() && !u.member && f.defaultMembershipApplies()) {
+      const reg = f.registrationStatus(u.pubkey);
+      const checking = reg === 'UNKNOWN' && !registrationLookups.has(u.pubkey);
+      if (checking) {
+        registrationLookups.add(u.pubkey);
+        f.lookupRegistration([u.pubkey]).then(() => {
+          if (selectedMember === u.pubkey) renderDrawer();
+        });
+      }
+      body +=
+        '<p class="gap-note" id="sosGapRegistrationNote" data-registration="' + reg + '">' +
+        (reg === 'REGISTERED'
+          ? 'המשתמש רשום ב-SOS ולכן הוא חבר בקבוצה. החברות שלו עדיין לא נרשמה, ואפשר להשלים אותה עכשיו, בלי הרשאות.'
+          : reg === 'NOT_REGISTERED'
+            ? 'לא נמצאה הרשמה ל-SOS עבור המשתמש. מצטרפים לקבוצה רק דרך הרשמה עם הזמנה.'
+            : checking
+              ? 'בודק הרשמה ל-SOS…'
+              : 'לא ניתן לבדוק כרגע הרשמה ל-SOS. נסו שוב מאוחר יותר.') +
+        '</p>';
+      if (reg === 'REGISTERED' && s.removeMembers) {
+        foot =
+          '<div class="gap-actions"><button type="button" class="gap-btn primary" id="sosGapReconcileOne" data-act="reconcile-one" data-mutation="1" data-pk="' +
+          escapeHtml(u.pubkey) + '">השלמת חברות</button></div>';
+      }
     } else if (isV2() && !u.member) {
       body +=
         '<h3>הוספה לקבוצה</h3>' +
@@ -1660,6 +1736,26 @@
       return res;
     }
     if (act === 'load-joins') return loadJoins();
+    if (act === 'load-gaps') return loadGaps();
+    if (act === 'reconcile-members') {
+      const pks = membershipGaps ? membershipGaps.rows.map((r) => r.pubkey) : [];
+      if (!pks.length) return null;
+      const res = await run(
+        'השלמת חברות',
+        () => f.reconcileRegisteredMembers(pks),
+        'להשלים חברות ל-' + pks.length + ' משתמשים רשומים? הם יצורפו כחברים רגילים, בלי הרשאות. משתמשים שהוסרו או נחסמו לא יצורפו.'
+      );
+      membershipGaps = null;
+      await loadGaps();
+      return res;
+    }
+    if (act === 'reconcile-one') {
+      const res = await run('השלמת חברות', () => f.reconcileRegisteredMembers([pk]));
+      draftCaps = null;
+      membershipGaps = null;
+      if (selectedMember) renderDrawer();
+      return res;
+    }
     if (act === 'demote') {
       return run(LABELS.REMOVE_ADMIN, () => f.demoteAdmin(pk), 'להסיר את הרשאות הניהול של המשתמש?');
     }

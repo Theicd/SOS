@@ -1,7 +1,7 @@
 {
   "gate": "ADMIN_2FA_PHASE3_GATE",
   "mode": "local-workerd + VM browser modules",
-  "generatedAt": "2026-10-02T00:20:53.162Z",
+  "generatedAt": "2026-10-02T14:30:23.877Z",
   "status": "ADMIN_2FA_PHASE3_PASS",
   "tests": "60/60",
   "matrix": [

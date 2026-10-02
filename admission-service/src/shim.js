@@ -31,8 +31,8 @@ App.adminSourceKeys = [];
 App.guestMode = false;
 
 /** Admin 2FA for the control chain comes only from deployment env (configure()); it can only go from off to on. */
-export const serviceAdmin2fa = { signer: '' };
+export const serviceAdmin2fa = { signer: '', issuing: false };
 App.FeatureFlags = {
-  isAdmin2faEnforced: () => /^[0-9a-f]{64}$/.test(serviceAdmin2fa.signer),
+  isAdmin2faEnforced: () => /^[0-9a-f]{64}$/.test(serviceAdmin2fa.signer) && serviceAdmin2fa.issuing !== true,
   admin2faSignerPubkey: () => serviceAdmin2fa.signer,
 };

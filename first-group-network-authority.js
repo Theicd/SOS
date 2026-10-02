@@ -363,8 +363,13 @@
       }
     });
     const tip = st.eventId;
+    const A = App.Admin2faProtocol;
+    const atts = [];
+    if (A && typeof A.attestationsFor === 'function') {
+      events.forEach((ev) => A.attestationsFor(ev.id).forEach((a) => atts.push(a)));
+    }
     return adm
-      .syncControl(events)
+      .syncControl(events, atts)
       .then((r) => {
         if (r && r.result === 'OK') pushedTip = tip;
         return r;

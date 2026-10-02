@@ -332,7 +332,7 @@ const PIN_PEPPER = crypto.randomBytes(32).toString('hex');
 async function startAdmission(rootPub, svcHex) {
   fs.writeFileSync(
     path.join(ADM_DIR, '.dev.vars'),
-    `ROOT_PUBKEY=${rootPub}\nADMISSION_SK=${svcHex}\nADMIN_COSIGN_SK=${COSIGN.hex}\nADMIN_PIN_PEPPER=${PIN_PEPPER}\nTEST_FAULTS=1\nALLOWED_ORIGINS=http://127.0.0.1:${PORT}\n`
+    `ROOT_PUBKEY=${rootPub}\nADMISSION_SK=${svcHex}\nADMIN_COSIGN_SK=${COSIGN.hex}\nADMIN_PIN_PEPPER=${PIN_PEPPER}\nTEST_FAULTS=1\nALLOWED_ORIGINS=http://127.0.0.1:${PORT}\nADMIN_2FA_SIGNER_PUBKEY=${COSIGN.pub}\nCONTROL_RELAYS=${RELAYS.join(',')}\n`
   );
   admProc = spawn('npx', ['wrangler', 'dev', '--local', '--ip', '127.0.0.1', '--port', String(ADM_PORT), '--persist-to', admPersist, '--show-interactive-dev-session=false'], {
     cwd: ADM_DIR,
@@ -412,6 +412,22 @@ function watchPage(u, page) {
     if (/first-group|group-admin-product-ui|invite-service/.test(String(e.stack || ''))) {
       (report.pageErrors = report.pageErrors || []).push(u.label + ': ' + String(e.message).slice(0, 200));
     }
+  });
+  page.on('requestfailed', (req) => {
+    if (!req.url().startsWith(ADM_URL)) return;
+    (report.ADM_REQUEST_FAILURES = report.ADM_REQUEST_FAILURES || []).push({ user: u.label, path: new URL(req.url()).pathname, error: String((req.failure() || {}).errorText || '') });
+  });
+  page.on('response', async (res) => {
+    if (res.url().startsWith(ADM_URL) && res.status() >= 400) {
+      (report.ADM_HTTP_ERRORS = report.ADM_HTTP_ERRORS || []).push({ user: u.label, path: new URL(res.url()).pathname, status: res.status() });
+    }
+    if (!/\/v1\/admin-pin\/cosign/.test(res.url())) return;
+    try {
+      const j = await res.json();
+      if (j && j.result !== 'COSIGNED') {
+        (report.COSIGN_DENIALS = report.COSIGN_DENIALS || []).push({ user: u.label, result: j.result, code: j.code || null, reason: j.reason || null });
+      }
+    } catch (_e) {}
   });
 }
 
@@ -1798,20 +1814,34 @@ async function main() {
     // ================================================================ account switch A -> C in the same page (no leak)
     const aTabSwitch = await ua.ctx.newPage();
     watchPage(ua, aTabSwitch);
+    const bounded = (label, p, ms = 60000) =>
+      Promise.race([p, sleep(ms).then(() => { throw new Error('TIMEOUT ' + label); })]).catch(async (e) => {
+        const dlg = await aTabSwitch.evaluate(() => ({
+          pinDialog: !!document.querySelector('#sosAdminPinDialog') && getComputedStyle(document.querySelector('#sosAdminPinDialog')).display !== 'none',
+          pinText: (document.querySelector('#sosAdminPinDialog')?.textContent || '').slice(0, 80),
+        })).catch(() => null);
+        info('ACCOUNT_SWITCH_STEP_TIMEOUT', { label, error: String(e.message || e).slice(0, 120), dlg });
+        return null;
+      });
+    trace('switch:goto');
     await aTabSwitch.goto(URL0, { waitUntil: 'domcontentloaded', timeout: 120000 });
     await waitApp(aTabSwitch);
     await aTabSwitch.waitForFunction((p) => String(window.NostrApp.publicKey || '').toLowerCase() === p, A.pub, { polling: 200, timeout: 30000 }).catch(() => {});
-    await aTabSwitch.evaluate(async () => {
+    trace('switch:reconcile');
+    await bounded('reconcile', aTabSwitch.evaluate(async () => {
       window.NostrApp.guestMode = false;
       window.NostrApp.FirstGroupAdmin.boot();
       await window.NostrApp.FirstGroupNetworkAuthority.reconcile('switch-tab');
-    });
-    await pinReady(aTabSwitch);
-    await aTabSwitch.evaluate(async () => {
+    }));
+    trace('switch:pin');
+    await bounded('pinReady', pinReady(aTabSwitch));
+    trace('switch:open');
+    await bounded('open-invites', aTabSwitch.evaluate(async () => {
       window.NostrApp.GroupAdminProductUi.ensureMenuEntry();
       await window.NostrApp.GroupAdminProductUi.open('invites');
-    });
-    const leak = await aTabSwitch.evaluate(async (kC) => {
+    }));
+    trace('switch:leak');
+    const leak = (await bounded('switch-account', aTabSwitch.evaluate(async (kC) => {
       const App = window.NostrApp;
       const codesBefore = App.FirstGroupAdmin.listMyInvites().map((r) => r.code);
       App.switchAccountFromRawKey(kC, { reload: false });
@@ -1830,7 +1860,8 @@ async function main() {
         member: App.MembershipState.getMemberState(App.publicKey, 'israel-network'),
         rootOp: (await App.FirstGroupAdmin.updateMetadata({ description: 'leak' })).code,
       };
-    }, C.hex);
+    }, C.hex), 90000)) || { timeout: true };
+    trace('switch:done');
     set('ACCOUNT_SWITCH', leak.pub === C.pub && !leak.menu && !leak.open && leak.invitesAfter === 0 && leak.codesInDom === 0 && leak.caps === 0 && leak.member === 'REMOVED' && leak.rootOp !== 'APPLIED', leak);
     await aTabSwitch.close();
     await boot(ua.page, A);
@@ -1845,41 +1876,55 @@ async function main() {
     const bNoMod = await waitView(ub.page, B.pub, "v.caps.indexOf('MODERATE_CONTENT') === -1 && v.caps.indexOf('MANAGE_PERMISSIONS') === -1", 30000);
     info('P1_B_RESET', { dropToInviteOnly, ok: bNoMod.ok });
 
-    // ---- direct add of an existing SOS identity (canonical GRANT_ACTIVE, Admin 2FA, no invite)
+    // ---- direct add infrastructure (canonical GRANT_ACTIVE, Admin 2FA, no invite): kept as API; not offered in the default community UI
+    const openDrawer = async (page, pk) => {
+      await openUi(page, 'members');
+      await ev(page, (p) => {
+        const i = document.getElementById('sosGapUserSearch');
+        if (!i) return;
+        i.value = p;
+        i.dispatchEvent(new Event('input', { bubbles: true }));
+      }, pk);
+      for (let i = 0; i < 3; i++) {
+        const clicked = await domClick(page, `#sosGapSearchResults [data-act="select-member"][data-pk="${pk}"]`).then(() => true, () => false);
+        if (!clicked) break;
+        const opened = await page
+          .waitForFunction((p) => document.getElementById('sosGapMemberDetail')?.getAttribute('data-pk') === p, pk, { polling: 100, timeout: 3000 })
+          .then(() => true, () => false);
+        if (opened) break;
+      }
+      await page.waitForFunction(() => {
+        const n = document.getElementById('sosGapRegistrationNote');
+        return !n || !/בודק/.test(n.textContent);
+      }, null, { polling: 200, timeout: 20000 }).catch(() => {});
+      await sleep(200);
+      return ev(page, () => {
+        const d = document.getElementById('sosGapMemberDetail');
+        return {
+          pk: d?.getAttribute('data-pk') || '',
+          text: d?.querySelector('.gap-who')?.innerText || '',
+          registration: d?.querySelector('#sosGapRegistrationNote')?.getAttribute('data-registration') || '',
+          addBtn: !!d?.querySelector('#sosGapAddMember'),
+          reconcileBtn: !!d?.querySelector('#sosGapReconcileOne'),
+          inviteBtn: !!d?.querySelector('[data-act="invite-user"]'),
+          save: !!d?.querySelector('#sosGapSaveUser'),
+          remove: !!d?.querySelector('[data-act="remove-member"]'),
+          block: !!d?.querySelector('[data-act="block-user"]'),
+        };
+      });
+    };
+    const closeDrawer = (page) => ev(page, () => document.querySelector('#sosGapMemberDetail [data-act="close-user"]')?.click());
     const invitesBeforeAdd = r1.all([37378]).length;
     const zBefore = await view(ua.page, Z.pub);
     const bAddDenied = await ev(ub.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.addMember(pk)).code, Z.pub);
-    await openUi(ua.page, 'members');
-    await ev(ua.page, (pk) => {
-      const i = document.getElementById('sosGapUserSearch');
-      i.value = pk;
-      i.dispatchEvent(new Event('input', { bubbles: true }));
-    }, Z.pub);
-    await domClick(ua.page, `#sosGapSearchResults [data-act="select-member"][data-pk="${Z.pub}"]`);
-    await sleep(200);
-    const zDrawerBefore = await ev(ua.page, () => ({
-      text: document.querySelector('#sosGapMemberDetail .gap-who')?.innerText || '',
-      addBtn: document.querySelector('#sosGapMemberDetail #sosGapAddMember')?.textContent.trim() || '',
-      inviteBtn: !!document.querySelector('#sosGapMemberDetail [data-act="invite-user"]'),
-    }));
-    const addUi = await act(ua.page, '#sosGapMemberDetail #sosGapAddMember').catch((e) => ({ ok: false, text: String(e.message || e).slice(0, 80) }));
-    await sleep(300);
-    const zDrawerAfter = await ev(ua.page, (pk) => {
-      const d = document.getElementById('sosGapMemberDetail');
-      const tab = document.querySelector('#sosGapTabs button.active')?.dataset.tab || '';
-      return {
-        open: !!d && d.getAttribute('data-pk') === pk && !!d.innerHTML,
-        tab,
-        text: d?.querySelector('.gap-who')?.innerText || '',
-        caps: Array.from(d?.querySelectorAll('[data-cap]') || []).map((e) => e.getAttribute('data-cap')),
-        save: !!d?.querySelector('#sosGapSaveUser'),
-        remove: !!d?.querySelector('[data-act="remove-member"]'),
-        block: !!d?.querySelector('[data-act="block-user"]'),
-      };
-    }, Z.pub);
-    await shot(ua.page, 'p1-direct-add-drawer');
+    const zDrawerBefore = await openDrawer(ua.page, Z.pub);
+    await closeDrawer(ua.page);
+    const addApi = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.addMember(pk)).code, Z.pub);
     const zOnB = await waitView(ub.page, Z.pub, "v.member === 'ACTIVE'", 30000);
     const zAfter = await view(ub.page, Z.pub);
+    const zDrawerAfter = await openDrawer(ua.page, Z.pub);
+    await shot(ua.page, 'p1-direct-add-drawer');
+    await closeDrawer(ua.page);
     const zProof = r1
       .all([39003])
       .filter((e) => e.pubkey === A.pub && e.tags.some((t) => t[0] === 'p' && t[1] === Z.pub))
@@ -1888,11 +1933,16 @@ async function main() {
     const invitesAfterAdd = r1.all([37378]).length;
     const zAgain = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.addMember(pk)).code, Z.pub);
     set(
+      'DEFAULT_COMMUNITY_NO_ADD_BUTTON_FOR_UNREGISTERED',
+      zBefore.member !== 'ACTIVE' && zDrawerBefore.pk === Z.pub && /לא חבר בקבוצה/.test(zDrawerBefore.text) && zDrawerBefore.registration === 'NOT_REGISTERED' &&
+        !zDrawerBefore.addBtn && !zDrawerBefore.reconcileBtn && !zDrawerBefore.inviteBtn,
+      { zBefore: zBefore.member, zDrawerBefore }
+    );
+    set(
       'EXISTING_USER_DIRECT_ADD',
-      zBefore.member !== 'ACTIVE' && /לא חבר בקבוצה/.test(zDrawerBefore.text) && zDrawerBefore.addBtn === 'הוסף לקבוצה' && !zDrawerBefore.inviteBtn &&
-        addUi.ok && zDrawerAfter.open && zDrawerAfter.tab === 'members' && /חבר בקבוצה/.test(zDrawerAfter.text) && zDrawerAfter.save && zDrawerAfter.remove && zDrawerAfter.block &&
-        zOnB.ok && zAfter.member === 'ACTIVE' && zAgain === 'ALREADY_MEMBER',
-      { zBefore: zBefore.member, zDrawerBefore, addUi, zDrawerAfter, zOnB: zOnB.ok, zAgain }
+      /^ADDED/.test(addApi) && zOnB.ok && zAfter.member === 'ACTIVE' && zAgain === 'ALREADY_MEMBER' &&
+        /חבר בקבוצה/.test(zDrawerAfter.text) && !zDrawerAfter.addBtn && zDrawerAfter.save && zDrawerAfter.remove && zDrawerAfter.block,
+      { addApi, zOnB: zOnB.ok, zAgain, zDrawerAfter }
     );
     set('DIRECT_ADD_REQUIRES_MANAGE_MEMBERS', bAddDenied === 'UNAUTHORIZED', { bAddDenied });
     set('DIRECT_ADD_TARGET_BOUND', !!zProof && zProof.memberPubkey === Z.pub && zProof.groupId === GROUP && !zProof.inviteEventId && !zProof.admission, {
@@ -1903,7 +1953,87 @@ async function main() {
       invitesAfterAdd,
       assigned: zAfter.assigned,
     });
-    await ev(ua.page, () => document.querySelector('#sosGapMemberDetail [data-act="close-user"]')?.click());
+
+    // ---- default community: SOS-registered accounts become members (reviewed reconciliation), REMOVED / BLOCKED never re-added
+    trace('registered-reconcile');
+    const Q = mkKey(); // registered, then blocklisted
+    const N = mkKey(); // email-registry for another network only
+    const PO = mkKey(); // profile-only (no SOS registration)
+    const now = () => Math.floor(Date.now() / 1000);
+    const regEvent = (k, network) =>
+      finalizeEvent(
+        {
+          kind: 37377,
+          created_at: now(),
+          tags: [['d', crypto.randomBytes(16).toString('hex')], ['t', 'email-registry'], ['h', crypto.createHash('sha256').update(k.pub + '@qa.invalid').digest('hex')], ['t', network]],
+          content: JSON.stringify({ issued_at: now() }),
+        },
+        k.sk
+      );
+    [regEvent(Y, GROUP), regEvent(Q, GROUP), regEvent(Z, GROUP), regEvent(N, 'community-other')].forEach(publishAll);
+    publishAll(finalizeEvent({ kind: 0, created_at: now(), tags: [['t', GROUP]], content: JSON.stringify({ name: 'profile only' }) }, PO.sk));
+    const qBlock = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.blockMember(pk)).code, Q.pub);
+    const zRemove = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.removeMember(pk)).code, Z.pub);
+    const zRemovedOnA = await waitView(ua.page, Z.pub, "v.member === 'REMOVED'", 30000);
+    const yBeforeRec = await view(ua.page, Y.pub);
+    const bGaps = await ev(ub.page, async () => (await window.NostrApp.FirstGroupAdmin.listMembershipGaps()).code);
+    const bRec = await ev(ub.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.reconcileRegisteredMembers([pk])).code, Y.pub);
+    await openUi(ua.page, 'members');
+    await domClick(ua.page, '#sosGapLoadGaps');
+    await waitSel(ua.page, '#sosGapGapCount', 30000).catch(() => {});
+    const gapUi = await ev(ua.page, () => ({
+      count: Number(document.getElementById('sosGapGapCount')?.getAttribute('data-count') || -1),
+      pks: Array.from(document.querySelectorAll('#sosGapGapList [data-gap-pk]')).map((e) => e.getAttribute('data-gap-pk')),
+      button: document.getElementById('sosGapReconcile')?.textContent.trim() || '',
+    }));
+    await shot(ua.page, 'p1-registered-gaps');
+    const grantsBefore = r1.all([39003]).length;
+    const recUi = gapUi.button ? await actConfirm(ua.page, '#sosGapReconcile').catch((e) => ({ ok: false, text: String(e.message || e).slice(0, 80) })) : { ok: false, text: 'no button' };
+    const yOnB = await waitView(ub.page, Y.pub, "v.member === 'ACTIVE'", 30000);
+    const yAfter = await view(ub.page, Y.pub);
+    const zAfterRec = await view(ub.page, Z.pub);
+    const qState = await ev(ub.page, (pk) => {
+      const App = window.NostrApp;
+      const st = App.GroupControlState.getVerifiedControlState('israel-network') || {};
+      return { member: App.MembershipState.getMemberState(pk, 'israel-network'), listed: (st.blockedPubkeys || []).includes(pk) };
+    }, Q.pub);
+    const nState = (await view(ub.page, N.pub)).member;
+    const poState = (await view(ub.page, PO.pub)).member;
+    const grantsFor = (pk) =>
+      r1
+        .all([39003])
+        .map((e) => ({ e, b: JSON.parse(e.content) }))
+        .filter((x) => x.e.pubkey === A.pub && x.b.memberPubkey === pk && x.b.transition === 'GRANT_ACTIVE');
+    const yGrants1 = grantsFor(Y.pub).length;
+    const rerun = await ev(ua.page, async (pks) => {
+      const r = await window.NostrApp.FirstGroupAdmin.reconcileRegisteredMembers(pks);
+      return { ok: r.ok, code: r.code, granted: r.granted, codes: (r.results || []).map((x) => x.code) };
+    }, [Y.pub, Z.pub, Q.pub, N.pub, PO.pub]);
+    await sleep(500);
+    const grantsAfter = r1.all([39003]).length;
+    const yDrawer = await openDrawer(ua.page, Y.pub);
+    await closeDrawer(ua.page);
+    const poDrawer = await openDrawer(ua.page, PO.pub);
+    await shot(ua.page, 'p1-unregistered-drawer');
+    await closeDrawer(ua.page);
+    info('P1_REGISTERED_RECONCILE', { qBlock, zRemove, bGaps, bRec, gapUi: { count: gapUi.count, n: gapUi.pks.length }, recUi, rerun });
+    set('REGISTERED_GAPS_LIST_EXACT', gapUi.count === 1 && gapUi.pks.length === 1 && gapUi.pks[0] === Y.pub && /השלמת חברות \(1\)/.test(gapUi.button), {
+      count: gapUi.count,
+      onlyY: gapUi.pks.length === 1 && gapUi.pks[0] === Y.pub,
+      button: gapUi.button,
+    });
+    set('REGISTERED_RECONCILE_GRANTS_ACTIVE_NO_CAPS', yBeforeRec.member === 'UNKNOWN' && recUi.ok && yOnB.ok && yAfter.member === 'ACTIVE' && yAfter.assigned.length === 0 && yAfter.caps.length === 0 && yGrants1 === 1 && grantsAfter - grantsBefore === 1, {
+      yBefore: yBeforeRec.member,
+      recUi,
+      yAfter: { member: yAfter.member, caps: yAfter.caps, assigned: yAfter.assigned },
+      yGrants1,
+      newGrants: grantsAfter - grantsBefore,
+    });
+    set('REGISTERED_RECONCILE_SKIPS_REMOVED_BLOCKED_UNREGISTERED', zRemovedOnA.ok && zAfterRec.member === 'REMOVED' && qState.listed && qState.member !== 'ACTIVE' && nState !== 'ACTIVE' && poState !== 'ACTIVE', { zRemove, z: zAfterRec.member, qBlock, q: qState, n: nState, po: poState });
+    set('REGISTERED_RECONCILE_IDEMPOTENT', rerun.ok && rerun.granted === 0 && rerun.code === 'NOTHING_TO_RECONCILE' && grantsFor(Y.pub).length === 1 && grantsFor(Z.pub).length === 1 && grantsFor(Q.pub).length === 0, rerun);
+    set('REGISTERED_RECONCILE_REQUIRES_MANAGE_MEMBERS', bGaps === 'UNAUTHORIZED' && bRec === 'UNAUTHORIZED', { bGaps, bRec });
+    set('REGISTERED_MEMBER_DRAWER', /חבר בקבוצה/.test(yDrawer.text) && !yDrawer.addBtn && !yDrawer.reconcileBtn && yDrawer.save && yDrawer.remove && yDrawer.block, yDrawer);
+    set('UNREGISTERED_NOT_SENT_TO_INVITE_OR_ADD', poDrawer.registration === 'NOT_REGISTERED' && !poDrawer.addBtn && !poDrawer.reconcileBtn && !poDrawer.inviteBtn, poDrawer);
 
     // ---- invite lifecycle: 24h single-use invites; lifecycle list with statuses
     const lcInv = await ev(ua.page, async () => {
@@ -1956,21 +2086,32 @@ async function main() {
     const modPost = await modRemove(ub.page, P1);
     const modComment = await modRemove(ub.page, C1);
     await sleep(800);
+    const modTargetSeen = (t) => r1.all([39002]).some((m) => (m.tags || []).some((x) => (x[0] === 'd' || x[0] === 'e') && x[1] === t.id));
+    for (let i = 0; i < 20 && !(modTargetSeen(P1) && modTargetSeen(C1)); i++) await sleep(500);
     const modEvents = r1.all([39002]);
     const obsVerdicts = await ev(
       ua.page,
-      ({ mods, p1, c1 }) => {
+      async ({ mods, p1, c1 }) => {
         const MP = window.NostrApp.ModerationPolicy;
         const pick = (t) => mods.find((m) => (m.tags || []).some((x) => (x[0] === 'd' || x[0] === 'e') && x[1] === t.id));
         const vp = pick(p1);
         const vc = pick(c1);
-        return { post: vp ? MP.validateModerationEvent(vp, p1, null).ok : false, comment: vc ? MP.validateModerationEvent(vc, c1, null).ok : false };
+        const check = () => ({
+          p: vp ? MP.validateModerationEvent(vp, p1, null) : { ok: false, code: 'NOT_FOUND' },
+          c: vc ? MP.validateModerationEvent(vc, c1, null) : { ok: false, code: 'NOT_FOUND' },
+        });
+        let r = check();
+        for (let i = 0; i < 20 && !(r.p.ok && r.c.ok); i++) {
+          await new Promise((res) => setTimeout(res, 500));
+          r = check();
+        }
+        return { post: r.p.ok, comment: r.c.ok, postCode: r.p.code || null, commentCode: r.c.code || null };
       },
       { mods: modEvents, p1: P1, c1: C1 }
     );
     const bLocal = await ev(ub.page, ({ p, c }) => ({ p: window.NostrApp.deletedEventIds.has(p), c: window.NostrApp.deletedEventIds.has(c) }), { p: P1.id, c: C1.id });
-    set('MODERATE_POST_DELETE', !noCap.ok && grantMod === 'APPLIED' && bMod2.ok && modPost.ok && obsVerdicts.post && bLocal.p, { noCap, grantMod, modPost, obs: obsVerdicts.post });
-    set('MODERATE_COMMENT_DELETE', modComment.ok && obsVerdicts.comment && bLocal.c, { modComment, obs: obsVerdicts.comment });
+    set('MODERATE_POST_DELETE', !noCap.ok && grantMod === 'APPLIED' && bMod2.ok && modPost.ok && obsVerdicts.post && bLocal.p, { noCap, grantMod, modPost, obs: obsVerdicts.post, code: obsVerdicts.postCode });
+    set('MODERATE_COMMENT_DELETE', modComment.ok && obsVerdicts.comment && bLocal.c, { modComment, obs: obsVerdicts.comment, code: obsVerdicts.commentCode });
     set('MODERATOR_PANEL_REPORTS_ONLY', bModMenu && bModTabs.includes('reports') && !bModTabs.includes('admins') && !bModTabs.includes('activity'), { bModMenu, bModTabs });
     const revokeMod = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.revokeCapability(pk, 'MODERATE_CONTENT')).code, B.pub);
     const bLostMod = await waitView(ub.page, B.pub, "v.caps.indexOf('MODERATE_CONTENT') === -1", 30000);
@@ -2110,8 +2251,13 @@ async function main() {
     await sleep(800);
     const inboxA = await ev(ua.page, async (id) => {
       const R = window.NostrApp.GroupReports;
-      const s = await R.loadInbox();
-      const row = s.rows.find((r) => r.targetId === id);
+      let s = await R.loadInbox();
+      let row = s.rows.find((r) => r.targetId === id);
+      for (let i = 0; !row && i < 20; i++) {
+        await new Promise((r) => setTimeout(r, 500));
+        s = await R.loadInbox();
+        row = s.rows.find((r) => r.targetId === id);
+      }
       window.NostrApp.GroupAdminProductUi.ensureMenuEntry();
       const badge = document.querySelector('#sosGroupControlMenuItem .sos-report-badge');
       return { ok: s.ok, unresolved: s.unresolved, row: row ? { status: row.status, count: row.reportCount, reasons: row.reasons, reported: row.reportedPubkey } : null, badge: badge ? badge.textContent : '' };
@@ -2336,6 +2482,8 @@ async function main() {
   } catch (_e) {}
   report.status = !report.fatal && report.failedKeys.length === 0 && report.SERVICE_LOG_SECRET_HITS === 0 ? 'PASS' : 'FAIL';
   fs.writeFileSync(OUT, JSON.stringify(report, null, 2));
+  // Local diagnostics only (untracked dot-file); the secret-hex check above already ran on this log.
+  if (report.SERVICE_LOG_SECRET_HITS === 0) fs.writeFileSync(path.join(ROOT, 'qa', '.898-admission-service.log'), admLog.slice(-200000));
   console.log('RESULT', report.status, 'passed', report.passed, 'failed', report.failedKeys.join(','));
   process.exit(report.status === 'PASS' ? 0 : 1);
 }

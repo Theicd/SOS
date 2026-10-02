@@ -9,6 +9,29 @@ import '../../admin-2fa-protocol.js';
 const App = globalThis.NostrApp;
 let configuredRoot = '';
 
+/**
+ * Every control reload re-verifies the whole stored chain and its attestations. A strict verify is a pure function
+ * of the signed fields, so positive results are remembered keyed by exactly those fields (any change is a new key).
+ */
+const VERIFY_MEMO_MAX = 20000;
+const verifiedMemo = new Set();
+const strictVerifyUncached = App.strictVerifyNostrEvent;
+App.strictVerifyNostrEvent = function strictVerifyMemo(event) {
+  let key;
+  try {
+    key = JSON.stringify([event.id, event.pubkey, event.created_at, event.kind, event.tags, event.content, event.sig]);
+  } catch (_e) {
+    return false;
+  }
+  if (verifiedMemo.has(key)) return true;
+  const ok = strictVerifyUncached(event) === true;
+  if (ok) {
+    if (verifiedMemo.size >= VERIFY_MEMO_MAX) verifiedMemo.clear();
+    verifiedMemo.add(key);
+  }
+  return ok;
+};
+
 /** Root is fixed per deployment (env.ROOT_PUBKEY); group-control-state snapshots it on first use. */
 export function configure(env) {
   const root = String(env.ROOT_PUBKEY || '').trim().toLowerCase();
@@ -25,6 +48,22 @@ export function configure(env) {
   configuredRoot = root;
   serviceAdmin2fa.signer = signer;
   return { root, group, admin2faSigner: signer };
+}
+
+/**
+ * Runs a synchronous canonical validator for an event the co-sign service is about to attest. Every check runs
+ * except the validator's own "attestation present" step, which this service is the issuer of. Synchronous only,
+ * so no other request can observe the flag.
+ */
+export function validateBeforeAttestation(fn) {
+  serviceAdmin2fa.issuing = true;
+  try {
+    const r = fn();
+    if (r && typeof r.then === 'function') throw new Error('validateBeforeAttestation requires a synchronous validator');
+    return r;
+  } finally {
+    serviceAdmin2fa.issuing = false;
+  }
 }
 
 export const RELAY_CONTROL_KINDS = Object.freeze({ control: 39001, attestation: 39004 });

@@ -1,0 +1,81 @@
+{
+  "gate": "FIRST_GROUP_REGISTRATION_AUDIT",
+  "ts": "2026-10-02T11:30:15.307Z",
+  "relays": 4,
+  "raw": {
+    "emailRegistryEvents": 25,
+    "profileEvents": 63,
+    "membershipEvents": 2
+  },
+  "totals": {
+    "EMAIL_REGISTRY_ACCOUNTS": 24,
+    "SOS_PROFILE_ACCOUNTS": 60,
+    "MEMBERSHIP_RECORD_ACCOUNTS": 2,
+    "ACTIVE": 2,
+    "REMOVED": 0,
+    "BLOCKED": 0,
+    "CONFLICT": 0
+  },
+  "gaps": {
+    "EMAIL_REGISTRY_NOT_ACTIVE": 23,
+    "PROFILE_ONLY_NOT_ACTIVE": 38,
+    "EMAIL_REGISTRY_REMOVED_OR_BLOCKED": 0,
+    "ACTIVE_WITHOUT_EMAIL_REGISTRY": 1
+  },
+  "gapSample": [
+    "ba5015fe…0544 UNKNOWN",
+    "45f99424…a2e9 UNKNOWN",
+    "4b0d8350…6ec0 UNKNOWN",
+    "76337697…4495 UNKNOWN",
+    "9a5ddf43…6544 UNKNOWN",
+    "393c50fe…a0b0 UNKNOWN",
+    "fa47f241…ff5f UNKNOWN",
+    "15a4f400…8626 UNKNOWN",
+    "43c19b97…4c38 UNKNOWN",
+    "f0a0c1de…4443 UNKNOWN",
+    "c57b678e…6300 UNKNOWN",
+    "d6ac50d5…f163 UNKNOWN",
+    "f1cdc0f3…dd8f UNKNOWN",
+    "42516e4a…1f92 UNKNOWN",
+    "5832c027…5244 UNKNOWN",
+    "edba9fce…57a7 UNKNOWN",
+    "79106ade…8ac5 UNKNOWN",
+    "0bc4f4ce…7a21 UNKNOWN",
+    "3c9558f4…649d UNKNOWN",
+    "427b7cc3…5688 UNKNOWN",
+    "3a79c72f…93e3 UNKNOWN",
+    "d8075d30…ffcc UNKNOWN",
+    "4438359a…2ba1 UNKNOWN"
+  ],
+  "watch": {
+    "QA_MODERATOR2": {
+      "pk": "7c6a5848…96a9",
+      "emailRegistry": false,
+      "emailRegistryAnyNetwork": false,
+      "sosProfile": true,
+      "admittedRecord": false,
+      "status": "UNKNOWN",
+      "caps": []
+    },
+    "KODY2048": {
+      "pk": "170fe2a9…5e28",
+      "emailRegistry": true,
+      "emailRegistryAnyNetwork": true,
+      "sosProfile": true,
+      "admittedRecord": true,
+      "status": "ACTIVE",
+      "caps": [
+        "MODERATE_CONTENT"
+      ]
+    },
+    "QA_MODERATOR": {
+      "pk": "c0fed7a8…b470",
+      "emailRegistry": false,
+      "emailRegistryAnyNetwork": false,
+      "sosProfile": true,
+      "admittedRecord": true,
+      "status": "ACTIVE",
+      "caps": []
+    }
+  }
+}

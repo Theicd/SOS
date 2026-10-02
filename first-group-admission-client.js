@@ -102,10 +102,12 @@
     }
   }
 
-  function syncControl(events) {
+  function syncControl(events, attestations) {
     const list = (Array.isArray(events) ? events : []).filter((e) => e && e.kind === 39001).slice(0, 500);
     if (!list.length) return Promise.resolve({ result: 'INVALID', code: 'NO_EVENTS' });
-    return post('/v1/control/ingest', { groupId: GROUP_ID, events: list });
+    // With Admin 2FA enforced the service verifies each control step only with its attestation (39004).
+    const atts = (Array.isArray(attestations) ? attestations : []).filter((e) => e && e.kind === 39004).slice(0, 500);
+    return post('/v1/control/ingest', { groupId: GROUP_ID, events: list, attestations: atts });
   }
 
   /** Brings the service's control view up to this client's verified tip (events are root-verified server-side). */

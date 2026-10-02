@@ -1001,6 +1001,174 @@
     return done(Object.assign({}, res, { code: readback ? 'ADDED' : 'ADDED_PENDING_READBACK', readback: !!readback }));
   }
 
+  /**
+   * Default community only: an SOS-registered account belongs to israel-network unless it was REMOVED or BLOCKED.
+   * Membership stays the per-group signed 39003 record; any other community keeps explicit admission.
+   */
+  const DEFAULT_MEMBERSHIP_GROUPS = Object.freeze(['israel-network']);
+  const EMAIL_REGISTRY_KIND = 37377;
+  const EMAIL_REGISTRY_TAG = 'email-registry';
+  const REGISTRY_CACHE_MS = 60000;
+  const registryCache = new Map();
+
+  function defaultMembershipApplies(groupId) {
+    return DEFAULT_MEMBERSHIP_GROUPS.indexOf(groupId || FIRST_GROUP.groupId) !== -1;
+  }
+
+  /** SOS signup evidence: the account's own email-registry event (kind 37377) tagged for this network. */
+  function isRegistryEvent(ev, pk) {
+    if (!ev || ev.kind !== EMAIL_REGISTRY_KIND) return false;
+    if (normalizePubkey(ev.pubkey) !== pk) return false;
+    const ts = (ev.tags || []).filter((t) => Array.isArray(t) && t[0] === 't').map((t) => t[1]);
+    if (ts.indexOf(EMAIL_REGISTRY_TAG) === -1 || ts.indexOf(FIRST_GROUP.networkTag) === -1) return false;
+    return typeof App.strictVerifyNostrEvent === 'function' && App.strictVerifyNostrEvent(ev) === true;
+  }
+
+  function registryFilter(extra) {
+    return Object.assign(
+      { kinds: [EMAIL_REGISTRY_KIND], '#t': [EMAIL_REGISTRY_TAG] },
+      extra
+    );
+  }
+
+  /** 'REGISTERED' | 'NOT_REGISTERED' | 'UNKNOWN' (not looked up yet, or relays failed). */
+  function registrationStatus(pubkey) {
+    const c = registryCache.get(normalizePubkey(pubkey));
+    if (!c) return 'UNKNOWN';
+    return c.registered ? 'REGISTERED' : 'NOT_REGISTERED';
+  }
+
+  async function lookupRegistration(pubkeys) {
+    const now = Date.now();
+    const need = Array.from(new Set((pubkeys || []).map(normalizePubkey).filter(Boolean))).filter((pk) => {
+      const c = registryCache.get(pk);
+      return !c || now - c.at > REGISTRY_CACHE_MS;
+    });
+    for (let i = 0; i < need.length; i += 100) {
+      const chunk = need.slice(i, i + 100);
+      let evs;
+      try {
+        evs = await queryRelays(registryFilter({ authors: chunk, limit: chunk.length * 4 }));
+      } catch (_e) {
+        continue;
+      }
+      chunk.forEach((pk) => registryCache.set(pk, { registered: evs.some((ev) => isRegistryEvent(ev, pk)), at: now }));
+    }
+    const out = {};
+    (pubkeys || []).forEach((p) => {
+      const pk = normalizePubkey(p);
+      if (pk) out[pk] = registrationStatus(pk);
+    });
+    return out;
+  }
+
+  function defaultMembershipState(pk, st) {
+    if (pk === normalizePubkey(st.rootAdminPubkey)) return 'ROOT';
+    if ((st.blockedPubkeys || []).indexOf(pk) !== -1) return 'BLOCKED';
+    return MS().getMemberState(pk);
+  }
+
+  /** Registered SOS accounts with no membership record (not REMOVED, not BLOCKED). Never returns email hashes. */
+  async function listMembershipGaps() {
+    if (!defaultMembershipApplies()) return fail('NOT_DEFAULT_COMMUNITY');
+    const g = await nguard('LIST_MEMBERSHIP_GAPS', ['MANAGE_MEMBERS']);
+    if (!g.ok) return g;
+    const st = verifiedControl();
+    if (!st || !MS()) return fail('NO_VERIFIED_CONTROL');
+    let evs;
+    try {
+      evs = await queryRelays(registryFilter({ limit: 5000 }));
+    } catch (_e) {
+      return fail('RELAY_QUERY_FAILED');
+    }
+    const registered = new Map();
+    evs.forEach((ev) => {
+      const pk = normalizePubkey(ev.pubkey);
+      if (pk && !registered.has(pk) && isRegistryEvent(ev, pk)) registered.set(pk, ev.created_at);
+    });
+    const counts = { REGISTERED: registered.size, ACTIVE: 0, REMOVED: 0, BLOCKED: 0, CONFLICT: 0, GAP: 0 };
+    const rows = [];
+    const now = Date.now();
+    registered.forEach((at, pk) => {
+      registryCache.set(pk, { registered: true, at: now });
+      const s = defaultMembershipState(pk, st);
+      if (s === 'ROOT' || s === 'ACTIVE') counts.ACTIVE++;
+      else if (s === 'UNKNOWN') {
+        counts.GAP++;
+        rows.push({ pubkey: pk, registeredAt: at });
+      } else counts[s] = (counts[s] || 0) + 1;
+    });
+    rows.sort((a, b) => a.registeredAt - b.registeredAt);
+    return { ok: true, rows, counts, groupId: FIRST_GROUP.groupId };
+  }
+
+  const RECONCILE_STOP_CODES = Object.freeze([
+    'UNAUTHORIZED',
+    'ADMIN_PIN_REQUIRED',
+    'ADMIN_SESSION_EXPIRED',
+    'ADMIN_2FA_DENIED',
+    'ADMIN_2FA_SERVICE_UNAVAILABLE',
+    'PIN_LOCKED',
+    'NETWORK_AUTHORITY_UNVERIFIED',
+    'CONTROL_CONFLICT',
+    'NO_VERIFIED_CONTROL',
+  ]);
+
+  /**
+   * One owner-authorized session for an exact reviewed set: each still-eligible account gets the canonical
+   * GRANT_ACTIVE (membership only, no capability). Re-running is a no-op for accounts that are already members.
+   */
+  async function reconcileRegisteredMembers(reviewedPubkeys, onProgress) {
+    if (!defaultMembershipApplies()) return fail('NOT_DEFAULT_COMMUNITY');
+    const reviewed = Array.from(new Set((reviewedPubkeys || []).map(normalizePubkey).filter(Boolean)));
+    if (!reviewed.length) return fail('NOTHING_TO_RECONCILE');
+    const gaps = await listMembershipGaps();
+    if (!gaps.ok) return gaps;
+    const g = await nguard('GRANT_MEMBER_ACTIVE', ['MANAGE_MEMBERS']);
+    if (!g.ok) return g;
+    const mao = MAO();
+    const ms = MS();
+    if (!mao || !ms) return fail('NO_MEMBER_OPS');
+    const eligible = new Set(gaps.rows.map((r) => r.pubkey));
+    const results = [];
+    let stopped = '';
+    for (const pk of reviewed) {
+      let code;
+      const st = verifiedControl();
+      const s = st ? defaultMembershipState(pk, st) : '';
+      if (stopped) code = 'NOT_ATTEMPTED';
+      else if (!eligible.has(pk)) code = 'NOT_ELIGIBLE';
+      else if (s !== 'UNKNOWN') code = s === 'ACTIVE' ? 'ALREADY_MEMBER' : 'SKIPPED_' + (s || 'NO_VERIFIED_CONTROL');
+      else {
+        const r = await mao.addExistingMember(pk, g.actor, {});
+        code = r && r.ok ? 'GRANTED' : (r && r.code) || 'ADD_FAILED';
+        if (RECONCILE_STOP_CODES.indexOf(code) !== -1) stopped = code;
+      }
+      results.push({ pubkey: pk, code });
+      if (typeof onProgress === 'function') {
+        try {
+          onProgress(results.length, reviewed.length);
+        } catch (_e) {}
+      }
+    }
+    const n = NA();
+    const rb = n ? await n.reconcile('readback:reconcile-members') : null;
+    const granted = results.filter((r) => r.code === 'GRANTED');
+    const readbackActive = rb && rb.ok ? granted.filter((r) => ms.getMemberState(r.pubkey) === 'ACTIVE').length : 0;
+    const failed = results.filter((r) => !/^(GRANTED|ALREADY_MEMBER|NOT_ELIGIBLE|SKIPPED_)/.test(r.code));
+    let code = 'NOTHING_TO_RECONCILE';
+    if (failed.length) code = stopped || 'RECONCILE_PARTIAL';
+    else if (granted.length) code = readbackActive === granted.length ? 'RECONCILED' : 'RECONCILED_PENDING_READBACK';
+    return done({
+      ok: failed.length === 0,
+      code,
+      granted: granted.length,
+      readbackActive,
+      failed: failed.length,
+      results,
+    });
+  }
+
   function blockTargetGuard(g, targetPubkey) {
     const target = normalizePubkey(targetPubkey);
     if (!target) return fail('BAD_PUBKEY');
@@ -1613,6 +1781,11 @@
     demoteAdmin,
     removeMember,
     addMember,
+    defaultMembershipApplies,
+    registrationStatus,
+    lookupRegistration,
+    listMembershipGaps,
+    reconcileRegisteredMembers,
     listInviteLifecycle,
     blockMember,
     unblockMember,
