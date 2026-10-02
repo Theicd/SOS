@@ -1894,22 +1894,27 @@ async function main() {
         if (opened) break;
       }
       await page.waitForFunction(() => {
-        const n = document.getElementById('sosGapRegistrationNote');
-        return !n || !/בודק/.test(n.textContent);
+        const n = document.getElementById('sosGapLegacyNote');
+        return !n || n.getAttribute('data-known') !== 'checking';
       }, null, { polling: 200, timeout: 20000 }).catch(() => {});
       await sleep(200);
       return ev(page, () => {
         const d = document.getElementById('sosGapMemberDetail');
+        const save = d?.querySelector('#sosGapSaveUser');
         return {
           pk: d?.getAttribute('data-pk') || '',
           text: d?.querySelector('.gap-who')?.innerText || '',
-          registration: d?.querySelector('#sosGapRegistrationNote')?.getAttribute('data-registration') || '',
+          known: d?.querySelector('#sosGapLegacyNote')?.getAttribute('data-known') || '',
+          stateNote: d?.querySelector('#sosGapUserStateNote')?.textContent || '',
           addBtn: !!d?.querySelector('#sosGapAddMember'),
-          reconcileBtn: !!d?.querySelector('#sosGapReconcileOne'),
+          confirmBtn: !!d?.querySelector('#sosGapConfirmMember'),
           inviteBtn: !!d?.querySelector('[data-act="invite-user"]'),
-          save: !!d?.querySelector('#sosGapSaveUser'),
+          save: !!save,
+          saveEnabled: !!save && !save.disabled,
+          permsTitle: Array.from(d?.querySelectorAll('h3') || []).some((h) => h.textContent.trim() === 'ניהול הרשאות'),
           remove: !!d?.querySelector('[data-act="remove-member"]'),
           block: !!d?.querySelector('[data-act="block-user"]'),
+          unblock: !!d?.querySelector('[data-act="unblock-user"]'),
         };
       });
     };
@@ -1934,14 +1939,14 @@ async function main() {
     const zAgain = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.addMember(pk)).code, Z.pub);
     set(
       'DEFAULT_COMMUNITY_NO_ADD_BUTTON_FOR_UNREGISTERED',
-      zBefore.member !== 'ACTIVE' && zDrawerBefore.pk === Z.pub && /לא חבר בקבוצה/.test(zDrawerBefore.text) && zDrawerBefore.registration === 'NOT_REGISTERED' &&
-        !zDrawerBefore.addBtn && !zDrawerBefore.reconcileBtn && !zDrawerBefore.inviteBtn,
+      zBefore.member !== 'ACTIVE' && zDrawerBefore.pk === Z.pub && /לא חבר בקבוצה/.test(zDrawerBefore.text) && zDrawerBefore.known === '0' &&
+        !zDrawerBefore.addBtn && !zDrawerBefore.confirmBtn && !zDrawerBefore.saveEnabled && !zDrawerBefore.inviteBtn,
       { zBefore: zBefore.member, zDrawerBefore }
     );
     set(
       'EXISTING_USER_DIRECT_ADD',
       /^ADDED/.test(addApi) && zOnB.ok && zAfter.member === 'ACTIVE' && zAgain === 'ALREADY_MEMBER' &&
-        /חבר בקבוצה/.test(zDrawerAfter.text) && !zDrawerAfter.addBtn && zDrawerAfter.save && zDrawerAfter.remove && zDrawerAfter.block,
+        /חבר פעיל/.test(zDrawerAfter.text) && !zDrawerAfter.addBtn && zDrawerAfter.save && zDrawerAfter.remove && zDrawerAfter.block,
       { addApi, zOnB: zOnB.ok, zAgain, zDrawerAfter }
     );
     set('DIRECT_ADD_REQUIRES_MANAGE_MEMBERS', bAddDenied === 'UNAUTHORIZED', { bAddDenied });
@@ -1954,11 +1959,12 @@ async function main() {
       assigned: zAfter.assigned,
     });
 
-    // ---- default community: SOS-registered accounts become members (reviewed reconciliation), REMOVED / BLOCKED never re-added
-    trace('registered-reconcile');
+    // ---- "כל המשתמשים": global SOS directory, legacy confirm / one-action permissions, REMOVED / BLOCKED never re-added
+    trace('user-directory');
     const Q = mkKey(); // registered, then blocklisted
-    const N = mkKey(); // email-registry for another network only
-    const PO = mkKey(); // profile-only (no SOS registration)
+    const N = mkKey(); // email-registry for another network only (not an SOS account here)
+    const PO = mkKey(); // legacy account with an SOS-published profile only
+    const XU = mkKey(); // arbitrary Nostr key, nothing published
     const now = () => Math.floor(Date.now() / 1000);
     const regEvent = (k, network) =>
       finalizeEvent(
@@ -1975,65 +1981,214 @@ async function main() {
     const qBlock = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.blockMember(pk)).code, Q.pub);
     const zRemove = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.removeMember(pk)).code, Z.pub);
     const zRemovedOnA = await waitView(ua.page, Z.pub, "v.member === 'REMOVED'", 30000);
-    const yBeforeRec = await view(ua.page, Y.pub);
-    const bGaps = await ev(ub.page, async () => (await window.NostrApp.FirstGroupAdmin.listMembershipGaps()).code);
-    const bRec = await ev(ub.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.reconcileRegisteredMembers([pk])).code, Y.pub);
+    const yBefore = await view(ua.page, Y.pub);
+    const poBefore = await view(ua.page, PO.pub);
+    const bDenied = await ev(
+      ub.page,
+      async (a) => {
+        const F = window.NostrApp.FirstGroupAdmin;
+        return {
+          list: (await F.listKnownUsers()).code,
+          confirm: (await F.confirmLegacyMember(a.po)).code,
+          save: (await F.savePermissions(a.y, ['MODERATE_CONTENT'])).code,
+        };
+      },
+      { po: PO.pub, y: Y.pub }
+    );
+
+    // directory UI
     await openUi(ua.page, 'members');
-    await domClick(ua.page, '#sosGapLoadGaps');
-    await waitSel(ua.page, '#sosGapGapCount', 30000).catch(() => {});
-    const gapUi = await ev(ua.page, () => ({
-      count: Number(document.getElementById('sosGapGapCount')?.getAttribute('data-count') || -1),
-      pks: Array.from(document.querySelectorAll('#sosGapGapList [data-gap-pk]')).map((e) => e.getAttribute('data-gap-pk')),
-      button: document.getElementById('sosGapReconcile')?.textContent.trim() || '',
-    }));
-    await shot(ua.page, 'p1-registered-gaps');
-    const grantsBefore = r1.all([39003]).length;
-    const recUi = gapUi.button ? await actConfirm(ua.page, '#sosGapReconcile').catch((e) => ({ ok: false, text: String(e.message || e).slice(0, 80) })) : { ok: false, text: 'no button' };
-    const yOnB = await waitView(ub.page, Y.pub, "v.member === 'ACTIVE'", 30000);
-    const yAfter = await view(ub.page, Y.pub);
-    const zAfterRec = await view(ub.page, Z.pub);
-    const qState = await ev(ub.page, (pk) => {
-      const App = window.NostrApp;
-      const st = App.GroupControlState.getVerifiedControlState('israel-network') || {};
-      return { member: App.MembershipState.getMemberState(pk, 'israel-network'), listed: (st.blockedPubkeys || []).includes(pk) };
-    }, Q.pub);
-    const nState = (await view(ub.page, N.pub)).member;
-    const poState = (await view(ub.page, PO.pub)).member;
+    await sleep(800);
+    await domClick(ua.page, '#sosGapDirRefresh').catch(() => {});
+    await ua.page.waitForFunction(() => document.getElementById('sosGapDirCount')?.getAttribute('data-loaded') === '1', null, { polling: 200, timeout: 45000 }).catch(() => {});
+    await sleep(300);
+    const dirRows = () =>
+      ev(ua.page, () =>
+        Array.from(document.querySelectorAll('#sosGapMemberList [data-dir-pk]')).map((e) => ({
+          pk: e.getAttribute('data-dir-pk'),
+          status: e.getAttribute('data-dir-status'),
+          badge: e.querySelector('.gap-chip')?.textContent.trim() || '',
+          name: e.querySelector('.gap-user-name')?.textContent.trim() || '',
+          avatar: !!e.querySelector('.gap-avatar, img, [class*="avatar"]'),
+          short: e.querySelector('.gap-mono')?.textContent.trim() || '',
+        }))
+      );
+    const dirAll = await dirRows();
+    await shot(ua.page, 'p1-directory-all');
+    const byPk = new Map(dirAll.map((r) => [r.pk, r]));
+    const filterRows = async (id) => {
+      await domClick(ua.page, `#sosGapDirFilters [data-filter="${id}"]`);
+      await sleep(250);
+      return dirRows();
+    };
+    const fLegacy = await filterRows('LEGACY');
+    const fBlocked = await filterRows('BLOCKED');
+    const fRemoved = await filterRows('REMOVED');
+    const fActive = await filterRows('ACTIVE');
+    await filterRows('ALL');
+    await ev(ua.page, (q) => {
+      const i = document.getElementById('sosGapDirSearch');
+      i.value = q;
+      i.dispatchEvent(new Event('input', { bubbles: true }));
+    }, 'profile only');
+    await sleep(250);
+    const searchByName = await dirRows();
+    await ev(ua.page, (q) => {
+      const i = document.getElementById('sosGapDirSearch');
+      i.value = q;
+      i.dispatchEvent(new Event('input', { bubbles: true }));
+    }, Y.pub);
+    await sleep(250);
+    const searchByPk = await dirRows();
+    await ev(ua.page, () => {
+      const i = document.getElementById('sosGapDirSearch');
+      i.value = '';
+      i.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const filterLabels = await ev(ua.page, () => Array.from(document.querySelectorAll('#sosGapDirFilters [data-filter]')).map((b) => b.textContent.trim()));
+    const tabLabel = await ev(ua.page, () => document.querySelector('#sosGapTabs [data-tab="members"]')?.textContent.trim() || '');
+
+    // drawers before any change
+    const poDrawer = await openDrawer(ua.page, PO.pub);
+    await shot(ua.page, 'p1-legacy-drawer');
+    await closeDrawer(ua.page);
+    const nDrawer = await openDrawer(ua.page, N.pub);
+    await closeDrawer(ua.page);
+    const xDrawer = await openDrawer(ua.page, XU.pub);
+    await closeDrawer(ua.page);
+    const zRemDrawer = await openDrawer(ua.page, Z.pub);
+    await closeDrawer(ua.page);
+    const qDrawer = await openDrawer(ua.page, Q.pub);
+    await closeDrawer(ua.page);
+
+    // PO: "אישור כחבר" → plain member, no capability, no invite authority
     const grantsFor = (pk) =>
       r1
         .all([39003])
         .map((e) => ({ e, b: JSON.parse(e.content) }))
         .filter((x) => x.e.pubkey === A.pub && x.b.memberPubkey === pk && x.b.transition === 'GRANT_ACTIVE');
-    const yGrants1 = grantsFor(Y.pub).length;
-    const rerun = await ev(ua.page, async (pks) => {
-      const r = await window.NostrApp.FirstGroupAdmin.reconcileRegisteredMembers(pks);
-      return { ok: r.ok, code: r.code, granted: r.granted, codes: (r.results || []).map((x) => x.code) };
-    }, [Y.pub, Z.pub, Q.pub, N.pub, PO.pub]);
-    await sleep(500);
-    const grantsAfter = r1.all([39003]).length;
+    const invitesBeforeDir = r1.all([37378]).length;
+    await openDrawer(ua.page, PO.pub);
+    const poConfirmUi = await actConfirm(ua.page, '#sosGapConfirmMember').catch((e) => ({ ok: false, text: String(e.message || e).slice(0, 80) }));
+    const poOnB = await waitView(ub.page, PO.pub, "v.member === 'ACTIVE'", 30000);
+    const poAfter = await view(ub.page, PO.pub);
+    const poInviteUi = await ev(ub.page, (pk) => {
+      const F = window.NostrApp.FirstGroupAdmin;
+      const a = F.authorityFor(pk);
+      return { invite: a.caps.indexOf('INVITE_USERS') !== -1, role: a.role };
+    }, PO.pub);
+    await closeDrawer(ua.page);
+
+    // Y: legacy (registered) → "ניהול הרשאות" save with MODERATE_CONTENT: membership + exactly that capability in one owner action
+    const yDrawerBefore = await openDrawer(ua.page, Y.pub);
+    await domClick(ua.page, '#sosGapMemberDetail input[data-cap="MODERATE_CONTENT"]');
+    const ySaveUi = await actConfirm(ua.page, '#sosGapSaveUser').catch((e) => ({ ok: false, text: String(e.message || e).slice(0, 80) }));
+    const yOnB = await waitView(ub.page, Y.pub, "v.member === 'ACTIVE' && v.caps.indexOf('MODERATE_CONTENT') !== -1", 45000);
+    const yAfter = await view(ub.page, Y.pub);
+    await closeDrawer(ua.page);
     const yDrawer = await openDrawer(ua.page, Y.pub);
     await closeDrawer(ua.page);
-    const poDrawer = await openDrawer(ua.page, PO.pub);
-    await shot(ua.page, 'p1-unregistered-drawer');
-    await closeDrawer(ua.page);
-    info('P1_REGISTERED_RECONCILE', { qBlock, zRemove, bGaps, bRec, gapUi: { count: gapUi.count, n: gapUi.pks.length }, recUi, rerun });
-    set('REGISTERED_GAPS_LIST_EXACT', gapUi.count === 1 && gapUi.pks.length === 1 && gapUi.pks[0] === Y.pub && /השלמת חברות \(1\)/.test(gapUi.button), {
-      count: gapUi.count,
-      onlyY: gapUi.pks.length === 1 && gapUi.pks[0] === Y.pub,
-      button: gapUi.button,
+
+    // rejections and idempotency (API, same paths as the UI)
+    const rej = await ev(
+      ua.page,
+      async (k) => {
+        const F = window.NostrApp.FirstGroupAdmin;
+        return {
+          zConfirm: (await F.confirmLegacyMember(k.z)).code,
+          zSave: (await F.savePermissions(k.z, ['MODERATE_CONTENT'])).code,
+          qConfirm: (await F.confirmLegacyMember(k.q)).code,
+          qSave: (await F.savePermissions(k.q, ['MODERATE_CONTENT'])).code,
+          nConfirm: (await F.confirmLegacyMember(k.n)).code,
+          nSave: (await F.savePermissions(k.n, ['MODERATE_CONTENT'])).code,
+          xConfirm: (await F.confirmLegacyMember(k.x)).code,
+          poAgain: (await F.confirmLegacyMember(k.po)).code,
+          rootConfirm: (await F.confirmLegacyMember(k.root)).code,
+        };
+      },
+      { z: Z.pub, q: Q.pub, n: N.pub, x: XU.pub, po: PO.pub, root: A.pub }
+    );
+    await sleep(500);
+    const zAfter2 = await view(ub.page, Z.pub);
+    const qState = await ev(ub.page, (pk) => {
+      const App = window.NostrApp;
+      const st = App.GroupControlState.getVerifiedControlState('israel-network') || {};
+      return { member: App.MembershipState.getMemberState(pk, 'israel-network'), listed: (st.blockedPubkeys || []).includes(pk), caps: App.FirstGroupAdmin.authorityFor(pk).caps.length };
+    }, Q.pub);
+    const nState = await view(ub.page, N.pub);
+    const xState = await view(ub.page, XU.pub);
+    const invitesAfterDir = r1.all([37378]).length;
+    info('P1_USER_DIRECTORY', {
+      qBlock,
+      zRemove,
+      bDenied,
+      dirCount: dirAll.length,
+      statuses: { y: byPk.get(Y.pub)?.status, po: byPk.get(PO.pub)?.status, q: byPk.get(Q.pub)?.status, z: byPk.get(Z.pub)?.status, n: !!byPk.get(N.pub), x: !!byPk.get(XU.pub) },
+      poConfirmUi,
+      ySaveUi,
+      rej,
     });
-    set('REGISTERED_RECONCILE_GRANTS_ACTIVE_NO_CAPS', yBeforeRec.member === 'UNKNOWN' && recUi.ok && yOnB.ok && yAfter.member === 'ACTIVE' && yAfter.assigned.length === 0 && yAfter.caps.length === 0 && yGrants1 === 1 && grantsAfter - grantsBefore === 1, {
-      yBefore: yBeforeRec.member,
-      recUi,
-      yAfter: { member: yAfter.member, caps: yAfter.caps, assigned: yAfter.assigned },
-      yGrants1,
-      newGrants: grantsAfter - grantsBefore,
+    set('ALL_USERS_TAB_LABEL', tabLabel === 'כל המשתמשים', { tabLabel });
+    set('ALL_USERS_DIRECTORY_VISIBLE', dirAll.length >= 5 && !!byPk.get(A.pub) && byPk.get(A.pub).status === 'ROOT', { count: dirAll.length, root: byPk.get(A.pub)?.status });
+    set(
+      'DIRECTORY_STATUSES',
+      byPk.get(Y.pub)?.status === 'LEGACY' && byPk.get(PO.pub)?.status === 'LEGACY' && byPk.get(Q.pub)?.status === 'BLOCKED' && byPk.get(Z.pub)?.status === 'REMOVED' &&
+        byPk.get(Y.pub)?.badge === 'חשבון ותיק' && byPk.get(Q.pub)?.badge === 'חסום' && byPk.get(Z.pub)?.badge === 'הוסר' &&
+        dirAll.filter((r) => r.status === 'ACTIVE').every((r) => r.badge === 'חבר פעיל'),
+      { y: byPk.get(Y.pub), po: byPk.get(PO.pub), q: byPk.get(Q.pub), z: byPk.get(Z.pub) }
+    );
+    set('DIRECTORY_EXCLUDES_ARBITRARY_KEYS', !byPk.get(N.pub) && !byPk.get(XU.pub), { n: !!byPk.get(N.pub), x: !!byPk.get(XU.pub) });
+    set(
+      'DIRECTORY_NO_TECHNICAL_TERMS',
+      dirAll.every((r) => !/registration|GRANT_ACTIVE|membership|record/i.test(r.badge + r.name)) && dirAll.every((r) => r.short.length > 0 && r.short.length < 30),
+      { sample: dirAll.slice(0, 3).map((r) => r.short) }
+    );
+    set('PROFILE_NAME_AND_AVATAR_VISIBLE', byPk.get(PO.pub)?.name === 'profile only' && dirAll.every((r) => r.avatar), { po: byPk.get(PO.pub)?.name });
+    set(
+      'DIRECTORY_FILTERS',
+      JSON.stringify(filterLabels) === JSON.stringify(['הכל', 'חברים פעילים', 'חשבונות ותיקים', 'חסומים', 'הוסרו']) &&
+        fLegacy.length >= 2 && fLegacy.every((r) => r.status === 'LEGACY') && fLegacy.some((r) => r.pk === PO.pub) && fLegacy.some((r) => r.pk === Y.pub) &&
+        fBlocked.every((r) => r.status === 'BLOCKED') && fBlocked.some((r) => r.pk === Q.pub) &&
+        fRemoved.every((r) => r.status === 'REMOVED') && fRemoved.some((r) => r.pk === Z.pub) &&
+        fActive.every((r) => r.status === 'ACTIVE' || r.status === 'ROOT') && !fActive.some((r) => r.pk === Q.pub || r.pk === Z.pub),
+      { filterLabels, legacy: fLegacy.length, blocked: fBlocked.length, removed: fRemoved.length, active: fActive.length }
+    );
+    set('DIRECTORY_SEARCH', searchByName.length >= 1 && searchByName.every((r) => r.pk === PO.pub) && searchByPk.length === 1 && searchByPk[0].pk === Y.pub, {
+      byName: searchByName.length,
+      byPk: searchByPk.length,
     });
-    set('REGISTERED_RECONCILE_SKIPS_REMOVED_BLOCKED_UNREGISTERED', zRemovedOnA.ok && zAfterRec.member === 'REMOVED' && qState.listed && qState.member !== 'ACTIVE' && nState !== 'ACTIVE' && poState !== 'ACTIVE', { zRemove, z: zAfterRec.member, qBlock, q: qState, n: nState, po: poState });
-    set('REGISTERED_RECONCILE_IDEMPOTENT', rerun.ok && rerun.granted === 0 && rerun.code === 'NOTHING_TO_RECONCILE' && grantsFor(Y.pub).length === 1 && grantsFor(Z.pub).length === 1 && grantsFor(Q.pub).length === 0, rerun);
-    set('REGISTERED_RECONCILE_REQUIRES_MANAGE_MEMBERS', bGaps === 'UNAUTHORIZED' && bRec === 'UNAUTHORIZED', { bGaps, bRec });
-    set('REGISTERED_MEMBER_DRAWER', /חבר בקבוצה/.test(yDrawer.text) && !yDrawer.addBtn && !yDrawer.reconcileBtn && yDrawer.save && yDrawer.remove && yDrawer.block, yDrawer);
-    set('UNREGISTERED_NOT_SENT_TO_INVITE_OR_ADD', poDrawer.registration === 'NOT_REGISTERED' && !poDrawer.addBtn && !poDrawer.reconcileBtn && !poDrawer.inviteBtn, poDrawer);
+    set(
+      'OLD_USER_MANAGE_PANEL_VISIBLE',
+      poDrawer.known === '1' && /חשבון ותיק/.test(poDrawer.text) && poDrawer.confirmBtn && poDrawer.saveEnabled && poDrawer.permsTitle && !poDrawer.remove && poDrawer.block && !poDrawer.addBtn,
+      poDrawer
+    );
+    set('UNKNOWN_KEY_NOT_ADDABLE', nDrawer.known === '0' && !nDrawer.confirmBtn && !nDrawer.saveEnabled && !nDrawer.addBtn && xDrawer.known === '0' && !xDrawer.confirmBtn && !xDrawer.saveEnabled, { nDrawer, xDrawer });
+    set('REMOVED_DRAWER_NO_AUTO_REACTIVATE', /הוסר/.test(zRemDrawer.text) && /לא יצורף מחדש אוטומטית/.test(zRemDrawer.stateNote) && !zRemDrawer.confirmBtn && !zRemDrawer.save, zRemDrawer);
+    set('BLOCKED_DRAWER_UNBLOCK_ONLY', /חסום/.test(qDrawer.text) && qDrawer.unblock && !qDrawer.confirmBtn && !qDrawer.save && !qDrawer.remove, qDrawer);
+    set(
+      'LEGACY_CONFIRM_GRANTS_ACTIVE_NO_CAPS',
+      poBefore.member === 'UNKNOWN' && poConfirmUi.ok && poOnB.ok && poAfter.member === 'ACTIVE' && poAfter.assigned.length === 0 && poAfter.caps.length === 0 && grantsFor(PO.pub).length === 1,
+      { poBefore: poBefore.member, poConfirmUi, poAfter: { member: poAfter.member, caps: poAfter.caps }, grants: grantsFor(PO.pub).length }
+    );
+    set('MEMBERSHIP_DOES_NOT_GRANT_INVITE', !poInviteUi.invite && poInviteUi.role === 'MEMBER' && invitesAfterDir === invitesBeforeDir, { poInviteUi, invitesBeforeDir, invitesAfterDir });
+    set(
+      'OLD_ACTIVE_USER_CAN_RECEIVE_PERMISSIONS',
+      yBefore.member === 'UNKNOWN' && yDrawerBefore.saveEnabled && ySaveUi.ok && yOnB.ok && yAfter.member === 'ACTIVE' &&
+        JSON.stringify(yAfter.assigned) === JSON.stringify(['MODERATE_CONTENT']) && yAfter.caps.indexOf('INVITE_USERS') === -1 && grantsFor(Y.pub).length === 1,
+      { yBefore: yBefore.member, ySaveUi, yAfter: { member: yAfter.member, assigned: yAfter.assigned, caps: yAfter.caps }, grants: grantsFor(Y.pub).length }
+    );
+    set('PERMISSIONS_DEPEND_ON_INVITE_HISTORY_FALSE', yOnB.ok && poOnB.ok && !r1.all([37379]).some((e) => e.pubkey === Y.pub || e.pubkey === PO.pub), { y: yOnB.ok, po: poOnB.ok });
+    set(
+      'LEGACY_REJECTS_REMOVED_BLOCKED_UNKNOWN_ROOT',
+      rej.zConfirm === 'TARGET_REMOVED' && rej.zSave === 'TARGET_REMOVED' && rej.qConfirm === 'TARGET_BLOCKED' && rej.qSave === 'TARGET_BLOCKED' &&
+        rej.nConfirm === 'NOT_KNOWN_SOS_ACCOUNT' && rej.nSave === 'NOT_KNOWN_SOS_ACCOUNT' && rej.xConfirm === 'NOT_KNOWN_SOS_ACCOUNT' && rej.rootConfirm === 'ROOT_PROTECTED' &&
+        zRemovedOnA.ok && zAfter2.member === 'REMOVED' && zAfter2.caps.length === 0 && qState.listed && qState.member !== 'ACTIVE' && qState.caps === 0 &&
+        nState.member !== 'ACTIVE' && xState.member !== 'ACTIVE' && grantsFor(Z.pub).length === 1 && grantsFor(Q.pub).length === 0 && grantsFor(N.pub).length === 0 && grantsFor(XU.pub).length === 0,
+      { rej, z: zAfter2.member, q: qState, n: nState.member, x: xState.member }
+    );
+    set('LEGACY_CONFIRM_IDEMPOTENT', rej.poAgain === 'ALREADY_MEMBER' && grantsFor(PO.pub).length === 1, { poAgain: rej.poAgain });
+    set('LEGACY_REQUIRES_AUTHORITY', bDenied.list === 'UNAUTHORIZED' && bDenied.confirm === 'UNAUTHORIZED' && bDenied.save === 'UNAUTHORIZED', bDenied);
+    set('REGISTERED_MEMBER_DRAWER', /חבר פעיל/.test(yDrawer.text) && !yDrawer.addBtn && !yDrawer.confirmBtn && yDrawer.save && yDrawer.remove && yDrawer.block, yDrawer);
 
     // ---- invite lifecycle: 24h single-use invites; lifecycle list with statuses
     const lcInv = await ev(ua.page, async () => {
@@ -2180,7 +2335,7 @@ async function main() {
     const afterBlockB = await ev(ub.page, ({ p3, c3, parent }) => ({ post: window.NostrApp.postsById.has(p3), comment: window.NostrApp.listVisibleComments(parent).some((c) => c.id === c3) }), { p3: P3.id, c3: C3.id, parent: PB.id });
     const afterBlockA = await ev(ua.page, ({ p3 }) => window.NostrApp.postsById.has(p3), { p3: P3.id });
     await shot(ua.page, 'p1-blocked-user-drawer');
-    set('BLOCK_USER_UI', tDrawer.block === 'חסום משתמש' && tDrawer.remove === 'הסר מהקבוצה' && tDrawer.content === 'תוכן של המשתמש' && blockUi.ok, { tDrawer, blockUi });
+    set('BLOCK_USER_UI', tDrawer.block === 'חסום משתמש' && tDrawer.remove === 'הסר משתמש' && tDrawer.content === 'תוכן המשתמש' && blockUi.ok, { tDrawer, blockUi });
     set(
       'BLOCK_USER_ENFORCED',
       tBlockedOnT.ok && tBlockedOnB.ok && !tOnB.post && !tOnB.comment && !tOnB.reaction && !tOnB.p2p && tSelf.commentDenied && tSelf.like === null && tSelf.invite !== 'CREATED' && !tSelf.menu && tSelf.caps === 0,
@@ -2273,7 +2428,7 @@ async function main() {
       reporterVisible: wraps.some((w) => w.pubkey === T.pub || w.tags.some((t) => t[1] === T.pub)) || wrapBlob.includes(T.pub),
       targetVisible: wrapBlob.includes(P4.id) || wrapBlob.includes(B.pub),
       reasonVisible: /SPAM|ספאם/.test(wrapBlob),
-      onlyPTagsToModerators: wraps.every((w) => w.tags.filter((t) => t[0] === 'p').every((t) => t[1] === A.pub)),
+      onlyPTagsToModerators: wraps.every((w) => w.tags.filter((t) => t[0] === 'p').every((t) => t[1] === A.pub || t[1] === Y.pub)),
     };
     await openUi(ua.page, 'reports');
     await sleep(300);

@@ -1102,6 +1102,202 @@
     return { ok: true, rows, counts, groupId: FIRST_GROUP.groupId };
   }
 
+  // ---------------------------------------------------------------- global SOS user directory
+  // Identity is global (pubkey); status, permissions and membership shown here are for the selected community.
+
+  const DIRECTORY_CAPS = Object.freeze(['MANAGE_MEMBERS', 'MANAGE_BLOCKLIST', 'MANAGE_PERMISSIONS', 'MANAGE_ADMINS', 'MODERATE_CONTENT']);
+  const KNOWN_USERS_MAX = 5000;
+  const sosProfileCache = new Map();
+
+  function parseProfile(ev) {
+    try {
+      const c = JSON.parse(ev.content || '{}');
+      return {
+        name: String(c.display_name || c.name || '').trim().slice(0, 80),
+        picture: String(c.picture || '').trim().slice(0, 1000),
+      };
+    } catch (_e) {
+      return { name: '', picture: '' };
+    }
+  }
+
+  /**
+   * Every known SOS identity: canonical members (active / removed / blocked), blocklisted keys, accounts with their own
+   * SOS email-registry record and accounts with an SOS-published profile. Arbitrary Nostr keys are not included.
+   * status: ROOT | ACTIVE | REMOVED | BLOCKED | CONFLICT | LEGACY (known SOS account without membership here).
+   */
+  async function listKnownUsers() {
+    const g = guard('LIST_USERS', DIRECTORY_CAPS);
+    if (!g.ok) return g;
+    const st = verifiedControl();
+    if (!st) return fail('NO_VERIFIED_CONTROL');
+    let reg;
+    let prof;
+    let notes;
+    try {
+      [reg, prof, notes] = await Promise.all([
+        queryRelays(registryFilter({ limit: KNOWN_USERS_MAX })),
+        queryRelays({ kinds: [0], '#t': [FIRST_GROUP.networkTag], limit: KNOWN_USERS_MAX }),
+        queryRelays({ kinds: [1], '#t': [FIRST_GROUP.networkTag], limit: 3000 }),
+      ]);
+    } catch (_e) {
+      return fail('RELAY_QUERY_FAILED');
+    }
+    const rows = new Map();
+    const touch = (pk) => {
+      if (!rows.has(pk)) rows.set(pk, { pubkey: pk, registered: false, sosProfile: false, displayName: '', avatar: '', lastActiveAt: 0 });
+      return rows.get(pk);
+    };
+    directory('').forEach((r) => {
+      const row = touch(r.pubkey);
+      if (r.displayName) row.displayName = r.displayName;
+      if (r.avatar) row.avatar = r.avatar;
+    });
+    (st.blockedPubkeys || []).forEach((p) => {
+      const pk = normalizePubkey(p);
+      if (pk) touch(pk);
+    });
+    const now = Date.now();
+    reg.forEach((ev) => {
+      const pk = normalizePubkey(ev.pubkey);
+      if (!pk || !isRegistryEvent(ev, pk)) return;
+      const row = touch(pk);
+      row.registered = true;
+      registryCache.set(pk, { registered: true, at: now });
+    });
+    const profileSeen = new Set();
+    prof
+      .slice()
+      .sort((a, b) => b.created_at - a.created_at)
+      .forEach((ev) => {
+        const pk = normalizePubkey(ev.pubkey);
+        if (!pk || profileSeen.has(pk)) return;
+        if (typeof App.strictVerifyNostrEvent !== 'function' || App.strictVerifyNostrEvent(ev) !== true) return;
+        profileSeen.add(pk);
+        sosProfileCache.set(pk, { at: now });
+        const row = touch(pk);
+        row.sosProfile = true;
+        const p = parseProfile(ev);
+        if (p.name && !row.displayName) row.displayName = p.name;
+        if (p.picture && !row.avatar) row.avatar = p.picture;
+        row.lastActiveAt = Math.max(row.lastActiveAt, ev.created_at || 0);
+      });
+    const verifiedNote = new Set();
+    notes
+      .slice()
+      .sort((a, b) => b.created_at - a.created_at)
+      .forEach((ev) => {
+        const pk = normalizePubkey(ev.pubkey);
+        if (!pk || !rows.has(pk) || verifiedNote.has(pk)) return;
+        if (typeof App.strictVerifyNostrEvent !== 'function' || App.strictVerifyNostrEvent(ev) !== true) return;
+        verifiedNote.add(pk);
+        const row = rows.get(pk);
+        row.lastActiveAt = Math.max(row.lastActiveAt, ev.created_at || 0);
+      });
+    const root = normalizePubkey(st.rootAdminPubkey);
+    const out = Array.from(rows.values()).map((r) => {
+      const a = authorityFor(r.pubkey);
+      const ms = memberStatus(r.pubkey);
+      const listed = (st.blockedPubkeys || []).indexOf(r.pubkey) !== -1;
+      let status = ms;
+      if (r.pubkey === root) status = 'ROOT';
+      else if (listed && ms !== 'REMOVED') status = 'BLOCKED';
+      else if (ms === 'UNKNOWN') status = 'LEGACY';
+      return Object.assign(r, {
+        status,
+        isRoot: r.pubkey === root,
+        role: a.role,
+        roleLabel: roleLabel(a.role),
+        assigned: a.assigned.slice(),
+        caps: a.caps.slice(),
+      });
+    });
+    const counts = { ALL: out.length };
+    out.forEach((r) => {
+      counts[r.status] = (counts[r.status] || 0) + 1;
+    });
+    return { ok: true, groupId: FIRST_GROUP.groupId, rows: out, counts };
+  }
+
+  /** Known SOS account (own email-registry record or SOS-published profile); arbitrary keys are not. */
+  async function isKnownSosAccount(pk) {
+    if ((await lookupRegistration([pk]))[pk] === 'REGISTERED') return true;
+    if (sosProfileCache.has(pk)) return true;
+    let evs;
+    try {
+      evs = await queryRelays({ kinds: [0], authors: [pk], '#t': [FIRST_GROUP.networkTag], limit: 5 });
+    } catch (_e) {
+      return false;
+    }
+    const ok = evs.some(
+      (ev) => normalizePubkey(ev.pubkey) === pk && typeof App.strictVerifyNostrEvent === 'function' && App.strictVerifyNostrEvent(ev) === true
+    );
+    if (ok) sosProfileCache.set(pk, { at: Date.now() });
+    return ok;
+  }
+
+  /** Why a known account cannot be confirmed as a member here; '' when it can. Removed / blocked are never re-added. */
+  function legacyConfirmBlocker(target, st) {
+    if (!target) return 'BAD_PUBKEY';
+    if (target === normalizePubkey(st.rootAdminPubkey)) return 'ROOT_PROTECTED';
+    if ((st.blockedPubkeys || []).indexOf(target) !== -1) return 'TARGET_BLOCKED';
+    const s = memberStatus(target);
+    if (s === 'ACTIVE') return 'ALREADY_MEMBER';
+    if (s === 'REMOVED') return 'TARGET_REMOVED';
+    if (s !== 'UNKNOWN') return 'TARGET_NOT_ADDABLE';
+    return '';
+  }
+
+  /**
+   * Owner-reviewed legacy SOS account → plain member of the selected default community (canonical GRANT_ACTIVE,
+   * Admin 2FA, no capability, no invite).
+   */
+  async function confirmLegacyMember(targetPubkey) {
+    if (!defaultMembershipApplies()) return fail('NOT_DEFAULT_COMMUNITY');
+    const g = await nguard('GRANT_MEMBER_ACTIVE', ['MANAGE_MEMBERS']);
+    if (!g.ok) return g;
+    const target = normalizePubkey(targetPubkey);
+    const st = verifiedControl();
+    if (!st) return fail('NO_VERIFIED_CONTROL');
+    const blocker = legacyConfirmBlocker(target, st);
+    if (blocker) return fail(blocker);
+    if (!(await isKnownSosAccount(target))) return fail('NOT_KNOWN_SOS_ACCOUNT');
+    const mao = MAO();
+    if (!mao) return fail('NO_MEMBER_OPS');
+    const res = await mao.addExistingMember(target, g.actor, {});
+    if (!res || !res.ok) return res || fail('ADD_FAILED');
+    const n = NA();
+    const rb = n ? await n.reconcile('readback:confirm-member') : null;
+    const readback = !!(rb && rb.ok && memberStatus(target) === 'ACTIVE');
+    return done(Object.assign({}, res, { code: readback ? 'CONFIRMED' : 'CONFIRMED_PENDING_READBACK', readback }));
+  }
+
+  /**
+   * "ניהול הרשאות" save for any known account: an active member gets the permission diff; a legacy account not yet a
+   * member is first confirmed as a plain member (same owner flow), then gets exactly the chosen permissions.
+   * Permission authority is checked before membership is created, so a denied save changes nothing.
+   */
+  async function savePermissions(targetPubkey, desiredCaps, opts) {
+    const target = normalizePubkey(targetPubkey);
+    if (!target) return fail('BAD_PUBKEY');
+    if (memberStatus(target) === 'ACTIVE') return setPermissions(target, desiredCaps, opts);
+    if (!defaultMembershipApplies()) return fail('TARGET_NOT_ACTIVE_MEMBER');
+    const want = Array.from(new Set((desiredCaps || []).filter((c) => mapCaps().indexOf(c) !== -1)));
+    if (want.length) {
+      const p = await nguard('SET_PERMISSIONS', ['MANAGE_ADMINS', 'MANAGE_PERMISSIONS']);
+      if (!p.ok) return p;
+      const allowed = grantableCapsFor(p.auth, target);
+      const bad = want.filter((c) => allowed.indexOf(c) === -1);
+      if (bad.length) return fail('DELEGATION_ESCALATION', { caps: bad });
+    }
+    const c = await confirmLegacyMember(target);
+    if (!c.ok) return c;
+    if (!want.length) return Object.assign({}, c, { code: 'SAVED', steps: [] });
+    if (memberStatus(target) !== 'ACTIVE') return fail('MEMBERSHIP_PENDING_READBACK', { membership: c.code });
+    const r = await setPermissions(target, want, opts);
+    return Object.assign({}, r, { membershipCompleted: true });
+  }
+
   const RECONCILE_STOP_CODES = Object.freeze([
     'UNAUTHORIZED',
     'ADMIN_PIN_REQUIRED',
@@ -1786,6 +1982,10 @@
     lookupRegistration,
     listMembershipGaps,
     reconcileRegisteredMembers,
+    listKnownUsers,
+    isKnownSosAccount,
+    confirmLegacyMember,
+    savePermissions,
     listInviteLifecycle,
     blockMember,
     unblockMember,

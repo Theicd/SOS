@@ -11,7 +11,7 @@
 
   /** User-centric management: search a user, open the user panel, edit role + permissions, save. */
   const TABS = Object.freeze([
-    { id: 'members', label: 'חברים' },
+    { id: 'members', label: 'כל המשתמשים' },
     { id: 'admins', label: 'מנהלים' },
     { id: 'invites', label: 'הזמנות' },
     { id: 'reports', label: 'דיווחים' },
@@ -393,9 +393,12 @@
     ALREADY_MEMBER: 'המשתמש כבר חבר בקבוצה',
     TARGET_BLOCKED: 'המשתמש חסום. הסירו את החסימה לפני הוספה',
     TARGET_NOT_ADDABLE: 'אי אפשר להוסיף את המשתמש כרגע',
-    NOT_DEFAULT_COMMUNITY: 'השלמת חברות זמינה בקבוצה הראשית בלבד',
+    NOT_DEFAULT_COMMUNITY: 'פעולה זו זמינה בקבוצה הראשית בלבד',
     NOTHING_TO_RECONCILE: 'אין משתמשים להשלמת חברות',
     RECONCILE_PARTIAL: 'השלמת החברות הושלמה חלקית. נסו שוב כדי להשלים',
+    NOT_KNOWN_SOS_ACCOUNT: 'זה אינו חשבון SOS מוכר. מצטרפים לקבוצה רק דרך הזמנה.',
+    TARGET_REMOVED: 'המשתמש הוסר מהקבוצה ולא יצורף מחדש אוטומטית',
+    MEMBERSHIP_PENDING_READBACK: 'הצירוף נשלח וממתין לאישור הרשת. נסו לשמור את ההרשאות שוב בעוד רגע.',
     RELAY_QUERY_FAILED: 'אין חיבור לשרתי הרשת. נסו שוב בעוד רגע.',
     NO_MEMBER_OPS: 'מודול ניהול החברים לא נטען',
     NOT_BLOCKED: 'המשתמש אינו חסום',
@@ -572,11 +575,28 @@
 
   const USER_STATUS = Object.freeze({
     ROOT: 'בעלים של הקבוצה',
-    ACTIVE: 'חבר בקבוצה',
-    REMOVED: 'הוסר מהקבוצה',
+    ACTIVE: 'חבר פעיל',
+    LEGACY: 'חשבון ותיק',
+    REMOVED: 'הוסר',
     BLOCKED: 'חסום',
     CONFLICT: 'בבדיקה',
   });
+
+  const DIR_FILTERS = Object.freeze([
+    { id: 'ALL', label: 'הכל' },
+    { id: 'ACTIVE', label: 'חברים פעילים' },
+    { id: 'LEGACY', label: 'חשבונות ותיקים' },
+    { id: 'BLOCKED', label: 'חסומים' },
+    { id: 'REMOVED', label: 'הוסרו' },
+  ]);
+  const DIR_MAX_ROWS = 300;
+  let knownUsers = null;
+  let knownUsersLoading = false;
+  let knownUsersError = '';
+  let dirFilter = 'ALL';
+  let dirQuery = '';
+  let knownUsersGen = 0;
+  const knownExtra = new Set();
 
   const ACTION_LABELS = Object.freeze({
     BOOTSTRAP: 'הפעלת ניהול',
@@ -670,12 +690,28 @@
   }
 
   /** Role + status of any user from signed state (V2 on) or the configured root only (V2 off). */
+  function knownRow(pk) {
+    return knownUsers ? knownUsers.byPk.get(pk) || null : null;
+  }
+
+  /** Status in the selected community: signed membership first, then blocklist, then "known SOS account". */
   function userView(pk, rowIn) {
     const f = FGA();
     const isRoot = !!pk && pk === configuredRoot();
-    const row = rowIn || (isV2() ? f.directory('').find((r) => r.pubkey === pk) : null);
+    const canon = rowIn || (isV2() ? f.directory('').find((r) => r.pubkey === pk) : null);
+    const known = knownRow(pk);
     const a = f.authorityFor(pk);
-    const status = isRoot ? 'ROOT' : row ? row.status : a.membership;
+    const canonStatus = canon ? canon.status : a.membership;
+    let status = isRoot ? 'ROOT' : canonStatus;
+    if (!isRoot && isV2() && status !== 'ACTIVE' && status !== 'REMOVED' && typeof f.blockStateOf === 'function' && f.blockStateOf(pk) !== 'NONE') {
+      status = 'BLOCKED';
+    } else if (!isRoot && isV2() && status === 'UNKNOWN' && (known || knownExtra.has(pk))) {
+      status = 'LEGACY';
+    }
+    const row = {
+      displayName: (canon && canon.displayName) || (known && known.displayName) || '',
+      avatar: (canon && canon.avatar) || (known && known.avatar) || '',
+    };
     const role = isRoot ? 'ROOT' : a.role;
     return {
       pubkey: pk,
@@ -684,9 +720,11 @@
       roleLabel: f.roleLabel(role),
       assigned: isRoot ? [] : a.assigned.slice(),
       status,
+      canonStatus,
       statusLabel: USER_STATUS[status] || (isV2() ? 'לא חבר בקבוצה' : 'עדיין אין נתוני חברות'),
       member: isRoot || status === 'ACTIVE',
       profile: profileOf(pk, row),
+      lastActiveAt: (known && known.lastActiveAt) || 0,
     };
   }
 
@@ -822,16 +860,18 @@
       return;
     }
     const s = sections();
-    const rows = f.directory('').map((r) => userView(r.pubkey, r));
-    const rootRow = rows.find((u) => u.isRoot) || (root ? userView(root) : null);
-    const others = rows.filter((u) => !u.isRoot).sort(byName);
+    if (!knownUsers && !knownUsersLoading && !knownUsersError) loadKnownUsers();
     let html =
-      '<div class="gap-list" id="sosGapMemberList">' +
-      (rootRow ? userRowHtml(rootRow, { rootCard: true }) : '') +
-      others.map((u) => userRowHtml(u)).join('') +
-      '</div>';
-    if (!others.length) html += '<p class="gap-note">אין עדיין חברים נוספים להצגה.</p>';
-    if (s.removeMembers && f.defaultMembershipApplies()) html += membershipGapsHtml();
+      '<div class="gap-dir-filters" id="sosGapDirFilters" role="group" aria-label="סינון משתמשים">' +
+      DIR_FILTERS.map((x) =>
+        '<button type="button" class="gap-btn' + (x.id === dirFilter ? ' primary' : '') + '" data-act="dir-filter" data-filter="' + x.id + '" aria-pressed="' + (x.id === dirFilter) + '">' + escapeHtml(x.label) + '</button>'
+      ).join('') +
+      '<button type="button" class="gap-btn" id="sosGapDirRefresh" data-act="dir-refresh">רענון</button>' +
+      '</div>' +
+      '<div class="gap-search"><label for="sosGapDirSearch">חיפוש ברשימה</label>' +
+      '<input id="sosGapDirSearch" type="search" autocomplete="off" maxlength="120" placeholder="שם או מזהה משתמש"></div>' +
+      '<div class="gap-sub" id="sosGapDirCount" aria-live="polite"></div>' +
+      '<div class="gap-list" id="sosGapMemberList"></div>';
     if (s.removeMembers) {
       html +=
         '<h3 style="margin-top:16px">הצטרפויות ממתינות</h3>' +
@@ -840,51 +880,111 @@
         '<div class="gap-list" id="sosGapJoinList"></div>';
     }
     body.innerHTML = html;
+    const input = document.getElementById('sosGapDirSearch');
+    input.value = dirQuery;
+    input.addEventListener('input', () => {
+      dirQuery = String(input.value || '').trim().slice(0, 120);
+      renderDirList();
+    });
+    renderDirList();
   }
 
-  let membershipGaps = null;
   const registrationLookups = new Set();
+  const knownChecked = new Set();
 
-  function membershipGapsHtml() {
-    let html =
-      '<h3 style="margin-top:16px">משתמשים רשומים בלי חברות</h3>' +
-      '<p class="gap-note">כל מי שנרשם ל-SOS הוא חבר בקבוצה, חוץ ממי שהוסר או נחסם. כאן מוצגים משתמשים רשומים שהחברות שלהם עדיין לא נרשמה.</p>' +
-      '<div id="sosGapRegGaps">';
-    if (!membershipGaps) {
-      html += '<div class="gap-actions"><button type="button" class="gap-btn" data-act="load-gaps" id="sosGapLoadGaps">בדיקה</button></div>';
-    } else if (!membershipGaps.rows.length) {
-      html += '<div class="gap-sub" id="sosGapGapCount" data-count="0">אין משתמשים רשומים בלי חברות</div>';
-    } else {
-      const n = membershipGaps.rows.length;
-      html +=
-        '<div class="gap-sub" id="sosGapGapCount" data-count="' + n + '">' + n + ' משתמשים רשומים בלי חברות</div>' +
-        '<div class="gap-list" id="sosGapGapList">' +
-        membershipGaps.rows
-          .map((r) => {
-            const prof = profileOf(r.pubkey);
-            ensureProfile(r.pubkey);
-            return (
-              '<div class="gap-item" data-gap-pk="' + escapeHtml(r.pubkey) + '">' + avatarHtml(r.pubkey, prof) +
-              '<div class="gap-user-main"><div class="gap-user-name" data-name-pk="' + escapeHtml(r.pubkey) + '">' + escapeHtml(displayName(r.pubkey, prof)) + '</div><div class="gap-sub gap-mono">' + escapeHtml(shortPk(r.pubkey)) + '</div></div></div>'
-            );
-          })
-          .join('') +
-        '</div>' +
-        '<div class="gap-actions"><button type="button" class="gap-btn primary" id="sosGapReconcile" data-act="reconcile-members" data-mutation="1">השלמת חברות (' + n + ')</button></div>';
+  function formatActivity(ts) {
+    if (!ts) return '';
+    try {
+      return 'פעילות אחרונה: ' + new Date(ts * 1000).toLocaleDateString('he-IL');
+    } catch (_e) {
+      return '';
     }
-    return html + '</div>';
   }
 
-  async function loadGaps() {
-    const box = document.getElementById('sosGapRegGaps');
-    if (box) box.innerHTML = '<div class="gap-sub">בודק…</div>';
-    const res = await FGA().listMembershipGaps();
-    membershipGaps = res.ok ? res : null;
-    if (!res.ok) {
-      if (box) box.innerHTML = '<div class="gap-sub">' + escapeHtml(errText(res)) + '</div>';
-      return res;
+  function dirRowHtml(u) {
+    ensureProfile(u.pubkey);
+    const badge = '<span class="gap-chip' + (u.isRoot ? ' root' : '') + '" data-status="' + escapeHtml(u.status) + '">' + escapeHtml(u.statusLabel) + '</span>';
+    const roleChip = u.member && !u.isRoot && u.role !== 'MEMBER' ? '<span class="gap-chip">' + escapeHtml(u.roleLabel) + '</span>' : '';
+    const act = formatActivity(u.lastActiveAt);
+    return (
+      '<div class="gap-item gap-user' + (u.pubkey === selectedMember ? ' sel' : '') + '"' +
+      (u.isRoot ? ' id="sosGapRootCard" data-root="1"' : '') +
+      ' data-dir-pk="' + escapeHtml(u.pubkey) + '" data-dir-status="' + escapeHtml(u.status) + '"' +
+      ' data-act="select-member" data-pk="' + escapeHtml(u.pubkey) + '" role="button" tabindex="0">' +
+      avatarHtml(u.pubkey, u.profile) +
+      '<div class="gap-user-main"><div class="gap-user-name" data-name-pk="' + escapeHtml(u.pubkey) + '">' +
+      escapeHtml(displayName(u.pubkey, u.profile)) + '</div>' +
+      '<div class="gap-sub gap-mono">' + escapeHtml(shortPk(u.pubkey)) + '</div>' +
+      (act ? '<div class="gap-sub gap-dir-activity">' + escapeHtml(act) + '</div>' : '') +
+      '</div>' + badge + roleChip +
+      '<button type="button" class="gap-btn" tabindex="-1">ניהול</button></div>'
+    );
+  }
+
+  function dirFilterMatch(u) {
+    if (dirFilter === 'ALL') return true;
+    if (dirFilter === 'ACTIVE') return u.member;
+    return u.status === dirFilter;
+  }
+
+  function dirQueryMatch(u) {
+    if (!dirQuery) return true;
+    const direct = queryPubkey(dirQuery);
+    if (direct) return u.pubkey === direct;
+    const q = dirQuery.toLowerCase();
+    return u.pubkey.indexOf(q) !== -1 || displayName(u.pubkey, u.profile).toLowerCase().indexOf(q) !== -1;
+  }
+
+  /** Every identity known to SOS (global), with status in the selected community. */
+  function renderDirList() {
+    const list = document.getElementById('sosGapMemberList');
+    const count = document.getElementById('sosGapDirCount');
+    if (!list) return;
+    const f = FGA();
+    const root = configuredRoot();
+    const canon = new Map(f.directory('').map((r) => [r.pubkey, r]));
+    const pks = new Set(canon.keys());
+    if (knownUsers) knownUsers.rows.forEach((r) => pks.add(r.pubkey));
+    if (root) pks.add(root);
+    const all = Array.from(pks).map((pk) => userView(pk, canon.get(pk) || null));
+    const shown = all
+      .filter((u) => dirFilterMatch(u) && dirQueryMatch(u))
+      .sort((a, b) => (b.isRoot ? 1 : 0) - (a.isRoot ? 1 : 0) || (b.lastActiveAt || 0) - (a.lastActiveAt || 0) || byName(a, b));
+    list.innerHTML = shown.slice(0, DIR_MAX_ROWS).map(dirRowHtml).join('') || '<div class="gap-sub">לא נמצאו משתמשים</div>';
+    if (count) {
+      let txt = shown.length + ' מתוך ' + all.length + ' משתמשים';
+      if (shown.length > DIR_MAX_ROWS) txt += ' (מוצגים ' + DIR_MAX_ROWS + ' ראשונים – אפשר לחפש)';
+      if (knownUsersLoading) txt += ' · טוען משתמשים…';
+      else if (knownUsersError) txt += ' · ' + errText({ code: knownUsersError });
+      count.textContent = txt;
+      count.setAttribute('data-total', String(all.length));
+      count.setAttribute('data-shown', String(shown.length));
+      count.setAttribute('data-loaded', knownUsers ? '1' : '0');
     }
-    if (activeTab === 'members') renderTab(activeTab);
+  }
+
+  async function loadKnownUsers() {
+    const gen = knownUsersGen;
+    knownUsersLoading = true;
+    knownUsersError = '';
+    let res;
+    try {
+      res = await FGA().listKnownUsers();
+    } catch (_e) {
+      res = { ok: false, code: 'RELAY_QUERY_FAILED' };
+    }
+    if (gen !== knownUsersGen) return { ok: false, code: 'STALE' };
+    knownUsersLoading = false;
+    if (res && res.ok) {
+      knownUsers = { rows: res.rows, byPk: new Map(res.rows.map((r) => [r.pubkey, r])) };
+      res.rows.forEach((r) => {
+        if ((r.displayName || r.avatar) && !(profiles.get(r.pubkey) || {}).name) {
+          profiles.set(r.pubkey, { name: String(r.displayName || ''), picture: String(r.avatar || '') });
+        }
+      });
+    } else knownUsersError = (res && res.code) || 'RELAY_QUERY_FAILED';
+    if (activeTab === 'members') renderDirList();
+    if (selectedMember) renderDrawer();
     return res;
   }
 
@@ -1392,10 +1492,10 @@
     const btn = (act, label, cls) =>
       '<button type="button" class="gap-btn' + (cls ? ' ' + cls : '') + '" data-act="' + act + '" data-pk="' + pk + '"' + (cls === 'danger' || act === 'unblock-user' ? ' data-mutation="1"' : '') + '>' + label + '</button>';
     const btns = [];
-    if (s.removeMembers && (u.status === 'ACTIVE' || u.status === 'BLOCKED')) btns.push(btn('remove-member', 'הסר מהקבוצה', 'danger'));
+    if (s.removeMembers && (u.canonStatus === 'ACTIVE' || u.canonStatus === 'BLOCKED')) btns.push(btn('remove-member', 'הסר משתמש', 'danger'));
     if (s.blockMembers && (blockState === 'NONE' || (blockState === 'LISTED' && u.status === 'ACTIVE'))) btns.push(btn('block-user', 'חסום משתמש', 'danger'));
     if (s.blockMembers && blockState !== 'NONE') btns.push(btn('unblock-user', 'הסר חסימה', ''));
-    if (s.moderation || s.reports) btns.push(btn('user-content', 'תוכן של המשתמש', ''));
+    if (s.moderation || s.reports) btns.push(btn('user-content', 'תוכן המשתמש', ''));
     if (!btns.length) return '';
     return (
       '<h3>פעולות</h3><div class="gap-actions" id="sosGapUserActions" data-block-state="' + escapeHtml(blockState) + '">' + btns.join('') + '</div>' +
@@ -1442,34 +1542,26 @@
         '<p class="gap-note" id="sosGapUserStateNote">' +
         (u.status === 'BLOCKED'
           ? 'המשתמש חסום. הוא לא יכול לפרסם, להגיב, להזמין או לנהל, והתוכן שלו מוסתר ב-SOS.'
-          : 'המשתמש הוסר מהקבוצה. אפשר להוסיף אותו שוב, בלי הרשאות.') +
+          : 'המשתמש הוסר מהקבוצה. הוא לא יצורף מחדש אוטומטית. אפשר להוסיף אותו שוב ידנית, בלי הרשאות.') +
         '</p>';
       if (u.status === 'REMOVED' && s.removeMembers) foot = addMemberButtonHtml(u);
-    } else if (isV2() && !u.member && f.defaultMembershipApplies()) {
-      const reg = f.registrationStatus(u.pubkey);
-      const checking = reg === 'UNKNOWN' && !registrationLookups.has(u.pubkey);
-      if (checking) {
+    } else if (isV2() && u.status === 'UNKNOWN' && f.defaultMembershipApplies()) {
+      const checking = !knownChecked.has(u.pubkey);
+      if (checking && !registrationLookups.has(u.pubkey)) {
         registrationLookups.add(u.pubkey);
-        f.lookupRegistration([u.pubkey]).then(() => {
-          if (selectedMember === u.pubkey) renderDrawer();
-        });
+        Promise.resolve(typeof f.isKnownSosAccount === 'function' ? f.isKnownSosAccount(u.pubkey) : false)
+          .catch(() => false)
+          .then((known) => {
+            if (known === true) knownExtra.add(u.pubkey);
+            knownChecked.add(u.pubkey);
+            if (selectedMember === u.pubkey) renderDrawer();
+          });
       }
       body +=
-        '<p class="gap-note" id="sosGapRegistrationNote" data-registration="' + reg + '">' +
-        (reg === 'REGISTERED'
-          ? 'המשתמש רשום ב-SOS ולכן הוא חבר בקבוצה. החברות שלו עדיין לא נרשמה, ואפשר להשלים אותה עכשיו, בלי הרשאות.'
-          : reg === 'NOT_REGISTERED'
-            ? 'לא נמצאה הרשמה ל-SOS עבור המשתמש. מצטרפים לקבוצה רק דרך הרשמה עם הזמנה.'
-            : checking
-              ? 'בודק הרשמה ל-SOS…'
-              : 'לא ניתן לבדוק כרגע הרשמה ל-SOS. נסו שוב מאוחר יותר.') +
+        '<p class="gap-note" id="sosGapLegacyNote" data-known="' + (checking ? 'checking' : '0') + '">' +
+        (checking ? 'בודק אם זה חשבון SOS…' : 'זה אינו חשבון SOS מוכר. מצטרפים לקבוצה רק דרך הזמנה.') +
         '</p>';
-      if (reg === 'REGISTERED' && s.removeMembers) {
-        foot =
-          '<div class="gap-actions"><button type="button" class="gap-btn primary" id="sosGapReconcileOne" data-act="reconcile-one" data-mutation="1" data-pk="' +
-          escapeHtml(u.pubkey) + '">השלמת חברות</button></div>';
-      }
-    } else if (isV2() && !u.member) {
+    } else if (isV2() && !u.member && u.status !== 'LEGACY') {
       body +=
         '<h3>הוספה לקבוצה</h3>' +
         '<p class="gap-note">המשתמש יצורף לקבוצה כחבר רגיל, בלי הרשאות. אחר כך תוכלו להעניק לו הרשאות.</p>';
@@ -1479,7 +1571,12 @@
       const draft = draftCaps || current;
       const grantable = grantableFor(u.pubkey);
       const draftRole = roleForCaps(draft);
-      if (!u.member) {
+      const legacy = isV2() && u.status === 'LEGACY';
+      if (legacy) {
+        body +=
+          '<p class="gap-note" id="sosGapLegacyNote" data-known="1">חשבון SOS ותיק שעדיין לא צורף לקבוצה. אפשר לאשר אותו כחבר רגיל, בלי הרשאות, ' +
+          'או לבחור הרשאות ולשמור – הצירוף לקבוצה ייעשה באותה פעולה. שום הרשאה לא ניתנת אוטומטית.</p>';
+      } else if (!u.member) {
         body += '<p class="gap-note">המשתמש עדיין לא מופיע כחבר בקבוצה. לאחר הפעלת מערכת הניהול תוכלו להוסיף אותו ולהעניק לו תפקיד. כבר עכשיו אפשר להכין תפקיד והרשאות.</p>';
       }
       body +=
@@ -1492,14 +1589,16 @@
           );
         }).join('') +
         '</div>' +
-        '<h3>הרשאות</h3>' +
+        '<h3>ניהול הרשאות</h3>' +
         capsEditorHtml(caps, (c) => draft.indexOf(c) !== -1, (c) => grantable.indexOf(c) !== -1, true);
-      const canSave = isV2() && u.member;
+      const canSave = isV2() && (u.member || (legacy && !!s.removeMembers));
       foot =
         (isV2() ? '' : '<p class="gap-note" id="sosGapSaveNote">' + SAVE_AFTER_ACTIVATION_TEXT + '</p>') +
         '<div class="gap-actions">' +
         '<button type="button" class="gap-btn primary" id="sosGapSaveUser" data-act="save-user" data-mutation="1"' + (canSave ? '' : ' disabled') + '>שמור שינויים</button>' +
-        (!u.member ? '<button type="button" class="gap-btn" data-mutation="1" disabled>הוסף לקבוצה</button>' : '') +
+        (legacy && s.removeMembers
+          ? '<button type="button" class="gap-btn" id="sosGapConfirmMember" data-act="confirm-member" data-mutation="1" data-pk="' + escapeHtml(u.pubkey) + '">אישור כחבר</button>'
+          : !u.member ? '<button type="button" class="gap-btn" data-mutation="1" disabled>הוסף לקבוצה</button>' : '') +
         '</div>';
     }
     body += userActionsHtml(u, s, me);
@@ -1657,7 +1756,16 @@
       const before = f.authorityFor(target).assigned;
       const caps = draftCaps ? draftCaps.slice() : before.slice();
       const removing = before.some((c) => caps.indexOf(c) === -1);
-      const res = await run('שמירת שינויים', () => f.setPermissions(target, caps), removing ? 'לשמור את השינויים? חלק מההרשאות יוסרו.' : null);
+      const legacy = userView(target).status === 'LEGACY';
+      const res = legacy
+        ? await run(
+            'שמירת שינויים',
+            () => f.savePermissions(target, caps),
+            caps.length
+              ? 'לצרף את המשתמש לקבוצה ולהעניק לו את ההרשאות שנבחרו?'
+              : 'לצרף את המשתמש לקבוצה כחבר רגיל, בלי הרשאות?'
+          )
+        : await run('שמירת שינויים', () => f.setPermissions(target, caps), removing ? 'לשמור את השינויים? חלק מההרשאות יוסרו.' : null);
       if (res && res.ok) draftCaps = null;
       renderDrawer();
       return res;
@@ -1736,23 +1844,30 @@
       return res;
     }
     if (act === 'load-joins') return loadJoins();
-    if (act === 'load-gaps') return loadGaps();
-    if (act === 'reconcile-members') {
-      const pks = membershipGaps ? membershipGaps.rows.map((r) => r.pubkey) : [];
-      if (!pks.length) return null;
-      const res = await run(
-        'השלמת חברות',
-        () => f.reconcileRegisteredMembers(pks),
-        'להשלים חברות ל-' + pks.length + ' משתמשים רשומים? הם יצורפו כחברים רגילים, בלי הרשאות. משתמשים שהוסרו או נחסמו לא יצורפו.'
-      );
-      membershipGaps = null;
-      await loadGaps();
-      return res;
+    if (act === 'dir-filter') {
+      const want = String(el.getAttribute('data-filter') || 'ALL');
+      dirFilter = DIR_FILTERS.some((x) => x.id === want) ? want : 'ALL';
+      document.querySelectorAll('#sosGapDirFilters [data-filter]').forEach((b) => {
+        const on = b.getAttribute('data-filter') === dirFilter;
+        b.classList.toggle('primary', on);
+        b.setAttribute('aria-pressed', String(on));
+      });
+      renderDirList();
+      return null;
     }
-    if (act === 'reconcile-one') {
-      const res = await run('השלמת חברות', () => f.reconcileRegisteredMembers([pk]));
+    if (act === 'dir-refresh') {
+      if (knownUsersLoading) return null;
+      const p = loadKnownUsers();
+      renderDirList();
+      return p;
+    }
+    if (act === 'confirm-member') {
+      const res = await run(
+        'אישור כחבר',
+        () => f.confirmLegacyMember(pk),
+        'לאשר את המשתמש כחבר בקבוצה? הוא יצורף כחבר רגיל, בלי הרשאות.'
+      );
       draftCaps = null;
-      membershipGaps = null;
       if (selectedMember) renderDrawer();
       return res;
     }
@@ -1935,6 +2050,15 @@
       draftCaps = null;
       searchQuery = '';
       controlProbe = null;
+      knownUsers = null;
+      knownUsersLoading = false;
+      knownUsersError = '';
+      knownUsersGen++;
+      dirQuery = '';
+      dirFilter = 'ALL';
+      knownExtra.clear();
+      knownChecked.clear();
+      registrationLookups.clear();
       const top = document.getElementById('sosGapTop');
       if (top) top.innerHTML = '';
       window.__SOS_GAP_LOGO_DATA__ = '';

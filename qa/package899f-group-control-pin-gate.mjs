@@ -308,7 +308,7 @@ async function groupControlUx(page, A, M) {
       main0.status === 'מערכת הניהול עדיין לא הופעלה. ניתן לצפות ולהכין הרשאות, אך לא לשמור שינויים.' &&
       main0.searchLabel === 'חיפוש משתמש' &&
       main0.placeholder === 'חפש לפי שם או מזהה משתמש' &&
-      JSON.stringify(main0.tabs) === JSON.stringify(['חברים', 'מנהלים', 'הזמנות', 'פעילות ניהולית']) &&
+      JSON.stringify(main0.tabs) === JSON.stringify(['כל המשתמשים', 'מנהלים', 'הזמנות', 'פעילות ניהולית']) &&
       /חברים: עדיין אין נתונים/.test(main0.summary) && /מנהלים: 1/.test(main0.summary) && !/—/.test(main0.summary),
     { title: main0.title, tabs: main0.tabs, summary: main0.summary }
   );
