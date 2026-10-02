@@ -128,7 +128,7 @@ async function main() {
         profilePageSigner: /sos-crypto-signer\.js/.test(ph) && /sos-crypto-worker-vault\.js/.test(ph) && /blossom\.js/.test(ph),
       };
     });
-    set('LIVE_BUILD_899J', /^2026\.10\.01-web-899[jklmn]$/.test(live.version) && live.profilePageSigner, live);
+    set('LIVE_BUILD_899J', /^2026\.10\.0[12]-web-899[jklmn]$/.test(live.version) && live.profilePageSigner, live);
     set('LIVE_FLAGS_V2_CONTROL_PLANE', live.v2 && live.scope === 'CONTROL_PLANE', { v2: live.v2, scope: live.scope });
 
     // ---- disposable Worker identity (same primitives as onboarding)
