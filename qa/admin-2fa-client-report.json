@@ -1,7 +1,7 @@
 {
   "gate": "ADMIN_2FA_PHASE2_CLIENT_VERIFICATION_GATE",
   "mode": "node-vm (real browser modules), deterministic, no network",
-  "generatedAt": "2026-10-03T18:07:10.849Z",
+  "generatedAt": "2026-10-03T19:53:44.563Z",
   "status": "PASS",
   "results": {
     "PRODUCTION_CONFIG_ENFORCED_PINNED_SIGNER": "PASS",

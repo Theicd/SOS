@@ -8249,6 +8249,31 @@ async function fetchRecentNotes(limit = 100, sinceOverride = undefined, untilOve
 // חלק יאללה וידאו (videos.js) – טעינת לייקים ותגובות לפוסטי וידאו
 // חלק באצ'ים (videos.js) – פיצול שאילתות לבאצ'ים קטנים למניעת עומס על relays | HYPER CORE TECH
 const ENGAGEMENT_BATCH_SIZE = 15; // גודל באצ' לשאילתות לייקים/תגובות
+// Engagement is enrichment: a dead or silent relay must never hold a batch open.
+const ENGAGEMENT_QUERY_MAX_WAIT_MS = 4000;
+const ENGAGEMENT_QUERY_HARD_TIMEOUT_MS = 6000;
+
+function boundedEngagementQuery(run, label) {
+  let timer = null;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(null), ENGAGEMENT_QUERY_HARD_TIMEOUT_MS);
+  });
+  const query = Promise.resolve()
+    .then(run)
+    .then((res) => (Array.isArray(res) ? res : (Array.isArray(res?.events) ? res.events : [])))
+    .catch((err) => {
+      console.warn('[videos] engagement query failed', { label, error: String(err?.message || err).slice(0, 80) });
+      return [];
+    });
+  return Promise.race([query, timeout]).then((res) => {
+    clearTimeout(timer);
+    if (res === null) {
+      console.warn('[videos] engagement query timed out', { label, ms: ENGAGEMENT_QUERY_HARD_TIMEOUT_MS });
+      return [];
+    }
+    return res;
+  });
+}
 
 async function loadLikesAndCommentsForVideos(eventIds) {
   if (!Array.isArray(eventIds) || eventIds.length === 0) return;
@@ -8281,15 +8306,17 @@ async function loadLikesAndCommentsForVideos(eventIds) {
       let allEvents = [];
 
       if (typeof app.pool.list === 'function') {
-        const results = await app.pool.list(app.relayUrls, [likesFilter, sharesFilter, commentsFilter]);
-        if (Array.isArray(results)) allEvents = results;
+        allEvents = await boundedEngagementQuery(
+          () => app.pool.list(app.relayUrls, [likesFilter, sharesFilter, commentsFilter]),
+          'list'
+        );
       } else if (typeof app.pool.querySync === 'function') {
-        const likesRes = await app.pool.querySync(app.relayUrls, likesFilter);
-        const sharesRes = await app.pool.querySync(app.relayUrls, sharesFilter);
-        const commentsRes = await app.pool.querySync(app.relayUrls, commentsFilter);
-        const likes = Array.isArray(likesRes) ? likesRes : (Array.isArray(likesRes?.events) ? likesRes.events : []);
-        const shares = Array.isArray(sharesRes) ? sharesRes : (Array.isArray(sharesRes?.events) ? sharesRes.events : []);
-        const comments = Array.isArray(commentsRes) ? commentsRes : (Array.isArray(commentsRes?.events) ? commentsRes.events : []);
+        const opts = { maxWait: ENGAGEMENT_QUERY_MAX_WAIT_MS };
+        const [likes, shares, comments] = await Promise.all([
+          boundedEngagementQuery(() => app.pool.querySync(app.relayUrls, likesFilter, opts), 'likes'),
+          boundedEngagementQuery(() => app.pool.querySync(app.relayUrls, sharesFilter, opts), 'shares'),
+          boundedEngagementQuery(() => app.pool.querySync(app.relayUrls, commentsFilter, opts), 'comments'),
+        ]);
         allEvents = [...likes, ...shares, ...comments];
       }
 
@@ -8728,14 +8755,18 @@ async function loadVideos() {
   // משיכת פרופילים לכל המחברים
   const uniqueAuthors = [...new Set(videoEvents.map(v => v.pubkey))];
   if (uniqueAuthors.length > 0 && typeof currentApp?.fetchProfile === 'function') {
-    await Promise.all(uniqueAuthors.map(pubkey => currentApp.fetchProfile(pubkey)));
+    // names have a fallback, so a stalled profile relay must not hold the first render
+    const profilesLoaded = Promise.all(uniqueAuthors.map(pubkey => Promise.resolve(currentApp.fetchProfile(pubkey)).catch(() => null)));
+    await Promise.race([profilesLoaded, new Promise((resolve) => setTimeout(resolve, 5000))]);
   }
 
   setLoadingProgress(80);
-  setLoadingStatus('טוען לייקים ותגובות...');
 
-  // טעינת לייקים ותגובות לכל הפוסטים
-  await loadLikesAndCommentsForVideos(videoEvents.map(v => v.id));
+  // Likes/comments/shares hydrate in the background; counters update per batch and never gate the first render.
+  const engagementIds = videoEvents.map(v => v.id);
+  loadLikesAndCommentsForVideos(engagementIds).catch((err) => {
+    console.warn('[videos] background engagement hydration failed', err);
+  });
 
   // רישום נתוני מעורבות למפות המטא | HYPER CORE TECH
   if (Array.isArray(sourceEvents)) {
