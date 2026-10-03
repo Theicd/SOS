@@ -376,31 +376,38 @@
     const state = controlState || getVerifiedControlOrNull();
     if (!state) return { ok: false, code: 'NO_VERIFIED_CONTROL' };
 
-    // CURRENT_STATE: issuer must still be authorized now
-    const auth = canModerateContent(moderator, targetAuthor, targetKind, state, { issuer: true });
-    if (!auth.ok) return { ok: false, code: 'UNAUTHORIZED_MODERATION', detail: auth.code };
-
-    const A = App.Admin2faProtocol;
-    if (A && A.isEnforced() && groupId === A.FIRST_GROUP_ID) {
-      // The operation (post vs comment) is bound from the target itself; unknown target fails closed.
-      if (!targetEvent) return { ok: false, code: 'ADMIN_2FA_TARGET_REQUIRED' };
-      const v = A.requireForEvent(modEvent, [A.contentRemovalOperation(targetEvent)], {
-        groupId,
-        rootPubkey: state.rootAdminPubkey,
-      });
-      if (!v.ok) return { ok: false, code: v.code };
-    }
-
-    return {
+    const accepted = (mode) => ({
       ok: true,
       code: 'ACCEPTED',
       targetEventId: d,
       targetAuthorPubkey: targetAuthor,
       moderatorPubkey: moderator,
       action: ACTION_HIDE,
-      mode: auth.mode,
+      mode,
       controlEpoch: state.controlEpoch,
-    };
+    });
+
+    const A = App.Admin2faProtocol;
+    if (A && A.isEnforced() && groupId === A.FIRST_GROUP_ID) {
+      // Replay: the pinned Admin 2FA signer attests this exact event only after checking the issuer's authority
+      // against the control state at creation, so a later revocation does not undo a finalized removal.
+      // The operation (post vs comment) is bound from the target itself; unknown target fails closed.
+      if (!targetEvent) return { ok: false, code: 'ADMIN_2FA_TARGET_REQUIRED' };
+      const isRoot = isRootAdmin(moderator, state);
+      if (!isRoot && isRootAdmin(targetAuthor, state)) return { ok: false, code: 'UNAUTHORIZED_MODERATION', detail: 'ROOT_CONTENT_PROTECTED' };
+      const v = A.requireForEvent(modEvent, [A.contentRemovalOperation(targetEvent)], {
+        groupId,
+        rootPubkey: state.rootAdminPubkey,
+      });
+      if (!v.ok) return { ok: false, code: v.code };
+      return accepted(isRoot ? 'ROOT_ATTESTED' : 'DELEGATED_ATTESTED');
+    }
+
+    // No attestation in play (Admin 2FA off, or the co-sign service validating before it attests):
+    // the issuer must be authorized by the current control state.
+    const auth = canModerateContent(moderator, targetAuthor, targetKind, state, { issuer: true });
+    if (!auth.ok) return { ok: false, code: 'UNAUTHORIZED_MODERATION', detail: auth.code };
+    return accepted(auth.mode);
   }
 
   const api = {

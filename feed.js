@@ -2788,7 +2788,56 @@
     pendingModerationByTarget.set(targetId, list);
   }
 
+  // Historical moderation is fetched per known target (indexed #d, then the bound attestations by #e), so a
+  // fresh client never depends on "the newest N" moderation events. Realtime subscriptions cover new ones.
+  const MODERATION_LOOKUP_CHUNK = 50;
+  const moderationLookedUp = new Set();
+  const moderationLookupQueue = new Set();
+  let moderationLookupTimer = null;
+
+  function queueModerationLookup(targetId) {
+    const id = String(targetId || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(id) || moderationLookedUp.has(id)) return;
+    moderationLookedUp.add(id);
+    moderationLookupQueue.add(id);
+    if (!moderationLookupTimer) moderationLookupTimer = setTimeout(flushModerationLookup, 150);
+  }
+
+  async function flushModerationLookup() {
+    moderationLookupTimer = null;
+    const ids = Array.from(moderationLookupQueue);
+    moderationLookupQueue.clear();
+    for (let i = 0; i < ids.length; i += MODERATION_LOOKUP_CHUNK) {
+      await lookupModerationForTargets(ids.slice(i, i + MODERATION_LOOKUP_CHUNK));
+    }
+  }
+
+  async function lookupModerationForTargets(ids) {
+    const MP = moderationPolicy();
+    if (!ids.length || !MP || !MP.isV2 || !MP.isV2()) return;
+    const mods = (await queryRelayEvents({ kinds: [39002], '#d': ids, limit: ids.length * 10 }, 6000)).filter(
+      (ev) => ev && ev.kind === 39002 && ids.indexOf(String(MP.readTag(ev, 'd') || '').toLowerCase()) !== -1
+    );
+    if (!mods.length) return;
+    const A = App.Admin2faProtocol;
+    if (A && A.isEnforced()) {
+      const modIds = Array.from(new Set(mods.map((m) => m.id)));
+      for (let i = 0; i < modIds.length; i += MODERATION_LOOKUP_CHUNK) {
+        const chunk = modIds.slice(i, i + MODERATION_LOOKUP_CHUNK);
+        const atts = await queryRelayEvents({ kinds: [A.ATTESTATION_KIND], '#e': chunk, limit: chunk.length * 4 }, 6000);
+        atts.forEach((att) => registerAdmin2faAttestation(att));
+      }
+    }
+    mods.forEach((ev) => {
+      const target = String(MP.readTag(ev, 'd') || '').toLowerCase();
+      if (App.deletedEventIds instanceof Set && App.deletedEventIds.has(target)) return;
+      if (App._seenModerationEventIds instanceof Set) App._seenModerationEventIds.delete(ev.id);
+      registerModeration(ev);
+    });
+  }
+
   function retryModerationForTarget(targetId) {
+    queueModerationLookup(targetId);
     const list = targetId ? pendingModerationByTarget.get(targetId) : null;
     if (!list) return;
     pendingModerationByTarget.delete(targetId);

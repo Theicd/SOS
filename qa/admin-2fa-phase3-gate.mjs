@@ -684,7 +684,7 @@ async function main() {
     revokeM.ok && dm.afterRevoke === 'NO_MODERATE_CAP' && dm.revokedAttest !== 'ATTESTED' && dm.revokedValidate !== 'ACCEPTED',
     { revoke: revokeM.code, after: dm.afterRevoke, attest: dm.revokedAttest, validate: dm.revokedValidate }
   );
-  console.log('INFO DELEGATED_MODERATION_EARLIER_HIDE_AFTER_REVOKE ' + JSON.stringify(dm.earlierHideAfterRevoke));
+  check('DELEGATED_MODERATION_EARLIER_HIDE_SURVIVES_REVOKE', dm.post === 'ACCEPTED' && dm.earlierHideAfterRevoke === 'ACCEPTED', { earlier: dm.earlierHideAfterRevoke });
 
   // legacy kind 5 (V2 off receivers): cross-author only with attestation; own content never needs one
   const post2 = contentEvent(B);

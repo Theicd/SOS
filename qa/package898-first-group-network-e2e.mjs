@@ -2608,6 +2608,66 @@ async function main() {
       const r = await App.moderateRemoveEvent(p);
       return { ok: r.ok, code: r.code, hidden: App.deletedEventIds.has(p.id) };
     }, PX);
+
+    // durable moderation: removals finalized while Y held MODERATE_CONTENT survive the revoke on a fresh client;
+    // the revoked moderator cannot obtain a new attestation, and an unattested removal is never accepted
+    const PX2 = await publishNote(tPage, 'p1c revoked forged target ' + Date.now());
+    const forgedDraft = await ev(um.page, (t) => {
+      const d = window.NostrApp.ModerationPolicy.buildModerationDraft(t);
+      return { kind: d.kind, created_at: d.created_at, tags: d.tags, content: d.content };
+    }, PX2);
+    const forged = finalizeEvent(forgedDraft, Y.sk);
+    const revokedServer = await ev(um.page, async ({ e, t }) => {
+      const r = await window.NostrApp.Admin2faClient.attest(e, { target: t });
+      return { ok: !!(r && r.ok), code: (r && r.code) || null };
+    }, { e: forged, t: PX2 }).catch((e) => ({ ok: false, code: 'THREW:' + String(e.message || e).slice(0, 60) }));
+    publishAll(forged);
+    const waitVerifiedControl = (page) =>
+      page.waitForFunction(() => !!(window.NostrApp.GroupControlState && window.NostrApp.GroupControlState.getVerifiedControlState('israel-network')), null, { polling: 300, timeout: 45000 }).then(() => true, () => false);
+    const freshRv = await newProfile('FRESH_AFTER_REVOKE', { persistent: false });
+    await freshRv.page.goto(URL0, { waitUntil: 'domcontentloaded', timeout: 120000 });
+    await waitApp(freshRv.page);
+    const freshRvControl = await waitVerifiedControl(freshRv.page);
+    // new non-persistent browser context: no inherited localStorage / IndexedDB / tombstones
+    const freshRvState = { context: 'new-incognito-context', storageKeysAtBoot: await ev(freshRv.page, () => Object.keys(localStorage).length) };
+    const freshRvRes = await freshRv.page.evaluate(
+      async ({ p, c, x }) => {
+        const App = window.NostrApp;
+        const got = await App.pool.querySync(App.relayUrls, { ids: [p.id, c.id, x.id] });
+        const list = Array.isArray(got) ? got : (got && got.events) || [];
+        const byId = new Map(list.map((e) => [e.id, e]));
+        const P = byId.get(p.id);
+        const C = byId.get(c.id);
+        const X = byId.get(x.id);
+        const preHidden = { post: App.deletedEventIds.has(p.id), comment: App.deletedEventIds.has(c.id) };
+        [P, X].forEach((e) => {
+          if (!e) return;
+          App.postsById.set(e.id, e);
+          App.eventAuthorById.set(e.id, e.pubkey);
+          App.retryModerationForTarget(e.id);
+        });
+        if (C) App.registerComment(C, p.id);
+        const t0 = Date.now();
+        while (Date.now() - t0 < 30000 && !(App.deletedEventIds.has(p.id) && App.deletedEventIds.has(c.id))) await new Promise((r) => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 2000));
+        return {
+          loaded: [!!P, !!C, !!X],
+          preHidden,
+          post: App.deletedEventIds.has(p.id),
+          comment: App.deletedEventIds.has(c.id),
+          unattestedHidden: App.deletedEventIds.has(x.id),
+          source: [(App.deletionTombstones.get(p.id) || {}).source || '', (App.deletionTombstones.get(c.id) || {}).source || ''],
+        };
+      },
+      { p: PM, c: CM, x: PX2 }
+    );
+    await closeProfile(freshRv);
+    report.MODERATION_REVOKE_DURABILITY = { revokedState: live.inviteOnly, afterRevokeDelete, revokedServer, freshRvControl, freshRvState, freshRvRes };
+    set('FRESH_CLIENT_AFTER_REVOKE_POST_HIDDEN', freshRvControl && freshRvRes.loaded[0] && freshRvRes.post && freshRvRes.source[0] === 'moderation', report.MODERATION_REVOKE_DURABILITY);
+    set('FRESH_CLIENT_AFTER_REVOKE_COMMENT_HIDDEN', freshRvControl && freshRvRes.loaded[1] && freshRvRes.comment && freshRvRes.source[1] === 'moderation', freshRvRes);
+    set('OLD_MODERATION_SURVIVES_PERMISSION_REVOKE', live.inviteOnly.ok && freshRvRes.post && freshRvRes.comment, { inviteOnly: live.inviteOnly, freshRvState });
+    set('REVOKED_MODERATOR_CANNOT_CREATE_NEW_DELETE', !afterRevokeDelete.ok && !revokedServer.ok && freshRvRes.loaded[2] && !freshRvRes.unattestedHidden, { afterRevokeDelete, revokedServer, unattestedHidden: freshRvRes.unattestedHidden });
+    report.REVOKED_MODERATOR_CAN_CREATE_NEW_DELETE = !!(afterRevokeDelete.ok || revokedServer.ok || freshRvRes.unattestedHidden);
     live.manageMembers = await setY(['MANAGE_MEMBERS'], "v.caps.indexOf('MANAGE_MEMBERS') !== -1 && v.caps.indexOf('INVITE_USERS') === -1");
     personas.MANAGE_MEMBERS_ONLY = await persona(um.page, PS.id);
     live.member = await setY([], 'v.caps.length === 0');
@@ -2881,6 +2941,94 @@ async function main() {
     } else {
       set('CONTROL_CONFLICT_FAIL_CLOSED', false, { forkA, forkB });
     }
+
+    // ================================================================ target-driven moderation history (> 80 moderation, > 200 attestations)
+    trace('moderation-history-scale');
+    const SA = mkKey();
+    const SCALE = 210;
+    const scaleNow = Math.floor(Date.now() / 1000);
+    const scaleTarget = (label, ts) => finalizeEvent({ kind: 1, created_at: ts, tags: [['t', GROUP]], content: 'p1c scale target ' + label }, SA.sk);
+    const OLD_T = scaleTarget('old', scaleNow - 500);
+    const CTRL_T = scaleTarget('control', scaleNow - 490);
+    const fillerTargets = Array.from({ length: SCALE }, (_, i) => scaleTarget(String(i), scaleNow - 400 + Math.floor(i / 2)));
+    const scaleTargets = [OLD_T].concat(fillerTargets);
+    const modDrafts = await ev(ua.page, (targets) =>
+      targets.map((t) => {
+        const d = window.NostrApp.ModerationPolicy.buildModerationDraft(t);
+        return { kind: d.kind, tags: d.tags, content: d.content };
+      }), scaleTargets);
+    const scaleMods = scaleTargets.map((t, i) => finalizeEvent(Object.assign({}, modDrafts[i], { created_at: t.created_at + 5 }), A.sk));
+    const attDrafts = await ev(
+      ua.page,
+      ({ mods, targets, root, nonces }) => {
+        const P = window.NostrApp.Admin2faProtocol;
+        const st = window.NostrApp.GroupControlState.getVerifiedControlState('israel-network');
+        return mods.map((m, i) => {
+          const d = P.buildAttestationDraft({
+            groupId: 'israel-network',
+            rootPubkey: root,
+            event: m,
+            operations: [P.contentRemovalOperation(targets[i])],
+            controlEpoch: st.controlEpoch,
+            principal: m.pubkey,
+            stepUp: false,
+            issuedAt: m.created_at + 2,
+            requestId: nonces[i],
+          });
+          return { kind: d.kind, created_at: d.created_at, tags: d.tags, content: d.content };
+        });
+      },
+      { mods: scaleMods, targets: scaleTargets, root: A.pub, nonces: scaleMods.map(() => crypto.randomBytes(32).toString('hex')) }
+    );
+    const scaleAtts = attDrafts.map((d) => finalizeEvent(d, COSIGN.sk));
+    [OLD_T, CTRL_T].concat(scaleAtts, scaleMods).forEach(publishAll);
+    const newestMods = r1.query([{ kinds: [39002], '#t': [GROUP], limit: 80 }]).map((e) => e.id);
+    const newestAtts = r1.query([{ kinds: [39004], '#t': [GROUP], limit: 200 }]).map((e) => e.id);
+    const outsideWindows = {
+      modOutsideNewest80: !newestMods.includes(scaleMods[0].id),
+      attOutsideNewest200: !newestAtts.includes(scaleAtts[0].id),
+      totalMods: r1.all([39002]).length,
+      totalAtts: r1.all([39004]).length,
+    };
+    const freshSc = await newProfile('FRESH_SCALE', { persistent: false });
+    await freshSc.page.goto(URL0, { waitUntil: 'domcontentloaded', timeout: 120000 });
+    await waitApp(freshSc.page);
+    const freshScControl = await waitVerifiedControl(freshSc.page);
+    await sleep(3000);
+    const freshScRes = await freshSc.page.evaluate(
+      async ({ oldId, ctrlId }) => {
+        const App = window.NostrApp;
+        const got = await App.pool.querySync(App.relayUrls, { ids: [oldId, ctrlId] });
+        const list = Array.isArray(got) ? got : (got && got.events) || [];
+        const beforeLookup = App.deletedEventIds.has(oldId);
+        list.forEach((e) => {
+          App.postsById.set(e.id, e);
+          App.eventAuthorById.set(e.id, e.pubkey);
+          App.retryModerationForTarget(e.id);
+        });
+        const t0 = Date.now();
+        while (Date.now() - t0 < 30000 && !App.deletedEventIds.has(oldId)) await new Promise((r) => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 1500));
+        return {
+          loaded: list.length,
+          beforeLookup,
+          oldHidden: App.deletedEventIds.has(oldId),
+          controlHidden: App.deletedEventIds.has(ctrlId),
+          source: (App.deletionTombstones.get(oldId) || {}).source || '',
+          ms: Date.now() - t0,
+        };
+      },
+      { oldId: OLD_T.id, ctrlId: CTRL_T.id }
+    );
+    await closeProfile(freshSc);
+    report.MODERATION_HISTORY_SCALE = { scale: SCALE, outsideWindows, freshScControl, freshScRes };
+    set(
+      'MODERATION_HISTORY_OVER_80',
+      outsideWindows.modOutsideNewest80 && outsideWindows.attOutsideNewest200 && freshScControl && freshScRes.loaded === 2 && !freshScRes.beforeLookup &&
+        freshScRes.oldHidden && !freshScRes.controlHidden && freshScRes.source === 'moderation',
+      report.MODERATION_HISTORY_SCALE
+    );
+    report.OLD_DELETED_TARGET_ON_FRESH_CLIENT = freshScRes.oldHidden ? 'HIDDEN' : 'VISIBLE';
 
     // ================================================================ typed signer / relay privacy / secret leak scans
     const signer = await ev(ua.page, () => {
