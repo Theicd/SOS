@@ -1,0 +1,311 @@
+{
+  "gate": "PACKAGE_899Q_PRODUCTION_ACCEPTANCE",
+  "ts": "2026-10-03T18:34:13.271Z",
+  "checks": {
+    "GUEST_NO_MANAGEMENT_ENTRY": {
+      "pass": true,
+      "detail": {
+        "control": false,
+        "invite": false,
+        "controlMenu": false
+      }
+    },
+    "RUNTIME_VERSION_AND_FLAGS": {
+      "pass": true,
+      "detail": {
+        "version": "2026.10.03-web-899q",
+        "cacheKeys": [
+          "sos-cache-v899q"
+        ],
+        "v2": true,
+        "scope": "CONTROL_PLANE"
+      }
+    },
+    "ROOT_MENU_DURING_STARTUP": {
+      "pass": true,
+      "detail": {
+        "syncedWhenChecked": false,
+        "menu": true,
+        "full": true,
+        "sectionsWhileLoading": false
+      }
+    },
+    "PERSONA_MATRIX_PRODUCTION": {
+      "pass": true,
+      "detail": {
+        "identities": 6,
+        "mismatches": []
+      }
+    },
+    "ROOT_FULL": {
+      "pass": true,
+      "detail": {
+        "pk": "ede1e7fa…7601",
+        "fresh": false,
+        "isRoot": true,
+        "status": "ROOT",
+        "assigned": [],
+        "effective": [
+          "ALL"
+        ],
+        "GROUP_CONTROL_VISIBLE": true,
+        "MODE": "FULL",
+        "SEPARATE_REPORTS_ITEM": false,
+        "INVITE_MENU_VISIBLE": true,
+        "REPORT_RECIPIENT": true
+      }
+    },
+    "MODERATORS_MODERATION_ONLY": {
+      "pass": true,
+      "detail": {
+        "count": 2
+      }
+    },
+    "INVITE_ONLY_NO_CONTROL": {
+      "pass": true,
+      "detail": {
+        "count": 0
+      }
+    },
+    "PLAIN_AND_BLOCKED_NO_ENTRY": {
+      "pass": true,
+      "detail": {
+        "plain": 3,
+        "blocked": 0
+      }
+    },
+    "REPORT_RECIPIENTS_ROOT_PLUS_MODERATORS": {
+      "pass": true,
+      "detail": {
+        "recipients": 3,
+        "mods": 2
+      }
+    },
+    "MODERATION_HISTORY_FRESH_CLIENT": {
+      "pass": true,
+      "detail": {
+        "totalModerationEvents": 1,
+        "targetsFound": 1,
+        "byClass": {
+          "ROOT:post": {
+            "total": 1,
+            "hidden": 1,
+            "source": {
+              "moderation": 1
+            }
+          }
+        }
+      }
+    },
+    "REVOKED_MODERATOR_HISTORY_HIDDEN": {
+      "pass": true,
+      "detail": {
+        "revoked": []
+      }
+    },
+    "NO_BROKEN_IMAGE_ICON_VISIBLE": {
+      "pass": true,
+      "detail": {
+        "visible": 1,
+        "broken": 0,
+        "brokenHosts": []
+      }
+    },
+    "READ_ONLY_NO_PUBLISH_AS_IDENTITY": {
+      "pass": true,
+      "detail": {
+        "blockedAttempts": 3,
+        "asIdentity": [],
+        "details": [
+          {
+            "kind": 30078,
+            "signedBy": "2cc4060e",
+            "viewer": "",
+            "caller": []
+          },
+          {
+            "kind": 30078,
+            "signedBy": "2cc4060e",
+            "viewer": "",
+            "caller": []
+          },
+          {
+            "kind": 30078,
+            "signedBy": "2cc4060e",
+            "viewer": "",
+            "caller": []
+          }
+        ]
+      }
+    }
+  },
+  "GUEST": {
+    "control": false,
+    "invite": false,
+    "controlMenu": false
+  },
+  "RUNTIME": {
+    "version": "2026.10.03-web-899q",
+    "cacheKeys": [
+      "sos-cache-v899q"
+    ],
+    "v2": true,
+    "scope": "CONTROL_PLANE"
+  },
+  "ROOT_STARTUP": {
+    "syncedWhenChecked": false,
+    "menu": true,
+    "full": true,
+    "sectionsWhileLoading": false
+  },
+  "CONTROL_EPOCH": 9,
+  "PERSONAS": [
+    {
+      "pk": "ede1e7fa…7601",
+      "fresh": false,
+      "isRoot": true,
+      "status": "ROOT",
+      "assigned": [],
+      "effective": [
+        "ALL"
+      ],
+      "GROUP_CONTROL_VISIBLE": true,
+      "MODE": "FULL",
+      "SEPARATE_REPORTS_ITEM": false,
+      "INVITE_MENU_VISIBLE": true,
+      "REPORT_RECIPIENT": true
+    },
+    {
+      "pk": "170fe2a9…5e28",
+      "fresh": false,
+      "isRoot": false,
+      "status": "ACTIVE",
+      "assigned": [
+        "MODERATE_CONTENT"
+      ],
+      "effective": [
+        "MODERATE_CONTENT"
+      ],
+      "GROUP_CONTROL_VISIBLE": true,
+      "MODE": "MODERATION_ONLY",
+      "SEPARATE_REPORTS_ITEM": false,
+      "INVITE_MENU_VISIBLE": false,
+      "REPORT_RECIPIENT": true
+    },
+    {
+      "pk": "5cc47531…25fb",
+      "fresh": false,
+      "isRoot": false,
+      "status": "ACTIVE",
+      "assigned": [
+        "INVITE_USERS",
+        "MODERATE_CONTENT"
+      ],
+      "effective": [
+        "INVITE_USERS",
+        "MODERATE_CONTENT"
+      ],
+      "GROUP_CONTROL_VISIBLE": true,
+      "MODE": "MODERATION_ONLY",
+      "SEPARATE_REPORTS_ITEM": false,
+      "INVITE_MENU_VISIBLE": true,
+      "REPORT_RECIPIENT": true
+    },
+    {
+      "pk": "752f47fa…11ef",
+      "fresh": false,
+      "isRoot": false,
+      "status": "NONE",
+      "assigned": [
+        "FINALIZE_MEMBERSHIP_ADMISSION"
+      ],
+      "effective": [],
+      "GROUP_CONTROL_VISIBLE": false,
+      "MODE": "NONE",
+      "SEPARATE_REPORTS_ITEM": false,
+      "INVITE_MENU_VISIBLE": false,
+      "REPORT_RECIPIENT": false
+    },
+    {
+      "pk": "c0fed7a8…b470",
+      "fresh": false,
+      "isRoot": false,
+      "status": "ACTIVE",
+      "assigned": [],
+      "effective": [],
+      "GROUP_CONTROL_VISIBLE": false,
+      "MODE": "NONE",
+      "SEPARATE_REPORTS_ITEM": false,
+      "INVITE_MENU_VISIBLE": false,
+      "REPORT_RECIPIENT": false
+    },
+    {
+      "pk": "12746f0d…09ed",
+      "fresh": true,
+      "isRoot": false,
+      "status": "NOT_A_MEMBER",
+      "assigned": [],
+      "effective": [],
+      "GROUP_CONTROL_VISIBLE": false,
+      "MODE": "NONE",
+      "SEPARATE_REPORTS_ITEM": false,
+      "INVITE_MENU_VISIBLE": false,
+      "REPORT_RECIPIENT": false
+    }
+  ],
+  "REPORT_RECIPIENTS": [
+    "ede1e7fa…7601",
+    "170fe2a9…5e28",
+    "5cc47531…25fb"
+  ],
+  "PRESENT_IN_PRODUCTION": {
+    "ROOT": true,
+    "MODERATE_CONTENT": 2,
+    "INVITE_USERS_ONLY": 0,
+    "MANAGE_BLOCKLIST_WITHOUT_MOD": 0,
+    "MANAGE_MEMBERS_OR_PERMISSIONS_WITHOUT_MOD": 0,
+    "PLAIN_OR_NON_MEMBER": 3,
+    "BLOCKED": 0
+  },
+  "MODERATION_HISTORY": {
+    "totalModerationEvents": 1,
+    "targetsFound": 1,
+    "byClass": {
+      "ROOT:post": {
+        "total": 1,
+        "hidden": 1,
+        "source": {
+          "moderation": 1
+        }
+      }
+    }
+  },
+  "AVATARS": {
+    "visible": 1,
+    "broken": 0,
+    "brokenHosts": []
+  },
+  "PUBLISH_ATTEMPTS": 3,
+  "PUBLISH_ATTEMPT_DETAILS": [
+    {
+      "kind": 30078,
+      "signedBy": "2cc4060e",
+      "viewer": "",
+      "caller": []
+    },
+    {
+      "kind": 30078,
+      "signedBy": "2cc4060e",
+      "viewer": "",
+      "caller": []
+    },
+    {
+      "kind": 30078,
+      "signedBy": "2cc4060e",
+      "viewer": "",
+      "caller": []
+    }
+  ],
+  "RESULT": "PASS",
+  "FAILED": []
+}
