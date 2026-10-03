@@ -1,6 +1,6 @@
 {
   "gate": "GATE2_NEGATIVE_GATE",
-  "ts": "2026-10-02T14:29:56.304Z",
+  "ts": "2026-10-03T18:07:27.982Z",
   "passed": 35,
   "total": 35,
   "status": "PASS",
@@ -167,7 +167,7 @@
       "ok": true,
       "detail": {
         "root": "ACCEPTED",
-        "service": "UNAUTHORIZED_MODERATION"
+        "service": "ADMIN_2FA_REQUIRED"
       }
     },
     {

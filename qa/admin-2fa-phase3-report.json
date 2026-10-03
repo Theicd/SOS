@@ -1,9 +1,9 @@
 {
   "gate": "ADMIN_2FA_PHASE3_GATE",
   "mode": "local-workerd + VM browser modules",
-  "generatedAt": "2026-10-02T14:30:23.877Z",
+  "generatedAt": "2026-10-03T18:07:08.683Z",
   "status": "ADMIN_2FA_PHASE3_PASS",
-  "tests": "60/60",
+  "tests": "61/61",
   "matrix": [
     {
       "case": "First server enrollment",
@@ -151,6 +151,7 @@
     "DELEGATED_MODERATOR_ROOT_CONTENT_PROTECTED": "PASS",
     "DELEGATED_MODERATOR_OWN_CONTENT_NO_CAP_NEEDED": "PASS",
     "DELEGATED_MODERATE_CONTENT_REVOKE": "PASS",
+    "DELEGATED_MODERATION_EARLIER_HIDE_SURVIVES_REVOKE": "PASS",
     "LEGACY_KIND5_CROSS_AUTHOR_ATTESTED": "PASS",
     "MATRIX_OWN_CONTENT_DELETION": "PASS",
     "OWN_CONTENT_DELETE_2FA_REQUIRED_FALSE": "PASS",
@@ -370,7 +371,13 @@
         "revoke": "APPLIED",
         "after": "NO_MODERATE_CAP",
         "attest": "ADMIN_PIN_REQUIRED:",
-        "validate": "UNAUTHORIZED_MODERATION"
+        "validate": "ADMIN_2FA_REQUIRED"
+      }
+    },
+    {
+      "name": "DELEGATED_MODERATION_EARLIER_HIDE_SURVIVES_REVOKE",
+      "detail": {
+        "earlier": "ACCEPTED"
       }
     },
     {

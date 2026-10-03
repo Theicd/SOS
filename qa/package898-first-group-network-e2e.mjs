@@ -1254,13 +1254,20 @@ async function main() {
     info('REALTIME_PROMOTE_LATENCY_MS', Date.now() - tPromote);
     // Admin 2FA: a newly promoted admin enrolls their own server PIN before the admin panel opens.
     info('B_ADMIN_PIN_ENROLL', await pinReady(ub.page));
-    await openUi(ub.page, 'members');
-    await sleep(400);
-    const bAdminTabs = await visibleTabs(ub.page);
-    const bSeesC = await ev(ub.page, (pk) => !!document.querySelector(`#sosGapBody [data-act="select-member"][data-pk="${pk}"]`) || (document.getElementById('sosGapBody')?.innerText || '').includes(pk.slice(0, 8)), C.pub);
+    // Group control is ROOT (full) or MODERATE_CONTENT (moderation-only); MANAGE_MEMBERS keeps protocol authority only.
+    const bAdminMenu = await menuVisible(ub.page);
+    const bAdminDirect = await ev(ub.page, async () => {
+      const ui = window.NostrApp.GroupAdminProductUi;
+      const r = await ui.open('members');
+      return { code: r && r.code, open: ui.isOpen() };
+    });
     await shot(ub.page, 'b-admin-members');
     const bAdminView = await view(ub.page, B.pub);
-    set('REMOTE_ADMIN_PROMOTE', /SAVED|APPLIED/.test(promote) && bAdmin.ok && bAdminTabs.includes('members') && bSeesC, { promote, ms: bAdmin.ms, caps: bAdminView.caps, bAdminTabs, bSeesC });
+    set(
+      'REMOTE_ADMIN_PROMOTE',
+      /SAVED|APPLIED/.test(promote) && bAdmin.ok && bAdminView.caps.includes('MANAGE_MEMBERS') && bAdminMenu === false && bAdminDirect.code === 'UNAUTHORIZED' && !bAdminDirect.open,
+      { promote, ms: bAdmin.ms, caps: bAdminView.caps, bAdminMenu, bAdminDirect }
+    );
 
     // ================================================================ fresh profile for B: authority rebuilt from network only
     const ub2 = await newProfile('USER_B_FRESH');
@@ -1271,7 +1278,7 @@ async function main() {
     const bFreshMenu = await menuVisible(ub2.page);
     set(
       'FRESH_PROFILE_AUTHORITY',
-      pb2 === B.pub && freshStorageBefore && bFresh.control === 'VERIFIED' && bFresh.member === 'ACTIVE' && JSON.stringify(bFresh.caps) === JSON.stringify(bOnA.caps) && bFreshMenu,
+      pb2 === B.pub && freshStorageBefore && bFresh.control === 'VERIFIED' && bFresh.member === 'ACTIVE' && JSON.stringify(bFresh.caps) === JSON.stringify(bOnA.caps) && bFreshMenu === false,
       { fresh: bFresh, aView: { caps: bOnA.caps, member: bOnA.member }, bFreshMenu }
     );
     await closeProfile(ub2);
@@ -1793,14 +1800,20 @@ async function main() {
       sections: Object.values(window.NostrApp.FirstGroupAdmin.visibleSections()).some(Boolean),
     }));
     const loadingMenuDom = await menuVisible(ul.page);
+    // ROOT sees the entry while syncing, but menu visibility is not authority: mutations stay closed until verified.
+    const loadingMutation = await ev(ul.page, async () => (await window.NostrApp.FirstGroupAdmin.updateMetadata({ description: 'loading' })).code);
     await shot(ul.page, 'a-loading-state');
     r1.eoseDelayMs = 0;
     r2.eoseDelayMs = 0;
     const loaded = await ul.page
-      .waitForFunction(() => window.NostrApp.FirstGroupAdmin.canSeeAdminMenu() === true, null, { polling: 200, timeout: 30000 })
+      .waitForFunction(() => Object.values(window.NostrApp.FirstGroupAdmin.visibleSections()).some(Boolean), null, { polling: 200, timeout: 30000 })
       .then(() => true)
       .catch(() => false);
-    set('ADMIN_UI_LOADING_STATE', loading.status === 'LOADING' && !loading.menu && !loading.sections && !loadingMenuDom && loaded, { loading, loadingMenuDom, loaded });
+    set(
+      'ADMIN_UI_LOADING_STATE',
+      loading.status === 'LOADING' && loading.menu && !loading.sections && loadingMenuDom && loadingMutation !== 'APPLIED' && loadingMutation !== 'SAVED' && loaded,
+      { loading, loadingMenuDom, loadingMutation, loaded }
+    );
     await closeProfile(ul);
 
     // ================================================================ admin UI tabs over network state (A)
@@ -2311,13 +2324,43 @@ async function main() {
         const el = document.getElementById(id);
         return !!el && !el.hidden && el.style.display !== 'none';
       };
-      return { control: ui.canSeeGroupAdminMenu(), controlItem: item('sosGroupControlMenuItem'), reportsItem: item('sosGroupReportsMenuItem'), direct: direct.code };
+      return {
+        control: ui.canSeeGroupAdminMenu(),
+        controlMenu: ui.canSeeControlMenu(),
+        controlItem: item('sosGroupControlMenuItem'),
+        reportsItem: !!document.getElementById('sosGroupReportsMenuItem'),
+        direct: direct.code,
+      };
     });
-    await ev(ub.page, () => window.NostrApp.GroupAdminProductUi.openReports());
     await ub.page.waitForFunction(() => window.NostrApp.GroupAdminProductUi.isOpen(), null, { timeout: 20000 }).catch(() => {});
     await sleep(300);
     const bModTabs = await visibleTabs(ub.page);
     await shot(ub.page, 'p1-moderator-tabs');
+    const bModDrawer = await ev(
+      ub.page,
+      async (pk) => {
+        const body = document.getElementById('sosGapBody');
+        const b = document.createElement('button');
+        b.setAttribute('data-act', 'select-member');
+        b.setAttribute('data-pk', pk);
+        body.appendChild(b);
+        b.click();
+        await new Promise((r) => setTimeout(r, 300));
+        const d = document.getElementById('sosGapMemberDetail');
+        const has = (sel) => !!(d && d.querySelector(sel));
+        const out = {
+          drawer: !!d,
+          roleEditor: has('#sosGapRoleOptions') || has('#sosGapSaveUser') || has('.gap-cap'),
+          removeMember: has('[data-act="remove-member"]'),
+          block: has('[data-act="block-user"]') || !!document.querySelector('#sosGapBody [data-act="report-block"]'),
+          userContent: has('[data-act="user-content"]'),
+        };
+        b.remove();
+        return out;
+      },
+      T.pub
+    );
+    await shot(ub.page, 'p1-moderator-user-drawer');
     const modPost = await modRemove(ub.page, P1);
     const modComment = await modRemove(ub.page, C1);
     await sleep(800);
@@ -2349,9 +2392,12 @@ async function main() {
     set('MODERATE_COMMENT_DELETE', modComment.ok && obsVerdicts.comment && bLocal.c, { modComment, obs: obsVerdicts.comment, code: obsVerdicts.commentCode });
     set(
       'MODERATOR_PANEL_REPORTS_ONLY',
-      !bModMenu.control && !bModMenu.controlItem && bModMenu.reportsItem && bModMenu.direct === 'UNAUTHORIZED' && JSON.stringify(bModTabs) === JSON.stringify(['reports']),
+      !bModMenu.control && bModMenu.controlMenu && bModMenu.controlItem && !bModMenu.reportsItem && bModMenu.direct === 'REPORTS_ONLY' && JSON.stringify(bModTabs) === JSON.stringify(['reports']),
       { bModMenu, bModTabs }
     );
+    report.MODERATOR_ONLY_OWNER_ADMIN_TABS_VISIBLE = JSON.stringify(bModTabs) !== JSON.stringify(['reports']) || bModDrawer.roleEditor || bModDrawer.removeMember;
+    report.MODERATOR_BLOCK_ACTION_WITHOUT_MANAGE_BLOCKLIST = bModDrawer.block;
+    set('MODERATOR_DRAWER_MODERATION_ONLY', bModDrawer.drawer && !bModDrawer.roleEditor && !bModDrawer.removeMember && !bModDrawer.block && bModDrawer.userContent, bModDrawer);
     await ev(ub.page, () => window.NostrApp.GroupAdminProductUi.close());
     const revokeMod = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.revokeCapability(pk, 'MODERATE_CONTENT')).code, B.pub);
     const bLostMod = await waitView(ub.page, B.pub, "v.caps.indexOf('MODERATE_CONTENT') === -1", 30000);
@@ -2405,14 +2451,15 @@ async function main() {
           btn.setAttribute('data-mod-delete', probeId);
           App.eventAuthorById.set(probeId, author);
           App.syncModerationControls();
-          const canOpen = ui.canSeeGroupControl();
-          const direct = canOpen ? null : await ui.open('members');
+          const mode = ui.canSeeGroupControl() ? 'FULL' : ui.canSeeReportsEntry() ? 'MODERATION_ONLY' : 'NONE';
+          const direct = mode === 'NONE' ? await ui.open('members') : null;
           return {
             INVITE_MENU_VISIBLE: vis('topBarInviteFriend'),
             GROUP_CONTROL_MENU_VISIBLE: vis('sosGroupControlMenuItem'),
-            REPORTS_MENU_VISIBLE: vis('sosGroupReportsMenuItem'),
+            GROUP_CONTROL_MODE: mode,
+            SEPARATE_REPORTS_ITEM: !!document.getElementById('sosGroupReportsMenuItem'),
             MODERATOR_DELETE_VISIBLE: !btn.hidden && btn.style.display !== 'none',
-            CAN_OPEN_GROUP_CONTROL: canOpen,
+            CAN_OPEN_GROUP_CONTROL: ui.canSeeControlMenu(),
             DIRECT_OPEN: direct ? direct.code + (ui.isOpen() ? ':OPEN' : '') : 'ALLOWED',
             CAN_CREATE_INVITE: App.canCreateInviteUi() === true,
             CAN_MODERATE_CONTENT: App.canViewerDeletePost(probeId) === true,
@@ -2420,8 +2467,9 @@ async function main() {
         },
         { probeId, author: probeAuthor || T.pub }
       );
-    const expect = (p, inv, ctl, mod) =>
+    const expect = (p, inv, ctl, mod, mode) =>
       p.INVITE_MENU_VISIBLE === inv && p.CAN_CREATE_INVITE === inv && p.GROUP_CONTROL_MENU_VISIBLE === ctl && p.CAN_OPEN_GROUP_CONTROL === ctl &&
+      p.GROUP_CONTROL_MODE === (mode || (ctl ? 'FULL' : 'NONE')) && !p.SEPARATE_REPORTS_ITEM &&
       p.MODERATOR_DELETE_VISIBLE === mod && p.CAN_MODERATE_CONTENT === mod && (ctl || p.DIRECT_OPEN === 'UNAUTHORIZED');
     const personas = {};
     personas.MODERATE_CONTENT_ONLY = await persona(um.page, PS.id);
@@ -2672,6 +2720,36 @@ async function main() {
     personas.MANAGE_MEMBERS_ONLY = await persona(um.page, PS.id);
     live.member = await setY([], 'v.caps.length === 0');
     personas.MEMBER = await persona(um.page, PS.id);
+    live.manageBlocklist = await setY(['MANAGE_BLOCKLIST'], "v.caps.length === 1 && v.caps[0] === 'MANAGE_BLOCKLIST'");
+    personas.MANAGE_BLOCKLIST_ONLY = await persona(um.page, PS.id);
+    live.managePermissions = await setY(['MANAGE_PERMISSIONS'], "v.caps.length === 1 && v.caps[0] === 'MANAGE_PERMISSIONS'");
+    personas.MANAGE_PERMISSIONS_ONLY = await persona(um.page, PS.id);
+    // live: granting MODERATE_CONTENT shows the entry and opens moderation-only mode; revoking it hides and closes it
+    live.grantMod = await setY(['MODERATE_CONTENT'], "v.caps.length === 1 && v.caps[0] === 'MODERATE_CONTENT'");
+    info('Y_PIN_BEFORE_MODERATION_OPEN', await pinReady(um.page));
+    const yModOpen = await ev(um.page, async () => {
+      const ui = window.NostrApp.GroupAdminProductUi;
+      ui.ensureMenuEntry();
+      const el = document.getElementById('sosGroupControlMenuItem');
+      const r = await ui.open('members');
+      const tabs = Array.from(document.querySelectorAll('#sosGapTabs button'))
+        .filter((b) => !b.hidden && getComputedStyle(b).display !== 'none')
+        .map((b) => b.dataset.tab);
+      return { menu: !!el && !el.hidden && el.style.display !== 'none', code: r && r.code, open: ui.isOpen(), tabs };
+    });
+    live.revokeMod = await setY([], 'v.caps.length === 0');
+    const yModRevoked = await ev(um.page, () => {
+      const ui = window.NostrApp.GroupAdminProductUi;
+      ui.ensureMenuEntry();
+      const el = document.getElementById('sosGroupControlMenuItem');
+      return { menu: !!el && !el.hidden && el.style.display !== 'none', open: ui.isOpen() };
+    });
+    report.LIVE_MODERATION_ENTRY = { yModOpen, yModRevoked };
+    set(
+      'LIVE_GRANT_REVOKE_MODERATION_ENTRY',
+      yModOpen.menu && yModOpen.code === 'REPORTS_ONLY' && yModOpen.open && JSON.stringify(yModOpen.tabs) === JSON.stringify(['reports']) && !yModRevoked.menu && !yModRevoked.open,
+      report.LIVE_MODERATION_ENTRY
+    );
     personas.INVITE_USERS_ONLY = await persona(ub.page, PS.id);
     personas.ROOT = await persona(ua.page, PS.id);
     await ev(ua.page, () => window.NostrApp.GroupAdminProductUi.close());
@@ -2683,13 +2761,12 @@ async function main() {
       expect(personas.MEMBER, false, false, false) &&
         expect(personas.INVITE_USERS_ONLY, true, false, false) &&
         expect(personas.INVITE_USERS_ONLY_LIVE, true, false, false) &&
-        expect(personas.MODERATE_CONTENT_ONLY, false, false, true) &&
-        expect(personas.MODERATE_CONTENT_AND_INVITE_USERS, true, false, true) &&
-        expect(personas.MANAGE_MEMBERS_ONLY, false, true, false) &&
-        expect(personas.ROOT, true, true, true) &&
-        personas.MODERATE_CONTENT_ONLY.REPORTS_MENU_VISIBLE &&
-        !personas.INVITE_USERS_ONLY.REPORTS_MENU_VISIBLE &&
-        !personas.MANAGE_MEMBERS_ONLY.REPORTS_MENU_VISIBLE,
+        expect(personas.MODERATE_CONTENT_ONLY, false, true, true, 'MODERATION_ONLY') &&
+        expect(personas.MODERATE_CONTENT_AND_INVITE_USERS, true, true, true, 'MODERATION_ONLY') &&
+        expect(personas.MANAGE_MEMBERS_ONLY, false, false, false) &&
+        expect(personas.MANAGE_BLOCKLIST_ONLY, false, false, false) &&
+        expect(personas.MANAGE_PERMISSIONS_ONLY, false, false, false) &&
+        expect(personas.ROOT, true, true, true, 'FULL'),
       personas
     );
     set('PERSONA_PERMISSION_PROPAGATION_LIVE', yReady.ok && Object.values(live).every((l) => l.ok && /APPLIED|SAVED|NO_CHANGE|UNCHANGED/.test(String(l.code))), live);
@@ -3021,10 +3098,11 @@ async function main() {
       { oldId: OLD_T.id, ctrlId: CTRL_T.id }
     );
     await closeProfile(freshSc);
-    report.MODERATION_HISTORY_SCALE = { scale: SCALE, outsideWindows, freshScControl, freshScRes };
+    // the feed may render the old target (and run its target lookup) before the explicit lookup; both are target-driven
+    report.MODERATION_HISTORY_SCALE = { scale: SCALE, outsideWindows, freshScControl, freshScRes, hiddenBy: freshScRes.beforeLookup ? 'FEED_RENDER_TARGET_LOOKUP' : 'EXPLICIT_TARGET_LOOKUP' };
     set(
       'MODERATION_HISTORY_OVER_80',
-      outsideWindows.modOutsideNewest80 && outsideWindows.attOutsideNewest200 && freshScControl && freshScRes.loaded === 2 && !freshScRes.beforeLookup &&
+      outsideWindows.modOutsideNewest80 && outsideWindows.attOutsideNewest200 && freshScControl && freshScRes.loaded === 2 &&
         freshScRes.oldHidden && !freshScRes.controlHidden && freshScRes.source === 'moderation',
       report.MODERATION_HISTORY_SCALE
     );

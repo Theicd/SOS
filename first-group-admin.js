@@ -250,13 +250,13 @@
     };
   }
 
-  /** Content moderators (not admin tier) get the control panel limited to reports and user content. */
+  /** ROOT, or a current MODERATE_CONTENT holder (moderation-only mode: reports and the reported content). */
   function canSeeModeration() {
     if (!isV2() || App.guestMode === true) return false;
     if (!contextCheck().ok) return false;
     if (!networkSynced()) return false;
     const a = myAuthority();
-    return a.verified && (a.isRoot || hasAny(a, ['MODERATE_CONTENT', 'MANAGE_BLOCKLIST']));
+    return a.verified && has(a, 'MODERATE_CONTENT');
   }
 
   function inviteCreateAllowed(a) {
@@ -271,20 +271,15 @@
     }
   }
 
+  /**
+   * The full group control panel is ROOT only, shown as soon as the configured root identity is active (also while
+   * the network is still syncing). Menu visibility is not authority: every mutation reconciles and fails closed.
+   * Advanced capabilities (MANAGE_*, VIEW_AUDIT_LOG) stay enforced by the protocol but do not open this panel.
+   */
   function canSeeAdminMenu() {
     if (!isV2() || App.guestMode === true) return false;
     if (!contextCheck().ok) return false;
-    if (!networkSynced()) return false;
-    const a = myAuthority();
-    return a.verified && (a.isRoot || isGroupAdminTier(a.caps));
-  }
-
-  /**
-   * Group control is for management capabilities only. MODERATE_CONTENT (reports + delete on the content) and
-   * INVITE_USERS (top-bar invite) have their own surfaces; the Admin 2FA admin-tier list is unchanged.
-   */
-  function isGroupAdminTier(caps) {
-    return (caps || []).some((c) => ADMIN_TIER_CAPS.indexOf(c) !== -1);
+    return isConfiguredRoot(actor());
   }
 
   function isConfiguredRoot(pk) {

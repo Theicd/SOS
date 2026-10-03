@@ -195,13 +195,27 @@
     return !!f && typeof f.canSeeModeration === 'function' && f.canSeeModeration() === true;
   }
 
-  /** Content moderators without group control: a separate "דיווחים" entry (reports + user content only). */
+  /** MODERATE_CONTENT holders (not ROOT): "שליטה על הקבוצה" opens the moderation-only mode (reports + reported content). */
   function canSeeReportsEntry() {
     if (!isV2() || App.guestMode || !actor()) return false;
     return !canSeeGroupAdminMenu() && canSeeModerationOnly();
   }
 
+  /** The single "שליטה על הקבוצה" entry: ROOT (full panel) or MODERATE_CONTENT (moderation-only mode). */
+  function canSeeControlMenu() {
+    return canSeeGroupControl() || canSeeReportsEntry();
+  }
+
   let reportsOnly = false;
+
+  /** Moderation-only mode exposes only report handling; blocking needs MANAGE_BLOCKLIST itself. */
+  function modeSections() {
+    const s = sections();
+    if (!reportsOnly) return s;
+    const f = FGA();
+    const caps = f ? f.myAuthority().caps : [];
+    return { reports: !!s.reports, moderation: !!s.moderation, blockMembers: caps.indexOf('MANAGE_BLOCKLIST') !== -1 };
+  }
 
   function PIN() {
     return App.AdminPinLock || window.SosAdminPinLock || null;
@@ -529,13 +543,13 @@
 
   /** Unresolved-report count on the "שליטה על הקבוצה" menu item (existing in-app surface, no push). */
   function refreshReportBadge() {
-    const control = document.getElementById('sosGroupControlMenuItem');
-    const reports = document.getElementById('sosGroupReportsMenuItem');
-    const other = control && !control.hidden ? reports : control;
-    const stale = other && other.querySelector('.sos-report-badge');
-    if (stale) stale.remove();
-    const item = control && !control.hidden ? control : reports && !reports.hidden ? reports : null;
+    const item = document.getElementById('sosGroupControlMenuItem');
     if (!item) return;
+    if (item.hidden) {
+      const stale = item.querySelector('.sos-report-badge');
+      if (stale) stale.remove();
+      return;
+    }
     const n = unresolvedReports();
     let badge = item.querySelector('.sos-report-badge');
     if (!n) {
@@ -1211,7 +1225,7 @@
 
   function renderReports(body) {
     const R = GR();
-    const s = isV2() ? sections() : {};
+    const s = isV2() ? modeSections() : {};
     if (!R) {
       body.innerHTML = '<p class="gap-note">מודול הדיווחים לא נטען.</p>';
       return;
@@ -1256,7 +1270,7 @@
       .filter((e) => e && e.id && e.pubkey === pk && !seen.has(e.id) && seen.add(e.id) && !deleted.has(e.id))
       .sort((a, b) => b.created_at - a.created_at)
       .slice(0, 30);
-    const s = isV2() ? sections() : {};
+    const s = isV2() ? modeSections() : {};
     box.innerHTML =
       userContent
         .map((e) => {
@@ -1544,7 +1558,7 @@
     }
     const f = FGA();
     const u = userView(selectedMember);
-    const s = isV2() ? sections() : {};
+    const s = isV2() ? modeSections() : {};
     const me = actor();
     if (!el) {
       el = document.createElement('div');
@@ -1565,7 +1579,9 @@
       (u.isRoot ? '<span class="gap-chip root">' + escapeHtml(u.roleLabel) + '</span>' : 'תפקיד נוכחי: ' + escapeHtml(u.member ? u.roleLabel : NO_DATA_TEXT)) +
       ' · ' + escapeHtml(u.statusLabel) + '</div></div></div>';
     let foot = '';
-    if (u.isRoot) {
+    if (reportsOnly) {
+      // moderation-only mode: no role/permission editor, no membership actions
+    } else if (u.isRoot) {
       body +=
         '<p class="gap-note" id="sosGapRootLocked">המנהל הראשי הוא הבעלים של הקבוצה. התפקיד וההרשאות שלו מוגנים ולא ניתן לשנות או להסיר אותם.</p>' +
         '<h3>הרשאות</h3>' + capsEditorHtml(caps, () => true, () => false, false);
@@ -2028,11 +2044,13 @@
     });
   }
 
-  /** Every open requires an unlocked admin PIN session for the current identity. */
-  /** Group control: management capabilities only. Content moderators use openReports(). */
+  /**
+   * Every open requires an unlocked admin PIN session for the current identity.
+   * Full panel: ROOT only. MODERATE_CONTENT holders get the moderation-only mode; everyone else is denied.
+   */
   async function open(tab) {
     ensureMenuEntry();
-    if (!canSeeGroupControl()) return { ok: false, code: 'UNAUTHORIZED' };
+    if (!canSeeGroupControl()) return canSeeReportsEntry() ? openReports() : { ok: false, code: 'UNAUTHORIZED' };
     const p = PIN();
     if (!p) return { ok: false, code: 'ADMIN_PIN_REQUIRED' };
     const who = actor();
@@ -2148,11 +2166,11 @@
       if (isOpen()) close();
     }
     // The only management entry is the profile-menu item "שליטה על הקבוצה".
-    ['sosGroupAdminMenuEntry', 'sosGroupAdminMoreItem'].forEach((id) => {
+    ['sosGroupAdminMenuEntry', 'sosGroupAdminMoreItem', 'sosGroupReportsMenuItem'].forEach((id) => {
       const stale = document.getElementById(id);
       if (stale) stale.remove();
     });
-    const showControl = canSeeGroupControl();
+    const showControl = canSeeControlMenu();
     let item = document.getElementById('sosGroupControlMenuItem');
     const menu = document.getElementById('topBarProfileMenu');
     if (!item && menu) {
@@ -2175,34 +2193,13 @@
       item.hidden = !showControl;
       item.style.display = showControl ? '' : 'none';
     }
-    const showReports = canSeeReportsEntry();
-    let reportsItem = document.getElementById('sosGroupReportsMenuItem');
-    if (!reportsItem && menu && showReports) {
-      reportsItem = document.createElement('button');
-      reportsItem.type = 'button';
-      reportsItem.id = 'sosGroupReportsMenuItem';
-      reportsItem.className = 'top-bar__dropdown-item';
-      reportsItem.innerHTML = '<i class="fa-solid fa-flag"></i><span>דיווחים</span>';
-      reportsItem.addEventListener('click', () => {
-        menu.hidden = true;
-        const pb = document.getElementById('topBarProfileButton');
-        if (pb) pb.setAttribute('aria-expanded', 'false');
-        openReports();
-      });
-      if (item && item.parentNode) item.parentNode.insertBefore(reportsItem, item.nextSibling);
-      else menu.appendChild(reportsItem);
-    }
-    if (reportsItem) {
-      reportsItem.hidden = !showReports;
-      reportsItem.style.display = showReports ? '' : 'none';
-    }
     refreshReportBadge();
     syncInviteMenuItem();
     const createBtn = document.getElementById('sosGroupCreateMenuEntry');
     if (createBtn) createBtn.remove();
     const legacy = document.getElementById('sosAdminSettingsEntry');
     if (legacy) legacy.style.display = 'none';
-    const allowedNow = reportsOnly ? showReports : showControl;
+    const allowedNow = reportsOnly ? canSeeReportsEntry() : canSeeGroupControl();
     if ((!allowedNow || !pinUnlocked()) && isOpen()) close();
     else if (isOpen()) {
       const fp = stateFingerprint();
@@ -2250,6 +2247,7 @@
     canSeeGroupAdminMenu,
     canSeeGroupControl,
     canSeeReportsEntry,
+    canSeeControlMenu,
     inviteMenuAllowed,
     openReports,
     controlStatus,

@@ -23,7 +23,7 @@
   const CLIENT_RATE_PER_HOUR = 10;
   const INBOX_PER_REPORTER_PER_DAY = 20;
   const POLL_MS = 60000;
-  const REPORT_CAPS = Object.freeze(['MODERATE_CONTENT', 'MANAGE_BLOCKLIST']);
+  const REPORT_CAPS = Object.freeze(['MODERATE_CONTENT']);
 
   const REASONS = Object.freeze([
     { id: 'INAPPROPRIATE', label: 'תוכן לא הולם' },

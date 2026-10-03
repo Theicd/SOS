@@ -514,7 +514,7 @@ async function main() {
     inviteOnly.menu === false &&
       inviteOnly.moderation === false &&
       /return f\.canSeeAdminMenu\(\) \|\| (canSeeModerationOnly\(\) \|\| )?needsBootstrap\(\);/.test(uiSrc0) &&
-      /if \(!canSeeGroupControl\(\)\) return \{ ok: false, code: 'UNAUTHORIZED' \};/.test(uiSrc0) &&
+      /if \(!canSeeGroupControl\(\)\) return canSeeReportsEntry\(\) \? openReports\(\) : \{ ok: false, code: 'UNAUTHORIZED' \};/.test(uiSrc0) &&
       !inviteOnly.sections.admins && !inviteOnly.sections.roles && !inviteOnly.sections.members && !inviteOnly.sections.settings
   );
   check(
@@ -810,7 +810,8 @@ async function main() {
       /const unlocked = await adminSession\(\)/.test(uiSrc) &&
       /function adminSession\(\) \{\s*const p = PIN\(\);\s*return p \? p\.requestUnlock\(\) : Promise\.resolve\(\{ ok: false \}\);/.test(uiSrc) &&
       !/needsAdminSession|NOT_ADMIN_TIER/.test(uiSrc) &&
-      /return a\.verified && \(a\.isRoot \|\| isGroupAdminTier\(a\.caps\)\)/.test(fgaSrc) &&
+      /function canSeeAdminMenu\(\) \{[\s\S]{0,160}return isConfiguredRoot\(actor\(\)\);/.test(fgaSrc) &&
+      /return a\.verified && has\(a, 'MODERATE_CONTENT'\);/.test(fgaSrc) &&
       /p\.isUnlocked\(me\) !== true\) return fail\('ADMIN_PIN_REQUIRED'\)/.test(fgaSrc) &&
       /isUnlocked\(pubkey\) \{\s*const c = C\(\);\s*return !!c && c\.isActive\(pubkey\)/.test(read('admin-pin-lock.js')) &&
       /'שליטה על הקבוצה'/.test(uiSrc) &&
