@@ -187,14 +187,21 @@
   function canSeeGroupAdminMenu() {
     const f = FGA();
     if (!f || !isV2() || App.guestMode) return false;
-    return f.canSeeAdminMenu() || canSeeModerationOnly() || needsBootstrap();
+    return f.canSeeAdminMenu() || needsBootstrap();
   }
 
-  /** Content moderators without an admin-tier capability: reports + user content only. */
   function canSeeModerationOnly() {
     const f = FGA();
     return !!f && typeof f.canSeeModeration === 'function' && f.canSeeModeration() === true;
   }
+
+  /** Content moderators without group control: a separate "דיווחים" entry (reports + user content only). */
+  function canSeeReportsEntry() {
+    if (!isV2() || App.guestMode || !actor()) return false;
+    return !canSeeGroupAdminMenu() && canSeeModerationOnly();
+  }
+
+  let reportsOnly = false;
 
   function PIN() {
     return App.AdminPinLock || window.SosAdminPinLock || null;
@@ -242,6 +249,7 @@
     if (!isV2()) return id !== 'reports' && TABS.some((t) => t.id === id);
     const v = s || sections();
     const f = FGA();
+    if (reportsOnly) return id === 'reports' && !!v.reports;
     if (id === 'members') return !!f && (f.canSeeAdminMenu() || needsBootstrap());
     if (id === 'admins') return !!v.admins;
     if (id === 'invites') return !!v.invites || !!v.createInvite;
@@ -521,7 +529,12 @@
 
   /** Unresolved-report count on the "שליטה על הקבוצה" menu item (existing in-app surface, no push). */
   function refreshReportBadge() {
-    const item = document.getElementById('sosGroupControlMenuItem');
+    const control = document.getElementById('sosGroupControlMenuItem');
+    const reports = document.getElementById('sosGroupReportsMenuItem');
+    const other = control && !control.hidden ? reports : control;
+    const stale = other && other.querySelector('.sos-report-badge');
+    if (stale) stale.remove();
+    const item = control && !control.hidden ? control : reports && !reports.hidden ? reports : null;
     if (!item) return;
     const n = unresolvedReports();
     let badge = item.querySelector('.sos-report-badge');
@@ -544,7 +557,7 @@
     const f = FGA();
     const info = groupInfo();
     const title = shellEl.querySelector('#sosGapTitle');
-    if (title) title.textContent = 'ניהול הקבוצה';
+    if (title) title.textContent = reportsOnly ? 'דיווחים' : 'ניהול הקבוצה';
     const logo = shellEl.querySelector('#sosGapLogo');
     const src = safeLogoSrc(info.logoRef);
     if (logo) {
@@ -636,29 +649,38 @@
     return '';
   }
 
+  function avatarSrc(v) {
+    const s = typeof App.safeProfilePictureUrl === 'function' ? App.safeProfilePictureUrl(String(v || '')) : String(v || '');
+    return safeLogoSrc(s);
+  }
+
+  /** Name + picture from the shared profile resolver (App.fetchProfile / App.profileCache, newest kind 0 wins). */
   function profileOf(pk, row) {
     const r = row || {};
     const p = profiles.get(pk) || {};
     const c = App.profileCache instanceof Map ? App.profileCache.get(pk) : null;
-    const cached = String((c && (c.name || c.display_name)) || '').trim();
     // follow-service caches a placeholder name ("משתמש <8 hex>") until the real kind-0 profile arrives.
-    const placeholder = cached === 'משתמש ' + String(pk).slice(0, 8);
+    const real = (n) => {
+      const s = String(n || '').trim();
+      return s && s !== 'משתמש ' + String(pk).slice(0, 8) && s !== 'משתמש אנונימי' ? s : '';
+    };
     return {
-      name: String(r.displayName || (!placeholder && cached) || p.name || cached || '').trim(),
-      picture: safeLogoSrc(r.avatar || (c && c.picture) || p.picture || ''),
+      name: real(p.name) || real(c && (c.name || c.display_name)) || String(r.displayName || '').trim(),
+      picture: avatarSrc(p.picture) || avatarSrc(c && c.picture) || avatarSrc(r.avatar),
     };
   }
 
+  const PROFILE_RECHECK_MS = 60000;
   function ensureProfile(pk) {
-    if (!/^[0-9a-f]{64}$/.test(pk) || profiles.has(pk) || typeof App.fetchProfile !== 'function') return;
-    const c = App.profileCache instanceof Map ? App.profileCache.get(pk) : null;
-    if (c && (c.picture || (c.name && c.name !== 'משתמש ' + pk.slice(0, 8)))) return;
-    profiles.set(pk, {});
+    if (!/^[0-9a-f]{64}$/.test(pk) || typeof App.fetchProfile !== 'function') return;
+    const prev = profiles.get(pk);
+    if (prev && Date.now() - (prev.at || 0) < PROFILE_RECHECK_MS) return;
+    profiles.set(pk, Object.assign({}, prev, { at: Date.now() }));
     Promise.resolve()
       .then(() => App.fetchProfile(pk))
       .then((p) => {
         if (!p) return;
-        profiles.set(pk, { name: String(p.name || p.display_name || ''), picture: String(p.picture || '') });
+        profiles.set(pk, { name: String(p.name || p.display_name || ''), picture: String(p.picture || ''), at: Date.now() });
         refreshProfileNodes(pk);
       })
       .catch(() => {});
@@ -672,10 +694,20 @@
   function avatarHtml(pk, prof, large) {
     const initial = escapeHtml(((prof && prof.name) || '').trim().charAt(0) || '?');
     return (
-      '<span class="gap-avatar' + (large ? ' lg' : '') + '" data-avatar-pk="' + escapeHtml(pk) + '" aria-hidden="true">' +
+      '<span class="gap-avatar' + (large ? ' lg' : '') + '" data-avatar-pk="' + escapeHtml(pk) + '" data-initial="' + initial + '" aria-hidden="true">' +
       (prof && prof.picture ? '<img alt="" loading="lazy" referrerpolicy="no-referrer" src="' + escapeHtml(prof.picture) + '">' : initial) +
       '</span>'
     );
+  }
+
+  /** A picture that fails to load falls back to the initial (display only; the profile itself is never changed). */
+  function onAvatarError(e) {
+    const img = e && e.target;
+    if (!img || img.tagName !== 'IMG') return;
+    const span = img.parentElement;
+    if (!span || !span.classList || !span.classList.contains('gap-avatar')) return;
+    span.setAttribute('data-avatar-fallback', '1');
+    span.textContent = span.getAttribute('data-initial') || '?';
   }
 
   function refreshProfileNodes(pk) {
@@ -1633,6 +1665,19 @@
     activeTab = tab;
     renderedFingerprint = stateFingerprint();
     refreshChrome();
+    if (reportsOnly) {
+      const top = document.getElementById('sosGapTop');
+      if (top) top.innerHTML = '';
+      if (!body) return;
+      if (!canSeeReportsEntry() || tab !== 'reports') {
+        body.innerHTML = '<p>אין לכם הרשאה לצפות בדיווחים.</p>';
+        closeDrawer();
+        return;
+      }
+      renderReports(body);
+      renderDrawer();
+      return;
+    }
     renderTop();
     if (!body) return;
     if (isV2() && !canSeeGroupAdminMenu() && !needsBootstrap()) {
@@ -1951,6 +1996,7 @@
       tabs.appendChild(b);
     });
     shellEl.querySelector('#sosGapClose').addEventListener('click', close);
+    shellEl.addEventListener('error', onAvatarError, true);
     shellEl.addEventListener('click', (ev) => {
       const p = PIN();
       if (p) p.touch();
@@ -1983,6 +2029,7 @@
   }
 
   /** Every open requires an unlocked admin PIN session for the current identity. */
+  /** Group control: management capabilities only. Content moderators use openReports(). */
   async function open(tab) {
     ensureMenuEntry();
     if (!canSeeGroupControl()) return { ok: false, code: 'UNAUTHORIZED' };
@@ -1995,11 +2042,31 @@
       return { ok: false, code: u.code };
     }
     if (!u.ok || actor() !== who || !canSeeGroupControl()) return { ok: false, code: u.ok ? 'UNAUTHORIZED' : 'ADMIN_PIN_REQUIRED' };
+    reportsOnly = false;
     ensureShell();
     shellEl.classList.add('is-open');
     renderTab(tab || 'home');
     refreshControlProbe();
     return { ok: true, code: controlStatus() };
+  }
+
+  async function openReports() {
+    ensureMenuEntry();
+    if (!canSeeReportsEntry()) return { ok: false, code: 'UNAUTHORIZED' };
+    const p = PIN();
+    if (!p) return { ok: false, code: 'ADMIN_PIN_REQUIRED' };
+    const who = actor();
+    const u = await adminSession();
+    if (!u.ok && u.code === 'ADMIN_2FA_SERVICE_UNAVAILABLE') {
+      notice(ERROR_TEXT.ADMIN_2FA_SERVICE_UNAVAILABLE);
+      return { ok: false, code: u.code };
+    }
+    if (!u.ok || actor() !== who || !canSeeReportsEntry()) return { ok: false, code: u.ok ? 'UNAUTHORIZED' : 'ADMIN_PIN_REQUIRED' };
+    reportsOnly = true;
+    ensureShell();
+    shellEl.classList.add('is-open');
+    renderTab('reports');
+    return { ok: true, code: 'REPORTS_ONLY' };
   }
 
   /** New-group creation is deferred to the multi-community phase. */
@@ -2037,6 +2104,22 @@
       ev.length ? ev[ev.length - 1].id : '',
       n && n.isSynced() ? 'net' : 'nonet',
     ].join('|');
+  }
+
+  /** Top-bar "הזמן משתמש" exists only for principals who may create an invite (server still enforces). */
+  function inviteMenuAllowed() {
+    if (App.guestMode || !actor()) return false;
+    const f = FGA();
+    if (isV2()) return !!f && typeof f.visibleSections === 'function' && f.visibleSections().createInvite === true;
+    return typeof App.canCreateInviteUi === 'function' && App.canCreateInviteUi() === true;
+  }
+
+  function syncInviteMenuItem() {
+    const btn = document.getElementById('topBarInviteFriend');
+    if (!btn) return;
+    const show = inviteMenuAllowed();
+    btn.hidden = !show;
+    btn.style.display = show ? '' : 'none';
   }
 
   let chromeOwner = '';
@@ -2091,13 +2174,36 @@
     if (item) {
       item.hidden = !showControl;
       item.style.display = showControl ? '' : 'none';
-      refreshReportBadge();
     }
+    const showReports = canSeeReportsEntry();
+    let reportsItem = document.getElementById('sosGroupReportsMenuItem');
+    if (!reportsItem && menu && showReports) {
+      reportsItem = document.createElement('button');
+      reportsItem.type = 'button';
+      reportsItem.id = 'sosGroupReportsMenuItem';
+      reportsItem.className = 'top-bar__dropdown-item';
+      reportsItem.innerHTML = '<i class="fa-solid fa-flag"></i><span>דיווחים</span>';
+      reportsItem.addEventListener('click', () => {
+        menu.hidden = true;
+        const pb = document.getElementById('topBarProfileButton');
+        if (pb) pb.setAttribute('aria-expanded', 'false');
+        openReports();
+      });
+      if (item && item.parentNode) item.parentNode.insertBefore(reportsItem, item.nextSibling);
+      else menu.appendChild(reportsItem);
+    }
+    if (reportsItem) {
+      reportsItem.hidden = !showReports;
+      reportsItem.style.display = showReports ? '' : 'none';
+    }
+    refreshReportBadge();
+    syncInviteMenuItem();
     const createBtn = document.getElementById('sosGroupCreateMenuEntry');
     if (createBtn) createBtn.remove();
     const legacy = document.getElementById('sosAdminSettingsEntry');
     if (legacy) legacy.style.display = 'none';
-    if ((!showControl || !pinUnlocked()) && isOpen()) close();
+    const allowedNow = reportsOnly ? showReports : showControl;
+    if ((!allowedNow || !pinUnlocked()) && isOpen()) close();
     else if (isOpen()) {
       const fp = stateFingerprint();
       if (fp === renderedFingerprint) return;
@@ -2125,6 +2231,15 @@
       refreshReportBadge();
       refreshChrome();
     });
+    // A tab coming back to the foreground re-reads authority, so grants/revokes made meanwhile show up.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      ensureMenuEntry();
+      const n = App.FirstGroupNetworkAuthority;
+      if (isV2() && n && typeof n.reconcile === 'function') {
+        Promise.resolve(n.reconcile('visible')).then(ensureMenuEntry, () => {});
+      }
+    });
     setTimeout(ensureMenuEntry, 1200);
     setInterval(ensureMenuEntry, 15000);
   }
@@ -2134,6 +2249,9 @@
     LABELS,
     canSeeGroupAdminMenu,
     canSeeGroupControl,
+    canSeeReportsEntry,
+    inviteMenuAllowed,
+    openReports,
     controlStatus,
     isActiveMember,
     tabAllowed,

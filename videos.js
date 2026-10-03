@@ -3453,6 +3453,7 @@ function buildVideoFeedFilters() {
       hydrated: deletionsHydrated,
     });
 
+    pushModerationFilters(filters, networkTag, delNet.since);
     filters.push({ kinds: [7], '#t': [networkTag], limit: 500 });
 
     const datingKind = typeof app.DATING_LIKE_KIND === 'number' ? app.DATING_LIKE_KIND : 9000;
@@ -3470,10 +3471,22 @@ function buildVideoFeedFilters() {
       guestDel.since = Math.floor(Date.now() / 1000) - (2 * 60 * 60);
     }
     filters.push(guestDel);
+    pushModerationFilters(filters, networkTag, guestDel.since);
     filters.push({ kinds: [7], '#t': [networkTag], limit: 500 });
   }
 
   return filters;
+}
+
+// Group moderation (39002) and its Admin 2FA attestations (39004), consumed by feed.js validators.
+function pushModerationFilters(filters, networkTag, since) {
+  const modNet = { kinds: [39002], '#t': [networkTag], limit: 80 };
+  const attNet = { kinds: [39004], '#t': [networkTag], limit: 200 };
+  if (since) {
+    modNet.since = since;
+    attNet.since = since;
+  }
+  filters.push(attNet, modNet);
 }
 
 // חלק יאללה וידאו (videos.js) – בדיקה האם אירוע שייך לרשת שלנו
@@ -5252,12 +5265,18 @@ function renderVideoCard(video) {
     }
   }
 
-  if (!isSelf && canDelete) {
+  const moderatable = !video.liveCatalog && /^[0-9a-f]{64}$/.test(String(video.id || ''));
+  if (!isSelf && (canDelete || moderatable)) {
     // חלק תפריט מנהל (videos.js) – מחיקת פוסט / הסרת ערוץ LIVE TV | HYPER CORE TECH
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className = 'videos-feed__action feed-post__action feed-post__action--delete';
     deleteBtn.setAttribute('data-admin-delete', video.id);
+    if (moderatable) deleteBtn.setAttribute('data-mod-delete', video.id);
+    if (!canDelete) {
+      deleteBtn.hidden = true;
+      deleteBtn.style.display = 'none';
+    }
     deleteBtn.title = video.liveCatalog ? 'הסר ערוץ (מנהל)' : 'מחק פוסט (מנהל)';
     deleteBtn.innerHTML = `
       <i class="fa-solid fa-trash"></i>
@@ -6564,10 +6583,19 @@ async function loadCommentsForPost(eventId) {
         : MP && typeof MP.canViewerRemoveContent === 'function'
           ? MP.canViewerRemoveContent(viewerPk, authorKey, comment?.kind != null ? comment.kind : 1).ok === true
           : isOwn || isAdmin;
-    if (canRemove && comment?.id) {
+    const othersComment = !isOwn && !!authorKey && /^[0-9a-f]{64}$/.test(String(comment?.id || ''));
+    if ((canRemove || othersComment) && comment?.id) {
       const deleteBtn = document.createElement('button');
       deleteBtn.type = 'button';
       deleteBtn.className = 'videos-comment-delete';
+      if (othersComment) {
+        deleteBtn.setAttribute('data-mod-delete', comment.id);
+        deleteBtn.setAttribute('data-parent-id', eventId || '');
+      }
+      if (!canRemove) {
+        deleteBtn.hidden = true;
+        deleteBtn.style.display = 'none';
+      }
       deleteBtn.setAttribute('aria-label', 'מחק תגובה');
       deleteBtn.title = 'מחק תגובה';
       deleteBtn.innerHTML = '<i class="fa-solid fa-trash" aria-hidden="true"></i>';
@@ -8334,6 +8362,7 @@ function registerVideoSourceEvent(event) {
     app.eventAuthorById.set(event.id, normalizedPubkey);
   }
   app.postsById.set(event.id, event);
+  if (typeof app.retryModerationForTarget === 'function') app.retryModerationForTarget(event.id);
 
   if (typeof app.processPendingNotifications === 'function') {
     try {
@@ -8852,6 +8881,10 @@ function setupVideoRealtimeSubscription(eventIds = []) {
         if (typeof app.registerDeletion === 'function') {
           app.registerDeletion(event);
         }
+      } else if (event.kind === 39004) {
+        if (typeof app.registerAdmin2faAttestation === 'function') app.registerAdmin2faAttestation(event);
+      } else if (event.kind === 39002) {
+        if (typeof app.registerModeration === 'function') app.registerModeration(event);
       } else if (event.kind === 7) {
         registerVideoEngagementEvent(event);
       } else if (event.kind === 6) {

@@ -187,7 +187,9 @@
     const viewer = normalizePubkey(viewerPubkey) || normalizePubkey(App.publicKey);
     const author = normalizePubkey(targetAuthorPubkey);
     if (!viewer) return { ok: false, code: 'NO_PRINCIPAL' };
-    if (isGuestPrincipal(viewer) || App.guestMode === true || ctx.forceGuest === true) {
+    // Validating a signed event by another principal: the local session being a guest says nothing about the issuer.
+    const localGuest = ctx.issuer === true ? false : App.guestMode === true;
+    if (isGuestPrincipal(viewer) || localGuest || ctx.forceGuest === true) {
       return { ok: false, code: 'GUEST_DENIED' };
     }
     if (!author) return { ok: false, code: 'NO_TARGET_AUTHOR' };
@@ -375,7 +377,7 @@
     if (!state) return { ok: false, code: 'NO_VERIFIED_CONTROL' };
 
     // CURRENT_STATE: issuer must still be authorized now
-    const auth = canModerateContent(moderator, targetAuthor, targetKind, state);
+    const auth = canModerateContent(moderator, targetAuthor, targetKind, state, { issuer: true });
     if (!auth.ok) return { ok: false, code: 'UNAUTHORIZED_MODERATION', detail: auth.code };
 
     const A = App.Admin2faProtocol;

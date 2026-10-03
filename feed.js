@@ -2639,9 +2639,32 @@
     return { ok: true, code: 'REMOVED', targetEventId: id };
   }
 
+  /** Moderator delete buttons on other users' content follow the current capability (grant/revoke without reload). */
+  function syncModerationControls() {
+    if (typeof document === 'undefined') return;
+    document.querySelectorAll('[data-mod-delete]').forEach((el) => {
+      const id = el.getAttribute('data-mod-delete');
+      if (!/^[0-9a-f]{64}$/.test(String(id || ''))) return;
+      let allowed;
+      if (el.hasAttribute('data-parent-id')) {
+        const parentId = el.getAttribute('data-parent-id') || '';
+        const map = App.commentsByParent instanceof Map ? App.commentsByParent.get(parentId) : null;
+        const comment = (map instanceof Map && map.get(id)) || { id, pubkey: App.eventAuthorById?.get?.(id) || '' };
+        allowed = canViewerDeleteComment(comment);
+      } else {
+        allowed = canViewerDeletePost(id);
+      }
+      el.hidden = !allowed;
+      el.style.display = allowed ? '' : 'none';
+    });
+  }
+
   window.addEventListener('sos-first-group-state-changed', () => {
     try {
       purgeSuppressedAuthors();
+    } catch (_) {}
+    try {
+      syncModerationControls();
     } catch (_) {}
   });
 
@@ -2751,6 +2774,30 @@
       pendingAdmin2fa.delete(pendingAdmin2fa.keys().next().value);
     }
     pendingAdmin2fa.set(event.id, event);
+  }
+
+  // Moderation whose target post/comment was not loaded yet: re-validated when that target arrives.
+  const pendingModerationByTarget = new Map();
+
+  function deferForTarget(targetId, event) {
+    if (!pendingModerationByTarget.has(targetId) && pendingModerationByTarget.size >= PENDING_ADMIN_2FA_MAX) {
+      pendingModerationByTarget.delete(pendingModerationByTarget.keys().next().value);
+    }
+    const list = pendingModerationByTarget.get(targetId) || [];
+    if (!list.some((e) => e.id === event.id)) list.push(event);
+    pendingModerationByTarget.set(targetId, list);
+  }
+
+  function retryModerationForTarget(targetId) {
+    const list = targetId ? pendingModerationByTarget.get(targetId) : null;
+    if (!list) return;
+    pendingModerationByTarget.delete(targetId);
+    setTimeout(() => {
+      list.forEach((ev) => {
+        if (App._seenModerationEventIds instanceof Set) App._seenModerationEventIds.delete(ev.id);
+        registerModeration(ev);
+      });
+    }, 0);
   }
 
   function registerAdmin2faAttestation(event) {
@@ -2889,11 +2936,13 @@
       (typeof MP.readTag === 'function' && MP.readTag(event, 'd')) ||
       (typeof MP.readTag === 'function' && MP.readTag(event, 'e')) ||
       '';
-    const targetEvent = targetId ? resolveTargetEvent(targetId) : null;
+    const resolved = targetId ? resolveTargetEvent(targetId) : null;
+    const targetEvent = resolved && Array.isArray(resolved.tags) ? resolved : null;
     const verdict = MP.validateModerationEvent(event, targetEvent, null);
     if (!verdict.ok) {
       logDeletionDebug('rejected group moderation', { code: verdict.code, id: event && event.id });
       deferForAdmin2fa(event, verdict.code, App._seenModerationEventIds);
+      if (/^ADMIN_2FA_/.test(String(verdict.code || '')) && targetId && !targetEvent) deferForTarget(targetId, event);
       return false;
     }
     const isNew = applyDeletion(verdict.targetEventId, {
@@ -3149,6 +3198,7 @@
     saveCommentsToStorage();
     updateCommentsForParent(parentId);
     handleNotificationForComment(event, parentId);
+    retryModerationForTarget(event.id);
   }
 
   function listVisibleComments(parentId) {
@@ -3231,8 +3281,9 @@
         const safeContent = App.escapeHtml(comment.content || '').replace(/\n/g, '<br>');
         const timestamp = comment.created_at ? formatTimestamp(comment.created_at) : '';
         const canDelete = canViewerDeleteComment(comment);
-        const deleteBtnHtml = canDelete
-          ? `<button type="button" class="feed-comment__delete" data-delete-comment="${comment.id}" data-parent-id="${parentId}" aria-label="מחק תגובה" title="מחק תגובה"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>`
+        const othersComment = normalizedCommenter && normalizedCommenter !== String(App.publicKey || '').toLowerCase();
+        const deleteBtnHtml = canDelete || othersComment
+          ? `<button type="button" class="feed-comment__delete" data-delete-comment="${comment.id}" data-parent-id="${parentId}" data-mod-delete="${othersComment ? comment.id : ''}"${canDelete ? '' : ' hidden style="display:none"'} aria-label="מחק תגובה" title="מחק תגובה"><i class="fa-solid fa-trash" aria-hidden="true"></i></button>`
           : '';
         const reportBtnHtml = normalizedCommenter && normalizedCommenter !== String(App.publicKey || '').toLowerCase() && /^[0-9a-f]{64}$/.test(String(comment.id || ''))
           ? `<button type="button" class="feed-comment__report" data-report-event="${comment.id}" onclick="NostrApp.reportEvent('${comment.id}', '${parentId}')" aria-label="דווח על תגובה" title="דווח"><i class="fa-solid fa-flag" aria-hidden="true"></i></button>`
@@ -3620,6 +3671,7 @@
       }
       App.postsById.set(event.id, event); // חלק התרעות (feed.js) – שומר את אירוע הפוסט במפה לשימוש בהתרעות
       processPendingNotifications(event.id); // חלק התרעות (feed.js) – מנסה לשחרר התרעות מושהות עבור הפוסט הזה
+      retryModerationForTarget(event.id);
       const safeName = App.escapeHtml(profileData.name || '');
       const safeBio = profileData.bio ? App.escapeHtml(profileData.bio) : '';
       const article = document.createElement('article');
@@ -3774,7 +3826,10 @@
                 <i class="fa-solid fa-flag"></i>
                 <span>דווח</span>
               </button>
-              ${deleteButtonHtml}
+              <button class="feed-post__action feed-post__action--delete" type="button" data-mod-delete="${event.id}"${canDelete ? '' : ' hidden style="display:none"'} onclick="NostrApp.deletePost('${event.id}')">
+                <i class="fa-solid fa-trash"></i>
+                <span>מחק</span>
+              </button>
             </div>
           </div>
         `;
@@ -4854,12 +4909,51 @@ async function loadFeed() {
     } catch (_e) {}
   }
 
+  function isSignedEvent(ev) {
+    return !!ev && /^[0-9a-f]{64}$/.test(String(ev.id || '')) && /^[0-9a-f]{128}$/.test(String(ev.sig || '')) && Array.isArray(ev.tags) && typeof ev.content === 'string';
+  }
+
+  async function queryRelayEvents(filter, maxWait) {
+    if (!App.pool || !Array.isArray(App.relayUrls) || App.relayUrls.length === 0) return [];
+    try {
+      if (typeof App.pool.querySync === 'function') {
+        const r = await App.pool.querySync(App.relayUrls, filter, { maxWait: maxWait || 5000 });
+        return Array.isArray(r) ? r : Array.isArray(r && r.events) ? r.events : [];
+      }
+      if (typeof App.pool.list === 'function') return (await App.pool.list(App.relayUrls, [filter])) || [];
+    } catch (_e) {}
+    return [];
+  }
+
+  /** The signed target event (Admin 2FA binds post vs comment from it); fetched from the relays when only its id is known. */
+  async function resolveSignedTarget(eventId) {
+    const local = resolveTargetEvent(eventId);
+    if (isSignedEvent(local)) return local;
+    const found = (await queryRelayEvents({ ids: [eventId] }, 5000)).find((e) => e && e.id === eventId && e.kind === 1);
+    return isSignedEvent(found) ? found : local;
+  }
+
+  /** Resolves only after at least one relay accepted the event and it reads back from the relays. */
+  async function publishConfirmed(ev) {
+    const r = App.pool.publish(App.relayUrls, ev);
+    if (Array.isArray(r)) await Promise.any(r);
+    else await r;
+    for (let i = 0; i < 3; i++) {
+      const got = await queryRelayEvents({ ids: [ev.id] }, 4000);
+      if (got.some((e) => e && e.id === ev.id)) return true;
+      await new Promise((res) => setTimeout(res, 600));
+    }
+    throw new Error('READBACK_FAILED');
+  }
+
   async function publishModerationEvent(eventId, options = {}) {
     const quiet = !!(options && options.quiet);
     const MP = moderationPolicy();
     if (!MP || !eventId) return false;
-    const targetEvent = resolveTargetEvent(eventId);
+    const tracked = () => App.deletionTombstones instanceof Map && App.deletionTombstones.has(eventId);
+    const targetEvent = await resolveSignedTarget(eventId);
     if (!targetEvent) {
+      lastModerationFailure = 'TARGET_UNAVAILABLE';
       logDeleteLifecycle('MOD_PUBLISH_FAIL', { id: eventId, reason: 'no-target' });
       return false;
     }
@@ -4901,15 +4995,15 @@ async function loadFeed() {
       return false;
     }
     try {
-      if (att.attestation) await App.pool.publish(App.relayUrls, att.attestation);
-      await App.pool.publish(App.relayUrls, event);
-      markDeletionPublishState(eventId, 'confirmed', event.id);
+      if (att.attestation) await publishConfirmed(att.attestation);
+      await publishConfirmed(event);
+      if (tracked()) markDeletionPublishState(eventId, 'confirmed', event.id);
       logDeleteLifecycle('MOD_PUBLISH_OK', { id: eventId, moderationEventId: event.id });
       if (!quiet) logDeletionPublish('moderation published', { eventId, moderationEventId: event.id });
       return true;
     } catch (err) {
-      lastModerationFailure = 'PUBLISH_FAILED';
-      markDeletionPublishState(eventId, 'failed', event.id);
+      lastModerationFailure = err && err.message === 'READBACK_FAILED' ? 'READBACK_FAILED' : 'PUBLISH_FAILED';
+      if (tracked()) markDeletionPublishState(eventId, 'failed', event.id);
       logDeleteLifecycle('MOD_PUBLISH_FAIL', { id: eventId, reason: err?.message || 'publish' });
       return false;
     }
@@ -5393,6 +5487,39 @@ async function loadFeed() {
     }, true);
   }
 
+  function isOthersContentV2(author) {
+    const MP = moderationPolicy();
+    const me = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : '';
+    const a = typeof author === 'string' ? author.toLowerCase() : '';
+    return !!(MP && MP.isV2 && MP.isV2() && me && a && a !== me);
+  }
+
+  const MODERATION_FAILURE_TEXT = {
+    ADMIN_2FA_SERVICE_UNAVAILABLE: 'שירות אימות המנהל אינו זמין כרגע. התוכן לא נמחק',
+    CANCELLED: 'המחיקה בוטלה. התוכן לא נמחק',
+    ADMIN_PIN_REQUIRED: 'המחיקה בוטלה: נדרש קוד מנהל. התוכן לא נמחק',
+    ADMIN_STEP_UP_CANCELLED: 'המחיקה בוטלה. התוכן לא נמחק',
+  };
+
+  function notifyModerationFailure(code) {
+    const text = MODERATION_FAILURE_TEXT[code] || 'המחיקה לא נשמרה ברשת ולכן התוכן לא נמחק. נסו שוב';
+    try {
+      if (typeof App.showToast === 'function') App.showToast(text);
+      else window.alert(text);
+    } catch (_e) {}
+  }
+
+  /** Another user's post/comment: hidden only after the moderation event is published and read back; unchanged on failure. */
+  async function removeOthersContent(eventId) {
+    const target = await resolveSignedTarget(eventId);
+    const r = target ? await moderateRemoveEvent(target) : { ok: false, code: 'TARGET_UNAVAILABLE' };
+    if (!r.ok) {
+      logDeleteLifecycle('MOD_REMOVE_FAIL', { id: eventId, reason: r.code });
+      notifyModerationFailure(r.code);
+    }
+    return r;
+  }
+
   async function deletePost(eventId) {
     if (!eventId) {
       return;
@@ -5407,6 +5534,10 @@ async function loadFeed() {
     const confirmed = window.confirm('למחוק את הפוסט? פעולה זו אינה ניתנת לשחזור.');
     if (!confirmed) {
       return;
+    }
+
+    if (isOthersContentV2(resolveTargetAuthorPubkey(eventId))) {
+      return removeOthersContent(eventId);
     }
 
     applyDeletion(eventId, {
@@ -5458,6 +5589,9 @@ async function loadFeed() {
     }
 
     logDeleteLifecycle('CLICK', { id: commentId, source: 'comment' });
+    if (isOthersContentV2(comment.pubkey || resolveTargetAuthorPubkey(commentId))) {
+      return removeOthersContent(commentId);
+    }
     applyDeletion(commentId, {
       source: 'local',
       deleter: App.publicKey || '',
@@ -5548,11 +5682,14 @@ async function loadFeed() {
 
     registerDeletion,
     registerModeration,
+    registerAdmin2faAttestation,
     canViewerDeletePost,
     canViewerDeleteComment,
     isAuthorSuppressed,
     purgeSuppressedAuthors,
     moderateRemoveEvent,
+    retryModerationForTarget,
+    syncModerationControls,
     reportEvent,
     registerLike,
     updateLikeIndicator,

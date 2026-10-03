@@ -840,7 +840,7 @@ async function main() {
     'member-admin-operations.js': /attestPrivileged\(signed\)[\s\S]*?if \(attestation\) await App\.pool\.publish\(App\.relayUrls, attestation\);\s*await App\.pool\.publish\(App\.relayUrls, signed\)/,
     'invite-policy.js': /await C\.attest\(event\)[\s\S]*?acceptControlEvent\(event\)/,
     'invite-service.js': /C\.attest\(signed, \{ invite: ev \}\)[\s\S]*?A\.revoke\(signed\)[\s\S]*?publish\(App\.relayUrls, attestation\);\s*await App\.pool\.publish\(App\.relayUrls, signed\)/,
-    'feed.js': /attestAdminRemoval\(event, targetEvent\)[\s\S]*?validateModerationEvent\(event, targetEvent, null\)[\s\S]*?publish\(App\.relayUrls, att\.attestation\);\s*await App\.pool\.publish\(App\.relayUrls, event\)/,
+    'feed.js': /attestAdminRemoval\(event, targetEvent\)[\s\S]*?validateModerationEvent\(event, targetEvent, null\)[\s\S]*?if \(att\.attestation\) await publishConfirmed\(att\.attestation\);\s*await publishConfirmed\(event\)/,
     'first-group-admin.js': /signAttestedBootstrap\(me, o\)[\s\S]*?publish\(App\.relayUrls, signedBootstrap\.attestation\);\s*await App\.pool\.publish\(App\.relayUrls, ev\)/,
   };
   const senderAudit = Object.fromEntries(Object.entries(senders).map(([f, re]) => [f, re.test(read(f))]));

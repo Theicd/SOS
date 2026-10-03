@@ -153,9 +153,10 @@
       (typeof App.canViewerDeletePost === 'function'
         ? App.canViewerDeletePost(event.id)
         : isOwn || isAdminUser);
-    const deleteButtonHtml = canDelete
+    const modTarget = !isReply && !isOwn && /^[0-9a-f]{64}$/.test(String(event.id || ''));
+    const deleteButtonHtml = canDelete || modTarget
       ? `
-        <button class="feed-post__action feed-post__action--delete" type="button" data-delete-post="${event.id}">
+        <button class="feed-post__action feed-post__action--delete" type="button" data-delete-post="${event.id}"${modTarget ? ` data-mod-delete="${event.id}"` : ''}${canDelete ? '' : ' hidden style="display:none"'}>
           <i class="fa-solid fa-trash"></i>
           <span>מחק</span>
         </button>

@@ -1,0 +1,845 @@
+{
+  "gate": "MODERATION_DELETE_PRODUCTION_TRACE",
+  "ts": "2026-10-02T22:36:22.225Z",
+  "mutations": 0,
+  "controlEpoch": 9,
+  "moderators": [
+    "170fe2a9",
+    "5cc47531"
+  ],
+  "admin2faEnforced": true,
+  "attestationsSeen": 11,
+  "moderation39002": [
+    {
+      "by": "ROOT",
+      "at": "2026-10-02T21:57:36.000Z",
+      "modId": "02417813",
+      "target": "055fed9b",
+      "targetFound": true,
+      "targetIsComment": false,
+      "targetAuthorIsRoot": false,
+      "attestations": 1,
+      "attestationOps": [
+        "DELETE_OTHER_USER_POST"
+      ],
+      "verdict": "UNAUTHORIZED_MODERATION",
+      "hiddenInGuest": false
+    }
+  ],
+  "deletions5": [
+    {
+      "by": "ROOT",
+      "at": "2026-10-02T22:19:08.000Z",
+      "targets": [
+        {
+          "id": "8d33c434",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:170fe2a9",
+      "at": "2026-10-01T11:21:17.000Z",
+      "targets": [
+        {
+          "id": "375409d7",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "ROOT",
+      "at": "2026-09-21T22:42:35.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "ROOT",
+      "at": "2026-09-20T13:31:35.000Z",
+      "targets": [
+        {
+          "id": "f261dbc8",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:44.000Z",
+      "targets": [
+        {
+          "id": "0616400d",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:43.000Z",
+      "targets": [
+        {
+          "id": "c38e3e56",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:42.000Z",
+      "targets": [
+        {
+          "id": "c98f918f",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:41.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:40.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:39.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:38.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:37.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:36.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:35.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:34.000Z",
+      "targets": [
+        {
+          "id": "p2p-1789",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:33.000Z",
+      "targets": [
+        {
+          "id": "p2p-1789",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:32.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:31.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:30.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:28.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:27.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:25.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:24.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:23.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:23.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:22.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:21.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:20.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:20.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:19.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:18.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:17.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:16.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:16.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:15.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:14.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:13.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:12.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:12.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:10.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:09.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:09.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:08.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:07.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:06.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:05.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:04.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:03.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:02.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:01.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:01:00.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:59.000Z",
+      "targets": [
+        {
+          "id": "p2p-1789",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:58.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:57.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:56.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:55.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:54.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:53.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:52.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:51.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:50.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:49.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:49.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:48.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:47.000Z",
+      "targets": [
+        {
+          "id": "p2p-send",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:46.000Z",
+      "targets": [
+        {
+          "id": "8b935f07",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:45.000Z",
+      "targets": [
+        {
+          "id": "5ef30143",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:44.000Z",
+      "targets": [
+        {
+          "id": "a9ab65cf",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:43.000Z",
+      "targets": [
+        {
+          "id": "baf2f82a",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:42.000Z",
+      "targets": [
+        {
+          "id": "b29ab5e2",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:42.000Z",
+      "targets": [
+        {
+          "id": "3fe1bd78",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:41.000Z",
+      "targets": [
+        {
+          "id": "3f0b32df",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:40.000Z",
+      "targets": [
+        {
+          "id": "8c6139c2",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    },
+    {
+      "by": "MODERATOR:5cc47531",
+      "at": "2026-09-19T23:00:39.000Z",
+      "targets": [
+        {
+          "id": "6174b84a",
+          "crossAuthor": false,
+          "hiddenInGuest": false
+        }
+      ]
+    }
+  ]
+}

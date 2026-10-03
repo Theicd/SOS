@@ -7,7 +7,7 @@
     "ws://127.0.0.1:7792"
   ],
   "status": "PASS",
-  "ts": "2026-10-02T14:21:08.361Z",
+  "ts": "2026-10-03T00:05:18.547Z",
   "results": {
     "CONFIG_TEST_TRANSFORMS_APPLIED": {
       "ok": true,
@@ -99,8 +99,8 @@
     "CONTROL_RECEIVED_FROM_NETWORK": {
       "ok": true,
       "detail": {
-        "bMs": 93,
-        "cMs": 14
+        "bMs": 24,
+        "cMs": 13
       }
     },
     "REMOTE_MEMBERSHIP_GRANT": {
@@ -110,13 +110,13 @@
         "redB": {
           "ok": true,
           "stage": "mark",
-          "inviteEventId": "4b8f68eb0dd84d5400f69eb9bf92519a650ec95b4f40d9244b0f7cf2cad32670",
-          "inviter": "aa5f6585cf2c2510290a47ef07d22d86602f7f3197a99600f6a7bb3bae5acffd",
-          "usedId": "c97d6183884a38a8d2ee48e5132a3d3ea1a87db99f1bbcf670f536341f1b173d"
+          "inviteEventId": "fde643655898d1437e4ad2d648b074027dd9abe011229aa8458724da4aba73b8",
+          "inviter": "e88320390ffa36b434659332dc44ae8e391e183f1d3674b2a7b3d234da2b0f33",
+          "usedId": "a6325ef9bf94c3e98b7e4fc50aec0eeaf50bd10a1038a1a2fdcd072d979ea482"
         },
         "bOnB": {
           "ok": true,
-          "ms": 42
+          "ms": 39
         },
         "bOnA": true
       }
@@ -244,7 +244,7 @@
       "ok": true,
       "detail": {
         "grant": "APPLIED",
-        "latencyMs": 847,
+        "latencyMs": 620,
         "assigned": [
           "INVITE_USERS"
         ],
@@ -301,11 +301,11 @@
         "redC": {
           "ok": true,
           "stage": "mark",
-          "inviteEventId": "1329b5198401f80a58bcc81941a94d1579f5409db9e5568414ebe1cbd4a61988",
-          "inviter": "2233b521027d68a0d86530566d7b827c0402308dd1969b7d49799985e571da93",
-          "usedId": "01c26c2f02839a669cf6fea05dc4eefb122fcd2c233b0289c104da8f0b07b67e"
+          "inviteEventId": "c8d0f3b425ec23f818a447df353fd3eaa53a46a8b33185aabbe5f6c6a2901ded",
+          "inviter": "ae847fb3e59dfb53d509edb525f98934dc4c4ff5e7bafcb14b98f74771ddff79",
+          "usedId": "8ea1ea3601c185e77e0db57ceafad231ba5d0c353eb24bd5439137418189bc99"
         },
-        "cOnC": 58,
+        "cOnC": 47,
         "cOnA": true,
         "cOnB": true,
         "aSeesC": true,
@@ -348,7 +348,7 @@
       "ok": true,
       "detail": {
         "promote": "SAVED",
-        "ms": 593,
+        "ms": 491,
         "caps": [
           "INVITE_USERS",
           "MANAGE_MEMBERS"
@@ -394,7 +394,7 @@
       "ok": true,
       "detail": {
         "revoke": "APPLIED",
-        "ms": 651,
+        "ms": 542,
         "remaining": [
           "INVITE_USERS"
         ],
@@ -435,8 +435,8 @@
     "OFFLINE_RECONNECT": {
       "ok": true,
       "detail": {
-        "tab1": 2417,
-        "tab2": 3181
+        "tab1": 9215,
+        "tab2": 8
       }
     },
     "MULTITAB_REVOCATION": {
@@ -463,8 +463,8 @@
       "ok": true,
       "detail": {
         "removeC": "REMOVED",
-        "ms": 747,
-        "onB": 615,
+        "ms": 675,
+        "onB": 4,
         "cOps": {
           "menu": false,
           "invite": "UNAUTHORIZED",
@@ -596,7 +596,7 @@
       "detail": {
         "bothValidated": true,
         "accepted": 1,
-        "winner": "E",
+        "winner": "D",
         "loser": {
           "result": "ALREADY_REDEEMED",
           "error": "ההזמנה כבר נוצלה"
@@ -681,7 +681,7 @@
       "ok": true,
       "detail": {
         "oneRelayGrant": "APPLIED",
-        "ms": 3467,
+        "ms": 3297,
         "bOneStatus": {
           "ok": true,
           "relaysOk": 1
@@ -713,7 +713,7 @@
           "code": "NETWORK_AUTHORITY_UNVERIFIED",
           "detail": "RELAY_UNAVAILABLE"
         },
-        "silentMs": 12364,
+        "silentMs": 12347,
         "backOp": "APPLIED"
       }
     },
@@ -739,11 +739,11 @@
           "activity": true
         },
         "aDir": [
-          "2233b521:ACTIVE:MODERATOR",
-          "3401395f:ACTIVE:MEMBER",
-          "b46b0052:REMOVED:MEMBER",
-          "ccf886e8:ACTIVE:MEMBER",
-          "aa5f6585:ACTIVE:ROOT"
+          "01d5d615:ACTIVE:MEMBER",
+          "32af9025:REMOVED:MEMBER",
+          "8a5c1fa4:ACTIVE:MEMBER",
+          "ae847fb3:ACTIVE:MODERATOR",
+          "e8832039:ACTIVE:ROOT"
         ],
         "mobileOverflow": false
       }
@@ -751,7 +751,7 @@
     "ACCOUNT_SWITCH": {
       "ok": true,
       "detail": {
-        "pub": "b46b005207ff67e8d02826b717f7a08fcd7835e0ea4c4d9d5342efbe4f0570c2",
+        "pub": "32af9025e01999e664e0c028a42789905c0522e3e33ff733cb59bf90609707e7",
         "menu": false,
         "open": false,
         "invitesAfter": 0,
@@ -766,15 +766,19 @@
       "detail": {
         "zBefore": "UNKNOWN",
         "zDrawerBefore": {
-          "pk": "4875e4d2ee37714c303fce9ba43eb776be10d36933487a1b9644cbd7b81525cd",
-          "text": "מ\nמשתמש 4875e4d2\n4875e4d2…25cd\nתפקיד נוכחי: עדיין אין נתונים · לא חבר בקבוצה",
-          "registration": "NOT_REGISTERED",
+          "pk": "91b8eecd562070528a5bc8b188ed4af8b3ab8f8c32e2160bb6a26ee683f6fc84",
+          "text": "?\nמשתמש ללא שם\n91b8eecd…fc84\nתפקיד נוכחי: עדיין אין נתונים · לא חבר בקבוצה",
+          "known": "0",
+          "stateNote": "",
           "addBtn": false,
-          "reconcileBtn": false,
+          "confirmBtn": false,
           "inviteBtn": false,
           "save": false,
+          "saveEnabled": false,
+          "permsTitle": false,
           "remove": false,
-          "block": true
+          "block": true,
+          "unblock": false
         }
       }
     },
@@ -785,15 +789,19 @@
         "zOnB": true,
         "zAgain": "ALREADY_MEMBER",
         "zDrawerAfter": {
-          "pk": "4875e4d2ee37714c303fce9ba43eb776be10d36933487a1b9644cbd7b81525cd",
-          "text": "מ\nמשתמש 4875e4d2\n4875e4d2…25cd\nתפקיד נוכחי: חבר · חבר בקבוצה",
-          "registration": "",
+          "pk": "91b8eecd562070528a5bc8b188ed4af8b3ab8f8c32e2160bb6a26ee683f6fc84",
+          "text": "מ\nמשתמש 91b8eecd\n91b8eecd…fc84\nתפקיד נוכחי: חבר · חבר פעיל",
+          "known": "",
+          "stateNote": "",
           "addBtn": false,
-          "reconcileBtn": false,
+          "confirmBtn": false,
           "inviteBtn": false,
           "save": true,
+          "saveEnabled": true,
+          "permsTitle": true,
           "remove": true,
-          "block": true
+          "block": true,
+          "unblock": false
         }
       }
     },
@@ -822,93 +830,298 @@
         "assigned": []
       }
     },
-    "REGISTERED_GAPS_LIST_EXACT": {
+    "ALL_USERS_TAB_LABEL": {
       "ok": true,
       "detail": {
-        "count": 1,
-        "onlyY": true,
-        "button": "השלמת חברות (1)"
+        "tabLabel": "כל המשתמשים"
       }
     },
-    "REGISTERED_RECONCILE_GRANTS_ACTIVE_NO_CAPS": {
+    "ALL_USERS_DIRECTORY_VISIBLE": {
       "ok": true,
       "detail": {
-        "yBefore": "UNKNOWN",
-        "recUi": {
-          "ok": true,
-          "text": "השלמת חברות — בוצע"
-        },
-        "yAfter": {
-          "member": "ACTIVE",
-          "caps": [],
-          "assigned": []
-        },
-        "yGrants1": 1,
-        "newGrants": 1
+        "count": 9,
+        "root": "ROOT"
       }
     },
-    "REGISTERED_RECONCILE_SKIPS_REMOVED_BLOCKED_UNREGISTERED": {
+    "DIRECTORY_STATUSES": {
       "ok": true,
       "detail": {
-        "zRemove": "REMOVED",
-        "z": "REMOVED",
-        "qBlock": "APPLIED",
+        "y": {
+          "pk": "0a55e77725b145d6c1f09f0af003db255b7785abadf02be4217609b321cbf844",
+          "status": "LEGACY",
+          "badge": "חשבון ותיק",
+          "name": "משתמש ללא שם",
+          "avatar": true,
+          "short": "0a55e777…f844"
+        },
+        "po": {
+          "pk": "7fa21f527eac2a15d4686d10ffd5372a46597729285ef01f9ba2baa7708a240e",
+          "status": "LEGACY",
+          "badge": "חשבון ותיק",
+          "name": "profile only",
+          "avatar": true,
+          "short": "7fa21f52…240e"
+        },
         "q": {
-          "member": "UNKNOWN",
-          "listed": true
+          "pk": "9c21b65b1182c97f584bf2bdf870b75507abf299f1a9bd44f1655ca589e5f462",
+          "status": "BLOCKED",
+          "badge": "חסום",
+          "name": "משתמש ללא שם",
+          "avatar": true,
+          "short": "9c21b65b…f462"
         },
-        "n": "UNKNOWN",
-        "po": "UNKNOWN"
+        "z": {
+          "pk": "91b8eecd562070528a5bc8b188ed4af8b3ab8f8c32e2160bb6a26ee683f6fc84",
+          "status": "REMOVED",
+          "badge": "הוסר",
+          "name": "משתמש 91b8eecd",
+          "avatar": true,
+          "short": "91b8eecd…fc84"
+        }
       }
     },
-    "REGISTERED_RECONCILE_IDEMPOTENT": {
+    "DIRECTORY_EXCLUDES_ARBITRARY_KEYS": {
       "ok": true,
       "detail": {
-        "ok": true,
-        "code": "NOTHING_TO_RECONCILE",
-        "granted": 0,
-        "codes": [
-          "NOT_ELIGIBLE",
-          "NOT_ELIGIBLE",
-          "NOT_ELIGIBLE",
-          "NOT_ELIGIBLE",
-          "NOT_ELIGIBLE"
+        "n": false,
+        "x": false
+      }
+    },
+    "DIRECTORY_NO_TECHNICAL_TERMS": {
+      "ok": true,
+      "detail": {
+        "sample": [
+          "e8832039…0f33",
+          "7fa21f52…240e",
+          "01d5d615…41c9"
         ]
       }
     },
-    "REGISTERED_RECONCILE_REQUIRES_MANAGE_MEMBERS": {
+    "PROFILE_NAME_AND_AVATAR_VISIBLE": {
       "ok": true,
       "detail": {
-        "bGaps": "UNAUTHORIZED",
-        "bRec": "UNAUTHORIZED"
+        "po": "profile only"
+      }
+    },
+    "DIRECTORY_FILTERS": {
+      "ok": true,
+      "detail": {
+        "filterLabels": [
+          "הכל",
+          "חברים פעילים",
+          "חשבונות ותיקים",
+          "חסומים",
+          "הוסרו"
+        ],
+        "legacy": 2,
+        "blocked": 1,
+        "removed": 2,
+        "active": 4
+      }
+    },
+    "DIRECTORY_SEARCH": {
+      "ok": true,
+      "detail": {
+        "byName": 1,
+        "byPk": 1
+      }
+    },
+    "OLD_USER_MANAGE_PANEL_VISIBLE": {
+      "ok": true,
+      "detail": {
+        "pk": "7fa21f527eac2a15d4686d10ffd5372a46597729285ef01f9ba2baa7708a240e",
+        "text": "p\nprofile only\n7fa21f52…240e\nתפקיד נוכחי: עדיין אין נתונים · חשבון ותיק",
+        "known": "1",
+        "stateNote": "",
+        "addBtn": false,
+        "confirmBtn": true,
+        "inviteBtn": false,
+        "save": true,
+        "saveEnabled": true,
+        "permsTitle": true,
+        "remove": false,
+        "block": true,
+        "unblock": false
+      }
+    },
+    "UNKNOWN_KEY_NOT_ADDABLE": {
+      "ok": true,
+      "detail": {
+        "nDrawer": {
+          "pk": "0813e8230ce6aa0b4b5e4ce7ac4112a2dadba8be56db19f53206f7b15e7c2cc0",
+          "text": "?\nמשתמש ללא שם\n0813e823…2cc0\nתפקיד נוכחי: עדיין אין נתונים · לא חבר בקבוצה",
+          "known": "0",
+          "stateNote": "",
+          "addBtn": false,
+          "confirmBtn": false,
+          "inviteBtn": false,
+          "save": false,
+          "saveEnabled": false,
+          "permsTitle": false,
+          "remove": false,
+          "block": true,
+          "unblock": false
+        },
+        "xDrawer": {
+          "pk": "7f58b3351f6fbfc8d00ba311673d97da01b1082ee3c37f804b2222d9d07c28cd",
+          "text": "?\nמשתמש ללא שם\n7f58b335…28cd\nתפקיד נוכחי: עדיין אין נתונים · לא חבר בקבוצה",
+          "known": "0",
+          "stateNote": "",
+          "addBtn": false,
+          "confirmBtn": false,
+          "inviteBtn": false,
+          "save": false,
+          "saveEnabled": false,
+          "permsTitle": false,
+          "remove": false,
+          "block": true,
+          "unblock": false
+        }
+      }
+    },
+    "REMOVED_DRAWER_NO_AUTO_REACTIVATE": {
+      "ok": true,
+      "detail": {
+        "pk": "91b8eecd562070528a5bc8b188ed4af8b3ab8f8c32e2160bb6a26ee683f6fc84",
+        "text": "מ\nמשתמש 91b8eecd\n91b8eecd…fc84\nתפקיד נוכחי: עדיין אין נתונים · הוסר",
+        "known": "",
+        "stateNote": "המשתמש הוסר מהקבוצה. הוא לא יצורף מחדש אוטומטית. אפשר להוסיף אותו שוב ידנית, בלי הרשאות.",
+        "addBtn": true,
+        "confirmBtn": false,
+        "inviteBtn": false,
+        "save": false,
+        "saveEnabled": false,
+        "permsTitle": false,
+        "remove": false,
+        "block": true,
+        "unblock": false
+      }
+    },
+    "BLOCKED_DRAWER_UNBLOCK_ONLY": {
+      "ok": true,
+      "detail": {
+        "pk": "9c21b65b1182c97f584bf2bdf870b75507abf299f1a9bd44f1655ca589e5f462",
+        "text": "?\nמשתמש ללא שם\n9c21b65b…f462\nתפקיד נוכחי: עדיין אין נתונים · חסום",
+        "known": "",
+        "stateNote": "המשתמש חסום. הוא לא יכול לפרסם, להגיב, להזמין או לנהל, והתוכן שלו מוסתר ב-SOS.",
+        "addBtn": false,
+        "confirmBtn": false,
+        "inviteBtn": false,
+        "save": false,
+        "saveEnabled": false,
+        "permsTitle": false,
+        "remove": false,
+        "block": false,
+        "unblock": true
+      }
+    },
+    "LEGACY_CONFIRM_GRANTS_ACTIVE_NO_CAPS": {
+      "ok": true,
+      "detail": {
+        "poBefore": "UNKNOWN",
+        "poConfirmUi": {
+          "ok": true,
+          "text": "אישור כחבר — בוצע"
+        },
+        "poAfter": {
+          "member": "ACTIVE",
+          "caps": []
+        },
+        "grants": 1
+      }
+    },
+    "MEMBERSHIP_DOES_NOT_GRANT_INVITE": {
+      "ok": true,
+      "detail": {
+        "poInviteUi": {
+          "invite": false,
+          "role": "MEMBER"
+        },
+        "invitesBeforeDir": 8,
+        "invitesAfterDir": 8
+      }
+    },
+    "OLD_ACTIVE_USER_CAN_RECEIVE_PERMISSIONS": {
+      "ok": true,
+      "detail": {
+        "yBefore": "UNKNOWN",
+        "ySaveUi": {
+          "ok": true,
+          "text": "שמירת שינויים — בוצע"
+        },
+        "yAfter": {
+          "member": "ACTIVE",
+          "assigned": [
+            "MODERATE_CONTENT"
+          ],
+          "caps": [
+            "MODERATE_CONTENT"
+          ]
+        },
+        "grants": 1
+      }
+    },
+    "PERMISSIONS_DEPEND_ON_INVITE_HISTORY_FALSE": {
+      "ok": true,
+      "detail": {
+        "y": true,
+        "po": true
+      }
+    },
+    "LEGACY_REJECTS_REMOVED_BLOCKED_UNKNOWN_ROOT": {
+      "ok": true,
+      "detail": {
+        "rej": {
+          "zConfirm": "TARGET_REMOVED",
+          "zSave": "TARGET_REMOVED",
+          "qConfirm": "TARGET_BLOCKED",
+          "qSave": "TARGET_BLOCKED",
+          "nConfirm": "NOT_KNOWN_SOS_ACCOUNT",
+          "nSave": "NOT_KNOWN_SOS_ACCOUNT",
+          "xConfirm": "NOT_KNOWN_SOS_ACCOUNT",
+          "poAgain": "ALREADY_MEMBER",
+          "rootConfirm": "ROOT_PROTECTED"
+        },
+        "z": "REMOVED",
+        "q": {
+          "member": "UNKNOWN",
+          "listed": true,
+          "caps": 0
+        },
+        "n": "UNKNOWN",
+        "x": "UNKNOWN"
+      }
+    },
+    "LEGACY_CONFIRM_IDEMPOTENT": {
+      "ok": true,
+      "detail": {
+        "poAgain": "ALREADY_MEMBER"
+      }
+    },
+    "LEGACY_REQUIRES_AUTHORITY": {
+      "ok": true,
+      "detail": {
+        "list": "UNAUTHORIZED",
+        "confirm": "UNAUTHORIZED",
+        "save": "UNAUTHORIZED"
       }
     },
     "REGISTERED_MEMBER_DRAWER": {
       "ok": true,
       "detail": {
-        "pk": "737e5adc318a518a5ef205e1170c3a5f2d5a7f5f15e846cd3f7603c78b8bbd76",
-        "text": "מ\nמשתמש 737e5adc\n737e5adc…bd76\nתפקיד נוכחי: חבר · חבר בקבוצה",
-        "registration": "",
+        "pk": "0a55e77725b145d6c1f09f0af003db255b7785abadf02be4217609b321cbf844",
+        "text": "מ\nמשתמש 0a55e777\n0a55e777…f844\nתפקיד נוכחי: מפקח תוכן · חבר פעיל",
+        "known": "",
+        "stateNote": "",
         "addBtn": false,
-        "reconcileBtn": false,
+        "confirmBtn": false,
         "inviteBtn": false,
         "save": true,
+        "saveEnabled": true,
+        "permsTitle": true,
         "remove": true,
-        "block": true
-      }
-    },
-    "UNREGISTERED_NOT_SENT_TO_INVITE_OR_ADD": {
-      "ok": true,
-      "detail": {
-        "pk": "b6ee86c7908216fc30180617037f56b8822743720504b0a29193613b0f096ef4",
-        "text": "p\nprofile only\nb6ee86c7…6ef4\nתפקיד נוכחי: עדיין אין נתונים · לא חבר בקבוצה",
-        "registration": "NOT_REGISTERED",
-        "addBtn": false,
-        "reconcileBtn": false,
-        "inviteBtn": false,
-        "save": false,
-        "remove": false,
-        "block": true
+        "block": true,
+        "unblock": false
       }
     },
     "INVITE_LIFECYCLE_24H_SINGLE_USE": {
@@ -976,10 +1189,13 @@
     "MODERATOR_PANEL_REPORTS_ONLY": {
       "ok": true,
       "detail": {
-        "bModMenu": true,
+        "bModMenu": {
+          "control": false,
+          "controlItem": false,
+          "reportsItem": true,
+          "direct": "UNAUTHORIZED"
+        },
         "bModTabs": [
-          "members",
-          "invites",
           "reports"
         ]
       }
@@ -988,7 +1204,7 @@
       "ok": true,
       "detail": {
         "revokeMod": "APPLIED",
-        "ms": 1895,
+        "ms": 2096,
         "afterRevoke": {
           "ok": false,
           "code": "NO_MODERATE_CAP"
@@ -1004,14 +1220,218 @@
         "kind5": true
       }
     },
+    "ROOT_DELETE_CANONICAL": {
+      "ok": true,
+      "detail": {
+        "result": {
+          "ok": true,
+          "code": "REMOVED"
+        },
+        "relay": {
+          "EVENT_KIND": 39002,
+          "OPERATION": "DELETE_POST",
+          "ATTESTATION_OPERATION": "DELETE_OTHER_USER_POST",
+          "RELAY_ACKS": 2
+        },
+        "viewerHidden": true
+      }
+    },
+    "MODERATOR_POST_DELETE_CANONICAL": {
+      "ok": true,
+      "detail": {
+        "pinSetupShown": true,
+        "modPostRes": {
+          "ok": true,
+          "code": "REMOVED"
+        },
+        "trace": {
+          "EVENT_KIND": 39002,
+          "OPERATION": "DELETE_POST",
+          "ATTESTATION_OPERATION": "DELETE_OTHER_USER_POST",
+          "RELAY_ACKS": 2
+        }
+      }
+    },
+    "MODERATOR_COMMENT_DELETE_CANONICAL": {
+      "ok": true,
+      "detail": {
+        "modCommentRes": {
+          "ok": true,
+          "code": "REMOVED"
+        },
+        "trace": {
+          "EVENT_KIND": 39002,
+          "OPERATION": "DELETE_COMMENT",
+          "ATTESTATION_OPERATION": "DELETE_OTHER_USER_COMMENT",
+          "RELAY_ACKS": 2
+        }
+      }
+    },
+    "MODERATOR_DELETE_HIDDEN_OTHER_CLIENTS": {
+      "ok": true,
+      "detail": {
+        "viewerLive": true,
+        "guestLive": true,
+        "suppression": [
+          "moderation",
+          "moderation"
+        ]
+      }
+    },
+    "MODERATOR_DELETE_SURVIVES_REFRESH": {
+      "ok": true,
+      "detail": {
+        "viewerAfterRefresh": true,
+        "guestAfterRefresh": true
+      }
+    },
+    "MODERATOR_DELETE_FAILURE_RESTORES": {
+      "ok": true,
+      "detail": {
+        "failRes": {
+          "code": "PUBLISH_FAILED",
+          "ok": false,
+          "localHidden": false,
+          "stillPresent": true,
+          "persisted": false,
+          "notices": [
+            "המחיקה לא נשמרה ברשת ולכן התוכן לא נמחק. נסו שוב"
+          ]
+        },
+        "failAlert": true,
+        "failAfterReload": false,
+        "pfOnRelay": false
+      }
+    },
+    "PERSONA_MATRIX": {
+      "ok": true,
+      "detail": {
+        "MODERATE_CONTENT_ONLY": {
+          "INVITE_MENU_VISIBLE": false,
+          "GROUP_CONTROL_MENU_VISIBLE": false,
+          "REPORTS_MENU_VISIBLE": true,
+          "MODERATOR_DELETE_VISIBLE": true,
+          "CAN_OPEN_GROUP_CONTROL": false,
+          "DIRECT_OPEN": "UNAUTHORIZED",
+          "CAN_CREATE_INVITE": false,
+          "CAN_MODERATE_CONTENT": true
+        },
+        "MODERATE_CONTENT_AND_INVITE_USERS": {
+          "INVITE_MENU_VISIBLE": true,
+          "GROUP_CONTROL_MENU_VISIBLE": false,
+          "REPORTS_MENU_VISIBLE": true,
+          "MODERATOR_DELETE_VISIBLE": true,
+          "CAN_OPEN_GROUP_CONTROL": false,
+          "DIRECT_OPEN": "UNAUTHORIZED",
+          "CAN_CREATE_INVITE": true,
+          "CAN_MODERATE_CONTENT": true
+        },
+        "INVITE_USERS_ONLY_LIVE": {
+          "INVITE_MENU_VISIBLE": true,
+          "GROUP_CONTROL_MENU_VISIBLE": false,
+          "REPORTS_MENU_VISIBLE": false,
+          "MODERATOR_DELETE_VISIBLE": false,
+          "CAN_OPEN_GROUP_CONTROL": false,
+          "DIRECT_OPEN": "UNAUTHORIZED",
+          "CAN_CREATE_INVITE": true,
+          "CAN_MODERATE_CONTENT": false
+        },
+        "MANAGE_MEMBERS_ONLY": {
+          "INVITE_MENU_VISIBLE": false,
+          "GROUP_CONTROL_MENU_VISIBLE": true,
+          "REPORTS_MENU_VISIBLE": false,
+          "MODERATOR_DELETE_VISIBLE": false,
+          "CAN_OPEN_GROUP_CONTROL": true,
+          "DIRECT_OPEN": "ALLOWED",
+          "CAN_CREATE_INVITE": false,
+          "CAN_MODERATE_CONTENT": false
+        },
+        "MEMBER": {
+          "INVITE_MENU_VISIBLE": false,
+          "GROUP_CONTROL_MENU_VISIBLE": false,
+          "REPORTS_MENU_VISIBLE": false,
+          "MODERATOR_DELETE_VISIBLE": false,
+          "CAN_OPEN_GROUP_CONTROL": false,
+          "DIRECT_OPEN": "UNAUTHORIZED",
+          "CAN_CREATE_INVITE": false,
+          "CAN_MODERATE_CONTENT": false
+        },
+        "INVITE_USERS_ONLY": {
+          "INVITE_MENU_VISIBLE": true,
+          "GROUP_CONTROL_MENU_VISIBLE": false,
+          "REPORTS_MENU_VISIBLE": false,
+          "MODERATOR_DELETE_VISIBLE": false,
+          "CAN_OPEN_GROUP_CONTROL": false,
+          "DIRECT_OPEN": "UNAUTHORIZED",
+          "CAN_CREATE_INVITE": true,
+          "CAN_MODERATE_CONTENT": false
+        },
+        "ROOT": {
+          "INVITE_MENU_VISIBLE": true,
+          "GROUP_CONTROL_MENU_VISIBLE": true,
+          "REPORTS_MENU_VISIBLE": false,
+          "MODERATOR_DELETE_VISIBLE": true,
+          "CAN_OPEN_GROUP_CONTROL": true,
+          "DIRECT_OPEN": "ALLOWED",
+          "CAN_CREATE_INVITE": true,
+          "CAN_MODERATE_CONTENT": true
+        },
+        "BLOCKED": {
+          "INVITE_MENU_VISIBLE": false,
+          "GROUP_CONTROL_MENU_VISIBLE": false,
+          "REPORTS_MENU_VISIBLE": false,
+          "MODERATOR_DELETE_VISIBLE": false,
+          "CAN_OPEN_GROUP_CONTROL": false,
+          "DIRECT_OPEN": "UNAUTHORIZED",
+          "CAN_CREATE_INVITE": false,
+          "CAN_MODERATE_CONTENT": false
+        }
+      }
+    },
+    "PERSONA_PERMISSION_PROPAGATION_LIVE": {
+      "ok": true,
+      "detail": {
+        "modInvite": {
+          "code": "SAVED",
+          "ok": true,
+          "ms": 2411
+        },
+        "inviteOnly": {
+          "code": "SAVED",
+          "ok": true,
+          "ms": 2488
+        },
+        "manageMembers": {
+          "code": "SAVED",
+          "ok": true,
+          "ms": 2712
+        },
+        "member": {
+          "code": "SAVED",
+          "ok": true,
+          "ms": 2848
+        }
+      }
+    },
+    "MODERATE_CONTENT_REVOKE_LIVE": {
+      "ok": true,
+      "detail": {
+        "afterRevokeDelete": {
+          "ok": false,
+          "code": "NO_MODERATE_CAP",
+          "hidden": false
+        },
+        "pxOnRelay": false
+      }
+    },
     "BLOCK_USER_UI": {
       "ok": true,
       "detail": {
         "tDrawer": {
-          "remove": "הסר מהקבוצה",
+          "remove": "הסר משתמש",
           "block": "חסום משתמש",
           "unblock": "",
-          "content": "תוכן של המשתמש"
+          "content": "תוכן המשתמש"
         },
         "blockUi": {
           "ok": true,
@@ -1057,6 +1477,19 @@
           "comment": false
         },
         "afterBlockA": false
+      }
+    },
+    "PERSONA_BLOCKED": {
+      "ok": true,
+      "detail": {
+        "INVITE_MENU_VISIBLE": false,
+        "GROUP_CONTROL_MENU_VISIBLE": false,
+        "REPORTS_MENU_VISIBLE": false,
+        "MODERATOR_DELETE_VISIBLE": false,
+        "CAN_OPEN_GROUP_CONTROL": false,
+        "DIRECT_OPEN": "UNAUTHORIZED",
+        "CAN_CREATE_INVITE": false,
+        "CAN_MODERATE_CONTENT": false
       }
     },
     "UNBLOCK_USER_UI": {
@@ -1168,7 +1601,7 @@
                 "count": 1
               }
             ],
-            "reported": "2233b521027d68a0d86530566d7b827c0402308dd1969b7d49799985e571da93"
+            "reported": "ae847fb3e59dfb53d509edb525f98934dc4c4ff5e7bafcb14b98f74771ddff79"
           },
           "badge": "1"
         },
@@ -1260,9 +1693,9 @@
       "ok": true,
       "detail": {
         "conflictOp": {
-          "code": "TEMPORARILY_UNAVAILABLE",
+          "code": "ADMIN_PIN_REQUIRED",
           "control": "VERIFIED",
-          "eventId": "7387243897af79bd1d5118747b3616ad80a3b46416ea93f71e2c2e23323b1ed7"
+          "eventId": "e9994b735f8882e7de7fa8ea20b78c2908bf96811044d8ae6f9013670ba33895"
         },
         "conflictMenu": true,
         "outcome": "UNATTESTED_FORKS_REJECTED"
@@ -1281,8 +1714,8 @@
     "RELAY_SECRET_LEAK_SCAN": {
       "ok": true,
       "detail": {
-        "events": 144,
-        "authEvents": 58,
+        "events": 175,
+        "authEvents": 65,
         "secretHits": 0,
         "plaintextInviteCodeHits": 0,
         "nsecHits": 0,
@@ -1335,53 +1768,64 @@
         ],
         "delegates": [
           {
-            "pubkey": "079833598de5e69244d3a07c4c781355c68041636af2a1ccb55003740d07dd32",
+            "pubkey": "db658a9add01ebaa76cff6e5b4b97d8d92c996d7c762b51045a9e25d64fecd01",
             "status": "ACTIVE"
           }
         ]
       },
       "delegateByNonRoot": "UNAUTHORIZED"
     },
-    "JOIN_APPROVAL_LATENCY_MS_B": 282,
-    "REALTIME_GRANT_LATENCY_MS": 847,
-    "JOIN_APPROVAL_LATENCY_MS_C": 58,
-    "REALTIME_PROMOTE_LATENCY_MS": 1627,
+    "JOIN_APPROVAL_LATENCY_MS_B": 268,
+    "REALTIME_GRANT_LATENCY_MS": 620,
+    "JOIN_APPROVAL_LATENCY_MS_C": 47,
+    "REALTIME_PROMOTE_LATENCY_MS": 1316,
     "B_ADMIN_PIN_ENROLL": "PIN_SET",
-    "REALTIME_REVOKE_LATENCY_MS": 2240,
+    "REALTIME_REVOKE_LATENCY_MS": 1717,
     "REPROMOTE_BEFORE_DEMOTE": {
       "repromote": "SAVED",
       "ok": true
     },
-    "RECONNECT_CONVERGENCE_MS": 5611,
-    "REALTIME_REMOVE_LATENCY_MS": 1652,
+    "RECONNECT_CONVERGENCE_MS": 9240,
+    "REALTIME_REMOVE_LATENCY_MS": 1400,
     "P1_B_RESET": {
       "dropToInviteOnly": "SAVED",
       "ok": true
     },
-    "P1_REGISTERED_RECONCILE": {
+    "P1_USER_DIRECTORY": {
       "qBlock": "APPLIED",
       "zRemove": "REMOVED",
-      "bGaps": "UNAUTHORIZED",
-      "bRec": "UNAUTHORIZED",
-      "gapUi": {
-        "count": 1,
-        "n": 1
+      "bDenied": {
+        "list": "UNAUTHORIZED",
+        "confirm": "UNAUTHORIZED",
+        "save": "UNAUTHORIZED"
       },
-      "recUi": {
-        "ok": true,
-        "text": "השלמת חברות — בוצע"
+      "dirCount": 9,
+      "statuses": {
+        "y": "LEGACY",
+        "po": "LEGACY",
+        "q": "BLOCKED",
+        "z": "REMOVED",
+        "n": false,
+        "x": false
       },
-      "rerun": {
+      "poConfirmUi": {
         "ok": true,
-        "code": "NOTHING_TO_RECONCILE",
-        "granted": 0,
-        "codes": [
-          "NOT_ELIGIBLE",
-          "NOT_ELIGIBLE",
-          "NOT_ELIGIBLE",
-          "NOT_ELIGIBLE",
-          "NOT_ELIGIBLE"
-        ]
+        "text": "אישור כחבר — בוצע"
+      },
+      "ySaveUi": {
+        "ok": true,
+        "text": "שמירת שינויים — בוצע"
+      },
+      "rej": {
+        "zConfirm": "TARGET_REMOVED",
+        "zSave": "TARGET_REMOVED",
+        "qConfirm": "TARGET_BLOCKED",
+        "qSave": "TARGET_BLOCKED",
+        "nConfirm": "NOT_KNOWN_SOS_ACCOUNT",
+        "nSave": "NOT_KNOWN_SOS_ACCOUNT",
+        "xConfirm": "NOT_KNOWN_SOS_ACCOUNT",
+        "poAgain": "ALREADY_MEMBER",
+        "rootConfirm": "ROOT_PROTECTED"
       }
     },
     "GRANT_PM_FOR_FORK": "APPLIED",
@@ -1404,8 +1848,8 @@
     "qa/package898-a-advanced-settings.png",
     "qa/package898-a-mobile-members.png",
     "qa/package898-p1-direct-add-drawer.png",
-    "qa/package898-p1-registered-gaps.png",
-    "qa/package898-p1-unregistered-drawer.png",
+    "qa/package898-p1-directory-all.png",
+    "qa/package898-p1-legacy-drawer.png",
     "qa/package898-p1-invite-lifecycle.png",
     "qa/package898-p1-moderator-tabs.png",
     "qa/package898-p1-blocked-user-drawer.png",
@@ -1415,7 +1859,7 @@
   "ADMISSION_SERVICE": {
     "mode": "local-workerd",
     "url": "http://127.0.0.1:8799",
-    "servicePubkey": "079833598de5e69244d3a07c4c781355c68041636af2a1ccb55003740d07dd32"
+    "servicePubkey": "db658a9add01ebaa76cff6e5b4b97d8d92c996d7c762b51045a9e25d64fecd01"
   },
   "FIRST_GROUP_ID": "israel-network",
   "COSIGN_DENIALS": [
@@ -1424,6 +1868,18 @@
       "result": "INVALID",
       "code": "INVALID_MEMBERSHIP",
       "reason": "SELF_GRANT"
+    },
+    {
+      "user": "USER_A",
+      "result": "STEP_UP_REQUIRED",
+      "code": "STEP_UP_REQUIRED",
+      "reason": null
+    },
+    {
+      "user": "USER_A",
+      "result": "STEP_UP_REQUIRED",
+      "code": "STEP_UP_REQUIRED",
+      "reason": null
     },
     {
       "user": "USER_A",
@@ -1488,10 +1944,6 @@
   "DOUBLE_REDEEM_SCOPE": "NETWORK_SERIALIZED_AUTHORITY",
   "DUPLICATE_EVENT_AUTHORITY_CORRUPTION": false,
   "EVENT_ARRIVAL_ORDER_CHANGES_AUTHORITY": false,
-  "pageErrors": [
-    "USER_A: relay connection closed by us",
-    "USER_A: relay connection closed by us"
-  ],
   "MULTI_RELAY_CONVERGENCE": true,
   "INVITE_LIFECYCLE_COUNTS": {
     "ACTIVE": 2,
@@ -1500,6 +1952,166 @@
     "REVOKED": 1
   },
   "MODERATION_PERMISSION_PROPAGATION": "LIVE",
+  "MODERATOR_DELETE_TRACE": {
+    "pinSetupShown": true,
+    "targetArrivedLive": true,
+    "post": {
+      "ok": true,
+      "code": "REMOVED"
+    },
+    "comment": {
+      "ok": true,
+      "code": "REMOVED"
+    },
+    "relay": {
+      "post": {
+        "EVENT_KIND": 39002,
+        "OPERATION": "DELETE_POST",
+        "ATTESTATION_OPERATION": "DELETE_OTHER_USER_POST",
+        "RELAY_ACKS": 2
+      },
+      "comment": {
+        "EVENT_KIND": 39002,
+        "OPERATION": "DELETE_COMMENT",
+        "ATTESTATION_OPERATION": "DELETE_OTHER_USER_COMMENT",
+        "RELAY_ACKS": 2
+      }
+    },
+    "suppression": [
+      "moderation",
+      "moderation"
+    ],
+    "viewerDiag": {
+      "seen": true,
+      "enforced": true,
+      "targetSigned": false,
+      "verdictNow": "ACCEPTED",
+      "ingest": false,
+      "verdictAfterIngest": "ACCEPTED"
+    },
+    "dialogs": [
+      "confirm:למחוק את הפוסט? פעולה זו אינה ניתנת לשחזור.",
+      "confirm:למחוק את התגובה? פעולה זו אינה ניתנת לשחזור."
+    ]
+  },
+  "ROOT_DELETE_TRACE": {
+    "result": {
+      "ok": true,
+      "code": "REMOVED"
+    },
+    "relay": {
+      "EVENT_KIND": 39002,
+      "OPERATION": "DELETE_POST",
+      "ATTESTATION_OPERATION": "DELETE_OTHER_USER_POST",
+      "RELAY_ACKS": 2
+    },
+    "viewerHidden": true
+  },
+  "MODERATOR_DELETE_LOCAL_ONLY": false,
+  "PERSONA_MATRIX": {
+    "MODERATE_CONTENT_ONLY": {
+      "INVITE_MENU_VISIBLE": false,
+      "GROUP_CONTROL_MENU_VISIBLE": false,
+      "REPORTS_MENU_VISIBLE": true,
+      "MODERATOR_DELETE_VISIBLE": true,
+      "CAN_OPEN_GROUP_CONTROL": false,
+      "DIRECT_OPEN": "UNAUTHORIZED",
+      "CAN_CREATE_INVITE": false,
+      "CAN_MODERATE_CONTENT": true
+    },
+    "MODERATE_CONTENT_AND_INVITE_USERS": {
+      "INVITE_MENU_VISIBLE": true,
+      "GROUP_CONTROL_MENU_VISIBLE": false,
+      "REPORTS_MENU_VISIBLE": true,
+      "MODERATOR_DELETE_VISIBLE": true,
+      "CAN_OPEN_GROUP_CONTROL": false,
+      "DIRECT_OPEN": "UNAUTHORIZED",
+      "CAN_CREATE_INVITE": true,
+      "CAN_MODERATE_CONTENT": true
+    },
+    "INVITE_USERS_ONLY_LIVE": {
+      "INVITE_MENU_VISIBLE": true,
+      "GROUP_CONTROL_MENU_VISIBLE": false,
+      "REPORTS_MENU_VISIBLE": false,
+      "MODERATOR_DELETE_VISIBLE": false,
+      "CAN_OPEN_GROUP_CONTROL": false,
+      "DIRECT_OPEN": "UNAUTHORIZED",
+      "CAN_CREATE_INVITE": true,
+      "CAN_MODERATE_CONTENT": false
+    },
+    "MANAGE_MEMBERS_ONLY": {
+      "INVITE_MENU_VISIBLE": false,
+      "GROUP_CONTROL_MENU_VISIBLE": true,
+      "REPORTS_MENU_VISIBLE": false,
+      "MODERATOR_DELETE_VISIBLE": false,
+      "CAN_OPEN_GROUP_CONTROL": true,
+      "DIRECT_OPEN": "ALLOWED",
+      "CAN_CREATE_INVITE": false,
+      "CAN_MODERATE_CONTENT": false
+    },
+    "MEMBER": {
+      "INVITE_MENU_VISIBLE": false,
+      "GROUP_CONTROL_MENU_VISIBLE": false,
+      "REPORTS_MENU_VISIBLE": false,
+      "MODERATOR_DELETE_VISIBLE": false,
+      "CAN_OPEN_GROUP_CONTROL": false,
+      "DIRECT_OPEN": "UNAUTHORIZED",
+      "CAN_CREATE_INVITE": false,
+      "CAN_MODERATE_CONTENT": false
+    },
+    "INVITE_USERS_ONLY": {
+      "INVITE_MENU_VISIBLE": true,
+      "GROUP_CONTROL_MENU_VISIBLE": false,
+      "REPORTS_MENU_VISIBLE": false,
+      "MODERATOR_DELETE_VISIBLE": false,
+      "CAN_OPEN_GROUP_CONTROL": false,
+      "DIRECT_OPEN": "UNAUTHORIZED",
+      "CAN_CREATE_INVITE": true,
+      "CAN_MODERATE_CONTENT": false
+    },
+    "ROOT": {
+      "INVITE_MENU_VISIBLE": true,
+      "GROUP_CONTROL_MENU_VISIBLE": true,
+      "REPORTS_MENU_VISIBLE": false,
+      "MODERATOR_DELETE_VISIBLE": true,
+      "CAN_OPEN_GROUP_CONTROL": true,
+      "DIRECT_OPEN": "ALLOWED",
+      "CAN_CREATE_INVITE": true,
+      "CAN_MODERATE_CONTENT": true
+    },
+    "BLOCKED": {
+      "INVITE_MENU_VISIBLE": false,
+      "GROUP_CONTROL_MENU_VISIBLE": false,
+      "REPORTS_MENU_VISIBLE": false,
+      "MODERATOR_DELETE_VISIBLE": false,
+      "CAN_OPEN_GROUP_CONTROL": false,
+      "DIRECT_OPEN": "UNAUTHORIZED",
+      "CAN_CREATE_INVITE": false,
+      "CAN_MODERATE_CONTENT": false
+    }
+  },
+  "PERSONA_LIVE_CHANGES": {
+    "modInvite": {
+      "code": "SAVED",
+      "ok": true,
+      "ms": 2411
+    },
+    "inviteOnly": {
+      "code": "SAVED",
+      "ok": true,
+      "ms": 2488
+    },
+    "manageMembers": {
+      "code": "SAVED",
+      "ok": true,
+      "ms": 2712
+    },
+    "member": {
+      "code": "SAVED",
+      "ok": true,
+      "ms": 2848
+    }
+  },
   "BLOCKED_USER_CAN_POST": false,
   "BLOCKED_USER_CAN_COMMENT": false,
   "BLOCKED_USER_CAN_INVITE": false,
@@ -1564,7 +2176,7 @@
       ]
     },
     "39001": {
-      "n": 30,
+      "n": 36,
       "tags": [
         "d",
         "sos-control",
@@ -1588,7 +2200,7 @@
       ]
     },
     "39003": {
-      "n": 13,
+      "n": 14,
       "tags": [
         "admission",
         "control-epoch",
@@ -1621,27 +2233,27 @@
   "NSEC_EXPOSED": false,
   "relayStats": {
     "r1": {
-      "received": 209,
+      "received": 247,
       "rejectedInvalid": 0,
-      "replaced": 7,
-      "duplicates": 57
+      "replaced": 14,
+      "duplicates": 58
     },
     "r2": {
-      "received": 202,
+      "received": 240,
       "rejectedInvalid": 0,
-      "replaced": 7,
-      "duplicates": 53
+      "replaced": 13,
+      "duplicates": 54
     },
-    "r1Events": 144,
-    "r2Events": 142
+    "r1Events": 175,
+    "r2Events": 173
   },
-  "pageErrorsCount": 2,
+  "pageErrorsCount": 0,
   "ADMIN_2FA": {
     "enforced": true,
-    "signer": "4ca4dd62bf4c6d09a88e265c03e9151a3eacd27e3ba2d75a59d2ada8eb63e140",
-    "stepUpDialogsAnswered": 8
+    "signer": "151cb2f012d09f7f799e222d18586c6868aecfae1690a1ea945323ac69e6a0ec",
+    "stepUpDialogsAnswered": 10
   },
-  "passed": 93,
+  "passed": 116,
   "failed": 0,
   "failedKeys": [],
   "THREE_BROWSER_NETWORK_E2E": true,

@@ -279,10 +279,12 @@
     return a.verified && (a.isRoot || isGroupAdminTier(a.caps));
   }
 
-  /** Canonical admin-tier set (same list the Admin 2FA server uses). Invite-only helpers are not admins. */
+  /**
+   * Group control is for management capabilities only. MODERATE_CONTENT (reports + delete on the content) and
+   * INVITE_USERS (top-bar invite) have their own surfaces; the Admin 2FA admin-tier list is unchanged.
+   */
   function isGroupAdminTier(caps) {
-    const P = App.Admin2faProtocol;
-    return !!P && typeof P.isAdminTier === 'function' && P.isAdminTier(caps) === true;
+    return (caps || []).some((c) => ADMIN_TIER_CAPS.indexOf(c) !== -1);
   }
 
   function isConfiguredRoot(pk) {

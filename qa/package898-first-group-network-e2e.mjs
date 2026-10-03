@@ -486,6 +486,13 @@ async function waitApp(page) {
 }
 
 async function boot(page, key) {
+  const pub = await bootIdentity(page, key);
+  await pinReady(page);
+  return pub;
+}
+
+/** Signs in without touching the admin PIN (a fresh principal enrolls only when an admin action asks for it). */
+async function bootIdentity(page, key) {
   await waitApp(page);
   const pub = await page.evaluate(async (k) => {
     const App = window.NostrApp;
@@ -500,7 +507,6 @@ async function boot(page, key) {
     await App.FirstGroupNetworkAuthority.reconcile('test-boot');
     return String(c.publicKey || '').toLowerCase();
   }, key.hex);
-  await pinReady(page);
   return pub;
 }
 
@@ -1206,11 +1212,20 @@ async function main() {
     set('JOIN_OBSERVABILITY', audit.includes('MEMBER_ACTIVE') && aSeesC, { audit, bObservesVia: 'membership state (B has no member-list section)' });
 
     // ================================================================ top-bar invite button: canonical V2 capability, refreshed on click
-    const topUi = async (page) => ev(page, async () => {
-      const App = window.NostrApp;
-      await App.refreshInviteAuthority();
-      return App.canCreateInviteUi();
-    });
+    const inviteItemVisible = (page) =>
+      ev(page, () => {
+        window.NostrApp.GroupAdminProductUi.ensureMenuEntry();
+        const el = document.getElementById('topBarInviteFriend');
+        return !!el && !el.hidden && getComputedStyle(el).display !== 'none';
+      });
+    const topUi = async (page) => {
+      const can = await ev(page, async () => {
+        const App = window.NostrApp;
+        await App.refreshInviteAuthority();
+        return App.canCreateInviteUi();
+      });
+      return can === true && (await inviteItemVisible(page)) === true ? true : can === false && (await inviteItemVisible(page)) === false ? false : 'MISMATCH';
+    };
     const bTop = await topUi(ub.page);
     const cTopNoCap = await topUi(uc.page);
     await ev(uc.page, () => window.NostrApp.FirstGroupNetworkAuthority.stop());
@@ -2230,12 +2245,19 @@ async function main() {
     const noCap = await modRemove(ub.page, P1);
     const grantMod = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.grantCapability(pk, 'MODERATE_CONTENT')).code, B.pub);
     const bMod2 = await waitView(ub.page, B.pub, "v.caps.indexOf('MODERATE_CONTENT') !== -1", 30000);
-    const bModMenu = await ev(ub.page, () => {
+    const bModMenu = await ev(ub.page, async () => {
       const ui = window.NostrApp.GroupAdminProductUi;
       ui.ensureMenuEntry();
-      return ui.canSeeGroupAdminMenu();
+      const direct = await ui.open('members');
+      const item = (id) => {
+        const el = document.getElementById(id);
+        return !!el && !el.hidden && el.style.display !== 'none';
+      };
+      return { control: ui.canSeeGroupAdminMenu(), controlItem: item('sosGroupControlMenuItem'), reportsItem: item('sosGroupReportsMenuItem'), direct: direct.code };
     });
-    await openUi(ub.page, 'reports');
+    await ev(ub.page, () => window.NostrApp.GroupAdminProductUi.openReports());
+    await ub.page.waitForFunction(() => window.NostrApp.GroupAdminProductUi.isOpen(), null, { timeout: 20000 }).catch(() => {});
+    await sleep(300);
     const bModTabs = await visibleTabs(ub.page);
     await shot(ub.page, 'p1-moderator-tabs');
     const modPost = await modRemove(ub.page, P1);
@@ -2267,7 +2289,12 @@ async function main() {
     const bLocal = await ev(ub.page, ({ p, c }) => ({ p: window.NostrApp.deletedEventIds.has(p), c: window.NostrApp.deletedEventIds.has(c) }), { p: P1.id, c: C1.id });
     set('MODERATE_POST_DELETE', !noCap.ok && grantMod === 'APPLIED' && bMod2.ok && modPost.ok && obsVerdicts.post && bLocal.p, { noCap, grantMod, modPost, obs: obsVerdicts.post, code: obsVerdicts.postCode });
     set('MODERATE_COMMENT_DELETE', modComment.ok && obsVerdicts.comment && bLocal.c, { modComment, obs: obsVerdicts.comment, code: obsVerdicts.commentCode });
-    set('MODERATOR_PANEL_REPORTS_ONLY', bModMenu && bModTabs.includes('reports') && !bModTabs.includes('admins') && !bModTabs.includes('activity'), { bModMenu, bModTabs });
+    set(
+      'MODERATOR_PANEL_REPORTS_ONLY',
+      !bModMenu.control && !bModMenu.controlItem && bModMenu.reportsItem && bModMenu.direct === 'UNAUTHORIZED' && JSON.stringify(bModTabs) === JSON.stringify(['reports']),
+      { bModMenu, bModTabs }
+    );
+    await ev(ub.page, () => window.NostrApp.GroupAdminProductUi.close());
     const revokeMod = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.revokeCapability(pk, 'MODERATE_CONTENT')).code, B.pub);
     const bLostMod = await waitView(ub.page, B.pub, "v.caps.indexOf('MODERATE_CONTENT') === -1", 30000);
     const afterRevoke = await modRemove(ub.page, P2);
@@ -2284,6 +2311,273 @@ async function main() {
     set('MODERATE_CONTENT_REVOKE', revokeMod === 'APPLIED' && bLostMod.ok && !afterRevoke.ok, { revokeMod, ms: bLostMod.ms, afterRevoke });
     set('OWN_CONTENT_DELETE_STILL_ALLOWED', ownDelete.can && kind5, { ownDelete, kind5 });
     report.MODERATION_PERMISSION_PROPAGATION = bMod2.ok && bLostMod.ok ? 'LIVE' : 'BROKEN';
+
+    // ---- Phase 1 consistency: menus per persona, moderator delete through the content UI, cross-client hiding
+    trace('p1-consistency');
+    const um = await newProfile('USER_Y_MOD', { persistent: false });
+    um.dialogs = [];
+    um.page.on('dialog', (d) => {
+      um.dialogs.push(d.type() + ':' + d.message().slice(0, 80));
+      d.accept().catch(() => {});
+    });
+    await um.page.goto(URL0, { waitUntil: 'domcontentloaded', timeout: 120000 });
+    await bootIdentity(um.page, Y);
+    const yReady = await waitView(um.page, Y.pub, "v.member === 'ACTIVE' && v.caps.indexOf('MODERATE_CONTENT') !== -1", 45000);
+    const ug = await newProfile('GUEST_VIEW', { persistent: false });
+    await ug.page.goto(URL0, { waitUntil: 'domcontentloaded', timeout: 120000 });
+    await waitApp(ug.page);
+    const PS = await publishNote(tPage, 'p1c probe post ' + Date.now());
+    const persona = (page, probeId, probeAuthor) =>
+      ev(
+        page,
+        async ({ probeId, author }) => {
+          const App = window.NostrApp;
+          const ui = App.GroupAdminProductUi;
+          ui.ensureMenuEntry();
+          const vis = (id) => {
+            const el = document.getElementById(id);
+            return !!el && !el.hidden && getComputedStyle(el).display !== 'none';
+          };
+          let btn = document.getElementById('p1cModProbe');
+          if (!btn) {
+            btn = document.createElement('button');
+            btn.id = 'p1cModProbe';
+            document.body.appendChild(btn);
+          }
+          btn.setAttribute('data-mod-delete', probeId);
+          App.eventAuthorById.set(probeId, author);
+          App.syncModerationControls();
+          const canOpen = ui.canSeeGroupControl();
+          const direct = canOpen ? null : await ui.open('members');
+          return {
+            INVITE_MENU_VISIBLE: vis('topBarInviteFriend'),
+            GROUP_CONTROL_MENU_VISIBLE: vis('sosGroupControlMenuItem'),
+            REPORTS_MENU_VISIBLE: vis('sosGroupReportsMenuItem'),
+            MODERATOR_DELETE_VISIBLE: !btn.hidden && btn.style.display !== 'none',
+            CAN_OPEN_GROUP_CONTROL: canOpen,
+            DIRECT_OPEN: direct ? direct.code + (ui.isOpen() ? ':OPEN' : '') : 'ALLOWED',
+            CAN_CREATE_INVITE: App.canCreateInviteUi() === true,
+            CAN_MODERATE_CONTENT: App.canViewerDeletePost(probeId) === true,
+          };
+        },
+        { probeId, author: probeAuthor || T.pub }
+      );
+    const expect = (p, inv, ctl, mod) =>
+      p.INVITE_MENU_VISIBLE === inv && p.CAN_CREATE_INVITE === inv && p.GROUP_CONTROL_MENU_VISIBLE === ctl && p.CAN_OPEN_GROUP_CONTROL === ctl &&
+      p.MODERATOR_DELETE_VISIBLE === mod && p.CAN_MODERATE_CONTENT === mod && (ctl || p.DIRECT_OPEN === 'UNAUTHORIZED');
+    const personas = {};
+    personas.MODERATE_CONTENT_ONLY = await persona(um.page, PS.id);
+
+    // moderator deletes another member's post and comment through the content UI (confirm + first-time PIN setup)
+    const PM = await publishNote(tPage, 'p1c moderator target post ' + Date.now());
+    const CM = await publishNote(tPage, 'p1c moderator target comment ' + Date.now(), PM.id);
+    const arrived = await um.page
+      .waitForFunction(({ p, c }) => window.NostrApp.postsById.has(p) && window.NostrApp.listVisibleComments(p).some((x) => x.id === c), { p: PM.id, c: CM.id }, { polling: 300, timeout: 20000 })
+      .then(() => true, () => false);
+    if (!arrived) {
+      await ev(um.page, ({ p, c }) => {
+        const App = window.NostrApp;
+        App.postsById.set(p.id, p);
+        App.eventAuthorById.set(p.id, p.pubkey);
+        App.registerComment(c, p.id);
+      }, { p: PM, c: CM });
+    }
+    for (const p of [ub.page, ug.page]) {
+      await ev(p, ({ p, c }) => {
+        const App = window.NostrApp;
+        if (!App.postsById.has(p.id)) App.postsById.set(p.id, p);
+        App.eventAuthorById.set(p.id, p.pubkey);
+        App.registerComment(c, p.id);
+      }, { p: PM, c: CM });
+    }
+    const fillPinSetup = async (page) => {
+      const shown = await page.waitForSelector('#sosAdminPinNew', { timeout: 30000 }).then(() => true, () => false);
+      if (!shown) return false;
+      await page.fill('#sosAdminPinNew', TEST_PIN);
+      await page.fill('#sosAdminPinConfirm', TEST_PIN);
+      await page.click('#sosAdminPinOk');
+      return true;
+    };
+    const uiDeletePost = um.page.evaluate((id) => window.NostrApp.deletePost(id).then((r) => (r ? { ok: r.ok, code: r.code } : null)), PM.id);
+    const pinSetupShown = await fillPinSetup(um.page);
+    const modPostRes = await uiDeletePost;
+    const modCommentRes = await um.page.evaluate(({ c, p }) => window.NostrApp.deleteComment(c, p).then((r) => (r ? { ok: r.ok, code: r.code } : null)), { c: CM.id, p: PM.id });
+    const relayTrace = (target, by) => {
+      const mods = allRelays.map((r) => r.all([39002]).filter((m) => m.pubkey === by && m.tags.some((t) => t[0] === 'd' && t[1] === target.id)));
+      const mod = mods.flat()[0] || null;
+      const att = mod ? r1.all([39004]).find((a) => a.tags.some((t) => t[0] === 'e' && t[1] === mod.id)) : null;
+      let ops = [];
+      try {
+        ops = att ? JSON.parse(att.content).operations || [] : [];
+      } catch (_e) {}
+      return {
+        EVENT_KIND: mod ? mod.kind : null,
+        OPERATION: mod ? (target.tags.some((t) => t[0] === 'e') ? 'DELETE_COMMENT' : 'DELETE_POST') : null,
+        ATTESTATION_OPERATION: ops.join(',') || null,
+        RELAY_ACKS: mods.filter((m) => m.length > 0).length,
+      };
+    };
+    for (let i = 0; i < 20 && !(relayTrace(PM, Y.pub).EVENT_KIND && relayTrace(CM, Y.pub).EVENT_KIND); i++) await sleep(300);
+    const hiddenOn = (page, ids) =>
+      page
+        .waitForFunction(
+          ({ p, c }) => {
+            const App = window.NostrApp;
+            const sel = (s) => Array.from(document.querySelectorAll(s)).some((el) => el.offsetParent !== null);
+            return (
+              App.deletedEventIds.has(p) && App.deletedEventIds.has(c) && !App.postsById.has(p) && !App.listVisibleComments(p).some((x) => x.id === c) &&
+              !sel('[data-post-id="' + p + '"]') && !sel('[data-comment-id="' + c + '"]')
+            );
+          },
+          ids,
+          { polling: 300, timeout: 30000 }
+        )
+        .then(() => true, () => false);
+    const delIds = { p: PM.id, c: CM.id };
+    const viewerLive = await hiddenOn(ub.page, delIds);
+    const guestLive = await hiddenOn(ug.page, delIds);
+    const suppression = await ev(ub.page, ({ p, c }) => [p, c].map((id) => (window.NostrApp.deletionTombstones.get(id) || {}).source || ''), delIds);
+    const modEvPost = allRelays.map((r) => r.all([39002]).find((m) => m.pubkey === Y.pub && m.tags.some((t) => t[0] === 'd' && t[1] === PM.id))).find(Boolean) || null;
+    const attFor = (m) => (m ? r1.all([39004]).find((a) => a.tags.some((t) => t[0] === 'e' && t[1] === m.id)) || null : null);
+    const viewerDiag = await ev(ub.page, ({ m, att, p }) => {
+      const App = window.NostrApp;
+      const MP = App.ModerationPolicy;
+      const A = App.Admin2faProtocol;
+      const target = App.postsById.get(p.id) || null;
+      const out = {
+        seen: !!(m && App._seenModerationEventIds instanceof Set && App._seenModerationEventIds.has(m.id)),
+        enforced: !!(A && A.isEnforced()),
+        targetSigned: !!(target && target.sig),
+        verdictNow: m && MP ? MP.validateModerationEvent(m, target && Array.isArray(target.tags) ? target : p, null).code : 'NO_EVENT',
+      };
+      if (m && att && A) {
+        out.ingest = !!A.ingestAttestations([att]);
+        out.verdictAfterIngest = MP.validateModerationEvent(m, p, null).code;
+      }
+      return out;
+    }, { m: modEvPost, att: attFor(modEvPost), p: PM }).catch((e) => ({ error: String(e.message || e).slice(0, 120) }));
+    await hardReload(ub.page, B);
+    const viewerAfterRefresh = await hiddenOn(ub.page, delIds);
+    await ug.page.reload({ waitUntil: 'domcontentloaded' });
+    await waitApp(ug.page);
+    const guestAfterRefresh = await ug.page
+      .waitForFunction(({ p, c }) => window.NostrApp.deletedEventIds.has(p) && window.NostrApp.deletedEventIds.has(c), delIds, { polling: 300, timeout: 45000 })
+      .then(() => true, () => false);
+    const modTrace = { post: relayTrace(PM, Y.pub), comment: relayTrace(CM, Y.pub) };
+    report.MODERATOR_DELETE_TRACE = { pinSetupShown, targetArrivedLive: arrived, post: modPostRes, comment: modCommentRes, relay: modTrace, suppression, viewerDiag, dialogs: um.dialogs.slice() };
+
+    // the same UI path for ROOT
+    const PR = await publishNote(tPage, 'p1c root target post ' + Date.now());
+    await ev(ua.page, (p) => {
+      const App = window.NostrApp;
+      if (!App.postsById.has(p.id)) App.postsById.set(p.id, p);
+      App.eventAuthorById.set(p.id, p.pubkey);
+    }, PR);
+    ua.page.once('dialog', (d) => d.accept().catch(() => {}));
+    const rootRes = await ua.page.evaluate((id) => window.NostrApp.deletePost(id).then((r) => (r ? { ok: r.ok, code: r.code } : null)), PR.id);
+    for (let i = 0; i < 20 && !relayTrace(PR, A.pub).EVENT_KIND; i++) await sleep(300);
+    const rootTrace = relayTrace(PR, A.pub);
+    const rootHidden = await ub.page
+      .waitForFunction((p) => window.NostrApp.deletedEventIds.has(p), PR.id, { polling: 300, timeout: 30000 })
+      .then(() => true, () => false);
+    report.ROOT_DELETE_TRACE = { result: rootRes, relay: rootTrace, viewerHidden: rootHidden };
+
+    // a failed publish changes nothing locally and tells the moderator
+    const PF = await publishNote(tPage, 'p1c publish-failure target ' + Date.now());
+    const failRes = await um.page.evaluate(async (p) => {
+      const App = window.NostrApp;
+      App.postsById.set(p.id, p);
+      App.eventAuthorById.set(p.id, p.pubkey);
+      const real = App.pool.publish;
+      const realToast = App.showToast;
+      const notices = [];
+      App.pool.publish = (relays) => relays.map(() => Promise.reject(new Error('relay down')));
+      if (typeof realToast === 'function') App.showToast = (t, ...rest) => (notices.push(String(t)), realToast.call(App, t, ...rest));
+      let r;
+      try {
+        r = await App.deletePost(p.id);
+      } finally {
+        App.pool.publish = real;
+        if (typeof realToast === 'function') App.showToast = realToast;
+      }
+      notices.forEach((t) => window.__p1Notices && window.__p1Notices.push(t));
+      window.__p1LastNotices = notices;
+      const tomb = JSON.stringify(Object.entries(localStorage).filter(([k]) => /tomb|delet/i.test(k)).map(([, v]) => v));
+      return { code: r && r.code, ok: !!(r && r.ok), localHidden: App.deletedEventIds.has(p.id), stillPresent: App.postsById.has(p.id), persisted: tomb.includes(p.id), notices };
+    }, PF);
+    const failAlert = um.dialogs.some((d) => /^alert:.*לא נשמרה/.test(d)) || (failRes.notices || []).some((t) => /לא נשמרה/.test(t));
+    await hardReload(um.page, Y).catch(() => {});
+    const failAfterReload = await ev(um.page, (id) => window.NostrApp.deletedEventIds.has(id), PF.id);
+    const pfOnRelay = r1.all([39002]).some((m) => m.tags.some((t) => t[0] === 'd' && t[1] === PF.id));
+
+    set('ROOT_DELETE_CANONICAL', !!(rootRes && rootRes.ok) && rootTrace.EVENT_KIND === 39002 && rootTrace.ATTESTATION_OPERATION === 'DELETE_OTHER_USER_POST' && rootTrace.RELAY_ACKS >= 1 && rootHidden, report.ROOT_DELETE_TRACE);
+    set(
+      'MODERATOR_POST_DELETE_CANONICAL',
+      pinSetupShown && !!(modPostRes && modPostRes.ok) && modTrace.post.EVENT_KIND === 39002 && modTrace.post.ATTESTATION_OPERATION === 'DELETE_OTHER_USER_POST' && modTrace.post.RELAY_ACKS >= 1,
+      { pinSetupShown, modPostRes, trace: modTrace.post }
+    );
+    set(
+      'MODERATOR_COMMENT_DELETE_CANONICAL',
+      !!(modCommentRes && modCommentRes.ok) && modTrace.comment.EVENT_KIND === 39002 && modTrace.comment.ATTESTATION_OPERATION === 'DELETE_OTHER_USER_COMMENT' && modTrace.comment.RELAY_ACKS >= 1,
+      { modCommentRes, trace: modTrace.comment }
+    );
+    set('MODERATOR_DELETE_HIDDEN_OTHER_CLIENTS', viewerLive && guestLive && suppression.every((s) => s === 'moderation'), { viewerLive, guestLive, suppression });
+    set('MODERATOR_DELETE_SURVIVES_REFRESH', viewerAfterRefresh && guestAfterRefresh, { viewerAfterRefresh, guestAfterRefresh });
+    set(
+      'MODERATOR_DELETE_FAILURE_RESTORES',
+      !failRes.ok && !failRes.localHidden && failRes.stillPresent && !failRes.persisted && failAlert && !failAfterReload && !pfOnRelay,
+      { failRes, failAlert, failAfterReload, pfOnRelay }
+    );
+    report.MODERATOR_DELETE_LOCAL_ONLY = !(modTrace.post.RELAY_ACKS >= 1 && modTrace.comment.RELAY_ACKS >= 1 && viewerLive && guestLive);
+
+    // live persona changes on the same moderator tab (no reload, no logout), then other personas
+    const setY = async (caps, pred) => {
+      const code = await ev(ua.page, async ({ pk, caps }) => (await window.NostrApp.FirstGroupAdmin.setPermissions(pk, caps)).code, { pk: Y.pub, caps });
+      const w = await waitView(um.page, Y.pub, pred, 30000);
+      await sleep(400);
+      return { code, ok: w.ok, ms: w.ms };
+    };
+    const live = {};
+    live.modInvite = await setY(['MODERATE_CONTENT', 'INVITE_USERS'], "v.caps.indexOf('INVITE_USERS') !== -1 && v.caps.indexOf('MODERATE_CONTENT') !== -1");
+    personas.MODERATE_CONTENT_AND_INVITE_USERS = await persona(um.page, PS.id);
+    live.inviteOnly = await setY(['INVITE_USERS'], "v.caps.indexOf('MODERATE_CONTENT') === -1 && v.caps.indexOf('INVITE_USERS') !== -1");
+    personas.INVITE_USERS_ONLY_LIVE = await persona(um.page, PS.id);
+    const PX = await publishNote(tPage, 'p1c after revoke ' + Date.now());
+    const afterRevokeDelete = await um.page.evaluate(async (p) => {
+      const App = window.NostrApp;
+      App.postsById.set(p.id, p);
+      App.eventAuthorById.set(p.id, p.pubkey);
+      const r = await App.moderateRemoveEvent(p);
+      return { ok: r.ok, code: r.code, hidden: App.deletedEventIds.has(p.id) };
+    }, PX);
+    live.manageMembers = await setY(['MANAGE_MEMBERS'], "v.caps.indexOf('MANAGE_MEMBERS') !== -1 && v.caps.indexOf('INVITE_USERS') === -1");
+    personas.MANAGE_MEMBERS_ONLY = await persona(um.page, PS.id);
+    live.member = await setY([], 'v.caps.length === 0');
+    personas.MEMBER = await persona(um.page, PS.id);
+    personas.INVITE_USERS_ONLY = await persona(ub.page, PS.id);
+    personas.ROOT = await persona(ua.page, PS.id);
+    await ev(ua.page, () => window.NostrApp.GroupAdminProductUi.close());
+    report.PERSONA_MATRIX = personas;
+    report.PERSONA_LIVE_CHANGES = live;
+    const pxOnRelay = r1.all([39002]).some((m) => m.tags.some((t) => t[0] === 'd' && t[1] === PX.id));
+    set(
+      'PERSONA_MATRIX',
+      expect(personas.MEMBER, false, false, false) &&
+        expect(personas.INVITE_USERS_ONLY, true, false, false) &&
+        expect(personas.INVITE_USERS_ONLY_LIVE, true, false, false) &&
+        expect(personas.MODERATE_CONTENT_ONLY, false, false, true) &&
+        expect(personas.MODERATE_CONTENT_AND_INVITE_USERS, true, false, true) &&
+        expect(personas.MANAGE_MEMBERS_ONLY, false, true, false) &&
+        expect(personas.ROOT, true, true, true) &&
+        personas.MODERATE_CONTENT_ONLY.REPORTS_MENU_VISIBLE &&
+        !personas.INVITE_USERS_ONLY.REPORTS_MENU_VISIBLE &&
+        !personas.MANAGE_MEMBERS_ONLY.REPORTS_MENU_VISIBLE,
+      personas
+    );
+    set('PERSONA_PERMISSION_PROPAGATION_LIVE', yReady.ok && Object.values(live).every((l) => l.ok && /APPLIED|SAVED|NO_CHANGE|UNCHANGED/.test(String(l.code))), live);
+    set('MODERATE_CONTENT_REVOKE_LIVE', !afterRevokeDelete.ok && !afterRevokeDelete.hidden && !pxOnRelay && personas.INVITE_USERS_ONLY_LIVE.MODERATOR_DELETE_VISIBLE === false, { afterRevokeDelete, pxOnRelay });
+    await closeProfile(um);
+    await closeProfile(ug);
 
     // ---- block / unblock (canonical blocklist + membership tip), enforced for the blocked user and for viewers
     const grantTInvite = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.grantCapability(pk, 'INVITE_USERS')).code, T.pub);
@@ -2347,6 +2641,8 @@ async function main() {
     report.BLOCKED_USER_CAN_INVITE = tSelf.invite === 'CREATED';
     report.BLOCKED_USER_CAN_USE_GROUP_CONTROL = tSelf.menu;
     report.BLOCKED_USER_CONTENT_VISIBLE_IN_SOS = afterBlockB.post || afterBlockB.comment || afterBlockA;
+    personas.BLOCKED = await persona(tPage, 'ef'.repeat(32), B.pub).catch((e) => ({ error: String(e.message || e).slice(0, 80) }));
+    set('PERSONA_BLOCKED', expect(personas.BLOCKED, false, false, false), personas.BLOCKED);
 
     // capabilities are frozen (and inert) while blocked; unblock restores exactly the assigned set, then a revoke sticks
     const tAssignedBlocked = (await blockView(ub.page, T.pub)).assigned;
