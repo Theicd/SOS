@@ -1993,6 +1993,25 @@ async function main() {
       );
     [regEvent(Y, GROUP), regEvent(Q, GROUP), regEvent(Z, GROUP), regEvent(N, 'community-other')].forEach(publishAll);
     publishAll(finalizeEvent({ kind: 0, created_at: now(), tags: [['t', GROUP]], content: JSON.stringify({ name: 'profile only' }) }, PO.sk));
+    // legacy account whose valid-looking https picture fails to load
+    const BA = mkKey();
+    const BROKEN_PIC = 'https://broken-avatar.qa-sos.example/avatar.png';
+    publishAll(finalizeEvent({ kind: 0, created_at: now(), tags: [['t', GROUP]], content: JSON.stringify({ name: 'Broken Avatar', picture: BROKEN_PIC }) }, BA.sk));
+    let brokenPicRequests = 0;
+    await ua.page.route('https://broken-avatar.qa-sos.example/**', (route) => {
+      brokenPicRequests++;
+      return route.abort('failed');
+    });
+    const storageKeysBefore = await ev(ua.page, () => Object.keys(localStorage).sort());
+    await ev(ua.page, () => {
+      const App = window.NostrApp;
+      window.__p1FetchProfileCalls = [];
+      const real = App.fetchProfile;
+      App.fetchProfile = function (pk, ...rest) {
+        window.__p1FetchProfileCalls.push(String(pk));
+        return real.call(this, pk, ...rest);
+      };
+    });
     const qBlock = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.blockMember(pk)).code, Q.pub);
     const zRemove = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.removeMember(pk)).code, Z.pub);
     const zRemovedOnA = await waitView(ua.page, Z.pub, "v.member === 'REMOVED'", 30000);
@@ -2030,6 +2049,45 @@ async function main() {
       );
     const dirAll = await dirRows();
     await shot(ua.page, 'p1-directory-all');
+    const brokenFallback = await ua.page
+      .waitForFunction((pk) => !!document.querySelector('#sosGapMemberList [data-dir-pk="' + pk + '"] .gap-avatar[data-avatar-fallback="1"]'), BA.pub, { polling: 200, timeout: 20000 })
+      .then(() => true, () => false);
+    const brokenCard = await ev(
+      ua.page,
+      async ({ pk, pic }) => {
+        const App = window.NostrApp;
+        const card = document.querySelector('#sosGapMemberList [data-dir-pk="' + pk + '"]');
+        const av = card ? card.querySelector('.gap-avatar') : null;
+        const imgs = card ? Array.from(card.querySelectorAll('img')) : [];
+        const brokenVisible = imgs.some((i) => i.offsetParent !== null && (!i.complete || i.naturalWidth === 0));
+        const cached = App.profileCache instanceof Map ? App.profileCache.get(pk) : null;
+        const fetched = await App.fetchProfile(pk).catch(() => null);
+        return {
+          present: !!card,
+          fallback: !!(av && av.getAttribute('data-avatar-fallback') === '1'),
+          initial: av ? av.textContent.trim() : '',
+          imgCount: imgs.length,
+          brokenVisible,
+          cachedPicture: cached ? String(cached.picture || '') === pic : null,
+          fetchedPicture: fetched ? String(fetched.picture || '') === pic : null,
+          viaSharedResolver: (window.__p1FetchProfileCalls || []).includes(pk),
+        };
+      },
+      { pk: BA.pub, pic: BROKEN_PIC }
+    );
+    const storageKeysAfter = await ev(ua.page, () => Object.keys(localStorage).sort());
+    const newStorageKeys = storageKeysAfter.filter((k) => !storageKeysBefore.includes(k) && /profile|avatar|picture/i.test(k));
+    const baKind0 = allRelays.map((r) => r.all([0]).filter((e) => e.pubkey === BA.pub).length);
+    report.BROKEN_AVATAR_SYNTHETIC = { brokenFallback, brokenCard, brokenPicRequests, newStorageKeys, baKind0 };
+    set(
+      'BROKEN_AVATAR_SYNTHETIC_TEST',
+      brokenFallback && brokenCard.present && brokenCard.fallback && brokenCard.initial === 'B' && brokenCard.imgCount === 0 && !brokenCard.brokenVisible &&
+        brokenPicRequests >= 1 && brokenCard.cachedPicture !== false && brokenCard.fetchedPicture === true && brokenCard.viaSharedResolver &&
+        newStorageKeys.length === 0 && baKind0.every((n) => n === 1),
+      report.BROKEN_AVATAR_SYNTHETIC
+    );
+    report.BROKEN_IMAGE_ICON_VISIBLE = brokenCard.brokenVisible || brokenCard.imgCount > 0;
+    report.AVATAR_FALLBACK = brokenFallback && brokenCard.fallback ? 'PASS' : 'FAIL';
     const byPk = new Map(dirAll.map((r) => [r.pk, r]));
     const filterRows = async (id) => {
       await domClick(ua.page, `#sosGapDirFilters [data-filter="${id}"]`);
