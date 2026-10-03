@@ -1,0 +1,421 @@
+{
+  "gate": "PACKAGE899S_FEED_CONVERGENCE",
+  "relays": {
+    "healthy": "ws://127.0.0.1:7891",
+    "http502": "ws://127.0.0.1:7892"
+  },
+  "ts": "2026-10-03T23:13:42.771Z",
+  "results": {
+    "FRESH_GUEST_MP4_VISIBLE": {
+      "ok": true,
+      "detail": {
+        "firstMs": 2053,
+        "guest": true,
+        "n1": {
+          "id": "ae0cb6e2b168590a72df413f9e86ab9cff95673428586f450543ea525b030d11",
+          "type": "file",
+          "ready": true,
+          "hidden": false,
+          "readyState": 4,
+          "src": "https://media.qa-sos.test/61ac54d88acaa5c22881646544f59a57e5261abb57f8c0237260dcf20d3608f8.mp4",
+          "inView": true
+        }
+      }
+    },
+    "GUEST_PUBLIC_READ": {
+      "ok": true,
+      "detail": {
+        "display": 197,
+        "cards": 197
+      }
+    },
+    "PERF_FIRST_NATIVE_CARD_VISIBLE": {
+      "ok": true,
+      "detail": {
+        "ms": 2053,
+        "limit": 15000
+      }
+    },
+    "PERF_BOOT_RELEASE": {
+      "ok": true,
+      "detail": {
+        "ms": 1973,
+        "limit": 20000
+      }
+    },
+    "SAFETY_TIMEOUT_NOT_USED": {
+      "ok": true,
+      "detail": {
+        "reason": "boot-ready media=3/2"
+      }
+    },
+    "FIRST_CANDIDATE_DEAD_BOOT_2_OF_2": {
+      "ok": true,
+      "detail": {
+        "reason": "boot-ready media=3/2",
+        "deadMounted": false,
+        "deadMarkedPermanent": true
+      }
+    },
+    "YOUTUBE_ONLY_ABSENT": {
+      "ok": true,
+      "detail": {
+        "inState": true
+      }
+    },
+    "YOUTUBE_PLUS_NATIVE_SHOWS_NATIVE": {
+      "ok": true,
+      "detail": {
+        "card": {
+          "id": "2178c3c9a883592813105778a18aea62328c3232d1d23a728949e72953333ec4",
+          "type": "file",
+          "ready": true,
+          "hidden": false,
+          "readyState": 4,
+          "src": "https://media.qa-sos.test/ffd7ff5d16b12f7f231f36d66e4cb89a88f8e6b3c4a017a3830190ab01d6b121.mp4",
+          "inView": false
+        }
+      }
+    },
+    "YOUTUBE_PLUS_IMAGE_SHOWS_IMAGE": {
+      "ok": true,
+      "detail": {
+        "card": {
+          "id": "7a5a381cd0aea1b0b2d255c17c723f77ad75797f099426e198031902a9d76b58",
+          "type": "image",
+          "ready": true,
+          "hidden": false,
+          "readyState": -1,
+          "src": "",
+          "inView": false
+        }
+      }
+    },
+    "NATIVE_VIDEO_VISIBLE": {
+      "ok": true,
+      "detail": {
+        "cards": [
+          {
+            "id": "ae0cb6e2b168590a72df413f9e86ab9cff95673428586f450543ea525b030d11",
+            "type": "file",
+            "ready": true,
+            "hidden": false,
+            "readyState": 4,
+            "src": "https://media.qa-sos.test/61ac54d88acaa5c22881646544f59a57e5261abb57f8c0237260dcf20d3608f8.mp4",
+            "inView": true
+          },
+          {
+            "id": "267b966d69c8956d36b716f070091840e92338654f4f3905702492eb57bc8578",
+            "type": "file",
+            "ready": true,
+            "hidden": false,
+            "readyState": 4,
+            "src": "https://media.qa-sos.test/9cbf9f48ebb64f39f127f596f740cff4bbc630491c4acf188688622340310858.mp4",
+            "inView": false
+          },
+          {
+            "id": "2698e59670ebbbcae92c61c29005f597b6a908c27b4ca8de3b9c0d521e0dacae",
+            "type": "file",
+            "ready": true,
+            "hidden": false,
+            "readyState": 4,
+            "src": "https://media.qa-sos.test/ff474bfd1027b3d32f52a7eeb8107bbd1c99234548be4d88819a4e5b3b2eba1b.mp4",
+            "inView": false
+          },
+          {
+            "id": "f3efe2651a6b77cf48ff814a3b288aac15a6682d86c3697721abfab80d151cc1",
+            "type": "file",
+            "ready": true,
+            "hidden": false,
+            "readyState": 4,
+            "src": "https://media.qa-sos.test/591bf15a919c239a2afc0813e1036c24a0c95a06c838dcc5fdc14f4b1e659161.mp4",
+            "inView": false
+          }
+        ]
+      }
+    },
+    "DEAD_ORIGINAL_HEALTHY_BLOSSOM": {
+      "ok": true,
+      "detail": {
+        "card": {
+          "id": "7c0c54055500288f9e930c2a1e94ae234627f3c1951f6619ff29920cb2a1064a",
+          "type": "file",
+          "ready": true,
+          "hidden": false,
+          "readyState": 4,
+          "src": "https://blossom.band/baaaee5963d2e4d9c9b7109c93a6b77b76f2f72ada0edd6d9a177bcc64e08b66.mp4",
+          "inView": true
+        },
+        "attempts": [
+          "dead.qa-sos.test/…7bcc64e08b66.mp4",
+          "files.sovbit.host/…7bcc64e08b66.mp4",
+          "blossom.nostr.build/…7bcc64e08b66.mp4",
+          "blossom.band/…7bcc64e08b66.mp4"
+        ]
+      }
+    },
+    "HTTP_404_FAST_FALLBACK": {
+      "ok": true,
+      "detail": {
+        "ms": 12,
+        "limit": 2000
+      }
+    },
+    "HTTP_503_AND_TIMEOUT_DO_NOT_BLOCK": {
+      "ok": true,
+      "detail": {
+        "s3": {
+          "id": "8ccdcfa3087c2735366f5f8e4cee5413d0a6b5dc7d6ad45fc407d68c9b4c1b94",
+          "type": "file",
+          "ready": true,
+          "hidden": false,
+          "readyState": 4,
+          "src": "https://mirror.qa-sos.test/dbe66e23f1d24f991caca5f3097003d8d628839a2f4ba3cea0540764b182a0c4.mp4",
+          "inView": false
+        },
+        "h6": {
+          "id": "01d19881652359da115e0b4808f64084374658cab9fb073929d45c0eacf95796",
+          "type": "file",
+          "ready": true,
+          "hidden": false,
+          "readyState": 4,
+          "src": "https://blossom.nostr.build/3687133be1e1b8fa51b5811931c56f807708294f9e7ae0f5c8dd425f25e3ec77.mp4",
+          "inView": false
+        },
+        "h6Attempts": [
+          {
+            "ref": "hang.qa-sos.test/…425f25e3ec77.mp4",
+            "ms": 2198
+          },
+          {
+            "ref": "files.sovbit.host/…425f25e3ec77.mp4",
+            "ms": 14206
+          },
+          {
+            "ref": "blossom.nostr.build/…425f25e3ec77.mp4",
+            "ms": 14211
+          }
+        ],
+        "n7FirstCandidateMs": 2297
+      }
+    },
+    "NO_DUPLICATE_MEDIA_URL": {
+      "ok": true,
+      "detail": {
+        "duplicates": 0,
+        "candidateLogs": 23
+      }
+    },
+    "DETERMINISTIC_ORDER": {
+      "ok": true,
+      "detail": {
+        "dom": [
+          "N1",
+          "B2",
+          "S3",
+          "YN4",
+          "YI5",
+          "H6",
+          "N7",
+          "N8",
+          "N9",
+          "N10",
+          "N11",
+          "N12"
+        ]
+      }
+    },
+    "STREAM_FIRST_PUBLIC_MEDIA": {
+      "ok": true,
+      "detail": {
+        "n1Source": "https://media.qa-sos.test/<hash>.mp4",
+        "firstCandidate": {
+          "id8": "880896ec",
+          "idx": 0,
+          "total": 4,
+          "ref": "dead.qa-sos.test/…2d43ed9d8850.mp4"
+        }
+      }
+    },
+    "LIKES": {
+      "ok": true,
+      "detail": {
+        "likes": 1,
+        "comments": 1
+      }
+    },
+    "COMMENTS": {
+      "ok": true,
+      "detail": {
+        "likes": 1,
+        "comments": 1
+      }
+    },
+    "HISTORICAL_REPLAY_NOT_MOUNTED": {
+      "ok": true,
+      "detail": {
+        "acceptedDuringBoot": 0,
+        "historicalAutoMounted": 0
+      }
+    },
+    "REMOTE_KIND1_AFTER_EOSE_AUTO_MOUNTS": {
+      "ok": true,
+      "detail": {
+        "ms": 249,
+        "delivered": 1,
+        "first": "R1"
+      }
+    },
+    "LATE_HISTORICAL_EVENT_NOT_MOUNTED": {
+      "ok": true,
+      "detail": {
+        "mounted": false
+      }
+    },
+    "SCROLL_ANCHOR_PRESERVED": {
+      "ok": true,
+      "detail": {
+        "centeredBefore": "YN4",
+        "centeredAfter": "YN4",
+        "scrollTopBefore": 3040,
+        "scrollTopAfter": 3800,
+        "r2Mounted": true,
+        "r2Index": 0
+      }
+    },
+    "PERIODIC_REFRESH_AUTO_MOUNT_WITHOUT_HOME": {
+      "ok": true,
+      "detail": {
+        "ms": 299
+      }
+    },
+    "DELETION_UNCHANGED": {
+      "ok": true,
+      "detail": {
+        "ms": 366
+      }
+    },
+    "BLOCKED_AUTHOR_FALLBACK_EXCLUDED": {
+      "ok": true,
+      "detail": {
+        "candidates": 7,
+        "displayed": 0,
+        "hasPolicy": true
+      }
+    },
+    "YOUTUBE_OUTSIDE_VIDEOS_FEED_PRESERVED": {
+      "ok": true,
+      "detail": {
+        "parsedYoutubeId": true,
+        "ownPostsType": "youtube",
+        "feedJsUntouched": true
+      }
+    },
+    "FRESH_SIGNED_IN_MP4_VISIBLE": {
+      "ok": true,
+      "detail": {
+        "restoredOnReload": true,
+        "firstMs": 575,
+        "bootReleaseMs": 503,
+        "bootReason": "boot-ready media=2/2"
+      }
+    },
+    "SELF_PUBLISH": {
+      "ok": true,
+      "detail": {
+        "ms": 434,
+        "domTop": [
+          "SELF",
+          "R3",
+          "R2"
+        ],
+        "displayTop": [
+          "SELF",
+          "R3",
+          "R2"
+        ],
+        "scrollTop": 0,
+        "domIndex": 0,
+        "displayIndex": 0,
+        "stateIndex": 0,
+        "failed": false
+      }
+    },
+    "SIGNED_IN_NO_PEER_FASTER_THAN_OLD_PATH": {
+      "ok": true,
+      "detail": {
+        "newMs": 575,
+        "oldMs": 1080
+      }
+    }
+  },
+  "metrics": {
+    "FRESH_GUEST_BOOT": {
+      "firstMs": 2053,
+      "bootReleaseMs": 1973,
+      "bootReason": "boot-ready media=3/2",
+      "safety": false
+    },
+    "FRESH_GUEST_DOM_ORDER": [
+      "N1:file",
+      "B2:file",
+      "S3:file",
+      "YN4:file",
+      "YI5:image",
+      "H6:file",
+      "N7:file",
+      "N8:file",
+      "N9:file",
+      "N10:file",
+      "N11:file",
+      "N12:file",
+      "N13:file",
+      "N14:file",
+      "I15:image",
+      "HIST0:image",
+      "HIST1:image",
+      "HIST2:image",
+      "HIST3:image",
+      "HIST4:image"
+    ],
+    "BASELINE": {
+      "commit": "03605367ed48406e578f59f57cf7fb94cd583c9e",
+      "guestFirstNativeMs": 4002,
+      "guestBootReleaseMs": 3896,
+      "guestBootReason": "boot-ready media=2/2",
+      "signedInFirstNativeMs": 1080,
+      "signedInBootReleaseMs": 982,
+      "signedInBootReason": "boot-ready media=2/2"
+    }
+  },
+  "FIRST_NATIVE_CARD_VISIBLE_MS": 2053,
+  "BOOT_RELEASE_MS": 1973,
+  "SAFETY_TIMEOUT_USED": false,
+  "FALLBACK_404_MS": 12,
+  "DUPLICATE_MEDIA_URL_ATTEMPTS": 0,
+  "HISTORICAL_REPLAY_AUTO_MOUNT_COUNT": 0,
+  "REMOTE_NEW_POST_AUTO_MOUNT_MS": 249,
+  "SCROLL_ANCHOR_PRESERVED": true,
+  "PERIODIC_RECOVERY_AUTO_MOUNT": true,
+  "BLOCKED_AUTHOR_FALLBACK": "EXCLUDED",
+  "SIGNED_IN_FIRST_NATIVE_CARD_VISIBLE_MS": 575,
+  "SIGNED_IN_BOOT_RELEASE_MS": 503,
+  "BASELINE": {
+    "commit": "03605367ed48406e578f59f57cf7fb94cd583c9e",
+    "guestFirstNativeMs": 4002,
+    "guestBootReleaseMs": 3896,
+    "guestBootReason": "boot-ready media=2/2",
+    "signedInFirstNativeMs": 1080,
+    "signedInBootReleaseMs": 982,
+    "signedInBootReason": "boot-ready media=2/2"
+  },
+  "SIGNED_IN_NO_PEER_FIRST_PAINT_PENALTY_LT_OLD_PATH": true,
+  "CONFIG_TRANSFORMS": {
+    "relays": true,
+    "p2p": true,
+    "sanitizer": true
+  },
+  "STREAM_FIRST_TRADEOFF": "Public feed media streams from the winning candidate URL for first paint; persistent caching re-fetches that URL once in the background after boot release (concurrency 1, max 40 queued, SHA-256 verified against the event hash). Accepted cost: one extra transfer per cached public video in exchange for not blocking first paint on a full-blob download.",
+  "status": "PASS",
+  "failed": []
+}
