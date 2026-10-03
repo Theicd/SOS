@@ -1,0 +1,180 @@
+{
+  "gate": "PACKAGE899R_FEED_BOOT",
+  "relays": {
+    "healthy": "ws://127.0.0.1:7881",
+    "http502": "ws://127.0.0.1:7882",
+    "timeout": "ws://127.0.0.1:7883"
+  },
+  "ts": "2026-10-03T19:55:24.901Z",
+  "results": {
+    "FRESH_GUEST_VIDEO_FEED": {
+      "ok": true,
+      "detail": {
+        "fetched": 40,
+        "display": 40,
+        "cards": 40,
+        "firstMs": 14981
+      }
+    },
+    "ENGAGEMENT_PENDING_DOES_NOT_BLOCK_RENDER": {
+      "ok": true,
+      "detail": {
+        "engPendingAtFirstCard": 6,
+        "heldEngagementReqs": 9,
+        "engagementLoadedBeforeCard": false
+      }
+    },
+    "ENGAGEMENT_BATCH_TIMEOUT_BOUNDED": {
+      "ok": true,
+      "detail": {
+        "engagementMs": 4426,
+        "loadedAtMs": 18425,
+        "timeouts": 0,
+        "displayAfter": 40
+      }
+    },
+    "RELAY_DEGRADED_FEED": {
+      "ok": true,
+      "detail": {
+        "relays": {
+          "healthy": "ws://127.0.0.1:7881",
+          "http502": "ws://127.0.0.1:7882",
+          "timeout": "ws://127.0.0.1:7883"
+        },
+        "display": 40
+      }
+    },
+    "BOOT_NOT_SAFETY_TIMEOUT": {
+      "ok": true,
+      "detail": {
+        "bootReason": "boot-ready media=2/2"
+      }
+    },
+    "ENGAGEMENT_HYDRATES_IN_BACKGROUND": {
+      "ok": true,
+      "detail": {
+        "firstMs": 14862,
+        "likedAtFirstCard": 10,
+        "likedCount": 10,
+        "expected": 10,
+        "hydratedMs": 14865
+      }
+    },
+    "GUEST_TO_IDENTITY_TRANSITION": {
+      "ok": true,
+      "detail": {
+        "guestBefore": {
+          "guest": true,
+          "engStarted": 0
+        },
+        "identity": {
+          "publicKey": true,
+          "guest": false,
+          "name": "QA Feed User"
+        }
+      }
+    },
+    "VIDEO_FEED_AFTER_IDENTITY_TRANSITION": {
+      "ok": true,
+      "detail": {
+        "display": 40,
+        "cards": 40,
+        "firstMs": 20956
+      }
+    },
+    "FRESH_SIGNED_IN_VIDEO_FEED": {
+      "ok": true,
+      "detail": {
+        "restoredOnReload": true,
+        "feedCacheBefore": false,
+        "identity": {
+          "publicKey": true,
+          "guest": false,
+          "name": "QA Feed User"
+        },
+        "display": 40,
+        "cards": 40,
+        "firstMs": 19140,
+        "bootReason": "boot-ready media=2/2"
+      }
+    }
+  },
+  "metrics": {
+    "FRESH_GUEST_TRACE": {
+      "storageAtBoot": {
+        "ls": 0
+      },
+      "first": {
+        "cards": 40,
+        "firstVisible": true,
+        "stateVideos": 40,
+        "display": 40,
+        "bootReleased": true,
+        "guest": true,
+        "identity": false,
+        "engStarted": 6,
+        "engPending": 6,
+        "deletedDisplayed": true,
+        "ms": 14981
+      },
+      "bootReason": "boot-ready media=2/2",
+      "logs": [
+        {
+          "ms": 9479,
+          "text": "[videos] fetchRecentNotes: querySync returned 40"
+        },
+        {
+          "ms": 13999,
+          "text": "[videos] Loading likes/comments in batches: {total: 40, batches: 3}"
+        },
+        {
+          "ms": 14001,
+          "text": "[videos] loadVideos: rendering before boot gate {total: 40, display: 40, bootReleased: false}"
+        },
+        {
+          "ms": 14103,
+          "text": "[videos] boot loading released: boot-ready media=2/2"
+        },
+        {
+          "ms": 14108,
+          "text": "[videos] Loading likes/comments in batches: {total: 2, batches: 1}"
+        },
+        {
+          "ms": 18423,
+          "text": "[videos] fetchRecentNotes: querySync returned 1"
+        },
+        {
+          "ms": 18425,
+          "text": "[videos] Loaded likes/comments: {count: 0}"
+        }
+      ],
+      "heldEngagementReqs": 9
+    },
+    "KNOWN_PRE_EXISTING_KIND5_BEFORE_TARGET": {
+      "authorDeletedPostDisplayed": true,
+      "sameOnBaseline": true
+    }
+  },
+  "GUEST_IDENTITY_PRESENT": false,
+  "FETCHED_PUBLIC_POSTS": 40,
+  "DISPLAY_VIDEO_COUNT": 40,
+  "DOM_VIDEO_CARD_COUNT": 40,
+  "FIRST_FEED_CARD_VISIBLE": true,
+  "ENGAGEMENT_PENDING_AT_FIRST_CARD": true,
+  "ENGAGEMENT_PENDING_BLOCKS_RENDER": false,
+  "BOOT_SUCCESS_WITH_ONLY_SAFETY_TIMEOUT": false,
+  "KNOWN_PRE_EXISTING_KIND5_BEFORE_TARGET": {
+    "authorDeletedPostDisplayed": true,
+    "sameOnBaseline": true
+  },
+  "GUEST_TO_IDENTITY_TRANSITION": "PASS",
+  "VIDEO_FEED_AFTER_IDENTITY_TRANSITION": "PASS",
+  "SIGNED_IN_IDENTITY_RESOLVED": true,
+  "CONFIG_TRANSFORMS": {
+    "relays": true,
+    "p2p": true,
+    "sanitizer": true
+  },
+  "status": "PASS",
+  "failed": []
+}
