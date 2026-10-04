@@ -5111,10 +5111,27 @@ function renderVideoCard(video) {
       }
     };
     
+    // מאזיני document רק בזמן גרירה פעילה — בלי דליפת touchmove חוסם לכל כרטיס | HYPER CORE TECH
+    const bindDragListeners = () => {
+      document.addEventListener('mousemove', handleDragMove);
+      document.addEventListener('touchmove', handleDragMove, { passive: false });
+      document.addEventListener('mouseup', handleDragEnd);
+      document.addEventListener('touchend', handleDragEnd);
+      document.addEventListener('touchcancel', handleDragEnd);
+    };
+    const unbindDragListeners = () => {
+      document.removeEventListener('mousemove', handleDragMove);
+      document.removeEventListener('touchmove', handleDragMove, { passive: false });
+      document.removeEventListener('mouseup', handleDragEnd);
+      document.removeEventListener('touchend', handleDragEnd);
+      document.removeEventListener('touchcancel', handleDragEnd);
+    };
+
     const handleDragStart = (e) => {
       e.preventDefault();
       e.stopPropagation();
       isDragging = true;
+      bindDragListeners();
       progressBar.classList.add('visible', 'dragging');
       const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
       seekToPosition(clientX);
@@ -5128,6 +5145,7 @@ function renderVideoCard(video) {
     };
     
     const handleDragEnd = (e) => {
+      unbindDragListeners();
       if (!isDragging) return;
       isDragging = false;
       progressBar.classList.remove('dragging');
@@ -5140,10 +5158,6 @@ function renderVideoCard(video) {
     // אירועי גרירה על פס ההתקדמות | HYPER CORE TECH
     progressBar.addEventListener('mousedown', handleDragStart);
     progressBar.addEventListener('touchstart', handleDragStart, { passive: false });
-    document.addEventListener('mousemove', handleDragMove);
-    document.addEventListener('touchmove', handleDragMove, { passive: false });
-    document.addEventListener('mouseup', handleDragEnd);
-    document.addEventListener('touchend', handleDragEnd);
     
     // לחיצה פשוטה על הפס לדילוג למיקום | HYPER CORE TECH
     progressBar.addEventListener('click', (e) => {
@@ -9170,6 +9184,355 @@ function maybeInsertLiveVideoPost(event, subState, app) {
   return true;
 }
 
+// חלק ניווט כרטיסים (videos.js) – תנועה אחת מבוקרת לכרטיס סמוך: גלגלת / מגע / חיצים / מקלדת | HYPER CORE TECH
+// snap של CSS נשאר כרשת ביטחון; בזמן אנימציה/גרירה הוא מושבת inline ומוחזר רק כשהיעד מיושר בדיוק | HYPER CORE TECH
+const FEED_WHEEL_THRESHOLD_PX = 40;
+const FEED_WHEEL_GESTURE_GAP_MS = 160;
+const FEED_TOUCH_DECIDE_PX = 6;
+const FEED_TOUCH_DISTANCE_RATIO = 0.2;
+const FEED_TOUCH_FLICK_PX_PER_MS = 0.3;
+const FEED_SCROLL_IDLE_MS = 160;
+
+const feedNav = {
+  animating: false,
+  raf: 0,
+  targetCard: null,
+  targetIndex: -1,
+  snapDisabled: false,
+  touch: null,
+  lastScrollAt: 0,
+  pendingDomOrder: null,
+  pendingTimer: null,
+};
+
+function getFeedViewport() {
+  return document.querySelector('.videos-feed__viewport');
+}
+
+function getNavigableFeedCards(viewport) {
+  return Array.from(viewport.querySelectorAll('.videos-feed__card')).filter((card) => card.offsetHeight > 0);
+}
+
+function getCenteredFeedCardIndex(viewport, cards) {
+  const centered = getCenteredFeedCard(viewport);
+  const idx = centered ? cards.indexOf(centered) : -1;
+  return idx >= 0 ? idx : 0;
+}
+
+// מיקום ה-snap המדויק של כרטיס (snap-align: start + scroll-padding-top) | HYPER CORE TECH
+function getFeedCardSnapTop(viewport, card) {
+  const padTop = parseFloat(getComputedStyle(viewport).scrollPaddingTop) || 0;
+  const top = viewport.scrollTop + card.getBoundingClientRect().top - viewport.getBoundingClientRect().top - padTop;
+  const max = viewport.scrollHeight - viewport.clientHeight;
+  return Math.round(Math.max(0, Math.min(max, top)));
+}
+
+function setFeedSnapDisabled(viewport, disabled) {
+  if (disabled === feedNav.snapDisabled) return;
+  feedNav.snapDisabled = disabled;
+  viewport.style.scrollSnapType = disabled ? 'none' : '';
+}
+
+function stopFeedNavAnimation() {
+  if (feedNav.raf) cancelAnimationFrame(feedNav.raf);
+  feedNav.raf = 0;
+  feedNav.animating = false;
+}
+
+function finishFeedNav(viewport) {
+  stopFeedNavAnimation();
+  const card = feedNav.targetCard;
+  if (card && card.isConnected) {
+    viewport.scrollTop = getFeedCardSnapTop(viewport, card);
+  }
+  setFeedSnapDisabled(viewport, false);
+  feedNav.lastScrollAt = performance.now();
+  scheduleFeedDomOrderFlush();
+}
+
+// אנימציה אחת (ease-out) יחסית לכרטיס היעד — עמידה בהכנסת כרטיסים מעל בזמן התנועה | HYPER CORE TECH
+// releaseVelocity (px/ms לכיוון היעד) — המהירות ההתחלתית של ease-out תואמת לאצבע בשחרור | HYPER CORE TECH
+function animateFeedToCard(viewport, card, releaseVelocity = 0) {
+  stopFeedNavAnimation();
+  feedNav.targetCard = card;
+  const startOffset = viewport.scrollTop - getFeedCardSnapTop(viewport, card);
+  if (Math.abs(startOffset) < 1) {
+    finishFeedNav(viewport);
+    return;
+  }
+  setFeedSnapDisabled(viewport, true);
+  feedNav.animating = true;
+  const distance = Math.abs(startOffset);
+  const duration = releaseVelocity > 0.05
+    ? Math.max(200, Math.min(420, (3 * distance) / releaseVelocity))
+    : Math.max(220, Math.min(380, 200 + distance * 0.22));
+  const t0 = performance.now();
+  const step = (now) => {
+    if (!card.isConnected) {
+      finishFeedNav(viewport);
+      return;
+    }
+    const p = Math.min(1, Math.max(0, (now - t0) / duration));
+    const eased = 1 - Math.pow(1 - p, 3);
+    viewport.scrollTop = getFeedCardSnapTop(viewport, card) + startOffset * (1 - eased);
+    if (p < 1) feedNav.raf = requestAnimationFrame(step);
+    else finishFeedNav(viewport);
+  };
+  feedNav.raf = requestAnimationFrame(step);
+}
+
+// הפונקציה הקנונית: direction = 1 הבא, -1 הקודם, 0 התיישבות על הכרטיס הנוכחי | HYPER CORE TECH
+function navigateFeedCard(direction, options = {}) {
+  const viewport = getFeedViewport();
+  if (!viewport) return false;
+  const cards = getNavigableFeedCards(viewport);
+  if (!cards.length) return false;
+
+  let fromIndex = options.fromCard ? cards.indexOf(options.fromCard) : -1;
+  if (fromIndex < 0 && feedNav.animating) {
+    if (!options.retarget) return false;
+    fromIndex = feedNav.targetCard ? cards.indexOf(feedNav.targetCard) : -1;
+  }
+  if (fromIndex < 0) fromIndex = getCenteredFeedCardIndex(viewport, cards);
+
+  const step = direction > 0 ? 1 : (direction < 0 ? -1 : 0);
+  const targetIndex = Math.max(0, Math.min(cards.length - 1, fromIndex + step));
+  if (targetIndex !== fromIndex) {
+    try { closeCommentsPanel(); } catch (_) {}
+  }
+  feedNav.targetIndex = targetIndex;
+  const target = cards[targetIndex];
+  let releaseVelocity = 0;
+  if (options.velocity) {
+    const towardTarget = Math.sign(getFeedCardSnapTop(viewport, target) - viewport.scrollTop);
+    releaseVelocity = Math.max(0, options.velocity * towardTarget);
+  }
+  animateFeedToCard(viewport, target, releaseVelocity);
+  return targetIndex !== fromIndex;
+}
+
+function isFeedMotionActive() {
+  if (feedNav.animating || feedNav.touch) return true;
+  return performance.now() - feedNav.lastScrollAt < FEED_SCROLL_IDLE_MS;
+}
+
+function deferFeedDomOrder(sourceVideos) {
+  feedNav.pendingDomOrder = sourceVideos;
+  scheduleFeedDomOrderFlush();
+}
+
+function scheduleFeedDomOrderFlush() {
+  if (!feedNav.pendingDomOrder || feedNav.pendingTimer) return;
+  feedNav.pendingTimer = setTimeout(() => {
+    feedNav.pendingTimer = null;
+    flushFeedDomOrder();
+  }, FEED_SCROLL_IDLE_MS);
+}
+
+function flushFeedDomOrder() {
+  const pending = feedNav.pendingDomOrder;
+  if (!pending) return;
+  if (isFeedMotionActive()) {
+    scheduleFeedDomOrderFlush();
+    return;
+  }
+  feedNav.pendingDomOrder = null;
+  try {
+    insertFeedCardPreservingAnchor(() => applyFeedDomOrder(pending));
+  } catch (_) {}
+}
+
+// אלמנט פנימי שיכול לגלול בכיוון — משאירים לו את הגלילה (למשל טקסט ארוך בכרטיס) | HYPER CORE TECH
+function findInnerFeedScroller(target, viewport, dy) {
+  let el = target instanceof Element ? target : target?.parentElement;
+  for (; el && el !== viewport; el = el.parentElement) {
+    const oy = getComputedStyle(el).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1) {
+      if (dy > 0 ? el.scrollTop + el.clientHeight < el.scrollHeight - 1 : el.scrollTop > 0) return el;
+    }
+  }
+  return null;
+}
+
+// דיאלוגים סטטיים מסומנים aria-modal גם כשהם מוסתרים — בודקים נראות בפועל | HYPER CORE TECH
+function isFeedModalDialogVisible() {
+  return Array.from(document.querySelectorAll('[aria-modal="true"]')).some((el) => {
+    if (el.closest('[aria-hidden="true"]')) return false;
+    const rects = el.getClientRects();
+    if (!rects.length) return false;
+    const cs = getComputedStyle(el);
+    return cs.visibility !== 'hidden' && cs.display !== 'none';
+  });
+}
+
+function setupFeedCardNavigation() {
+  const viewport = getFeedViewport();
+  if (!viewport || viewport.dataset.feedNavBound === '1') return;
+  viewport.dataset.feedNavBound = '1';
+
+  viewport.addEventListener('scroll', () => {
+    feedNav.lastScrollAt = performance.now();
+  }, { passive: true });
+  if ('onscrollend' in viewport) {
+    viewport.addEventListener('scrollend', () => {
+      feedNav.lastScrollAt = 0;
+      scheduleFeedDomOrderFlush();
+    });
+  }
+
+  // גלגלת / trackpad: צבירה עד סף → כרטיס אחד; שאר הג'סטה (כולל אינרציה) נבלעת | HYPER CORE TECH
+  const wheel = { acc: 0, lastAt: 0, lastAbs: 0, dir: 0, locked: false };
+  viewport.addEventListener('wheel', (e) => {
+    if (e.ctrlKey || e.defaultPrevented || window._hfBlockScroll) return;
+    let dy = e.deltaY;
+    if (e.deltaMode === 1) dy *= 16;
+    else if (e.deltaMode === 2) dy *= viewport.clientHeight;
+    if (!dy || Math.abs(e.deltaX) > Math.abs(dy)) return;
+    if (findInnerFeedScroller(e.target, viewport, dy)) return;
+    e.preventDefault();
+
+    const now = performance.now();
+    const absDy = Math.abs(dy);
+    const dir = Math.sign(dy);
+    const newGesture = now - wheel.lastAt > FEED_WHEEL_GESTURE_GAP_MS
+      || dir !== wheel.dir
+      || (absDy >= 30 && absDy > wheel.lastAbs * 2.2);
+    wheel.lastAt = now;
+    wheel.lastAbs = absDy;
+    wheel.dir = dir;
+    if (newGesture && !feedNav.animating) {
+      wheel.locked = false;
+      wheel.acc = 0;
+    }
+    if (wheel.locked) return;
+    wheel.acc += dy;
+    if (Math.abs(wheel.acc) >= FEED_WHEEL_THRESHOLD_PX) {
+      wheel.locked = true;
+      wheel.acc = 0;
+      navigateFeedCard(dir);
+    }
+  }, { passive: false });
+
+  // מגע: בקר אחד על ה-viewport — הכרטיס עוקב אחרי האצבע, ובשחרור נחיתה אחת | HYPER CORE TECH
+  const endTouch = (cancelled, endTime = 0) => {
+    const touch = feedNav.touch;
+    feedNav.touch = null;
+    if (!touch || touch.mode !== 'nav') {
+      scheduleFeedDomOrderFlush();
+      return;
+    }
+    const moved = touch.fromCard.isConnected
+      ? viewport.scrollTop - getFeedCardSnapTop(viewport, touch.fromCard)
+      : 0;
+    const samples = touch.samples;
+    const last = samples[samples.length - 1];
+    let first = samples[0];
+    for (let i = samples.length - 1; i >= 0; i -= 1) {
+      if (last.t - samples[i].t > 100) break;
+      first = samples[i];
+    }
+    const dt = last.t - first.t;
+    const heldBeforeRelease = endTime && endTime - last.t > 100;
+    const velocity = dt > 0 && !heldBeforeRelease ? (first.y - last.y) / dt : 0;
+    const cardHeight = touch.fromCard.offsetHeight || viewport.clientHeight;
+    let dir = 0;
+    if (!cancelled) {
+      if (Math.abs(moved) > cardHeight * FEED_TOUCH_DISTANCE_RATIO) dir = Math.sign(moved);
+      else if (Math.abs(velocity) > FEED_TOUCH_FLICK_PX_PER_MS && Math.abs(moved) > 12) dir = Math.sign(velocity);
+      if (dir && Math.abs(velocity) > FEED_TOUCH_FLICK_PX_PER_MS && Math.sign(velocity) === -dir) dir = 0;
+    }
+    navigateFeedCard(dir, { fromCard: touch.fromCard, velocity });
+  };
+
+  viewport.addEventListener('touchstart', (e) => {
+    if (window._hfBlockScroll) return;
+    if (e.touches.length !== 1) {
+      if (feedNav.touch) endTouch(true);
+      return;
+    }
+    const t = e.touches[0];
+    feedNav.touch = {
+      x0: t.clientX,
+      y0: t.clientY,
+      target: e.target,
+      mode: null,
+      startOffset: 0,
+      fromCard: null,
+      fromIndex: 0,
+      cards: null,
+      samples: [{ y: t.clientY, t: e.timeStamp }],
+    };
+  }, { passive: true });
+
+  viewport.addEventListener('touchmove', (e) => {
+    const touch = feedNav.touch;
+    if (!touch || touch.mode === 'native') return;
+    if (e.touches.length !== 1) {
+      endTouch(true);
+      return;
+    }
+    const t = e.touches[0];
+    const dx = t.clientX - touch.x0;
+    const dy = touch.y0 - t.clientY;
+    if (!touch.mode) {
+      if (Math.abs(dx) < FEED_TOUCH_DECIDE_PX && Math.abs(dy) < FEED_TOUCH_DECIDE_PX) return;
+      if (Math.abs(dx) > Math.abs(dy) || !e.cancelable || findInnerFeedScroller(touch.target, viewport, dy)) {
+        touch.mode = 'native';
+        return;
+      }
+      touch.mode = 'nav';
+      const cards = getNavigableFeedCards(viewport);
+      if (!cards.length) {
+        touch.mode = 'native';
+        return;
+      }
+      const fromIndex = feedNav.animating && feedNav.targetCard && cards.includes(feedNav.targetCard)
+        ? cards.indexOf(feedNav.targetCard)
+        : getCenteredFeedCardIndex(viewport, cards);
+      stopFeedNavAnimation();
+      setFeedSnapDisabled(viewport, true);
+      touch.cards = cards;
+      touch.fromIndex = fromIndex;
+      touch.fromCard = cards[fromIndex];
+      touch.startOffset = viewport.scrollTop - getFeedCardSnapTop(viewport, touch.fromCard);
+    }
+    if (e.cancelable) e.preventDefault();
+    touch.samples.push({ y: t.clientY, t: e.timeStamp });
+    if (touch.samples.length > 12) touch.samples.shift();
+    const { cards, fromIndex, fromCard } = touch;
+    const base = getFeedCardSnapTop(viewport, fromCard);
+    const minTop = fromIndex > 0 ? getFeedCardSnapTop(viewport, cards[fromIndex - 1]) : base;
+    const maxTop = fromIndex < cards.length - 1 ? getFeedCardSnapTop(viewport, cards[fromIndex + 1]) : base;
+    const desired = base + touch.startOffset + (touch.y0 - t.clientY);
+    viewport.scrollTop = Math.max(minTop, Math.min(maxTop, desired));
+  }, { passive: false });
+
+  viewport.addEventListener('touchend', (e) => endTouch(false, e.timeStamp), { passive: true });
+  viewport.addEventListener('touchcancel', () => endTouch(true), { passive: true });
+
+  // מקלדת: ArrowDown/J הבא, ArrowUp/K הקודם — רק כשהפוקוס בפיד ואין חלון פתוח | HYPER CORE TECH
+  document.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || window._hfBlockScroll) return;
+    const key = e.key;
+    let dir = 0;
+    if (key === 'ArrowDown' || key === 'j' || key === 'J') dir = 1;
+    else if (key === 'ArrowUp' || key === 'k' || key === 'K') dir = -1;
+    if (!dir) return;
+    const vp = getFeedViewport();
+    if (!vp || !vp.isConnected) return;
+    const target = e.target;
+    const inFeed = target === document.body
+      || target === document.documentElement
+      || (target instanceof Node && vp.contains(target))
+      || (target instanceof Element && target.closest('.videos-nav-arrows'));
+    if (!inFeed) return;
+    if (target instanceof Element && (target.isContentEditable || /^(input|textarea|select)$/i.test(target.tagName))) return;
+    if (document.body.classList.contains('videos-share-sheet-open') || isFeedModalDialogVisible()) return;
+    e.preventDefault();
+    navigateFeedCard(dir, { retarget: true });
+  });
+}
+
 // חלק כפתורי גלילה (videos.js) – יצירת כפתורי גלילה שמאליים למעלה/למטה בדסקטופ | HYPER CORE TECH
 function createNavArrows() {
   // בדיקה אם כבר קיימים
@@ -9194,67 +9557,20 @@ function createNavArrows() {
   container.appendChild(downBtn);
   document.body.appendChild(container);
   
-  // פונקציונליות גלילה
-  const scrollToCard = (direction) => {
-    const viewport = document.querySelector('.videos-feed__viewport');
-    if (!viewport) return;
-    
-    const cards = viewport.querySelectorAll('.videos-feed__card');
-    if (!cards.length) return;
-    
-    const viewportRect = viewport.getBoundingClientRect();
-    const viewportCenter = viewportRect.top + viewportRect.height / 2;
-    
-    let currentIndex = -1;
-    cards.forEach((card, index) => {
-      const cardRect = card.getBoundingClientRect();
-      const cardCenter = cardRect.top + cardRect.height / 2;
-      if (Math.abs(cardCenter - viewportCenter) < cardRect.height / 2) {
-        currentIndex = index;
-      }
-    });
-    
-    let targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-    targetIndex = Math.max(0, Math.min(cards.length - 1, targetIndex));
-    
-    if (targetIndex !== currentIndex) {
-      try { closeCommentsPanel(); } catch (_) {}
-    }
-
-    if (targetIndex >= 0 && targetIndex < cards.length) {
-      cards[targetIndex].scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    
-    // עדכון מצב הכפתורים
-    upBtn.disabled = targetIndex <= 0;
-    downBtn.disabled = targetIndex >= cards.length - 1;
-  };
-  
-  upBtn.addEventListener('click', () => scrollToCard('up'));
-  downBtn.addEventListener('click', () => scrollToCard('down'));
+  // פונקציונליות גלילה — דרך פונקציית הניווט הקנונית | HYPER CORE TECH
+  upBtn.addEventListener('click', () => navigateFeedCard(-1, { retarget: true }));
+  downBtn.addEventListener('click', () => navigateFeedCard(1, { retarget: true }));
   
   // עדכון מצב כפתורים בגלילה
   const viewport = document.querySelector('.videos-feed__viewport');
   if (viewport) {
     viewport.addEventListener('scroll', () => {
-      const cards = viewport.querySelectorAll('.videos-feed__card');
+      const cards = getNavigableFeedCards(viewport);
       if (!cards.length) return;
-      
-      const viewportRect = viewport.getBoundingClientRect();
-      const viewportCenter = viewportRect.top + viewportRect.height / 2;
-      
-      let currentIndex = 0;
-      cards.forEach((card, index) => {
-        const cardRect = card.getBoundingClientRect();
-        const cardCenter = cardRect.top + cardRect.height / 2;
-        if (Math.abs(cardCenter - viewportCenter) < cardRect.height / 2) {
-          currentIndex = index;
-        }
-      });
-      
+      const currentIndex = getCenteredFeedCardIndex(viewport, cards);
       upBtn.disabled = currentIndex <= 0;
       downBtn.disabled = currentIndex >= cards.length - 1;
-    });
+    }, { passive: true });
   }
   
   console.log('[videos] Nav arrows created');
@@ -9485,6 +9801,7 @@ async function init() {
 
   // חלק כפתורי גלילה (videos.js) – יצירת כפתורי גלילה בדסקטופ | HYPER CORE TECH
   createNavArrows();
+  setupFeedCardNavigation();
   
   // חלק עוקבים בתפריט צד (videos.js) – יצירת מקטע עוקבים ופוטר בדסקטופ | HYPER CORE TECH
   createSidebarFollowersSection();
@@ -9797,7 +10114,16 @@ function sortVideosByCreatedAtDesc(videos) {
 }
 
 // חלק סדר פיד (videos.js) – סנכרון DOM לסדר הכרונולוגי אחרי טעינה דיפרנציאלית / מטמון | HYPER CORE TECH
+// בזמן גלילה / ניווט פעיל — הסידור נדחה עד שהפיד נח, ואז רץ עם שימור הכרטיס הנראה | HYPER CORE TECH
 function syncFeedDomOrder(sourceVideos) {
+  if (isFeedMotionActive()) {
+    deferFeedDomOrder(sourceVideos);
+    return;
+  }
+  applyFeedDomOrder(sourceVideos);
+}
+
+function applyFeedDomOrder(sourceVideos) {
   if (!selectors.stream || !Array.isArray(sourceVideos) || !sourceVideos.length) return;
   const byId = new Map();
   selectors.stream.querySelectorAll('.videos-feed__card[data-event-id]').forEach((card) => {
