@@ -307,6 +307,129 @@
     return result;
   }
 
+  // --- Guest public-media file transfer (typed, recipient-bound, NIP-44) ---
+  // Only the WebRTC negotiation needed to move a PUBLIC hash-backed media file.
+  // Chat files, DMs, presence, calls and every other private type stay denied.
+  const GUEST_MEDIA_SIGNAL_TYPES = Object.freeze(['file-request', 'file-response', 'ice-candidate']);
+  const GUEST_MEDIA_SIGNAL_T_TAG = Object.freeze({
+    'file-request': 'p2p-req',
+    'file-response': 'p2p-res',
+    'ice-candidate': 'p2p-ice',
+  });
+  const TAG_KEYS_MEDIA_SIGNAL = Object.freeze(['d', 'p', 't', 'enc', 'guest', 'network']);
+  const MAX_MEDIA_SIGNAL_PLAINTEXT_CHARS = 20000;
+  const MAX_SDP_CHARS = 16000;
+  const MAX_CANDIDATE_CHARS = 1024;
+  const CONNECTION_ID_RE = /^[0-9A-Za-z:_.-]{1,256}$/;
+
+  function onlyKeys(obj, allowed) {
+    const keys = Object.keys(obj);
+    for (let i = 0; i < keys.length; i++) {
+      if (allowed.indexOf(keys[i]) === -1) return keys[i];
+    }
+    return '';
+  }
+
+  function validateSessionDescription(desc, expectedType) {
+    if (!desc || typeof desc !== 'object' || Array.isArray(desc)) return reject('BAD_SDP');
+    if (hasProtoPollution(desc) || looksLikeEmbeddedEvent(desc)) return reject('PRIVILEGED_FIELD');
+    const extra = onlyKeys(desc, ['type', 'sdp']);
+    if (extra) return reject('EXTRA_FIELD', extra);
+    if (desc.type !== expectedType) return reject('BAD_SDP_TYPE');
+    if (typeof desc.sdp !== 'string' || !desc.sdp || desc.sdp.length > MAX_SDP_CHARS) return reject('BAD_SDP');
+    return okResult();
+  }
+
+  function validateIceCandidate(c) {
+    if (!c || typeof c !== 'object' || Array.isArray(c)) return reject('BAD_CANDIDATE');
+    if (hasProtoPollution(c) || looksLikeEmbeddedEvent(c)) return reject('PRIVILEGED_FIELD');
+    const extra = onlyKeys(c, ['candidate', 'sdpMid', 'sdpMLineIndex', 'usernameFragment']);
+    if (extra) return reject('EXTRA_FIELD', extra);
+    if (typeof c.candidate !== 'string' || c.candidate.length > MAX_CANDIDATE_CHARS) return reject('BAD_CANDIDATE');
+    if (c.sdpMid != null && (typeof c.sdpMid !== 'string' || c.sdpMid.length > 64)) return reject('BAD_CANDIDATE');
+    if (c.sdpMLineIndex != null && !(Number.isInteger(c.sdpMLineIndex) && c.sdpMLineIndex >= 0 && c.sdpMLineIndex < 64)) {
+      return reject('BAD_CANDIDATE');
+    }
+    if (c.usernameFragment != null && (typeof c.usernameFragment !== 'string' || c.usernameFragment.length > 256)) {
+      return reject('BAD_CANDIDATE');
+    }
+    return okResult();
+  }
+
+  /** Validates the decrypted {type, data} message of a guest public-media file signal. */
+  function validateGuestMediaFileSignalMessage(message) {
+    if (!message || typeof message !== 'object' || Array.isArray(message)) return reject('MALFORMED_SIGNAL');
+    if (hasProtoPollution(message) || looksLikeEmbeddedEvent(message)) return reject('PRIVILEGED_FIELD');
+    const extraTop = onlyKeys(message, ['type', 'data']);
+    if (extraTop) return reject('EXTRA_FIELD', extraTop);
+    if (GUEST_MEDIA_SIGNAL_TYPES.indexOf(message.type) === -1) return reject('GUEST_MEDIA_SIGNAL_TYPE_DENIED', String(message.type));
+    const data = message.data;
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return reject('MALFORMED_SIGNAL');
+    if (hasProtoPollution(data) || looksLikeEmbeddedEvent(data)) return reject('PRIVILEGED_FIELD');
+    const extra = onlyKeys(data, message.type === 'file-request' ? ['offer', 'hash', 'connectionId']
+      : message.type === 'file-response' ? ['answer', 'hash', 'connectionId']
+        : ['candidate', 'hash', 'connectionId']);
+    if (extra) return reject('EXTRA_FIELD', extra);
+    if (typeof data.connectionId !== 'string' || !CONNECTION_ID_RE.test(data.connectionId)) return reject('BAD_CONNECTION_ID');
+    if (message.type === 'file-request' || data.hash !== undefined) {
+      if (!isHex64(data.hash)) return reject('BAD_MEDIA_HASH');
+    }
+    let inner;
+    if (message.type === 'file-request') inner = validateSessionDescription(data.offer, 'offer');
+    else if (message.type === 'file-response') inner = validateSessionDescription(data.answer, 'answer');
+    else inner = validateIceCandidate(data.candidate);
+    if (!inner.ok) return inner;
+    const size = JSON.stringify(message).length;
+    if (size > MAX_MEDIA_SIGNAL_PLAINTEXT_CHARS) return reject('SIGNAL_TOO_LARGE');
+    return okResult({ signalClass: 'GUEST_PUBLIC_MEDIA_FILE_TRANSFER', signalType: message.type });
+  }
+
+  /**
+   * Validates the outer kind-30078 event of a public-media file signal (sign or receive).
+   * opts: { direction, networkTag, type, recipient, requireGuestTag, nowSec }
+   */
+  function validateGuestMediaFileSignalEvent(draft, opts) {
+    const o = opts && typeof opts === 'object' ? opts : {};
+    const direction = o.direction === 'receive' ? 'receive' : 'sign';
+    if (!draft || typeof draft !== 'object' || Array.isArray(draft)) return reject('MALFORMED_DRAFT');
+    if (draft.kind !== KIND) return reject('KIND_NOT_ALLOWED');
+    if (!Array.isArray(draft.tags)) return reject('BAD_TAGS');
+    if (typeof draft.content !== 'string' || !draft.content) return reject('BAD_CONTENT');
+    if (draft.content.length > MAX_MEDIA_SIGNAL_PLAINTEXT_CHARS * 2) return reject('SIGNAL_TOO_LARGE');
+    const nowSec = typeof o.nowSec === 'number' ? Math.floor(o.nowSec) : Math.floor(Date.now() / 1000);
+    const created = Number(draft.created_at);
+    if (!Number.isFinite(created) || !Number.isInteger(created)) return reject('BAD_CREATED_AT');
+    if (created > nowSec + 120) return reject('CREATED_IN_FUTURE');
+    if (nowSec - created > SIGNAL_TTL_SEC) return reject('EXPIRED_TTL');
+    const tagCheck = validateTagsExact(draft.tags, TAG_KEYS_MEDIA_SIGNAL);
+    if (!tagCheck.ok) return tagCheck;
+    const tm = tagMap(draft.tags);
+    if (!tm.d || tm.d.length !== 1 || tm.d[0].length > MAX_D_LEN || !tm.d[0].startsWith(P2P_APP_TAG + ':signal:')) {
+      return reject('BAD_D_TAG');
+    }
+    if (!tm.p || tm.p.length !== 1 || !isHex64(tm.p[0])) return reject('RECIPIENT_REQUIRED');
+    if (o.recipient && tm.p[0].toLowerCase() !== String(o.recipient).toLowerCase()) return reject('WRONG_RECIPIENT');
+    const tVals = Object.keys(GUEST_MEDIA_SIGNAL_T_TAG).map((k) => GUEST_MEDIA_SIGNAL_T_TAG[k]);
+    if (!tm.t || tm.t.length !== 1 || tVals.indexOf(tm.t[0]) === -1) return reject('BAD_T_TAG');
+    if (o.type && GUEST_MEDIA_SIGNAL_T_TAG[o.type] !== tm.t[0]) return reject('T_TAG_TYPE_MISMATCH');
+    if (!tm.enc || tm.enc.length !== 1 || tm.enc[0] !== 'nip44') return reject('ENCRYPTION_REQUIRED');
+    if (tm.guest && (tm.guest.length !== 1 || tm.guest[0] !== 'true')) return reject('BAD_GUEST_TAG');
+    if (o.requireGuestTag === true && !tm.guest) return reject('BAD_GUEST_TAG');
+    const net = validateNetworkBinding(tm, { direction, networkTag: o.networkTag || resolveNetworkTag(), allowLegacyNoNetwork: false });
+    if (!net.ok) return net;
+    let env;
+    try {
+      env = JSON.parse(draft.content);
+    } catch (_e) {
+      return reject('PLAINTEXT_PRIVATE_SIGNAL_REJECTED');
+    }
+    if (!env || typeof env !== 'object' || Array.isArray(env) || env.alg !== 'nip44' || typeof env.ct !== 'string' || !env.ct
+      || typeof env.type === 'string') {
+      return reject('PLAINTEXT_PRIVATE_SIGNAL_REJECTED');
+    }
+    return okResult({ signalClass: 'GUEST_PUBLIC_MEDIA_FILE_TRANSFER', tTag: tm.t[0], recipient: tm.p[0].toLowerCase() });
+  }
+
   // --- session-scoped replay cache (ids + expiry only; no secrets) ---
   function loadReplayMap() {
     try {
@@ -390,6 +513,11 @@
     clearGuestReplayCache,
     ensureNetworkTagOnTags,
     REPLAY_SS_KEY,
+    GUEST_MEDIA_SIGNAL_TYPES,
+    GUEST_MEDIA_SIGNAL_T_TAG,
+    TAG_KEYS_MEDIA_SIGNAL,
+    validateGuestMediaFileSignalMessage,
+    validateGuestMediaFileSignalEvent,
   });
 
   App.GuestP2PSchema = api;

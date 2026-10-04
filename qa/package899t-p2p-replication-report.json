@@ -1,7 +1,7 @@
 {
   "gate": "PACKAGE899T_P2P_REPLICATION",
   "relay": "ws://127.0.0.1:7896",
-  "ts": "2026-10-04T09:44:59.959Z",
+  "ts": "2026-10-04T11:39:12.429Z",
   "results": {
     "A_ACQUIRES_FROM_BLOSSOM_AND_ADVERTISES": {
       "ok": true,
@@ -15,14 +15,14 @@
         "feedAcquire": {
           "src": "blossom-full",
           "label": "P0",
-          "hash": "68d35a4d9685",
+          "hash": "dd47cdbca1f9",
           "mode": "PERSIST_REPLICA",
           "bytes": 415544,
-          "elapsedMs": 90,
-          "averageBytesPerSec": 4617156,
+          "elapsedMs": 86,
+          "averageBytesPerSec": 4831907,
           "knownPeers": 0,
           "discoveredPeers": 0,
-          "httpStartMs": 66,
+          "httpStartMs": 61,
           "httpReason": "zero-peers-after-discovery"
         },
         "state": {
@@ -42,13 +42,14 @@
         "source": {
           "src": "p2p",
           "label": "P0",
-          "hash": "68d35a4d9685",
-          "mode": "PERSIST_REPLICA",
+          "hash": "dd47cdbca1f9",
+          "mode": "FAST_BOOT",
           "bytes": 415544,
-          "elapsedMs": 334,
-          "averageBytesPerSec": 1244144,
-          "peer": "668a8a31",
-          "knownPeers": 1,
+          "elapsedMs": 6815,
+          "averageBytesPerSec": 60975,
+          "peer": "1f3e6d14",
+          "knownPeers": 0,
+          "discoveredPeers": 1,
           "peerStarts": 1
         },
         "state": {
@@ -73,23 +74,23 @@
         "source": {
           "src": "p2p",
           "label": "P0",
-          "hash": "68d35a4d9685",
+          "hash": "dd47cdbca1f9",
           "mode": "FAST_BOOT",
           "bytes": 415544,
-          "elapsedMs": 2175,
-          "averageBytesPerSec": 191055,
-          "peer": "08870f67",
+          "elapsedMs": 3486,
+          "averageBytesPerSec": 119204,
+          "peer": "ffbc9514",
           "knownPeers": 0,
           "discoveredPeers": 2,
           "peerStarts": 2,
-          "secondPeerStartMs": 2056
+          "secondPeerStartMs": 2049
         },
         "state": {
           "cache": true,
           "cacheShaOk": true,
           "availableFiles": true,
           "availableShaOk": true,
-          "availableFilesCount": 1
+          "availableFilesCount": 2
         }
       }
     },
@@ -105,7 +106,7 @@
       "detail": {
         "LOCAL_AVAILABLE_FILES_AFTER_REPLICATION": {
           "B": 2,
-          "C": 1
+          "C": 2
         },
         "HEARTBEAT_FILES_AFTER_REPLICATION": {
           "B": 2,
@@ -116,9 +117,9 @@
     "FIRST_PAINT_A_HEALTHY_BLOSSOM_NO_PEERS": {
       "ok": true,
       "detail": {
-        "first": 1979,
-        "second": 1095,
-        "guestPeerDownload": false,
+        "first": 2038,
+        "second": 1130,
+        "guestPeerDownload": true,
         "sources": [
           "P0:blossom-stream",
           "P1:blossom-stream",
@@ -129,21 +130,21 @@
     "FIRST_PAINT_B_HEALTHY_PEER_SLOW_BLOSSOM": {
       "ok": true,
       "detail": {
-        "first": 2968,
-        "second": 2090,
+        "first": 2156,
+        "second": 1288,
         "sources": [
-          "P0:p2p:d907f2e4",
+          "P0:p2p:deb24924",
           "P2:blossom-stream:",
-          "P1:p2p:d907f2e4",
-          "P3:p2p:08870f67"
+          "P1:p2p:deb24924",
+          "P3:blossom-stream:"
         ]
       }
     },
     "FIRST_PAINT_C_SLOW_PEER_HEALTHY_BLOSSOM": {
       "ok": true,
       "detail": {
-        "first": 1577,
-        "second": 646,
+        "first": 1537,
+        "second": 675,
         "sources": [
           "P0:blossom-stream",
           "P1:blossom-stream",
@@ -155,19 +156,19 @@
     "FIRST_PAINT_D_SLOW_PEER1_HEALTHY_PEER2": {
       "ok": true,
       "detail": {
-        "first": 1703,
-        "second": 804,
+        "first": 1621,
+        "second": 759,
         "p1": {
           "src": "p2p",
           "label": "P1",
-          "hash": "e2a431cd7b99",
+          "hash": "e6c3abf0c6b9",
           "mode": "FAST_BOOT",
           "bytes": 415544,
-          "elapsedMs": 2139,
-          "averageBytesPerSec": 194270,
-          "peer": "d907f2e4",
+          "elapsedMs": 2151,
+          "averageBytesPerSec": 193186,
+          "peer": "deb24924",
           "knownPeers": 0,
-          "discoveredPeers": 3,
+          "discoveredPeers": 2,
           "peerStarts": 1
         },
         "slowPeerTriedFirst": false
@@ -183,62 +184,64 @@
           "feedPosition": null,
           "directLink": false,
           "peerCapable": true,
-          "knownPeers": 1,
+          "knownPeers": 0,
+          "discoveredPeers": 1,
           "peerStarts": 1,
-          "blossomWatchdogMs": 2001,
-          "httpStartMs": 2001,
+          "blossomWatchdogMs": 2017,
+          "httpStartMs": 2017,
           "httpReason": "no-progress",
-          "elapsedMs": 2019
+          "elapsedMs": 2034
         }
       }
     },
     "FIRST_PAINT_E_FIRST_6_DEAD": {
       "ok": true,
       "detail": {
-        "first": 2598,
-        "second": 1711,
+        "first": 4043,
+        "second": 2163,
         "release": "[videos] boot loading released:",
         "timeline": [
-          "1001 [videos] media parked for p2p recovery",
-          "1031 [videos] media parked for p2p recovery",
-          "1122 [videos] media parked for p2p recovery",
-          "1229 [videos] media parked for p2p recovery",
-          "1343 [videos] media parked for p2p recovery",
-          "1344 [videos] boot wave extended",
-          "1447 [videos] media parked for p2p recovery",
-          "1567 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
-          "1663 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
-          "1763 [videos] boot loading released:",
-          "1770 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
-          "1808 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
-          "1813 [MEDIA_REPLICA_STORED]",
-          "1813 [MEDIA_REPLICA_ADVERTISED]",
-          "1867 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
-          "1967 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
-          "2079 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
-          "2186 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
-          "2292 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
-          "2394 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
-          "2499 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos"
+          "1297 [videos] http candidates failed — awaiting p",
+          "1568 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=p2p",
+          "1569 [MEDIA_REPLICA_STORED]",
+          "1570 [MEDIA_REPLICA_ADVERTISED]",
+          "1604 [videos] http candidates failed — awaiting p",
+          "1694 [videos] media parked for p2p recovery",
+          "1805 [videos] media parked for p2p recovery",
+          "1921 [videos] media parked for p2p recovery",
+          "2013 [videos] media parked for p2p recovery",
+          "2118 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
+          "2228 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
+          "2329 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
+          "2446 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
+          "2529 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
+          "2639 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
+          "2746 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
+          "2845 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
+          "2946 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
+          "3063 [VIDEO_MEDIA_SOURCE] VIDEO_MEDIA_SOURCE=blos",
+          "3105 [videos] media parked for p2p recovery",
+          "3210 [videos] boot wave extended",
+          "3210 [videos] boot loading released:"
         ]
       }
     },
     "FIRST_PAINT_F_HTTP_DEAD_PEER_OWNS": {
       "ok": true,
       "detail": {
-        "first": 3998,
-        "second": 3173,
+        "first": 3174,
+        "second": 2299,
         "p0": {
           "src": "p2p",
           "label": "P0",
-          "hash": "68d35a4d9685",
+          "hash": "dd47cdbca1f9",
           "mode": "FAST_BOOT",
           "bytes": 415544,
-          "elapsedMs": 1461,
-          "averageBytesPerSec": 284424,
-          "peer": "d907f2e4",
+          "elapsedMs": 1798,
+          "averageBytesPerSec": 231115,
+          "peer": "deb24924",
           "knownPeers": 0,
-          "discoveredPeers": 5,
+          "discoveredPeers": 7,
           "peerStarts": 1
         }
       }
@@ -250,12 +253,12 @@
         "steady": {
           "src": "p2p",
           "label": "W1",
-          "hash": "17c8ab4793b0",
+          "hash": "e67e2712b267",
           "mode": "P2P_STEADY",
           "bytes": 415544,
-          "elapsedMs": 235,
-          "averageBytesPerSec": 1768272,
-          "peer": "d907f2e4",
+          "elapsedMs": 283,
+          "averageBytesPerSec": 1468353,
+          "peer": "deb24924",
           "knownPeers": 1,
           "peerStarts": 1
         },
@@ -268,8 +271,8 @@
     "FIRST_PAINT_G_PEER_AFTER_HTTP_FAILURE": {
       "ok": true,
       "detail": {
-        "first": 1544,
-        "second": 661,
+        "first": 1593,
+        "second": 694,
         "parked": true,
         "cSeed": {
           "ok": true,
@@ -277,8 +280,8 @@
           "mediaSource": "blossom-full"
         },
         "recovered": {
-          "id": "f2fa9673",
-          "hash": "cf80baa04d29",
+          "id": "4bd397c1",
+          "hash": "a206097175d9",
           "source": "p2p"
         },
         "card": {
@@ -304,9 +307,9 @@
             "knownPeers": 0,
             "discoveredPeers": 1,
             "peerStarts": 1,
-            "httpStartMs": 1176,
+            "httpStartMs": 1128,
             "httpReason": "last-resort",
-            "elapsedMs": 1195
+            "elapsedMs": 1148
           }
         },
         "state": {
@@ -350,7 +353,7 @@
           "knownPeers": 0,
           "httpStartMs": 0,
           "httpReason": "zero-known-peers",
-          "elapsedMs": 33
+          "elapsedMs": 21
         }
       }
     },
@@ -362,7 +365,9 @@
         "SLOW_DOWNLOAD_BPS": 51200,
         "SLOW_PROBE_MS": 2000,
         "MAX_PARALLEL_PEERS_PER_FILE": 2,
-        "STALL_WATCH_MS": 12000
+        "STALL_WATCH_MS": 12000,
+        "GUEST_P2P_CAN_WIN_FIRST_CARD": true,
+        "GUEST_BLOSSOM_CAN_WIN_FIRST_CARD": true
       }
     },
     "PUBLIC_FEED_USES_CANONICAL_P2P_ENGINE": {
@@ -433,14 +438,14 @@
   "A_OFFLINE_C_DOWNLOAD_FROM_B": true,
   "LOCAL_AVAILABLE_FILES_AFTER_REPLICATION": {
     "B": 2,
-    "C": 1
+    "C": 2
   },
   "HEARTBEAT_FILES_AFTER_REPLICATION": {
     "B": 2,
     "C": 2
   },
   "SLOW_PEER_SECOND_PEER_START_MS": null,
-  "SLOW_PEER_BLOSSOM_WATCHDOG_MS": 2001,
+  "SLOW_PEER_BLOSSOM_WATCHDOG_MS": 2017,
   "STEADY_STATE_PRIMARY_SOURCE": "p2p",
   "HTTP_FAILURE_P2P_RECOVERY": true,
   "P2P_FULL_FILE_HASH_VERIFIED": true,
@@ -454,36 +459,36 @@
   "DUPLICATE_P2P_ENGINE_CREATED": false,
   "FIRST_PAINT": {
     "A": {
-      "first": 1979,
-      "second": 1095
+      "first": 2038,
+      "second": 1130
     },
     "B": {
-      "first": 2968,
-      "second": 2090
+      "first": 2156,
+      "second": 1288
     },
     "C": {
-      "first": 1577,
-      "second": 646
+      "first": 1537,
+      "second": 675
     },
     "D": {
-      "first": 1703,
-      "second": 804
+      "first": 1621,
+      "second": 759
     },
     "E": {
-      "first": 2598,
-      "second": 1711
+      "first": 4043,
+      "second": 2163
     },
     "F": {
-      "first": 3998,
-      "second": 3173
+      "first": 3174,
+      "second": 2299
     },
     "G": {
-      "first": 1544,
-      "second": 661
+      "first": 1593,
+      "second": 694
     }
   },
-  "FIRST_VISIBLE_CARD_MS": 3998,
-  "SECOND_READY_CARD_MS": 3173,
+  "FIRST_VISIBLE_CARD_MS": 4043,
+  "SECOND_READY_CARD_MS": 2299,
   "HOME_CLICKS": 0,
   "passed": 21,
   "failed": 0,

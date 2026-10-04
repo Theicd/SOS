@@ -10,9 +10,9 @@
  * served with wrong bytes. A "slow peer" throttles its own RTCDataChannel.send inside its page (harness-only init
  * script); no production code path is altered by the harness.
  *
- * Peer-to-peer media download requires a registered identity (AC8: peer-targeted private signalling is
- * registered-only); guests remain HTTP-only by policy. Peer scenarios therefore use fresh disposable registered
- * identities; guest scenarios check that guests never wait for peers.
+ * Registered peer scenarios use fresh disposable registered identities. Guests take part over the narrow
+ * GUEST_PUBLIC_MEDIA_FILE_TRANSFER path (covered end-to-end by package899t-guest-p2p-gate.mjs); the guest
+ * first-paint cases here check that a peer-capable guest still never waits for peers before HTTP.
  *
  * Disposable keys only; keys / nsec / SDP are never logged or written to the report. Never deploys.
  */
@@ -558,7 +558,7 @@ async function main() {
   await openGuest(GA);
   const ga = await measure(GA, 'A');
   const gaGuestPeer = await GA.page.evaluate(() => window.NostrApp.canDownloadFromPeers());
-  set('FIRST_PAINT_A_HEALTHY_BLOSSOM_NO_PEERS', fpOk(ga) && gaGuestPeer === false, { ...ga, guestPeerDownload: gaGuestPeer, sources: (await sources(GA)).slice(0, 3).map((s) => `${s.label}:${s.src}`) });
+  set('FIRST_PAINT_A_HEALTHY_BLOSSOM_NO_PEERS', fpOk(ga) && gaGuestPeer === true, { ...ga, guestPeerDownload: gaGuestPeer, sources: (await sources(GA)).slice(0, 3).map((s) => `${s.label}:${s.src}`) });
   await GA.ctx.close();
 
   // ---- case B: healthy peer, slow Blossom (fresh registered)

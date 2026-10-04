@@ -1,0 +1,508 @@
+{
+  "gate": "PACKAGE899T_GUEST_P2P",
+  "relay": "ws://127.0.0.1:7897",
+  "ts": "2026-10-04T11:43:32.538Z",
+  "results": {
+    "G4_NO_PEER_HEALTHY_BLOSSOM_FIRST_CARD": {
+      "ok": true,
+      "detail": {
+        "guestCanDownloadFromPeers": true,
+        "FIRST_NATIVE_CARD_VISIBLE_MS": 2168,
+        "firstCandidateMs": 1108,
+        "sources": [
+          "P0:blossom-stream",
+          "P1:blossom-stream",
+          "P2:blossom-stream"
+        ],
+        "raceFlags": {
+          "p2p": true,
+          "blossom": true
+        }
+      }
+    },
+    "A_SEEDS_X": {
+      "ok": true,
+      "detail": {
+        "seed": {
+          "ok": true,
+          "source": "blossom",
+          "mediaSource": "blossom-full",
+          "peer": null,
+          "attempts": 1
+        }
+      }
+    },
+    "G1_GUEST_BLOSSOM_404_DOWNLOADS_FROM_A": {
+      "ok": true,
+      "detail": {
+        "source": {
+          "src": "p2p",
+          "label": "P0",
+          "hash": "53abcb163ec6",
+          "mode": "FAST_BOOT",
+          "bytes": 415550,
+          "elapsedMs": 325,
+          "averageBytesPerSec": 1278615,
+          "peer": "5b0d26ac",
+          "knownPeers": 0,
+          "discoveredPeers": 2,
+          "peerStarts": 1
+        },
+        "state": {
+          "cache": true,
+          "cacheShaOk": true,
+          "availableFiles": true,
+          "availableShaOk": true
+        },
+        "storedLog": {
+          "hash": "53abcb163ec6",
+          "bytes": 415550,
+          "source": "p2p",
+          "indexedDb": true
+        },
+        "heartbeatFiles": 1,
+        "leader": true,
+        "guestPub8": "4b37112c",
+        "shareLog": [
+          "%c14:43:46 ✅ ✅ נרשמו 0 קבצים מהקאש לשיתוף [total:0] color: #8BC34A",
+          "%c14:43:46 ℹ️ 👤 מצב אורח - משתמש במפתח זמני לשיתוף P2P color: #607D8B",
+          "%c║  🎬 תור וידאו (3 במקביל) ║ color: #4CAF50; font-weight: bold",
+          "%c14:43:47 📤 שיתוף קובץ [hash:53abcb163ec6 | relays:1/1] color: #4CAF50"
+        ],
+        "availability": [
+          "a02d70f9:guest",
+          "5b0d26ac",
+          "4b37112c:guest"
+        ]
+      }
+    },
+    "GUEST_P2P_SIGNALS_ENCRYPTED_ON_WIRE": {
+      "ok": true,
+      "detail": {
+        "count": 3,
+        "types": [
+          "p2p-req",
+          "p2p-ice"
+        ]
+      }
+    },
+    "G2_A_OFFLINE_C_DOWNLOADS_FROM_GUEST": {
+      "ok": true,
+      "detail": {
+        "run": {
+          "ok": true,
+          "source": "cache",
+          "mediaSource": "cache",
+          "peer": null,
+          "attempts": 1
+        },
+        "source": {
+          "src": "p2p",
+          "label": "P0",
+          "hash": "53abcb163ec6",
+          "mode": "FAST_BOOT",
+          "bytes": 415550,
+          "elapsedMs": 317,
+          "averageBytesPerSec": 1310883,
+          "peer": "4b37112c",
+          "knownPeers": 0,
+          "discoveredPeers": 3,
+          "peerStarts": 1
+        },
+        "state": {
+          "cache": true,
+          "cacheShaOk": true,
+          "availableFiles": true,
+          "availableShaOk": true
+        }
+      }
+    },
+    "GUEST_SECURITY_NEGATIVE_MATRIX": {
+      "ok": true,
+      "detail": {
+        "cases": [
+          {
+            "name": "VALID_CONTROL",
+            "expected": 1,
+            "responses": 1,
+            "ok": true
+          },
+          {
+            "name": "REPLAYED",
+            "expected": 1,
+            "responses": 1,
+            "ok": true
+          },
+          {
+            "name": "WRONG_RECIPIENT",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "MISSING_RECIPIENT",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "WRONG_NETWORK",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "MISSING_NETWORK",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "STALE",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "BAD_SIGNATURE",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "UNSUPPORTED_TYPE_FILE_OFFER",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "DENIED_DIRECT_MESSAGE",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "DENIED_GROUP_CHAT",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "DENIED_VOICE",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "DENIED_CALL",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "DENIED_PRESENCE",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "DENIED_POST",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "DENIED_COMMENT",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "DENIED_REACTION",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "DENIED_INVITE",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "DENIED_ADMIN",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "DENIED_MODERATION",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "DENIED_MEMBERSHIP",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "DENIED_CAPABILITY_GRANT",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "OVERSIZED",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "PRIVILEGED_FIELDS",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "EMBEDDED_EVENT",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "PLAINTEXT_PRIVATE_SIGNAL",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          },
+          {
+            "name": "T_TAG_TYPE_MISMATCH",
+            "expected": 0,
+            "responses": 0,
+            "ok": true
+          }
+        ]
+      }
+    },
+    "GUEST_TYPED_SURFACE_ONLY": {
+      "ok": true,
+      "detail": {
+        "sendDenied": {
+          "dm": "GUEST_MEDIA_SIGNAL_TYPE_DENIED",
+          "chat-message": "GUEST_MEDIA_SIGNAL_TYPE_DENIED",
+          "group-chat": "GUEST_MEDIA_SIGNAL_TYPE_DENIED",
+          "voice": "GUEST_MEDIA_SIGNAL_TYPE_DENIED",
+          "call-offer": "GUEST_MEDIA_SIGNAL_TYPE_DENIED",
+          "presence": "GUEST_MEDIA_SIGNAL_TYPE_DENIED",
+          "post": "GUEST_MEDIA_SIGNAL_TYPE_DENIED",
+          "comment": "GUEST_MEDIA_SIGNAL_TYPE_DENIED",
+          "reaction": "GUEST_MEDIA_SIGNAL_TYPE_DENIED",
+          "invite": "GUEST_MEDIA_SIGNAL_TYPE_DENIED",
+          "admin": "GUEST_MEDIA_SIGNAL_TYPE_DENIED",
+          "moderation": "GUEST_MEDIA_SIGNAL_TYPE_DENIED",
+          "membership": "GUEST_MEDIA_SIGNAL_TYPE_DENIED",
+          "capability-grant": "GUEST_MEDIA_SIGNAL_TYPE_DENIED",
+          "file-offer": "GUEST_MEDIA_SIGNAL_TYPE_DENIED",
+          "file-resend-request": "GUEST_MEDIA_SIGNAL_TYPE_DENIED",
+          "file-ready": "GUEST_MEDIA_SIGNAL_TYPE_DENIED"
+        },
+        "actionsDenied": {
+          "POST": true,
+          "COMMENT": true,
+          "REACTION": true,
+          "FOLLOW": true,
+          "DIRECT_MESSAGE": true,
+          "GROUP_CHAT": true,
+          "PRESENCE": true,
+          "VOICE": true,
+          "CALL": true,
+          "PROFILE_EDIT": true,
+          "INVITE": true,
+          "MODERATION": true,
+          "MEMBERSHIP": true,
+          "ADMIN": true,
+          "CAPABILITIES": true
+        },
+        "rawKey": {
+          "getPrivateKey": "GUEST_PAGE_CAN_REQUEST_RAW_K",
+          "exportGuestK": "GUEST_PAGE_CAN_REQUEST_RAW_K",
+          "nsecInSessionStorage": false,
+          "nsecInLocalStorage": false
+        },
+        "missingRecipient": "GUEST_MEDIA_RECIPIENT_REQUIRED",
+        "selfRecipient": "WRONG_RECIPIENT",
+        "privilegedField": "EXTRA_FIELD",
+        "genericPrivateSignP2pEvent": "GUEST_PRIVATE_SIGNAL_DENIED",
+        "genericPrivateGate": {
+          "ok": false,
+          "code": "GUEST_NOT_REGISTERED_P2P",
+          "class": "GUEST_P2P"
+        },
+        "mediaGateWrongNetwork": {
+          "ok": false,
+          "code": "GUEST_MEDIA_NETWORK_MISMATCH",
+          "class": "GUEST_P2P"
+        },
+        "mediaGateNoRecipient": {
+          "ok": false,
+          "code": "GUEST_MEDIA_RECIPIENT_REQUIRED",
+          "class": "GUEST_P2P"
+        },
+        "mediaGateBadType": {
+          "ok": false,
+          "code": "GUEST_MEDIA_SIGNAL_TYPE_DENIED",
+          "class": "GUEST_P2P"
+        },
+        "mediaGateOk": {
+          "ok": true,
+          "code": "GUEST_PUBLIC_MEDIA_FILE_TRANSFER",
+          "class": "GUEST_P2P",
+          "grantsMembership": false,
+          "grantsControlCapability": false
+        },
+        "genericSignApis": []
+      }
+    },
+    "G3_GUEST_RELOAD_CACHE_AND_READVERTISE": {
+      "ok": true,
+      "detail": {
+        "newIdentity": true,
+        "state": {
+          "cache": true,
+          "cacheShaOk": true,
+          "availableFiles": true,
+          "availableShaOk": true
+        },
+        "heartbeatFiles": 1,
+        "dRun": {
+          "ok": true,
+          "source": "cache",
+          "mediaSource": "cache",
+          "peer": null,
+          "attempts": 1
+        },
+        "dSource": {
+          "src": "p2p",
+          "label": "P0",
+          "hash": "53abcb163ec6",
+          "mode": "FAST_BOOT",
+          "bytes": 415550,
+          "elapsedMs": 281,
+          "averageBytesPerSec": 1478826,
+          "peer": "93dbfead",
+          "knownPeers": 0,
+          "discoveredPeers": 5,
+          "peerStarts": 1
+        },
+        "dState": {
+          "cache": true,
+          "cacheShaOk": true,
+          "availableFiles": true,
+          "availableShaOk": true
+        }
+      }
+    },
+    "G5_FAST_PEER_SLOW_BLOSSOM_FIRST_CARD_P2P": {
+      "ok": true,
+      "detail": {
+        "first": 2450,
+        "p0": {
+          "src": "p2p",
+          "label": "P0",
+          "hash": "53abcb163ec6",
+          "mode": "FAST_BOOT",
+          "bytes": 415550,
+          "elapsedMs": 320,
+          "averageBytesPerSec": 1298594,
+          "peer": "ddedf1b4",
+          "knownPeers": 0,
+          "discoveredPeers": 6,
+          "peerStarts": 1
+        },
+        "seedP1": {
+          "ok": true,
+          "source": "blossom",
+          "mediaSource": "blossom-full",
+          "peer": null,
+          "attempts": 1
+        }
+      }
+    },
+    "G6_BAD_PEER_BYTES_REJECTED_AND_RECOVERED": {
+      "ok": true,
+      "detail": {
+        "run": {
+          "ok": true,
+          "source": "blossom",
+          "mediaSource": "blossom-full",
+          "peer": null,
+          "attempts": 1
+        },
+        "state": {
+          "cache": true,
+          "cacheShaOk": true,
+          "availableFiles": true,
+          "availableShaOk": true
+        },
+        "mismatchLogged": true
+      }
+    },
+    "CACHE_WRITE_FALSE_NOT_REPORTED_DURABLE": {
+      "ok": true,
+      "detail": {
+        "logged": true,
+        "indexedDb": false
+      }
+    },
+    "DIAGNOSTIC_PRIVACY": {
+      "ok": true,
+      "detail": {
+        "leak": false,
+        "transforms": {
+          "relays": true,
+          "p2p": true,
+          "sanitizer": true
+        }
+      }
+    }
+  },
+  "metrics": {},
+  "browser": "msedge 154.0.4258.53",
+  "GUEST_FIRST_CARD_NO_PEER_MS": 2168,
+  "NO_P2P_DELAY_BEFORE_HTTP": true,
+  "GUEST_CAN_DOWNLOAD_FROM_PEERS": true,
+  "GUEST_SOURCE": "p2p",
+  "GUEST_P2P_BYTES_RECEIVED": 415550,
+  "GUEST_HASH_VERIFIED": true,
+  "GUEST_CACHE_CONTAINS_HASH": true,
+  "GUEST_AVAILABLE_FILES_CONTAINS_HASH": true,
+  "GUEST_INVENTORY_ADVERTISES_HASH": true,
+  "GUEST_HEARTBEAT_FILES": 1,
+  "GUEST_P2P_SIGNAL_ENCRYPTED": true,
+  "C_SOURCE": "p2p",
+  "C_PEER": "GUEST",
+  "C_HASH_VERIFIED": true,
+  "A_OFFLINE_C_DOWNLOAD_FROM_GUEST": true,
+  "GUEST_RAW_PRIVATE_KEY_EXPOSED": false,
+  "NO_GENERIC_GUEST_PRIVATE_SIGNAL": true,
+  "GENERIC_GUEST_PRIVATE_P2P_ALLOWED": false,
+  "GUEST_PUBLIC_MEDIA_FILE_TRANSFER_ONLY": true,
+  "NEGATIVE_MATRIX": {
+    "passed": 27,
+    "total": 27
+  },
+  "NEW_GUEST_IDENTITY_AFTER_RELOAD": true,
+  "GUEST_RELOAD_CACHE_SURVIVES": true,
+  "GUEST_RELOAD_READVERTISES": true,
+  "GUEST_FIRST_CARD_FAST_PEER_MS": 2450,
+  "GUEST_FAST_PEER_SOURCE": "p2p",
+  "HASH_MISMATCH_REJECTED": true,
+  "BAD_GUEST_PEER_BYTES_CACHED": false,
+  "BAD_GUEST_PEER_BYTES_ADVERTISED": false,
+  "CACHE_WRITE_FALSE_REPORTED_DURABLE": false,
+  "passed": 12,
+  "failed": 0,
+  "status": "PASS"
+}

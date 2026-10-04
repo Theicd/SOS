@@ -141,6 +141,49 @@
     return classifyPrincipal(pubkey) === PRINCIPAL.REGISTERED;
   }
 
+  const SIGNAL_CLASS = Object.freeze({
+    PUBLIC_AVAILABILITY: 'PUBLIC_AVAILABILITY',
+    PEER_TARGETED_PRIVATE: 'PEER_TARGETED_PRIVATE',
+    GUEST_PUBLIC_MEDIA_FILE_TRANSFER: 'GUEST_PUBLIC_MEDIA_FILE_TRANSFER',
+  });
+
+  /** Only the WebRTC negotiation needed to fetch / serve a public hash-backed media file. */
+  const GUEST_PUBLIC_MEDIA_SIGNAL_TYPES = Object.freeze(['file-request', 'file-response', 'ice-candidate']);
+
+  function resolveExpectedNetworkTag() {
+    if (typeof App.NETWORK_TAG === 'string' && App.NETWORK_TAG.trim()) return App.NETWORK_TAG.trim();
+    return 'israel-network';
+  }
+
+  /**
+   * Narrow typed exception: guest ↔ peer public-media file transfer only.
+   * Generic PEER_TARGETED_PRIVATE stays denied for guests; grants no membership / control capability.
+   */
+  function canUseGuestPublicMediaFileTransfer(cls, ctx) {
+    if (cls !== PRINCIPAL.GUEST_P2P) {
+      return { ok: false, code: 'NOT_GUEST_P2P_PRINCIPAL', class: cls };
+    }
+    if (!canGuestAction(GUEST_CAPABILITY.P2P_FILE_TORRENT)) {
+      return { ok: false, code: 'GUEST_FILE_TORRENT_DENIED', class: cls };
+    }
+    if (typeof ctx.signalType !== 'string' || GUEST_PUBLIC_MEDIA_SIGNAL_TYPES.indexOf(ctx.signalType) === -1) {
+      return { ok: false, code: 'GUEST_MEDIA_SIGNAL_TYPE_DENIED', class: cls };
+    }
+    if (!normalizePubkey(ctx.recipient)) {
+      return { ok: false, code: 'GUEST_MEDIA_RECIPIENT_REQUIRED', class: cls };
+    }
+    if (ctx.networkTag !== resolveExpectedNetworkTag()) {
+      return { ok: false, code: 'GUEST_MEDIA_NETWORK_MISMATCH', class: cls };
+    }
+    return {
+      ok: true,
+      code: SIGNAL_CLASS.GUEST_PUBLIC_MEDIA_FILE_TRANSFER,
+      class: cls,
+      grantsMembership: false,
+      grantsControlCapability: false,
+    };
+  }
+
   /**
    * Formal V2 guest P2P membership exception.
    * REGISTERED + V2 ON → membership-gated group_p2p_signal
@@ -154,6 +197,10 @@
 
     if (cls === PRINCIPAL.UNKNOWN) {
       return { ok: false, code: 'UNKNOWN_PRINCIPAL', class: cls };
+    }
+
+    if (ctx.signalClass === SIGNAL_CLASS.GUEST_PUBLIC_MEDIA_FILE_TRANSFER) {
+      return canUseGuestPublicMediaFileTransfer(cls, ctx);
     }
 
     if (cls === PRINCIPAL.GUEST_P2P) {
@@ -209,6 +256,8 @@
     canReceiveMembershipState,
     canBeMemberDirectoryPrincipal,
     canUseGroupP2P,
+    SIGNAL_CLASS,
+    GUEST_PUBLIC_MEDIA_SIGNAL_TYPES,
     /** Honest XSS boundary — AC8 does not fix these. */
     AC8_CLAIMS_XSS_ISOLATION: false,
     SAME_ORIGIN_XSS_CAN_READ_GUEST_WRAP_KEY: true,

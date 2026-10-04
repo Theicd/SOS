@@ -12,6 +12,7 @@ import {
   generateSecretKey,
   getPublicKey,
   verifyEvent,
+  nip44,
 } from 'nostr-tools';
 import { bytesToHex } from '@noble/hashes/utils';
 
@@ -25,7 +26,8 @@ const report = {
   CURRENT_GUEST_30078_EVENT_TYPES: [
     'HEARTBEAT (PUBLIC_AVAILABILITY)',
     'FILE_AVAILABILITY (PUBLIC / FILE-TORRENT CONTROL)',
-    'PEER_TARGETED private nip44 — registered SosCryptoSigner only (NOT guest vault)',
+    'GENERIC PEER_TARGETED private nip44 — registered SosCryptoSigner only (DENIED for guests)',
+    'GUEST_PUBLIC_MEDIA_FILE_TRANSFER — file-request/file-response/ice-candidate only; typed vault op, NIP-44 to explicit recipient, network + TTL + replay bound',
   ],
   CURRENT_GUEST_30078_TAG_SHAPES: {
     HEARTBEAT: ['d=p2p-heartbeat', 't=p2p-heartbeat', 'app=sos-p2p-video', 'expires', 'guest?', 'network'],
@@ -86,7 +88,7 @@ function loadCtx(v2) {
     localStorage,
     sessionStorage,
     window: null,
-    NostrTools: { generateSecretKey, getPublicKey, finalizeEvent, verifyEvent },
+    NostrTools: { generateSecretKey, getPublicKey, finalizeEvent, verifyEvent, nip44 },
     NostrApp: {
       NETWORK_TAG: 'israel-network',
       publicKey: null,
@@ -160,9 +162,9 @@ function fileDraft(hash) {
   ok =
     record(
       'modules wired in videos.html',
-      /guest-access-control\.js\?v=20260923ac8/.test(html) &&
-        /guest-p2p-schema\.js\?v=20260923ac8/.test(html) &&
-        /guest-p2p-key-vault\.js\?v=20260923ac8/.test(html)
+      /guest-access-control\.js\?(?:v|pkg)=[\w.-]+/.test(html) &&
+        /guest-p2p-schema\.js\?(?:v|pkg)=[\w.-]+/.test(html) &&
+        /guest-p2p-key-vault\.js\?(?:v|pkg)=[\w.-]+/.test(html)
     ) && ok;
   ok =
     record(
@@ -236,6 +238,81 @@ function fileDraft(hash) {
   rt.ctx.NostrApp.guestMode = false;
   ok = record('UI flag no registered class', GAC.classifyPrincipal(guestPk) === 'GUEST_P2P') && ok;
   rt.ctx.NostrApp.guestMode = true;
+
+  // GUEST_PUBLIC_MEDIA_FILE_TRANSFER: narrow typed path; generic peer-targeted private stays denied
+  const MT = 'GUEST_PUBLIC_MEDIA_FILE_TRANSFER';
+  const peerSk = generateSecretKey();
+  const peerPk = getPublicKey(peerSk);
+  const convKey = (sk, pk) => nip44.v2.utils.getConversationKey(sk, pk);
+  const mediaGate = GAC.canUseGroupP2P(guestPk, { signalClass: MT, signalType: 'file-request', recipient: peerPk, networkTag: 'israel-network' });
+  ok = record('media transfer allowed (typed, no membership/control)', mediaGate.ok === true && mediaGate.grantsMembership === false && mediaGate.grantsControlCapability === false) && ok;
+  ok = record('media transfer requires recipient', GAC.canUseGroupP2P(guestPk, { signalClass: MT, signalType: 'file-request', networkTag: 'israel-network' }).ok === false) && ok;
+  ok = record('media transfer requires matching network', GAC.canUseGroupP2P(guestPk, { signalClass: MT, signalType: 'file-request', recipient: peerPk, networkTag: 'other-network' }).ok === false) && ok;
+  ok = record('media transfer type allowlist', GAC.canUseGroupP2P(guestPk, { signalClass: MT, signalType: 'dm', recipient: peerPk, networkTag: 'israel-network' }).ok === false) && ok;
+  ok = record('media transfer guest principal only', GAC.canUseGroupP2P('11'.repeat(32), { signalClass: MT, signalType: 'file-request', recipient: peerPk, networkTag: 'israel-network' }).ok === false) && ok;
+
+  const mHash = 'ab'.repeat(32);
+  const mOffer = { type: 'offer', sdp: 'v=0\r\no=- 1 2 IN IP4 127.0.0.1\r\n' };
+  const ms = await V.signPublicMediaFileSignal({ recipient: peerPk, type: 'file-request', data: { offer: mOffer, hash: mHash, connectionId: 'qa-1' } });
+  const mTag = (k) => ms.tags.filter((t) => t[0] === k);
+  let mEnv = null;
+  let mPlain = null;
+  try {
+    mEnv = JSON.parse(ms.content);
+    mPlain = JSON.parse(nip44.v2.decrypt(mEnv.ct, convKey(peerSk, guestPk)));
+  } catch (_e) {}
+  ok = record(
+    'media signal encrypted + recipient + network bound',
+    verifyEvent(ms) && ms.pubkey === guestPk && mTag('p').length === 1 && mTag('p')[0][1] === peerPk && mTag('enc')[0]?.[1] === 'nip44'
+      && mTag('network')[0]?.[1] === 'israel-network' && mTag('t')[0]?.[1] === 'p2p-req' && !!mEnv && mEnv.type === undefined
+      && !!mPlain && mPlain.type === 'file-request' && mPlain.data.hash === mHash
+  ) && ok;
+  let deniedAll = true;
+  for (const t of ['dm', 'chat-message', 'group-chat', 'presence', 'call-offer', 'voice', 'file-offer', 'post', 'reaction', 'invite', 'admin', 'membership', 'capability-grant']) {
+    try {
+      await V.signPublicMediaFileSignal({ recipient: peerPk, type: t, data: { connectionId: 'qa-1' } });
+      deniedAll = false;
+    } catch (_e) {}
+  }
+  ok = record('media signal denies non-media types', deniedAll) && ok;
+  const rejects = async (fn) => {
+    try {
+      await fn();
+      return false;
+    } catch (_e) {
+      return true;
+    }
+  };
+  ok = record('media signal rejects privileged field', await rejects(() => V.signPublicMediaFileSignal({ recipient: peerPk, type: 'file-request', data: { offer: mOffer, hash: mHash, connectionId: 'qa-1', role: 'admin' } }))) && ok;
+  ok = record('media signal requires recipient', await rejects(() => V.signPublicMediaFileSignal({ type: 'file-request', data: { offer: mOffer, hash: mHash, connectionId: 'qa-1' } }))) && ok;
+
+  const inbound = (opts = {}) => {
+    const msg = opts.message || { type: 'file-response', data: { answer: { type: 'answer', sdp: 'v=0' }, hash: mHash, connectionId: 'qa-1' } };
+    const tags = [['d', 'sos-p2p-video:signal:' + Date.now()], ['p', opts.recipient || guestPk], ['t', opts.t || 'p2p-res'], ['enc', 'nip44'], ['network', opts.network || 'israel-network']];
+    const content = opts.plaintext
+      ? JSON.stringify(msg)
+      : JSON.stringify({ family: 'sos-p2p-signal', v: 1, alg: 'nip44', ct: nip44.v2.encrypt(JSON.stringify(msg), convKey(peerSk, guestPk)) });
+    return finalizeEvent({ kind: 30078, created_at: opts.createdAt || Math.floor(Date.now() / 1000), tags, content }, peerSk);
+  };
+  const dec = await V.decryptPublicMediaFileSignal(inbound()).catch(() => null);
+  ok = record('media signal inbound decrypt (typed)', !!dec && dec.type === 'file-response') && ok;
+  ok = record('media inbound wrong network rejected', await rejects(() => V.decryptPublicMediaFileSignal(inbound({ network: 'other-network' })))) && ok;
+  ok = record('media inbound wrong recipient rejected', await rejects(() => V.decryptPublicMediaFileSignal(inbound({ recipient: peerPk })))) && ok;
+  ok = record('media inbound stale rejected', await rejects(() => V.decryptPublicMediaFileSignal(inbound({ createdAt: Math.floor(Date.now() / 1000) - 900 })))) && ok;
+  ok = record('media inbound plaintext rejected', await rejects(() => V.decryptPublicMediaFileSignal(inbound({ plaintext: true })))) && ok;
+  ok = record('media inbound bad signature rejected', await rejects(() => {
+    const ev = inbound();
+    return V.decryptPublicMediaFileSignal({ ...ev, sig: (ev.sig[0] === '0' ? '1' : '0') + ev.sig.slice(1) });
+  })) && ok;
+  ok = record('media inbound non-media type rejected', await rejects(() => V.decryptPublicMediaFileSignal(inbound({ t: 'p2p-req', message: { type: 'chat-message', data: { connectionId: 'qa-1' } } })))) && ok;
+  ok = record('generic private via signP2pEvent denied', await rejects(() => V.signP2pEvent({
+    kind: 30078,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [['d', 'sos-p2p-video:signal:1'], ['p', peerPk], ['t', 'p2p-req'], ['network', 'israel-network']],
+    content: '{}',
+  }))) && ok;
+  const genericApis = Object.keys(V).filter((k) => typeof V[k] === 'function' && /^(sign|signEvent|nip44Encrypt|nip44Decrypt|encrypt|decrypt|exportKey|getSecret)$/i.test(k));
+  ok = record('no generic guest private sign API', genericApis.length === 0) && ok;
 
   // Schema / sign
   const signed = await V.signP2pEvent(hbDraft('israel-network'));
@@ -441,10 +518,15 @@ function fileDraft(hash) {
   report.GUEST_EVENT_TARGET_BINDING = true;
   report.GUEST_P2P_GROUP_BINDING_STRICT = true;
   report.GUEST_P2P_SESSION_BINDING_MODEL =
-    'public heartbeat/file: network+TTL+type (targetless); peer-targeted private not guest-signable';
+    'public heartbeat/file: network+TTL+type (targetless); generic peer-targeted private not guest-signable; public-media file transfer via typed vault op only';
   report.GUEST_PUBLIC_SIGNAL_BINDING_MODEL = 'network + type/schema + freshness/TTL (+ legacy no-network receive)';
   report.GUEST_TARGETED_SIGNAL_BINDING_MODEL =
-    'guest cannot SIGN peer-targeted; registered private keeps p-tag + TTL + replay';
+    'GENERIC_PRIVATE_P2P denied for guests; GUEST_PUBLIC_MEDIA_FILE_TRANSFER (file-request/file-response/ice-candidate) = NIP-44 to explicit p-tag recipient + network + TTL + replay; registered private keeps p-tag + TTL + replay';
+  report.GENERIC_GUEST_PRIVATE_P2P_ALLOWED = false;
+  report.GUEST_PUBLIC_MEDIA_FILE_TRANSFER_ALLOWED = mediaGate.ok === true;
+  report.GUEST_PUBLIC_MEDIA_FILE_TRANSFER_TYPES = ['file-request', 'file-response', 'ice-candidate'];
+  report.GUEST_PUBLIC_MEDIA_FILE_TRANSFER_ENCRYPTED = true;
+  report.GUEST_RAW_PRIVATE_KEY_EXPOSED = false;
   report.GUEST_EVENT_REPLAY_PROTECTION = true;
   report.OLD_GUEST_SIGNAL_REPLAY_ACCEPTED = false;
   report.SAME_SESSION_RELOAD_REPLAY_ACCEPTED = false;
@@ -498,8 +580,10 @@ function fileDraft(hash) {
   report.NEW_CROSS_GROUP_GUEST_P2P_ACCEPTED = false;
 
   report.STATUS = ok ? 'PASS' : 'FAIL';
+  report.CHECKS_PASSED = report.notes.filter((n) => n.startsWith('PASS ')).length;
+  report.CHECKS_TOTAL = report.notes.filter((n) => n.startsWith('PASS ') || n.startsWith('FAIL ')).length;
   fs.writeFileSync(OUT, JSON.stringify(report, null, 2));
-  console.log(JSON.stringify({ STATUS: report.STATUS, FAIL_NOTES: report.notes.filter((n) => n.startsWith('FAIL')) }, null, 2));
+  console.log(JSON.stringify({ STATUS: report.STATUS, CHECKS: `${report.CHECKS_PASSED}/${report.CHECKS_TOTAL}`, FAIL_NOTES: report.notes.filter((n) => n.startsWith('FAIL')) }, null, 2));
   process.exit(ok ? 0 : 1);
 })().catch((e) => {
   console.error(e);

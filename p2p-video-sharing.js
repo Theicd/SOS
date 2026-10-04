@@ -198,8 +198,12 @@
   const FEED_ACQUIRE_MODES = new Set(['FAST_BOOT', 'P2P_STEADY', 'PERSIST_REPLICA']);
   const FAST_BOOT_PEER_DISCOVERY_BUDGET_MS = 1500; // אין בעלים ידוע → לא מחכים יותר מזה | HYPER CORE TECH
   const REPLICA_PEER_DISCOVERY_BUDGET_MS = 1500;
+  // אורח בכרטיסי האתחול: מטמון → P2P ו-HTTP במרוץ (HTTP מיד), כל אחד יכול לנצח | HYPER CORE TECH
+  const GUEST_P2P_CAN_WIN_FIRST_CARD = true;
+  const GUEST_BLOSSOM_CAN_WIN_FIRST_CARD = true;
   const BAD_MEDIA_SOURCE_PENALTY_MS = 10 * 60 * 1000; // מקור ששלח בתים עם hash שגוי — מושעה | HYPER CORE TECH
   const badMediaPeers = new Map(); // peerKey -> until
+  const guestMediaPeers = new Set(); // peers שפרסמו זמינות כאורח — בלי chat-dc | HYPER CORE TECH
   // חלק Adaptive Heartbeat (p2p-video-sharing.js) – תדירות דינמית לפי גודל רשת | HYPER CORE TECH
   // שלב 2 ייעול ריליי – מרווחים מתונים בחזית; שירותי רקע לא משתנים | HYPER CORE TECH
   const HEARTBEAT_INTERVALS = {
@@ -325,7 +329,7 @@
   // חלק P2P (p2p-video-sharing.js) – מצב המערכת
   const state = {
     availableFiles: new Map(), // hash -> { blob, mimeType, size, timestamp }
-    lastAvailabilityPublish: new Map(), // hash -> timestamp
+    lastAvailabilityPublish: new Map(), // `${pubkey}:${hash}` -> timestamp
     activePeers: new Map(), // hash -> Set(pubkeys)
     activeConnections: new Map(), // connectionId -> RTCPeerConnection
     pendingConnections: new Map(), // connectionId -> { pc, timeout }
@@ -452,6 +456,14 @@
     // שליחת heartbeat תקופתי
     sendLeaderHeartbeat();
     leaderHeartbeatTimer = setInterval(sendLeaderHeartbeat, LEADER_HEARTBEAT_INTERVAL);
+    // קבצים שנשמרו לפני שהלשונית נבחרה למנהיגה — מפרסמים עכשיו | HYPER CORE TECH
+    const pending = Array.from(pendingLeaderShares);
+    pendingLeaderShares.clear();
+    pending.forEach((h) => {
+      const f = state.availableFiles.get(h);
+      if (f && f.blob) Promise.resolve(registerFileAvailability(h, f.blob, f.mimeType, { priority: true })).catch(() => {});
+    });
+    Promise.resolve(advertiseCachedReplicas()).catch(() => {});
   }
   
   function stopLeaderDuties() {
@@ -461,6 +473,8 @@
     }
   }
   
+  const pendingLeaderShares = new Set();
+
   // בדיקה אם מותר לבצע פעולות P2P (רק למנהיג)
   function isP2PAllowed() {
     return state.isLeader;
@@ -552,16 +566,25 @@
     }
   }
 
-  function runExclusiveDownload(key, factory) {
+  function runExclusiveDownload(key, factory, opts = {}) {
     if (!key) {
       return factory();
     }
+    const allowHttp = opts.allowHttp !== false;
     if (state.downloadQueue.has(key)) {
       log('info', '♻️ מצטרף להורדה קיימת', { key }, {
         throttleKey: `join-${key}`,
         throttleMs: 5000,
       });
-      return state.downloadQueue.get(key);
+      const existing = state.downloadQueue.get(key);
+      // מבקש עם HTTP שמצטרף לניסיון P2P בלבד — כשל P2P לא מכשיל אותו; מריץ הורדה משלו | HYPER CORE TECH
+      if (allowHttp && existing.allowHttp === false) {
+        return existing.then(
+          (res) => (res && res.blob ? res : runExclusiveDownload(key, factory, opts)),
+          () => runExclusiveDownload(key, factory, opts)
+        );
+      }
+      return existing;
     }
     const wrapped = (async () => {
       try {
@@ -570,6 +593,7 @@
         state.downloadQueue.delete(key);
       }
     })();
+    wrapped.allowHttp = allowHttp;
     state.downloadQueue.set(key, wrapped);
     return wrapped;
   }
@@ -1585,13 +1609,14 @@
     isProcessingShares = false;
   }
 
-  async function registerFileAvailability(hash, blob, mimeType) {
+  async function registerFileAvailability(hash, blob, mimeType, opts = {}) {
     // רק המנהיג מפרסם קבצים לרשת
     if (!isP2PAllowed()) {
       if (!blob) return false;
       state.availableFiles.set(String(hash || '').toLowerCase(), {
         blob, mimeType, size: blob.size, timestamp: Date.now(),
       });
+      if (opts && opts.priority === true) pendingLeaderShares.add(String(hash || '').toLowerCase());
       return true;
     }
     
@@ -1604,7 +1629,10 @@
     
     // הוספה לתור במקום ביצוע מיידי
     return new Promise((resolve, reject) => {
-      shareQueue.push({ hash, blob, mimeType, resolve, reject });
+      // רפליקה מאומתת מהפיד קודמת לשיתופי רקע — peers צריכים לדעת עליה מיד | HYPER CORE TECH
+      const item = { hash, blob, mimeType, resolve, reject };
+      if (opts && opts.priority === true) shareQueue.unshift(item);
+      else shareQueue.push(item);
       processShareQueue();
     });
   }
@@ -1644,10 +1672,13 @@
       }
 
       const now = Date.now();
+      const publisher = String(keys.publicKey).toLowerCase();
+      const publishKey = `${publisher}:${hash}`;
       const manifestEntry = state.availabilityManifest?.[hash];
-      if (manifestEntry && typeof manifestEntry.lastPublished === 'number') {
+      // שותף בעבר תחת מפתח אחר (אורח זמני לפני שחזור זהות) → מפרסמים שוב תחת המפתח הנוכחי | HYPER CORE TECH
+      if (manifestEntry && typeof manifestEntry.lastPublished === 'number' && manifestEntry.pubkey === publisher) {
         if (now - manifestEntry.lastPublished < AVAILABILITY_MANIFEST_TTL) {
-          state.lastAvailabilityPublish.set(hash, now);
+          state.lastAvailabilityPublish.set(publishKey, now);
           p2pStats.shares.success++;
           // לוג רק פעם ראשונה בסשן לכל hash
           if (!state.skippedSharesLogged) state.skippedSharesLogged = new Set();
@@ -1659,7 +1690,7 @@
         }
       }
 
-      const lastPublish = state.lastAvailabilityPublish.get(hash) || 0;
+      const lastPublish = state.lastAvailabilityPublish.get(publishKey) || 0;
       if (now - lastPublish < AVAILABILITY_REPUBLISH_INTERVAL) {
         p2pStats.shares.success++;
         return { success: true, published: false }; // דולג - בלי השהייה
@@ -1721,11 +1752,12 @@
         return { success: false, published: true }; // ניסינו לפרסם אבל נכשל
       }
 
-      state.lastAvailabilityPublish.set(hash, Date.now());
+      state.lastAvailabilityPublish.set(publishKey, Date.now());
       state.availabilityManifest[hash] = {
         lastPublished: Date.now(),
         size: blob.size,
         mimeType,
+        pubkey: publisher,
       };
       saveAvailabilityManifest();
       p2pStats.shares.success++;
@@ -1767,6 +1799,7 @@
 
       const peersWithFile = new Set(); // peers שיש להם את הקובץ
       const activePeers = new Set();   // peers עם heartbeat אחרון (אונליין)
+      const heartbeatAt = new Map();   // pubkey -> created_at של ה-heartbeat הטרי ביותר
       const seenEventIds = new Set();
       
       // חיפוש מקבילי: קבצים + heartbeats
@@ -1809,11 +1842,12 @@
         // כל בעל זמינות בתוקף נשאר מועמד (heartbeat ראשון יכול לאחר); אקטיביים קודם, peer מת נחתך ע"י ה-watchdog | HYPER CORE TECH
         let filteredPeers = Array.from(peersWithFile);
         
-        // מיון: peers אקטיביים קודם
+        // מיון: peers אקטיביים קודם, ה-heartbeat הטרי ביותר ראשון (peer שנסגר נדחק אחורה) | HYPER CORE TECH
         filteredPeers.sort((a, b) => {
           const aActive = activePeers.has(a) ? 0 : 1;
           const bActive = activePeers.has(b) ? 0 : 1;
-          return aActive - bActive;
+          if (aActive !== bActive) return aActive - bActive;
+          return (heartbeatAt.get(b) || 0) - (heartbeatAt.get(a) || 0);
         });
         
         log('info', `📋 חיפוש peers הושלם`, { 
@@ -1858,11 +1892,15 @@
                 if (seenEventIds.has(event.id)) return;
                 seenEventIds.add(event.id);
               }
+              if (event.tags.some((t) => t[0] === 'guest' && t[1] === 'true')) {
+                guestMediaPeers.add(String(event.pubkey || '').toLowerCase());
+              }
             }
             
             if (tagType === 'p2p-heartbeat') {
               // heartbeat - peer אקטיבי
               activePeers.add(event.pubkey);
+              heartbeatAt.set(event.pubkey, Math.max(heartbeatAt.get(event.pubkey) || 0, Number(event.created_at) || 0));
             } else if (tagType === 'p2p-file') {
               // זמינות קובץ - בדיקת expires
               const expiresTag = event.tags.find(t => t[0] === 'expires');
@@ -2407,7 +2445,9 @@
     const peerKey = String(peerPubkey || '').toLowerCase();
     hash = String(hash || '').trim().toLowerCase();
 
-    const chatDc = await ensureChatDcOpen(peerKey);
+    // אורח (או peer שהוא אורח) אינו פותח chat-dc — ישר למסלול file-request הטיפוסי | HYPER CORE TECH
+    const skipChatDc = getEffectiveKeys()?.isGuest === true || guestMediaPeers.has(peerKey);
+    const chatDc = skipChatDc ? null : await ensureChatDcOpen(peerKey);
     if (chatDc && chatDc.readyState === 'open') {
       const chatConn = adoptChatDcAsPersistent(peerKey, chatDc);
       try {
@@ -3025,9 +3065,87 @@
   }
 
   // חלק P2P (p2p-video-sharing.js) – שליחת signal דרך Nostr
+  // אורח: רק file-request / file-response / ice-candidate למדיה ציבורית, מוצפן לנמען וחתום ע"י ה-vault | HYPER CORE TECH
+  async function sendGuestPublicMediaSignal(peerPubkey, type, data, keys) {
+    const S = guestSchema();
+    if (!S || !Array.isArray(S.GUEST_MEDIA_SIGNAL_TYPES) || S.GUEST_MEDIA_SIGNAL_TYPES.indexOf(type) === -1) {
+      p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'GUEST_GENERIC_PRIVATE_P2P_DENIED');
+    }
+    const recipient = requireP2pHexPubkey(peerPubkey, 'P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED');
+    const gate = assertGroupP2PAllowed(keys, {
+      signalClass: 'GUEST_PUBLIC_MEDIA_FILE_TRANSFER',
+      signalType: type,
+      recipient,
+      networkTag: resolveP2pNetworkTag(),
+    });
+    if (!gate || gate.ok !== true) {
+      p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', (gate && gate.code) || 'GUEST_MEDIA_TRANSFER_DENIED');
+    }
+    const v = guestVault();
+    if (!App.pool || !v || typeof v.signPublicMediaFileSignal !== 'function') {
+      p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'guest media signalling unavailable');
+    }
+    await throttleSignals();
+    const signed = await v.signPublicMediaFileSignal({ recipient, type, data });
+    await App.pool.publish(getP2PRelays(), signed);
+    log('peer', `📡 signal נשלח (אורח, מדיה ציבורית)`, { type, to: recipient.slice(0, 16) + '...' });
+  }
+
+  async function decryptGuestPublicMediaSignal(event) {
+    const v = guestVault();
+    if (!v || typeof v.decryptPublicMediaFileSignal !== 'function') return null;
+    try {
+      return await v.decryptPublicMediaFileSignal(event);
+    } catch (err) {
+      try {
+        console.warn('[SO-CALL SECURITY] rejected guest media signal reason=' + String((err && err.code) || 'invalid') +
+          ' peer=' + String(event && event.pubkey || '').slice(0, 8));
+      } catch (_e) {}
+      return null;
+    }
+  }
+
+  function isGuestTaggedSignalEvent(event) {
+    return !!(event && Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 'guest'));
+  }
+
+  // רשום שמקבל סיגנל מאורח: רק צורת public-media file transfer (נמען, רשת, TTL, טיפוס) | HYPER CORE TECH
+  function acceptGuestSenderMediaSignal(event, message) {
+    const S = guestSchema();
+    const self = String(getEffectiveKeys()?.publicKey || '').toLowerCase();
+    let reason = '';
+    if (!S || typeof S.validateGuestMediaFileSignalEvent !== 'function' || typeof S.validateGuestMediaFileSignalMessage !== 'function') {
+      reason = 'GUEST_SCHEMA_UNAVAILABLE';
+    } else {
+      const shape = S.validateGuestMediaFileSignalEvent(event, {
+        direction: 'receive',
+        networkTag: resolveP2pNetworkTag(),
+        recipient: self,
+        requireGuestTag: true,
+      });
+      const msg = shape && shape.ok ? S.validateGuestMediaFileSignalMessage(message) : null;
+      if (!shape || !shape.ok) reason = (shape && shape.code) || 'BAD_SHAPE';
+      else if (!msg || !msg.ok) reason = (msg && msg.code) || 'BAD_MESSAGE';
+      else if (S.GUEST_MEDIA_SIGNAL_T_TAG[message.type] !== shape.tTag) reason = 'T_TAG_TYPE_MISMATCH';
+    }
+    if (reason) {
+      try {
+        console.warn('[SO-CALL SECURITY] rejected guest media signal reason=' + reason + ' peer=' + String(event.pubkey || '').slice(0, 8));
+      } catch (_e) {}
+      return false;
+    }
+    guestMediaPeers.add(String(event.pubkey || '').toLowerCase());
+    return true;
+  }
+
   async function sendSignal(peerPubkey, type, data) {
     try {
+      ensureP2PSignalSubscription();
       const keys = getEffectiveKeys();
+      if (keys && keys.isGuest) {
+        await sendGuestPublicMediaSignal(peerPubkey, type, data, keys);
+        return;
+      }
       // Mesh relay: intermediary peers must only ever see a recipient-bound P2pSecureV2 envelope.
       const tryRelay = async () => {
         if (!App.PeerExchange || typeof App.PeerExchange.sendRelaySignal !== 'function') return false;
@@ -3092,8 +3210,8 @@
           ['p', peerPubkey],
           ['t', `p2p-${signalType}`], // סוג הסיגנל
           ['enc', 'nip44'],
-          keys.isGuest ? ['guest', 'true'] : null
-        ].filter(Boolean),
+          ['network', resolveP2pNetworkTag()],
+        ],
         content: wireContent,
       };
 
@@ -3232,10 +3350,15 @@
       return;
     }
 
-    // שלב 3: לא לפתוח מנוי 30078 נוסף אם כבר פעיל | HYPER CORE TECH
+    // שלב 3: לא לפתוח מנוי 30078 נוסף אם כבר פעיל לאותו מפתח; זהות שהתחלפה (אורח → רשום) → מנוי מחדש | HYPER CORE TECH
+    const subPubkey = String(keys.publicKey).toLowerCase();
     if (App._p2pSignalsSub) {
-      log('info', '👂 מנוי סיגנלי P2P כבר פעיל — מדלג על כפילות');
-      return;
+      if (App._p2pSignalsSubPubkey === subPubkey) {
+        log('info', '👂 מנוי סיגנלי P2P כבר פעיל — מדלג על כפילות');
+        return;
+      }
+      try { App._p2pSignalsSub.close(); } catch (_) {}
+      App._p2pSignalsSub = null;
     }
 
     log('info', '👂 מתחיל להאזין לסיגנלי P2P...', { isGuest: keys.isGuest });
@@ -3284,9 +3407,19 @@
           });
 
           try {
-            const extracted = await extractSignalContent(event.content, event.pubkey);
-            if (!extracted || typeof extracted.plaintext !== 'string') return;
-            const message = JSON.parse(extracted.plaintext);
+            let extracted;
+            let message;
+            if (getEffectiveKeys().isGuest) {
+              // אורח: פענוח רק דרך ה-vault — טיפוסי מדיה ציבורית בלבד, אחרת נדחה | HYPER CORE TECH
+              message = await decryptGuestPublicMediaSignal(event);
+              if (!message) return;
+              extracted = { encrypted: true, legacy: false };
+            } else {
+              extracted = await extractSignalContent(event.content, event.pubkey);
+              if (!extracted || typeof extracted.plaintext !== 'string') return;
+              message = JSON.parse(extracted.plaintext);
+              if (isGuestTaggedSignalEvent(event) && !acceptGuestSenderMediaSignal(event, message)) return;
+            }
             if (!validatePrivateP2pSignalMessage(message)) {
               try {
                 console.warn(
@@ -3345,11 +3478,25 @@
       });
 
       App._p2pSignalsSub = sub;
+      App._p2pSignalsSubPubkey = subPubkey;
       log('success', '✅ מאזין לסיגנלי P2P', { relays: relays.length });
 
     } catch (err) {
       log('error', `❌ כשלון בהאזנה לסיגנלים: ${err.message}`);
     }
+  }
+
+  // תשובות ובקשות מגיעות ל-#p של הזהות הנוכחית — מוודאים שהמנוי צמוד אליה | HYPER CORE TECH
+  function ensureP2PSignalSubscription() {
+    try {
+      if (!App._p2pSignalsSub) return;
+      const pk = String(getEffectiveKeys()?.publicKey || '').toLowerCase();
+      if (pk && pk !== App._p2pSignalsSubPubkey) {
+        listenForP2PSignals();
+        cachedReplicasAdvertised = false;
+        Promise.resolve(advertiseCachedReplicas()).catch(() => {});
+      }
+    } catch (_) {}
   }
 
   async function handleFileResponse(peerPubkey, data) {
@@ -3741,10 +3888,23 @@
 
   // חלק P2P (p2p-video-sharing.js) – הורדת וידאו עם fallback ואסטרטגיית Network Tiers | HYPER CORE TECH
   // חלק רכישה קנונית (p2p-video-sharing.js) – הורדה מ-peer דורשת מפתח רשום (AC8: איתות פרטי לרשומים בלבד) | HYPER CORE TECH
+  // רשום: חותם קיים. אורח: רק דרך המסלול הטיפוסי GUEST_PUBLIC_MEDIA_FILE_TRANSFER (אחרת HTTP) | HYPER CORE TECH
+  function isGuestMediaTransferReady() {
+    try {
+      const v = guestVault();
+      return !!(App.pool && v && typeof v.isPublicMediaFileTransferReady === 'function' && v.isPublicMediaFileTransferReady() === true
+        && typeof v.signPublicMediaFileSignal === 'function' && typeof v.decryptPublicMediaFileSignal === 'function');
+    } catch (_) {
+      return false;
+    }
+  }
+
   function canDownloadFromPeers() {
     try {
       const keys = getEffectiveKeys();
-      return !!(keys && keys.publicKey && !keys.isGuest && (keys.hasSigner || App.SosCryptoSigner?.hasIdentityKey()));
+      if (!keys || !keys.publicKey) return false;
+      if (keys.isGuest) return isGuestMediaTransferReady();
+      return !!(keys.hasSigner || App.SosCryptoSigner?.hasIdentityKey());
     } catch (_) {
       return false;
     }
@@ -3812,8 +3972,7 @@
     let stored = false;
     if (typeof App.cacheMedia === 'function') {
       try {
-        await App.cacheMedia(url, h, blob, mime, { pinned: true });
-        stored = true;
+        stored = (await App.cacheMedia(url, h, blob, mime, { pinned: true })) === true;
       } catch (err) {
         log('info', 'שמירת רפליקה במטמון נכשלה', { error: err?.message || String(err) });
       }
@@ -3822,7 +3981,7 @@
     try {
       console.log('[MEDIA_REPLICA_STORED]', { hash: h.slice(0, 12), bytes: blob.size, source, indexedDb: stored });
     } catch (_) {}
-    Promise.resolve(registerFileAvailability(h, blob, mime)).catch(() => {});
+    Promise.resolve(registerFileAvailability(h, blob, mime, { priority: true })).catch(() => {});
     try {
       console.log('[MEDIA_REPLICA_ADVERTISED]', { hash: h.slice(0, 12), availableFiles: state.availableFiles.size });
     } catch (_) {}
@@ -4396,7 +4555,7 @@
           releaseSlot();
         }
       }
-    });
+    }, { allowHttp: options.allowHttpFallback !== false });
   }
 
   // פונקציית דיבוג - בדיקה אם הריליי שומר events מסוג 30078 (NIP-78)
@@ -4541,6 +4700,33 @@
     }
   }
 
+  // אחרי טעינה מחדש (גם זהות אורח חדשה): מפרסמים שוב רפליקות שמורות — רק אחרי אימות SHA-256 | HYPER CORE TECH
+  const MAX_CACHED_READVERTISE = 20;
+  let cachedReplicasAdvertised = false;
+  async function advertiseCachedReplicas() {
+    if (cachedReplicasAdvertised || !state.cacheFilesLoaded || !isP2PAllowed() || typeof App.getCachedMedia !== 'function') return;
+    cachedReplicasAdvertised = true;
+    const hashes = Array.from(state.availableFiles.entries())
+      .filter(([h, f]) => /^[0-9a-f]{64}$/.test(h) && f)
+      .sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0))
+      .slice(0, MAX_CACHED_READVERTISE)
+      .map(([h]) => h);
+    for (const h of hashes) {
+      try {
+        const live = state.availableFiles.get(h);
+        if (live && live.blob) {
+          await registerFileAvailability(h, live.blob, live.mimeType);
+          continue;
+        }
+        const cached = await App.getCachedMedia(h);
+        if (!cached || !cached.blob || !(await isMediaBlobHashValid(cached.blob, h))) continue;
+        await registerFileAvailability(h, cached.blob, cached.mimeType || 'video/mp4');
+        const entry = state.availableFiles.get(h);
+        if (entry) entry.blob = null; // נטען מהמטמון לפי דרישה (resolveAvailableFile)
+      } catch (_) {}
+    }
+  }
+
   // חלק העלאות ממתינות (p2p-video-sharing.js) – מנורה מהבהבת עד שמישהו הוריד | HYPER CORE TECH
   function markUploadPending(hash) {
     state.pendingUploads.set(hash, { timestamp: Date.now(), confirmed: false });
@@ -4667,6 +4853,8 @@
       SLOW_PROBE_MS,
       MAX_PARALLEL_PEERS_PER_FILE,
       STALL_WATCH_MS: Math.max(INITIAL_LOAD_TIMEOUT, SLOW_PROBE_MS + 2000),
+      GUEST_P2P_CAN_WIN_FIRST_CARD,
+      GUEST_BLOSSOM_CAN_WIN_FIRST_CARD,
     }),
     republishAllFiles, // פרסום מחדש של כל הקבצים
     p2pGetAvailableFiles: () => state.availableFiles,
@@ -4744,6 +4932,8 @@
     
     // טעינת קבצים זמינים מ-cache
     await loadAvailableFilesFromCache();
+    state.cacheFilesLoaded = true;
+    Promise.resolve(advertiseCachedReplicas()).catch(() => {});
     
     // ניסיון אתחול מיידי
     function tryInit() {
@@ -4762,6 +4952,7 @@
         }
         
         listenForP2PSignals();
+        if (!App._p2pSignalWatch) App._p2pSignalWatch = setInterval(ensureP2PSignalSubscription, 2000);
         
         // שליחת heartbeat ראשון + תזמון דינמי (מתעדכן כש־tier משתנה) | HYPER CORE TECH
         sendHeartbeat();

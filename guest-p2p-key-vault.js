@@ -269,6 +269,162 @@
     return finalize(copy, privHex);
   }
 
+  // --- AC8 typed exception: guest public-media file transfer (NIP-44, recipient-bound) ---
+  // Signs / decrypts ONLY file-request / file-response / ice-candidate for a public media hash.
+  // No generic private sign/encrypt; K never leaves this closure.
+  const MEDIA_SIGNAL_D_PREFIX = 'sos-p2p-video:signal:';
+
+  function mediaSchema() {
+    const S = App.GuestP2PSchema || window.SosGuestP2PSchema;
+    if (!S || typeof S.validateGuestMediaFileSignalMessage !== 'function' || typeof S.validateGuestMediaFileSignalEvent !== 'function') {
+      throw Object.assign(new Error('GUEST_SCHEMA_UNAVAILABLE'), { code: 'GUEST_SCHEMA_UNAVAILABLE' });
+    }
+    return S;
+  }
+
+  function mediaNip44() {
+    const nip44 = window.NostrTools && window.NostrTools.nip44;
+    const v2 = nip44 && nip44.v2;
+    const getKey = v2 && ((v2.utils && v2.utils.getConversationKey) || nip44.getConversationKey);
+    if (!v2 || typeof v2.encrypt !== 'function' || typeof v2.decrypt !== 'function' || typeof getKey !== 'function') {
+      throw Object.assign(new Error('NIP44_UNAVAILABLE'), { code: 'NIP44_UNAVAILABLE' });
+    }
+    return { v2, getKey };
+  }
+
+  function assertMediaTransferAllowed(recipient, type, networkTag) {
+    const GAC = App.GuestAccessControl || window.SosGuestAccessControl;
+    if (!GAC || typeof GAC.canUseGroupP2P !== 'function') {
+      throw Object.assign(new Error('GUEST_ACCESS_UNAVAILABLE'), { code: 'GUEST_ACCESS_UNAVAILABLE' });
+    }
+    const gate = GAC.canUseGroupP2P(pubHex, {
+      signalClass: 'GUEST_PUBLIC_MEDIA_FILE_TRANSFER',
+      signalType: type,
+      recipient,
+      networkTag,
+    });
+    if (!gate || gate.ok !== true) {
+      const code = (gate && gate.code) || 'GUEST_MEDIA_TRANSFER_DENIED';
+      throw Object.assign(new Error(code), { code });
+    }
+  }
+
+  function isPublicMediaFileTransferReady() {
+    try {
+      const S = App.GuestP2PSchema || window.SosGuestP2PSchema;
+      const GAC = App.GuestAccessControl || window.SosGuestAccessControl;
+      mediaNip44();
+      return !!(privHex && pubHex && S && typeof S.validateGuestMediaFileSignalMessage === 'function'
+        && GAC && typeof GAC.canGuestAction === 'function' && GAC.canGuestAction('P2P_FILE_TORRENT') === true
+        && typeof GAC.classifyPrincipal === 'function' && GAC.classifyPrincipal(pubHex) === 'GUEST_P2P');
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  /** @returns {Promise<object>} signed kind-30078 event (NIP-44 envelope content) */
+  async function signPublicMediaFileSignal(params) {
+    await ensureReady();
+    if (!privHex) throw Object.assign(new Error('GUEST_VAULT_EMPTY'), { code: 'GUEST_VAULT_EMPTY' });
+    const p = params && typeof params === 'object' ? params : {};
+    const recipient = String(p.recipient || '').trim().toLowerCase();
+    const type = p.type;
+    const S = mediaSchema();
+    const networkTag = typeof S.resolveNetworkTag === 'function' ? S.resolveNetworkTag() : 'israel-network';
+    if (!isHex64(recipient)) {
+      throw Object.assign(new Error('GUEST_MEDIA_RECIPIENT_REQUIRED'), { code: 'GUEST_MEDIA_RECIPIENT_REQUIRED' });
+    }
+    if (recipient === pubHex) throw Object.assign(new Error('WRONG_RECIPIENT'), { code: 'WRONG_RECIPIENT' });
+    assertMediaTransferAllowed(recipient, type, networkTag);
+    let message;
+    try {
+      // RTCIceCandidate / RTCSessionDescription expose fields via toJSON, not own keys
+      message = JSON.parse(JSON.stringify({ type, data: p.data }));
+    } catch (_e) {
+      throw Object.assign(new Error('MALFORMED_SIGNAL'), { code: 'MALFORMED_SIGNAL' });
+    }
+    const check = S.validateGuestMediaFileSignalMessage(message);
+    if (!check || check.ok !== true) {
+      const code = (check && check.code) || 'GUEST_MEDIA_SIGNAL_INVALID';
+      throw Object.assign(new Error(code), { code });
+    }
+    const { v2, getKey } = mediaNip44();
+    const ct = v2.encrypt(JSON.stringify(message), getKey(hexToBytes(privHex), recipient));
+    const draft = {
+      kind: 30078,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [
+        ['d', MEDIA_SIGNAL_D_PREFIX + Date.now() + ':' + Math.random().toString(36).slice(2, 8)],
+        ['p', recipient],
+        ['t', S.GUEST_MEDIA_SIGNAL_T_TAG[type]],
+        ['enc', 'nip44'],
+        ['guest', 'true'],
+        ['network', networkTag],
+      ],
+      content: JSON.stringify({ family: 'sos-p2p-signal', v: 1, alg: 'nip44', ct }),
+      pubkey: pubHex,
+    };
+    const shape = S.validateGuestMediaFileSignalEvent(draft, { direction: 'sign', networkTag, type, recipient, requireGuestTag: true });
+    if (!shape || shape.ok !== true) {
+      const code = (shape && shape.code) || 'GUEST_MEDIA_SIGNAL_INVALID';
+      throw Object.assign(new Error(code), { code });
+    }
+    const NT = window.NostrTools;
+    const finalize =
+      (App.finalizeEvent && typeof App.finalizeEvent === 'function' && App.finalizeEvent.bind(App)) ||
+      (NT && NT.finalizeEvent);
+    if (typeof finalize !== 'function') {
+      throw Object.assign(new Error('FINALIZE_UNAVAILABLE'), { code: 'FINALIZE_UNAVAILABLE' });
+    }
+    return finalize(draft, privHex);
+  }
+
+  /**
+   * Decrypts an already signature/recipient/freshness-verified 30078 addressed to this guest.
+   * Returns { type, data } only for public-media file-transfer types; everything else throws.
+   */
+  async function decryptPublicMediaFileSignal(event) {
+    await ensureReady();
+    if (!privHex) throw Object.assign(new Error('GUEST_VAULT_EMPTY'), { code: 'GUEST_VAULT_EMPTY' });
+    const S = mediaSchema();
+    const sender = String(event && event.pubkey || '').toLowerCase();
+    if (!isHex64(sender) || sender === pubHex) throw Object.assign(new Error('BAD_SENDER'), { code: 'BAD_SENDER' });
+    const verify = (App.strictVerifyNostrEvent && typeof App.strictVerifyNostrEvent === 'function' && App.strictVerifyNostrEvent)
+      || (window.NostrEventIntegrity && window.NostrEventIntegrity.strictVerifyNostrEvent)
+      || (window.NostrTools && window.NostrTools.verifyEvent);
+    let sigOk = false;
+    try {
+      sigOk = typeof verify === 'function' && verify(JSON.parse(JSON.stringify(event))) === true;
+    } catch (_e) {
+      sigOk = false;
+    }
+    if (!sigOk) throw Object.assign(new Error('BAD_SIGNATURE'), { code: 'BAD_SIGNATURE' });
+    const networkTag = typeof S.resolveNetworkTag === 'function' ? S.resolveNetworkTag() : 'israel-network';
+    const shape = S.validateGuestMediaFileSignalEvent(event, { direction: 'receive', networkTag, recipient: pubHex });
+    if (!shape || shape.ok !== true) {
+      const code = (shape && shape.code) || 'GUEST_MEDIA_SIGNAL_INVALID';
+      throw Object.assign(new Error(code), { code });
+    }
+    const env = JSON.parse(event.content);
+    const { v2, getKey } = mediaNip44();
+    let message;
+    try {
+      message = JSON.parse(v2.decrypt(env.ct, getKey(hexToBytes(privHex), sender)));
+    } catch (_e) {
+      throw Object.assign(new Error('GUEST_MEDIA_DECRYPT_FAILED'), { code: 'GUEST_MEDIA_DECRYPT_FAILED' });
+    }
+    const check = S.validateGuestMediaFileSignalMessage(message);
+    if (!check || check.ok !== true) {
+      const code = (check && check.code) || 'GUEST_MEDIA_SIGNAL_INVALID';
+      throw Object.assign(new Error(code), { code });
+    }
+    if (S.GUEST_MEDIA_SIGNAL_T_TAG[message.type] !== shape.tTag) {
+      throw Object.assign(new Error('T_TAG_TYPE_MISMATCH'), { code: 'T_TAG_TYPE_MISMATCH' });
+    }
+    assertMediaTransferAllowed(sender, message.type, networkTag);
+    return { type: message.type, data: message.data };
+  }
+
   // Explicitly reject raw-key APIs
   function getPrivateKey() {
     throw Object.assign(new Error('GUEST_PAGE_CAN_REQUEST_RAW_K'), { code: 'GUEST_PAGE_CAN_REQUEST_RAW_K' });
@@ -282,6 +438,9 @@
     getMeta,
     getMetaSync,
     signP2pEvent,
+    signPublicMediaFileSignal,
+    decryptPublicMediaFileSignal,
+    isPublicMediaFileTransferReady,
     clear,
     purgeLegacyPlaintext,
     getPrivateKey,

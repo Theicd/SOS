@@ -592,6 +592,7 @@ const BOOTSTRAP_VIDEO_DELAY = 100; // 100ms בין שיגורים | HYPER CORE T
 const INITIAL_NATIVE_MEDIA_WARM_CONCURRENCY = 3;
 const FEED_VIDEO_MAX_PARALLEL = INITIAL_NATIVE_MEDIA_WARM_CONCURRENCY; // עד 3 קבצים במקביל | HYPER CORE TECH
 const BOOT_MEDIA_CANDIDATE_TIMEOUT_MS = 4000;
+const BOOT_P2P_AWAIT_AFTER_HTTP_FAIL_MS = 1500;
 const FEED_MEDIA_CANDIDATE_TIMEOUT_MS = 12000;
 const MEDIA_HOST_PENALTY_MS = 60000;
 const PUBLIC_MEDIA_HASH_HOSTS = ['blossom.band', 'blossom.nostr.build', 'files.sovbit.host'];
@@ -948,7 +949,9 @@ async function resolvePublicFeedMedia(videoEl, url, hash, mirrors, race = null) 
     // HTTP נכשל אבל peer עדיין מוריד — לא מכשילים את הכרטיס לפני תוצאת P2P | HYPER CORE TECH
     if (race && !race.p2pSettled && race.p2pStarted && race.p2pPromise) {
       console.log('[videos] http candidates failed — awaiting p2p', { id8 });
-      await race.p2pPromise;
+      // לפני שחרור האתחול: peer איטי / ישן לא מחזיק את הכרטיסים שאחריו; לא ניצח בזמן → חניה לשחזור P2P | HYPER CORE TECH
+      if (bootGate.released) await race.p2pPromise;
+      else await Promise.race([race.p2pPromise, sleepMs(BOOT_P2P_AWAIT_AFTER_HTTP_FAIL_MS)]);
     }
     if (race && race.p2pWon) {
       delete videoEl.dataset.sosResolving;
