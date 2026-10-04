@@ -5278,62 +5278,10 @@ function renderVideoCard(video) {
   const videoOwnerPubkey = typeof video.pubkey === 'string' ? video.pubkey.toLowerCase() : '';
   const isSelf = viewerPubkey && videoOwnerPubkey ? viewerPubkey === videoOwnerPubkey : video.pubkey === currentApp.publicKey;
   const isFollowing = currentApp.followingSet?.has(videoOwnerPubkey || video.pubkey) || false;
-  const canEdit = isSelf;
   const canDelete = canViewerDeleteVideoPost(video);
 
-  if (isSelf) {
-    // חלק תפריט פיד ווידאו (videos.js) – הוספת כפתור שלוש נקודות כמו בפיד הראשי לעריכה/מחיקה של המשתמש | HYPER CORE TECH
-    const menuWrap = document.createElement('div');
-    menuWrap.className = 'feed-post__menu-wrap videos-feed__menu-wrap';
-    menuWrap.setAttribute('data-video-menu-wrap', video.id);
-
-    const menuToggle = document.createElement('button');
-    menuToggle.type = 'button';
-    menuToggle.className = 'videos-feed__action feed-post__menu-toggle';
-    menuToggle.setAttribute('aria-haspopup', 'true');
-    menuToggle.setAttribute('aria-expanded', 'false');
-    menuToggle.setAttribute('data-post-menu-toggle', video.id);
-    menuToggle.setAttribute('title', 'אפשרויות');
-    menuToggle.innerHTML = '<i class="fa-solid fa-ellipsis"></i>';
-
-    const editButtonHtml = canEdit
-      ? `
-        <button class="feed-post__action feed-post__action--edit" type="button" onclick="NostrApp.openEditPost('${video.id}')">
-          <i class="fa-solid fa-pen-to-square"></i>
-          <span>ערוך</span>
-        </button>
-      `
-      : '';
-    // מחיקה עברה לגיליון השיתוף | HYPER CORE TECH
-    const menu = document.createElement('div');
-    menu.className = 'feed-post__menu videos-feed__menu';
-    menu.setAttribute('data-post-menu', video.id);
-    menu.setAttribute('hidden', '');
-    menu.hidden = true;
-    menu.innerHTML = `${editButtonHtml}`;
-
-    menuWrap.appendChild(menuToggle);
-    menuWrap.appendChild(menu);
-    actionsDiv.appendChild(menuWrap);
-
-    const markToggleAsWired = () => {
-      const card = menuWrap.closest('.videos-feed__card') || article;
-      const toggle = menuWrap.querySelector(`[data-post-menu-toggle="${video.id}"]`);
-      if (!card || !toggle || toggle.dataset.menuWired === '1') {
-        return;
-      }
-      const appRef = window.NostrApp;
-      toggle.dataset.menuWired = '1';
-      toggle.setAttribute('aria-expanded', 'false');
-      if (typeof appRef?.wirePostMenu === 'function') {
-        appRef.wirePostMenu(card, video.id);
-      } else {
-        wireVideoPostMenu(card, video.id);
-      }
-    };
-
-    setTimeout(markToggleAsWired, 0);
-  } else {
+  // עריכה / הורדה / מחיקה / דיווח — בגיליון השיתוף; אין תפריט שלוש נקודות בפס | HYPER CORE TECH
+  if (!isSelf) {
     // כפתור עקוב מעודכן - ממוקם בשליש התחתון של כפתור הפרופיל | HYPER CORE TECH
     const followBtn = document.createElement('button');
     followBtn.type = 'button';
@@ -7193,7 +7141,7 @@ function getShareSheetPostTarget(id) {
 function getShareSheetPostActions(id) {
   const app = window.NostrApp || {};
   const target = getShareSheetPostTarget(id);
-  if (target.liveCatalog) return { target, canReport: false, canDelete: false };
+  if (target.liveCatalog) return { target, canReport: false, canDelete: false, canEdit: false, download: null };
   const viewer = typeof app.publicKey === 'string' ? app.publicKey.toLowerCase() : '';
   const owner = String(target.pubkey || '').toLowerCase();
   const isSelf = viewer && owner ? viewer === owner : target.pubkey === app.publicKey;
@@ -7201,7 +7149,25 @@ function getShareSheetPostActions(id) {
     target,
     canReport: !isSelf && POST_ID_HEX.test(id),
     canDelete: canViewerDeleteVideoPost(target),
+    canEdit: !!isSelf && typeof app.openEditPost === 'function',
+    download: typeof app.downloadChatMedia === 'function' ? getShareSheetDownloadSource(target) : null,
   };
+}
+
+// מקור הורדה: הווידאו שכבר נטען בכרטיס (blob) קודם, אחרת כתובת המדיה; יוטיוב בלבד — אין הורדה | HYPER CORE TECH
+function getShareSheetDownloadSource(target) {
+  if (!target || !target.id) return null;
+  const card = document.querySelector(`.videos-feed__card[data-event-id="${target.id}"]`);
+  const videoEl = card ? card.querySelector('video') : null;
+  const loadedSrc = videoEl ? String(videoEl.currentSrc || videoEl.src || '') : '';
+  const videoUrl = typeof target.videoUrl === 'string' ? target.videoUrl : '';
+  const imageUrl = typeof target.imageUrl === 'string' ? target.imageUrl : '';
+  const isVideo = !!(videoUrl || loadedSrc);
+  const src = (loadedSrc.startsWith('blob:') ? loadedSrc : '') || videoUrl || loadedSrc || imageUrl;
+  if (!src || !/^(https?:|blob:)/i.test(src)) return null;
+  const extMatch = (videoUrl || imageUrl || '').match(/\.(mp4|webm|mov|m4v|jpe?g|png|gif|webp)(?:[?#]|$)/i);
+  const ext = extMatch ? extMatch[1].toLowerCase() : (isVideo ? 'mp4' : 'jpg');
+  return { src, name: `sos-${isVideo ? 'video' : 'image'}-${target.id.slice(0, 8)}.${ext}` };
 }
 
 function openVideosShareSheet(eventId) {
@@ -7211,18 +7177,27 @@ function openVideosShareSheet(eventId) {
   closeVideosShareSheet();
 
   const postActions = getShareSheetPostActions(id);
-  const manageHtml = postActions.canReport || postActions.canDelete
-    ? `
-        <div class="videos-share-sheet__divider"></div>
-        <div class="videos-share-sheet__row" aria-label="ניהול פוסט">
-          ${postActions.canReport ? `<button type="button" class="videos-share-sheet__action" data-share-action="report">
-            <span class="videos-share-sheet__action-icon videos-share-sheet__action-icon--report"><i class="fa-solid fa-flag"></i></span>
-            <span class="videos-share-sheet__label">דווח</span>
-          </button>` : ''}
-          ${postActions.canDelete ? `<button type="button" class="videos-share-sheet__action videos-share-sheet__action--danger" data-share-action="delete">
+  const manageButtonsHtml = `${postActions.download ? `
+          <button type="button" class="videos-share-sheet__action" data-share-action="download">
+            <span class="videos-share-sheet__action-icon videos-share-sheet__action-icon--download"><i class="fa-solid fa-download"></i></span>
+            <span class="videos-share-sheet__label">הורד</span>
+          </button>` : ''}${postActions.canEdit ? `
+          <button type="button" class="videos-share-sheet__action" data-share-action="edit">
+            <span class="videos-share-sheet__action-icon videos-share-sheet__action-icon--edit"><i class="fa-solid fa-pen-to-square"></i></span>
+            <span class="videos-share-sheet__label">ערוך</span>
+          </button>` : ''}${postActions.canDelete ? `
+          <button type="button" class="videos-share-sheet__action videos-share-sheet__action--danger" data-share-action="delete">
             <span class="videos-share-sheet__action-icon videos-share-sheet__action-icon--delete"><i class="fa-solid fa-trash"></i></span>
             <span class="videos-share-sheet__label">מחק</span>
-          </button>` : ''}
+          </button>` : ''}${postActions.canReport ? `
+          <button type="button" class="videos-share-sheet__action" data-share-action="report">
+            <span class="videos-share-sheet__action-icon videos-share-sheet__action-icon--report"><i class="fa-solid fa-flag"></i></span>
+            <span class="videos-share-sheet__label">דווח</span>
+          </button>` : ''}`;
+  const manageHtml = manageButtonsHtml
+    ? `
+        <div class="videos-share-sheet__divider"></div>
+        <div class="videos-share-sheet__row" aria-label="ניהול פוסט">${manageButtonsHtml}
         </div>`
     : '';
 
@@ -7333,6 +7308,24 @@ function openVideosShareSheet(eventId) {
     if (action === 'more') {
       await openSystemShare(id);
       closeVideosShareSheet();
+      return;
+    }
+    if (action === 'download') {
+      closeVideosShareSheet();
+      const app = window.NostrApp || {};
+      const dl = postActions.download;
+      if (dl && typeof app.downloadChatMedia === 'function') {
+        const ok = await app.downloadChatMedia(dl.src, dl.name);
+        if (!ok) showVideosShareToast('ההורדה נכשלה');
+      }
+      return;
+    }
+    if (action === 'edit') {
+      closeVideosShareSheet();
+      const app = window.NostrApp || {};
+      if (postActions.canEdit && typeof app.openEditPost === 'function') {
+        app.openEditPost(id);
+      }
       return;
     }
     if (action === 'report') {

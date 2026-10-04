@@ -6527,6 +6527,8 @@ body.videos-share-sheet-open {
 }
 
 /* ניהול פוסט בגיליון השיתוף — דיווח ניטרלי, מחיקה הרסנית | HYPER CORE TECH */
+.videos-share-sheet__action-icon--download,
+.videos-share-sheet__action-icon--edit,
 .videos-share-sheet__action-icon--report {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.16);
