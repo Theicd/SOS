@@ -6368,7 +6368,8 @@ body.videos-share-sheet-open {
   border-bottom: 0;
   border-radius: 18px 18px 0 0;
   box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.55);
-  padding-bottom: calc(12px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+  /* הניווט התחתון במובייל מעל הגיליון — השורה האחרונה לא תוסתר | HYPER CORE TECH */
+  padding-bottom: calc(12px + var(--nav-height, 0px) + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
   transform: translateY(110%);
   transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   box-sizing: border-box;
@@ -6523,6 +6524,25 @@ body.videos-share-sheet-open {
 
 .videos-share-sheet__action-icon--more {
   background: rgba(255, 255, 255, 0.12);
+}
+
+/* ניהול פוסט בגיליון השיתוף — דיווח ניטרלי, מחיקה הרסנית | HYPER CORE TECH */
+.videos-share-sheet__action-icon--report {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: rgba(233, 237, 239, 0.85);
+  font-size: 1.15rem;
+}
+
+.videos-share-sheet__action-icon--delete {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #f87171;
+  font-size: 1.15rem;
+}
+
+.videos-share-sheet__action--danger .videos-share-sheet__label {
+  color: #f87171;
 }
 
 .videos-share-sheet__empty {
