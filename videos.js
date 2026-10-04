@@ -5278,84 +5278,10 @@ function renderVideoCard(video) {
   const videoOwnerPubkey = typeof video.pubkey === 'string' ? video.pubkey.toLowerCase() : '';
   const isSelf = viewerPubkey && videoOwnerPubkey ? viewerPubkey === videoOwnerPubkey : video.pubkey === currentApp.publicKey;
   const isFollowing = currentApp.followingSet?.has(videoOwnerPubkey || video.pubkey) || false;
-  const isAdminUser = currentApp.adminPublicKeys instanceof Set && viewerPubkey
-    ? currentApp.adminPublicKeys.has(viewerPubkey)
-    : false;
-  const MP = currentApp.ModerationPolicy || window.SosModerationPolicy;
-  const canRemoveViaPolicy =
-    MP && typeof MP.canViewerRemoveContent === 'function'
-      ? MP.canViewerRemoveContent(viewerPubkey, videoOwnerPubkey, 1).ok === true
-      : false;
+  const canDelete = canViewerDeleteVideoPost(video);
 
-  const canEdit = isSelf;
-  // קטלוג LIVE TV – רק מנהל יכול להסיר ערוץ | HYPER CORE TECH
-  const canDelete = video.liveCatalog
-    ? isAdminUser
-    : (typeof currentApp.canViewerDeletePost === 'function'
-        ? currentApp.canViewerDeletePost(video.id)
-        : (isSelf || isAdminUser || canRemoveViaPolicy));
-
-  if (isSelf) {
-    // חלק תפריט פיד ווידאו (videos.js) – הוספת כפתור שלוש נקודות כמו בפיד הראשי לעריכה/מחיקה של המשתמש | HYPER CORE TECH
-    const menuWrap = document.createElement('div');
-    menuWrap.className = 'feed-post__menu-wrap videos-feed__menu-wrap';
-    menuWrap.setAttribute('data-video-menu-wrap', video.id);
-
-    const menuToggle = document.createElement('button');
-    menuToggle.type = 'button';
-    menuToggle.className = 'videos-feed__action feed-post__menu-toggle';
-    menuToggle.setAttribute('aria-haspopup', 'true');
-    menuToggle.setAttribute('aria-expanded', 'false');
-    menuToggle.setAttribute('data-post-menu-toggle', video.id);
-    menuToggle.setAttribute('title', 'אפשרויות');
-    menuToggle.innerHTML = '<i class="fa-solid fa-ellipsis"></i>';
-
-    const editButtonHtml = canEdit
-      ? `
-        <button class="feed-post__action feed-post__action--edit" type="button" onclick="NostrApp.openEditPost('${video.id}')">
-          <i class="fa-solid fa-pen-to-square"></i>
-          <span>ערוך</span>
-        </button>
-      `
-      : '';
-    const deleteButtonHtml = canDelete
-      ? `
-        <button class="feed-post__action feed-post__action--delete" type="button" onclick="NostrApp.deletePost('${video.id}')">
-          <i class="fa-solid fa-trash"></i>
-          <span>מחק</span>
-        </button>
-      `
-      : '';
-
-    const menu = document.createElement('div');
-    menu.className = 'feed-post__menu videos-feed__menu';
-    menu.setAttribute('data-post-menu', video.id);
-    menu.setAttribute('hidden', '');
-    menu.hidden = true;
-    menu.innerHTML = `${editButtonHtml}${deleteButtonHtml}`;
-
-    menuWrap.appendChild(menuToggle);
-    menuWrap.appendChild(menu);
-    actionsDiv.appendChild(menuWrap);
-
-    const markToggleAsWired = () => {
-      const card = menuWrap.closest('.videos-feed__card') || article;
-      const toggle = menuWrap.querySelector(`[data-post-menu-toggle="${video.id}"]`);
-      if (!card || !toggle || toggle.dataset.menuWired === '1') {
-        return;
-      }
-      const appRef = window.NostrApp;
-      toggle.dataset.menuWired = '1';
-      toggle.setAttribute('aria-expanded', 'false');
-      if (typeof appRef?.wirePostMenu === 'function') {
-        appRef.wirePostMenu(card, video.id);
-      } else {
-        wireVideoPostMenu(card, video.id);
-      }
-    };
-
-    setTimeout(markToggleAsWired, 0);
-  } else {
+  // עריכה / הורדה / מחיקה / דיווח — בגיליון השיתוף; אין תפריט שלוש נקודות בפס | HYPER CORE TECH
+  if (!isSelf) {
     // כפתור עקוב מעודכן - ממוקם בשליש התחתון של כפתור הפרופיל | HYPER CORE TECH
     const followBtn = document.createElement('button');
     followBtn.type = 'button';
@@ -5373,25 +5299,19 @@ function renderVideoCard(video) {
     }
   }
 
-  const moderatable = !video.liveCatalog && /^[0-9a-f]{64}$/.test(String(video.id || ''));
-  if (!isSelf && (canDelete || moderatable)) {
-    // חלק תפריט מנהל (videos.js) – מחיקת פוסט / הסרת ערוץ LIVE TV | HYPER CORE TECH
+  // דיווח / מחיקת פוסט — בגיליון השיתוף; בפס רק הסרת ערוץ LIVE TV (אין לו גיליון שיתוף) | HYPER CORE TECH
+  if (!isSelf && video.liveCatalog && canDelete) {
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className = 'videos-feed__action feed-post__action feed-post__action--delete';
     deleteBtn.setAttribute('data-admin-delete', video.id);
-    if (moderatable) deleteBtn.setAttribute('data-mod-delete', video.id);
-    if (!canDelete) {
-      deleteBtn.hidden = true;
-      deleteBtn.style.display = 'none';
-    }
-    deleteBtn.title = video.liveCatalog ? 'הסר ערוץ (מנהל)' : 'מחק פוסט (מנהל)';
+    deleteBtn.title = 'הסר ערוץ (מנהל)';
     deleteBtn.innerHTML = `
       <i class="fa-solid fa-trash"></i>
-      <span>${video.liveCatalog ? 'הסר' : 'מחק'}</span>
+      <span>הסר</span>
     `;
     deleteBtn.addEventListener('click', async () => {
-      if (video.liveCatalog && video.liveChannelId) {
+      if (video.liveChannelId) {
         const AppLive = window.NostrApp || {};
         if (typeof AppLive.hideLiveTvChannel === 'function') {
           const ok = await AppLive.hideLiveTvChannel(video.liveChannelId);
@@ -5406,24 +5326,6 @@ function renderVideoCard(video) {
       }
     });
     actionsDiv.appendChild(deleteBtn);
-  }
-
-  if (!isSelf && !video.liveCatalog && /^[0-9a-f]{64}$/.test(String(video.id || ''))) {
-    const reportBtn = document.createElement('button');
-    reportBtn.type = 'button';
-    reportBtn.className = 'videos-feed__action videos-feed__action--report';
-    reportBtn.setAttribute('data-report-event', video.id);
-    reportBtn.title = 'דווח';
-    reportBtn.innerHTML = '<i class="fa-solid fa-flag"></i><span>דווח</span>';
-    reportBtn.addEventListener('click', (evt) => {
-      evt.preventDefault();
-      evt.stopPropagation();
-      const appRef = window.NostrApp;
-      if (typeof appRef?.reportEvent === 'function') {
-        appRef.reportEvent(video.id, '', { pubkey: video.pubkey, kind: 1, content: video.content || '' });
-      }
-    });
-    actionsDiv.appendChild(reportBtn);
   }
 
   const infoDiv = document.createElement('div');
@@ -5473,6 +5375,29 @@ function renderVideoCard(video) {
   article.appendChild(infoDiv);
 
   return { card: article, mediaReadyPromise };
+}
+
+// הרשאת מחיקה קנונית (App.canViewerDeletePost → ModerationPolicy); משותף לכרטיס ולגיליון השיתוף | HYPER CORE TECH
+function canViewerDeleteVideoPost(video) {
+  if (!video) return false;
+  const currentApp = window.NostrApp || {};
+  const viewerPubkey = typeof currentApp.publicKey === 'string' ? currentApp.publicKey.toLowerCase() : '';
+  const videoOwnerPubkey = typeof video.pubkey === 'string' ? video.pubkey.toLowerCase() : '';
+  const isSelf = viewerPubkey && videoOwnerPubkey ? viewerPubkey === videoOwnerPubkey : video.pubkey === currentApp.publicKey;
+  const isAdminUser = currentApp.adminPublicKeys instanceof Set && viewerPubkey
+    ? currentApp.adminPublicKeys.has(viewerPubkey)
+    : false;
+  const MP = currentApp.ModerationPolicy || window.SosModerationPolicy;
+  const canRemoveViaPolicy =
+    MP && typeof MP.canViewerRemoveContent === 'function'
+      ? MP.canViewerRemoveContent(viewerPubkey, videoOwnerPubkey, 1).ok === true
+      : false;
+  // קטלוג LIVE TV – רק מנהל יכול להסיר ערוץ | HYPER CORE TECH
+  return video.liveCatalog
+    ? isAdminUser
+    : (typeof currentApp.canViewerDeletePost === 'function'
+        ? currentApp.canViewerDeletePost(video.id)
+        : (isSelf || isAdminUser || canRemoveViaPolicy));
 }
 
 // חלק תפריט פיד ווידאו (videos.js) – חיבור fallback לפתיחה/סגירה של תפריט העריכה | HYPER CORE TECH
@@ -7204,11 +7129,77 @@ async function openSystemShare(eventId) {
   }
 }
 
+// פעולות ניהול פוסט בגיליון: אותם תנאים כמו בפס הצדדי לפני ההעברה, מחושבים בפתיחה | HYPER CORE TECH
+function getShareSheetPostTarget(id) {
+  const app = window.NostrApp || {};
+  const video = (Array.isArray(state.videos) ? state.videos : []).find((v) => v && v.id === id) || null;
+  const ev = app.postsById instanceof Map ? app.postsById.get(id) : null;
+  const pubkey = String(video?.pubkey || ev?.pubkey || app.eventAuthorById?.get?.(id) || '');
+  return video || { id, pubkey, content: ev?.content || '' };
+}
+
+function getShareSheetPostActions(id) {
+  const app = window.NostrApp || {};
+  const target = getShareSheetPostTarget(id);
+  if (target.liveCatalog) return { target, canReport: false, canDelete: false, canEdit: false, download: null };
+  const viewer = typeof app.publicKey === 'string' ? app.publicKey.toLowerCase() : '';
+  const owner = String(target.pubkey || '').toLowerCase();
+  const isSelf = viewer && owner ? viewer === owner : target.pubkey === app.publicKey;
+  return {
+    target,
+    canReport: !isSelf && POST_ID_HEX.test(id),
+    canDelete: canViewerDeleteVideoPost(target),
+    canEdit: !!isSelf && typeof app.openEditPost === 'function',
+    download: typeof app.downloadChatMedia === 'function' ? getShareSheetDownloadSource(target) : null,
+  };
+}
+
+// מקור הורדה: הווידאו שכבר נטען בכרטיס (blob) קודם, אחרת כתובת המדיה; יוטיוב בלבד — אין הורדה | HYPER CORE TECH
+function getShareSheetDownloadSource(target) {
+  if (!target || !target.id) return null;
+  const card = document.querySelector(`.videos-feed__card[data-event-id="${target.id}"]`);
+  const videoEl = card ? card.querySelector('video') : null;
+  const loadedSrc = videoEl ? String(videoEl.currentSrc || videoEl.src || '') : '';
+  const videoUrl = typeof target.videoUrl === 'string' ? target.videoUrl : '';
+  const imageUrl = typeof target.imageUrl === 'string' ? target.imageUrl : '';
+  const isVideo = !!(videoUrl || loadedSrc);
+  const src = (loadedSrc.startsWith('blob:') ? loadedSrc : '') || videoUrl || loadedSrc || imageUrl;
+  if (!src || !/^(https?:|blob:)/i.test(src)) return null;
+  const extMatch = (videoUrl || imageUrl || '').match(/\.(mp4|webm|mov|m4v|jpe?g|png|gif|webp)(?:[?#]|$)/i);
+  const ext = extMatch ? extMatch[1].toLowerCase() : (isVideo ? 'mp4' : 'jpg');
+  return { src, name: `sos-${isVideo ? 'video' : 'image'}-${target.id.slice(0, 8)}.${ext}` };
+}
+
 function openVideosShareSheet(eventId) {
   const id = String(eventId || '').trim().toLowerCase();
   if (!POST_ID_HEX.test(id)) return;
 
   closeVideosShareSheet();
+
+  const postActions = getShareSheetPostActions(id);
+  const manageButtonsHtml = `${postActions.download ? `
+          <button type="button" class="videos-share-sheet__action" data-share-action="download">
+            <span class="videos-share-sheet__action-icon videos-share-sheet__action-icon--download"><i class="fa-solid fa-download"></i></span>
+            <span class="videos-share-sheet__label">הורד</span>
+          </button>` : ''}${postActions.canEdit ? `
+          <button type="button" class="videos-share-sheet__action" data-share-action="edit">
+            <span class="videos-share-sheet__action-icon videos-share-sheet__action-icon--edit"><i class="fa-solid fa-pen-to-square"></i></span>
+            <span class="videos-share-sheet__label">ערוך</span>
+          </button>` : ''}${postActions.canDelete ? `
+          <button type="button" class="videos-share-sheet__action videos-share-sheet__action--danger" data-share-action="delete">
+            <span class="videos-share-sheet__action-icon videos-share-sheet__action-icon--delete"><i class="fa-solid fa-trash"></i></span>
+            <span class="videos-share-sheet__label">מחק</span>
+          </button>` : ''}${postActions.canReport ? `
+          <button type="button" class="videos-share-sheet__action" data-share-action="report">
+            <span class="videos-share-sheet__action-icon videos-share-sheet__action-icon--report"><i class="fa-solid fa-flag"></i></span>
+            <span class="videos-share-sheet__label">דווח</span>
+          </button>` : ''}`;
+  const manageHtml = manageButtonsHtml
+    ? `
+        <div class="videos-share-sheet__divider"></div>
+        <div class="videos-share-sheet__row" aria-label="ניהול פוסט">${manageButtonsHtml}
+        </div>`
+    : '';
 
   const contacts = getShareSheetContacts();
   const sheet = document.createElement('div');
@@ -7268,7 +7259,7 @@ function openVideosShareSheet(eventId) {
             <span class="videos-share-sheet__action-icon videos-share-sheet__action-icon--more"><i class="fa-solid fa-ellipsis"></i></span>
             <span class="videos-share-sheet__label">עוד</span>
           </button>
-        </div>
+        </div>${manageHtml}
       </div>
     </div>
   `;
@@ -7317,6 +7308,41 @@ function openVideosShareSheet(eventId) {
     if (action === 'more') {
       await openSystemShare(id);
       closeVideosShareSheet();
+      return;
+    }
+    if (action === 'download') {
+      closeVideosShareSheet();
+      const app = window.NostrApp || {};
+      const dl = postActions.download;
+      if (dl && typeof app.downloadChatMedia === 'function') {
+        const ok = await app.downloadChatMedia(dl.src, dl.name);
+        if (!ok) showVideosShareToast('ההורדה נכשלה');
+      }
+      return;
+    }
+    if (action === 'edit') {
+      closeVideosShareSheet();
+      const app = window.NostrApp || {};
+      if (postActions.canEdit && typeof app.openEditPost === 'function') {
+        app.openEditPost(id);
+      }
+      return;
+    }
+    if (action === 'report') {
+      closeVideosShareSheet();
+      const app = window.NostrApp || {};
+      const target = postActions.target;
+      if (typeof app.reportEvent === 'function') {
+        app.reportEvent(id, '', { pubkey: target.pubkey, kind: 1, content: target.content || '' });
+      }
+      return;
+    }
+    if (action === 'delete') {
+      closeVideosShareSheet();
+      const app = window.NostrApp || {};
+      if (canViewerDeleteVideoPost(postActions.target) && typeof app.deletePost === 'function') {
+        app.deletePost(id);
+      }
     }
   });
 }
