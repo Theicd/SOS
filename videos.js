@@ -8797,7 +8797,10 @@ async function loadVideos() {
 
   // העשרת המקור עם רשת המשתמש - רק פוסטים חדשים
   const authors = [];
-  if (currentApp?.followingSet && currentApp.followingSet.size) authors.push(...Array.from(currentApp.followingSet));
+  const followedAuthors = typeof currentApp?.getFollowingList === 'function'
+    ? currentApp.getFollowingList()
+    : [];
+  if (Array.isArray(followedAuthors) && followedAuthors.length) authors.push(...followedAuthors);
   if (currentApp?.publicKey) authors.push(currentApp.publicKey);
   if (authors.length) {
     const sinceTime = recoverMode ? 0 : (sinceMergeTime > 0 ? sinceMergeTime : undefined);

@@ -558,50 +558,67 @@
     fetchFollowersDirectFromRelays(App.publicKey);
   }
   
+  // חלק צמצום אירועי Follow (profile-view.js) – האירוע החדש ביותר לכל מפתח קובע, UNFOLLOW משמש כ-tombstone | HYPER CORE TECH
+  function getFollowEventAction(event) {
+    try {
+      const content = JSON.parse(event.content || '{}');
+      if (content.action === 'unfollow' || content.type === 'unfollow') return 'unfollow';
+    } catch {}
+    return 'follow';
+  }
+  function isNewerFollowEntry(candidate, existing) {
+    if (!existing) return true;
+    if (candidate.created_at !== existing.created_at) return candidate.created_at > existing.created_at;
+    if (!candidate.eventId) return false;
+    if (!existing.eventId) return true;
+    return candidate.eventId > existing.eventId;
+  }
+  function reduceFollowEventsNewestWins(events, getKey) {
+    const latest = new Map();
+    (Array.isArray(events) ? events : []).forEach((event) => {
+      if (!event) return;
+      const key = getKey(event);
+      if (!key) return;
+      const candidate = {
+        action: getFollowEventAction(event),
+        created_at: Number(event.created_at) || 0,
+        eventId: typeof event.id === 'string' ? event.id : '',
+      };
+      if (isNewerFollowEntry(candidate, latest.get(key))) latest.set(key, candidate);
+    });
+    const active = [];
+    latest.forEach((entry, key) => {
+      if (entry.action === 'follow') active.push(key);
+    });
+    return active;
+  }
+  async function queryFollowEventsDirect(relays, filter) {
+    if (App.pool && typeof App.pool.querySync === 'function') {
+      return App.pool.querySync(relays, filter);
+    }
+    if (App.pool && typeof App.pool.list === 'function') {
+      return App.pool.list(relays, [filter]);
+    }
+    return null;
+  }
+
   // חלק שליפת עוקבים ישירה (profile-view.js) – שליפה ישירה מריליים לספירה מדויקת | HYPER CORE TECH
   async function fetchFollowersDirectFromRelays(pubkey) {
     if (!pubkey) return;
     const FOLLOW_KIND = App.FOLLOW_KIND || 40010;
     const relays = App.relayUrls || ['wss://relay.damus.io', 'wss://nos.lol'];
-    const seen = new Set();
     
     try {
       const filter = { kinds: [FOLLOW_KIND], '#p': [pubkey], limit: 200 };
       if (App.NETWORK_TAG) filter['#t'] = [App.NETWORK_TAG];
       
-      if (App.pool && typeof App.pool.querySync === 'function') {
-        const events = await App.pool.querySync(relays, filter);
-        if (Array.isArray(events)) {
-          events.forEach(event => {
-            if (!event.pubkey || seen.has(event.pubkey)) return;
-            let action = 'follow';
-            try {
-              const content = JSON.parse(event.content || '{}');
-              if (content.action === 'unfollow' || content.type === 'unfollow') action = 'unfollow';
-            } catch {}
-            if (action === 'follow') seen.add(event.pubkey);
-          });
-        }
-      } else if (App.pool && typeof App.pool.list === 'function') {
-        const events = await App.pool.list(relays, [filter]);
-        if (Array.isArray(events)) {
-          events.forEach(event => {
-            if (!event.pubkey || seen.has(event.pubkey)) return;
-            let action = 'follow';
-            try {
-              const content = JSON.parse(event.content || '{}');
-              if (content.action === 'unfollow' || content.type === 'unfollow') action = 'unfollow';
-            } catch {}
-            if (action === 'follow') seen.add(event.pubkey);
-          });
-        }
-      }
-      
-      // עדכון הספירה אם יש יותר תוצאות מהשליפה הישירה
-      if (seen.size > followState.snapshot.length) {
-        console.log('[PROFILE] עוקבים משליפה ישירה:', seen.size);
-        if (refs.followersCount) refs.followersCount.textContent = seen.size.toString();
-        if (refs.followersSummaryCount) refs.followersSummaryCount.textContent = seen.size.toString();
+      const events = await queryFollowEventsDirect(relays, filter);
+      if (Array.isArray(events)) {
+        const activeFollowers = reduceFollowEventsNewestWins(events, (event) => event.pubkey);
+        // ספירה אחרי צמצום מלא – יכולה לעלות, להישאר או לרדת
+        console.log('[PROFILE] עוקבים משליפה ישירה:', activeFollowers.length);
+        if (refs.followersCount) refs.followersCount.textContent = activeFollowers.length.toString();
+        if (refs.followersSummaryCount) refs.followersSummaryCount.textContent = activeFollowers.length.toString();
       }
       
       // שליפת נעקבים ישירה גם כן | HYPER CORE TECH
@@ -616,37 +633,19 @@
     if (!pubkey) return;
     const FOLLOW_KIND = App.FOLLOW_KIND || 40010;
     const relays = App.relayUrls || ['wss://relay.damus.io', 'wss://nos.lol'];
-    const seen = new Set();
     
     try {
       // שליפת כל אירועי Follow שהמשתמש יצר (מי שהוא עוקב אחריו)
       const filter = { kinds: [FOLLOW_KIND], authors: [pubkey], limit: 200 };
       if (App.NETWORK_TAG) filter['#t'] = [App.NETWORK_TAG];
       
-      let events = [];
-      if (App.pool && typeof App.pool.querySync === 'function') {
-        events = await App.pool.querySync(relays, filter);
-      } else if (App.pool && typeof App.pool.list === 'function') {
-        events = await App.pool.list(relays, [filter]);
-      }
+      const events = await queryFollowEventsDirect(relays, filter);
+      const seen = new Set(reduceFollowEventsNewestWins(events, (event) => {
+        const pTag = event.tags?.find(t => t[0] === 'p');
+        return pTag && pTag[1] ? pTag[1] : '';
+      }));
       
-      if (Array.isArray(events)) {
-        events.forEach(event => {
-          const pTag = event.tags?.find(t => t[0] === 'p');
-          if (!pTag || !pTag[1]) return;
-          const followPubkey = pTag[1];
-          if (seen.has(followPubkey)) return;
-          
-          let action = 'follow';
-          try {
-            const content = JSON.parse(event.content || '{}');
-            if (content.action === 'unfollow' || content.type === 'unfollow') action = 'unfollow';
-          } catch {}
-          if (action === 'follow') seen.add(followPubkey);
-        });
-      }
-      
-      // עדכון הספירה - תמיד לקחת את המקסימום | HYPER CORE TECH
+      // ספירה קנונית כשהמצב נטען מהריליים; אחרת השליפה הישירה משמשת כגיבוי
       lastDirectFollowingCount = seen.size;
       const canonicalFollowing = getCanonicalFollowingList();
       const canonicalAuthoritative = isCanonicalFollowingAuthoritative();
