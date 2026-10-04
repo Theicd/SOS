@@ -12,8 +12,11 @@
  *   busy.qa-sos.test                         503
  *   hang.qa-sos.test                         never answers
  *   blossom.band / blossom.nostr.build / files.sovbit.host   mock Blossom: serves only hashes it holds, 404 otherwise
- * Every context is fresh (no localStorage / IndexedDB / feed cache), service worker disabled. Disposable keys only.
- * Runs on the Edge channel (H.264). Never deploys. Never touches production config.
+ *   files.sovbit.host can be forced to 404 / 503 per hash (SOVBIT_FORCE)
+ * Every context is fresh (no localStorage / IndexedDB / feed cache). The service worker is disabled except in the
+ * SW_* contexts, which run the real service worker (127.0.0.1 is a secure context). Disposable keys only.
+ * Runs on the Edge channel (H.264), plus a WebKit smoke when the Playwright WebKit build is installed.
+ * Never deploys. Never touches production config.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -21,7 +24,7 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { execSync } from 'node:child_process';
-import { chromium } from 'playwright';
+import { chromium, webkit } from 'playwright';
 import { WebSocketServer } from 'ws';
 import { generateSecretKey, getPublicKey, finalizeEvent, verifyEvent } from 'nostr-tools';
 
@@ -79,6 +82,7 @@ const HOST_MODE = {
   'files.sovbit.host': 'blossom',
 };
 const BLOSSOM_HAS = { 'blossom.band': new Set(), 'blossom.nostr.build': new Set(), 'files.sovbit.host': new Set() };
+const SOVBIT_FORCE = new Map(); // hash -> 404 | 503
 
 // ---------------------------------------------------------------- healthy relay with live fan-out
 function matchFilter(ev, f) {
@@ -201,6 +205,28 @@ const server = http.createServer((req, res) => {
     let p = decodeURIComponent((req.url || '/').split('?')[0]);
     if (p === '/') p = '/videos.html';
     if (/^\/qa-media\/[\w-]+\.jpg$/.test(p)) p = '/LOGO.jpg';
+    // real HTTP media for the WebKit smoke (Playwright WebKit cannot play route-fulfilled media)
+    const mp4 = /^\/qa-mp4\/([0-9a-f]{64})\.mp4$/.exec(p);
+    if (mp4) {
+      const buf = MEDIA.get(mp4[1]);
+      if (!buf) {
+        res.writeHead(404);
+        res.end('nf');
+        return;
+      }
+      const headers = { 'Content-Type': 'video/mp4', 'Accept-Ranges': 'bytes', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' };
+      const m = /bytes=(\d*)-(\d*)/.exec(req.headers.range || '');
+      if (m) {
+        const s = m[1] ? Number(m[1]) : 0;
+        const e = Math.min(m[2] ? Number(m[2]) : buf.length - 1, buf.length - 1);
+        res.writeHead(206, { ...headers, 'Content-Range': `bytes ${s}-${e}/${buf.length}`, 'Content-Length': e - s + 1 });
+        res.end(req.method === 'HEAD' ? undefined : buf.subarray(s, e + 1));
+        return;
+      }
+      res.writeHead(200, { ...headers, 'Content-Length': buf.length });
+      res.end(req.method === 'HEAD' ? undefined : buf);
+      return;
+    }
     const fp = path.join(ROOT, p.replace(/^\//, ''));
     if (!fp.startsWith(ROOT) || !fs.existsSync(fp) || fs.statSync(fp).isDirectory()) {
       res.writeHead(404);
@@ -229,7 +255,7 @@ const HASH = {}; // label -> media hash
 function nativePost(label, key, createdAt, host, { mirrors = [], yt = false } = {}) {
   const h = mkMedia(label);
   HASH[label] = h;
-  const url = `https://${host}/${h}.mp4`;
+  const url = /^https?:\/\//.test(host) ? `${host}/${h}.mp4` : `https://${host}/${h}.mp4`;
   const lines = [`qa 899s ${label}`];
   if (yt) lines.push(YT);
   lines.push(url);
@@ -254,14 +280,23 @@ function seed() {
   add('Y0', textPost('Y0', a(0), at(), [YT])); // YouTube only
   add('D0', nativePost('D0', a(1), at(), 'dead.qa-sos.test')); // every candidate 404
   add('N1', nativePost('N1', a(2), at(), 'media.qa-sos.test'));
-  add('B2', nativePost('B2', a(0), at(), 'dead.qa-sos.test')); // dead original, healthy Blossom
+  add('B2', nativePost('B2', a(0), at(), 'dead.qa-sos.test')); // dead original; first Blossom 404, second Blossom healthy
   BLOSSOM_HAS['blossom.band'].add(HASH.B2);
-  add('S3', nativePost('S3', a(1), at(), 'busy.qa-sos.test', { mirrors: ['mirror.qa-sos.test'] })); // 503 original, healthy mirror
+  add('S3', nativePost('S3', a(1), at(), 'mirror.qa-sos.test', { mirrors: ['busy.qa-sos.test'] })); // declared mirror 503 (tried first), healthy original
   add('YN4', nativePost('YN4', a(2), at(), 'media.qa-sos.test', { yt: true })); // YouTube + native
   add('YI5', textPost('YI5', a(0), at(), [YT, img('yi5')])); // YouTube + image
-  add('H6', nativePost('H6', a(1), at(), 'hang.qa-sos.test')); // original never answers, Blossom has it
+  add('H6', nativePost('H6', a(1), at(), 'dead.qa-sos.test', { mirrors: ['hang.qa-sos.test'] })); // declared mirror never answers, Blossom has it
   BLOSSOM_HAS['blossom.nostr.build'].add(HASH.H6);
   for (let n = 7; n <= 14; n++) add('N' + n, nativePost('N' + n, a(n), at(), 'media.qa-sos.test'));
+  // sovbit originals: never the first attempt when a hash alternative exists
+  add('SV16', nativePost('SV16', a(0), at(), 'files.sovbit.host')); // sovbit 404, blossom.band healthy
+  SOVBIT_FORCE.set(HASH.SV16, 404);
+  BLOSSOM_HAS['blossom.band'].add(HASH.SV16);
+  add('SV17', nativePost('SV17', a(1), at(), 'files.sovbit.host')); // sovbit 503, blossom.nostr.build healthy
+  SOVBIT_FORCE.set(HASH.SV17, 503);
+  BLOSSOM_HAS['blossom.nostr.build'].add(HASH.SV17);
+  add('SV18', nativePost('SV18', a(2), at(), 'files.sovbit.host')); // sovbit 503, no alternative holds it
+  SOVBIT_FORCE.set(HASH.SV18, 503);
   add('I15', textPost('I15', a(2), at(), [img('i15')])); // image only
   // engagement on N1
   H.add(sign(a(0), { kind: 7, created_at: P.N1.created_at + 5, tags: [['e', P.N1.id], ['p', P.N1.pubkey], ['t', NET]], content: '+' }));
@@ -278,10 +313,20 @@ const histIds = () => Object.keys(P).filter((k) => k.startsWith('HIST')).map((k)
 // ---------------------------------------------------------------- browser helpers
 const ALLOWED_EXTERNAL_HOSTS = new Set(['cdn.jsdelivr.net', 'unpkg.com', 'cdnjs.cloudflare.com']);
 const QA_LOG_RE = /^\[videos\] (media candidate|media candidates failed|boot loading released|live post accepted|new post auto-mounted|new post warming|Boot safety timeout|mounted parked card)/;
-const INIT = (reStr) => {
-  try {
-    Object.defineProperty(navigator, 'serviceWorker', { get: () => undefined, configurable: true });
-  } catch (_e) {}
+const INIT = ({ reStr, realSw, saveData }) => {
+  if (!realSw) {
+    try {
+      Object.defineProperty(navigator, 'serviceWorker', { get: () => undefined, configurable: true });
+    } catch (_e) {}
+  }
+  window.__qaCtrlAtLoad = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
+  window.__qaDocId = Math.random().toString(36).slice(2);
+  if (saveData) {
+    const conn = { saveData: true, effectiveType: '4g', addEventListener() {}, removeEventListener() {} };
+    try {
+      Object.defineProperty(navigator, 'connection', { get: () => conn, configurable: true });
+    } catch (_e) {}
+  }
   const re = new RegExp(reStr);
   window.__qaLog = [];
   ['log', 'warn'].forEach((level) => {
@@ -302,8 +347,8 @@ const INIT = (reStr) => {
 };
 
 let browser = null;
-async function freshContext(label) {
-  const ctx = await browser.newContext({ viewport: { width: 420, height: 860 } });
+async function freshContext(label, { b = browser, realSw = false, saveData = false } = {}) {
+  const ctx = await b.newContext({ viewport: { width: 420, height: 860 }, serviceWorkers: realSw ? 'allow' : 'block' });
   const u = { label, ctx, media: [], hung: [] };
   await ctx.routeWebSocket(new RegExp(`^ws://127\\.0\\.0\\.1:${H_PORT}`), (ws) => ws.connectToServer());
   await ctx.route('**/*', async (route) => {
@@ -324,6 +369,7 @@ async function freshContext(label) {
     const h = (url.pathname.match(/([0-9a-f]{64})/) || [])[1] || '';
     u.media.push({ t: Date.now(), host, h: h.slice(0, 12), method: req.method(), range: req.headers()['range'] || '' });
     const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Expose-Headers': 'Content-Length, Content-Range', 'Cache-Control': 'no-store' };
+    if (host === 'files.sovbit.host' && SOVBIT_FORCE.has(h)) return route.fulfill({ status: SOVBIT_FORCE.get(h), headers: cors, body: 'sovbit' });
     if (mode === '404') return route.fulfill({ status: 404, headers: cors, body: 'not found' });
     if (mode === '503') return route.fulfill({ status: 503, headers: cors, body: 'busy' });
     if (mode === 'hang') {
@@ -343,11 +389,51 @@ async function freshContext(label) {
     }
     return route.fulfill({ status: 200, headers, body: buf });
   });
-  await ctx.addInitScript(INIT, QA_LOG_RE.source);
+  await ctx.addInitScript(INIT, { reStr: QA_LOG_RE.source, realSw, saveData });
   u.page = await ctx.newPage();
+  u.navs = 0;
+  u.page.on('framenavigated', (f) => {
+    if (f === u.page.mainFrame()) u.navs++;
+  });
   u.t0 = Date.now();
   return u;
 }
+// full-body GETs (no Range header) are background persist downloads; <video> streaming always sends Range
+const fullGets = (u, lbl) => u.media.filter((m) => m.method === 'GET' && !m.range && (!lbl || m.h === HASH[lbl].slice(0, 12)));
+const labelOfHash12 = (h12) => Object.keys(HASH).find((k) => HASH[k].slice(0, 12) === h12) || h12;
+async function poll(fn, timeout, step = 250) {
+  const t = Date.now();
+  while (Date.now() - t < timeout) {
+    const v = await fn();
+    if (v) return v;
+    await sleep(step);
+  }
+  return null;
+}
+async function playCentered(page) {
+  return page.evaluate(async () => {
+    const vp = document.querySelector('.videos-feed__viewport');
+    // eslint-disable-next-line no-undef
+    const card = getCenteredFeedCard(vp);
+    const v = card && card.querySelector('video');
+    if (!v) return { id: card ? card.getAttribute('data-event-id') : null, playing: false };
+    v.muted = true;
+    if (v.paused) {
+      try {
+        await v.play();
+      } catch (_e) {}
+    }
+    return { id: card.getAttribute('data-event-id'), playing: !v.paused };
+  });
+}
+async function scrollToCard(page, id) {
+  await page.evaluate((eid) => {
+    const c = document.querySelector(`.videos-feed__stream .videos-feed__card[data-event-id="${eid}"]`);
+    if (c) c.scrollIntoView({ block: 'center', behavior: 'auto' });
+  }, id);
+  await sleep(1200);
+}
+const cachedHas = (page, h) => page.evaluate((x) => !!window.NostrApp?.mediaCacheHashSet?.has(x), h);
 const qaLog = (u) => u.page.evaluate(() => window.__qaLog.slice());
 async function waitApp(page) {
   await page.waitForFunction(() => !!window.NostrApp?.createNewIdentityExplicit && !!window.NostrApp?.pool && window.SosFeatureFlags?.isResolved?.() === true, null, { polling: 200, timeout: 120000 });
@@ -467,6 +553,8 @@ try {
   const gBoot = await measureBoot(g);
   // let the slow paths settle (hang -> Blossom after the candidate timeout)
   await waitCard(g.page, P.H6.id, 30000);
+  await waitCard(g.page, P.SV17.id, 30000);
+  await waitCard(g.page, P.I15.id, 30000);
   await sleep(1500);
   const gSnap = await feedSnapshot(g.page);
   const gLog = await qaLog(g);
@@ -506,11 +594,48 @@ try {
     return m ? m.t - g.t0 : null;
   };
   const h6 = candLogs('H6');
-  set('HTTP_503_AND_TIMEOUT_DO_NOT_BLOCK', !!card('S3') && /mirror\.qa-sos\.test/.test(card('S3').src) && !!card('H6') && /blossom\.nostr\.build/.test(card('H6').src) && !!card('N7') && card('N7').readyState >= 2, {
+  const s3 = candLogs('S3');
+  set('HTTP_503_AND_TIMEOUT_DO_NOT_BLOCK', !!card('S3') && /mirror\.qa-sos\.test/.test(card('S3').src) && /^busy\.qa-sos\.test/.test(s3[0]?.data.ref || '') && !!card('H6') && /blossom\.nostr\.build/.test(card('H6').src) && /^hang\.qa-sos\.test/.test(h6[0]?.data.ref || '') && !!card('N7') && card('N7').readyState >= 2, {
     s3: card('S3'),
+    s3Attempts: s3.map((l) => l.data.ref),
     h6: card('H6'),
     h6Attempts: h6.map((l) => ({ ref: l.data.ref, ms: l.t - g.t0 })),
     n7FirstCandidateMs: readyAt('N7'),
+  });
+
+  // sovbit is never the first attempt when a valid hash offers Blossom alternatives
+  const unitOrder = await g.page.evaluate((h) => {
+    // eslint-disable-next-line no-undef
+    const list = buildPublicMediaCandidates(`https://files.sovbit.host/${h}.mp4`, h, []);
+    return list.map((x) => new URL(x).hostname);
+  }, HASH.SV16);
+  const firstRef = (lbl) => String(candLogs(lbl)[0]?.data.ref || '');
+  const sovFirst = ['SV16', 'SV17', 'SV18'].filter((l) => firstRef(l).startsWith('files.sovbit.host'));
+  report.SOVBIT_FIRST_WITH_HASH_ALTERNATIVE = sovFirst.length > 0 || unitOrder[0] === 'files.sovbit.host';
+  set('SOVBIT_NOT_FIRST_WITH_HASH_ALTERNATIVE', !report.SOVBIT_FIRST_WITH_HASH_ALTERNATIVE && unitOrder[unitOrder.length - 1] === 'files.sovbit.host', {
+    unitOrder,
+    firstAttempts: ['SV16', 'SV17', 'SV18'].map((l) => `${l}:${firstRef(l).split('/')[0]}`),
+  });
+  const sovbitHitsBefore = (lbl) => {
+    const okAt = g.media.find((m) => m.h === HASH[lbl].slice(0, 12) && m.host !== 'files.sovbit.host' && m.method === 'GET');
+    return g.media.filter((m) => m.h === HASH[lbl].slice(0, 12) && m.host === 'files.sovbit.host' && (!okAt || m.t <= okAt.t)).length;
+  };
+  const sv16 = candLogs('SV16');
+  report.FIRST_ATTEMPT_HOST_SOVBIT_404 = firstRef('SV16').split('/')[0];
+  set('SOVBIT_404_FAST_FALLBACK', !!card('SV16') && card('SV16').readyState >= 2 && /blossom\.band/.test(card('SV16').src) && report.FIRST_ATTEMPT_HOST_SOVBIT_404 !== 'files.sovbit.host' && sovbitHitsBefore('SV16') === 0, {
+    firstAttemptHost: report.FIRST_ATTEMPT_HOST_SOVBIT_404,
+    attempts: sv16.map((l) => l.data.ref.split('/')[0]),
+    sovbitRequestsBeforeBlossom: sovbitHitsBefore('SV16'),
+    SOVBIT_404_DOES_NOT_DELAY_HEALTHY_BLOSSOM: sovbitHitsBefore('SV16') === 0 ? 'PASS' : 'FAIL',
+  });
+  const sv18 = candLogs('SV18');
+  set('SOVBIT_503_NONBLOCKING', !!card('SV17') && /blossom\.nostr\.build/.test(card('SV17').src) && sovbitHitsBefore('SV17') === 0 && !card('SV18') && !!card('I15') && gBoot.firstMs !== null && !gBoot.safety, {
+    sv17: card('SV17') && card('SV17').src.replace(/[0-9a-f]{64}/, '<hash>'),
+    sv17Attempts: candLogs('SV17').map((l) => l.data.ref.split('/')[0]),
+    sv18Attempts: sv18.map((l) => l.data.ref.split('/')[0]),
+    sv18Mounted: !!card('SV18'),
+    nextCardMounted: !!card('I15'),
+    SOVBIT_503_DOES_NOT_BLOCK_FIRST_PAINT: gBoot.firstMs !== null && !gBoot.safety ? 'PASS' : 'FAIL',
   });
   const dups = duplicateAttempts(gLog);
   report.DUPLICATE_MEDIA_URL_ATTEMPTS = dups;
@@ -649,6 +774,154 @@ try {
   set('YOUTUBE_OUTSIDE_VIDEOS_FEED_PRESERVED', ytElsewhere.parsedYoutubeId && ytElsewhere.ownPostsType === 'youtube' && feedJsUntouched, { ...ytElsewhere, feedJsUntouched });
   await g.ctx.close();
 
+  // ---- 7b. background persist is view-driven and cache never reorders the feed
+  const pc = await freshContext('PERSIST_CACHE_ORDER');
+  await pc.page.goto(URL0, { waitUntil: 'domcontentloaded', timeout: 120000 });
+  await measureBoot(pc);
+  const warmed = await poll(async () => {
+    const sn = await feedSnapshot(pc.page);
+    return sn.cards.filter((c) => c.type === 'file' && c.ready).length >= 10 ? sn : null;
+  }, 40000);
+  await sleep(2500);
+  const pcSnap0 = await feedSnapshot(pc.page);
+  const centered0 = L(pcSnap0.centered);
+  const unviewed = fullGets(pc).filter((m) => labelOfHash12(m.h) !== centered0);
+  report.UNVIEWED_BACKGROUND_FULL_FETCH_COUNT = unviewed.length;
+  report.WARMED_NATIVE_CARDS = pcSnap0.cards.filter((c) => c.type === 'file' && c.ready).length;
+  set('UNVIEWED_MEDIA_NOT_BACKGROUND_PERSISTED', !!warmed && report.WARMED_NATIVE_CARDS >= 10 && unviewed.length === 0, {
+    warmedNativeCards: report.WARMED_NATIVE_CARDS,
+    centered: centered0,
+    unviewedFullFetches: unviewed.map((m) => `${m.host}:${labelOfHash12(m.h)}`),
+  });
+  const constants = await pc.page.evaluate(() => ({
+    /* eslint-disable no-undef */
+    queueMax: BACKGROUND_PERSIST_QUEUE_MAX,
+    sessionBudget: BACKGROUND_PERSIST_SESSION_BYTE_BUDGET,
+    /* eslint-enable no-undef */
+  }));
+  report.BACKGROUND_PERSIST_QUEUE_MAX = constants.queueMax;
+  report.BACKGROUND_PERSIST_SESSION_BYTE_BUDGET = constants.sessionBudget;
+  set('BACKGROUND_PERSIST_BOUNDS', constants.queueMax <= 3 && constants.sessionBudget <= 160 * 1024 * 1024, constants);
+
+  // the centered card plays -> exactly one background persist for it
+  const displayBeforeWrite = pcSnap0.display.slice();
+  if (!fullGets(pc, centered0).length) await playCentered(pc.page);
+  await poll(async () => fullGets(pc, centered0).length >= 1 && (await cachedHas(pc.page, HASH[centered0])), 15000);
+  await sleep(1500);
+  report.VIEWED_VIDEO_BACKGROUND_PERSIST_COUNT = fullGets(pc, centered0).length;
+  set('VIEWED_MEDIA_PERSISTED_ONCE', report.VIEWED_VIDEO_BACKGROUND_PERSIST_COUNT === 1 && (await cachedHas(pc.page, HASH[centered0])) && fullGets(pc).length === 1, {
+    centered: centered0,
+    viewedFullFetches: report.VIEWED_VIDEO_BACKGROUND_PERSIST_COUNT,
+    totalFullFetches: fullGets(pc).length,
+    cached: await cachedHas(pc.page, HASH[centered0]),
+  });
+
+  // navigate to an older card: one more bounded persist, no duplicate job for the first one
+  await scrollToCard(pc.page, P.N12.id);
+  const nav = await playCentered(pc.page);
+  await poll(async () => fullGets(pc, 'N12').length >= 1 && (await cachedHas(pc.page, HASH.N12)), 15000);
+  await scrollToCard(pc.page, pcSnap0.centered);
+  await playCentered(pc.page);
+  await sleep(2000);
+  const pcSnap1 = await feedSnapshot(pc.page);
+  set('NAVIGATE_PERSIST_BOUNDED_NO_DUPLICATE', L(nav.id) === 'N12' && fullGets(pc, 'N12').length === 1 && fullGets(pc, centered0).length === 1 && fullGets(pc).length === 2, {
+    navigatedTo: L(nav.id),
+    full: fullGets(pc).map((m) => labelOfHash12(m.h)),
+  });
+
+  // cache state never changes display order (same session, after the cache write)
+  const n12Cached = await cachedHas(pc.page, HASH.N12);
+  const n11Cached = await cachedHas(pc.page, HASH.N11);
+  const idx = (arr, lbl) => arr.indexOf(P[lbl].id);
+  const createdDesc = (arr) => arr.every((id, i) => i === 0 || (P[L(arr[i - 1])]?.created_at ?? Infinity) >= (P[L(id)]?.created_at ?? -Infinity));
+  const sameOrder = (a, b2x) => {
+    const common = a.filter((id) => b2x.includes(id));
+    return JSON.stringify(common) === JSON.stringify(b2x.filter((id) => common.includes(id)));
+  };
+  report.NEWER_UNCACHED_BEFORE_OLDER_CACHED = n12Cached && !n11Cached && idx(pcSnap1.display, 'N11') >= 0 && idx(pcSnap1.display, 'N11') < idx(pcSnap1.display, 'N12');
+  report.DISPLAY_ORDER_UNCHANGED_AFTER_CACHE_WRITE = JSON.stringify(displayBeforeWrite) === JSON.stringify(pcSnap1.display);
+  // ---- warm restart (same context: IndexedDB media cache + localStorage feed cache survive)
+  await pc.page.reload({ waitUntil: 'domcontentloaded' });
+  pc.t0 = Date.now();
+  await measureBoot(pc);
+  await poll(async () => (await cachedHas(pc.page, HASH.N12)) && (await feedSnapshot(pc.page)).display.includes(P.N12.id), 20000);
+  await sleep(2000);
+  const pcSnap2 = await feedSnapshot(pc.page);
+  const restartCached = await cachedHas(pc.page, HASH.N12);
+  report.DISPLAY_ORDER_UNCHANGED_ON_WARM_RESTART = restartCached && sameOrder(pcSnap1.display, pcSnap2.display) && idx(pcSnap2.display, 'N11') < idx(pcSnap2.display, 'N12') && createdDesc(pcSnap2.display);
+  report.CACHE_CAN_REORDER_FEED = !(report.NEWER_UNCACHED_BEFORE_OLDER_CACHED && report.DISPLAY_ORDER_UNCHANGED_AFTER_CACHE_WRITE && report.DISPLAY_ORDER_UNCHANGED_ON_WARM_RESTART);
+  set('CACHE_DOES_NOT_REORDER_FEED', !report.CACHE_CAN_REORDER_FEED, {
+    NEWER_UNCACHED_BEFORE_OLDER_CACHED: report.NEWER_UNCACHED_BEFORE_OLDER_CACHED,
+    DISPLAY_ORDER_UNCHANGED_AFTER_CACHE_WRITE: report.DISPLAY_ORDER_UNCHANGED_AFTER_CACHE_WRITE,
+    DISPLAY_ORDER_UNCHANGED_ON_WARM_RESTART: report.DISPLAY_ORDER_UNCHANGED_ON_WARM_RESTART,
+    restartCached,
+    displayCreatedDesc: createdDesc(pcSnap2.display),
+    displayAfterWrite: pcSnap1.display.slice(0, 18).map(L),
+    displayRestart: pcSnap2.display.slice(0, 18).map(L),
+  });
+  await pc.ctx.close();
+
+  // ---- 7c. Save-Data: optional persist skipped entirely
+  const sd = await freshContext('SAVE_DATA', { saveData: true });
+  await sd.page.goto(URL0, { waitUntil: 'domcontentloaded', timeout: 120000 });
+  const sdBoot = await measureBoot(sd);
+  const sdPlay = await playCentered(sd.page);
+  await sleep(5000);
+  report.SAVE_DATA_OPTIONAL_CACHE_FETCH_COUNT = fullGets(sd).length;
+  set('SAVE_DATA_SKIPS_OPTIONAL_PERSIST', sdBoot.firstMs !== null && sdPlay.playing && fullGets(sd).length === 0, {
+    firstMs: sdBoot.firstMs,
+    centeredPlaying: sdPlay.playing,
+    fullFetches: fullGets(sd).length,
+  });
+  await sd.ctx.close();
+
+  // ---- 7d. real service worker: fresh (no controller) and controlled reload
+  const sw = await freshContext('SW_FRESH', { realSw: true });
+  await sw.page.goto(URL0, { waitUntil: 'domcontentloaded', timeout: 120000 });
+  const docId = () => sw.page.evaluate(() => ({ id: window.__qaDocId, nav: performance.getEntriesByType('navigation')[0]?.type || '' }));
+  const swDoc0 = await docId();
+  const swBoot = await measureBoot(sw);
+  const swDoc1 = await docId();
+  const swReg = await poll(
+    () =>
+      sw.page.evaluate(async () => {
+        const r = navigator.serviceWorker ? await navigator.serviceWorker.getRegistration() : null;
+        return r && (r.active || r.waiting || r.installing) ? { scope: r.scope, active: !!r.active } : null;
+      }),
+    30000,
+    500
+  );
+  const swA = await sw.page.evaluate(() => ({ ctrlAtLoad: window.__qaCtrlAtLoad === true, secure: window.isSecureContext === true }));
+  await sleep(3000);
+  const swDoc2 = await docId();
+  // same document id from goto through first card and 3 s after registration -> no reload was needed
+  const noReload = swDoc0.id === swDoc1.id && swDoc1.id === swDoc2.id && swDoc1.nav === 'navigate';
+  report.SW_FIRST_LOAD_NO_CONTROLLER = {
+    SW_REGISTERED: !!swReg,
+    CONTROLLER_AT_LOAD: swA.ctrlAtLoad,
+    PUBLIC_NATIVE_FEED_VISIBLE: swBoot.firstMs !== null,
+    FIRST_NATIVE_CARD_VISIBLE_WITHOUT_RELOAD: swBoot.firstMs !== null && noReload,
+    SAFETY_TIMEOUT_USED: swBoot.safety,
+    firstMs: swBoot.firstMs,
+    navigationType: swDoc1.nav,
+    frameNavigatedEvents: sw.navs,
+  };
+  set('SW_FRESH_NO_CONTROLLER_FEED', swA.secure && !!swReg && !swA.ctrlAtLoad && swBoot.firstMs !== null && noReload && !swBoot.safety, report.SW_FIRST_LOAD_NO_CONTROLLER);
+  await poll(() => sw.page.evaluate(async () => !!(await navigator.serviceWorker.getRegistration())?.active), 20000, 500);
+  sw.navs = 0;
+  await sw.page.reload({ waitUntil: 'domcontentloaded' });
+  sw.t0 = Date.now();
+  const swBoot2 = await measureBoot(sw);
+  const swB = await sw.page.evaluate(() => ({ ctrlAtLoad: window.__qaCtrlAtLoad === true, ctrlNow: !!navigator.serviceWorker?.controller }));
+  report.SW_CONTROLLED_RELOAD = {
+    SW_CONTROLLER_PRESENT: swB.ctrlAtLoad || swB.ctrlNow,
+    PUBLIC_NATIVE_FEED_VISIBLE: swBoot2.firstMs !== null,
+    SAFETY_TIMEOUT_USED: swBoot2.safety,
+    firstMs: swBoot2.firstMs,
+  };
+  set('SW_CONTROLLED_RELOAD_FEED', (swB.ctrlAtLoad || swB.ctrlNow) && swBoot2.firstMs !== null && !swBoot2.safety, report.SW_CONTROLLED_RELOAD);
+  await sw.ctx.close();
+
   // ---- 8. fresh signed-in (no peers): key imported, feed cache cleared, signed-in boot
   const s = await freshContext('FRESH_SIGNED_IN');
   await s.page.goto(URL0, { waitUntil: 'domcontentloaded', timeout: 120000 });
@@ -679,6 +952,7 @@ try {
     bootReleaseMs: sBoot.bootReleaseMs,
     bootReason: sBoot.bootReason,
   });
+  report.SIGNED_IN_NO_PEER_BOOT_BLOCK = report.results.FRESH_SIGNED_IN_MP4_VISIBLE.ok ? 'PASS' : 'FAIL';
 
   // self publish stays immediate (forceShow -> top)
   const SELF = nativePost('SELF', USER, Math.floor(Date.now() / 1000), 'media.qa-sos.test');
@@ -737,9 +1011,60 @@ try {
     set('SIGNED_IN_NO_PEER_FASTER_THAN_OLD_PATH', report.SIGNED_IN_NO_PEER_FIRST_PAINT_PENALTY_LT_OLD_PATH, { newMs: sBoot.firstMs, oldMs: bsBoot.firstMs });
   }
 
+  // ---- 10. WebKit smoke (real H.264 fixture); never fabricated when WebKit is unavailable
+  let wk = null;
+  try {
+    wk = await webkit.launch({ headless: true });
+  } catch (e) {
+    report.WEBKIT_SMOKE = 'NOT_AVAILABLE';
+    report.WEBKIT_SMOKE_DETAIL = String(e && e.message ? e.message : e).split('\n')[0].slice(0, 200);
+  }
+  if (wk) {
+    try {
+      const WK = nativePost('WK1', AUTHORS[0], Math.floor(Date.now() / 1000), `http://127.0.0.1:${PORT}/qa-mp4`);
+      P.WK1 = WK;
+      label.set(WK.id, 'WK1');
+      H.add(WK);
+      const w = await freshContext('WEBKIT_SMOKE', { b: wk });
+      await w.page.goto(URL0, { waitUntil: 'domcontentloaded', timeout: 120000 });
+      const wSnap = await poll(async () => {
+        const sn = await feedSnapshot(w.page);
+        return sn.bootReleased && sn.cards.some((c) => c.id === WK.id && c.type === 'file' && c.readyState >= 1) ? sn : null;
+      }, 60000, 300);
+      const wLast = wSnap || (await feedSnapshot(w.page));
+      const wLog = await qaLog(w);
+      const wSafety = wLog.some((l) => /Boot safety timeout/.test(l.text) || (/boot loading released/.test(l.text) && /safety/.test(String(l.data ?? ''))));
+      const wFile = wLast.cards.filter((c) => c.id === WK.id && c.type === 'file');
+      const smoke = {
+        YOUTUBE_ONLY_ABSENT: !wLast.display.includes(P.Y0.id) && !wLast.cards.some((c) => c.id === P.Y0.id),
+        NATIVE_CARD_CREATED: wFile.length > 0,
+        LOADEDMETADATA_OR_PLAYABLE: wFile.some((c) => c.readyState >= 1),
+        SAFETY_TIMEOUT_USED: wSafety,
+        firstFileReadyState: wFile[0] ? wFile[0].readyState : null,
+        version: wk.version(),
+        cards: wLast.cards.length,
+        display: wLast.display.length,
+        bootReleased: wLast.bootReleased,
+        mediaRequests: w.media.length,
+        candidateLogs: wLog.filter((l) => /media candidate/.test(l.text)).length,
+        canPlayH264: await w.page.evaluate(() => document.createElement('video').canPlayType('video/mp4; codecs="avc1.42E01E"')),
+        harnessNote: 'Playwright WebKit (Windows) rejects route-fulfilled media (MEDIA_ERR_SRC_NOT_SUPPORTED); the smoke card streams the same H.264 fixture from the local HTTP server.',
+      };
+      report.WEBKIT_SMOKE_DETAIL = smoke;
+      report.WEBKIT_SMOKE = smoke.YOUTUBE_ONLY_ABSENT && smoke.NATIVE_CARD_CREATED && smoke.LOADEDMETADATA_OR_PLAYABLE && !smoke.SAFETY_TIMEOUT_USED ? 'PASS' : 'FAIL';
+      set('WEBKIT_SMOKE', report.WEBKIT_SMOKE === 'PASS', smoke);
+      await w.ctx.close();
+    } finally {
+      await wk.close().catch(() => {});
+    }
+  } else {
+    info('WEBKIT_SMOKE', report.WEBKIT_SMOKE_DETAIL);
+  }
+  report.IOS_SAFARI_DEPLOY_GATE = 'PENDING_OWNER_MANUAL';
+
   report.CONFIG_TRANSFORMS = CONFIG_TRANSFORMS;
   report.STREAM_FIRST_TRADEOFF =
-    'Public feed media streams from the winning candidate URL for first paint; persistent caching re-fetches that URL once in the background after boot release (concurrency 1, max 40 queued, SHA-256 verified against the event hash). Accepted cost: one extra transfer per cached public video in exchange for not blocking first paint on a full-blob download.';
+    'Public feed media streams from the winning candidate URL for first paint. Persistent caching is view-driven: only a card that is centered and playing re-fetches its URL once in the background (queue max 3, 160MB per session, skipped under Save-Data, SHA-256 verified against the event hash). Warmed but unviewed cards are never fully downloaded in the background.';
   const failed = Object.entries(report.results).filter(([, v]) => !v.ok).map(([k]) => k);
   report.status = failed.length ? 'FAIL' : 'PASS';
   report.failed = failed;

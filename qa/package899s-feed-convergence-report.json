@@ -4,15 +4,15 @@
     "healthy": "ws://127.0.0.1:7891",
     "http502": "ws://127.0.0.1:7892"
   },
-  "ts": "2026-10-03T23:13:42.771Z",
+  "ts": "2026-10-04T06:28:12.559Z",
   "results": {
     "FRESH_GUEST_MP4_VISIBLE": {
       "ok": true,
       "detail": {
-        "firstMs": 2053,
+        "firstMs": 2226,
         "guest": true,
         "n1": {
-          "id": "ae0cb6e2b168590a72df413f9e86ab9cff95673428586f450543ea525b030d11",
+          "id": "751456e8967902df376837019b5ced42049c0d7bbc52bd0752a31f81bf7942ba",
           "type": "file",
           "ready": true,
           "hidden": false,
@@ -26,20 +26,20 @@
       "ok": true,
       "detail": {
         "display": 197,
-        "cards": 197
+        "cards": 196
       }
     },
     "PERF_FIRST_NATIVE_CARD_VISIBLE": {
       "ok": true,
       "detail": {
-        "ms": 2053,
+        "ms": 2226,
         "limit": 15000
       }
     },
     "PERF_BOOT_RELEASE": {
       "ok": true,
       "detail": {
-        "ms": 1973,
+        "ms": 2102,
         "limit": 20000
       }
     },
@@ -67,7 +67,7 @@
       "ok": true,
       "detail": {
         "card": {
-          "id": "2178c3c9a883592813105778a18aea62328c3232d1d23a728949e72953333ec4",
+          "id": "1d761d084a0930533e4379cdb341e8c65a551579cd90c288aadb3b20ef4d72d9",
           "type": "file",
           "ready": true,
           "hidden": false,
@@ -81,7 +81,7 @@
       "ok": true,
       "detail": {
         "card": {
-          "id": "7a5a381cd0aea1b0b2d255c17c723f77ad75797f099426e198031902a9d76b58",
+          "id": "10adb2bd8479fdadb005c2188776bee9a04f741c3df3bada847787033ab6d05a",
           "type": "image",
           "ready": true,
           "hidden": false,
@@ -96,7 +96,7 @@
       "detail": {
         "cards": [
           {
-            "id": "ae0cb6e2b168590a72df413f9e86ab9cff95673428586f450543ea525b030d11",
+            "id": "751456e8967902df376837019b5ced42049c0d7bbc52bd0752a31f81bf7942ba",
             "type": "file",
             "ready": true,
             "hidden": false,
@@ -105,7 +105,7 @@
             "inView": true
           },
           {
-            "id": "267b966d69c8956d36b716f070091840e92338654f4f3905702492eb57bc8578",
+            "id": "9de21461814ea030e605d59573d709443b3f8be2695115e6c06d3f0359d66c1c",
             "type": "file",
             "ready": true,
             "hidden": false,
@@ -114,7 +114,7 @@
             "inView": false
           },
           {
-            "id": "2698e59670ebbbcae92c61c29005f597b6a908c27b4ca8de3b9c0d521e0dacae",
+            "id": "f987debe60cff20a3698b7c2d97092100338873906228544c5aa4b7ceadd29cb",
             "type": "file",
             "ready": true,
             "hidden": false,
@@ -123,7 +123,7 @@
             "inView": false
           },
           {
-            "id": "f3efe2651a6b77cf48ff814a3b288aac15a6682d86c3697721abfab80d151cc1",
+            "id": "92dde580f014d8987184c928f110541d2e893669152cec8770d0c09904ac6e91",
             "type": "file",
             "ready": true,
             "hidden": false,
@@ -138,7 +138,7 @@
       "ok": true,
       "detail": {
         "card": {
-          "id": "7c0c54055500288f9e930c2a1e94ae234627f3c1951f6619ff29920cb2a1064a",
+          "id": "35377bf556b20ad5c69c78c87c4fd6ed467c4a038a6f14199e609dfd0dac8206",
           "type": "file",
           "ready": true,
           "hidden": false,
@@ -147,8 +147,6 @@
           "inView": true
         },
         "attempts": [
-          "dead.qa-sos.test/…7bcc64e08b66.mp4",
-          "files.sovbit.host/…7bcc64e08b66.mp4",
           "blossom.nostr.build/…7bcc64e08b66.mp4",
           "blossom.band/…7bcc64e08b66.mp4"
         ]
@@ -157,7 +155,7 @@
     "HTTP_404_FAST_FALLBACK": {
       "ok": true,
       "detail": {
-        "ms": 12,
+        "ms": 20,
         "limit": 2000
       }
     },
@@ -165,7 +163,7 @@
       "ok": true,
       "detail": {
         "s3": {
-          "id": "8ccdcfa3087c2735366f5f8e4cee5413d0a6b5dc7d6ad45fc407d68c9b4c1b94",
+          "id": "181cfaa71d7aa9ce95987b839f344a7cca8291a6f019b7b63e780e2425c23660",
           "type": "file",
           "ready": true,
           "hidden": false,
@@ -173,8 +171,14 @@
           "src": "https://mirror.qa-sos.test/dbe66e23f1d24f991caca5f3097003d8d628839a2f4ba3cea0540764b182a0c4.mp4",
           "inView": false
         },
+        "s3Attempts": [
+          "busy.qa-sos.test/…0764b182a0c4.mp4",
+          "blossom.nostr.build/…0764b182a0c4.mp4",
+          "blossom.band/…0764b182a0c4.mp4",
+          "mirror.qa-sos.test/…0764b182a0c4.mp4"
+        ],
         "h6": {
-          "id": "01d19881652359da115e0b4808f64084374658cab9fb073929d45c0eacf95796",
+          "id": "e82699d550aa50fa097ac9093e07c21ddcb0b0dffc098188c1011e882ad832c3",
           "type": "file",
           "ready": true,
           "hidden": false,
@@ -185,25 +189,65 @@
         "h6Attempts": [
           {
             "ref": "hang.qa-sos.test/…425f25e3ec77.mp4",
-            "ms": 2198
-          },
-          {
-            "ref": "files.sovbit.host/…425f25e3ec77.mp4",
-            "ms": 14206
+            "ms": 2334
           },
           {
             "ref": "blossom.nostr.build/…425f25e3ec77.mp4",
-            "ms": 14211
+            "ms": 14343
           }
         ],
-        "n7FirstCandidateMs": 2297
+        "n7FirstCandidateMs": 2437
+      }
+    },
+    "SOVBIT_NOT_FIRST_WITH_HASH_ALTERNATIVE": {
+      "ok": true,
+      "detail": {
+        "unitOrder": [
+          "blossom.band",
+          "blossom.nostr.build",
+          "files.sovbit.host"
+        ],
+        "firstAttempts": [
+          "SV16:blossom.nostr.build",
+          "SV17:blossom.nostr.build",
+          "SV18:blossom.nostr.build"
+        ]
+      }
+    },
+    "SOVBIT_404_FAST_FALLBACK": {
+      "ok": true,
+      "detail": {
+        "firstAttemptHost": "blossom.nostr.build",
+        "attempts": [
+          "blossom.nostr.build",
+          "blossom.band"
+        ],
+        "sovbitRequestsBeforeBlossom": 0,
+        "SOVBIT_404_DOES_NOT_DELAY_HEALTHY_BLOSSOM": "PASS"
+      }
+    },
+    "SOVBIT_503_NONBLOCKING": {
+      "ok": true,
+      "detail": {
+        "sv17": "https://blossom.nostr.build/<hash>.mp4",
+        "sv17Attempts": [
+          "blossom.nostr.build"
+        ],
+        "sv18Attempts": [
+          "blossom.nostr.build",
+          "blossom.band",
+          "files.sovbit.host"
+        ],
+        "sv18Mounted": false,
+        "nextCardMounted": true,
+        "SOVBIT_503_DOES_NOT_BLOCK_FIRST_PAINT": "PASS"
       }
     },
     "NO_DUPLICATE_MEDIA_URL": {
       "ok": true,
       "detail": {
         "duplicates": 0,
-        "candidateLogs": 23
+        "candidateLogs": 48
       }
     },
     "DETERMINISTIC_ORDER": {
@@ -230,10 +274,10 @@
       "detail": {
         "n1Source": "https://media.qa-sos.test/<hash>.mp4",
         "firstCandidate": {
-          "id8": "880896ec",
+          "id8": "7f90b993",
           "idx": 0,
           "total": 4,
-          "ref": "dead.qa-sos.test/…2d43ed9d8850.mp4"
+          "ref": "blossom.nostr.build/…2d43ed9d8850.mp4"
         }
       }
     },
@@ -261,7 +305,7 @@
     "REMOTE_KIND1_AFTER_EOSE_AUTO_MOUNTS": {
       "ok": true,
       "detail": {
-        "ms": 249,
+        "ms": 268,
         "delivered": 1,
         "first": "R1"
       }
@@ -286,19 +330,19 @@
     "PERIODIC_REFRESH_AUTO_MOUNT_WITHOUT_HOME": {
       "ok": true,
       "detail": {
-        "ms": 299
+        "ms": 301
       }
     },
     "DELETION_UNCHANGED": {
       "ok": true,
       "detail": {
-        "ms": 366
+        "ms": 374
       }
     },
     "BLOCKED_AUTHOR_FALLBACK_EXCLUDED": {
       "ok": true,
       "detail": {
-        "candidates": 7,
+        "candidates": 8,
         "displayed": 0,
         "hasPolicy": true
       }
@@ -311,19 +355,133 @@
         "feedJsUntouched": true
       }
     },
+    "UNVIEWED_MEDIA_NOT_BACKGROUND_PERSISTED": {
+      "ok": true,
+      "detail": {
+        "warmedNativeCards": 17,
+        "centered": "R3",
+        "unviewedFullFetches": []
+      }
+    },
+    "BACKGROUND_PERSIST_BOUNDS": {
+      "ok": true,
+      "detail": {
+        "queueMax": 3,
+        "sessionBudget": 167772160
+      }
+    },
+    "VIEWED_MEDIA_PERSISTED_ONCE": {
+      "ok": true,
+      "detail": {
+        "centered": "R3",
+        "viewedFullFetches": 1,
+        "totalFullFetches": 1,
+        "cached": true
+      }
+    },
+    "NAVIGATE_PERSIST_BOUNDED_NO_DUPLICATE": {
+      "ok": true,
+      "detail": {
+        "navigatedTo": "N12",
+        "full": [
+          "R3",
+          "N12"
+        ]
+      }
+    },
+    "CACHE_DOES_NOT_REORDER_FEED": {
+      "ok": true,
+      "detail": {
+        "NEWER_UNCACHED_BEFORE_OLDER_CACHED": true,
+        "DISPLAY_ORDER_UNCHANGED_AFTER_CACHE_WRITE": true,
+        "DISPLAY_ORDER_UNCHANGED_ON_WARM_RESTART": true,
+        "restartCached": true,
+        "displayCreatedDesc": true,
+        "displayAfterWrite": [
+          "R3",
+          "R2",
+          "R1",
+          "N1",
+          "B2",
+          "S3",
+          "YN4",
+          "YI5",
+          "H6",
+          "N7",
+          "N8",
+          "N9",
+          "N10",
+          "N11",
+          "N12",
+          "N13",
+          "N14",
+          "SV16"
+        ],
+        "displayRestart": [
+          "R3",
+          "R2",
+          "R1",
+          "N1",
+          "B2",
+          "S3",
+          "YN4",
+          "YI5",
+          "H6",
+          "N7",
+          "N9",
+          "N10",
+          "N11",
+          "N12",
+          "N13",
+          "N14",
+          "SV16",
+          "SV17"
+        ]
+      }
+    },
+    "SAVE_DATA_SKIPS_OPTIONAL_PERSIST": {
+      "ok": true,
+      "detail": {
+        "firstMs": 1762,
+        "centeredPlaying": true,
+        "fullFetches": 0
+      }
+    },
+    "SW_FRESH_NO_CONTROLLER_FEED": {
+      "ok": true,
+      "detail": {
+        "SW_REGISTERED": true,
+        "CONTROLLER_AT_LOAD": false,
+        "PUBLIC_NATIVE_FEED_VISIBLE": true,
+        "FIRST_NATIVE_CARD_VISIBLE_WITHOUT_RELOAD": true,
+        "SAFETY_TIMEOUT_USED": false,
+        "firstMs": 3558,
+        "navigationType": "navigate",
+        "frameNavigatedEvents": 4
+      }
+    },
+    "SW_CONTROLLED_RELOAD_FEED": {
+      "ok": true,
+      "detail": {
+        "SW_CONTROLLER_PRESENT": true,
+        "PUBLIC_NATIVE_FEED_VISIBLE": true,
+        "SAFETY_TIMEOUT_USED": false,
+        "firstMs": 186
+      }
+    },
     "FRESH_SIGNED_IN_MP4_VISIBLE": {
       "ok": true,
       "detail": {
         "restoredOnReload": true,
-        "firstMs": 575,
-        "bootReleaseMs": 503,
+        "firstMs": 967,
+        "bootReleaseMs": 850,
         "bootReason": "boot-ready media=2/2"
       }
     },
     "SELF_PUBLISH": {
       "ok": true,
       "detail": {
-        "ms": 434,
+        "ms": 428,
         "domTop": [
           "SELF",
           "R3",
@@ -341,18 +499,29 @@
         "failed": false
       }
     },
-    "SIGNED_IN_NO_PEER_FASTER_THAN_OLD_PATH": {
+    "WEBKIT_SMOKE": {
       "ok": true,
       "detail": {
-        "newMs": 575,
-        "oldMs": 1080
+        "YOUTUBE_ONLY_ABSENT": true,
+        "NATIVE_CARD_CREATED": true,
+        "LOADEDMETADATA_OR_PLAYABLE": true,
+        "SAFETY_TIMEOUT_USED": false,
+        "firstFileReadyState": 3,
+        "version": "26.4",
+        "cards": 2,
+        "display": 191,
+        "bootReleased": true,
+        "mediaRequests": 31,
+        "candidateLogs": 41,
+        "canPlayH264": "probably",
+        "harnessNote": "Playwright WebKit (Windows) rejects route-fulfilled media (MEDIA_ERR_SRC_NOT_SUPPORTED); the smoke card streams the same H.264 fixture from the local HTTP server."
       }
     }
   },
   "metrics": {
     "FRESH_GUEST_BOOT": {
-      "firstMs": 2053,
-      "bootReleaseMs": 1973,
+      "firstMs": 2226,
+      "bootReleaseMs": 2102,
       "bootReason": "boot-ready media=3/2",
       "safety": false
     },
@@ -371,51 +540,78 @@
       "N12:file",
       "N13:file",
       "N14:file",
+      "SV16:file",
+      "SV17:file",
       "I15:image",
       "HIST0:image",
       "HIST1:image",
-      "HIST2:image",
-      "HIST3:image",
-      "HIST4:image"
-    ],
-    "BASELINE": {
-      "commit": "03605367ed48406e578f59f57cf7fb94cd583c9e",
-      "guestFirstNativeMs": 4002,
-      "guestBootReleaseMs": 3896,
-      "guestBootReason": "boot-ready media=2/2",
-      "signedInFirstNativeMs": 1080,
-      "signedInBootReleaseMs": 982,
-      "signedInBootReason": "boot-ready media=2/2"
-    }
+      "HIST2:image"
+    ]
   },
-  "FIRST_NATIVE_CARD_VISIBLE_MS": 2053,
-  "BOOT_RELEASE_MS": 1973,
+  "FIRST_NATIVE_CARD_VISIBLE_MS": 2226,
+  "BOOT_RELEASE_MS": 2102,
   "SAFETY_TIMEOUT_USED": false,
-  "FALLBACK_404_MS": 12,
+  "FALLBACK_404_MS": 20,
+  "SOVBIT_FIRST_WITH_HASH_ALTERNATIVE": false,
+  "FIRST_ATTEMPT_HOST_SOVBIT_404": "blossom.nostr.build",
   "DUPLICATE_MEDIA_URL_ATTEMPTS": 0,
   "HISTORICAL_REPLAY_AUTO_MOUNT_COUNT": 0,
-  "REMOTE_NEW_POST_AUTO_MOUNT_MS": 249,
+  "REMOTE_NEW_POST_AUTO_MOUNT_MS": 268,
   "SCROLL_ANCHOR_PRESERVED": true,
   "PERIODIC_RECOVERY_AUTO_MOUNT": true,
   "BLOCKED_AUTHOR_FALLBACK": "EXCLUDED",
-  "SIGNED_IN_FIRST_NATIVE_CARD_VISIBLE_MS": 575,
-  "SIGNED_IN_BOOT_RELEASE_MS": 503,
-  "BASELINE": {
-    "commit": "03605367ed48406e578f59f57cf7fb94cd583c9e",
-    "guestFirstNativeMs": 4002,
-    "guestBootReleaseMs": 3896,
-    "guestBootReason": "boot-ready media=2/2",
-    "signedInFirstNativeMs": 1080,
-    "signedInBootReleaseMs": 982,
-    "signedInBootReason": "boot-ready media=2/2"
+  "UNVIEWED_BACKGROUND_FULL_FETCH_COUNT": 0,
+  "WARMED_NATIVE_CARDS": 17,
+  "BACKGROUND_PERSIST_QUEUE_MAX": 3,
+  "BACKGROUND_PERSIST_SESSION_BYTE_BUDGET": 167772160,
+  "VIEWED_VIDEO_BACKGROUND_PERSIST_COUNT": 1,
+  "NEWER_UNCACHED_BEFORE_OLDER_CACHED": true,
+  "DISPLAY_ORDER_UNCHANGED_AFTER_CACHE_WRITE": true,
+  "DISPLAY_ORDER_UNCHANGED_ON_WARM_RESTART": true,
+  "CACHE_CAN_REORDER_FEED": false,
+  "SAVE_DATA_OPTIONAL_CACHE_FETCH_COUNT": 0,
+  "SW_FIRST_LOAD_NO_CONTROLLER": {
+    "SW_REGISTERED": true,
+    "CONTROLLER_AT_LOAD": false,
+    "PUBLIC_NATIVE_FEED_VISIBLE": true,
+    "FIRST_NATIVE_CARD_VISIBLE_WITHOUT_RELOAD": true,
+    "SAFETY_TIMEOUT_USED": false,
+    "firstMs": 3558,
+    "navigationType": "navigate",
+    "frameNavigatedEvents": 4
   },
-  "SIGNED_IN_NO_PEER_FIRST_PAINT_PENALTY_LT_OLD_PATH": true,
+  "SW_CONTROLLED_RELOAD": {
+    "SW_CONTROLLER_PRESENT": true,
+    "PUBLIC_NATIVE_FEED_VISIBLE": true,
+    "SAFETY_TIMEOUT_USED": false,
+    "firstMs": 186
+  },
+  "SIGNED_IN_FIRST_NATIVE_CARD_VISIBLE_MS": 967,
+  "SIGNED_IN_BOOT_RELEASE_MS": 850,
+  "SIGNED_IN_NO_PEER_BOOT_BLOCK": "PASS",
+  "WEBKIT_SMOKE_DETAIL": {
+    "YOUTUBE_ONLY_ABSENT": true,
+    "NATIVE_CARD_CREATED": true,
+    "LOADEDMETADATA_OR_PLAYABLE": true,
+    "SAFETY_TIMEOUT_USED": false,
+    "firstFileReadyState": 3,
+    "version": "26.4",
+    "cards": 2,
+    "display": 191,
+    "bootReleased": true,
+    "mediaRequests": 31,
+    "candidateLogs": 41,
+    "canPlayH264": "probably",
+    "harnessNote": "Playwright WebKit (Windows) rejects route-fulfilled media (MEDIA_ERR_SRC_NOT_SUPPORTED); the smoke card streams the same H.264 fixture from the local HTTP server."
+  },
+  "WEBKIT_SMOKE": "PASS",
+  "IOS_SAFARI_DEPLOY_GATE": "PENDING_OWNER_MANUAL",
   "CONFIG_TRANSFORMS": {
     "relays": true,
     "p2p": true,
     "sanitizer": true
   },
-  "STREAM_FIRST_TRADEOFF": "Public feed media streams from the winning candidate URL for first paint; persistent caching re-fetches that URL once in the background after boot release (concurrency 1, max 40 queued, SHA-256 verified against the event hash). Accepted cost: one extra transfer per cached public video in exchange for not blocking first paint on a full-blob download.",
+  "STREAM_FIRST_TRADEOFF": "Public feed media streams from the winning candidate URL for first paint. Persistent caching is view-driven: only a card that is centered and playing re-fetches its URL once in the background (queue max 3, 160MB per session, skipped under Save-Data, SHA-256 verified against the event hash). Warmed but unviewed cards are never fully downloaded in the background.",
   "status": "PASS",
   "failed": []
 }

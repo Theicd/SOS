@@ -5,7 +5,7 @@
     "http502": "ws://127.0.0.1:7882",
     "timeout": "ws://127.0.0.1:7883"
   },
-  "ts": "2026-10-03T23:14:24.292Z",
+  "ts": "2026-10-04T06:44:11.251Z",
   "results": {
     "FRESH_GUEST_VIDEO_FEED": {
       "ok": true,
@@ -13,7 +13,7 @@
         "fetched": 40,
         "display": 40,
         "cards": 40,
-        "firstMs": 14967
+        "firstMs": 14812
       }
     },
     "ENGAGEMENT_PENDING_DOES_NOT_BLOCK_RENDER": {
@@ -27,8 +27,8 @@
     "ENGAGEMENT_BATCH_TIMEOUT_BOUNDED": {
       "ok": true,
       "detail": {
-        "engagementMs": 4424,
-        "loadedAtMs": 18227,
+        "engagementMs": 4426,
+        "loadedAtMs": 18285,
         "timeouts": 0,
         "displayAfter": 40
       }
@@ -53,11 +53,11 @@
     "ENGAGEMENT_HYDRATES_IN_BACKGROUND": {
       "ok": true,
       "detail": {
-        "firstMs": 14724,
+        "firstMs": 14894,
         "likedAtFirstCard": 10,
         "likedCount": 10,
         "expected": 10,
-        "hydratedMs": 14728
+        "hydratedMs": 14896
       }
     },
     "GUEST_TO_IDENTITY_TRANSITION": {
@@ -79,7 +79,7 @@
       "detail": {
         "display": 40,
         "cards": 40,
-        "firstMs": 22920
+        "firstMs": 19259
       }
     },
     "FRESH_SIGNED_IN_VIDEO_FEED": {
@@ -94,7 +94,7 @@
         },
         "display": 40,
         "cards": 40,
-        "firstMs": 19078,
+        "firstMs": 19094,
         "bootReason": "boot-ready media=6/2"
       }
     }
@@ -115,36 +115,36 @@
         "engStarted": 6,
         "engPending": 6,
         "deletedDisplayed": true,
-        "ms": 14967
+        "ms": 14812
       },
       "bootReason": "boot-ready media=6/2",
       "logs": [
         {
-          "ms": 9289,
+          "ms": 9348,
           "text": "[videos] fetchRecentNotes: querySync returned 40"
         },
         {
-          "ms": 13803,
+          "ms": 13859,
           "text": "[videos] Loading likes/comments in batches: {total: 40, batches: 3}"
         },
         {
-          "ms": 13806,
+          "ms": 13863,
           "text": "[videos] loadVideos: rendering before boot gate {total: 40, display: 40, bootReleased: false}"
         },
         {
-          "ms": 13930,
+          "ms": 14004,
           "text": "[videos] boot loading released: boot-ready media=6/2"
         },
         {
-          "ms": 13930,
+          "ms": 14004,
           "text": "[videos] Loading likes/comments in batches: {total: 6, batches: 1}"
         },
         {
-          "ms": 18226,
+          "ms": 18282,
           "text": "[videos] fetchRecentNotes: querySync returned 1"
         },
         {
-          "ms": 18227,
+          "ms": 18285,
           "text": "[videos] Loaded likes/comments: {count: 0}"
         }
       ],

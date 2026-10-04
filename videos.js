@@ -595,6 +595,8 @@ const BOOT_MEDIA_CANDIDATE_TIMEOUT_MS = 4000;
 const FEED_MEDIA_CANDIDATE_TIMEOUT_MS = 12000;
 const MEDIA_HOST_PENALTY_MS = 60000;
 const PUBLIC_MEDIA_HASH_HOSTS = ['blossom.band', 'blossom.nostr.build', 'files.sovbit.host'];
+const PREFERRED_HASH_BLOSSOM_HOSTS = ['blossom.band', 'blossom.nostr.build'];
+const DEPRIORITIZED_MEDIA_HOSTS = ['files.sovbit.host'];
 // חלק מניעת כפילויות (videos.js) – מעקב אחרי וידאו שכבר בתור או הורדו | HYPER CORE TECH
 const videoDownloadedOrQueued = new Set();
 
@@ -824,16 +826,24 @@ function buildPublicMediaCandidates(url, hash, mirrors) {
   (Array.isArray(mirrors) ? mirrors : []).forEach(add);
   if (validHash) expandHashMediaUrls(h, url || '').forEach(add);
   const original = all[0] === url ? url : '';
-  const isGenericHashHost = (u) => validHash && PUBLIC_MEDIA_HASH_HOSTS.includes(mediaUrlHost(u)) && u.toLowerCase().includes(h);
   const hasHash = (u) => validHash && u.toLowerCase().includes(h);
-  const declared = all.filter((u) => !isGenericHashHost(u));
+  const isDeprioritized = (u) => DEPRIORITIZED_MEDIA_HOSTS.includes(mediaUrlHost(u));
+  const isPreferredBlossom = (u) => hasHash(u) && PREFERRED_HASH_BLOSSOM_HOSTS.includes(mediaUrlHost(u));
+  const isGenericHashHost = (u) => hasHash(u) && PUBLIC_MEDIA_HASH_HOSTS.includes(mediaUrlHost(u));
+  // sovbit לעולם לא ראשון כשיש חלופת hash — מוצהרים, Blossom מועדף, מראות, מקור, ואז sovbit | HYPER CORE TECH
+  const taken = new Set();
+  const pick = (pred) => all.filter((u) => {
+    if (taken.has(u) || isDeprioritized(u) || !pred(u)) return false;
+    taken.add(u);
+    return true;
+  });
   const groups = [
-    declared.filter((u) => u === original && hasHash(u)),
-    declared.filter((u) => u !== original && hasHash(u)),
-    declared.filter((u) => u !== original && !hasHash(u)),
-    declared.filter((u) => u === original && !hasHash(u)),
-    all.filter(isGenericHashHost),
+    pick((u) => u !== original && hasHash(u) && !isGenericHashHost(u)),
+    pick(isPreferredBlossom),
+    pick((u) => u !== original && !isGenericHashHost(u)),
+    pick((u) => u === original),
   ];
+  groups.push(all.filter((u) => !taken.has(u)));
   const ordered = [].concat(...groups);
   // שרת שנכשל ב־503 / timeout לאחרונה — לסוף התור (יציב) | HYPER CORE TECH
   return ordered.filter((u) => !isMediaHostPenalized(u)).concat(ordered.filter((u) => isMediaHostPenalized(u)));
@@ -901,7 +911,7 @@ async function resolvePublicFeedMedia(videoEl, url, hash, mirrors) {
       if (result === 'ok') {
         videoEl.dataset.mediaSource = candidate;
         delete videoEl.dataset.sosResolving;
-        scheduleBackgroundMediaPersist(candidate, hash);
+        armViewDrivenMediaPersist(videoEl, candidate, hash);
         return true;
       }
       if (result === 'timeout') {
@@ -929,23 +939,53 @@ async function resolvePublicFeedMedia(videoEl, url, hash, mirrors) {
   return false;
 }
 
-// שמירה קבועה ברקע אחרי שחרור הטעינה: אימות SHA-256 מול ה־hash לפני כתיבה למטמון | HYPER CORE TECH
-const BACKGROUND_PERSIST_LIMIT = 40;
+// שמירה קבועה רק לסרטון שנצפה (ממורכז ומתנגן), עם אימות SHA-256 לפני כתיבה למטמון | HYPER CORE TECH
+const BACKGROUND_PERSIST_QUEUE_MAX = 3;
+const BACKGROUND_PERSIST_SESSION_BYTE_BUDGET = 160 * 1024 * 1024;
 const BACKGROUND_PERSIST_MAX_BYTES = 80 * 1024 * 1024;
 const backgroundPersistQueue = [];
 const backgroundPersistSeen = new Set();
-const backgroundPersistedHashes = new Set();
 let backgroundPersistActive = false;
+let backgroundPersistActiveHash = '';
 let backgroundPersistRetryTimer = null;
+let backgroundPersistSessionBytes = 0;
+
+function isSaveDataRequested() {
+  try { return navigator.connection?.saveData === true; } catch (_) { return false; }
+}
+
+function armViewDrivenMediaPersist(videoEl, url, hash) {
+  if (!videoEl || typeof videoEl.addEventListener !== 'function') return;
+  if (videoEl.__sosPersistOnPlaying) videoEl.removeEventListener('playing', videoEl.__sosPersistOnPlaying);
+  const onPlaying = () => {
+    if (videoEl.dataset.mediaSource !== url) {
+      videoEl.removeEventListener('playing', onPlaying);
+      return;
+    }
+    const card = typeof videoEl.closest === 'function' ? videoEl.closest('.videos-feed__card') : null;
+    // תצוגה מקדימה / חימום של כרטיס לא ממורכז לא מפעילים הורדה מלאה ברקע | HYPER CORE TECH
+    if (!card || !card.isConnected || !bootGate.released || getCenteredFeedCard() !== card) return;
+    videoEl.removeEventListener('playing', onPlaying);
+    videoEl.__sosPersistOnPlaying = null;
+    scheduleBackgroundMediaPersist(url, hash);
+  };
+  videoEl.__sosPersistOnPlaying = onPlaying;
+  videoEl.addEventListener('playing', onPlaying);
+}
 
 function scheduleBackgroundMediaPersist(url, hash) {
   const h = String(hash || '').trim().toLowerCase();
   if (!/^[0-9a-f]{64}$/.test(h) || !/^https?:\/\//i.test(String(url || ''))) return;
-  if (/primal\.net/i.test(url)) return;
-  if (backgroundPersistSeen.has(h) || isVideoHashCached({ hash: h })) return;
-  if (backgroundPersistQueue.length >= BACKGROUND_PERSIST_LIMIT) return;
+  if (/primal\.net/i.test(url) || isSaveDataRequested()) return;
+  if (backgroundPersistSessionBytes >= BACKGROUND_PERSIST_SESSION_BYTE_BUDGET) return;
+  if (backgroundPersistSeen.has(h) || backgroundPersistActiveHash === h || isVideoHashCached({ hash: h })) return;
+  while (backgroundPersistQueue.length >= BACKGROUND_PERSIST_QUEUE_MAX) {
+    const dropped = backgroundPersistQueue.shift();
+    if (dropped) backgroundPersistSeen.delete(dropped.hash);
+  }
   backgroundPersistSeen.add(h);
   backgroundPersistQueue.push({ url, hash: h });
+  console.log('[videos] background persist scheduled', { hash: h.slice(0, 12), queued: backgroundPersistQueue.length });
   pumpBackgroundMediaPersist();
 }
 
@@ -960,21 +1000,33 @@ async function pumpBackgroundMediaPersist() {
     }
     return;
   }
-  if (typeof App.cacheMedia !== 'function' || !window.crypto?.subtle) {
+  if (typeof App.cacheMedia !== 'function' || !window.crypto?.subtle || isSaveDataRequested()) {
     backgroundPersistQueue.length = 0;
     return;
   }
   backgroundPersistActive = true;
   try {
     while (backgroundPersistQueue.length && !isFeedHeavyWorkPaused()) {
+      if (backgroundPersistSessionBytes >= BACKGROUND_PERSIST_SESSION_BYTE_BUDGET) {
+        backgroundPersistQueue.length = 0;
+        break;
+      }
       const { url, hash } = backgroundPersistQueue.shift();
       if (isVideoHashCached({ hash })) continue;
+      backgroundPersistActiveHash = hash;
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 60000);
       try {
         const res = await fetch(url, { mode: 'cors', signal: ctrl.signal });
         if (!res.ok) continue;
+        const declaredLen = Number(res.headers.get('content-length') || 0);
+        if (declaredLen > BACKGROUND_PERSIST_MAX_BYTES
+          || backgroundPersistSessionBytes + declaredLen > BACKGROUND_PERSIST_SESSION_BYTE_BUDGET) {
+          ctrl.abort();
+          continue;
+        }
         const blob = await res.blob();
+        backgroundPersistSessionBytes += blob.size;
         if (!blob.size || blob.size > BACKGROUND_PERSIST_MAX_BYTES) continue;
         const digest = await window.crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
         const hex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -982,7 +1034,6 @@ async function pumpBackgroundMediaPersist() {
           console.warn('[videos] background persist hash mismatch', { hash: hash.slice(0, 12) });
           continue;
         }
-        backgroundPersistedHashes.add(hash);
         await App.cacheMedia(url, hash, blob, blob.type || 'video/mp4', { pinned: true });
         if (typeof App.registerFileAvailability === 'function') {
           Promise.resolve(App.registerFileAvailability(hash, blob, blob.type || 'video/mp4')).catch(() => {});
@@ -991,6 +1042,7 @@ async function pumpBackgroundMediaPersist() {
         // כשל רקע לא משפיע על הכרטיס שכבר מוזרם | HYPER CORE TECH
       } finally {
         clearTimeout(timer);
+        backgroundPersistActiveHash = '';
       }
     }
   } finally {
@@ -2210,7 +2262,6 @@ const BOOT_CANDIDATE_WINDOW = 6;
 const BOOT_YOUTUBE_ELIGIBLE = false;
 const BOOT_MEDIA_TIMEOUT_MS = 20000;
 const BOOT_SAFETY_TIMEOUT_MS = 45000;
-const FEED_SESSION_START_SEC = Math.floor(Date.now() / 1000);
 
 const bootGate = {
   active: true,
@@ -9757,29 +9808,8 @@ function getDisplayVideos() {
   const filtered = sortVideosByCreatedAtDesc(
     all.filter((v) => isGeneralFeedVideo(v) && !isMediaUnavailable(v) && !isVideoAuthorSuppressed(v))
   );
-  if (filtered.length) {
-    try {
-      const cached = window.NostrApp?.mediaCacheHashSet;
-      if (cached && cached.size) {
-        const fresh = [];
-        const hit = [];
-        const rest = [];
-        filtered.forEach((v) => {
-          // פוסט שנוצר בסשן הזה (פרסום עצמי / זמן אמת) נשאר בראש גם מול פוסטים מהמטמון | HYPER CORE TECH
-          if (getVideoCreatedAt(v) >= FEED_SESSION_START_SEC - 120) {
-            fresh.push(v);
-            return;
-          }
-          const h = String(v.hash || '').toLowerCase();
-          // מה שנשמר ברקע בסשן הזה לא מקדים פוסטים — הסדר לא תלוי בסיום הורדה | HYPER CORE TECH
-          if (h && !backgroundPersistedHashes.has(h) && (cached.has(h) || cached.has(String(v.hash)))) hit.push(v);
-          else rest.push(v);
-        });
-        if (hit.length) return fresh.concat(hit, rest);
-      }
-    } catch (_) {}
-    return filtered;
-  }
+  // סדר הפיד נקבע רק לפי createdAt / boost — מצב המטמון לא משנה סדר תצוגה | HYPER CORE TECH
+  if (filtered.length) return filtered;
   if (state.feedMode === 'all' && all.length) {
     const fallback = sortVideosByCreatedAtDesc(
       all.filter((v) => v && (v.videoUrl || v.hash) && !v.liveCatalog && !isMediaUnavailable(v) && !isVideoAuthorSuppressed(v))
