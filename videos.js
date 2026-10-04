@@ -5291,7 +5291,9 @@ function renderVideoCard(video) {
   const viewerPubkey = typeof currentApp.publicKey === 'string' ? currentApp.publicKey.toLowerCase() : '';
   const videoOwnerPubkey = typeof video.pubkey === 'string' ? video.pubkey.toLowerCase() : '';
   const isSelf = viewerPubkey && videoOwnerPubkey ? viewerPubkey === videoOwnerPubkey : video.pubkey === currentApp.publicKey;
-  const isFollowing = currentApp.followingSet?.has(videoOwnerPubkey || video.pubkey) || false;
+  const isFollowing = typeof currentApp.isFollowing === 'function'
+    ? currentApp.isFollowing(videoOwnerPubkey || video.pubkey)
+    : false;
   const canDelete = canViewerDeleteVideoPost(video);
 
   // עריכה / הורדה / מחיקה / דיווח — בגיליון השיתוף; אין תפריט שלוש נקודות בפס | HYPER CORE TECH

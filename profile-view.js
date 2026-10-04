@@ -78,6 +78,10 @@
     unsubscribe: null,
     profilePromises: new Map(),
   };
+  // null = השליפה הישירה עוד לא החזירה תוצאה
+  let lastDirectFollowingCount = null;
+  let followingListRenderTimer = null;
+  let followingListRenderToken = 0;
 
   function hideConnectionToast() {
     if (refs.connectionStatus) {
@@ -311,12 +315,27 @@
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
+  // חלק נעקבים קנוני (profile-view.js) – קריאה רק דרך follow-service | HYPER CORE TECH
+  function getCanonicalFollowingList() {
+    return typeof App.getFollowingList === 'function' ? App.getFollowingList() : [];
+  }
+
+  // אחרי טעינה מוצלחת מהריליים עבור הצופה הנוכחי – הרשימה הקנונית היא האמת (כולל ירידה אחרי unfollow)
+  function isCanonicalFollowingAuthoritative() {
+    if (typeof App.getFollowingSnapshot !== 'function') return false;
+    const snapshot = App.getFollowingSnapshot();
+    const viewer = typeof App.publicKey === 'string' ? App.publicKey.trim().toLowerCase() : '';
+    return !!(snapshot && snapshot.relayLoaded && viewer && snapshot.viewerPubkey === viewer);
+  }
+
   // חלק עזר נעקבים (profile-view.js) – עדכון שני המונים (כותרת וכרטיס) לפי הערך המקסימלי | HYPER CORE TECH
   function syncFollowingCountFromFollowingSet() {
-    const followingSize = App.followingSet ? App.followingSet.size : 0;
+    const followingSize = getCanonicalFollowingList().length;
     const currentTop = readCountValue(refs.followingCount);
     const currentLabel = readCountValue(refs.followingCountLabel);
-    const next = Math.max(followingSize, currentTop, currentLabel);
+    const next = isCanonicalFollowingAuthoritative()
+      ? followingSize
+      : Math.max(followingSize, currentTop, currentLabel);
     if (refs.followingCount) refs.followingCount.textContent = next.toString();
     if (refs.followingCountLabel) refs.followingCountLabel.textContent = next.toString();
   }
@@ -403,15 +422,15 @@
   // חלק נעקבים (profile-view.js) – מציג את רשימת הנעקבים (מי שאני עוקב אחריהם) | HYPER CORE TECH
   async function renderFollowingList(pubkeysList) {
     if (!refs.followingList) return;
-    
-    refs.followingList.innerHTML = '';
+    const renderToken = ++followingListRenderToken;
     
     // קבלת רשימת הנעקבים - מהפרמטר או מ-followingSet | HYPER CORE TECH
     const followingPubkeys = Array.isArray(pubkeysList) && pubkeysList.length > 0 
       ? pubkeysList 
-      : (App.followingSet ? Array.from(App.followingSet) : []);
+      : getCanonicalFollowingList();
     
     if (followingPubkeys.length === 0) {
+      refs.followingList.innerHTML = '';
       const empty = document.createElement('li');
       empty.className = 'profile-followers__empty';
       empty.textContent = 'עוד אין נעקבים להצגה.';
@@ -438,6 +457,9 @@
       
       followingWithProfiles.push({ pubkey, profile });
     }
+    // רינדור מאוחר יותר התחיל בזמן שליפת הפרופילים – לא מוסיפים פריטים כפולים
+    if (renderToken !== followingListRenderToken) return;
+    refs.followingList.innerHTML = '';
     
     // רינדור הרשימה
     followingWithProfiles.forEach(({ pubkey, profile }) => {
@@ -625,18 +647,39 @@
       }
       
       // עדכון הספירה - תמיד לקחת את המקסימום | HYPER CORE TECH
-      const currentFollowingCount = App.followingSet ? App.followingSet.size : 0;
-      const finalCount = Math.max(seen.size, currentFollowingCount);
+      lastDirectFollowingCount = seen.size;
+      const canonicalFollowing = getCanonicalFollowingList();
+      const canonicalAuthoritative = isCanonicalFollowingAuthoritative();
+      const currentFollowingCount = canonicalFollowing.length;
+      const finalCount = canonicalAuthoritative ? currentFollowingCount : Math.max(seen.size, currentFollowingCount);
       console.log('[PROFILE] נעקבים - שליפה ישירה:', seen.size, 'followingSet:', currentFollowingCount, 'סופי:', finalCount);
       if (refs.followingCount) refs.followingCount.textContent = finalCount.toString();
       if (refs.followingCountLabel) refs.followingCountLabel.textContent = finalCount.toString();
       
       // רינדור רשימת הנעקבים עם הנתונים מהשליפה הישירה | HYPER CORE TECH
-      const followingPubkeys = seen.size > 0 ? Array.from(seen) : (App.followingSet ? Array.from(App.followingSet) : []);
+      const followingPubkeys = canonicalAuthoritative
+        ? canonicalFollowing
+        : (seen.size > 0 ? Array.from(seen) : canonicalFollowing);
       await renderFollowingList(followingPubkeys);
     } catch (err) {
       console.warn('Profile view: direct following fetch failed', err);
     }
+  }
+
+  // חלק אירוע Follow (profile-view.js) – עדכון מונה ורשימת נעקבים לפי sos:follow-changed | HYPER CORE TECH
+  function bindFollowChanges() {
+    window.addEventListener('sos:follow-changed', () => {
+      syncFollowingCountFromFollowingSet();
+      // רשימה מהקאש לא דורסת תוצאה מלאה יותר מהשליפה הישירה, עד שהמצב הקנוני נטען מהריליים
+      if (!isCanonicalFollowingAuthoritative() && lastDirectFollowingCount !== null && lastDirectFollowingCount > getCanonicalFollowingList().length) {
+        return;
+      }
+      if (followingListRenderTimer) clearTimeout(followingListRenderTimer);
+      followingListRenderTimer = setTimeout(() => {
+        followingListRenderTimer = null;
+        renderFollowingList(getCanonicalFollowingList());
+      }, 300);
+    });
   }
 
   // חלק חיבור לדפדפן הקיים (profile-view.js) – עוטף את renderProfile הקודם ומעדכן דף זה
@@ -1512,6 +1555,7 @@
       App.subscribeOwnProfileMetadata();
     }
     bindActivityPeriodButtons();
+    bindFollowChanges();
     subscribeFollowers();
     bindButtons();
     initActivityChart();

@@ -469,14 +469,15 @@
         return false;
       }
       const changedEvents = [];
+      // מסומן לפני ה-flush כדי שמאזיני sos:follow-changed יראו מצב שנטען מהריליים
+      followState.relayLoaded = true;
+      followState.relayAttempts = 0;
+      followState.relayRetryAt = 0;
       runFollowingBatch('relay', () => {
         list.forEach((event) => {
           if (applyFollowEvent(event)) changedEvents.push(event);
         });
       }, { forcePersist: true });
-      followState.relayLoaded = true;
-      followState.relayAttempts = 0;
-      followState.relayRetryAt = 0;
       // חלק התרעות עוקב (follow-service.js) – יצירת התרעה גם בטעינה ההתחלתית של עוקבים
       if (typeof App.handleNotificationForFollow === 'function') {
         changedEvents.forEach((event) => App.handleNotificationForFollow(event));
