@@ -5291,7 +5291,9 @@ function renderVideoCard(video) {
   const viewerPubkey = typeof currentApp.publicKey === 'string' ? currentApp.publicKey.toLowerCase() : '';
   const videoOwnerPubkey = typeof video.pubkey === 'string' ? video.pubkey.toLowerCase() : '';
   const isSelf = viewerPubkey && videoOwnerPubkey ? viewerPubkey === videoOwnerPubkey : video.pubkey === currentApp.publicKey;
-  const isFollowing = currentApp.followingSet?.has(videoOwnerPubkey || video.pubkey) || false;
+  const isFollowing = typeof currentApp.isFollowing === 'function'
+    ? currentApp.isFollowing(videoOwnerPubkey || video.pubkey)
+    : false;
   const canDelete = canViewerDeleteVideoPost(video);
 
   // עריכה / הורדה / מחיקה / דיווח — בגיליון השיתוף; אין תפריט שלוש נקודות בפס | HYPER CORE TECH
@@ -8795,7 +8797,10 @@ async function loadVideos() {
 
   // העשרת המקור עם רשת המשתמש - רק פוסטים חדשים
   const authors = [];
-  if (currentApp?.followingSet && currentApp.followingSet.size) authors.push(...Array.from(currentApp.followingSet));
+  const followedAuthors = typeof currentApp?.getFollowingList === 'function'
+    ? currentApp.getFollowingList()
+    : [];
+  if (Array.isArray(followedAuthors) && followedAuthors.length) authors.push(...followedAuthors);
   if (currentApp?.publicKey) authors.push(currentApp.publicKey);
   if (authors.length) {
     const sinceTime = recoverMode ? 0 : (sinceMergeTime > 0 ? sinceMergeTime : undefined);
