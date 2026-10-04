@@ -5,7 +5,7 @@
     "http502": "ws://127.0.0.1:7882",
     "timeout": "ws://127.0.0.1:7883"
   },
-  "ts": "2026-10-03T19:55:24.901Z",
+  "ts": "2026-10-04T06:44:11.251Z",
   "results": {
     "FRESH_GUEST_VIDEO_FEED": {
       "ok": true,
@@ -13,7 +13,7 @@
         "fetched": 40,
         "display": 40,
         "cards": 40,
-        "firstMs": 14981
+        "firstMs": 14812
       }
     },
     "ENGAGEMENT_PENDING_DOES_NOT_BLOCK_RENDER": {
@@ -28,7 +28,7 @@
       "ok": true,
       "detail": {
         "engagementMs": 4426,
-        "loadedAtMs": 18425,
+        "loadedAtMs": 18285,
         "timeouts": 0,
         "displayAfter": 40
       }
@@ -47,17 +47,17 @@
     "BOOT_NOT_SAFETY_TIMEOUT": {
       "ok": true,
       "detail": {
-        "bootReason": "boot-ready media=2/2"
+        "bootReason": "boot-ready media=6/2"
       }
     },
     "ENGAGEMENT_HYDRATES_IN_BACKGROUND": {
       "ok": true,
       "detail": {
-        "firstMs": 14862,
+        "firstMs": 14894,
         "likedAtFirstCard": 10,
         "likedCount": 10,
         "expected": 10,
-        "hydratedMs": 14865
+        "hydratedMs": 14896
       }
     },
     "GUEST_TO_IDENTITY_TRANSITION": {
@@ -79,7 +79,7 @@
       "detail": {
         "display": 40,
         "cards": 40,
-        "firstMs": 20956
+        "firstMs": 19259
       }
     },
     "FRESH_SIGNED_IN_VIDEO_FEED": {
@@ -94,8 +94,8 @@
         },
         "display": 40,
         "cards": 40,
-        "firstMs": 19140,
-        "bootReason": "boot-ready media=2/2"
+        "firstMs": 19094,
+        "bootReason": "boot-ready media=6/2"
       }
     }
   },
@@ -115,36 +115,36 @@
         "engStarted": 6,
         "engPending": 6,
         "deletedDisplayed": true,
-        "ms": 14981
+        "ms": 14812
       },
-      "bootReason": "boot-ready media=2/2",
+      "bootReason": "boot-ready media=6/2",
       "logs": [
         {
-          "ms": 9479,
+          "ms": 9348,
           "text": "[videos] fetchRecentNotes: querySync returned 40"
         },
         {
-          "ms": 13999,
+          "ms": 13859,
           "text": "[videos] Loading likes/comments in batches: {total: 40, batches: 3}"
         },
         {
-          "ms": 14001,
+          "ms": 13863,
           "text": "[videos] loadVideos: rendering before boot gate {total: 40, display: 40, bootReleased: false}"
         },
         {
-          "ms": 14103,
-          "text": "[videos] boot loading released: boot-ready media=2/2"
+          "ms": 14004,
+          "text": "[videos] boot loading released: boot-ready media=6/2"
         },
         {
-          "ms": 14108,
-          "text": "[videos] Loading likes/comments in batches: {total: 2, batches: 1}"
+          "ms": 14004,
+          "text": "[videos] Loading likes/comments in batches: {total: 6, batches: 1}"
         },
         {
-          "ms": 18423,
+          "ms": 18282,
           "text": "[videos] fetchRecentNotes: querySync returned 1"
         },
         {
-          "ms": 18425,
+          "ms": 18285,
           "text": "[videos] Loaded likes/comments: {count: 0}"
         }
       ],

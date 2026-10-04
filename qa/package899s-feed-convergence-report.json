@@ -1,0 +1,617 @@
+{
+  "gate": "PACKAGE899S_FEED_CONVERGENCE",
+  "relays": {
+    "healthy": "ws://127.0.0.1:7891",
+    "http502": "ws://127.0.0.1:7892"
+  },
+  "ts": "2026-10-04T06:28:12.559Z",
+  "results": {
+    "FRESH_GUEST_MP4_VISIBLE": {
+      "ok": true,
+      "detail": {
+        "firstMs": 2226,
+        "guest": true,
+        "n1": {
+          "id": "751456e8967902df376837019b5ced42049c0d7bbc52bd0752a31f81bf7942ba",
+          "type": "file",
+          "ready": true,
+          "hidden": false,
+          "readyState": 4,
+          "src": "https://media.qa-sos.test/61ac54d88acaa5c22881646544f59a57e5261abb57f8c0237260dcf20d3608f8.mp4",
+          "inView": true
+        }
+      }
+    },
+    "GUEST_PUBLIC_READ": {
+      "ok": true,
+      "detail": {
+        "display": 197,
+        "cards": 196
+      }
+    },
+    "PERF_FIRST_NATIVE_CARD_VISIBLE": {
+      "ok": true,
+      "detail": {
+        "ms": 2226,
+        "limit": 15000
+      }
+    },
+    "PERF_BOOT_RELEASE": {
+      "ok": true,
+      "detail": {
+        "ms": 2102,
+        "limit": 20000
+      }
+    },
+    "SAFETY_TIMEOUT_NOT_USED": {
+      "ok": true,
+      "detail": {
+        "reason": "boot-ready media=3/2"
+      }
+    },
+    "FIRST_CANDIDATE_DEAD_BOOT_2_OF_2": {
+      "ok": true,
+      "detail": {
+        "reason": "boot-ready media=3/2",
+        "deadMounted": false,
+        "deadMarkedPermanent": true
+      }
+    },
+    "YOUTUBE_ONLY_ABSENT": {
+      "ok": true,
+      "detail": {
+        "inState": true
+      }
+    },
+    "YOUTUBE_PLUS_NATIVE_SHOWS_NATIVE": {
+      "ok": true,
+      "detail": {
+        "card": {
+          "id": "1d761d084a0930533e4379cdb341e8c65a551579cd90c288aadb3b20ef4d72d9",
+          "type": "file",
+          "ready": true,
+          "hidden": false,
+          "readyState": 4,
+          "src": "https://media.qa-sos.test/ffd7ff5d16b12f7f231f36d66e4cb89a88f8e6b3c4a017a3830190ab01d6b121.mp4",
+          "inView": false
+        }
+      }
+    },
+    "YOUTUBE_PLUS_IMAGE_SHOWS_IMAGE": {
+      "ok": true,
+      "detail": {
+        "card": {
+          "id": "10adb2bd8479fdadb005c2188776bee9a04f741c3df3bada847787033ab6d05a",
+          "type": "image",
+          "ready": true,
+          "hidden": false,
+          "readyState": -1,
+          "src": "",
+          "inView": false
+        }
+      }
+    },
+    "NATIVE_VIDEO_VISIBLE": {
+      "ok": true,
+      "detail": {
+        "cards": [
+          {
+            "id": "751456e8967902df376837019b5ced42049c0d7bbc52bd0752a31f81bf7942ba",
+            "type": "file",
+            "ready": true,
+            "hidden": false,
+            "readyState": 4,
+            "src": "https://media.qa-sos.test/61ac54d88acaa5c22881646544f59a57e5261abb57f8c0237260dcf20d3608f8.mp4",
+            "inView": true
+          },
+          {
+            "id": "9de21461814ea030e605d59573d709443b3f8be2695115e6c06d3f0359d66c1c",
+            "type": "file",
+            "ready": true,
+            "hidden": false,
+            "readyState": 4,
+            "src": "https://media.qa-sos.test/9cbf9f48ebb64f39f127f596f740cff4bbc630491c4acf188688622340310858.mp4",
+            "inView": false
+          },
+          {
+            "id": "f987debe60cff20a3698b7c2d97092100338873906228544c5aa4b7ceadd29cb",
+            "type": "file",
+            "ready": true,
+            "hidden": false,
+            "readyState": 4,
+            "src": "https://media.qa-sos.test/ff474bfd1027b3d32f52a7eeb8107bbd1c99234548be4d88819a4e5b3b2eba1b.mp4",
+            "inView": false
+          },
+          {
+            "id": "92dde580f014d8987184c928f110541d2e893669152cec8770d0c09904ac6e91",
+            "type": "file",
+            "ready": true,
+            "hidden": false,
+            "readyState": 4,
+            "src": "https://media.qa-sos.test/591bf15a919c239a2afc0813e1036c24a0c95a06c838dcc5fdc14f4b1e659161.mp4",
+            "inView": false
+          }
+        ]
+      }
+    },
+    "DEAD_ORIGINAL_HEALTHY_BLOSSOM": {
+      "ok": true,
+      "detail": {
+        "card": {
+          "id": "35377bf556b20ad5c69c78c87c4fd6ed467c4a038a6f14199e609dfd0dac8206",
+          "type": "file",
+          "ready": true,
+          "hidden": false,
+          "readyState": 4,
+          "src": "https://blossom.band/baaaee5963d2e4d9c9b7109c93a6b77b76f2f72ada0edd6d9a177bcc64e08b66.mp4",
+          "inView": true
+        },
+        "attempts": [
+          "blossom.nostr.build/…7bcc64e08b66.mp4",
+          "blossom.band/…7bcc64e08b66.mp4"
+        ]
+      }
+    },
+    "HTTP_404_FAST_FALLBACK": {
+      "ok": true,
+      "detail": {
+        "ms": 20,
+        "limit": 2000
+      }
+    },
+    "HTTP_503_AND_TIMEOUT_DO_NOT_BLOCK": {
+      "ok": true,
+      "detail": {
+        "s3": {
+          "id": "181cfaa71d7aa9ce95987b839f344a7cca8291a6f019b7b63e780e2425c23660",
+          "type": "file",
+          "ready": true,
+          "hidden": false,
+          "readyState": 4,
+          "src": "https://mirror.qa-sos.test/dbe66e23f1d24f991caca5f3097003d8d628839a2f4ba3cea0540764b182a0c4.mp4",
+          "inView": false
+        },
+        "s3Attempts": [
+          "busy.qa-sos.test/…0764b182a0c4.mp4",
+          "blossom.nostr.build/…0764b182a0c4.mp4",
+          "blossom.band/…0764b182a0c4.mp4",
+          "mirror.qa-sos.test/…0764b182a0c4.mp4"
+        ],
+        "h6": {
+          "id": "e82699d550aa50fa097ac9093e07c21ddcb0b0dffc098188c1011e882ad832c3",
+          "type": "file",
+          "ready": true,
+          "hidden": false,
+          "readyState": 4,
+          "src": "https://blossom.nostr.build/3687133be1e1b8fa51b5811931c56f807708294f9e7ae0f5c8dd425f25e3ec77.mp4",
+          "inView": false
+        },
+        "h6Attempts": [
+          {
+            "ref": "hang.qa-sos.test/…425f25e3ec77.mp4",
+            "ms": 2334
+          },
+          {
+            "ref": "blossom.nostr.build/…425f25e3ec77.mp4",
+            "ms": 14343
+          }
+        ],
+        "n7FirstCandidateMs": 2437
+      }
+    },
+    "SOVBIT_NOT_FIRST_WITH_HASH_ALTERNATIVE": {
+      "ok": true,
+      "detail": {
+        "unitOrder": [
+          "blossom.band",
+          "blossom.nostr.build",
+          "files.sovbit.host"
+        ],
+        "firstAttempts": [
+          "SV16:blossom.nostr.build",
+          "SV17:blossom.nostr.build",
+          "SV18:blossom.nostr.build"
+        ]
+      }
+    },
+    "SOVBIT_404_FAST_FALLBACK": {
+      "ok": true,
+      "detail": {
+        "firstAttemptHost": "blossom.nostr.build",
+        "attempts": [
+          "blossom.nostr.build",
+          "blossom.band"
+        ],
+        "sovbitRequestsBeforeBlossom": 0,
+        "SOVBIT_404_DOES_NOT_DELAY_HEALTHY_BLOSSOM": "PASS"
+      }
+    },
+    "SOVBIT_503_NONBLOCKING": {
+      "ok": true,
+      "detail": {
+        "sv17": "https://blossom.nostr.build/<hash>.mp4",
+        "sv17Attempts": [
+          "blossom.nostr.build"
+        ],
+        "sv18Attempts": [
+          "blossom.nostr.build",
+          "blossom.band",
+          "files.sovbit.host"
+        ],
+        "sv18Mounted": false,
+        "nextCardMounted": true,
+        "SOVBIT_503_DOES_NOT_BLOCK_FIRST_PAINT": "PASS"
+      }
+    },
+    "NO_DUPLICATE_MEDIA_URL": {
+      "ok": true,
+      "detail": {
+        "duplicates": 0,
+        "candidateLogs": 48
+      }
+    },
+    "DETERMINISTIC_ORDER": {
+      "ok": true,
+      "detail": {
+        "dom": [
+          "N1",
+          "B2",
+          "S3",
+          "YN4",
+          "YI5",
+          "H6",
+          "N7",
+          "N8",
+          "N9",
+          "N10",
+          "N11",
+          "N12"
+        ]
+      }
+    },
+    "STREAM_FIRST_PUBLIC_MEDIA": {
+      "ok": true,
+      "detail": {
+        "n1Source": "https://media.qa-sos.test/<hash>.mp4",
+        "firstCandidate": {
+          "id8": "7f90b993",
+          "idx": 0,
+          "total": 4,
+          "ref": "blossom.nostr.build/…2d43ed9d8850.mp4"
+        }
+      }
+    },
+    "LIKES": {
+      "ok": true,
+      "detail": {
+        "likes": 1,
+        "comments": 1
+      }
+    },
+    "COMMENTS": {
+      "ok": true,
+      "detail": {
+        "likes": 1,
+        "comments": 1
+      }
+    },
+    "HISTORICAL_REPLAY_NOT_MOUNTED": {
+      "ok": true,
+      "detail": {
+        "acceptedDuringBoot": 0,
+        "historicalAutoMounted": 0
+      }
+    },
+    "REMOTE_KIND1_AFTER_EOSE_AUTO_MOUNTS": {
+      "ok": true,
+      "detail": {
+        "ms": 268,
+        "delivered": 1,
+        "first": "R1"
+      }
+    },
+    "LATE_HISTORICAL_EVENT_NOT_MOUNTED": {
+      "ok": true,
+      "detail": {
+        "mounted": false
+      }
+    },
+    "SCROLL_ANCHOR_PRESERVED": {
+      "ok": true,
+      "detail": {
+        "centeredBefore": "YN4",
+        "centeredAfter": "YN4",
+        "scrollTopBefore": 3040,
+        "scrollTopAfter": 3800,
+        "r2Mounted": true,
+        "r2Index": 0
+      }
+    },
+    "PERIODIC_REFRESH_AUTO_MOUNT_WITHOUT_HOME": {
+      "ok": true,
+      "detail": {
+        "ms": 301
+      }
+    },
+    "DELETION_UNCHANGED": {
+      "ok": true,
+      "detail": {
+        "ms": 374
+      }
+    },
+    "BLOCKED_AUTHOR_FALLBACK_EXCLUDED": {
+      "ok": true,
+      "detail": {
+        "candidates": 8,
+        "displayed": 0,
+        "hasPolicy": true
+      }
+    },
+    "YOUTUBE_OUTSIDE_VIDEOS_FEED_PRESERVED": {
+      "ok": true,
+      "detail": {
+        "parsedYoutubeId": true,
+        "ownPostsType": "youtube",
+        "feedJsUntouched": true
+      }
+    },
+    "UNVIEWED_MEDIA_NOT_BACKGROUND_PERSISTED": {
+      "ok": true,
+      "detail": {
+        "warmedNativeCards": 17,
+        "centered": "R3",
+        "unviewedFullFetches": []
+      }
+    },
+    "BACKGROUND_PERSIST_BOUNDS": {
+      "ok": true,
+      "detail": {
+        "queueMax": 3,
+        "sessionBudget": 167772160
+      }
+    },
+    "VIEWED_MEDIA_PERSISTED_ONCE": {
+      "ok": true,
+      "detail": {
+        "centered": "R3",
+        "viewedFullFetches": 1,
+        "totalFullFetches": 1,
+        "cached": true
+      }
+    },
+    "NAVIGATE_PERSIST_BOUNDED_NO_DUPLICATE": {
+      "ok": true,
+      "detail": {
+        "navigatedTo": "N12",
+        "full": [
+          "R3",
+          "N12"
+        ]
+      }
+    },
+    "CACHE_DOES_NOT_REORDER_FEED": {
+      "ok": true,
+      "detail": {
+        "NEWER_UNCACHED_BEFORE_OLDER_CACHED": true,
+        "DISPLAY_ORDER_UNCHANGED_AFTER_CACHE_WRITE": true,
+        "DISPLAY_ORDER_UNCHANGED_ON_WARM_RESTART": true,
+        "restartCached": true,
+        "displayCreatedDesc": true,
+        "displayAfterWrite": [
+          "R3",
+          "R2",
+          "R1",
+          "N1",
+          "B2",
+          "S3",
+          "YN4",
+          "YI5",
+          "H6",
+          "N7",
+          "N8",
+          "N9",
+          "N10",
+          "N11",
+          "N12",
+          "N13",
+          "N14",
+          "SV16"
+        ],
+        "displayRestart": [
+          "R3",
+          "R2",
+          "R1",
+          "N1",
+          "B2",
+          "S3",
+          "YN4",
+          "YI5",
+          "H6",
+          "N7",
+          "N9",
+          "N10",
+          "N11",
+          "N12",
+          "N13",
+          "N14",
+          "SV16",
+          "SV17"
+        ]
+      }
+    },
+    "SAVE_DATA_SKIPS_OPTIONAL_PERSIST": {
+      "ok": true,
+      "detail": {
+        "firstMs": 1762,
+        "centeredPlaying": true,
+        "fullFetches": 0
+      }
+    },
+    "SW_FRESH_NO_CONTROLLER_FEED": {
+      "ok": true,
+      "detail": {
+        "SW_REGISTERED": true,
+        "CONTROLLER_AT_LOAD": false,
+        "PUBLIC_NATIVE_FEED_VISIBLE": true,
+        "FIRST_NATIVE_CARD_VISIBLE_WITHOUT_RELOAD": true,
+        "SAFETY_TIMEOUT_USED": false,
+        "firstMs": 3558,
+        "navigationType": "navigate",
+        "frameNavigatedEvents": 4
+      }
+    },
+    "SW_CONTROLLED_RELOAD_FEED": {
+      "ok": true,
+      "detail": {
+        "SW_CONTROLLER_PRESENT": true,
+        "PUBLIC_NATIVE_FEED_VISIBLE": true,
+        "SAFETY_TIMEOUT_USED": false,
+        "firstMs": 186
+      }
+    },
+    "FRESH_SIGNED_IN_MP4_VISIBLE": {
+      "ok": true,
+      "detail": {
+        "restoredOnReload": true,
+        "firstMs": 967,
+        "bootReleaseMs": 850,
+        "bootReason": "boot-ready media=2/2"
+      }
+    },
+    "SELF_PUBLISH": {
+      "ok": true,
+      "detail": {
+        "ms": 428,
+        "domTop": [
+          "SELF",
+          "R3",
+          "R2"
+        ],
+        "displayTop": [
+          "SELF",
+          "R3",
+          "R2"
+        ],
+        "scrollTop": 0,
+        "domIndex": 0,
+        "displayIndex": 0,
+        "stateIndex": 0,
+        "failed": false
+      }
+    },
+    "WEBKIT_SMOKE": {
+      "ok": true,
+      "detail": {
+        "YOUTUBE_ONLY_ABSENT": true,
+        "NATIVE_CARD_CREATED": true,
+        "LOADEDMETADATA_OR_PLAYABLE": true,
+        "SAFETY_TIMEOUT_USED": false,
+        "firstFileReadyState": 3,
+        "version": "26.4",
+        "cards": 2,
+        "display": 191,
+        "bootReleased": true,
+        "mediaRequests": 31,
+        "candidateLogs": 41,
+        "canPlayH264": "probably",
+        "harnessNote": "Playwright WebKit (Windows) rejects route-fulfilled media (MEDIA_ERR_SRC_NOT_SUPPORTED); the smoke card streams the same H.264 fixture from the local HTTP server."
+      }
+    }
+  },
+  "metrics": {
+    "FRESH_GUEST_BOOT": {
+      "firstMs": 2226,
+      "bootReleaseMs": 2102,
+      "bootReason": "boot-ready media=3/2",
+      "safety": false
+    },
+    "FRESH_GUEST_DOM_ORDER": [
+      "N1:file",
+      "B2:file",
+      "S3:file",
+      "YN4:file",
+      "YI5:image",
+      "H6:file",
+      "N7:file",
+      "N8:file",
+      "N9:file",
+      "N10:file",
+      "N11:file",
+      "N12:file",
+      "N13:file",
+      "N14:file",
+      "SV16:file",
+      "SV17:file",
+      "I15:image",
+      "HIST0:image",
+      "HIST1:image",
+      "HIST2:image"
+    ]
+  },
+  "FIRST_NATIVE_CARD_VISIBLE_MS": 2226,
+  "BOOT_RELEASE_MS": 2102,
+  "SAFETY_TIMEOUT_USED": false,
+  "FALLBACK_404_MS": 20,
+  "SOVBIT_FIRST_WITH_HASH_ALTERNATIVE": false,
+  "FIRST_ATTEMPT_HOST_SOVBIT_404": "blossom.nostr.build",
+  "DUPLICATE_MEDIA_URL_ATTEMPTS": 0,
+  "HISTORICAL_REPLAY_AUTO_MOUNT_COUNT": 0,
+  "REMOTE_NEW_POST_AUTO_MOUNT_MS": 268,
+  "SCROLL_ANCHOR_PRESERVED": true,
+  "PERIODIC_RECOVERY_AUTO_MOUNT": true,
+  "BLOCKED_AUTHOR_FALLBACK": "EXCLUDED",
+  "UNVIEWED_BACKGROUND_FULL_FETCH_COUNT": 0,
+  "WARMED_NATIVE_CARDS": 17,
+  "BACKGROUND_PERSIST_QUEUE_MAX": 3,
+  "BACKGROUND_PERSIST_SESSION_BYTE_BUDGET": 167772160,
+  "VIEWED_VIDEO_BACKGROUND_PERSIST_COUNT": 1,
+  "NEWER_UNCACHED_BEFORE_OLDER_CACHED": true,
+  "DISPLAY_ORDER_UNCHANGED_AFTER_CACHE_WRITE": true,
+  "DISPLAY_ORDER_UNCHANGED_ON_WARM_RESTART": true,
+  "CACHE_CAN_REORDER_FEED": false,
+  "SAVE_DATA_OPTIONAL_CACHE_FETCH_COUNT": 0,
+  "SW_FIRST_LOAD_NO_CONTROLLER": {
+    "SW_REGISTERED": true,
+    "CONTROLLER_AT_LOAD": false,
+    "PUBLIC_NATIVE_FEED_VISIBLE": true,
+    "FIRST_NATIVE_CARD_VISIBLE_WITHOUT_RELOAD": true,
+    "SAFETY_TIMEOUT_USED": false,
+    "firstMs": 3558,
+    "navigationType": "navigate",
+    "frameNavigatedEvents": 4
+  },
+  "SW_CONTROLLED_RELOAD": {
+    "SW_CONTROLLER_PRESENT": true,
+    "PUBLIC_NATIVE_FEED_VISIBLE": true,
+    "SAFETY_TIMEOUT_USED": false,
+    "firstMs": 186
+  },
+  "SIGNED_IN_FIRST_NATIVE_CARD_VISIBLE_MS": 967,
+  "SIGNED_IN_BOOT_RELEASE_MS": 850,
+  "SIGNED_IN_NO_PEER_BOOT_BLOCK": "PASS",
+  "WEBKIT_SMOKE_DETAIL": {
+    "YOUTUBE_ONLY_ABSENT": true,
+    "NATIVE_CARD_CREATED": true,
+    "LOADEDMETADATA_OR_PLAYABLE": true,
+    "SAFETY_TIMEOUT_USED": false,
+    "firstFileReadyState": 3,
+    "version": "26.4",
+    "cards": 2,
+    "display": 191,
+    "bootReleased": true,
+    "mediaRequests": 31,
+    "candidateLogs": 41,
+    "canPlayH264": "probably",
+    "harnessNote": "Playwright WebKit (Windows) rejects route-fulfilled media (MEDIA_ERR_SRC_NOT_SUPPORTED); the smoke card streams the same H.264 fixture from the local HTTP server."
+  },
+  "WEBKIT_SMOKE": "PASS",
+  "IOS_SAFARI_DEPLOY_GATE": "PENDING_OWNER_MANUAL",
+  "CONFIG_TRANSFORMS": {
+    "relays": true,
+    "p2p": true,
+    "sanitizer": true
+  },
+  "STREAM_FIRST_TRADEOFF": "Public feed media streams from the winning candidate URL for first paint. Persistent caching is view-driven: only a card that is centered and playing re-fetches its URL once in the background (queue max 3, 160MB per session, skipped under Save-Data, SHA-256 verified against the event hash). Warmed but unviewed cards are never fully downloaded in the background.",
+  "status": "PASS",
+  "failed": []
+}
