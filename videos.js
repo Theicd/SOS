@@ -2823,17 +2823,8 @@ function hydrateFeedFromCache() {
     } else {
       renderVideos();
     }
-    // חלק לייקים מהקאש (videos.js) – טעינת לייקים ותגובות ברקע לפוסטים מהמטמון | HYPER CORE TECH
-    const eventIds = filtered.map(v => v.id);
-    if (eventIds.length > 0) {
-      loadLikesAndCommentsForVideos(eventIds).then(() => {
-        // עדכון כפתורי לייק ותגובה אחרי שהנתונים נטענו | HYPER CORE TECH
-        eventIds.forEach((id) => {
-          updateVideoLikeButton(id);
-          updateVideoCommentButton(id);
-        });
-      }).catch(err => console.warn('[videos] Failed to load likes for cached videos', err));
-    }
+    // חלק לייקים מהקאש (videos.js) – רק חלון הצפייה נטען; שאר הפוסטים כשמתקרבים | HYPER CORE TECH
+    scheduleEngagementWindow().catch(err => console.warn('[videos] Failed to load likes for cached videos', err));
     return true;
   }
   return false;
@@ -3094,6 +3085,7 @@ function mountCard(card, { prepend = false } = {}) {
     wireActions(card);
     wireMediaControls(card);
     observeVideoCard(card);
+    onFeedCardMountedForEngagement(card);
     updateLoadMoreTrigger();
     return;
   }
@@ -3105,6 +3097,7 @@ function mountCard(card, { prepend = false } = {}) {
   wireActions(card);
   wireMediaControls(card);
   observeVideoCard(card);
+  onFeedCardMountedForEngagement(card);
   // טריגר טעינת המשך חייב להתעדכן אחרי כל mount (אחרת נעצרים באמצע) | HYPER CORE TECH
   updateLoadMoreTrigger();
   if (!state.firstCardRendered) {
@@ -4242,7 +4235,7 @@ async function loadBootMetaForPosts(posts) {
 
   const tasks = [];
   if (ids.length) {
-    tasks.push(loadLikesAndCommentsForVideos(ids).catch((err) => {
+    tasks.push(requestEngagementHydration(ids).catch((err) => {
       console.warn('[videos] boot likes/comments failed', err);
     }));
   }
@@ -8449,10 +8442,34 @@ async function fetchRecentNotes(limit = 100, sinceOverride = undefined, untilOve
 
 // חלק יאללה וידאו (videos.js) – טעינת לייקים ותגובות לפוסטי וידאו
 // חלק באצ'ים (videos.js) – פיצול שאילתות לבאצ'ים קטנים למניעת עומס על relays | HYPER CORE TECH
-const ENGAGEMENT_BATCH_SIZE = 15; // גודל באצ' לשאילתות לייקים/תגובות
+// חלק חלון מעורבות (videos.js) – מתזמן יחיד: רק הכרטיס הנוכחי והשכנים הקרובים נטענים מהריליים | HYPER CORE TECH
+const ENGAGEMENT_WINDOW_AHEAD = 5;
+const ENGAGEMENT_WINDOW_BEHIND = 1;
+const ENGAGEMENT_BATCH_SIZE = 8;
+const ENGAGEMENT_MAX_CONCURRENT_BATCHES = 2;
+const ENGAGEMENT_MAX_ATTEMPTS = 3;
+const ENGAGEMENT_RETRY_DELAYS_MS = [3000, 10000];
+const ENGAGEMENT_POOL_WAIT_MS = 1500;
+// Engagement may predate the post's own timestamp by clock skew between clients.
+const ENGAGEMENT_SINCE_SKEW_SEC = 24 * 60 * 60;
+const ENGAGEMENT_WINDOW_DEBOUNCE_MS = 150;
+const ENGAGEMENT_RANK_SYNC_DEBOUNCE_MS = 1500;
 // Engagement is enrichment: a dead or silent relay must never hold a batch open.
 const ENGAGEMENT_QUERY_MAX_WAIT_MS = 4000;
 const ENGAGEMENT_QUERY_HARD_TIMEOUT_MS = 6000;
+
+const engagementHydratedIds = new Set();
+const engagementInFlightIds = new Set();
+// id -> { attempts, nextAt }: רק שאילתה שהושלמה מסמנת hydrated; timeout/כשל = לא ידוע
+const engagementRetryState = new Map();
+const engagementWaiters = new Map();
+let engagementQueue = [];
+let engagementActiveBatches = 0;
+let engagementRetryTimer = null;
+let engagementWindowTimer = null;
+let engagementRankSyncTimer = null;
+let engagementLastWindow = new Set();
+let engagementScrollBound = false;
 
 function boundedEngagementQuery(run, label) {
   let timer = null;
@@ -8461,111 +8478,284 @@ function boundedEngagementQuery(run, label) {
   });
   const query = Promise.resolve()
     .then(run)
-    .then((res) => (Array.isArray(res) ? res : (Array.isArray(res?.events) ? res.events : [])))
+    .then((res) => ({ ok: true, events: Array.isArray(res) ? res : (Array.isArray(res?.events) ? res.events : []) }))
     .catch((err) => {
       console.warn('[videos] engagement query failed', { label, error: String(err?.message || err).slice(0, 80) });
-      return [];
+      return { ok: false, events: [] };
     });
   return Promise.race([query, timeout]).then((res) => {
     clearTimeout(timer);
     if (res === null) {
       console.warn('[videos] engagement query timed out', { label, ms: ENGAGEMENT_QUERY_HARD_TIMEOUT_MS });
-      return [];
+      return { ok: false, events: [] };
     }
     return res;
   });
 }
 
-async function loadLikesAndCommentsForVideos(eventIds) {
-  if (!Array.isArray(eventIds) || eventIds.length === 0) return;
+function findVideoForEngagement(id) {
+  const lists = [state.videos, state.ownPostsVideos, state.liveTvVideos];
+  for (const list of lists) {
+    if (!Array.isArray(list)) continue;
+    const found = list.find((v) => v && v.id === id);
+    if (found) return found;
+  }
+  return null;
+}
 
+// בסיס היסטורי מזמן יצירת הפוסט — בלי חיתוך קבוע של 30 יום
+function getEngagementBatchSince(ids) {
+  let oldest = Infinity;
+  for (const id of ids) {
+    const createdAt = getVideoCreatedAt(findVideoForEngagement(id));
+    if (!createdAt) return undefined;
+    if (createdAt < oldest) oldest = createdAt;
+  }
+  return Number.isFinite(oldest) ? Math.max(0, oldest - ENGAGEMENT_SINCE_SKEW_SEC) : undefined;
+}
+
+function registerEngagementEvents(app, events) {
+  let sharesSeen = false;
+  events.forEach((event) => {
+    if (event.kind === 7 && typeof app.registerLike === 'function') {
+      app.registerLike(event);
+      return;
+    }
+    if (event.kind === 6 && typeof app.registerShare === 'function') {
+      app.registerShare(event);
+      sharesSeen = true;
+      return;
+    }
+    if (event.kind !== 1 || !Array.isArray(event.tags)) {
+      return;
+    }
+    const parentTag = event.tags.find((tag) => Array.isArray(tag) && tag[0] === 'e' && tag[1]);
+    if (!parentTag) {
+      return;
+    }
+    registerVideoCommentRecord(app, event, parentTag[1]);
+  });
+  return sharesSeen;
+}
+
+function refreshEngagementCounters(id) {
+  updateVideoLikeButton(id);
+  updateVideoCommentButton(id);
+  updateVideoShareButton(id);
+}
+
+// שיתוף משנה דירוג — סידור מאוחד אחד במקום סידור אחרי כל באץ'
+function scheduleEngagementRankSync() {
+  if (engagementRankSyncTimer) return;
+  engagementRankSyncTimer = setTimeout(() => {
+    engagementRankSyncTimer = null;
+    try {
+      if (Array.isArray(state.videos) && state.videos.length) {
+        state.videos = sortVideosByCreatedAtDesc(state.videos);
+        if (bootGate.released && state.firstCardRendered) {
+          syncFeedDomOrder(getDisplayVideos());
+        }
+      }
+    } catch (_) {}
+  }, ENGAGEMENT_RANK_SYNC_DEBOUNCE_MS);
+}
+
+// returns 'ok' | 'failed' | 'unavailable'
+async function queryEngagementBatch(batch) {
   const app = window.NostrApp;
   if (!app || !app.pool || !Array.isArray(app.relayUrls) || app.relayUrls.length === 0) {
-    console.warn('[videos] Cannot load likes/comments: pool not ready');
-    return;
+    return 'unavailable';
+  }
+  const since = getEngagementBatchSince(batch);
+  const withSince = (filter) => (since ? { ...filter, since } : filter);
+  const likesFilter = withSince({ kinds: [7], '#e': batch });
+  const sharesFilter = withSince({ kinds: [6], '#e': batch });
+  const commentsFilter = withSince({ kinds: [1], '#e': batch });
+
+  let results = [];
+  if (typeof app.pool.list === 'function') {
+    results = [await boundedEngagementQuery(
+      () => app.pool.list(app.relayUrls, [likesFilter, sharesFilter, commentsFilter]),
+      'list'
+    )];
+  } else if (typeof app.pool.querySync === 'function') {
+    const opts = { maxWait: ENGAGEMENT_QUERY_MAX_WAIT_MS };
+    results = await Promise.all([
+      boundedEngagementQuery(() => app.pool.querySync(app.relayUrls, likesFilter, opts), 'likes'),
+      boundedEngagementQuery(() => app.pool.querySync(app.relayUrls, sharesFilter, opts), 'shares'),
+      boundedEngagementQuery(() => app.pool.querySync(app.relayUrls, commentsFilter, opts), 'comments'),
+    ]);
+  } else {
+    return 'unavailable';
   }
 
-  const since = Math.floor(Date.now() / 1000) - 60 * 60 * 24 * 30; // 30 יום
-
-  // חלק באצ'ים (videos.js) – פיצול ה-eventIds לבאצ'ים קטנים | HYPER CORE TECH
-  const batches = [];
-  for (let i = 0; i < eventIds.length; i += ENGAGEMENT_BATCH_SIZE) {
-    batches.push(eventIds.slice(i, i + ENGAGEMENT_BATCH_SIZE));
-  }
-
-  console.log('[videos] Loading likes/comments in batches:', { total: eventIds.length, batches: batches.length });
-
-  let totalLoaded = 0;
-
-  for (const batch of batches) {
-    try {
-      // טעינת לייקים (kind 7) + שיתופים (kind 6) + תגובות | HYPER CORE TECH
-      const likesFilter = { kinds: [7], '#e': batch, since };
-      const sharesFilter = { kinds: [6], '#e': batch, since };
-      const commentsFilter = { kinds: [1], '#e': batch, since };
-
-      let allEvents = [];
-
-      if (typeof app.pool.list === 'function') {
-        allEvents = await boundedEngagementQuery(
-          () => app.pool.list(app.relayUrls, [likesFilter, sharesFilter, commentsFilter]),
-          'list'
-        );
-      } else if (typeof app.pool.querySync === 'function') {
-        const opts = { maxWait: ENGAGEMENT_QUERY_MAX_WAIT_MS };
-        const [likes, shares, comments] = await Promise.all([
-          boundedEngagementQuery(() => app.pool.querySync(app.relayUrls, likesFilter, opts), 'likes'),
-          boundedEngagementQuery(() => app.pool.querySync(app.relayUrls, sharesFilter, opts), 'shares'),
-          boundedEngagementQuery(() => app.pool.querySync(app.relayUrls, commentsFilter, opts), 'comments'),
-        ]);
-        allEvents = [...likes, ...shares, ...comments];
-      }
-
-      totalLoaded += allEvents.length;
-
-      // עיבוד לייקים/שיתופים/תגובות בהתאם ללוגיקת הפיד הראשי | HYPER CORE TECH
-      allEvents.forEach((event) => {
-        if (event.kind === 7 && typeof app.registerLike === 'function') {
-          app.registerLike(event);
-          return;
-        }
-        if (event.kind === 6 && typeof app.registerShare === 'function') {
-          app.registerShare(event);
-          return;
-        }
-        if (event.kind !== 1 || !Array.isArray(event.tags)) {
-          return;
-        }
-        const parentTag = event.tags.find((tag) => Array.isArray(tag) && tag[0] === 'e' && tag[1]);
-        if (!parentTag) {
-          return;
-        }
-        const parentId = parentTag[1];
-        registerVideoCommentRecord(app, event, parentId);
-      });
-
-      // עדכון UI אחרי כל באצ' | HYPER CORE TECH
-      batch.forEach((id) => {
-        updateVideoLikeButton(id);
-        updateVideoCommentButton(id);
-        updateVideoShareButton(id);
-      });
-
-    } catch (err) {
-      console.warn('[videos] Failed to load likes/comments batch:', err);
-    }
-  }
-
-  console.log('[videos] Loaded likes/comments:', { count: totalLoaded });
-  // אחרי שיתופים — סידור מחדש לפי דירוג (שיתוף מעלה לראש) | HYPER CORE TECH
+  const events = results.flatMap((r) => r.events);
+  let sharesSeen = false;
   try {
-    if (Array.isArray(state.videos) && state.videos.length) {
-      state.videos = sortVideosByCreatedAtDesc(state.videos);
-      if (bootGate.released && state.firstCardRendered) {
-        syncFeedDomOrder(getDisplayVideos());
+    sharesSeen = registerEngagementEvents(app, events);
+  } catch (err) {
+    console.warn('[videos] Failed to register engagement batch:', err);
+  }
+  batch.forEach(refreshEngagementCounters);
+  if (sharesSeen) scheduleEngagementRankSync();
+  return results.every((r) => r.ok) ? 'ok' : 'failed';
+}
+
+function resolveEngagementWaiters(id) {
+  const waiters = engagementWaiters.get(id);
+  if (!waiters) return;
+  engagementWaiters.delete(id);
+  waiters.forEach((resolve) => resolve());
+}
+
+function scheduleEngagementRetryTimer() {
+  if (engagementRetryTimer) {
+    clearTimeout(engagementRetryTimer);
+    engagementRetryTimer = null;
+  }
+  let nextAt = Infinity;
+  engagementRetryState.forEach((entry) => {
+    if (entry.attempts < ENGAGEMENT_MAX_ATTEMPTS && entry.nextAt < nextAt) nextAt = entry.nextAt;
+  });
+  if (!Number.isFinite(nextAt)) return;
+  engagementRetryTimer = setTimeout(() => {
+    engagementRetryTimer = null;
+    scheduleEngagementWindow();
+  }, Math.max(0, nextAt - Date.now()));
+}
+
+async function runEngagementBatch(batch) {
+  let outcome = 'failed';
+  try {
+    outcome = await queryEngagementBatch(batch);
+  } catch (err) {
+    console.warn('[videos] engagement batch failed', err);
+  }
+  const now = Date.now();
+  batch.forEach((id) => {
+    engagementInFlightIds.delete(id);
+    if (outcome === 'ok') {
+      engagementHydratedIds.add(id);
+      engagementRetryState.delete(id);
+    } else {
+      const entry = engagementRetryState.get(id) || { attempts: 0, nextAt: 0 };
+      if (outcome === 'unavailable') {
+        entry.nextAt = now + ENGAGEMENT_POOL_WAIT_MS;
+      } else {
+        entry.attempts += 1;
+        entry.nextAt = now + (ENGAGEMENT_RETRY_DELAYS_MS[entry.attempts - 1] || ENGAGEMENT_RETRY_DELAYS_MS[ENGAGEMENT_RETRY_DELAYS_MS.length - 1]);
       }
+      engagementRetryState.set(id, entry);
+    }
+    resolveEngagementWaiters(id);
+  });
+  if (outcome !== 'ok') scheduleEngagementRetryTimer();
+}
+
+function pumpEngagementQueue() {
+  while (engagementActiveBatches < ENGAGEMENT_MAX_CONCURRENT_BATCHES && engagementQueue.length) {
+    const batch = [];
+    while (batch.length < ENGAGEMENT_BATCH_SIZE && engagementQueue.length) {
+      const id = engagementQueue.shift();
+      if (engagementHydratedIds.has(id) || engagementInFlightIds.has(id) || batch.includes(id)) continue;
+      batch.push(id);
+    }
+    if (!batch.length) break;
+    batch.forEach((id) => engagementInFlightIds.add(id));
+    engagementActiveBatches += 1;
+    runEngagementBatch(batch).finally(() => {
+      engagementActiveBatches -= 1;
+      pumpEngagementQueue();
+    });
+  }
+}
+
+function isEngagementRequestable(id, now) {
+  if (!id || engagementHydratedIds.has(id) || engagementInFlightIds.has(id)) return false;
+  const retry = engagementRetryState.get(id);
+  if (retry && (retry.attempts >= ENGAGEMENT_MAX_ATTEMPTS || retry.nextAt > now)) return false;
+  return true;
+}
+
+// בקשה ממוקדת לרשימת פוסטים קטנה (חלון/בוט) — מחזירה הבטחה שנפתרת אחרי ניסיון אחד לכל מזהה
+function requestEngagementHydration(ids) {
+  const now = Date.now();
+  const wanted = (Array.isArray(ids) ? ids : []).filter((id) => isEngagementRequestable(id, now));
+  const pending = [];
+  (Array.isArray(ids) ? ids : []).forEach((id) => {
+    if (engagementHydratedIds.has(id) || !(wanted.includes(id) || engagementInFlightIds.has(id))) return;
+    pending.push(new Promise((resolve) => {
+      const list = engagementWaiters.get(id) || [];
+      list.push(resolve);
+      engagementWaiters.set(id, list);
+    }));
+  });
+  if (wanted.length) {
+    engagementQueue = wanted.concat(engagementQueue.filter((id) => !wanted.includes(id)));
+    pumpEngagementQueue();
+  }
+  return Promise.all(pending).then(() => undefined);
+}
+
+function getEngagementWindowIds() {
+  const display = getDisplayVideos();
+  if (!Array.isArray(display) || !display.length) return [];
+  let index = 0;
+  try {
+    const centered = getCenteredFeedCard(document.querySelector('.videos-feed__viewport'));
+    const centeredId = centered?.getAttribute?.('data-event-id');
+    if (centeredId) {
+      const found = display.findIndex((v) => v && v.id === centeredId);
+      if (found > -1) index = found;
     }
   } catch (_) {}
+  const ids = [];
+  const add = (video) => {
+    if (video?.id && !ids.includes(video.id)) ids.push(video.id);
+  };
+  add(display[index]);
+  for (let k = 1; k <= ENGAGEMENT_WINDOW_AHEAD; k += 1) add(display[index + k]);
+  for (let k = 1; k <= ENGAGEMENT_WINDOW_BEHIND; k += 1) add(display[index - k]);
+  return ids;
+}
+
+function bindEngagementWindowTracking() {
+  if (engagementScrollBound) return;
+  const viewport = document.querySelector('.videos-feed__viewport');
+  if (!viewport) return;
+  engagementScrollBound = true;
+  viewport.addEventListener('scroll', () => scheduleEngagementWindowSoon(), { passive: true });
+}
+
+function scheduleEngagementWindow() {
+  bindEngagementWindowTracking();
+  const windowIds = getEngagementWindowIds();
+  const nextWindow = new Set(windowIds);
+  // כניסה מחודשת לחלון = סשן צפייה חדש: מאפסים מונה ניסיונות שנכשלו
+  windowIds.forEach((id) => {
+    if (engagementLastWindow.has(id)) return;
+    const retry = engagementRetryState.get(id);
+    if (retry && retry.attempts >= ENGAGEMENT_MAX_ATTEMPTS) engagementRetryState.delete(id);
+  });
+  engagementLastWindow = nextWindow;
+  // פוסטים שיצאו מהחלון ועוד לא נשלחו — לא נטענים עד שיתקרבו שוב
+  engagementQueue = engagementQueue.filter((id) => nextWindow.has(id) || engagementWaiters.has(id));
+  return requestEngagementHydration(windowIds);
+}
+
+function scheduleEngagementWindowSoon() {
+  if (engagementWindowTimer) return;
+  engagementWindowTimer = setTimeout(() => {
+    engagementWindowTimer = null;
+    scheduleEngagementWindow();
+  }, ENGAGEMENT_WINDOW_DEBOUNCE_MS);
+}
+
+// מונים מהמפות מיד עם mount — לפני כל הנחה שאין מעורבות
+function onFeedCardMountedForEngagement(card) {
+  const id = card?.getAttribute?.('data-event-id');
+  if (id) refreshEngagementCounters(id);
+  scheduleEngagementWindowSoon();
 }
 
 // חלק יאללה וידאו (videos.js) – רישום אירועים למפות המשותפות כדי לאפשר התרעות מלאות | HYPER CORE TECH
@@ -8832,16 +9022,8 @@ async function loadVideos() {
   // אם אין פוסטים חדשים ויש כבר תוכן מהמטמון - סיים
   if ((!Array.isArray(sourceEvents) || sourceEvents.length === 0) && state.videos.length > 0) {
     console.log('[videos] loadVideos: no new events, keeping cached content');
-    // חלק לייקים (videos.js) – טעינת לייקים גם כשאין פוסטים חדשים | HYPER CORE TECH
-    const cachedIds = state.videos.map(v => v.id);
-    if (cachedIds.length > 0) {
-      loadLikesAndCommentsForVideos(cachedIds).then(() => {
-        cachedIds.forEach((id) => {
-          updateVideoLikeButton(id);
-          updateVideoCommentButton(id);
-        });
-      }).catch(() => {});
-    }
+    // חלק לייקים (videos.js) – גם כשאין פוסטים חדשים: רק חלון הצפייה | HYPER CORE TECH
+    scheduleEngagementWindow().catch(() => {});
     setLoadingProgress(100);
     setLoadingStatus('הכל מעודכן!');
     // לא סוגרים כאן אם שער ה-boot עדיין פעיל — ensureBootFeedReady יסגור | HYPER CORE TECH
@@ -8968,9 +9150,8 @@ async function loadVideos() {
 
   setLoadingProgress(80);
 
-  // Likes/comments/shares hydrate in the background; counters update per batch and never gate the first render.
-  const engagementIds = videoEvents.map(v => v.id);
-  loadLikesAndCommentsForVideos(engagementIds).catch((err) => {
+  // Likes/comments/shares hydrate in the background around the visible card and never gate the first render.
+  scheduleEngagementWindow().catch((err) => {
     console.warn('[videos] background engagement hydration failed', err);
   });
 
