@@ -1,0 +1,250 @@
+{
+  "ok": true,
+  "checks": {
+    "GROUP_CONTROL_LABEL_MANAGEMENT": true,
+    "LEGACY_VISIBLE_FILTER_ABSENT": true,
+    "LEGACY_FILTER_UI_REMOVED": true,
+    "LEGACY_PROTOCOL_SUPPORT_PRESERVED": true,
+    "DESKTOP_GROUP_PANEL_IN_CONTENT_AREA": true,
+    "DESKTOP_GROUP_PANEL_COVERS_PRIMARY_NAV_FALSE": true,
+    "DESKTOP_MEMBER_DRAWER_CONTAINED": true,
+    "REPORT_RAW_URL_REMOVED": true,
+    "REPORT_SHOW_POST_BUTTON_VISIBLE": true,
+    "REPORT_SHOW_POST_TARGET_MATCH": true,
+    "REPORT_ACTION_COUNT_SIMPLIFIED": true,
+    "REPORT_REMOVE_PERMISSION_GATED": true,
+    "REPORT_BLOCK_PERMISSION_GATED": true,
+    "CAPABILITY_SCOPED_MENU": true,
+    "MOBILE_LAYOUT_UNCHANGED": true,
+    "DESKTOP_LAYOUT_BROWSER": true,
+    "MOBILE_LAYOUT_BROWSER": true,
+    "DESKTOP_NAV_VISIBLE": true,
+    "DESKTOP_NAV_NOT_COVERED": true,
+    "GROUP_PANEL_CENTERED_MODAL_FALSE": true,
+    "GROUP_PANEL_FULL_CONTENT_SURFACE": true,
+    "MEMBER_DETAIL_INSIDE_GROUP_PANEL": true,
+    "NO_DESKTOP_HORIZONTAL_OVERFLOW": true,
+    "MOBILE_MANAGEMENT_PASS": true
+  },
+  "fail": [],
+  "flags": {
+    "LEGACY_VISIBLE_FILTER": false,
+    "DESKTOP_GROUP_PANEL_COVERS_PRIMARY_NAV": false,
+    "REPORT_RAW_MEDIA_URL_VISIBLE": false,
+    "MOBILE_GROUP_MANAGEMENT_VISUAL_REGRESSION": false,
+    "MOBILE_HORIZONTAL_OVERFLOW": false,
+    "GROUP_PANEL_CENTERED_MODAL": false
+  },
+  "layout": {
+    "desktop": [
+      {
+        "vp": {
+          "w": 1920,
+          "h": 1080
+        },
+        "geo": {
+          "shell": {
+            "left": 0,
+            "right": 1700,
+            "top": 0,
+            "width": 1700,
+            "height": 1080
+          },
+          "panel": {
+            "left": 0,
+            "right": 1700,
+            "width": 1700
+          },
+          "nav": {
+            "left": 1700,
+            "right": 1920,
+            "width": 220,
+            "visible": true
+          },
+          "drawer": {
+            "left": 1,
+            "right": 1700,
+            "width": 1699
+          },
+          "drawerInside": true,
+          "overflow": false,
+          "navCovered": false,
+          "centeredModal": false,
+          "bg": "rgba(0, 0, 0, 0)",
+          "position": "fixed",
+          "right": "220px"
+        },
+        "shot": "desktop-1920x1080.png"
+      },
+      {
+        "vp": {
+          "w": 1783,
+          "h": 900
+        },
+        "geo": {
+          "shell": {
+            "left": 0,
+            "right": 1563,
+            "top": 0,
+            "width": 1563,
+            "height": 900
+          },
+          "panel": {
+            "left": 0,
+            "right": 1563,
+            "width": 1563
+          },
+          "nav": {
+            "left": 1563,
+            "right": 1783,
+            "width": 220,
+            "visible": true
+          },
+          "drawer": {
+            "left": 1,
+            "right": 1563,
+            "width": 1562
+          },
+          "drawerInside": true,
+          "overflow": false,
+          "navCovered": false,
+          "centeredModal": false,
+          "bg": "rgba(0, 0, 0, 0)",
+          "position": "fixed",
+          "right": "220px"
+        },
+        "shot": "desktop-1783x900.png"
+      },
+      {
+        "vp": {
+          "w": 1440,
+          "h": 900
+        },
+        "geo": {
+          "shell": {
+            "left": 0,
+            "right": 1220,
+            "top": 0,
+            "width": 1220,
+            "height": 900
+          },
+          "panel": {
+            "left": 0,
+            "right": 1220,
+            "width": 1220
+          },
+          "nav": {
+            "left": 1220,
+            "right": 1440,
+            "width": 220,
+            "visible": true
+          },
+          "drawer": {
+            "left": 1,
+            "right": 1220,
+            "width": 1219
+          },
+          "drawerInside": true,
+          "overflow": false,
+          "navCovered": false,
+          "centeredModal": false,
+          "bg": "rgba(0, 0, 0, 0)",
+          "position": "fixed",
+          "right": "220px"
+        },
+        "shot": "desktop-1440x900.png"
+      },
+      {
+        "vp": {
+          "w": 1280,
+          "h": 800
+        },
+        "geo": {
+          "shell": {
+            "left": 0,
+            "right": 1060,
+            "top": 0,
+            "width": 1060,
+            "height": 800
+          },
+          "panel": {
+            "left": 0,
+            "right": 1060,
+            "width": 1060
+          },
+          "nav": {
+            "left": 1060,
+            "right": 1280,
+            "width": 220,
+            "visible": true
+          },
+          "drawer": {
+            "left": 1,
+            "right": 1060,
+            "width": 1059
+          },
+          "drawerInside": true,
+          "overflow": false,
+          "navCovered": false,
+          "centeredModal": false,
+          "bg": "rgba(0, 0, 0, 0)",
+          "position": "fixed",
+          "right": "220px"
+        },
+        "shot": "desktop-1280x800.png"
+      }
+    ],
+    "mobile": [
+      {
+        "vp": {
+          "w": 390,
+          "h": 844
+        },
+        "geo": {
+          "panel": {
+            "width": 390,
+            "height": 844,
+            "left": 0
+          },
+          "overflow": false,
+          "fullish": true
+        },
+        "shot": "mobile-390x844.png"
+      },
+      {
+        "vp": {
+          "w": 412,
+          "h": 915
+        },
+        "geo": {
+          "panel": {
+            "width": 412,
+            "height": 915,
+            "left": 0
+          },
+          "overflow": false,
+          "fullish": true
+        },
+        "shot": "mobile-412x915.png"
+      }
+    ]
+  },
+  "screenshots": [
+    "desktop-1920x1080.png",
+    "desktop-1783x900.png",
+    "desktop-1440x900.png",
+    "desktop-1280x800.png",
+    "mobile-390x844.png",
+    "mobile-412x915.png"
+  ],
+  "DESKTOP_VIEWPORTS_TESTED": [
+    "1920x1080",
+    "1783x900",
+    "1440x900",
+    "1280x800"
+  ],
+  "MOBILE_VIEWPORTS_TESTED": [
+    "390x844",
+    "412x915"
+  ]
+}

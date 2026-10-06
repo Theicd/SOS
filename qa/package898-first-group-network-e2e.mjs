@@ -945,7 +945,7 @@ async function main() {
     // ================================================================ 899f: admin PIN lock in active control mode
     const controlMenu = await ev(ua.page, () => {
       const el = document.getElementById('sosGroupControlMenuItem');
-      return !!el && el.style.display !== 'none' && el.textContent.trim() === 'שליטה על הקבוצה';
+      return !!el && el.style.display !== 'none' && /ניהול קבוצה/.test(el.textContent || '');
     });
     const bControlMenu = await ev(ub.page, () => {
       window.NostrApp.GroupAdminProductUi.ensureMenuEntry();
@@ -1091,7 +1091,7 @@ async function main() {
     info('REALTIME_GRANT_LATENCY_MS', grantLatency);
     const bView1 = await view(ub.page, B.pub);
     const bSections = await ev(ub.page, () => window.NostrApp.FirstGroupAdmin.visibleSections());
-    // Invite-only helper: no "שליטה על הקבוצה", no panel, no PIN prompt; invites through the normal invite UX.
+    // Invite-only helper: no "ניהול קבוצה", no panel, no PIN prompt; invites through the normal invite UX.
     const bMenu = await menuVisible(ub.page);
     const bOpen = await ev(ub.page, async () => {
       const r = await window.NostrApp.GroupAdminProductUi.open('invites');
@@ -1254,7 +1254,7 @@ async function main() {
     info('REALTIME_PROMOTE_LATENCY_MS', Date.now() - tPromote);
     // Admin 2FA: a newly promoted admin enrolls their own server PIN before the admin panel opens.
     info('B_ADMIN_PIN_ENROLL', await pinReady(ub.page));
-    // Group control is ROOT (full) or MODERATE_CONTENT (moderation-only); MANAGE_MEMBERS keeps protocol authority only.
+    // Group control: ROOT and delegated managers (MANAGE_*) see "ניהול קבוצה"; MODERATE_CONTENT alone is reports-only.
     const bAdminMenu = await menuVisible(ub.page);
     const bAdminDirect = await ev(ub.page, async () => {
       const ui = window.NostrApp.GroupAdminProductUi;
@@ -1265,7 +1265,7 @@ async function main() {
     const bAdminView = await view(ub.page, B.pub);
     set(
       'REMOTE_ADMIN_PROMOTE',
-      /SAVED|APPLIED/.test(promote) && bAdmin.ok && bAdminView.caps.includes('MANAGE_MEMBERS') && bAdminMenu === false && bAdminDirect.code === 'UNAUTHORIZED' && !bAdminDirect.open,
+      /SAVED|APPLIED/.test(promote) && bAdmin.ok && bAdminView.caps.includes('MANAGE_MEMBERS') && bAdminMenu === true && bAdminDirect.code === 'ACTIVE_PATH' && bAdminDirect.open === true,
       { promote, ms: bAdmin.ms, caps: bAdminView.caps, bAdminMenu, bAdminDirect }
     );
 
@@ -1278,7 +1278,7 @@ async function main() {
     const bFreshMenu = await menuVisible(ub2.page);
     set(
       'FRESH_PROFILE_AUTHORITY',
-      pb2 === B.pub && freshStorageBefore && bFresh.control === 'VERIFIED' && bFresh.member === 'ACTIVE' && JSON.stringify(bFresh.caps) === JSON.stringify(bOnA.caps) && bFreshMenu === false,
+      pb2 === B.pub && freshStorageBefore && bFresh.control === 'VERIFIED' && bFresh.member === 'ACTIVE' && JSON.stringify(bFresh.caps) === JSON.stringify(bOnA.caps) && bFreshMenu === true,
       { fresh: bFresh, aView: { caps: bOnA.caps, member: bOnA.member }, bFreshMenu }
     );
     await closeProfile(ub2);
@@ -2107,7 +2107,7 @@ async function main() {
       await sleep(250);
       return dirRows();
     };
-    const fLegacy = await filterRows('LEGACY');
+    const fLegacy = dirAll.filter((r) => r.status === 'LEGACY');
     const fBlocked = await filterRows('BLOCKED');
     const fRemoved = await filterRows('REMOVED');
     const fActive = await filterRows('ACTIVE');
@@ -2232,7 +2232,8 @@ async function main() {
     set('PROFILE_NAME_AND_AVATAR_VISIBLE', byPk.get(PO.pub)?.name === 'profile only' && dirAll.every((r) => r.avatar), { po: byPk.get(PO.pub)?.name });
     set(
       'DIRECTORY_FILTERS',
-      JSON.stringify(filterLabels) === JSON.stringify(['הכל', 'חברים פעילים', 'חשבונות ותיקים', 'חסומים', 'הוסרו']) &&
+      JSON.stringify(filterLabels) === JSON.stringify(['הכל', 'חברים פעילים', 'חסומים', 'הוסרו']) &&
+        !filterLabels.includes('חשבונות ותיקים') &&
         fLegacy.length >= 2 && fLegacy.every((r) => r.status === 'LEGACY') && fLegacy.some((r) => r.pk === PO.pub) && fLegacy.some((r) => r.pk === Y.pub) &&
         fBlocked.every((r) => r.status === 'BLOCKED') && fBlocked.some((r) => r.pk === Q.pub) &&
         fRemoved.every((r) => r.status === 'REMOVED') && fRemoved.some((r) => r.pk === Z.pub) &&
@@ -2763,9 +2764,9 @@ async function main() {
         expect(personas.INVITE_USERS_ONLY_LIVE, true, false, false) &&
         expect(personas.MODERATE_CONTENT_ONLY, false, true, true, 'MODERATION_ONLY') &&
         expect(personas.MODERATE_CONTENT_AND_INVITE_USERS, true, true, true, 'MODERATION_ONLY') &&
-        expect(personas.MANAGE_MEMBERS_ONLY, false, false, false) &&
-        expect(personas.MANAGE_BLOCKLIST_ONLY, false, false, false) &&
-        expect(personas.MANAGE_PERMISSIONS_ONLY, false, false, false) &&
+        expect(personas.MANAGE_MEMBERS_ONLY, false, true, false) &&
+        expect(personas.MANAGE_BLOCKLIST_ONLY, false, true, false) &&
+        expect(personas.MANAGE_PERMISSIONS_ONLY, false, true, false) &&
         expect(personas.ROOT, true, true, true, 'FULL'),
       personas
     );

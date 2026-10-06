@@ -272,14 +272,26 @@
   }
 
   /**
-   * The full group control panel is ROOT only, shown as soon as the configured root identity is active (also while
-   * the network is still syncing). Menu visibility is not authority: every mutation reconciles and fails closed.
-   * Advanced capabilities (MANAGE_*, VIEW_AUDIT_LOG) stay enforced by the protocol but do not open this panel.
+   * "ניהול קבוצה" menu entry: configured ROOT (also while network is still syncing / needs bootstrap), or a
+   * verified ACTIVE member with an effective management capability. Menu visibility is not authority —
+   * every mutation still reconciles and fails closed. MODERATE_CONTENT alone uses moderation-only mode
+   * (canSeeModeration / reports entry) and does not open the full panel.
    */
   function canSeeAdminMenu() {
     if (!isV2() || App.guestMode === true) return false;
     if (!contextCheck().ok) return false;
-    return isConfiguredRoot(actor());
+    if (isConfiguredRoot(actor())) return true;
+    if (!networkSynced()) return false;
+    const a = myAuthority();
+    if (!a || !a.verified || a.blocked || (a.membership !== 'ACTIVE' && !a.isRoot)) return false;
+    return hasAny(a, [
+      'MANAGE_ADMINS',
+      'MANAGE_PERMISSIONS',
+      'MANAGE_MEMBERS',
+      'MANAGE_BLOCKLIST',
+      'MANAGE_GROUP_SETTINGS',
+      'VIEW_AUDIT_LOG',
+    ]);
   }
 
   function isConfiguredRoot(pk) {

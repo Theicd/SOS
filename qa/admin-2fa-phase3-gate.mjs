@@ -513,7 +513,7 @@ async function main() {
     'INVITE_ONLY_USER_GROUP_CONTROL_PANEL_ACCESS_FALSE',
     inviteOnly.menu === false &&
       inviteOnly.moderation === false &&
-      /return f\.canSeeAdminMenu\(\) \|\| (canSeeModerationOnly\(\) \|\| )?needsBootstrap\(\);/.test(uiSrc0) &&
+      /if \(id === 'members'\) return !!v\.members \|\| \(!!f && needsBootstrap\(\)\);/.test(uiSrc0) &&
       /if \(!canSeeGroupControl\(\)\) return canSeeReportsEntry\(\) \? openReports\(\) : \{ ok: false, code: 'UNAUTHORIZED' \};/.test(uiSrc0) &&
       !inviteOnly.sections.admins && !inviteOnly.sections.roles && !inviteOnly.sections.members && !inviteOnly.sections.settings
   );
@@ -810,11 +810,12 @@ async function main() {
       /const unlocked = await adminSession\(\)/.test(uiSrc) &&
       /function adminSession\(\) \{\s*const p = PIN\(\);\s*return p \? p\.requestUnlock\(\) : Promise\.resolve\(\{ ok: false \}\);/.test(uiSrc) &&
       !/needsAdminSession|NOT_ADMIN_TIER/.test(uiSrc) &&
-      /function canSeeAdminMenu\(\) \{[\s\S]{0,160}return isConfiguredRoot\(actor\(\)\);/.test(fgaSrc) &&
+      /function canSeeAdminMenu\(\) \{[\s\S]{0,500}isConfiguredRoot\(actor\(\)\)/.test(fgaSrc) &&
+      /MANAGE_MEMBERS/.test(fgaSrc) &&
       /return a\.verified && has\(a, 'MODERATE_CONTENT'\);/.test(fgaSrc) &&
       /p\.isUnlocked\(me\) !== true\) return fail\('ADMIN_PIN_REQUIRED'\)/.test(fgaSrc) &&
       /isUnlocked\(pubkey\) \{\s*const c = C\(\);\s*return !!c && c\.isActive\(pubkey\)/.test(read('admin-pin-lock.js')) &&
-      /'שליטה על הקבוצה'/.test(uiSrc) &&
+      /ניהול קבוצה/.test(uiSrc) &&
       /הגדרת קוד מנהל/.test(read('admin-pin-lock.js')) &&
       /'<h2 id="sosAdminPinTitle">קוד מנהל<\/h2>/.test(read('admin-pin-lock.js'))
   );

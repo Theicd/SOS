@@ -463,7 +463,7 @@ async function main() {
     const mA = await menuState(ua.page);
     const mM = await menuState(um.page);
     const mG = await menuState(ug.page);
-    set('MENU_VISIBLE_ROOT', mA.visible && mA.inMenu && mA.label === 'שליטה על הקבוצה', mA);
+    set('MENU_VISIBLE_ROOT', mA.visible && mA.inMenu && mA.label === 'ניהול קבוצה', mA);
     set('MENU_HIDDEN_MEMBER', !mM.visible, mM);
     set('MENU_HIDDEN_GUEST', !mG.visible, mG);
     const mOpen = await um.page.evaluate(async () => (await window.NostrApp.GroupAdminProductUi.open('home')).code);

@@ -494,7 +494,7 @@
     modalEl.setAttribute('aria-hidden', 'true');
   }
 
-  /** No floating home button: group management opens only from the profile menu ("שליטה על הקבוצה"). */
+  /** No floating home button: group management opens only from the profile menu ("ניהול קבוצה"). */
   function ensureEntryButton() {
     const existing = document.getElementById('sosAdminSettingsEntry');
     if (existing) existing.remove();

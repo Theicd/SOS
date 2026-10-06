@@ -195,13 +195,13 @@
     return !!f && typeof f.canSeeModeration === 'function' && f.canSeeModeration() === true;
   }
 
-  /** MODERATE_CONTENT holders (not ROOT): "שליטה על הקבוצה" opens the moderation-only mode (reports + reported content). */
+  /** MODERATE_CONTENT holders without a management capability: "ניהול קבוצה" opens moderation-only mode. */
   function canSeeReportsEntry() {
     if (!isV2() || App.guestMode || !actor()) return false;
     return !canSeeGroupAdminMenu() && canSeeModerationOnly();
   }
 
-  /** The single "שליטה על הקבוצה" entry: ROOT (full panel) or MODERATE_CONTENT (moderation-only mode). */
+  /** Single "ניהול קבוצה" entry: management caps (scoped sections) or MODERATE_CONTENT (reports-only). */
   function canSeeControlMenu() {
     return canSeeGroupControl() || canSeeReportsEntry();
   }
@@ -238,7 +238,7 @@
     return isV2() ? 'ACTIVE_PATH' : 'CONTROL_PLANE_NOT_ACTIVE';
   }
 
-  /** Every panel open and action needs a server admin session; only root / admin-tier principals can see the panel. */
+  /** Every panel open and privileged action needs a server admin session (Admin 2FA / PIN). */
   function adminSession() {
     const p = PIN();
     return p ? p.requestUnlock() : Promise.resolve({ ok: false });
@@ -264,7 +264,7 @@
     const v = s || sections();
     const f = FGA();
     if (reportsOnly) return id === 'reports' && !!v.reports;
-    if (id === 'members') return !!f && (f.canSeeAdminMenu() || needsBootstrap());
+    if (id === 'members') return !!v.members || (!!f && needsBootstrap());
     if (id === 'admins') return !!v.admins;
     if (id === 'invites') return !!v.invites || !!v.createInvite;
     if (id === 'reports') return !!v.reports;
@@ -284,9 +284,10 @@
     const style = document.createElement('style');
     style.id = 'sos-group-admin-product-style';
     style.textContent =
+      /* Mobile / default: full-screen management (unchanged product behavior). */
       '#sosGroupAdminShell{position:fixed;inset:0;z-index:12100;display:none;align-items:stretch;justify-content:center;background:rgba(0,0,0,.55);direction:rtl;}' +
       '#sosGroupAdminShell.is-open{display:flex;}' +
-      '#sosGroupAdminShell .gap-panel{width:min(860px,96vw);max-height:92vh;margin:auto;background:#12141a;color:#f2f2f2;border-radius:14px;border:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;overflow:hidden;position:relative;}' +
+      '#sosGroupAdminShell .gap-panel{width:min(860px,96vw);max-height:92vh;margin:auto;background:#12141a;color:#f2f2f2;border-radius:14px;border:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;overflow:hidden;position:relative;min-width:0;}' +
       '#sosGroupAdminShell .gap-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.08);}' +
       '#sosGroupAdminShell .gap-head h2{margin:0;font-size:1.1rem;}' +
       '#sosGroupAdminShell .gap-brand{display:flex;align-items:center;gap:10px;min-width:0;}' +
@@ -295,19 +296,27 @@
       '#sosGroupAdminShell .gap-tabs{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.08);}' +
       '#sosGroupAdminShell .gap-tabs button{border:0;border-radius:999px;padding:7px 12px;background:#222836;color:#fff;cursor:pointer;font-size:.85rem;}' +
       '#sosGroupAdminShell .gap-tabs button.active{background:#3d7eff;}' +
-      '#sosGroupAdminShell .gap-body{padding:14px 16px 18px;overflow:auto;flex:1;}' +
+      '#sosGroupAdminShell .gap-body{padding:14px 16px 18px;overflow:auto;flex:1;min-width:0;box-sizing:border-box;}' +
       '#sosGroupAdminShell .gap-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}' +
+      '#sosGroupAdminShell .gap-actions--primary{align-items:center;}' +
       '#sosGroupAdminShell button.gap-btn{border:0;border-radius:8px;padding:8px 12px;background:#2a3142;color:#fff;cursor:pointer;font-size:.9rem;}' +
-      '#sosGroupAdminShell button.gap-btn.primary{background:#3d7eff;}' +
+      '#sosGroupAdminShell button.gap-btn.primary{background:#3d7eff;font-weight:600;}' +
       '#sosGroupAdminShell button.gap-btn.danger{background:#a83a3a;}' +
       '#sosGroupAdminShell button.gap-btn[disabled]{opacity:.45;cursor:not-allowed;}' +
+      '#sosGroupAdminShell button.gap-link{border:0;background:none;color:#8eb6ff;padding:0;cursor:pointer;font:inherit;text-decoration:underline;}' +
       '#sosGroupAdminShell .gap-row{display:flex;flex-direction:column;gap:6px;margin:8px 0;}' +
       '#sosGroupAdminShell input,#sosGroupAdminShell textarea,#sosGroupAdminShell select{background:#1b1e27;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;font:inherit;}' +
       '#sosGroupAdminShell .gap-list{display:flex;flex-direction:column;gap:6px;margin-top:10px;}' +
-      '#sosGroupAdminShell .gap-item{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-radius:10px;background:#1a1e29;}' +
+      '#sosGroupAdminShell .gap-item{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-radius:10px;background:#1a1e29;min-width:0;}' +
       '#sosGroupAdminShell .gap-item.sel{outline:2px solid #3d7eff;}' +
-      '#sosGroupAdminShell .gap-sub{font-size:.8rem;opacity:.75;}' +
-      '#sosGroupAdminShell .gap-mono{font-family:ui-monospace,monospace;font-size:.8rem;word-break:break-all;}' +
+      '#sosGroupAdminShell .gap-report{align-items:stretch;flex-direction:column;}' +
+      '#sosGroupAdminShell .gap-report-preview,#sosGroupAdminShell .gap-report-summary{margin:6px 0;min-width:0;max-width:100%;overflow-wrap:anywhere;word-break:break-word;}' +
+      '#sosGroupAdminShell .gap-report-media{display:inline-block;background:#243049;border-radius:8px;padding:6px 10px;font-size:.9rem;}' +
+      '#sosGroupAdminShell details.gap-more{margin-top:4px;}' +
+      '#sosGroupAdminShell details.gap-more summary{cursor:pointer;font-size:.82rem;opacity:.85;list-style:none;}' +
+      '#sosGroupAdminShell details.gap-more summary::-webkit-details-marker{display:none;}' +
+      '#sosGroupAdminShell .gap-sub{font-size:.8rem;opacity:.75;min-width:0;overflow-wrap:anywhere;}' +
+      '#sosGroupAdminShell .gap-mono{font-family:ui-monospace,monospace;font-size:.8rem;overflow-wrap:anywhere;word-break:break-word;}' +
       '#sosGroupAdminShell .gap-caps{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;margin-top:8px;}' +
       '#sosGroupAdminShell .gap-caps label{display:flex;gap:8px;align-items:center;background:#1a1e29;border-radius:8px;padding:6px 8px;}' +
       '#sosGroupAdminShell .gap-caps label.gap-cap{align-items:flex-start;}' +
@@ -323,7 +332,7 @@
       '#sosGroupAdminShell .gap-msg{min-height:1.2em;padding:6px 16px 10px;font-size:.85rem;}' +
       '#sosGroupAdminShell .gap-msg.err{color:#ff8f8f;}' +
       '#sosGroupAdminShell .gap-msg.ok{color:#8dffb0;}' +
-      '#sosGapConfirm{position:absolute;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:2;}' +
+      '#sosGapConfirm{position:absolute;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:4;}' +
       '#sosGapConfirm.is-open{display:flex;}' +
       '#sosGapConfirm .gap-confirm-box{background:#1b1f2b;border-radius:12px;padding:16px;width:min(420px,90%);}' +
       '#sosGroupAdminMenuEntry{display:none;}' +
@@ -349,9 +358,10 @@
       '#sosGroupAdminShell details.gap-adv{margin-top:18px;border-top:1px solid rgba(255,255,255,.08);padding-top:10px;}' +
       '#sosGroupAdminShell details.gap-adv summary{cursor:pointer;font-weight:600;}' +
       '#sosGroupAdminShell .gap-ref{margin:6px 0;padding-inline-start:18px;font-size:.82rem;}' +
+      /* Member detail drawer lives inside .gap-panel (position:relative). */
       '#sosGapMemberDetail{position:absolute;inset:0;z-index:3;display:flex;justify-content:flex-start;background:rgba(0,0,0,.45);}' +
-      '#sosGapMemberDetail .gap-drawer{width:min(440px,100%);height:100%;background:#161a23;display:flex;flex-direction:column;box-shadow:0 0 24px rgba(0,0,0,.5);}' +
-      '#sosGapMemberDetail .gap-drawer-body{padding:14px 16px;overflow:auto;flex:1;}' +
+      '#sosGapMemberDetail .gap-drawer{width:min(440px,100%);height:100%;background:#161a23;display:flex;flex-direction:column;box-shadow:0 0 24px rgba(0,0,0,.5);min-width:0;}' +
+      '#sosGapMemberDetail .gap-drawer-body{padding:14px 16px;overflow:auto;flex:1;min-width:0;}' +
       '#sosGapMemberDetail .gap-drawer-foot{padding:10px 16px 14px;border-top:1px solid rgba(255,255,255,.08);}' +
       '#sosGapMemberDetail .gap-who{display:flex;gap:12px;align-items:center;margin-bottom:10px;}' +
       '#sosGapMemberDetail h3{font-size:.95rem;margin:14px 0 6px;}' +
@@ -360,6 +370,15 @@
       '#sosGapRoleOptions button.active{background:#3d7eff;border-color:#3d7eff;}' +
       '#sosGapRoleOptions button[disabled]{opacity:.45;cursor:not-allowed;}' +
       '#sosGapMemberDetail .gap-caps{grid-template-columns:1fr;}' +
+      /* Desktop: fill main content area left of primary-nav; no full-app backdrop. */
+      '@media (min-width:769px){' +
+      'body:has(.videos-feed) #sosGroupAdminShell{inset:auto;top:var(--videos-desktop-top-offset,0px);right:var(--videos-desktop-nav-width,220px);bottom:0;left:0;z-index:2500;background:transparent;align-items:stretch;justify-content:stretch;}' +
+      'body:has(.videos-feed) #sosGroupAdminShell .gap-panel{width:100%;max-width:none;height:100%;max-height:none;margin:0;border-radius:0;border:none;border-inline-end:1px solid rgba(255,255,255,.1);}' +
+      'body:has(.videos-feed) #sosGroupAdminShell .gap-body{max-width:920px;width:100%;margin-inline:auto;}' +
+      'body:has(.videos-feed) #sosGroupAdminShell .gap-top{max-width:920px;width:100%;margin-inline:auto;box-sizing:border-box;}' +
+      'body:has(.videos-feed) #sosGapMemberDetail{background:rgba(0,0,0,.35);}' +
+      'body:has(.videos-feed) #sosGapMemberDetail .gap-drawer{width:min(420px,46%);max-width:100%;}' +
+      '}' +
       '@media (max-width:640px){#sosGroupAdminShell .gap-panel{width:100vw;max-height:100vh;height:100vh;border-radius:0;}' +
       '#sosGroupAdminShell .gap-tabs{flex-wrap:nowrap;overflow-x:auto;}' +
       '#sosGroupAdminShell .gap-tabs button{flex:0 0 auto;}' +
@@ -541,7 +560,7 @@
     return snap && snap.ok ? snap.unresolved : 0;
   }
 
-  /** Unresolved-report count on the "שליטה על הקבוצה" menu item (existing in-app surface, no push). */
+  /** Unresolved-report count on the "ניהול קבוצה" menu item (existing in-app surface, no push). */
   function refreshReportBadge() {
     const item = document.getElementById('sosGroupControlMenuItem');
     if (!item) return;
@@ -571,7 +590,7 @@
     const f = FGA();
     const info = groupInfo();
     const title = shellEl.querySelector('#sosGapTitle');
-    if (title) title.textContent = reportsOnly ? 'דיווחים' : 'ניהול הקבוצה';
+    if (title) title.textContent = reportsOnly ? 'דיווחים' : 'ניהול קבוצה';
     const logo = shellEl.querySelector('#sosGapLogo');
     const src = safeLogoSrc(info.logoRef);
     if (logo) {
@@ -612,7 +631,6 @@
   const DIR_FILTERS = Object.freeze([
     { id: 'ALL', label: 'הכל' },
     { id: 'ACTIVE', label: 'חברים פעילים' },
-    { id: 'LEGACY', label: 'חשבונות ותיקים' },
     { id: 'BLOCKED', label: 'חסומים' },
     { id: 'REMOVED', label: 'הוסרו' },
   ]);
@@ -1193,6 +1211,30 @@
     );
   }
 
+  /** Never render raw Blossom/media URLs as the report summary. */
+  function mediaPreviewKind(text) {
+    const t = String(text || '').trim();
+    if (!t) return '';
+    if (!/^https?:\/\//i.test(t) && !/blossom|files\.sovbit|nostr\.build|primal\.net/i.test(t)) return '';
+    if (/\.(mp4|webm|mov|m4v|mkv)(\?|#|$)/i.test(t)) return 'video';
+    if (/\.(jpe?g|png|gif|webp|avif)(\?|#|$)/i.test(t)) return 'image';
+    if (/^https?:\/\/\S+$/i.test(t) || /\/[0-9a-f]{64}(\.[a-z0-9]+)?(\?|#|$)/i.test(t) || /blossom|files\.sovbit|nostr\.build|primal\.net/i.test(t)) {
+      return 'media';
+    }
+    return '';
+  }
+
+  function reportContentSummary(r) {
+    if (r && r.removed) return { media: false, label: 'התוכן הוסר', italic: true };
+    const raw = String((r && r.event && r.event.content) || (r && r.preview) || '').trim();
+    const kind = mediaPreviewKind(raw);
+    if (kind === 'video') return { media: true, label: 'סרטון' };
+    if (kind === 'image') return { media: true, label: 'תמונה' };
+    if (kind === 'media') return { media: true, label: 'פוסט מדיה' };
+    if (!raw) return { media: true, label: 'תוכן מדווח' };
+    return { media: false, label: raw.length > 160 ? raw.slice(0, 160) + '…' : raw, italic: false };
+  }
+
   function reportRowHtml(r, s) {
     const R = GR();
     const pk = r.reportedPubkey;
@@ -1201,25 +1243,41 @@
     const when = r.lastAt ? new Date(r.lastAt * 1000).toLocaleString('he-IL') : '';
     const reasons = r.reasons.map((x) => reasonLabel(x.id) + (x.count > 1 ? ' ×' + x.count : '')).join(', ');
     const closed = r.status === 'RESOLVED' || r.status === 'REJECTED';
+    const summary = reportContentSummary(r);
+    const canStatus = !!s.moderation;
     const btn = (act, label, cls, extra) =>
       '<button type="button" class="gap-btn' + (cls ? ' ' + cls : '') + '" data-act="' + act + '" data-target="' + escapeHtml(r.targetId) + '" data-pk="' + escapeHtml(pk) + '"' + (extra || '') + '>' + label + '</button>';
+    const secondary =
+      canStatus && !closed
+        ? '<details class="gap-more"><summary>עוד פעולות דיווח</summary><div class="gap-actions">' +
+          (r.status === 'NEW' ? btn('report-status', 'סמן כטופל', '', ' data-status="IN_PROGRESS"') : '') +
+          btn('report-status', 'סגור דיווח', '', ' data-status="RESOLVED"') +
+          btn('report-status', 'דחה דיווח', '', ' data-status="REJECTED"') +
+          '</div></details>'
+        : '';
     return (
       '<div class="gap-item gap-report" data-report-target="' + escapeHtml(r.targetId) + '" data-report-status="' + escapeHtml(r.status) + '">' +
       '<div class="gap-user-main" style="flex-basis:100%">' +
       '<div><span class="gap-chip">' + escapeHtml(R.STATUSES[r.status] || r.status) + '</span> ' +
       '<span class="gap-sub">' + escapeHtml(when) + ' · ' + r.reportCount + ' דיווחים</span></div>' +
-      '<div class="gap-report-preview" style="margin:6px 0">' + (r.removed ? '<i>התוכן הוסר</i>' : escapeHtml(r.preview || 'תוכן לא זמין')) + '</div>' +
-      '<div class="gap-sub">משתמש מדווח: <span data-name-pk="' + escapeHtml(pk) + '">' + escapeHtml(displayName(pk, prof)) + '</span> <span class="gap-mono">' + escapeHtml(shortPk(pk)) + '</span></div>' +
-      '<div class="gap-sub">סיבה: ' + escapeHtml(reasons) + '</div>' +
+      '<div class="gap-sub">סיבה: ' + escapeHtml(reasons || '—') + '</div>' +
       (r.notes.length ? '<div class="gap-sub">פרטים: ' + escapeHtml(r.notes.join(' | ')) + '</div>' : '') +
-      '</div><div class="gap-actions" style="margin-top:6px">' +
+      '<div class="gap-sub">משתמש מדווח: <button type="button" class="gap-link" data-act="select-member" data-pk="' + escapeHtml(pk) + '" data-name-pk="' + escapeHtml(pk) + '">' +
+      escapeHtml(displayName(pk, prof)) + '</button> <span class="gap-mono">' + escapeHtml(shortPk(pk)) + '</span></div>' +
+      '<div class="gap-report-summary">' +
+      (summary.media
+        ? '<span class="gap-report-media">' + escapeHtml(summary.label) + '</span>'
+        : summary.italic
+          ? '<i>' + escapeHtml(summary.label) + '</i>'
+          : escapeHtml(summary.label)) +
+      '</div></div>' +
+      '<div class="gap-actions gap-actions--primary" style="margin-top:6px">' +
+      btn('report-show', 'הצג פוסט', 'primary') +
       (s.moderation && !r.removed && r.event ? btn('report-remove', 'הסר תוכן', 'danger', ' data-mutation="1"') : '') +
       (s.blockMembers ? btn('report-block', 'חסום משתמש', 'danger', ' data-mutation="1"') : '') +
-      btn('select-member', 'פתח פרופיל', '') +
-      (r.status === 'NEW' ? btn('report-status', 'בטיפול', '', ' data-status="IN_PROGRESS"') : '') +
-      (!closed ? btn('report-status', 'סגור דיווח', '', ' data-status="RESOLVED"') : '') +
-      (!closed ? btn('report-status', 'דחה', '', ' data-status="REJECTED"') : '') +
-      '</div></div>'
+      '</div>' +
+      secondary +
+      '</div>'
     );
   }
 
@@ -1290,6 +1348,47 @@
   async function removeContent(ev) {
     if (!ev || typeof App.moderateRemoveEvent !== 'function') return { ok: false, code: 'NO_TARGET' };
     return run('הסרת תוכן', () => App.moderateRemoveEvent(ev), 'להסיר את התוכן? הוא יוסתר לכל המשתמשים ב-SOS.');
+  }
+
+  /**
+   * Open the reported post/video in the normal SOS feed surface (not a raw Blossom URL).
+   * Comments with a known parent open the parent for context.
+   */
+  async function showReportedPost(targetId) {
+    const R = GR();
+    const tid = String(targetId || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(tid)) {
+      setMsg('התוכן אינו זמין כרגע', 'err');
+      return { ok: false, code: 'NO_TARGET' };
+    }
+    const row = R && typeof R.snapshot === 'function' ? R.snapshot().rows.find((r) => r.targetId === tid) : null;
+    let openId = tid;
+    const parent = row && row.parentId ? String(row.parentId).toLowerCase() : '';
+    if (/^[0-9a-f]{64}$/.test(parent)) openId = parent;
+    else if (row && row.event && Array.isArray(row.event.tags)) {
+      const eTag = row.event.tags.find((t) => Array.isArray(t) && t[0] === 'e' && /^[0-9a-f]{64}$/i.test(t[1] || ''));
+      if (eTag) openId = String(eTag[1]).toLowerCase();
+    }
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('post', openId);
+      const next = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '') + url.hash;
+      history.replaceState({}, '', next);
+    } catch (_e) {}
+    close();
+    let ok = false;
+    if (typeof App.handlePostDeepLink === 'function') {
+      try {
+        ok = !!(await App.handlePostDeepLink({ force: true }));
+      } catch (_e) {
+        ok = false;
+      }
+    }
+    if (!ok) {
+      notice('התוכן אינו זמין כרגע');
+      return { ok: false, code: 'NOT_FOUND' };
+    }
+    return { ok: true, code: 'OK', openedId: openId, targetId: tid };
   }
 
   function renderActivity(body) {
@@ -1880,6 +1979,9 @@
       renderTab('reports');
       return { ok: true };
     }
+    if (act === 'report-show') {
+      return showReportedPost(el.getAttribute('data-target') || '');
+    }
     if (act === 'report-remove') {
       const R = GR();
       const row = R && R.snapshot().rows.find((r) => r.targetId === el.getAttribute('data-target'));
@@ -1890,6 +1992,11 @@
     }
     if (act === 'report-status') {
       const R = GR();
+      const s = isV2() ? modeSections() : {};
+      if (!s.moderation) {
+        setMsg('אין הרשאה לעדכן סטטוס דיווח', 'err');
+        return { ok: false, code: 'UNAUTHORIZED' };
+      }
       if (!R || busy) return null;
       busy = true;
       setMsg('מעדכן דיווח…', '');
@@ -1989,7 +2096,7 @@
     shellEl.id = 'sosGroupAdminShell';
     shellEl.innerHTML =
       '<div class="gap-panel" role="dialog" aria-modal="true" aria-labelledby="sosGapTitle">' +
-      '<div class="gap-head"><div class="gap-brand"><img id="sosGapLogo" alt="" style="display:none"><h2 id="sosGapTitle">ניהול הקבוצה</h2>' +
+      '<div class="gap-head"><div class="gap-brand"><img id="sosGapLogo" alt="" style="display:none"><h2 id="sosGapTitle">ניהול קבוצה</h2>' +
       '<span class="gap-role" id="sosGapRole"></span></div>' +
       '<button type="button" class="gap-btn" id="sosGapClose">סגור</button></div>' +
       '<div class="gap-top" id="sosGapTop"></div>' +
@@ -2046,7 +2153,8 @@
 
   /**
    * Every open requires an unlocked admin PIN session for the current identity.
-   * Full panel: ROOT only. MODERATE_CONTENT holders get the moderation-only mode; everyone else is denied.
+   * Full panel: ROOT or delegated management capabilities (sections remain capability-scoped).
+   * MODERATE_CONTENT-only holders get the moderation-only mode; everyone else is denied.
    */
   async function open(tab) {
     ensureMenuEntry();
@@ -2165,7 +2273,7 @@
       window.__SOS_GAP_LOGO_DATA__ = '';
       if (isOpen()) close();
     }
-    // The only management entry is the profile-menu item "שליטה על הקבוצה".
+    // The only management entry is the profile-menu item "ניהול קבוצה".
     ['sosGroupAdminMenuEntry', 'sosGroupAdminMoreItem', 'sosGroupReportsMenuItem'].forEach((id) => {
       const stale = document.getElementById(id);
       if (stale) stale.remove();
@@ -2178,7 +2286,9 @@
       item.type = 'button';
       item.id = 'sosGroupControlMenuItem';
       item.className = 'top-bar__dropdown-item';
-      item.innerHTML = '<i class="fa-solid fa-shield-halved"></i><span>שליטה על הקבוצה</span>';
+      item.setAttribute('aria-label', 'ניהול קבוצה');
+      item.title = 'ניהול קבוצה';
+      item.innerHTML = '<i class="fa-solid fa-shield-halved"></i><span>ניהול קבוצה</span>';
       item.addEventListener('click', () => {
         menu.hidden = true;
         const pb = document.getElementById('topBarProfileButton');
@@ -2190,6 +2300,10 @@
       else menu.appendChild(item);
     }
     if (item) {
+      const span = item.querySelector('span');
+      if (span) span.textContent = 'ניהול קבוצה';
+      item.setAttribute('aria-label', 'ניהול קבוצה');
+      item.title = 'ניהול קבוצה';
       item.hidden = !showControl;
       item.style.display = showControl ? '' : 'none';
     }
@@ -2261,7 +2375,7 @@
     ensureMenuEntry,
     renderTab,
     GROUP_ADMIN_MENU_LABEL: 'ניהול קבוצה',
-    GROUP_CONTROL_MENU_LABEL: 'שליטה על הקבוצה',
+    GROUP_CONTROL_MENU_LABEL: 'ניהול קבוצה',
     NEW_GROUP_CREATION: 'DEFERRED_TO_MULTI_COMMUNITY_PHASE',
   });
 
