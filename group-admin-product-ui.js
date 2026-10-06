@@ -293,6 +293,11 @@
       '#sosGroupAdminShell .gap-brand{display:flex;align-items:center;gap:10px;min-width:0;}' +
       '#sosGroupAdminShell .gap-brand img{width:36px;height:36px;border-radius:8px;object-fit:cover;background:#222;}' +
       '#sosGroupAdminShell .gap-role{font-size:.78rem;background:#243049;border-radius:999px;padding:3px 9px;white-space:nowrap;}' +
+      '#sosGroupAdminShell .gap-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}' +
+      /* Profile/games capsule sits at top-left z≈3000 and must not cover Close. */
+      'body:has(#sosGroupAdminShell.is-open) .top-bar__actions,' +
+      'body:has(#sosGroupAdminShell.is-open) .top-bar .top-bar__actions{' +
+      'opacity:0!important;visibility:hidden!important;pointer-events:none!important;}' +
       '#sosGroupAdminShell .gap-tabs{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.08);}' +
       '#sosGroupAdminShell .gap-tabs button{border:0;border-radius:999px;padding:7px 12px;background:#222836;color:#fff;cursor:pointer;font-size:.85rem;}' +
       '#sosGroupAdminShell .gap-tabs button.active{background:#3d7eff;}' +
@@ -2096,9 +2101,10 @@
     shellEl.id = 'sosGroupAdminShell';
     shellEl.innerHTML =
       '<div class="gap-panel" role="dialog" aria-modal="true" aria-labelledby="sosGapTitle">' +
-      '<div class="gap-head"><div class="gap-brand"><img id="sosGapLogo" alt="" style="display:none"><h2 id="sosGapTitle">ניהול קבוצה</h2>' +
+      '<div class="gap-head"><div class="gap-brand"><img id="sosGapLogo" alt="" style="display:none">' +
+      '<h2 id="sosGapTitle" class="gap-sr-only">ניהול קבוצה</h2>' +
       '<span class="gap-role" id="sosGapRole"></span></div>' +
-      '<button type="button" class="gap-btn" id="sosGapClose">סגור</button></div>' +
+      '<button type="button" class="gap-btn" id="sosGapClose" aria-label="סגור ניהול קבוצה">סגור</button></div>' +
       '<div class="gap-top" id="sosGapTop"></div>' +
       '<div class="gap-tabs" id="sosGapTabs" role="tablist"></div>' +
       '<div class="gap-body" id="sosGapBody"></div>' +
