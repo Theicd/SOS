@@ -33,6 +33,7 @@ set('LEGACY_VISIBLE_FILTER_ABSENT', report.flags.LEGACY_VISIBLE_FILTER === false
 set('LEGACY_FILTER_UI_REMOVED', !/label:\s*'חשבונות ותיקים'/.test(ui));
 set('LEGACY_PROTOCOL_SUPPORT_PRESERVED', /LEGACY:\s*'חשבון ותיק'/.test(ui) && /status === 'LEGACY'/.test(ui) && /confirmLegacyMember/.test(fga));
 set('DESKTOP_GROUP_PANEL_IN_CONTENT_AREA', /@media \(min-width:769px\)/.test(ui) && /--videos-desktop-nav-width/.test(ui) && /right:var\(--videos-desktop-nav-width/.test(ui));
+set('DESKTOP_COLUMN_ALIGNED', /grid-template-columns:minmax\(20px,1fr\) minmax\(0,min\(1100px,100%\)\)/.test(ui) && /gap-tabs\{grid-column:2/.test(ui) && /gap-body\{grid-column:2/.test(ui));
 flag('DESKTOP_GROUP_PANEL_COVERS_PRIMARY_NAV', false);
 set('DESKTOP_GROUP_PANEL_COVERS_PRIMARY_NAV_FALSE', /background:transparent/.test(ui) && /inset:auto/.test(ui));
 set('DESKTOP_MEMBER_DRAWER_CONTAINED', /#sosGapMemberDetail\{position:absolute;inset:0/.test(ui));

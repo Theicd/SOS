@@ -378,9 +378,21 @@
       /* Desktop: fill main content area left of primary-nav; no full-app backdrop. */
       '@media (min-width:769px){' +
       'body:has(.videos-feed) #sosGroupAdminShell{inset:auto;top:var(--videos-desktop-top-offset,0px);right:var(--videos-desktop-nav-width,220px);bottom:0;left:0;z-index:2500;background:transparent;align-items:stretch;justify-content:stretch;}' +
-      'body:has(.videos-feed) #sosGroupAdminShell .gap-panel{width:100%;max-width:none;height:100%;max-height:none;margin:0;border-radius:0;border:none;border-inline-end:1px solid rgba(255,255,255,.1);}' +
-      'body:has(.videos-feed) #sosGroupAdminShell .gap-body{max-width:920px;width:100%;margin-inline:auto;}' +
-      'body:has(.videos-feed) #sosGroupAdminShell .gap-top{max-width:920px;width:100%;margin-inline:auto;box-sizing:border-box;}' +
+      'body:has(.videos-feed) #sosGroupAdminShell .gap-panel{' +
+      'width:100%;max-width:none;height:100%;max-height:none;margin:0;border-radius:0;border:none;' +
+      'border-inline-end:1px solid rgba(255,255,255,.1);' +
+      'display:grid;grid-template-columns:minmax(20px,1fr) minmax(0,min(1100px,100%)) minmax(20px,1fr);' +
+      'grid-template-rows:auto auto auto minmax(0,1fr) auto;align-content:stretch;}' +
+      'body:has(.videos-feed) #sosGroupAdminShell .gap-head{grid-column:2;grid-row:1;width:auto;max-width:none;margin:0;padding:14px 4px 12px;box-sizing:border-box;}' +
+      'body:has(.videos-feed) #sosGroupAdminShell .gap-top{grid-column:2;grid-row:2;width:auto;max-width:none;margin:0;padding:8px 4px 4px;box-sizing:border-box;}' +
+      'body:has(.videos-feed) #sosGroupAdminShell .gap-tabs{grid-column:2;grid-row:3;width:auto;max-width:none;margin:0;padding:10px 4px;box-sizing:border-box;justify-content:flex-start;}' +
+      'body:has(.videos-feed) #sosGroupAdminShell .gap-body{grid-column:2;grid-row:4;width:auto;max-width:none;margin:0;padding:12px 4px 18px;box-sizing:border-box;min-width:0;overflow:auto;}' +
+      'body:has(.videos-feed) #sosGroupAdminShell .gap-msg{grid-column:2;grid-row:5;width:auto;max-width:none;margin:0;padding:6px 4px 12px;box-sizing:border-box;}' +
+      'body:has(.videos-feed) #sosGroupAdminShell .gap-dir-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;width:100%;margin:0 0 10px;}' +
+      'body:has(.videos-feed) #sosGroupAdminShell .gap-search{width:100%;max-width:none;}' +
+      'body:has(.videos-feed) #sosGroupAdminShell .gap-list{width:100%;}' +
+      'body:has(.videos-feed) #sosGapConfirm,' +
+      'body:has(.videos-feed) #sosGapMemberDetail{grid-column:1/-1;grid-row:1/-1;}' +
       'body:has(.videos-feed) #sosGapMemberDetail{background:rgba(0,0,0,.35);}' +
       'body:has(.videos-feed) #sosGapMemberDetail .gap-drawer{width:min(420px,46%);max-width:100%;}' +
       '}' +
