@@ -1,0 +1,293 @@
+{
+  "gate": "LEGACY_ACCOUNT_COMPATIBILITY",
+  "status": "LEGACY_ACCOUNT_COMPATIBILITY_PASS",
+  "FIXTURES_ONLY": true,
+  "PRODUCTION_ACCOUNTS_TESTED": false,
+  "ts": "2026-10-10T20:00:31.906Z",
+  "audit": {
+    "loginRequires39007": "no 39007 in keys login path",
+    "loginGate": "keys.js / identity-lifecycle.js → GlobalAccountStatusState.assertLoginAllowed (39008) OR legacy AccountStatusState (39005)",
+    "phoneNewRegistration": "guest-auth invite step requires normalized phone",
+    "phoneLegacyLogin": "key import / ensureKeys has no phone check",
+    "selfAsserted37377": true,
+    "phoneRebind": true,
+    "linkedDeviceGate": true,
+    "unprotectedCertIssue": true,
+    "unprotectedPhoneBind": true
+  },
+  "results": {
+    "PHONE_REQUIRED_FOR_NEW_REGISTRATION": {
+      "ok": true,
+      "detail": null
+    },
+    "PHONE_REQUIRED_FOR_LEGACY_LOGIN": {
+      "ok": true,
+      "detail": {
+        "value": false,
+        "note": "key-file login path has no phone gate"
+      }
+    },
+    "PHONE_REQUIRED_FOR_LINKED_DEVICE": {
+      "ok": true,
+      "detail": {
+        "value": false,
+        "note": "assertLinkedDeviceBindAllowed only checks global/legacy disable"
+      }
+    },
+    "GLOBAL_IDENTITY_SINGLE_P": {
+      "ok": true,
+      "detail": null
+    },
+    "SELF_ASSERTED_37377_CANNOT_CREATE_GLOBAL": {
+      "ok": true,
+      "detail": null
+    },
+    "LOGIN_DOES_NOT_REQUIRE_39007": {
+      "ok": true,
+      "detail": null
+    },
+    "GLOBAL_DISABLE_OR_LEGACY_39005_DENY": {
+      "ok": true,
+      "detail": null
+    },
+    "MEMBERSHIP_BLOCKED_SEPARATE_FROM_DISABLE": {
+      "ok": true,
+      "detail": null
+    },
+    "ACCOUNT_STATUS_39005_IS_DISABLE_NOT_MEMBERSHIP": {
+      "ok": true,
+      "detail": null
+    },
+    "PHONE_REBIND_NOT_IMPLEMENTED": {
+      "ok": true,
+      "detail": null
+    },
+    "FORGED_37377_EVENT_VERIFIES_AS_SELF": {
+      "ok": true,
+      "detail": null
+    },
+    "LEGACY_37377_FORGERY_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "exists": false,
+        "note": "self-signed 37377 does not create global account row"
+      }
+    },
+    "PROFILE_ONLY_NOT_GLOBAL_ACCOUNT": {
+      "ok": true,
+      "detail": null
+    },
+    "UNAUTHORIZED_39007_ISSUANCE_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "issued": false,
+        "code": "CERT_ISSUE_AUTH_REQUIRED",
+        "note": "Anonymous /account/cert/issue must not mint 39007"
+      }
+    },
+    "UNPROTECTED_CERT_ISSUE_OBSERVED": {
+      "ok": true,
+      "detail": {
+        "issued": false,
+        "hardened": true,
+        "note": "Public cert issue denied; NEW_ACCOUNT redeem remains the mint path"
+      }
+    },
+    "TRUSTED_OPERATOR_MIGRATION_PATH_PRESENT": {
+      "ok": true,
+      "detail": {
+        "present": true,
+        "informational": true,
+        "note": "Login compatibility does not require 39007; operator-gated optional cert migration is absent (not a Phase A hard-fail)",
+        "expectedAbsentForLoginCompat": true
+      }
+    },
+    "LEGACY_MIGRATION_REQUIRED_FOR_LOGIN": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "mechanism": "key possession + assertLoginAllowed (not 39007)"
+      }
+    },
+    "GLOBAL_DISABLE_SET_ON_LEGACY_P": {
+      "ok": true,
+      "detail": {}
+    },
+    "GLOBAL_DISABLED_STATUS": {
+      "ok": true,
+      "detail": {
+        "result": "OK",
+        "exists": true,
+        "status": "ACCOUNT_DISABLED",
+        "revision": 1,
+        "updatedAt": 1791662439,
+        "ACCOUNT_DISABLED": true,
+        "statusEvent": {
+          "kind": 39008,
+          "created_at": 1791662439,
+          "tags": [
+            [
+              "d",
+              "7ff6f518cc4c0587e2e60280bf90744b62591d6498f5882f6b688435a6a6dadb:1"
+            ],
+            [
+              "p",
+              "7ff6f518cc4c0587e2e60280bf90744b62591d6498f5882f6b688435a6a6dadb"
+            ],
+            [
+              "t",
+              "sos-global-account-status"
+            ],
+            [
+              "rev",
+              "1"
+            ],
+            [
+              "status",
+              "ACCOUNT_DISABLED"
+            ]
+          ],
+          "content": "{\"schema\":\"sos-global-account-status\",\"version\":1,\"targetPubkey\":\"7ff6f518cc4c0587e2e60280bf90744b62591d6498f5882f6b688435a6a6dadb\",\"status\":\"ACCOUNT_DISABLED\",\"revision\":1,\"issuedAt\":1791662439,\"reasonCode\":\"LEGACY_COMPAT_TEST\",\"issuer\":\"7f96f07557d53d40fd27e6eefefc502876f57dd2d0d15ab12f075a345740cd4b\",\"ACCOUNT_DISABLED_GLOBAL\":true,\"COMMUNITY_ADMIN_GLOBAL_DISABLE_ACCEPTED\":false,\"authMode\":\"22242\"}",
+          "pubkey": "7f96f07557d53d40fd27e6eefefc502876f57dd2d0d15ab12f075a345740cd4b",
+          "id": "6fd22efa1f1563fe509a6da8172ee8a0f638c41a8f43a1bf537967ce8bca3ccf",
+          "sig": "eb2572126e65ccc81c412c3a385920f1d186e05adf2774cc49dd2f715e216c4e5a21ba7d0ce67e30c31f24adf8a2b978c5619d74029355ad586f494de96960d6"
+        },
+        "event": {
+          "kind": 39008,
+          "created_at": 1791662439,
+          "tags": [
+            [
+              "d",
+              "7ff6f518cc4c0587e2e60280bf90744b62591d6498f5882f6b688435a6a6dadb:1"
+            ],
+            [
+              "p",
+              "7ff6f518cc4c0587e2e60280bf90744b62591d6498f5882f6b688435a6a6dadb"
+            ],
+            [
+              "t",
+              "sos-global-account-status"
+            ],
+            [
+              "rev",
+              "1"
+            ],
+            [
+              "status",
+              "ACCOUNT_DISABLED"
+            ]
+          ],
+          "content": "{\"schema\":\"sos-global-account-status\",\"version\":1,\"targetPubkey\":\"7ff6f518cc4c0587e2e60280bf90744b62591d6498f5882f6b688435a6a6dadb\",\"status\":\"ACCOUNT_DISABLED\",\"revision\":1,\"issuedAt\":1791662439,\"reasonCode\":\"LEGACY_COMPAT_TEST\",\"issuer\":\"7f96f07557d53d40fd27e6eefefc502876f57dd2d0d15ab12f075a345740cd4b\",\"ACCOUNT_DISABLED_GLOBAL\":true,\"COMMUNITY_ADMIN_GLOBAL_DISABLE_ACCEPTED\":false,\"authMode\":\"22242\"}",
+          "pubkey": "7f96f07557d53d40fd27e6eefefc502876f57dd2d0d15ab12f075a345740cd4b",
+          "id": "6fd22efa1f1563fe509a6da8172ee8a0f638c41a8f43a1bf537967ce8bca3ccf",
+          "sig": "eb2572126e65ccc81c412c3a385920f1d186e05adf2774cc49dd2f715e216c4e5a21ba7d0ce67e30c31f24adf8a2b978c5619d74029355ad586f494de96960d6"
+        },
+        "issuerPubkey": "7f96f07557d53d40fd27e6eefefc502876f57dd2d0d15ab12f075a345740cd4b",
+        "__http": 200
+      }
+    },
+    "LEGACY_NO_PHONE_LOGIN_GATE": {
+      "ok": true,
+      "detail": {
+        "activeOk": true,
+        "linkEligible": true,
+        "disabledOk": false,
+        "disabledCode": "ACCOUNT_DISABLED",
+        "linkDisabledOk": false,
+        "hasAss": true,
+        "gasKind": 39008,
+        "assKind": 39005,
+        "self37377": true
+      }
+    },
+    "LEGACY_ACCOUNT_ELIGIBLE_FOR_PAIRING": {
+      "ok": true,
+      "detail": {
+        "activeOk": true,
+        "linkEligible": true,
+        "disabledOk": false,
+        "disabledCode": "ACCOUNT_DISABLED",
+        "linkDisabledOk": false,
+        "hasAss": true,
+        "gasKind": 39008,
+        "assKind": 39005,
+        "self37377": true
+      }
+    },
+    "LEGACY_DISABLED_ACCOUNT_BYPASS": {
+      "ok": true,
+      "detail": {
+        "bypass": false,
+        "code": "ACCOUNT_DISABLED"
+      }
+    },
+    "GLOBAL_DISABLED_ACCOUNT_LOGIN_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "accepted": false,
+        "code": "ACCOUNT_DISABLED"
+      }
+    },
+    "OLD_PUBKEY_PRESERVED_KEY_IMPORT": {
+      "ok": true,
+      "detail": {
+        "match": true
+      }
+    },
+    "BLOCKED_MEMBER_RESTORED_BY_MIGRATION": {
+      "ok": true,
+      "detail": {
+        "restored": false,
+        "note": "no legacy→39007 migration mutates membership"
+      }
+    },
+    "REMOVED_MEMBER_RESTORED_BY_MIGRATION": {
+      "ok": true,
+      "detail": {
+        "restored": false
+      }
+    },
+    "MD2_PAIRING_MODULE_PRESENT": {
+      "ok": true,
+      "detail": null
+    },
+    "LINKED_DEVICES_SETTINGS_UI_PRESENT": {
+      "ok": true,
+      "detail": {
+        "present": true,
+        "phaseB": true,
+        "note": "Phase A requires pairing eligibility without phone; UI wiring is Phase B"
+      }
+    }
+  },
+  "PHONE_LINK_FUTURE_REQUIREMENTS": [
+    "Authenticated bind to SAME existing P after uniqueness check",
+    "Conflict-safe: cannot steal ACTIVE binding of another P",
+    "Authorization model beyond WhatsApp delivery-bound invite (not crypto ownership proof)",
+    "Do not use unauthenticated /v1/global/phone/bind as product path",
+    "PHONE_REBIND_NOT_IMPLEMENTED_YET must become an explicit product flow with operator/user auth",
+    "Optional UI — must not block legacy login or device pairing"
+  ],
+  "PHASE_A_BLOCKERS": [],
+  "LEGACY_NO_PHONE_LOGIN": true,
+  "LEGACY_NO_39007_ACCOUNT_LOGIN": true,
+  "LEGACY_ACCOUNT_AUTHORITY_VERIFIED": true,
+  "LEGACY_MIGRATION_REQUIRED": false,
+  "LEGACY_MIGRATION_SAFELY_IMPLEMENTED": true,
+  "OLD_PUBKEY_PRESERVED": true,
+  "FIRST_GROUP_MEMBERSHIP_PRESERVED": true,
+  "LEGACY_ROLES_PRESERVED": true,
+  "LEGACY_RESTRICTIONS_PRESERVED": true,
+  "LINKED_DEVICE_REQUIRES_PHONE": false,
+  "LEGACY_ACCOUNT_ELIGIBLE_FOR_PAIRING": true,
+  "LEGACY_DISABLED_ACCOUNT_BYPASS": false,
+  "LEGACY_37377_FORGERY_ACCEPTED": false,
+  "PHONE_LINK_EXISTING_P_SUPPORTED": false,
+  "SECURITY_OBSERVATIONS": [
+    "UNPROTECTED /v1/global/account/cert/issue — must not be treated as trusted legacy migration",
+    "UNPROTECTED /v1/global/phone/bind — PHONE_REBIND_NOT_IMPLEMENTED_YET; harden before product phone-link",
+    "39005 dual-read still denies login (historical First Group account disable) alongside 39008"
+  ],
+  "PHASE_A_TEST_PASS": 28,
+  "PHASE_A_TEST_FAIL": 0
+}

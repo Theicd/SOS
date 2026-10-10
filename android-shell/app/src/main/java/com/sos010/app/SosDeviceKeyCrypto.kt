@@ -108,6 +108,22 @@ object SosDeviceKeyCrypto {
         }
     }
 
+    /** Raw Schnorr over a prehashed 32-byte message (MD4 hist PoP uses SosHistorySyncCrypto.popMessage). */
+    fun signRawSchnorr(signPriv: ByteArray, msg32: ByteArray): ByteArray {
+        require(signPriv.size == 32 && msg32.size == 32) { "schnorr_len" }
+        return secp.signSchnorr(msg32, signPriv, null)
+    }
+
+    fun verifyRawSchnorr(signPubHex: String, msg32: ByteArray, signature: ByteArray): Boolean {
+        return try {
+            val pub = Hex.decode(normalizeHex(signPubHex))
+            require(pub.size == 32 && signature.size == 64 && msg32.size == 32)
+            secp.verifySchnorr(signature, msg32, pub)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     /** X25519 shared secret for future sealed envelopes (MD2+). */
     fun deviceEcdh(encPriv: ByteArray, peerEncPubHex: String): ByteArray {
         val peer = Hex.decode(normalizeHex(peerEncPubHex))

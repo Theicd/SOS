@@ -41,7 +41,17 @@
     SIGN_LIVE_TV: { kinds: [30078] },
     SIGN_LOGIN_METRIC: { kinds: [1050] },
     SIGN_MEDIA_RECHECK: { kinds: [1] },
+    SIGN_PHONE_LOOKUP: { kinds: [22242] },
+    SIGN_REACHABILITY: { kinds: [10002] },
   };
+
+  // MD3W-W1B: W1A verify + typed AUTHORIZE_LINKED_DEVICE (no generic root sign).
+  try {
+    importScripts('./sos-ald-w1a-verify.js');
+  } catch (_aldV) {}
+  try {
+    importScripts('./sos-authorize-linked-device.js');
+  } catch (_aldA) {}
 
   // AC9 shared policy (same-origin Worker)
   try {
@@ -551,6 +561,50 @@
         Object.assign({}, request, { groupId })
       );
       draft = P.buildMembershipDraft(body);
+    } else if (typeof P.isAccountStatusOp === 'function' && P.isAccountStatusOp(op)) {
+      if (!verifyEv(request.baseEvent)) fail('BASE_VERIFY_FAILED');
+      const baseControl = P.parseControlRecordFromEvent(request.baseEvent);
+      const groupId = P.resolveNetworkTag(request && request.groupId, baseControl);
+      if (baseControl.groupId !== groupId) fail('CROSS_GROUP');
+      let tipBody = null;
+      if (request.accountStatusTipEvent) {
+        if (!verifyEv(request.accountStatusTipEvent)) fail('ACCOUNT_STATUS_TIP_VERIFY_FAILED');
+        try {
+          tipBody = JSON.parse(request.accountStatusTipEvent.content);
+        } catch (_e) {
+          fail('BAD_ACCOUNT_STATUS_TIP');
+        }
+      }
+      const body = P.applyAccountStatusOperation(
+        op,
+        baseControl,
+        tipBody,
+        actor,
+        Object.assign({}, request, { groupId })
+      );
+      draft = P.buildAccountStatusDraft(body);
+    } else if (typeof P.isDirectoryHygieneOp === 'function' && P.isDirectoryHygieneOp(op)) {
+      if (!verifyEv(request.baseEvent)) fail('BASE_VERIFY_FAILED');
+      const baseControl = P.parseControlRecordFromEvent(request.baseEvent);
+      const groupId = P.resolveNetworkTag(request && request.groupId, baseControl);
+      if (baseControl.groupId !== groupId) fail('CROSS_GROUP');
+      let tipBody = null;
+      if (request.directoryHygieneTipEvent) {
+        if (!verifyEv(request.directoryHygieneTipEvent)) fail('DIRECTORY_HYGIENE_TIP_VERIFY_FAILED');
+        try {
+          tipBody = JSON.parse(request.directoryHygieneTipEvent.content);
+        } catch (_e) {
+          fail('BAD_DIRECTORY_HYGIENE_TIP');
+        }
+      }
+      const body = P.applyDirectoryHygieneOperation(
+        op,
+        baseControl,
+        tipBody,
+        actor,
+        Object.assign({}, request, { groupId })
+      );
+      draft = P.buildDirectoryHygieneDraft(body);
     } else {
       fail('UNKNOWN_OP');
     }
@@ -680,8 +734,151 @@
       'getPrivateKey',
       'exportRawKey',
       'readPrivateKey',
+      // Device auth must go through AUTHORIZE_LINKED_DEVICE only (never arbitrary root sign).
+      'SIGN_DEVICE_AUTHORIZATION_RAW',
+      'SIGN_ARBITRARY_ROOT',
     ];
     if (banned.indexOf(op) !== -1) fail('UNKNOWN_OP', 'banned operation');
+  }
+
+  function workerHostname() {
+    try {
+      return new URL(self.location.href).hostname;
+    } catch (_e) {
+      return '';
+    }
+  }
+
+  async function signSchnorrMsgHex(msg32, privHex) {
+    loadNostrTools();
+    const schnorr = NT && NT.schnorr;
+    if (!schnorr || typeof schnorr.sign !== 'function') {
+      fail('SCHNORR_UNAVAILABLE', 'noble schnorr missing');
+    }
+    const sig = schnorr.sign(msg32, hexToBytes(privHex));
+    return bytesToHex(sig instanceof Uint8Array ? sig : new Uint8Array(sig));
+  }
+
+  /**
+   * MD3W-W1B typed op: verify W1A T2 artifact → Worker-driven durable consume → sign MD3 only.
+   * Durable consume is performed by this Worker against admission DO (or QA harness store).
+   * Client-supplied consume receipts alone are never accepted (replayable).
+   */
+  async function authorizeLinkedDeviceOp(params) {
+    requireReady();
+    const Ald = self.SosAuthorizeLinkedDevice;
+    if (!Ald || typeof Ald.authorizeLinkedDevice !== 'function') {
+      fail('ALD_MODULE_MISSING', 'authorize module not loaded');
+    }
+    if (params && (params.t1Fallback === true || params.skipT2 === true)) {
+      fail('T1_FALLBACK_FORBIDDEN', 'T2 required');
+    }
+    const host = workerHostname();
+    if (Ald.isProductionHost(host)) {
+      fail('WEB_MD3_ISSUANCE_DISABLED', 'production issuance off');
+    }
+    if (params.featureEnabled !== true) {
+      fail('WEB_MD3_ISSUANCE_DISABLED', 'feature flag off');
+    }
+
+    let durableStore = null;
+    if (params._qaDurableStore && typeof params._qaDurableStore.consume === 'function') {
+      // Isolated QA harness only — not a production path.
+      durableStore = params._qaDurableStore;
+    } else {
+      const base = String(params.admissionBaseUrl || '').replace(/\/$/, '');
+      if (!base || !/^https?:\/\//i.test(base)) {
+        fail('DURABLE_STORE_UNAVAILABLE', 'admissionBaseUrl required');
+      }
+      // Build fresh consume auth under vault K (kind 22242).
+      loadNostrTools();
+      const now = Math.floor(Date.now() / 1000);
+      const authDraft = {
+        kind: 22242,
+        created_at: now,
+        tags: [
+          ['expiration', String(now + 120)],
+          ['p', sessionPubHex],
+        ],
+        content: JSON.stringify({
+          purpose: 'ALD_APPROVAL_CONSUME',
+          approvalId: params.artifact && params.artifact.approvalId,
+        }),
+        pubkey: sessionPubHex,
+      };
+      const authEvent = NT.finalizeEvent(authDraft, sessionPrivHex);
+      durableStore = {
+        async consume(rec) {
+          let res;
+          try {
+            res = await fetch(base + '/v1/global/ald/approval/consume', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                artifact: params.artifact,
+                expectedRequest: params.expectedRequest,
+                authEvent: authEvent,
+              }),
+            });
+          } catch (_e) {
+            return { ok: false, code: 'DURABLE_STORE_UNAVAILABLE' };
+          }
+          let body = null;
+          try {
+            body = await res.json();
+          } catch (_j) {
+            return { ok: false, code: 'DURABLE_STORE_UNAVAILABLE' };
+          }
+          if (!body || body.ok !== true) {
+            return {
+              ok: false,
+              code: (body && body.code) || 'CONSUME_FAILED',
+              CONCURRENT_REPLAY_REJECTED: body && body.code === 'APPROVAL_REPLAY',
+            };
+          }
+          if (String(body.approvalId) !== String(rec.approvalId)) {
+            return { ok: false, code: 'RECEIPT_APPROVAL_MISMATCH' };
+          }
+          if (String(body.requestHash) !== String(rec.requestHash)) {
+            return { ok: false, code: 'RECEIPT_HASH_MISMATCH' };
+          }
+          return { ok: true, code: 'CONSUMED' };
+        },
+      };
+    }
+
+    const out = await Ald.authorizeLinkedDevice({
+      artifact: params.artifact,
+      expectedRequest: params.expectedRequest,
+      accountP: sessionPubHex,
+      privHex: sessionPrivHex,
+      signSchnorrHex: signSchnorrMsgHex,
+      durableStore: durableStore,
+      featureEnabled: true,
+      hostname: host,
+      nowMs: params.nowMs,
+      minAuthEpoch: params.minAuthEpoch,
+      accountDisabled: params.accountDisabled === true,
+      t1FallbackAttempt: false,
+      storageSecurityClass: params.storageSecurityClass || 'SOFTWARE_ONLY',
+    });
+    if (!out || out.ok !== true) {
+      fail(out && out.code ? out.code : 'AUTHORIZE_FAILED', out && out.code ? out.code : 'authorize failed');
+    }
+    // Return signed authorization only — never K / nsec / artifact secrets.
+    return {
+      ok: true,
+      operation: 'AUTHORIZE_LINKED_DEVICE',
+      authorization: out.authorization,
+      approvalId: out.approvalId,
+      requestHash: out.requestHash,
+      TRUSTED_W1A_PROOF_VERIFIED: true,
+      WEBAUTHN_UV_PROVEN: true,
+      DURABLE_ONE_TIME_CONSUMPTION: true,
+      T1_FALLBACK_DISABLED: true,
+      ROOT_K_RETURNED: false,
+      encoding: out.encoding,
+    };
   }
 
   // F5B6-W — sealed one-way handoff of K to the isolated signer (docs/security/F5B6_WEB_WORKER_TO_SIGNER_HANDOFF_DESIGN.md).
@@ -779,6 +976,8 @@
         return sealIdentityForSigner(params);
       case 'GET_HANDOFF_STATUS':
         return handoffStatus();
+      case 'AUTHORIZE_LINKED_DEVICE':
+        return authorizeLinkedDeviceOp(params || {});
       case 'SIGN_CHAT_EVENT':
         return signTyped('SIGN_CHAT_EVENT', params && params.draft);
       case 'SIGN_PROFILE_EVENT':
@@ -809,6 +1008,10 @@
         return signTyped('SIGN_INVITE', params && params.draft);
       case 'SIGN_INVITE_REVOKE':
         return signTyped('SIGN_INVITE_REVOKE', params && params.draft);
+      case 'SIGN_PHONE_LOOKUP':
+        return signTyped('SIGN_PHONE_LOOKUP', params && params.draft);
+      case 'SIGN_REACHABILITY':
+        return signTyped('SIGN_REACHABILITY', params && params.draft);
       case 'SIGN_MODERATION_ACTION':
         return signTyped('SIGN_MODERATION_ACTION', params && params.draft);
       case 'SIGN_MEMBERSHIP_STATE':

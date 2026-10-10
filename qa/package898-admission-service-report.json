@@ -3,19 +3,19 @@
   "gate": "PACKAGE898_ADMISSION_SERVICE_GATE",
   "mode": "local-workerd",
   "baseUrl": "local-workerd",
-  "generatedAt": "2026-10-01T11:08:44.146Z",
+  "generatedAt": "2026-10-08T10:38:27.387Z",
   "status": "PASS",
   "stress100": {
-    "p50": 385.6,
-    "p95": 654.5,
-    "max": 671,
+    "p50": 458.5,
+    "p95": 758.5,
+    "max": 770,
     "tally": {
       "ACCEPTED": 1,
       "ALREADY_REDEEMED": 99
     }
   },
   "raceOutcomes": [
-    "ALREADY_REDEEMED/ACCEPTED",
+    "REVOKED/REVOKED",
     "ALREADY_REDEEMED/ACCEPTED",
     "REVOKED/REVOKED",
     "REVOKED/REVOKED",
@@ -139,7 +139,7 @@
       "detail": {
         "result": "REGISTERED",
         "replay": false,
-        "expiresAt": 1790856488
+        "expiresAt": 1791459471
       }
     },
     {
@@ -224,9 +224,9 @@
       "name": "STRESS_100_WAY_ONE_WINNER",
       "ok": true,
       "detail": {
-        "p50": 385.6,
-        "p95": 654.5,
-        "max": 671,
+        "p50": 458.5,
+        "p95": 758.5,
+        "max": 770,
         "tally": {
           "ACCEPTED": 1,
           "ALREADY_REDEEMED": 99
@@ -282,7 +282,7 @@
       "name": "INVITE_REVOKE_REDEEM_RACE_GATE",
       "ok": true,
       "detail": [
-        "ALREADY_REDEEMED/ACCEPTED",
+        "REVOKED/REVOKED",
         "ALREADY_REDEEMED/ACCEPTED",
         "REVOKED/REVOKED",
         "REVOKED/REVOKED",
@@ -445,7 +445,7 @@
       "ok": true,
       "detail": {
         "leaks": 0,
-        "logBytes": 29390
+        "logBytes": 29567
       }
     }
   ],

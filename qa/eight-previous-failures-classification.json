@@ -1,0 +1,63 @@
+{
+  "EACH_OF_EIGHT_FAILURES_CLASSIFIED": true,
+  "QA_SECURITY_ASSERTIONS_WEAKENED": false,
+  "prior": { "TEST_TOTAL_PASS": 412, "TEST_TOTAL_FAIL": 8 },
+  "classifications": [
+    {
+      "id": 1,
+      "assertion": "ORPHAN_PHONE_RESERVATION",
+      "class": "A_ACTUAL_PRODUCT_DEFECT",
+      "resolution": "FIXED in admission-service/src/global-accounts.js redeemNewAccountInvite — atomic claim+bind; loser → PHONE_CONFLICT",
+      "status": "RESOLVED_PASS"
+    },
+    {
+      "id": 2,
+      "assertion": "PACKAGE898_VERSION_GATE / PACKAGE898_RC frozen-898 expectations",
+      "class": "B_STALE_QA_EXPECTATION",
+      "resolution": "Product lineage is 899s.14; 898 RC pin remains historical. Gate still run fresh; FAIL classified stale — not force-passed by removing security checks.",
+      "status": "CLASSIFIED_STALE_REPORTED_SEPARATELY"
+    },
+    {
+      "id": 3,
+      "assertion": "onboarding-initial-recovery PHONE_FIELD_HIDDEN",
+      "class": "B_STALE_QA_EXPECTATION",
+      "resolution": "Updated to PHONE_FIELD_VISIBLE_FOR_PHONE_ONBOARDING (899s.13+ phone onboarding contract).",
+      "status": "RECONCILED"
+    },
+    {
+      "id": 4,
+      "assertion": "e2ee-send app-version call-coldanswer1",
+      "class": "B_STALE_QA_EXPECTATION",
+      "resolution": "Updated to 899s E2EE lineage pin (e2eeSendRequired/mediaServerE2eeRequired/callSignalGiftWrapRequired preserved).",
+      "status": "RECONCILED"
+    },
+    {
+      "id": 5,
+      "assertion": "e2ee-send SW cache v871",
+      "class": "B_STALE_QA_EXPECTATION",
+      "resolution": "Updated to sos-cache-v899 lineage.",
+      "status": "RECONCILED"
+    },
+    {
+      "id": 6,
+      "assertion": "e2ee-send chat-service encryptPrivateChatPayload symbol",
+      "class": "B_STALE_QA_EXPECTATION",
+      "resolution": "Symbol renamed to SosCryptoSigner.nip44ChatEncrypt path; assertion updated to resolveRelayE2eeSendDecision + nip44ChatEncrypt + e2ee-encrypt-failed (fail-closed preserved).",
+      "status": "RECONCILED"
+    },
+    {
+      "id": 7,
+      "assertion": "F5B6_ANDROID_UNIT_TESTS / MD1 gradle BUILD FAILED",
+      "class": "C_TEST_ENVIRONMENT_FAILURE",
+      "resolution": "Android Gradle environment unavailable in this runner; kept separate from functional PASS. Not claimed pass.",
+      "status": "ENVIRONMENT_BLOCKER_SEPARATE"
+    },
+    {
+      "id": 8,
+      "assertion": "package898 MASTER_SECURITY_REGRESSION / PRODUCT_MODULES_UNCHANGED (chat-service, feed, call modules dirty vs 898 freeze)",
+      "class": "B_STALE_QA_EXPECTATION",
+      "resolution": "Accepted 899s phone/onboarding/security deltas intentionally modify modules 898 freeze listed. Security child gates (AC10, Admin2FA, identity, etc.) re-run fresh.",
+      "status": "CLASSIFIED_STALE_REPORTED_SEPARATELY"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "gate": "ACCESS_CONTROL_V2_COMMUNITY_PRODUCT",
-  "status": "PASS",
-  "ts": "2026-09-26T12:33:08.539Z",
+  "status": "FAIL",
+  "ts": "2026-10-08T10:36:08.955Z",
   "results": {
     "COMMUNITY_LOGO_CREATE_GATE": {
       "ok": true,
@@ -108,15 +108,15 @@
       "detail": null
     },
     "CREATOR_AUTO_ENTER_COMMUNITY": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "CREATOR_IS_INITIAL_AUTHORIZED_ADMIN": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "NEW_COMMUNITY_BRANDING_VISIBLE": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "NEW_COMMUNITY_ADMIN_MENU_VISIBLE": {
@@ -124,7 +124,7 @@
       "detail": null
     },
     "CREATE_COMMUNITY_FULL_FLOW_GATE": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "FEED_COMMUNITY_SELECTOR_GATE": {
@@ -364,7 +364,7 @@
       "detail": null
     },
     "GROUP_INVITE_QR_RENDER_GATE": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "GROUP_QR_SCAN_GATE": {
@@ -468,12 +468,12 @@
       "detail": null
     },
     "GROUP_ADMIN_FULL_PRODUCT_FLOW_GATE": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "PRODUCT_SHELL_GATE": {
-      "ok": true,
-      "detail": null
+      "ok": false,
+      "detail": "PASS ACCESS_CONTROL_IMPLEMENTATION_RECONCILIATION_GATE \nPASS ACCESS_CONTROL_V2_DEFAULT_OFF \nPASS ACCESS_CONTROL_V2_LOCAL_TEST_MODE \nPASS PRODUCTION_HOST_BLOCKS_"
     }
   },
   "ACCESS_CONTROL_V2_DEFAULT_OFF": true,
@@ -487,7 +487,7 @@
   "ANDROID_WORK_EXECUTED": false,
   "APK_BUILT": false,
   "MD4_STARTED": false,
-  "ACCESS_CONTROL_RC_GATE": "PARTIAL_LOCAL",
+  "ACCESS_CONTROL_RC_GATE": "FAIL",
   "ACCESS_CONTROL_V2_READY_FOR_OWNER_APPROVAL": false,
   "NOTES": "Community branding/create-reload/feed-selection/global-comms model landed locally. Full headed browser E2E for QR scan + live calls still recommended before READY_FOR_OWNER_APPROVAL."
 }

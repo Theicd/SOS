@@ -1,0 +1,81 @@
+{
+  "gate": "MD4_S5_P2P_ENCRYPTED_FETCH_ACCEPTANCE",
+  "runId": "b5107c91-ee73-442d-b7d1-a18b174e599b",
+  "ts": "2026-10-10T19:49:01.565Z",
+  "P2P_SUPPORT_CLASSIFICATION": "A_IMPLEMENTED_AND_VERIFIED",
+  "note": "Uses existing downloadEncryptedMediaHybrid + torrentTransfer.init contract with in-page mock swarm; Blossom forced down so P2P must supply ciphertext. Real public WebTorrent tracker swarm is environment-dependent and not required for MD4 S5 product path proof.",
+  "pass": 6,
+  "fail": 0,
+  "results": {
+    "P2P_PATH_INTEGRATED_IN_S5": {
+      "ok": true,
+      "detail": {
+        "attachCallsResolve": true,
+        "hybridPresent": true
+      }
+    },
+    "P2P_JOB_AVAILABILITY": {
+      "ok": true,
+      "detail": {
+        "buildOk": true,
+        "availability": "BLOSSOM",
+        "hasP2p": true,
+        "resourceUrl": "http://127.0.0.1:9/forced-blossom-down/a0a3712065e35ed3fc27fbf0a7bb8503",
+        "blossomShape": true,
+        "hybridProbe": {
+          "ok": true,
+          "source": "p2p",
+          "blobSize": 8192
+        },
+        "resolveProbe": {
+          "ok": true,
+          "source": "p2p",
+          "blobSize": 8192
+        },
+        "hydrateOk": true,
+        "source": "p2p",
+        "state": "COMPLETE",
+        "restoredLen": 8192,
+        "plainLen": 8192,
+        "integrity": true,
+        "plaintextDowngrade": false,
+        "corruptOk": false,
+        "corruptCode": "MEDIA_E2EE_HASH_MISMATCH",
+        "corruptState": "FAILED",
+        "seeded": {
+          "infoHash": "00002010c1e261b9a5593a28d20ef973fc9c507e",
+          "magnetURI": "magnet:?xt=urn:btih:00002010c1e261b9a5593a28d20ef973fc9c507e&dn=data.bin",
+          "len": 8208
+        }
+      }
+    },
+    "P2P_ENCRYPTED_FETCH": {
+      "ok": true,
+      "detail": {
+        "source": "p2p",
+        "state": "COMPLETE"
+      }
+    },
+    "P2P_INTEGRITY": {
+      "ok": true,
+      "detail": {
+        "restoredLen": 8192,
+        "plainLen": 8192
+      }
+    },
+    "P2P_NO_PLAINTEXT_DOWNGRADE": {
+      "ok": true,
+      "detail": {
+        "source": "p2p"
+      }
+    },
+    "P2P_CORRUPT_FAIL_CLOSED": {
+      "ok": true,
+      "detail": {
+        "code": "MEDIA_E2EE_HASH_MISMATCH",
+        "state": "FAILED"
+      }
+    }
+  },
+  "STATUS": "PASS"
+}

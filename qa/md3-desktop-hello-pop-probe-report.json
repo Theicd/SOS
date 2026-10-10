@@ -1,0 +1,53 @@
+{
+  "status": "PASS",
+  "FIRST_FAILED_TRANSITION": null,
+  "deskState": "POP_SENT",
+  "handleErr": null,
+  "bridgeStill": true,
+  "phases": [
+    {
+      "t": 1791487449785,
+      "phase": "BRIDGE_PRESENT",
+      "hasBridge": true
+    },
+    {
+      "t": 1791487449799,
+      "phase": "DESK_SUB_OPEN"
+    },
+    {
+      "t": 1791487449799,
+      "phase": "SESSION_READY",
+      "state": "QR_SHOWN",
+      "pairingId": "986ad1576a3347bc31a84aa317be21e5399e1dc4d3047bdf968c184354c3cf9a"
+    },
+    {
+      "t": 1791487449977,
+      "phase": "DESK_GOT_EVENT",
+      "role": [
+        "role",
+        "phone"
+      ],
+      "contentType": "hello"
+    },
+    {
+      "t": 1791487450008,
+      "phase": "DESK_PUBLISH",
+      "kind": 25060,
+      "role": [
+        "role",
+        "desktop"
+      ]
+    },
+    {
+      "t": 1791487450035,
+      "phase": "DESK_GOT_EVENT",
+      "role": [
+        "role",
+        "desktop"
+      ],
+      "contentType": "aead"
+    }
+  ],
+  "relayTail": "{\"type\":\"RELAY_UP\",\"host\":\"0.0.0.0\",\"port\":7805}\n{\"type\":\"CONN\",\"remote\":\"127.0.0.1\",\"ua\":\"Mozilla/5.0 (Windows NT 10.0; Win64; x64\",\"connections\":1}\n{\"type\":\"REQ\",\"id\":\"probe\",\"filterFp\":\"[{\\\"kinds\\\":[25060],\\\"#t\\\":[\\\"sos-pair-v1\\\"],\\\"#d\\\":[\\\"986ad1576a3347bc31a84aa317be21e5399e1dc4d3047bdf968c184354c3cf9a\\\"],\\\"limit\\\"\"}\n{\"type\":\"CONN\",\"remote\":\"127.0.0.1\",\"ua\":\"\",\"connections\":2}\n{\"type\":\"EVENT\",\"kind\":25060,\"idFp\":\"49682991cf8350ef\"}\n{\"type\":\"CONN\",\"remote\":\"127.0.0.1\",\"ua\":\"Mozilla/5.0 (Windows NT 10.0; Win64; x64\",\"connections\":3}\n{\"type\":\"EVENT\",\"kind\":25060,\"idFp\":\"754deb02a9a0ecab\"}\n",
+  "hasBridgeAtStart": true
+}

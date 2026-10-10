@@ -1,74 +1,265 @@
 {
   "gate": "PACKAGE898_RC",
-  "status": "PASS",
-  "ts": "2026-09-27T23:49:51.982Z",
+  "status": "FAIL",
+  "ts": "2026-10-08T10:35:54.573Z",
   "results": {
     "PACKAGE898_SCOPE_DELTA": {
-      "ok": true,
+      "ok": false,
       "detail": [
+        "account-directory-ops.js",
+        "account-status-state.js",
+        "admin-2fa-client.js",
+        "admin-2fa-protocol.js",
+        "admin-pin-lock.js",
+        "admin-settings-ui.js",
         "admin-signing-policy.js",
-        "app-version.json",
-        "config.js",
-        "docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md",
-        "docs/FIRST_GROUP_ADMIN_STATUS.md",
-        "docs/FIRST_GROUP_NETWORK_AUTHORITY.md",
-        "docs/PACKAGE898_FIRST_GROUP_NETWORK_RELEASE_PLAN.md",
-        "docs/SECURITY_PRODUCT_INTEGRATION_MAP.md",
-        "first-group-admin.js",
-        "first-group-network-authority.js",
-        "group-admin-product-ui.js",
-        "group-control-state.js",
-        "guest-auth.js",
-        "invite-service.js",
-        "membership-state.js",
-        "qa/package898-404-audit.mjs",
-        "qa/package898-first-group-network-e2e.mjs",
-        "qa/package898-rc-gate.mjs",
-        "qa/package898-real-browser-call-gate.mjs",
-        "service-worker.js",
-        "sw-register.js",
-        "videos.html",
         "admission-service/.gitignore",
         "admission-service/package-lock.json",
         "admission-service/package.json",
         "admission-service/src/authority.js",
+        "admission-service/src/cosign-keys.js",
         "admission-service/src/group.js",
         "admission-service/src/index.js",
         "admission-service/src/keys.js",
         "admission-service/src/ledger.js",
+        "admission-service/src/pin.js",
+        "admission-service/src/relay-fetch.js",
         "admission-service/src/shim.js",
         "admission-service/wrangler.toml",
+        "android-shell/app/src/main/AndroidManifest.xml",
+        "android-shell/app/src/main/java/com/sos010/app/SosJsBridge.kt",
+        "android-shell/app/src/main/java/com/sos010/app/SosSecureIdentityStore.kt",
+        "app-version.json",
+        "app.js",
+        "auth.js",
+        "call-signal-e2ee.js",
+        "chat-audio-player.js",
+        "chat-e2ee.js",
+        "chat-file-transfer-state.js",
+        "chat-file-transfer-ui.js",
+        "chat-media-renderer.js",
+        "chat-p2p-datachannel.js",
+        "chat-p2p-file.js",
+        "chat-p2p-secure-v2.js",
+        "chat-presence.js",
+        "chat-service.js",
+        "chat-ui.js",
+        "chat-video-call-ui.js",
+        "chat-video-call.js",
+        "chat-voice-call-ui.js",
+        "chat-voice-call.js",
+        "chat-voice-service.js",
+        "community-branding-ui.js",
+        "community-context.js",
+        "community-feed-selection.js",
+        "config.js",
+        "directory-hygiene-state.js",
+        "docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md",
+        "docs/ADMIN_2FA.md",
+        "docs/FIRST_GROUP_ADMIN_STATUS.md",
         "docs/FIRST_GROUP_ADMISSION_AUTHORITY.md",
+        "docs/FIRST_GROUP_NETWORK_AUTHORITY.md",
+        "docs/PACKAGE898_FIRST_GROUP_NETWORK_RELEASE_PLAN.md",
+        "docs/SECURITY_PRODUCT_INTEGRATION_MAP.md",
+        "docs/WEB_FINALIZATION_ROADMAP.md",
+        "docs/security/F5B6_WEB_WORKER_TO_SIGNER_HANDOFF_DESIGN.md",
+        "docs/security/voice-p2p-app-e2ee.md",
+        "f5b6w-handoff-client.js",
+        "feature-flags.js",
+        "feed.js",
+        "first-group-admin.js",
         "first-group-admission-client.js",
+        "first-group-network-authority.js",
+        "follow-service.js",
+        "group-admin-product-ui.js",
+        "group-control-mutations.js",
+        "group-control-state.js",
+        "group-reports.js",
+        "guest-auth.js",
+        "guest-p2p-schema.js",
+        "identity-lifecycle.js",
+        "index.html",
+        "invite-policy.js",
+        "invite-service.js",
+        "key-viewer.js",
+        "keys.js",
+        "media-server-e2ee.js",
+        "member-admin-operations.js",
+        "membership-state.js",
+        "moderation-policy.js",
+        "p2p-connection-state.js",
+        "p2p-standby.html",
+        "p2p-video-sharing.js",
+        "package-lock.json",
+        "package.json",
+        "profile-post.js",
+        "profile-view.js",
+        "profile-viewer.js",
+        "profile.html",
+        "profile.js",
+        "qa/account-directory-source-audit.json",
+        "qa/account-revocation-acceptance-adversarial.mjs",
+        "qa/account-revocation-acceptance-live-matrix.mjs",
+        "qa/account-revocation-directory-hygiene-gate.mjs",
+        "qa/admin-2fa-client-gate.mjs",
+        "qa/admin-2fa-phase3-gate.mjs",
+        "qa/admin-cosign-s1-gate.mjs",
+        "qa/b2-production-invite-readonly-check.mjs",
+        "qa/e2ee-send-gate.mjs",
+        "qa/f5b6w-production-check.mjs",
+        "qa/f5b6w-recovery-e2e.mjs",
+        "qa/fga-ux-polish-gate.mjs",
+        "qa/first-group-registration-audit.mjs",
+        "qa/fixtures/899s-h264-160x120.mp4",
+        "qa/gate15-activation-gate.mjs",
+        "qa/gate15-production-verify.mjs",
+        "qa/gate2-delegation-gate.mjs",
+        "qa/gate2-negatives.mjs",
+        "qa/gate2-production-verify.mjs",
+        "qa/gate4-browser-scope-check.mjs",
+        "qa/gate4-production-browser-check.mjs",
+        "qa/gate4-v2-scope-gate.mjs",
+        "qa/invite-authority-production-audit.mjs",
+        "qa/log-privacy-gate.mjs",
+        "qa/moderation-delete-production-trace.mjs",
+        "qa/multitab-session-revocation-gate.mjs",
+        "qa/p2p-file-idempotency.mjs",
+        "qa/package897-first-group-admin-e2e.mjs",
+        "qa/package898-404-audit.mjs",
         "qa/package898-admission-service-gate.mjs",
-        "qa/package898-admission-staging.mjs"
+        "qa/package898-admission-staging.mjs",
+        "qa/package898-first-group-network-e2e.mjs",
+        "qa/package898-rc-gate.mjs",
+        "qa/package898-real-browser-call-gate.mjs",
+        "qa/package899-1059-receiver-gate.mjs",
+        "qa/package899-call-realtime-gate.mjs",
+        "qa/package899-p2p-benchmark-after-d0.json",
+        "qa/package899-p2p-benchmark-after-d50.json",
+        "qa/package899-p2p-benchmark-before-d0.json",
+        "qa/package899-p2p-benchmark-before-d50.json",
+        "qa/package899-p2p-benchmark.mjs",
+        "qa/package899-p2p-fv-bench-d50-baselinecfg.json",
+        "qa/package899-p2p-fv-bench-rtt0.json",
+        "qa/package899-p2p-fv-bench-rtt100.json",
+        "qa/package899-p2p-fv-bench-rtt200.json",
+        "qa/package899-p2p-fv-bench-rtt300.json",
+        "qa/package899-p2p-fv-bench-rtt50.json",
+        "qa/package899-p2p-fv-gate.mjs",
+        "qa/package899-qa-cleanup-classification.json",
+        "qa/package899-real-browser-call-matrix-gate.mjs",
+        "qa/package899-real-browser-p2p-fv-gate.mjs",
+        "qa/package899-real-browser-voice-p2p-e2ee-gate.mjs",
+        "qa/package899-relay-matrix.mjs",
+        "qa/package899-voice-p2p-e2ee-gate.mjs",
+        "qa/package899-web-security-closure-gate.mjs",
+        "qa/package899f-group-control-pin-gate.mjs",
+        "qa/package899r-feed-boot-gate.mjs",
+        "qa/package899s-feed-convergence-gate.mjs",
+        "qa/phase1-moderation-production.mjs",
+        "qa/phase1-profile-e2e.mjs",
+        "qa/phase1-profile-production-check.mjs",
+        "qa/phase2-production-permission-observer.mjs",
+        "qa/user-directory-avatar-audit.mjs",
+        "qa/user-directory-invite-audit.mjs",
+        "qa/voice-blossom-priority-gate.mjs",
+        "realtime-perf.js",
+        "relay-health.js",
+        "runtime-feature-flags.json",
+        "service-worker.js",
+        "session-authority.js",
+        "sos-crypto-signer.js",
+        "sos-crypto-worker-vault.js",
+        "sos-crypto-worker.js",
+        "sos-md2-pairing-qr.js",
+        "storage.html",
+        "styles/videos.css",
+        "sw-register.js",
+        "videos.html",
+        "videos.js",
+        "admission-service/src/global-accounts.js",
+        "admission-service/src/phone.js",
+        "android-shell/app/src/main/java/com/sos010/app/SosGlobalAccountStatusGate.kt",
+        "android-shell/app/src/main/java/com/sos010/app/SosLinkedDeviceOrchestrator.kt",
+        "android-shell/app/src/main/java/com/sos010/app/SosLinkedDevicesActivity.kt",
+        "android-shell/app/src/main/java/com/sos010/app/SosPairingNostrTransport.kt",
+        "android-shell/app/src/main/res/layout/activity_linked_devices.xml",
+        "android-shell/app/src/test/java/com/sos010/app/SosGlobalAccountStatusGateTest.kt",
+        "global-account-status-state.js",
+        "global-admission-client.js",
+        "global-identity-foundation.js",
+        "phone-normalize.js",
+        "qa/eight-previous-failures-classification.json",
+        "qa/global-identity-phone-foundation-gate.mjs",
+        "qa/legacy-account-compatibility-gate.mjs",
+        "qa/legacy-account-compatibility-phase-a-correction.json",
+        "qa/legacy-account-security-hardening-gate.mjs",
+        "qa/linked-device-product-wiring-gate.mjs",
+        "qa/md3-linked-device-android-integration-gate.mjs",
+        "qa/onboarding-initial-recovery-e2e.mjs",
+        "qa/onboarding-initial-recovery-gate.mjs",
+        "qa/phone-onboarding-socall-e2e.mjs",
+        "qa/phone-onboarding-socall-final-acceptance-nip65-ux-gate.mjs",
+        "qa/phone-onboarding-socall-final-acceptance-service-gate.mjs",
+        "qa/phone-onboarding-socall-wiring-gate.mjs",
+        "qa/phone-registration-race-fix-gate.mjs",
+        "sos-md2-pairing-session.js",
+        "sos-web-linked-devices.js"
       ]
     },
     "ANDROID_UNTOUCHED": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "NO_MULTI_COMMUNITY_PROTOCOL_CHANGES": {
-      "ok": true,
-      "detail": []
+      "ok": false,
+      "detail": [
+        "community-branding-ui.js",
+        "community-context.js",
+        "community-feed-selection.js"
+      ]
     },
     "GLOBAL_COMMUNICATION_UNCHANGED": {
-      "ok": true,
-      "detail": []
+      "ok": false,
+      "detail": [
+        "call-signal-e2ee.js",
+        "chat-audio-player.js",
+        "chat-e2ee.js",
+        "chat-file-transfer-state.js",
+        "chat-file-transfer-ui.js",
+        "chat-media-renderer.js",
+        "chat-p2p-datachannel.js",
+        "chat-p2p-file.js",
+        "chat-p2p-secure-v2.js",
+        "chat-presence.js",
+        "chat-service.js",
+        "chat-ui.js",
+        "chat-video-call-ui.js",
+        "chat-video-call.js",
+        "chat-voice-call-ui.js",
+        "chat-voice-call.js",
+        "chat-voice-service.js",
+        "feed.js",
+        "p2p-connection-state.js",
+        "p2p-standby.html",
+        "p2p-video-sharing.js"
+      ]
     },
     "PACKAGE898_VERSION_GATE": {
-      "ok": true,
-      "detail": "2026.09.28-web-898"
+      "ok": false,
+      "detail": "2026.10.05-web-899s.17"
     },
     "PACKAGE898_CACHE_GATE": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "SHIPPED_CONFIG_V2_OFF": {
-      "ok": true,
+      "ok": false,
       "detail": {
         "schema": "sos-feature-flags-v1",
-        "accessControlV2": false
+        "accessControlV2": true,
+        "accessControlV2Scope": "CONTROL_PLANE",
+        "admin2faEnforcement": true,
+        "admin2faSignerPubkey": "74c4bb0fb6b87b69cc2a95a80b4b5fa616cde3f917ef1894594606d30062edfa"
       }
     },
     "SW_BYPASSES_FLAG_CONFIG": {
@@ -76,31 +267,31 @@
       "detail": null
     },
     "FLAG_LOADS_BEFORE_V2_SYNC": {
-      "ok": true,
+      "ok": false,
       "detail": {
-        "loaderIdx": 71612,
-        "firstV2": 71871
+        "loaderIdx": -1,
+        "firstV2": 71937
       }
     },
     "FIRST_GROUP_NETWORK_AUTHORITY_WIRED": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "FIRST_GROUP_ADMISSION_CLIENT_WIRED": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "SHIPPED_ADMISSION_URL_EMPTY": {
       "ok": true,
-      "detail": "production admission service not configured in 898"
+      "detail": "admission URL empty or the production worker only (Admin 2FA Phase 4)"
     },
     "UNSERIALIZED_FALLBACK_DISABLED": {
       "ok": true,
       "detail": null
     },
     "NETWORK_GATEWAY_ON_EVERY_PRIVILEGED_OP": {
-      "ok": true,
-      "detail": 12
+      "ok": false,
+      "detail": 24
     },
     "NETWORK_MODULE_DECLARES_CACHE_NOT_AUTHORITY": {
       "ok": true,
@@ -122,22 +313,414 @@
       ]
     },
     "SIGNER_CORE_UNCHANGED_SINCE_897": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "ADMIN_SIGNING_POLICY_SCOPED_DELTA": {
-      "ok": true,
+      "ok": false,
       "detail": {
-        "changed": 8,
-        "other": [],
+        "changed": 210,
+        "other": [
+          "+    DISABLE_ACCOUNT: 'DISABLE_ACCOUNT',",
+          "+    REENABLE_ACCOUNT: 'REENABLE_ACCOUNT',",
+          "+    HIDE_DIRECTORY: 'HIDE_DIRECTORY',",
+          "+    RESTORE_DIRECTORY: 'RESTORE_DIRECTORY',",
+          "+  const ACCOUNT_STATUS_OPS = new Set([ADMIN_OP.DISABLE_ACCOUNT, ADMIN_OP.REENABLE_ACCOUNT]);",
+          "+  const DIRECTORY_HYGIENE_OPS = new Set([ADMIN_OP.HIDE_DIRECTORY, ADMIN_OP.RESTORE_DIRECTORY]);",
+          "+  const ACCOUNT_STATUS_KIND = 39005;",
+          "+  const DIRECTORY_HYGIENE_KIND = 39006;",
+          "+  const SCHEMA_ACCOUNT_STATUS = 'sos-account-status';",
+          "+  const SCHEMA_DIRECTORY_HYGIENE = 'sos-directory-hygiene';",
+          "+",
+          "-    return {",
+          "+    const out = {",
+          "+    if (isHex64(state.admin2faSignerPubkey)) out.admin2faSignerPubkey = state.admin2faSignerPubkey.toLowerCase();",
+          "+    return out;",
+          "-      return {",
+          "+      const genesis = {",
+          "+      if (p.admin2faSignerPubkey != null) {",
+          "+        if (!isHex64(p.admin2faSignerPubkey)) fail('BAD_ADMIN_2FA_SIGNER');",
+          "+        genesis.admin2faSignerPubkey = p.admin2faSignerPubkey.trim().toLowerCase();",
+          "+      }",
+          "+      return genesis;",
+          "+  function applyAccountStatusOperation(operation, baseControl, tipBody, actorPubkey, params) {",
+          "+    const actor = normalizePubkey(actorPubkey);",
+          "+    if (!actor) fail('NO_ACTOR');",
+          "+    if (!baseControl) fail('NO_BASE_CONTROL');",
+          "+    const p = params && typeof params === 'object' ? params : {};",
+          "+    if (hasProtoPollution(p)) fail('PROTOTYPE_POLLUTION');",
+          "+    const expectedGroup = resolveNetworkTag(p.groupId, baseControl);",
+          "+    if (baseControl.groupId !== expectedGroup) fail('CROSS_GROUP');",
+          "+    if (!actorIsRoot(actor, baseControl)) fail('ROOT_ONLY');",
+          "+    if (p.controlConflict === true) fail('CONTROL_CONFLICT');",
+          "+    const targetPubkey = normalizePubkey(p.targetPubkey || p.memberPubkey);",
+          "+    if (!targetPubkey) fail('NO_TARGET');",
+          "+    if (targetPubkey === normalizePubkey(baseControl.rootAdminPubkey)) fail('ROOT_PROTECTED');",
+          "+    if (targetPubkey === actor) fail('SELF_TARGET_FORBIDDEN');",
+          "+    let status;",
+          "+    let transition;",
+          "+    if (operation === ADMIN_OP.DISABLE_ACCOUNT) {",
+          "+      status = 'DISABLED';",
+          "+      transition = 'DISABLE';",
+          "+    } else if (operation === ADMIN_OP.REENABLE_ACCOUNT) {",
+          "+      status = 'ENABLED';",
+          "+      transition = 'REENABLE';",
+          "+    } else {",
+          "+      fail('UNKNOWN_OP');",
+          "+    }",
+          "+    const tipRev = tipBody && Number.isInteger(tipBody.revision) ? Number(tipBody.revision) : 0;",
+          "+    const paramRev = Number.isInteger(p.priorRevision) ? Number(p.priorRevision) : 0;",
+          "+    const prevRev = Math.max(tipRev, paramRev, 0);",
+          "+    const revision = prevRev + 1;",
+          "+    const reasonCode = String(p.reasonCode || 'ADMIN_DISABLED').slice(0, 64);",
+          "+    return {",
+          "+      schema: SCHEMA_ACCOUNT_STATUS,",
+          "+      version: 1,",
+          "+      groupId: baseControl.groupId,",
+          "+      targetPubkey,",
+          "+      status,",
+          "+      revision,",
+          "+      reasonCode,",
+          "+      controlEpochAtIssue: baseControl.controlEpoch,",
+          "+      issuerPubkey: actor,",
+          "+      transition,",
+          "+      createdAt: Math.floor(Date.now() / 1000),",
+          "+    };",
+          "+  }",
+          "+",
+          "+  function buildAccountStatusDraft(body) {",
+          "+    const actor = normalizePubkey(body.issuerPubkey);",
+          "+    const targetPubkey = normalizePubkey(body.targetPubkey);",
+          "+    const createdAt = Math.floor(Date.now() / 1000);",
+          "+    const contentBody = Object.assign({}, body, { createdAt, issuerPubkey: actor });",
+          "+    return {",
+          "+      kind: ACCOUNT_STATUS_KIND,",
+          "+      created_at: createdAt,",
+          "+      tags: [",
+          "+        ['p', targetPubkey],",
+          "+        ['t', body.groupId],",
+          "+        ['t', 'sos-account-status'],",
+          "+        ['status', body.status],",
+          "+        ['rev', String(body.revision)],",
+          "+        ['control-epoch', String(body.controlEpochAtIssue)],",
+          "+      ],",
+          "+      content: JSON.stringify(contentBody),",
+          "+      pubkey: actor,",
+          "+    };",
+          "+  }",
+          "+",
+          "+  function applyDirectoryHygieneOperation(operation, baseControl, tipBody, actorPubkey, params) {",
+          "+    const actor = normalizePubkey(actorPubkey);",
+          "+    if (!actor) fail('NO_ACTOR');",
+          "+    if (!baseControl) fail('NO_BASE_CONTROL');",
+          "+    const p = params && typeof params === 'object' ? params : {};",
+          "+    if (hasProtoPollution(p)) fail('PROTOTYPE_POLLUTION');",
+          "+    const expectedGroup = resolveNetworkTag(p.groupId, baseControl);",
+          "+    if (baseControl.groupId !== expectedGroup) fail('CROSS_GROUP');",
+          "+    if (!actorIsRoot(actor, baseControl)) fail('ROOT_ONLY');",
+          "+    if (p.controlConflict === true) fail('CONTROL_CONFLICT');",
+          "+    const targetPubkey = normalizePubkey(p.targetPubkey || p.memberPubkey);",
+          "+    if (!targetPubkey) fail('NO_TARGET');",
+          "+    if (targetPubkey === normalizePubkey(baseControl.rootAdminPubkey)) fail('ROOT_PROTECTED');",
+          "+    let visibility;",
+          "+    let transition;",
+          "+    if (operation === ADMIN_OP.HIDE_DIRECTORY) {",
+          "+      visibility = 'HIDDEN';",
+          "+      transition = 'HIDE';",
+          "+    } else if (operation === ADMIN_OP.RESTORE_DIRECTORY) {",
+          "+      visibility = 'VISIBLE';",
+          "+      transition = 'RESTORE';",
+          "+    } else {",
+          "+      fail('UNKNOWN_OP');",
+          "+    }",
+          "+    const tipRev = tipBody && Number.isInteger(tipBody.revision) ? Number(tipBody.revision) : 0;",
+          "+    const paramRev = Number.isInteger(p.priorRevision) ? Number(p.priorRevision) : 0;",
+          "+    const prevRev = Math.max(tipRev, paramRev, 0);",
+          "+    const revision = prevRev + 1;",
+          "+    return {",
+          "+      schema: SCHEMA_DIRECTORY_HYGIENE,",
+          "+      version: 1,",
+          "+      groupId: baseControl.groupId,",
+          "+      targetPubkey,",
+          "+      visibility,",
+          "+      revision,",
+          "+      controlEpochAtIssue: baseControl.controlEpoch,",
+          "+      issuerPubkey: actor,",
+          "+      transition,",
+          "+      createdAt: Math.floor(Date.now() / 1000),",
+          "+      note: 'Directory hide is not cryptographic deletion and does not erase relay history.',",
+          "+    };",
+          "+  }",
+          "+",
+          "+  function buildDirectoryHygieneDraft(body) {",
+          "+    const actor = normalizePubkey(body.issuerPubkey);",
+          "+    const targetPubkey = normalizePubkey(body.targetPubkey);",
+          "+    const createdAt = Math.floor(Date.now() / 1000);",
+          "+    const contentBody = Object.assign({}, body, { createdAt, issuerPubkey: actor });",
+          "+    return {",
+          "+      kind: DIRECTORY_HYGIENE_KIND,",
+          "+      created_at: createdAt,",
+          "+      tags: [",
+          "+        ['p', targetPubkey],",
+          "+        ['t', body.groupId],",
+          "+        ['t', 'sos-directory-hygiene'],",
+          "+        ['visibility', body.visibility],",
+          "+        ['rev', String(body.revision)],",
+          "+        ['control-epoch', String(body.controlEpochAtIssue)],",
+          "+      ],",
+          "+      content: JSON.stringify(contentBody),",
+          "+      pubkey: actor,",
+          "+    };",
+          "+  }",
+          "+",
+          "+  const ADMIN_2FA_AUTH_KIND = 27235;",
+          "+  const ADMIN_2FA_AUTH_ACTIONS = Object.freeze(['params', 'enroll', 'verify', 'session', 'cosign', 'lock']);",
+          "+",
+          "+  function buildAdmin2faAuthDraft(req, actorPubkey) {",
+          "+    const r = req && typeof req === 'object' && !Array.isArray(req) ? req : fail('MALFORMED_REQUEST');",
+          "+    if (hasProtoPollution(r)) fail('PROTOTYPE_POLLUTION');",
+          "+    const allowed = ['action', 'payloadHash', 'groupId', 'nonce'];",
+          "+    if (Object.keys(r).some((k) => allowed.indexOf(k) === -1)) fail('ARBITRARY_EVENT_FIELDS');",
+          "+    if (ADMIN_2FA_AUTH_ACTIONS.indexOf(r.action) === -1) fail('BAD_ADMIN_2FA_ACTION');",
+          "+    if (!/^[0-9a-f]{64}$/.test(String(r.payloadHash))) fail('BAD_PAYLOAD_HASH');",
+          "+    if (!/^[0-9a-f]{32,64}$/.test(String(r.nonce))) fail('BAD_NONCE');",
+          "+    if (r.groupId !== 'israel-network') fail('BAD_GROUP');",
+          "+    const actor = normalizePubkey(actorPubkey);",
+          "+    if (!actor) fail('NO_ACTOR');",
+          "+    return {",
+          "+      kind: ADMIN_2FA_AUTH_KIND,",
+          "+      created_at: Math.floor(Date.now() / 1000),",
+          "+      tags: [",
+          "+        ['u', 'sos-admin-pin:v1:' + r.action],",
+          "+        ['method', 'POST'],",
+          "+        ['payload', r.payloadHash],",
+          "+        ['t', r.groupId],",
+          "+        ['nonce', r.nonce],",
+          "+        ['sos-admin-pin', 'v1'],",
+          "+      ],",
+          "+      content: '',",
+          "+      pubkey: actor,",
+          "+    };",
+          "+  }",
+          "+",
+          "+    ACCOUNT_STATUS_KIND,",
+          "+    DIRECTORY_HYGIENE_KIND,",
+          "+    ACCOUNT_STATUS_OPS,",
+          "+    DIRECTORY_HYGIENE_OPS,",
+          "+    applyAccountStatusOperation,",
+          "+    buildAccountStatusDraft,",
+          "+    applyDirectoryHygieneOperation,",
+          "+    buildDirectoryHygieneDraft,",
+          "+    ADMIN_2FA_AUTH_KIND,",
+          "+    ADMIN_2FA_AUTH_ACTIONS,",
+          "+    buildAdmin2faAuthDraft,",
+          "+    isAccountStatusOp: (op) => ACCOUNT_STATUS_OPS.has(op),",
+          "+    isDirectoryHygieneOp: (op) => DIRECTORY_HYGIENE_OPS.has(op),"
+        ],
         "admissionCapsDelegable": false
       }
     },
     "ADMIN_SIGNING_POLICY_DTAG_ONLY": {
-      "ok": true,
+      "ok": false,
       "detail": {
-        "changed": 8,
-        "other": [],
+        "changed": 210,
+        "other": [
+          "+    DISABLE_ACCOUNT: 'DISABLE_ACCOUNT',",
+          "+    REENABLE_ACCOUNT: 'REENABLE_ACCOUNT',",
+          "+    HIDE_DIRECTORY: 'HIDE_DIRECTORY',",
+          "+    RESTORE_DIRECTORY: 'RESTORE_DIRECTORY',",
+          "+  const ACCOUNT_STATUS_OPS = new Set([ADMIN_OP.DISABLE_ACCOUNT, ADMIN_OP.REENABLE_ACCOUNT]);",
+          "+  const DIRECTORY_HYGIENE_OPS = new Set([ADMIN_OP.HIDE_DIRECTORY, ADMIN_OP.RESTORE_DIRECTORY]);",
+          "+  const ACCOUNT_STATUS_KIND = 39005;",
+          "+  const DIRECTORY_HYGIENE_KIND = 39006;",
+          "+  const SCHEMA_ACCOUNT_STATUS = 'sos-account-status';",
+          "+  const SCHEMA_DIRECTORY_HYGIENE = 'sos-directory-hygiene';",
+          "+",
+          "-    return {",
+          "+    const out = {",
+          "+    if (isHex64(state.admin2faSignerPubkey)) out.admin2faSignerPubkey = state.admin2faSignerPubkey.toLowerCase();",
+          "+    return out;",
+          "-      return {",
+          "+      const genesis = {",
+          "+      if (p.admin2faSignerPubkey != null) {",
+          "+        if (!isHex64(p.admin2faSignerPubkey)) fail('BAD_ADMIN_2FA_SIGNER');",
+          "+        genesis.admin2faSignerPubkey = p.admin2faSignerPubkey.trim().toLowerCase();",
+          "+      }",
+          "+      return genesis;",
+          "+  function applyAccountStatusOperation(operation, baseControl, tipBody, actorPubkey, params) {",
+          "+    const actor = normalizePubkey(actorPubkey);",
+          "+    if (!actor) fail('NO_ACTOR');",
+          "+    if (!baseControl) fail('NO_BASE_CONTROL');",
+          "+    const p = params && typeof params === 'object' ? params : {};",
+          "+    if (hasProtoPollution(p)) fail('PROTOTYPE_POLLUTION');",
+          "+    const expectedGroup = resolveNetworkTag(p.groupId, baseControl);",
+          "+    if (baseControl.groupId !== expectedGroup) fail('CROSS_GROUP');",
+          "+    if (!actorIsRoot(actor, baseControl)) fail('ROOT_ONLY');",
+          "+    if (p.controlConflict === true) fail('CONTROL_CONFLICT');",
+          "+    const targetPubkey = normalizePubkey(p.targetPubkey || p.memberPubkey);",
+          "+    if (!targetPubkey) fail('NO_TARGET');",
+          "+    if (targetPubkey === normalizePubkey(baseControl.rootAdminPubkey)) fail('ROOT_PROTECTED');",
+          "+    if (targetPubkey === actor) fail('SELF_TARGET_FORBIDDEN');",
+          "+    let status;",
+          "+    let transition;",
+          "+    if (operation === ADMIN_OP.DISABLE_ACCOUNT) {",
+          "+      status = 'DISABLED';",
+          "+      transition = 'DISABLE';",
+          "+    } else if (operation === ADMIN_OP.REENABLE_ACCOUNT) {",
+          "+      status = 'ENABLED';",
+          "+      transition = 'REENABLE';",
+          "+    } else {",
+          "+      fail('UNKNOWN_OP');",
+          "+    }",
+          "+    const tipRev = tipBody && Number.isInteger(tipBody.revision) ? Number(tipBody.revision) : 0;",
+          "+    const paramRev = Number.isInteger(p.priorRevision) ? Number(p.priorRevision) : 0;",
+          "+    const prevRev = Math.max(tipRev, paramRev, 0);",
+          "+    const revision = prevRev + 1;",
+          "+    const reasonCode = String(p.reasonCode || 'ADMIN_DISABLED').slice(0, 64);",
+          "+    return {",
+          "+      schema: SCHEMA_ACCOUNT_STATUS,",
+          "+      version: 1,",
+          "+      groupId: baseControl.groupId,",
+          "+      targetPubkey,",
+          "+      status,",
+          "+      revision,",
+          "+      reasonCode,",
+          "+      controlEpochAtIssue: baseControl.controlEpoch,",
+          "+      issuerPubkey: actor,",
+          "+      transition,",
+          "+      createdAt: Math.floor(Date.now() / 1000),",
+          "+    };",
+          "+  }",
+          "+",
+          "+  function buildAccountStatusDraft(body) {",
+          "+    const actor = normalizePubkey(body.issuerPubkey);",
+          "+    const targetPubkey = normalizePubkey(body.targetPubkey);",
+          "+    const createdAt = Math.floor(Date.now() / 1000);",
+          "+    const contentBody = Object.assign({}, body, { createdAt, issuerPubkey: actor });",
+          "+    return {",
+          "+      kind: ACCOUNT_STATUS_KIND,",
+          "+      created_at: createdAt,",
+          "+      tags: [",
+          "+        ['p', targetPubkey],",
+          "+        ['t', body.groupId],",
+          "+        ['t', 'sos-account-status'],",
+          "+        ['status', body.status],",
+          "+        ['rev', String(body.revision)],",
+          "+        ['control-epoch', String(body.controlEpochAtIssue)],",
+          "+      ],",
+          "+      content: JSON.stringify(contentBody),",
+          "+      pubkey: actor,",
+          "+    };",
+          "+  }",
+          "+",
+          "+  function applyDirectoryHygieneOperation(operation, baseControl, tipBody, actorPubkey, params) {",
+          "+    const actor = normalizePubkey(actorPubkey);",
+          "+    if (!actor) fail('NO_ACTOR');",
+          "+    if (!baseControl) fail('NO_BASE_CONTROL');",
+          "+    const p = params && typeof params === 'object' ? params : {};",
+          "+    if (hasProtoPollution(p)) fail('PROTOTYPE_POLLUTION');",
+          "+    const expectedGroup = resolveNetworkTag(p.groupId, baseControl);",
+          "+    if (baseControl.groupId !== expectedGroup) fail('CROSS_GROUP');",
+          "+    if (!actorIsRoot(actor, baseControl)) fail('ROOT_ONLY');",
+          "+    if (p.controlConflict === true) fail('CONTROL_CONFLICT');",
+          "+    const targetPubkey = normalizePubkey(p.targetPubkey || p.memberPubkey);",
+          "+    if (!targetPubkey) fail('NO_TARGET');",
+          "+    if (targetPubkey === normalizePubkey(baseControl.rootAdminPubkey)) fail('ROOT_PROTECTED');",
+          "+    let visibility;",
+          "+    let transition;",
+          "+    if (operation === ADMIN_OP.HIDE_DIRECTORY) {",
+          "+      visibility = 'HIDDEN';",
+          "+      transition = 'HIDE';",
+          "+    } else if (operation === ADMIN_OP.RESTORE_DIRECTORY) {",
+          "+      visibility = 'VISIBLE';",
+          "+      transition = 'RESTORE';",
+          "+    } else {",
+          "+      fail('UNKNOWN_OP');",
+          "+    }",
+          "+    const tipRev = tipBody && Number.isInteger(tipBody.revision) ? Number(tipBody.revision) : 0;",
+          "+    const paramRev = Number.isInteger(p.priorRevision) ? Number(p.priorRevision) : 0;",
+          "+    const prevRev = Math.max(tipRev, paramRev, 0);",
+          "+    const revision = prevRev + 1;",
+          "+    return {",
+          "+      schema: SCHEMA_DIRECTORY_HYGIENE,",
+          "+      version: 1,",
+          "+      groupId: baseControl.groupId,",
+          "+      targetPubkey,",
+          "+      visibility,",
+          "+      revision,",
+          "+      controlEpochAtIssue: baseControl.controlEpoch,",
+          "+      issuerPubkey: actor,",
+          "+      transition,",
+          "+      createdAt: Math.floor(Date.now() / 1000),",
+          "+      note: 'Directory hide is not cryptographic deletion and does not erase relay history.',",
+          "+    };",
+          "+  }",
+          "+",
+          "+  function buildDirectoryHygieneDraft(body) {",
+          "+    const actor = normalizePubkey(body.issuerPubkey);",
+          "+    const targetPubkey = normalizePubkey(body.targetPubkey);",
+          "+    const createdAt = Math.floor(Date.now() / 1000);",
+          "+    const contentBody = Object.assign({}, body, { createdAt, issuerPubkey: actor });",
+          "+    return {",
+          "+      kind: DIRECTORY_HYGIENE_KIND,",
+          "+      created_at: createdAt,",
+          "+      tags: [",
+          "+        ['p', targetPubkey],",
+          "+        ['t', body.groupId],",
+          "+        ['t', 'sos-directory-hygiene'],",
+          "+        ['visibility', body.visibility],",
+          "+        ['rev', String(body.revision)],",
+          "+        ['control-epoch', String(body.controlEpochAtIssue)],",
+          "+      ],",
+          "+      content: JSON.stringify(contentBody),",
+          "+      pubkey: actor,",
+          "+    };",
+          "+  }",
+          "+",
+          "+  const ADMIN_2FA_AUTH_KIND = 27235;",
+          "+  const ADMIN_2FA_AUTH_ACTIONS = Object.freeze(['params', 'enroll', 'verify', 'session', 'cosign', 'lock']);",
+          "+",
+          "+  function buildAdmin2faAuthDraft(req, actorPubkey) {",
+          "+    const r = req && typeof req === 'object' && !Array.isArray(req) ? req : fail('MALFORMED_REQUEST');",
+          "+    if (hasProtoPollution(r)) fail('PROTOTYPE_POLLUTION');",
+          "+    const allowed = ['action', 'payloadHash', 'groupId', 'nonce'];",
+          "+    if (Object.keys(r).some((k) => allowed.indexOf(k) === -1)) fail('ARBITRARY_EVENT_FIELDS');",
+          "+    if (ADMIN_2FA_AUTH_ACTIONS.indexOf(r.action) === -1) fail('BAD_ADMIN_2FA_ACTION');",
+          "+    if (!/^[0-9a-f]{64}$/.test(String(r.payloadHash))) fail('BAD_PAYLOAD_HASH');",
+          "+    if (!/^[0-9a-f]{32,64}$/.test(String(r.nonce))) fail('BAD_NONCE');",
+          "+    if (r.groupId !== 'israel-network') fail('BAD_GROUP');",
+          "+    const actor = normalizePubkey(actorPubkey);",
+          "+    if (!actor) fail('NO_ACTOR');",
+          "+    return {",
+          "+      kind: ADMIN_2FA_AUTH_KIND,",
+          "+      created_at: Math.floor(Date.now() / 1000),",
+          "+      tags: [",
+          "+        ['u', 'sos-admin-pin:v1:' + r.action],",
+          "+        ['method', 'POST'],",
+          "+        ['payload', r.payloadHash],",
+          "+        ['t', r.groupId],",
+          "+        ['nonce', r.nonce],",
+          "+        ['sos-admin-pin', 'v1'],",
+          "+      ],",
+          "+      content: '',",
+          "+      pubkey: actor,",
+          "+    };",
+          "+  }",
+          "+",
+          "+    ACCOUNT_STATUS_KIND,",
+          "+    DIRECTORY_HYGIENE_KIND,",
+          "+    ACCOUNT_STATUS_OPS,",
+          "+    DIRECTORY_HYGIENE_OPS,",
+          "+    applyAccountStatusOperation,",
+          "+    buildAccountStatusDraft,",
+          "+    applyDirectoryHygieneOperation,",
+          "+    buildDirectoryHygieneDraft,",
+          "+    ADMIN_2FA_AUTH_KIND,",
+          "+    ADMIN_2FA_AUTH_ACTIONS,",
+          "+    buildAdmin2faAuthDraft,",
+          "+    isAccountStatusOp: (op) => ACCOUNT_STATUS_OPS.has(op),",
+          "+    isDirectoryHygieneOp: (op) => DIRECTORY_HYGIENE_OPS.has(op),"
+        ],
         "admissionCapsDelegable": false
       }
     },
@@ -205,8 +788,8 @@
       "detail": "PASS"
     },
     "AC8_GUEST_HARDENING": {
-      "ok": true,
-      "detail": "PASS"
+      "ok": false,
+      "detail": "\n[AC8] PASS XSS isolation not claimed\n[AC8] PASS shared validator symbols\n{\n  \"STATUS\": \"FAIL\",\n  \"FAIL_NOTES\": [\n    \"FAIL modules wired in videos.html\"\n  ]\n}\n"
     },
     "AC9_TYPED_ADMIN_SIGNER": {
       "ok": true,
@@ -221,48 +804,90 @@
       "detail": "PASS"
     },
     "FIRST_GROUP_NETWORK_E2E": {
-      "ok": true,
+      "ok": false,
       "detail": {
-        "status": "PASS",
-        "checks": 45,
+        "status": "FAIL",
+        "checks": 23,
         "failed": []
       }
     },
     "THREE_BROWSER_NETWORK_E2E": {
-      "ok": true,
-      "detail": "15 checks"
+      "ok": false,
+      "detail": [
+        "REMOTE_INVITER",
+        "NETWORK_QR_RENDER",
+        "CROSS_USER_JOIN",
+        "REMOTE_ADMIN_PROMOTE",
+        "REMOTE_CAPABILITY_REVOKE",
+        "REMOTE_ADMIN_DEMOTE",
+        "REMOTE_MEMBER_REMOVE"
+      ]
     },
     "FRESH_PROFILE_AUTHORITY": {
-      "ok": true,
-      "detail": "1 checks"
+      "ok": false,
+      "detail": [
+        "FRESH_PROFILE_AUTHORITY"
+      ]
     },
     "REMOTE_CAPABILITY": {
-      "ok": true,
-      "detail": "3 checks"
+      "ok": false,
+      "detail": [
+        "REMOTE_CAPABILITY_REVOKE"
+      ]
     },
     "CROSS_USER_JOIN": {
-      "ok": true,
-      "detail": "4 checks"
+      "ok": false,
+      "detail": [
+        "CROSS_USER_JOIN",
+        "JOIN_OBSERVABILITY",
+        "REMOTE_INVITER",
+        "NETWORK_QR_RENDER"
+      ]
     },
     "NETWORK_AUTHORITATIVE_GATEWAY": {
-      "ok": true,
-      "detail": "5 checks"
+      "ok": false,
+      "detail": [
+        "NETWORK_AUTHORITATIVE_GATEWAY",
+        "DIRECT_NETWORK_PRIVILEGED_BYPASS_REJECTED",
+        "FAIL_CLOSED_NO_RELAY_CONFIRMATION",
+        "TYPED_SIGNER_ONLY"
+      ]
     },
     "NETWORK_ADVERSARIAL": {
-      "ok": true,
-      "detail": "11 checks"
+      "ok": false,
+      "detail": [
+        "EVENT_INTEGRITY",
+        "STALE_EVENT",
+        "CONTROL_CONFLICT_FAIL_CLOSED",
+        "DUPLICATE_EVENT_NO_CORRUPTION",
+        "EVENT_ARRIVAL_ORDER_DETERMINISTIC",
+        "ONE_RELAY_DOWN_CONVERGES",
+        "RELAY_RECONNECT_UNION",
+        "NETWORK_INVITE_REVOKE",
+        "NETWORK_EXPIRED_INVITE",
+        "RELAY_SECRET_LEAK_SCAN",
+        "DOM_SECRET_SCAN"
+      ]
     },
     "MULTI_USER_SESSION": {
-      "ok": true,
-      "detail": "4 checks"
+      "ok": false,
+      "detail": [
+        "MULTITAB_REVOCATION",
+        "OFFLINE_STALE_CACHE_FAIL_CLOSED",
+        "OFFLINE_RECONNECT",
+        "ACCOUNT_SWITCH"
+      ]
     },
     "NETWORK_BACKED_ADMIN_UI": {
-      "ok": true,
-      "detail": "3 checks"
+      "ok": false,
+      "detail": [
+        "NETWORK_BACKED_ADMIN_UI",
+        "ADMIN_UI_LOADING_STATE"
+      ]
     },
     "PACKAGE898_EXISTING_E2E_PASS": {
-      "ok": true,
-      "detail": "42/42"
+      "ok": false,
+      "detail": "11/42"
     },
     "E2E_ADMISSION_DELEGATION_BY_ROOT_ONLY": {
       "ok": true,
@@ -394,39 +1019,23 @@
       "detail": null
     },
     "ADMISSION_SERVICE_ROOT_DELEGATION_GATE": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "FIRST_GROUP_NETWORK_DOUBLE_REDEEM_GATE": {
-      "ok": true,
-      "detail": {
-        "bothValidated": true,
-        "accepted": 1,
-        "winner": "E",
-        "loser": {
-          "result": "ALREADY_REDEEMED",
-          "error": "ההזמנה כבר נוצלה"
-        },
-        "converged": {
-          "winnerOnA": true,
-          "winnerOnB": true,
-          "loserOnA": "UNKNOWN",
-          "loserOnB": "UNKNOWN"
-        },
-        "loserRetry": "ההזמנה כבר נוצלה",
-        "serviceProofsOnRelay": 1
-      }
+      "ok": false,
+      "detail": null
     },
     "FIRST_GROUP_REDEEM_RESPONSE_LOSS_GATE": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "FIRST_GROUP_THREE_BROWSER_NETWORK_E2E_GATE": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "FIRST_GROUP_NETWORK_ADVERSARIAL_GATE": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "ADMISSION_REGISTRATION_POLICY": {
@@ -461,8 +1070,8 @@
       ]
     },
     "PRODUCT_SECURITY_894": {
-      "ok": true,
-      "detail": "PASS"
+      "ok": false,
+      "detail": "Y_IMPORT_GATE { hasSigner: true, backend: 'MAIN_THREAD' }\nPASS RC894_SECRET_LEAK_GATE nsecDom=false\nFAIL MASTER_SECURITY_REGRESSION web allowlist + vault + android untouched\nFAIL RC894_SECURITY_GATE \n"
     },
     "REAL_BROWSER_VOICE_VIDEO_CALLS": {
       "ok": true,
@@ -481,10 +1090,429 @@
       "detail": "PASS"
     },
     "404_AUDIT": {
-      "ok": true,
+      "ok": false,
       "detail": {
-        "unknown": [],
-        "classified": 4
+        "unknown": [
+          {
+            "url": "https://blossom.nostr.build/ab48872094970b31658d349348daffdecae61e54e99ee253dc00e619c95b0fb3.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/ab48872094970b31658d349348daffdecae61e54e99ee253dc00e619c95b0fb3.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/8cff33a56f05fa5cec976fb25ab8a78db8a8fd95e5d16f13081995eb3f003217.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/8cff33a56f05fa5cec976fb25ab8a78db8a8fd95e5d16f13081995eb3f003217.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/f0467c7b2aad1980c1913c029f33261b208170df59e9f9fc1ee2738e401d3d0e.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/32f8b829e0738ea2d96d04a92e6663ac99eedc756b71658dd5ada859e51f37df.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/f0467c7b2aad1980c1913c029f33261b208170df59e9f9fc1ee2738e401d3d0e.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/32f8b829e0738ea2d96d04a92e6663ac99eedc756b71658dd5ada859e51f37df.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/aea1dc3a3f8f3f5928d2874282af4d997e527ae38811aeb50aa96d105f6e8bc8.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/aea1dc3a3f8f3f5928d2874282af4d997e527ae38811aeb50aa96d105f6e8bc8.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/357423ec1f85875dd3e7ef795072b35cd0c0209e43ef812e3b0898a10d586fd7.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/357423ec1f85875dd3e7ef795072b35cd0c0209e43ef812e3b0898a10d586fd7.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/457197f3257f702a5ef59704d1d3b753683c2a0de6c7d2deb32d20a797413c15.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/457197f3257f702a5ef59704d1d3b753683c2a0de6c7d2deb32d20a797413c15.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/fb4a511cde225ab3e86cb05f3054c689de22580aca09a54fc458641d769d3dd6.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/fb4a511cde225ab3e86cb05f3054c689de22580aca09a54fc458641d769d3dd6.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/d8ec78d881d3e132062bd75ae46c2aea633705d73f2e6685de8ad7aa31a2dc70.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/d8ec78d881d3e132062bd75ae46c2aea633705d73f2e6685de8ad7aa31a2dc70.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/7c7394190eff48a21a37d0d7f745b49c0d9c8434e992e70559a7fe96d158d3c0.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/8cb52c57ced25302327e34cc776a482ed6ddd507befc863cd5d16d09ee3b65f8.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/7c7394190eff48a21a37d0d7f745b49c0d9c8434e992e70559a7fe96d158d3c0.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/8cb52c57ced25302327e34cc776a482ed6ddd507befc863cd5d16d09ee3b65f8.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/9774d62260c0b7242729f5e5ba1bce12d53c5c7fe40b5f1f5267c1f2c0a5febb.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/9774d62260c0b7242729f5e5ba1bce12d53c5c7fe40b5f1f5267c1f2c0a5febb.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/1d35ebaf4870d0bed2b37906163b5f9377e0fcb0d4855af580991560fa6c4754.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/1d35ebaf4870d0bed2b37906163b5f9377e0fcb0d4855af580991560fa6c4754.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/07bfac185808bf85b82f6fbada5d503b37ba2ae2ce7b39b6a357a65f2f17d529.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/07bfac185808bf85b82f6fbada5d503b37ba2ae2ce7b39b6a357a65f2f17d529.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_GUEST",
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/88384871b808ff772aade536a48c63b09618aaf9a893914c7d441b46d10f5f25.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/88384871b808ff772aade536a48c63b09618aaf9a893914c7d441b46d10f5f25.mp4",
+            "type": "fetch",
+            "runs": [
+              "PRODUCTION_897_LOGGED_IN",
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/5b4c3e71792e86957d62a15123afec1e103d0e3ad7ef4ac190d64d8581d47f3d.mp4",
+            "type": "fetch",
+            "runs": [
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/5b4c3e71792e86957d62a15123afec1e103d0e3ad7ef4ac190d64d8581d47f3d.mp4",
+            "type": "fetch",
+            "runs": [
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/0b71c5f262eac30b658ccc01e2005a4b2237802e8e63b37d54550b19e96d348d.mp4",
+            "type": "fetch",
+            "runs": [
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/0b71c5f262eac30b658ccc01e2005a4b2237802e8e63b37d54550b19e96d348d.mp4",
+            "type": "fetch",
+            "runs": [
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/7a7e96720e200ec0c62f96fde62dfe11922f413f44cfa5cbac68fd0a101b2243.mp4",
+            "type": "fetch",
+            "runs": [
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/7a7e96720e200ec0c62f96fde62dfe11922f413f44cfa5cbac68fd0a101b2243.mp4",
+            "type": "fetch",
+            "runs": [
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/2824c05d9abe59c69e59adb0beea29b9c0d5afd29f39694abf6ef227b12f9514.mp4",
+            "type": "fetch",
+            "runs": [
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/2824c05d9abe59c69e59adb0beea29b9c0d5afd29f39694abf6ef227b12f9514.mp4",
+            "type": "fetch",
+            "runs": [
+              "LOCAL_898_GUEST",
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/d83dad5f53109480a6b75fac8c775a6b37c2a193bb99e669ad3ee07af5eb3e0c.mp4",
+            "type": "fetch",
+            "runs": [
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/d83dad5f53109480a6b75fac8c775a6b37c2a193bb99e669ad3ee07af5eb3e0c.mp4",
+            "type": "fetch",
+            "runs": [
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/694b7d5969c61277a5979efbab7841f655fc5a776898afd012470a93cbb3de6f.mp4",
+            "type": "fetch",
+            "runs": [
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/694b7d5969c61277a5979efbab7841f655fc5a776898afd012470a93cbb3de6f.mp4",
+            "type": "fetch",
+            "runs": [
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/fb3bd2387d94f014065698b6b340a3a1e7e8f338c7deba38ed0477f1231eaf18.mp4",
+            "type": "fetch",
+            "runs": [
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/fb3bd2387d94f014065698b6b340a3a1e7e8f338c7deba38ed0477f1231eaf18.mp4",
+            "type": "fetch",
+            "runs": [
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.nostr.build/ff5a691bb6e86791e544b85f0e907ee99b24c3f32b2d4ee6111d68f9efe4bb4f.mp4",
+            "type": "fetch",
+            "runs": [
+              "LOCAL_898_LOGGED_IN"
+            ]
+          },
+          {
+            "url": "https://blossom.band/ff5a691bb6e86791e544b85f0e907ee99b24c3f32b2d4ee6111d68f9efe4bb4f.mp4",
+            "type": "fetch",
+            "runs": [
+              "LOCAL_898_LOGGED_IN"
+            ]
+          }
+        ],
+        "classified": 50
       }
     },
     "PRODUCT_SHARE_E2E": {
@@ -532,12 +1560,19 @@
       "detail": "PASS"
     },
     "PRODUCT_MODULES_UNCHANGED": {
-      "ok": true,
-      "detail": []
+      "ok": false,
+      "detail": [
+        "chat-service.js",
+        "feed.js",
+        "chat-voice-call.js",
+        "chat-video-call.js"
+      ]
     },
     "PRODUCT_REGRESSION": {
-      "ok": true,
-      "detail": []
+      "ok": false,
+      "detail": [
+        "PRODUCT_SECURITY_894"
+      ]
     },
     "EXISTING_KEY_IMPORT_GATE": {
       "ok": true,
@@ -556,7 +1591,7 @@
       "detail": null
     },
     "MASTER_SECURITY_REGRESSION": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "DOC_FIRST_GROUP_ADMIN_STATUS": {
@@ -606,10 +1641,10 @@
       "detail": "superseded: in-page relay stub + export/import model; gateway now requires relay confirmation"
     },
     "DIRECT_P2P_ENVIRONMENTAL": {
-      "ok": false,
+      "ok": true,
       "detail": {
-        "connected": false,
-        "dc": null
+        "connected": true,
+        "dc": "open"
       }
     },
     "REAL_BROWSER_P2P_CHAT_FILE": {
@@ -630,38 +1665,38 @@
       "detail": "pre-existing on 896/897 baseline; inspected files unchanged"
     },
     "F5B6_FULL": {
-      "ok": false,
-      "detail": "Android unit-test build is out of scope (no Android work in 898)"
+      "ok": true,
+      "detail": "PASS"
     }
   },
   "blocked": {},
   "groups": {
-    "THREE_BROWSER_NETWORK_E2E": "PASS",
-    "FRESH_PROFILE_AUTHORITY": "PASS",
-    "REMOTE_CAPABILITY": "PASS",
-    "CROSS_USER_JOIN": "PASS",
-    "NETWORK_AUTHORITATIVE_GATEWAY": "PASS",
-    "NETWORK_ADVERSARIAL": "PASS",
-    "MULTI_USER_SESSION": "PASS",
-    "NETWORK_BACKED_ADMIN_UI": "PASS",
-    "NETWORK_DOUBLE_REDEEM": "PASS",
-    "PRODUCT_REGRESSION": "PASS",
-    "MASTER_SECURITY": "PASS"
+    "THREE_BROWSER_NETWORK_E2E": "FAIL",
+    "FRESH_PROFILE_AUTHORITY": "FAIL",
+    "REMOTE_CAPABILITY": "FAIL",
+    "CROSS_USER_JOIN": "FAIL",
+    "NETWORK_AUTHORITATIVE_GATEWAY": "FAIL",
+    "NETWORK_ADVERSARIAL": "FAIL",
+    "MULTI_USER_SESSION": "FAIL",
+    "NETWORK_BACKED_ADMIN_UI": "FAIL",
+    "NETWORK_DOUBLE_REDEEM": "FAIL",
+    "PRODUCT_REGRESSION": "FAIL",
+    "MASTER_SECURITY": "FAIL"
   },
-  "PACKAGE898_RC_SHA": "9d9111bf198851b00ceb83eb7e1ad6a94195547d",
-  "PACKAGE898_RC_TREE_HASH": "7739631fa7c9e26ba789fb8f6a657188843aa964",
+  "PACKAGE898_RC_SHA": "d1bcc5168d9e02564c505d4b10c69a8d9b5f208a",
+  "PACKAGE898_RC_TREE_HASH": "adc98665b05e1a6ed7041f3b142af9ec826ea524",
   "ROLLBACK_TARGET_SHA": "16f43ae6f81406c68944b66770b248b27137c643",
   "NEXT_WEB_PACKAGE": 898,
   "NEXT_CACHE_VERSION": "sos-cache-v898",
-  "ACCESS_CONTROL_V2_SHIPPED_VALUE": false,
+  "ACCESS_CONTROL_V2_SHIPPED_VALUE": true,
   "MAIN_PUSH_EXECUTED": false,
   "MAIN_DEPLOY_EXECUTED": false,
   "PRODUCTION_ACCESS_CONTROL_CHANGED": false,
   "ANDROID_WORK_EXECUTED": false,
   "APK_BUILT": false,
   "MD4_STARTED": false,
-  "PACKAGE898_RC_STATUS": "READY_FOR_OWNER_APPROVAL",
-  "FIRST_GROUP_V2_READY_FOR_CONTROLLED_PRODUCTION_ACTIVATION": true,
+  "PACKAGE898_RC_STATUS": "BLOCKED",
+  "FIRST_GROUP_V2_READY_FOR_CONTROLLED_PRODUCTION_ACTIVATION": false,
   "PRODUCTION_ADMISSION_SERVICE_DEPLOYED": false,
   "PRODUCTION_DNS_CHANGED": false,
   "PRODUCTION_ROOT_DELEGATION_CREATED": false,
@@ -671,44 +1706,206 @@
   "CLIENT_CLOCK_CAN_BYPASS_EXPIRATION": false,
   "delta": {
     "files": [
+      "account-directory-ops.js",
+      "account-status-state.js",
+      "admin-2fa-client.js",
+      "admin-2fa-protocol.js",
+      "admin-pin-lock.js",
+      "admin-settings-ui.js",
       "admin-signing-policy.js",
-      "app-version.json",
-      "config.js",
-      "docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md",
-      "docs/FIRST_GROUP_ADMIN_STATUS.md",
-      "docs/FIRST_GROUP_NETWORK_AUTHORITY.md",
-      "docs/PACKAGE898_FIRST_GROUP_NETWORK_RELEASE_PLAN.md",
-      "docs/SECURITY_PRODUCT_INTEGRATION_MAP.md",
-      "first-group-admin.js",
-      "first-group-network-authority.js",
-      "group-admin-product-ui.js",
-      "group-control-state.js",
-      "guest-auth.js",
-      "invite-service.js",
-      "membership-state.js",
-      "qa/package898-404-audit.mjs",
-      "qa/package898-first-group-network-e2e.mjs",
-      "qa/package898-rc-gate.mjs",
-      "qa/package898-real-browser-call-gate.mjs",
-      "service-worker.js",
-      "sw-register.js",
-      "videos.html",
       "admission-service/.gitignore",
       "admission-service/package-lock.json",
       "admission-service/package.json",
       "admission-service/src/authority.js",
+      "admission-service/src/cosign-keys.js",
       "admission-service/src/group.js",
       "admission-service/src/index.js",
       "admission-service/src/keys.js",
       "admission-service/src/ledger.js",
+      "admission-service/src/pin.js",
+      "admission-service/src/relay-fetch.js",
       "admission-service/src/shim.js",
       "admission-service/wrangler.toml",
+      "android-shell/app/src/main/AndroidManifest.xml",
+      "android-shell/app/src/main/java/com/sos010/app/SosJsBridge.kt",
+      "android-shell/app/src/main/java/com/sos010/app/SosSecureIdentityStore.kt",
+      "app-version.json",
+      "app.js",
+      "auth.js",
+      "call-signal-e2ee.js",
+      "chat-audio-player.js",
+      "chat-e2ee.js",
+      "chat-file-transfer-state.js",
+      "chat-file-transfer-ui.js",
+      "chat-media-renderer.js",
+      "chat-p2p-datachannel.js",
+      "chat-p2p-file.js",
+      "chat-p2p-secure-v2.js",
+      "chat-presence.js",
+      "chat-service.js",
+      "chat-ui.js",
+      "chat-video-call-ui.js",
+      "chat-video-call.js",
+      "chat-voice-call-ui.js",
+      "chat-voice-call.js",
+      "chat-voice-service.js",
+      "community-branding-ui.js",
+      "community-context.js",
+      "community-feed-selection.js",
+      "config.js",
+      "directory-hygiene-state.js",
+      "docs/ACCESS_CONTROL_V2_ACTIVATION_PLAN.md",
+      "docs/ADMIN_2FA.md",
+      "docs/FIRST_GROUP_ADMIN_STATUS.md",
       "docs/FIRST_GROUP_ADMISSION_AUTHORITY.md",
+      "docs/FIRST_GROUP_NETWORK_AUTHORITY.md",
+      "docs/PACKAGE898_FIRST_GROUP_NETWORK_RELEASE_PLAN.md",
+      "docs/SECURITY_PRODUCT_INTEGRATION_MAP.md",
+      "docs/WEB_FINALIZATION_ROADMAP.md",
+      "docs/security/F5B6_WEB_WORKER_TO_SIGNER_HANDOFF_DESIGN.md",
+      "docs/security/voice-p2p-app-e2ee.md",
+      "f5b6w-handoff-client.js",
+      "feature-flags.js",
+      "feed.js",
+      "first-group-admin.js",
       "first-group-admission-client.js",
+      "first-group-network-authority.js",
+      "follow-service.js",
+      "group-admin-product-ui.js",
+      "group-control-mutations.js",
+      "group-control-state.js",
+      "group-reports.js",
+      "guest-auth.js",
+      "guest-p2p-schema.js",
+      "identity-lifecycle.js",
+      "index.html",
+      "invite-policy.js",
+      "invite-service.js",
+      "key-viewer.js",
+      "keys.js",
+      "media-server-e2ee.js",
+      "member-admin-operations.js",
+      "membership-state.js",
+      "moderation-policy.js",
+      "p2p-connection-state.js",
+      "p2p-standby.html",
+      "p2p-video-sharing.js",
+      "package-lock.json",
+      "package.json",
+      "profile-post.js",
+      "profile-view.js",
+      "profile-viewer.js",
+      "profile.html",
+      "profile.js",
+      "qa/account-directory-source-audit.json",
+      "qa/account-revocation-acceptance-adversarial.mjs",
+      "qa/account-revocation-acceptance-live-matrix.mjs",
+      "qa/account-revocation-directory-hygiene-gate.mjs",
+      "qa/admin-2fa-client-gate.mjs",
+      "qa/admin-2fa-phase3-gate.mjs",
+      "qa/admin-cosign-s1-gate.mjs",
+      "qa/b2-production-invite-readonly-check.mjs",
+      "qa/e2ee-send-gate.mjs",
+      "qa/f5b6w-production-check.mjs",
+      "qa/f5b6w-recovery-e2e.mjs",
+      "qa/fga-ux-polish-gate.mjs",
+      "qa/first-group-registration-audit.mjs",
+      "qa/fixtures/899s-h264-160x120.mp4",
+      "qa/gate15-activation-gate.mjs",
+      "qa/gate15-production-verify.mjs",
+      "qa/gate2-delegation-gate.mjs",
+      "qa/gate2-negatives.mjs",
+      "qa/gate2-production-verify.mjs",
+      "qa/gate4-browser-scope-check.mjs",
+      "qa/gate4-production-browser-check.mjs",
+      "qa/gate4-v2-scope-gate.mjs",
+      "qa/invite-authority-production-audit.mjs",
+      "qa/log-privacy-gate.mjs",
+      "qa/moderation-delete-production-trace.mjs",
+      "qa/multitab-session-revocation-gate.mjs",
+      "qa/p2p-file-idempotency.mjs",
+      "qa/package897-first-group-admin-e2e.mjs",
+      "qa/package898-404-audit.mjs",
       "qa/package898-admission-service-gate.mjs",
-      "qa/package898-admission-staging.mjs"
+      "qa/package898-admission-staging.mjs",
+      "qa/package898-first-group-network-e2e.mjs",
+      "qa/package898-rc-gate.mjs",
+      "qa/package898-real-browser-call-gate.mjs",
+      "qa/package899-1059-receiver-gate.mjs",
+      "qa/package899-call-realtime-gate.mjs",
+      "qa/package899-p2p-benchmark-after-d0.json",
+      "qa/package899-p2p-benchmark-after-d50.json",
+      "qa/package899-p2p-benchmark-before-d0.json",
+      "qa/package899-p2p-benchmark-before-d50.json",
+      "qa/package899-p2p-benchmark.mjs",
+      "qa/package899-p2p-fv-bench-d50-baselinecfg.json",
+      "qa/package899-p2p-fv-bench-rtt0.json",
+      "qa/package899-p2p-fv-bench-rtt100.json",
+      "qa/package899-p2p-fv-bench-rtt200.json",
+      "qa/package899-p2p-fv-bench-rtt300.json",
+      "qa/package899-p2p-fv-bench-rtt50.json",
+      "qa/package899-p2p-fv-gate.mjs",
+      "qa/package899-qa-cleanup-classification.json",
+      "qa/package899-real-browser-call-matrix-gate.mjs",
+      "qa/package899-real-browser-p2p-fv-gate.mjs",
+      "qa/package899-real-browser-voice-p2p-e2ee-gate.mjs",
+      "qa/package899-relay-matrix.mjs",
+      "qa/package899-voice-p2p-e2ee-gate.mjs",
+      "qa/package899-web-security-closure-gate.mjs",
+      "qa/package899f-group-control-pin-gate.mjs",
+      "qa/package899r-feed-boot-gate.mjs",
+      "qa/package899s-feed-convergence-gate.mjs",
+      "qa/phase1-moderation-production.mjs",
+      "qa/phase1-profile-e2e.mjs",
+      "qa/phase1-profile-production-check.mjs",
+      "qa/phase2-production-permission-observer.mjs",
+      "qa/user-directory-avatar-audit.mjs",
+      "qa/user-directory-invite-audit.mjs",
+      "qa/voice-blossom-priority-gate.mjs",
+      "realtime-perf.js",
+      "relay-health.js",
+      "runtime-feature-flags.json",
+      "service-worker.js",
+      "session-authority.js",
+      "sos-crypto-signer.js",
+      "sos-crypto-worker-vault.js",
+      "sos-crypto-worker.js",
+      "sos-md2-pairing-qr.js",
+      "storage.html",
+      "styles/videos.css",
+      "sw-register.js",
+      "videos.html",
+      "videos.js",
+      "admission-service/src/global-accounts.js",
+      "admission-service/src/phone.js",
+      "android-shell/app/src/main/java/com/sos010/app/SosGlobalAccountStatusGate.kt",
+      "android-shell/app/src/main/java/com/sos010/app/SosLinkedDeviceOrchestrator.kt",
+      "android-shell/app/src/main/java/com/sos010/app/SosLinkedDevicesActivity.kt",
+      "android-shell/app/src/main/java/com/sos010/app/SosPairingNostrTransport.kt",
+      "android-shell/app/src/main/res/layout/activity_linked_devices.xml",
+      "android-shell/app/src/test/java/com/sos010/app/SosGlobalAccountStatusGateTest.kt",
+      "global-account-status-state.js",
+      "global-admission-client.js",
+      "global-identity-foundation.js",
+      "phone-normalize.js",
+      "qa/eight-previous-failures-classification.json",
+      "qa/global-identity-phone-foundation-gate.mjs",
+      "qa/legacy-account-compatibility-gate.mjs",
+      "qa/legacy-account-compatibility-phase-a-correction.json",
+      "qa/legacy-account-security-hardening-gate.mjs",
+      "qa/linked-device-product-wiring-gate.mjs",
+      "qa/md3-linked-device-android-integration-gate.mjs",
+      "qa/onboarding-initial-recovery-e2e.mjs",
+      "qa/onboarding-initial-recovery-gate.mjs",
+      "qa/phone-onboarding-socall-e2e.mjs",
+      "qa/phone-onboarding-socall-final-acceptance-nip65-ux-gate.mjs",
+      "qa/phone-onboarding-socall-final-acceptance-service-gate.mjs",
+      "qa/phone-onboarding-socall-wiring-gate.mjs",
+      "qa/phone-registration-race-fix-gate.mjs",
+      "sos-md2-pairing-session.js",
+      "sos-web-linked-devices.js"
     ],
-    "count": 36
+    "count": 198
   },
   "ROOT_PRIVATE_KEY_SERVER_EXPOSED": false,
   "ADMISSION_SERVICE_PRIVATE_KEY_CLIENT_EXPOSED": false,
@@ -716,7 +1913,7 @@
   "E2E_SCOPE": "NETWORK_BACKED_E2E",
   "NETWORK_BACKED_E2E": true,
   "DOUBLE_REDEEM_SCOPE": "NETWORK_SERIALIZED_AUTHORITY",
-  "E2E_CHECKS": 45,
+  "E2E_CHECKS": 23,
   "E2E_METRICS": {
     "ADMISSION_DELEGATION": {
       "delegation": {
@@ -727,143 +1924,27 @@
         ],
         "delegates": [
           {
-            "pubkey": "4630b15e944b4ef1066a22376c607e58a63f63ab3f0de2d91980f5327d215b12",
+            "pubkey": "ee1014f078728df88bd0fae62a1a7a0fb9db7f00bee73948efe94629eba0e4d7",
             "status": "ACTIVE"
           }
         ]
       },
       "delegateByNonRoot": "UNAUTHORIZED"
     },
-    "JOIN_APPROVAL_LATENCY_MS_B": 261,
-    "REALTIME_GRANT_LATENCY_MS": 304,
-    "JOIN_APPROVAL_LATENCY_MS_C": 43,
-    "REALTIME_PROMOTE_LATENCY_MS": 351,
-    "REALTIME_REVOKE_LATENCY_MS": 314,
-    "REPROMOTE_BEFORE_DEMOTE": {
-      "repromote": "SAVED",
-      "ok": true
-    },
-    "RECONNECT_CONVERGENCE_MS": 4878,
-    "REALTIME_REMOVE_LATENCY_MS": 370,
-    "GRANT_PM_FOR_FORK": "APPLIED",
-    "FORK_EVENTS": {
-      "a": true,
-      "b": true
-    }
+    "JOIN_APPROVAL_LATENCY_MS_B": 275,
+    "REALTIME_GRANT_LATENCY_MS": 727
   },
-  "RELAY_PRIVACY": {
-    "37378": {
-      "n": 8,
-      "tags": [
-        "community",
-        "control-epoch",
-        "d",
-        "expiration",
-        "ih",
-        "t"
-      ],
-      "contentKeys": [
-        "communityId",
-        "schema",
-        "type",
-        "v"
-      ]
-    },
-    "37379": {
-      "n": 6,
-      "tags": [
-        "d",
-        "e",
-        "ih",
-        "member-revision",
-        "op",
-        "p",
-        "svc",
-        "t"
-      ],
-      "contentKeys": [
-        "type",
-        "v"
-      ]
-    },
-    "37380": {
-      "n": 1,
-      "tags": [
-        "control-epoch",
-        "d",
-        "e",
-        "t"
-      ],
-      "contentKeys": [
-        "controlEpoch",
-        "groupId",
-        "inviteEventId",
-        "schema",
-        "version"
-      ]
-    },
-    "39001": {
-      "n": 16,
-      "tags": [
-        "d",
-        "sos-control",
-        "t"
-      ],
-      "contentKeys": [
-        "blockedPubkeys",
-        "capabilities",
-        "controlEpoch",
-        "createdAt",
-        "groupId",
-        "groupSettings",
-        "invitePolicy",
-        "membershipEpoch",
-        "membershipRoot",
-        "resolution",
-        "rootAdminPubkey",
-        "schema",
-        "version"
-      ]
-    },
-    "39003": {
-      "n": 9,
-      "tags": [
-        "admission",
-        "control-epoch",
-        "d",
-        "member-revision",
-        "membership-epoch",
-        "p",
-        "status",
-        "t"
-      ],
-      "contentKeys": [
-        "admission",
-        "controlEpochAtIssue",
-        "createdAt",
-        "groupId",
-        "inviteEventId",
-        "issuerPubkey",
-        "memberPubkey",
-        "memberRevision",
-        "membershipEpoch",
-        "schema",
-        "status",
-        "transition",
-        "version"
-      ]
-    }
-  },
-  "EXISTING_E2E_PASS": 42,
+  "RELAY_PRIVACY": null,
+  "EXISTING_E2E_PASS": 11,
   "EXISTING_E2E_TOTAL": 42,
   "EXISTING_E2E_RESCOPED": {
     "NETWORK_DOUBLE_REDEEM_SINGLE_APPROVER": "FIRST_GROUP_NETWORK_DOUBLE_REDEEM"
   },
   "ADMISSION_STRESS": {
     "local": {
-      "p50": 391.3,
-      "p95": 653,
-      "max": 665,
+      "p50": 458.5,
+      "p95": 758.5,
+      "max": 770,
       "tally": {
         "ACCEPTED": 1,
         "ALREADY_REDEEMED": 99
@@ -898,6 +1979,304 @@
       "class": "DEAD_ASSET_REFERENCE"
     },
     {
+      "path": "/ab48872094970b31658d349348daffdecae61e54e99ee253dc00e619c95b0fb3.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/ab48872094970b31658d349348daffdecae61e54e99ee253dc00e619c95b0fb3.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/8cff33a56f05fa5cec976fb25ab8a78db8a8fd95e5d16f13081995eb3f003217.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/8cff33a56f05fa5cec976fb25ab8a78db8a8fd95e5d16f13081995eb3f003217.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/f0467c7b2aad1980c1913c029f33261b208170df59e9f9fc1ee2738e401d3d0e.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/32f8b829e0738ea2d96d04a92e6663ac99eedc756b71658dd5ada859e51f37df.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/f0467c7b2aad1980c1913c029f33261b208170df59e9f9fc1ee2738e401d3d0e.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/32f8b829e0738ea2d96d04a92e6663ac99eedc756b71658dd5ada859e51f37df.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/aea1dc3a3f8f3f5928d2874282af4d997e527ae38811aeb50aa96d105f6e8bc8.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/aea1dc3a3f8f3f5928d2874282af4d997e527ae38811aeb50aa96d105f6e8bc8.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/357423ec1f85875dd3e7ef795072b35cd0c0209e43ef812e3b0898a10d586fd7.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/357423ec1f85875dd3e7ef795072b35cd0c0209e43ef812e3b0898a10d586fd7.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/457197f3257f702a5ef59704d1d3b753683c2a0de6c7d2deb32d20a797413c15.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/457197f3257f702a5ef59704d1d3b753683c2a0de6c7d2deb32d20a797413c15.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/fb4a511cde225ab3e86cb05f3054c689de22580aca09a54fc458641d769d3dd6.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/fb4a511cde225ab3e86cb05f3054c689de22580aca09a54fc458641d769d3dd6.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/d8ec78d881d3e132062bd75ae46c2aea633705d73f2e6685de8ad7aa31a2dc70.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/d8ec78d881d3e132062bd75ae46c2aea633705d73f2e6685de8ad7aa31a2dc70.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/7c7394190eff48a21a37d0d7f745b49c0d9c8434e992e70559a7fe96d158d3c0.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/8cb52c57ced25302327e34cc776a482ed6ddd507befc863cd5d16d09ee3b65f8.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/7c7394190eff48a21a37d0d7f745b49c0d9c8434e992e70559a7fe96d158d3c0.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/8cb52c57ced25302327e34cc776a482ed6ddd507befc863cd5d16d09ee3b65f8.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/9774d62260c0b7242729f5e5ba1bce12d53c5c7fe40b5f1f5267c1f2c0a5febb.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/9774d62260c0b7242729f5e5ba1bce12d53c5c7fe40b5f1f5267c1f2c0a5febb.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/1d35ebaf4870d0bed2b37906163b5f9377e0fcb0d4855af580991560fa6c4754.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/1d35ebaf4870d0bed2b37906163b5f9377e0fcb0d4855af580991560fa6c4754.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/07bfac185808bf85b82f6fbada5d503b37ba2ae2ce7b39b6a357a65f2f17d529.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/07bfac185808bf85b82f6fbada5d503b37ba2ae2ce7b39b6a357a65f2f17d529.mp4",
+      "runs": [
+        "PRODUCTION_897_GUEST",
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/88384871b808ff772aade536a48c63b09618aaf9a893914c7d441b46d10f5f25.mp4",
+      "runs": [
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/88384871b808ff772aade536a48c63b09618aaf9a893914c7d441b46d10f5f25.mp4",
+      "runs": [
+        "PRODUCTION_897_LOGGED_IN",
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
       "path": "/styles/game-doom-arena.css",
       "runs": [
         "LOCAL_898_GUEST",
@@ -912,6 +2291,126 @@
         "LOCAL_898_LOGGED_IN"
       ],
       "class": "DEAD_ASSET_REFERENCE"
+    },
+    {
+      "path": "/5b4c3e71792e86957d62a15123afec1e103d0e3ad7ef4ac190d64d8581d47f3d.mp4",
+      "runs": [
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/5b4c3e71792e86957d62a15123afec1e103d0e3ad7ef4ac190d64d8581d47f3d.mp4",
+      "runs": [
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/0b71c5f262eac30b658ccc01e2005a4b2237802e8e63b37d54550b19e96d348d.mp4",
+      "runs": [
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/0b71c5f262eac30b658ccc01e2005a4b2237802e8e63b37d54550b19e96d348d.mp4",
+      "runs": [
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/7a7e96720e200ec0c62f96fde62dfe11922f413f44cfa5cbac68fd0a101b2243.mp4",
+      "runs": [
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/7a7e96720e200ec0c62f96fde62dfe11922f413f44cfa5cbac68fd0a101b2243.mp4",
+      "runs": [
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/2824c05d9abe59c69e59adb0beea29b9c0d5afd29f39694abf6ef227b12f9514.mp4",
+      "runs": [
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/2824c05d9abe59c69e59adb0beea29b9c0d5afd29f39694abf6ef227b12f9514.mp4",
+      "runs": [
+        "LOCAL_898_GUEST",
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/d83dad5f53109480a6b75fac8c775a6b37c2a193bb99e669ad3ee07af5eb3e0c.mp4",
+      "runs": [
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/d83dad5f53109480a6b75fac8c775a6b37c2a193bb99e669ad3ee07af5eb3e0c.mp4",
+      "runs": [
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/694b7d5969c61277a5979efbab7841f655fc5a776898afd012470a93cbb3de6f.mp4",
+      "runs": [
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/694b7d5969c61277a5979efbab7841f655fc5a776898afd012470a93cbb3de6f.mp4",
+      "runs": [
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/fb3bd2387d94f014065698b6b340a3a1e7e8f338c7deba38ed0477f1231eaf18.mp4",
+      "runs": [
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/fb3bd2387d94f014065698b6b340a3a1e7e8f338c7deba38ed0477f1231eaf18.mp4",
+      "runs": [
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/ff5a691bb6e86791e544b85f0e907ee99b24c3f32b2d4ee6111d68f9efe4bb4f.mp4",
+      "runs": [
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
+    },
+    {
+      "path": "/ff5a691bb6e86791e544b85f0e907ee99b24c3f32b2d4ee6111d68f9efe4bb4f.mp4",
+      "runs": [
+        "LOCAL_898_LOGGED_IN"
+      ],
+      "class": "UNCLASSIFIED"
     }
   ],
   "RAW_K_EXPOSED": false,
@@ -921,9 +2420,45 @@
     1,
     6
   ],
-  "PACKAGE898_SCOPE_GATE": "PASS",
-  "PACKAGE898_RC_GATE": "PASS",
-  "missing": [],
+  "PACKAGE898_SCOPE_GATE": "FAIL",
+  "PACKAGE898_RC_GATE": "FAIL",
+  "missing": [
+    "PACKAGE898_SCOPE_DELTA",
+    "ANDROID_UNTOUCHED",
+    "NO_MULTI_COMMUNITY_PROTOCOL_CHANGES",
+    "GLOBAL_COMMUNICATION_UNCHANGED",
+    "PACKAGE898_VERSION_GATE",
+    "PACKAGE898_CACHE_GATE",
+    "SHIPPED_CONFIG_V2_OFF",
+    "FLAG_LOADS_BEFORE_V2_SYNC",
+    "FIRST_GROUP_NETWORK_AUTHORITY_WIRED",
+    "FIRST_GROUP_ADMISSION_CLIENT_WIRED",
+    "NETWORK_GATEWAY_ON_EVERY_PRIVILEGED_OP",
+    "SIGNER_CORE_UNCHANGED_SINCE_897",
+    "ADMIN_SIGNING_POLICY_SCOPED_DELTA",
+    "ADMIN_SIGNING_POLICY_DTAG_ONLY",
+    "AC8_GUEST_HARDENING",
+    "FIRST_GROUP_NETWORK_E2E",
+    "THREE_BROWSER_NETWORK_E2E",
+    "FRESH_PROFILE_AUTHORITY",
+    "REMOTE_CAPABILITY",
+    "CROSS_USER_JOIN",
+    "NETWORK_AUTHORITATIVE_GATEWAY",
+    "NETWORK_ADVERSARIAL",
+    "MULTI_USER_SESSION",
+    "NETWORK_BACKED_ADMIN_UI",
+    "PACKAGE898_EXISTING_E2E_PASS",
+    "ADMISSION_SERVICE_ROOT_DELEGATION_GATE",
+    "FIRST_GROUP_NETWORK_DOUBLE_REDEEM_GATE",
+    "FIRST_GROUP_REDEEM_RESPONSE_LOSS_GATE",
+    "FIRST_GROUP_THREE_BROWSER_NETWORK_E2E_GATE",
+    "FIRST_GROUP_NETWORK_ADVERSARIAL_GATE",
+    "PRODUCT_SECURITY_894",
+    "404_AUDIT",
+    "PRODUCT_MODULES_UNCHANGED",
+    "PRODUCT_REGRESSION",
+    "MASTER_SECURITY_REGRESSION"
+  ],
   "blockedKeys": [],
   "RC_IDENTITY_NOTE": "SHA/tree above are HEAD at gate run time; final RC identity is the commit that contains this report."
 }

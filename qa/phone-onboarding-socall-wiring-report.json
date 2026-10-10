@@ -1,0 +1,147 @@
+{
+  "gate": "PHONE_ONBOARDING_SOCALL_WIRING",
+  "status": "PASS",
+  "version": "2026.10.05-web-899s.19",
+  "pass": 27,
+  "fail": 0,
+  "results": [
+    {
+      "name": "APP_VERSION_899S13",
+      "ok": true,
+      "detail": {
+        "version": "2026.10.05-web-899s.19"
+      }
+    },
+    {
+      "name": "PHONE_ONBOARDING_FIELD_PRESENT",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "PHONE_REQUIRED_FOR_NEW_ACCOUNT",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "NAME_ONBOARDING_STEP_ABSENT_PATH",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "COMBINED_INVITE_PHONE_EMAIL",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "PHONE_NORM_SINGLE_SOURCE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "SERVER_RENORMALIZES",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "PHONE_TOKEN_NOT_IN_INVITE_URL",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "WRONG_PHONE_MESSAGE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "PRODUCTION_PHONE_PEPPER_REQUIRED",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "CLIENT_PHONE_PEPPER_ABSENT",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "CONTACT_PICKER_AND_MANUAL",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "FULL_ADDRESS_BOOK_UPLOAD_FALSE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "LOOKUP_BEFORE_INVITE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "DISABLED_PRIVACY",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "WHATSAPP_SPECIFIC",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "PHONE_PROOF_LEVEL",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ANONYMOUS_LOOKUP_FALSE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "AUTH_SOCALL_LOOKUP",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "SOCALL_PHONE_SEARCH",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "NO_PREFIX_SEARCH",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "NIP65_AUTO_ENSURE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "NIP65_NO_COMMUNITY_SWITCH",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "SELF_ASSERTED_37377_NOT_SOCALL",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "INVITE_FRIEND_MODAL",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "NO_AUTO_SUBMIT_WITHOUT_PHONE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "PHONE_NORMALIZE_UX_VECTORS",
+      "ok": true,
+      "detail": null
+    }
+  ],
+  "ts": "2026-10-10T20:00:42.495Z"
+}

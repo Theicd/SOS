@@ -1,0 +1,1497 @@
+{
+  "gate": "MD4_S4_HISTORY_PAGINATION_E2E",
+  "status": "PASS",
+  "runId": "242c807f-715a-4b25-9160-7df47e173728",
+  "ts": "2026-10-10T18:51:52.459Z",
+  "cases": {
+    "NEW_EMPTY": {
+      "label": "NEW_EMPTY",
+      "accountP": "f232461f1f00810c00d98e23189e141890ec4bf7d2ae8bbb4923add6646df4a1",
+      "mode": "NEW_39007",
+      "seed": "empty",
+      "newAccount": {
+        "result": "OK",
+        "has39007": true
+      },
+      "md3Instrumented": true,
+      "md3": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "f232461f1f00810c00d98e23189e141890ec4bf7d2ae8bbb4923add6646df4a1",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      },
+      "histPhone": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "75415773fc0f2339fb3caf47c79795210a4de15af72314bf8226897ed0a42223",
+        "exportSessionId": "dc9c0bb60cef955c165e699fab2ca3448dda43639a98a65abd8f58547aea7ec5",
+        "completeness": "COMPLETE",
+        "eventCount": 0,
+        "batchCount": 1,
+        "committedBatchSeq": -1,
+        "ROOT_K_SENT_TO_DESKTOP": false,
+        "NSEC_SENT_TO_DESKTOP": false
+      },
+      "histPhoneInstrumented": true,
+      "histDesktop": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "75415773fc0f2339fb3caf47c79795210a4de15af72314bf8226897ed0a42223",
+        "exportSessionId": "dc9c0bb60cef955c165e699fab2ca3448dda43639a98a65abd8f58547aea7ec5",
+        "importedCount": 0,
+        "duplicateCount": 0,
+        "rejectedCount": 0,
+        "rejectedSample": [],
+        "suppressedCount": 0,
+        "tombstoneCount": 0,
+        "batchesAcked": 1,
+        "importedIds": [],
+        "completeness": "COMPLETE",
+        "cursorCommitted": null,
+        "authOkCount": 1,
+        "attachmentsQueued": 0,
+        "attachmentsComplete": 0,
+        "attachmentsMissing": 0,
+        "attachmentsFailed": 0,
+        "mediaComplete": true,
+        "ROOT_K_PRESENT": false,
+        "NSEC_PRESENT": false,
+        "PERSISTED_PLAINTEXT_CKI": false,
+        "FINAL_ACK": true,
+        "ACK_AEAD": true
+      },
+      "LIVE_CKI": true,
+      "ROOT_K_ON_DESKTOP": false,
+      "completeness": "COMPLETE",
+      "authOkCount": 1,
+      "DUPLICATE_AUTH_OK_SAFE": true,
+      "reloadOk": true,
+      "tombOk": true,
+      "ok": true
+    },
+    "NEW_ONE_PEER": {
+      "label": "NEW_ONE_PEER",
+      "accountP": "52a8c1ab1e125adc66d80535dd12b840116c06d843197b4ade3db8b927a2e88e",
+      "mode": "NEW_39007",
+      "seed": "one_peer",
+      "newAccount": {
+        "result": "OK",
+        "has39007": true
+      },
+      "md3Instrumented": true,
+      "md3": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "52a8c1ab1e125adc66d80535dd12b840116c06d843197b4ade3db8b927a2e88e",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      },
+      "histPhone": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "0264c8f8034e2c753452d090ccbe3cf760160c7527b168a234b2fd195317e076",
+        "exportSessionId": "6cc1a738fe77d5401bf953ac6ee77ae06b832aa07bb7f7e041e0463f7b26b66a",
+        "completeness": "COMPLETE",
+        "eventCount": 3,
+        "batchCount": 1,
+        "committedBatchSeq": 0,
+        "cursorAfter": {
+          "createdAt": 1791658238,
+          "eventId": "97feb85d0dd0c34f9e7dd3a468045e626a72f5c7afec9c36bc1b87a022d37d36"
+        },
+        "ROOT_K_SENT_TO_DESKTOP": false,
+        "NSEC_SENT_TO_DESKTOP": false
+      },
+      "histPhoneInstrumented": true,
+      "histDesktop": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "0264c8f8034e2c753452d090ccbe3cf760160c7527b168a234b2fd195317e076",
+        "exportSessionId": "6cc1a738fe77d5401bf953ac6ee77ae06b832aa07bb7f7e041e0463f7b26b66a",
+        "importedCount": 3,
+        "duplicateCount": 0,
+        "rejectedCount": 0,
+        "rejectedSample": [],
+        "suppressedCount": 0,
+        "tombstoneCount": 0,
+        "batchesAcked": 1,
+        "importedIds": [
+          "58a0e3c5da907e189a45a6a3c4e98411d76a29cd91a5116e66da199c75761ee7",
+          "7aeccb2f674a595e811b62d383b08504c798d37e17f6d424814dbf44b70c6f7c",
+          "97feb85d0dd0c34f9e7dd3a468045e626a72f5c7afec9c36bc1b87a022d37d36"
+        ],
+        "completeness": "COMPLETE",
+        "cursorCommitted": {
+          "createdAt": 1791658238,
+          "eventId": "97feb85d0dd0c34f9e7dd3a468045e626a72f5c7afec9c36bc1b87a022d37d36"
+        },
+        "authOkCount": 1,
+        "attachmentsQueued": 0,
+        "attachmentsComplete": 0,
+        "attachmentsMissing": 0,
+        "attachmentsFailed": 0,
+        "mediaComplete": true,
+        "ROOT_K_PRESENT": false,
+        "NSEC_PRESENT": false,
+        "PERSISTED_PLAINTEXT_CKI": false,
+        "FINAL_ACK": true,
+        "ACK_AEAD": true
+      },
+      "LIVE_CKI": true,
+      "ROOT_K_ON_DESKTOP": false,
+      "completeness": "COMPLETE",
+      "authOkCount": 1,
+      "DUPLICATE_AUTH_OK_SAFE": true,
+      "reload": {
+        "peers": [
+          {
+            "key": "0f837e409b81c919040811412f0f279562df94a1c72679b082d4942c3bf70148:52a8c1ab1e125adc66d80535dd12b840116c06d843197b4ade3db8b927a2e88e",
+            "n": 3
+          }
+        ],
+        "total": 3,
+        "deletedHas": false,
+        "resurrect": null,
+        "resurrectSigned": null,
+        "storageKey": "nostr_chat_52a8c1ab1e125adc66d80535dd12b840116c06d843197b4ade3db8b927a2e88e"
+      },
+      "reloadOk": true,
+      "tombOk": true,
+      "ok": true
+    },
+    "NEW_TWO_PEER": {
+      "label": "NEW_TWO_PEER",
+      "accountP": "9832f9c4b1929930b5c842e54432fef2d89128e66180d32f2e029f4f87261701",
+      "mode": "NEW_39007",
+      "seed": "two_peer",
+      "newAccount": {
+        "result": "OK",
+        "has39007": true
+      },
+      "md3Instrumented": true,
+      "md3": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "9832f9c4b1929930b5c842e54432fef2d89128e66180d32f2e029f4f87261701",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      },
+      "histPhone": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "17f836587f0f6de7e15609deefb77a7e9bf38089e805fb22a07950f182d35ae4",
+        "exportSessionId": "78125aab8e0433a65b16ccc3dc9fa0c1fcf70355e8ab8f6b375382a9dc6799c1",
+        "completeness": "COMPLETE",
+        "eventCount": 5,
+        "batchCount": 1,
+        "committedBatchSeq": 0,
+        "cursorAfter": {
+          "createdAt": 1791658250,
+          "eventId": "272c5f9e0eee3ff67554708e13f7ed84e2d793a67acdef830e22707e10c2c1c6"
+        },
+        "ROOT_K_SENT_TO_DESKTOP": false,
+        "NSEC_SENT_TO_DESKTOP": false
+      },
+      "histPhoneInstrumented": true,
+      "histDesktop": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "17f836587f0f6de7e15609deefb77a7e9bf38089e805fb22a07950f182d35ae4",
+        "exportSessionId": "78125aab8e0433a65b16ccc3dc9fa0c1fcf70355e8ab8f6b375382a9dc6799c1",
+        "importedCount": 5,
+        "duplicateCount": 0,
+        "rejectedCount": 0,
+        "rejectedSample": [],
+        "suppressedCount": 0,
+        "tombstoneCount": 0,
+        "batchesAcked": 1,
+        "importedIds": [
+          "c414c01efd3aa052a8a7e68f41aafb45c981370edbb3f90062bc7fbb1afa6612",
+          "e5580124795744e4b4f2836311ebb42c7960224749da6aad790769aa08d63106",
+          "2cf9b12515a83e755cf8275176f853cfa34b2efdfb35ae63655e2503f14774ce",
+          "c4e21f9c528cc223f84b53143fe8c61cd1c9196158e2b9ca3ffb36debe7ce055",
+          "272c5f9e0eee3ff67554708e13f7ed84e2d793a67acdef830e22707e10c2c1c6"
+        ],
+        "completeness": "COMPLETE",
+        "cursorCommitted": {
+          "createdAt": 1791658250,
+          "eventId": "272c5f9e0eee3ff67554708e13f7ed84e2d793a67acdef830e22707e10c2c1c6"
+        },
+        "authOkCount": 1,
+        "attachmentsQueued": 0,
+        "attachmentsComplete": 0,
+        "attachmentsMissing": 0,
+        "attachmentsFailed": 0,
+        "mediaComplete": true,
+        "ROOT_K_PRESENT": false,
+        "NSEC_PRESENT": false,
+        "PERSISTED_PLAINTEXT_CKI": false,
+        "FINAL_ACK": true,
+        "ACK_AEAD": true
+      },
+      "LIVE_CKI": true,
+      "ROOT_K_ON_DESKTOP": false,
+      "completeness": "COMPLETE",
+      "authOkCount": 1,
+      "DUPLICATE_AUTH_OK_SAFE": true,
+      "reload": {
+        "peers": [
+          {
+            "key": "43fe4c0f9a0b84efa0d8e5c83527963b6b3d4e107daf5dedfb7641a4def89775:9832f9c4b1929930b5c842e54432fef2d89128e66180d32f2e029f4f87261701",
+            "n": 2
+          },
+          {
+            "key": "7bb32f2d9b131f5bb1395185da25a7ade5dc9de5ad5a05efae4a36449fa2d665:9832f9c4b1929930b5c842e54432fef2d89128e66180d32f2e029f4f87261701",
+            "n": 3
+          }
+        ],
+        "total": 5,
+        "deletedHas": false,
+        "resurrect": null,
+        "resurrectSigned": null,
+        "storageKey": "nostr_chat_9832f9c4b1929930b5c842e54432fef2d89128e66180d32f2e029f4f87261701"
+      },
+      "reloadOk": true,
+      "tombOk": true,
+      "ok": true
+    },
+    "NEW_LARGE": {
+      "label": "NEW_LARGE",
+      "accountP": "c94275d35a4cff5ad2597a008a1a22867a3464acbe08799be914b9f89f45523d",
+      "mode": "NEW_39007",
+      "seed": "large",
+      "newAccount": {
+        "result": "OK",
+        "has39007": true
+      },
+      "md3Instrumented": true,
+      "md3": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "c94275d35a4cff5ad2597a008a1a22867a3464acbe08799be914b9f89f45523d",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      },
+      "histPhone": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "7da014afa7a0ed58e8691e62b8fcc9bf8ed80dcf55a33b6559b2dd09b2d2e5b8",
+        "exportSessionId": "4bd886759f5f18735f960bf23dca46b36f60862bf5a439eb295c0168c739c087",
+        "completeness": "COMPLETE",
+        "eventCount": 260,
+        "batchCount": 6,
+        "committedBatchSeq": 5,
+        "cursorAfter": {
+          "createdAt": 1791658366,
+          "eventId": "704f2673a3b5d570790cdef17dcfe2c5dfca99f4ad02a9d689a5922d66dcdcf0"
+        },
+        "ROOT_K_SENT_TO_DESKTOP": false,
+        "NSEC_SENT_TO_DESKTOP": false
+      },
+      "histPhoneInstrumented": true,
+      "histDesktop": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "7da014afa7a0ed58e8691e62b8fcc9bf8ed80dcf55a33b6559b2dd09b2d2e5b8",
+        "exportSessionId": "4bd886759f5f18735f960bf23dca46b36f60862bf5a439eb295c0168c739c087",
+        "importedCount": 260,
+        "duplicateCount": 0,
+        "rejectedCount": 0,
+        "rejectedSample": [],
+        "suppressedCount": 0,
+        "tombstoneCount": 0,
+        "batchesAcked": 6,
+        "importedIds": [
+          "139fae626f3b9e982c33bdfd9ac1fd247bd15194b388ecd79416e087b7338deb",
+          "abe9f94cb19c68db5156acc0985897e3f02a1934ff23459406b3e43763ee041b",
+          "e216dfd75c4296460ee4d57cc64c96018a6d35b383413d9481a9eceb29ee4442",
+          "1387a53766c164905c2eecd2914d1e63fc7717836f3448bcfb06f7cf012d4690",
+          "550786d28bede9323cfe7e462977186f9d7113e73e1945bafa6315f67a84c69f",
+          "63043e0fe8cddab6545ec977a59553bbe35caeab313a498376f9caf915c8d199",
+          "1d31d8765728851d8c94c1c498d4799f3d503499071be2d4627729d6ca4b321e",
+          "62fa0486af64c0ac9a5dbce8b033b060afbe10d48f7f30d056d503571b5d43c6",
+          "844c70e041ea1c4450bb6a8f84091d151b56adf929de3f4d221c6e5768cd02ca",
+          "0d6c174b55105b528d9514f4406f169abd50276d59a6d3809526144a2ada59dc",
+          "722d19b4c204a622488b5c3d07e694c5b6b3f82d2dda89af95d619d2c0c373b3",
+          "bf2127820f82d3c3ef8115252f83748331dd2d7f27357846ab437a4d449c13d1",
+          "0ee5e34995d3c5c50c66daf004aeca1d0256b008b8b7c4f30354cf73d1ddddc5",
+          "35e1f00a9f0674eff9e299b2ad2d0b393abfc0496a2fd980ebafd51dbfb8b6a8",
+          "65754144bda11d47301484f226cff4c60373e087af6d7d0b7dee17786ef3ad8a",
+          "263081f08174cfadf464d620343f725c13017e66033e10e0072d67d030774315",
+          "893b46c6ba8b26f0d1c49c31e53ead71c433aec2a1fff47eb6cd89baeba87266",
+          "a44bcf058f68066a251b894e1025a6014e6d04b24bd05bbf7683724e02228bb2",
+          "a4e587270eb3cd82af3867a8467db51acfe9b2bdc48444c549cd5bac49312e48",
+          "c7791b30ac62993bb544d56dedfc606d46b031557a2cc06a352b355b3ac553f7",
+          "e84cead49dd58a149ac0ccbd6c5f7236773d6d920ceed61043b2f18683d96335",
+          "31b559e5c224ce008c3e6e0a028083ca6a7f55745dfe2835353d9bc72b9b246a",
+          "7df6f28cd94d6fad47994e6b46c8a171bcf588cffe175331e40dd32b57ff85bc",
+          "d83f68ef4e7b560b9ccb0b194df2ad6262ffa1404e3992a3b7cd079af1385063",
+          "24d4edfa2fc9de663dba42078981de729c89351fbbd83aa98b4d0099dd3e6f6d",
+          "45ea1342dd94a89e5232fbb20e25eef16a533cbca71fcb172927114f50df40e6",
+          "b093f0f3cc54e16175e296d5348fe73ad78945c0122d47033d700d5964d7b6ee",
+          "0b26e479118bab975b1b81185d007d598fb731aeb402a3e1069bc327aa142d06",
+          "64adadcc8f7116a1f37eb670e691856b1bc92b3687b303c618a8b188cf6c2267",
+          "a3943280a0a50eea82d4e3c8f726136c262e64938a479d99ed304d2c5dc030a8",
+          "016cf8800d845d5f03156d7ab2d72644be6a8bd0248a25d6582af626dcb9f694",
+          "13d3e63a39c8c22fb13db46227e150e787ff3c106106e53288200ef54fff33c1"
+        ],
+        "completeness": "COMPLETE",
+        "cursorCommitted": {
+          "createdAt": 1791658366,
+          "eventId": "704f2673a3b5d570790cdef17dcfe2c5dfca99f4ad02a9d689a5922d66dcdcf0"
+        },
+        "authOkCount": 1,
+        "attachmentsQueued": 0,
+        "attachmentsComplete": 0,
+        "attachmentsMissing": 0,
+        "attachmentsFailed": 0,
+        "mediaComplete": true,
+        "ROOT_K_PRESENT": false,
+        "NSEC_PRESENT": false,
+        "PERSISTED_PLAINTEXT_CKI": false,
+        "FINAL_ACK": true,
+        "ACK_AEAD": true
+      },
+      "LIVE_CKI": true,
+      "ROOT_K_ON_DESKTOP": false,
+      "completeness": "COMPLETE",
+      "authOkCount": 1,
+      "DUPLICATE_AUTH_OK_SAFE": true,
+      "reload": {
+        "peers": [
+          {
+            "key": "996bb7b41613b91c6583095d9f1cac51c9efb8d5862caccbaa22b7dfe14c8bd9:c94275d35a4cff5ad2597a008a1a22867a3464acbe08799be914b9f89f45523d",
+            "n": 260
+          }
+        ],
+        "total": 260,
+        "deletedHas": false,
+        "resurrect": null,
+        "resurrectSigned": null,
+        "storageKey": "nostr_chat_c94275d35a4cff5ad2597a008a1a22867a3464acbe08799be914b9f89f45523d"
+      },
+      "reloadOk": true,
+      "tombOk": true,
+      "ok": true
+    },
+    "NEW_TOMBSTONE": {
+      "label": "NEW_TOMBSTONE",
+      "accountP": "6dc27a3a6229d29246056aef84166b00262befd5a2b3476d89fd167fbbf3aeef",
+      "mode": "NEW_39007",
+      "seed": "tombstone",
+      "newAccount": {
+        "result": "OK",
+        "has39007": true
+      },
+      "md3Instrumented": true,
+      "md3": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "6dc27a3a6229d29246056aef84166b00262befd5a2b3476d89fd167fbbf3aeef",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      },
+      "tombMeta": {
+        "originalId": "9e266d6b876cfd5cd7f072f1e2c627a56936aeb2d259c6d803da8bce7392c549",
+        "tombId": "b3884d99d22740bc77dff92727860d0c95f0aa9084830bbc9d8213b72e4297a6"
+      },
+      "histPhone": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "8478ead0d8f557e2b57fa461f8864c4b5a6f547a08b898d2bf996b81932a2846",
+        "exportSessionId": "06d48c7d62c473e40dc46cdfd2e5ca517703fe13b9b38ab3c828fdf9a9db394f",
+        "completeness": "COMPLETE",
+        "eventCount": 2,
+        "batchCount": 1,
+        "committedBatchSeq": 0,
+        "cursorAfter": {
+          "createdAt": 1791658284,
+          "eventId": "b3884d99d22740bc77dff92727860d0c95f0aa9084830bbc9d8213b72e4297a6"
+        },
+        "ROOT_K_SENT_TO_DESKTOP": false,
+        "NSEC_SENT_TO_DESKTOP": false
+      },
+      "histPhoneInstrumented": true,
+      "histDesktop": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "8478ead0d8f557e2b57fa461f8864c4b5a6f547a08b898d2bf996b81932a2846",
+        "exportSessionId": "06d48c7d62c473e40dc46cdfd2e5ca517703fe13b9b38ab3c828fdf9a9db394f",
+        "importedCount": 1,
+        "duplicateCount": 0,
+        "rejectedCount": 0,
+        "rejectedSample": [],
+        "suppressedCount": 0,
+        "tombstoneCount": 1,
+        "batchesAcked": 1,
+        "importedIds": [
+          "9e266d6b876cfd5cd7f072f1e2c627a56936aeb2d259c6d803da8bce7392c549"
+        ],
+        "completeness": "COMPLETE",
+        "cursorCommitted": {
+          "createdAt": 1791658284,
+          "eventId": "b3884d99d22740bc77dff92727860d0c95f0aa9084830bbc9d8213b72e4297a6"
+        },
+        "authOkCount": 1,
+        "attachmentsQueued": 0,
+        "attachmentsComplete": 0,
+        "attachmentsMissing": 0,
+        "attachmentsFailed": 0,
+        "mediaComplete": true,
+        "ROOT_K_PRESENT": false,
+        "NSEC_PRESENT": false,
+        "PERSISTED_PLAINTEXT_CKI": false,
+        "FINAL_ACK": true,
+        "ACK_AEAD": true
+      },
+      "LIVE_CKI": true,
+      "ROOT_K_ON_DESKTOP": false,
+      "completeness": "COMPLETE",
+      "authOkCount": 1,
+      "DUPLICATE_AUTH_OK_SAFE": true,
+      "reload": {
+        "peers": [
+          {
+            "key": "66d9f13f4b53288d63f554a0b9e7783b0a7cce3ea86a913c83eaf1d83d83cc3f:6dc27a3a6229d29246056aef84166b00262befd5a2b3476d89fd167fbbf3aeef",
+            "n": 0
+          }
+        ],
+        "total": 0,
+        "deletedHas": true,
+        "resurrect": {
+          "ok": false,
+          "code": "MISSING_OUTER_SIGNATURE"
+        },
+        "resurrectSigned": {
+          "ok": true,
+          "id": "9e266d6b876cfd5cd7f072f1e2c627a56936aeb2d259c6d803da8bce7392c549",
+          "suppressed": true,
+          "reason": "TOMBSTONE_AUTHORITATIVE"
+        },
+        "storageKey": "nostr_chat_6dc27a3a6229d29246056aef84166b00262befd5a2b3476d89fd167fbbf3aeef"
+      },
+      "reloadOk": true,
+      "tombOk": true,
+      "ok": true
+    },
+    "NEW_INTERRUPT_RESUME": {
+      "label": "NEW_INTERRUPT_RESUME",
+      "accountP": "2c0fddb8f9fb5f56755ec9ed9af987d12deebe0d5399335dcdaab3d7330651c6",
+      "mode": "NEW_39007",
+      "seed": "large",
+      "newAccount": {
+        "result": "OK",
+        "has39007": true
+      },
+      "md3Instrumented": true,
+      "md3": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "2c0fddb8f9fb5f56755ec9ed9af987d12deebe0d5399335dcdaab3d7330651c6",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      },
+      "interrupt": {
+        "phone": {
+          "ok": false,
+          "code": "INTERRUPTED_TEST",
+          "sessionId": "03c8c9b8cd62a83a0bba4fb74faea6e8751159891795621afcc4e00322d9da2a",
+          "exportSessionId": "973f76abed401def74cfa0828c2c7da80cfafd776dbebc07297c32e9c78d33c3",
+          "completeness": "INTERRUPTED",
+          "eventCount": 50,
+          "batchCount": 1,
+          "committedBatchSeq": 0,
+          "cursorAfter": {
+            "createdAt": 1791658374,
+            "eventId": "302812fe04ec1d9df92dbbb8aa3a926b9c79419e7ee3eb5f958677f43c88345f"
+          },
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "desktop": {
+          "ok": false,
+          "code": "TIMEOUT",
+          "completeness": "INTERRUPTED",
+          "importedCount": 50,
+          "batchesAcked": 1,
+          "cursorCommitted": {
+            "createdAt": 1791658374,
+            "eventId": "302812fe04ec1d9df92dbbb8aa3a926b9c79419e7ee3eb5f958677f43c88345f"
+          },
+          "authOkCount": 1
+        }
+      },
+      "resume": {
+        "phone": {
+          "ok": true,
+          "code": "OK",
+          "sessionId": "ffb79a47a5d03871b14e73334348e30d2a59238bb17be97e0994f7993d7d1ef6",
+          "exportSessionId": "a80968b11526e4b5bf2d777e0b8cfe567f5803bbc3f819ff4770acbf13680bfe",
+          "completeness": "COMPLETE",
+          "eventCount": 70,
+          "batchCount": 2,
+          "committedBatchSeq": 1,
+          "cursorAfter": {
+            "createdAt": 1791658397,
+            "eventId": "bbd1747b3715647e2d4859994293c912832584591a77a11c99745c9d96d73bc1"
+          },
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "desktop": {
+          "ok": true,
+          "code": "OK",
+          "sessionId": "ffb79a47a5d03871b14e73334348e30d2a59238bb17be97e0994f7993d7d1ef6",
+          "exportSessionId": "a80968b11526e4b5bf2d777e0b8cfe567f5803bbc3f819ff4770acbf13680bfe",
+          "importedCount": 70,
+          "duplicateCount": 0,
+          "rejectedCount": 0,
+          "rejectedSample": [],
+          "suppressedCount": 0,
+          "tombstoneCount": 0,
+          "batchesAcked": 2,
+          "importedIds": [
+            "e8175223f3d19c612cb5d0d1a0a8df45ca78395989ee1a8a5c7a0fc16d7e04c1",
+            "062b9ab8fcc93fee94cdfca7775e3641e4a7d6a7aec032dddd1ec26c41d3147a",
+            "31fdcc0d19dffc9b14b57b23715d43e77cf4811a043842257cc65f5f589af3e4",
+            "7d6cd15286bd9883a6cca5de46a83e99e1cf2f60ecd95d5bdde91b6644893d48",
+            "4f0a3e4795bfb8023ff83668269c56e6aff849820a6475d4fe427420a5cf7180",
+            "c8f6c4a13bf4b85c8c054b3cf5eb00cd854ed7b6d1d01951ac21c4108e8308b1",
+            "df708a11bfd93fbcf7cc7be4390eb0fe8b214dcc2ef58129ff4fa698dd55584f",
+            "350f908364bfa47dc9dde0280f3704172ddabef12c4ba92204f5a172dccb58f2",
+            "8d1fa41cdfb941b9e71d04c464a66be6215f835b391090b49f363a4c647dfb41",
+            "ac876c5e3a4c0d3803fd62daae10db1ec30110b66903e7bee9fda88a4ef9267e",
+            "561c4e99e6443719ed74ef4891b0b8b4912325076139c2b459306ba8c5423e3d",
+            "cd7b51305895794ce1ddf5540564ed0b24e1440d6620567b99c6e2387d2a288d",
+            "e1e919ec57c100b3d536702ece26e9256021175b3b7be626597a837171195a52",
+            "04858ea1341137b2ee5a8903d536f558c09bec1b92cdcca745deeef40c567745",
+            "5ca736f508edb1f24423b49560c45dbda17376e268b86cc31acd59839d939c3a",
+            "af805009000f46afd391d2300134cd02b65edcb614fb19b8f67154079152afed",
+            "0ff2fdd977ea78d00a85175204b1c0033188fd793a919b81d9d903c8e2e997b2",
+            "660e081bd7509e33bc821490b8db2d4a773167c8a49ea4ae205c0b658712da4a",
+            "c34037601ad56de83c6bdbb404d15daea4d990c81753e19397d6725d91d949e4",
+            "701a99bbc49fbb0e9010cd4e6632ab0d765a3ee5aff51ff26994a5d77f0479a0",
+            "ada6b25bfb7e3f54e6ad33203c9032b47a637df191fda9314b455df5ebbf3d64",
+            "f0b94b4e4ff8696e8e91b771ca08161569638614c511490b08e85a6896a770f2",
+            "6da25a7a4e1abbff42c68b9c0268bf133d3b76654d92875cc6355049309269a2",
+            "cfc0a1ca5999e1813ddc62e402138554a3435791c514eff795901de7bf0c4bb4",
+            "e9d7bda85a95ab4145a44ee20ec258b76d254b4b8bf401de1a621fb1ba90826f",
+            "607c431b1bda366d66e9d68f1c63d3a99954cde9493cb277952c53811c844853",
+            "ab78fd59bfe7bb217a5250e1d96ee654d541b0a17f59cf3e34e864e2dab5446b",
+            "bb5248af6f7ec73691b3eb03b84cd4e48522431396f46285db8821c8e8cced17",
+            "95bacd12ef338caeb2940b872dad4c9dd3a687ea4865e4659ba1741be043c70d",
+            "c7bd564ad444edb868b86c6eff3144a1bda81ed64342e7232962daa5e8edce54",
+            "dcd2821de0d137dd160efa569aa8431b066be20c8be64c9d702b09c510f663d6",
+            "61993cb0b536938765d841ec0765df349fb5626bc7d3719729727c7b459897c5"
+          ],
+          "completeness": "COMPLETE",
+          "cursorCommitted": {
+            "createdAt": 1791658397,
+            "eventId": "bbd1747b3715647e2d4859994293c912832584591a77a11c99745c9d96d73bc1"
+          },
+          "authOkCount": 1,
+          "attachmentsQueued": 0,
+          "attachmentsComplete": 0,
+          "attachmentsMissing": 0,
+          "attachmentsFailed": 0,
+          "mediaComplete": true,
+          "ROOT_K_PRESENT": false,
+          "NSEC_PRESENT": false,
+          "PERSISTED_PLAINTEXT_CKI": false,
+          "FINAL_ACK": true,
+          "ACK_AEAD": true
+        },
+        "resumeCursor": {
+          "createdAt": 1791658374,
+          "eventId": "302812fe04ec1d9df92dbbb8aa3a926b9c79419e7ee3eb5f958677f43c88345f"
+        },
+        "importedTotal": 120
+      },
+      "histPhone": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "ffb79a47a5d03871b14e73334348e30d2a59238bb17be97e0994f7993d7d1ef6",
+        "exportSessionId": "a80968b11526e4b5bf2d777e0b8cfe567f5803bbc3f819ff4770acbf13680bfe",
+        "completeness": "COMPLETE",
+        "eventCount": 70,
+        "batchCount": 2,
+        "committedBatchSeq": 1,
+        "cursorAfter": {
+          "createdAt": 1791658397,
+          "eventId": "bbd1747b3715647e2d4859994293c912832584591a77a11c99745c9d96d73bc1"
+        },
+        "ROOT_K_SENT_TO_DESKTOP": false,
+        "NSEC_SENT_TO_DESKTOP": false
+      },
+      "histPhoneInstrumented": true,
+      "histDesktop": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "ffb79a47a5d03871b14e73334348e30d2a59238bb17be97e0994f7993d7d1ef6",
+        "exportSessionId": "a80968b11526e4b5bf2d777e0b8cfe567f5803bbc3f819ff4770acbf13680bfe",
+        "importedCount": 70,
+        "duplicateCount": 0,
+        "rejectedCount": 0,
+        "rejectedSample": [],
+        "suppressedCount": 0,
+        "tombstoneCount": 0,
+        "batchesAcked": 2,
+        "importedIds": [
+          "e8175223f3d19c612cb5d0d1a0a8df45ca78395989ee1a8a5c7a0fc16d7e04c1",
+          "062b9ab8fcc93fee94cdfca7775e3641e4a7d6a7aec032dddd1ec26c41d3147a",
+          "31fdcc0d19dffc9b14b57b23715d43e77cf4811a043842257cc65f5f589af3e4",
+          "7d6cd15286bd9883a6cca5de46a83e99e1cf2f60ecd95d5bdde91b6644893d48",
+          "4f0a3e4795bfb8023ff83668269c56e6aff849820a6475d4fe427420a5cf7180",
+          "c8f6c4a13bf4b85c8c054b3cf5eb00cd854ed7b6d1d01951ac21c4108e8308b1",
+          "df708a11bfd93fbcf7cc7be4390eb0fe8b214dcc2ef58129ff4fa698dd55584f",
+          "350f908364bfa47dc9dde0280f3704172ddabef12c4ba92204f5a172dccb58f2",
+          "8d1fa41cdfb941b9e71d04c464a66be6215f835b391090b49f363a4c647dfb41",
+          "ac876c5e3a4c0d3803fd62daae10db1ec30110b66903e7bee9fda88a4ef9267e",
+          "561c4e99e6443719ed74ef4891b0b8b4912325076139c2b459306ba8c5423e3d",
+          "cd7b51305895794ce1ddf5540564ed0b24e1440d6620567b99c6e2387d2a288d",
+          "e1e919ec57c100b3d536702ece26e9256021175b3b7be626597a837171195a52",
+          "04858ea1341137b2ee5a8903d536f558c09bec1b92cdcca745deeef40c567745",
+          "5ca736f508edb1f24423b49560c45dbda17376e268b86cc31acd59839d939c3a",
+          "af805009000f46afd391d2300134cd02b65edcb614fb19b8f67154079152afed",
+          "0ff2fdd977ea78d00a85175204b1c0033188fd793a919b81d9d903c8e2e997b2",
+          "660e081bd7509e33bc821490b8db2d4a773167c8a49ea4ae205c0b658712da4a",
+          "c34037601ad56de83c6bdbb404d15daea4d990c81753e19397d6725d91d949e4",
+          "701a99bbc49fbb0e9010cd4e6632ab0d765a3ee5aff51ff26994a5d77f0479a0",
+          "ada6b25bfb7e3f54e6ad33203c9032b47a637df191fda9314b455df5ebbf3d64",
+          "f0b94b4e4ff8696e8e91b771ca08161569638614c511490b08e85a6896a770f2",
+          "6da25a7a4e1abbff42c68b9c0268bf133d3b76654d92875cc6355049309269a2",
+          "cfc0a1ca5999e1813ddc62e402138554a3435791c514eff795901de7bf0c4bb4",
+          "e9d7bda85a95ab4145a44ee20ec258b76d254b4b8bf401de1a621fb1ba90826f",
+          "607c431b1bda366d66e9d68f1c63d3a99954cde9493cb277952c53811c844853",
+          "ab78fd59bfe7bb217a5250e1d96ee654d541b0a17f59cf3e34e864e2dab5446b",
+          "bb5248af6f7ec73691b3eb03b84cd4e48522431396f46285db8821c8e8cced17",
+          "95bacd12ef338caeb2940b872dad4c9dd3a687ea4865e4659ba1741be043c70d",
+          "c7bd564ad444edb868b86c6eff3144a1bda81ed64342e7232962daa5e8edce54",
+          "dcd2821de0d137dd160efa569aa8431b066be20c8be64c9d702b09c510f663d6",
+          "61993cb0b536938765d841ec0765df349fb5626bc7d3719729727c7b459897c5"
+        ],
+        "completeness": "COMPLETE",
+        "cursorCommitted": {
+          "createdAt": 1791658397,
+          "eventId": "bbd1747b3715647e2d4859994293c912832584591a77a11c99745c9d96d73bc1"
+        },
+        "authOkCount": 1,
+        "attachmentsQueued": 0,
+        "attachmentsComplete": 0,
+        "attachmentsMissing": 0,
+        "attachmentsFailed": 0,
+        "mediaComplete": true,
+        "ROOT_K_PRESENT": false,
+        "NSEC_PRESENT": false,
+        "PERSISTED_PLAINTEXT_CKI": false,
+        "FINAL_ACK": true,
+        "ACK_AEAD": true
+      },
+      "LIVE_CKI": true,
+      "ROOT_K_ON_DESKTOP": false,
+      "completeness": "COMPLETE",
+      "authOkCount": 1,
+      "DUPLICATE_AUTH_OK_SAFE": true,
+      "reload": {
+        "peers": [
+          {
+            "key": "218a7473b2fd55711db28643d387dfffbe7e7fffef529db3f8753220ec467922:2c0fddb8f9fb5f56755ec9ed9af987d12deebe0d5399335dcdaab3d7330651c6",
+            "n": 120
+          }
+        ],
+        "total": 120,
+        "deletedHas": false,
+        "resurrect": null,
+        "resurrectSigned": null,
+        "storageKey": "nostr_chat_2c0fddb8f9fb5f56755ec9ed9af987d12deebe0d5399335dcdaab3d7330651c6"
+      },
+      "reloadOk": true,
+      "tombOk": true,
+      "ok": true
+    },
+    "LEGACY_EMPTY": {
+      "label": "LEGACY_EMPTY",
+      "accountP": "b3f637fff401286a4a76503bf3d3ac7f0ad131985aa6027ef049076f3d34e441",
+      "mode": "LEGACY_NO_PHONE",
+      "seed": "empty",
+      "statusGet": {
+        "result": "OK",
+        "status": "ACTIVE",
+        "revision": 0,
+        "exists": false,
+        "statusEvent": null,
+        "issuerPubkey": "f4a700d0bc2d1557d7210b01ac55cf6b844f61419517fbe7b3eef295ddf788b4",
+        "LEGACY_NO_STATUS_RECORD": true,
+        "__http": 200
+      },
+      "md3Instrumented": true,
+      "md3": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "b3f637fff401286a4a76503bf3d3ac7f0ad131985aa6027ef049076f3d34e441",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      },
+      "histPhone": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "dca13b3bd83003d078ef75cfb6e3ddc45d5dbc9477975f64a0e2051005c70d69",
+        "exportSessionId": "a4074e5390fc8eb1738b66e7b158ffaf7da9c23c4b3a1564a14ee0e473feda15",
+        "completeness": "COMPLETE",
+        "eventCount": 0,
+        "batchCount": 1,
+        "committedBatchSeq": -1,
+        "ROOT_K_SENT_TO_DESKTOP": false,
+        "NSEC_SENT_TO_DESKTOP": false
+      },
+      "histPhoneInstrumented": true,
+      "histDesktop": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "dca13b3bd83003d078ef75cfb6e3ddc45d5dbc9477975f64a0e2051005c70d69",
+        "exportSessionId": "a4074e5390fc8eb1738b66e7b158ffaf7da9c23c4b3a1564a14ee0e473feda15",
+        "importedCount": 0,
+        "duplicateCount": 0,
+        "rejectedCount": 0,
+        "rejectedSample": [],
+        "suppressedCount": 0,
+        "tombstoneCount": 0,
+        "batchesAcked": 1,
+        "importedIds": [],
+        "completeness": "COMPLETE",
+        "cursorCommitted": null,
+        "authOkCount": 1,
+        "attachmentsQueued": 0,
+        "attachmentsComplete": 0,
+        "attachmentsMissing": 0,
+        "attachmentsFailed": 0,
+        "mediaComplete": true,
+        "ROOT_K_PRESENT": false,
+        "NSEC_PRESENT": false,
+        "PERSISTED_PLAINTEXT_CKI": false,
+        "FINAL_ACK": true,
+        "ACK_AEAD": true
+      },
+      "LIVE_CKI": true,
+      "ROOT_K_ON_DESKTOP": false,
+      "completeness": "COMPLETE",
+      "authOkCount": 1,
+      "DUPLICATE_AUTH_OK_SAFE": true,
+      "reloadOk": true,
+      "tombOk": true,
+      "ok": true
+    },
+    "LEGACY_ONE_PEER": {
+      "label": "LEGACY_ONE_PEER",
+      "accountP": "ec7f9de0c0505e040de5f9f9607dd0d824357536abbb0449420e0d53929957bc",
+      "mode": "LEGACY_NO_PHONE",
+      "seed": "one_peer",
+      "statusGet": {
+        "result": "OK",
+        "status": "ACTIVE",
+        "revision": 0,
+        "exists": false,
+        "statusEvent": null,
+        "issuerPubkey": "f4a700d0bc2d1557d7210b01ac55cf6b844f61419517fbe7b3eef295ddf788b4",
+        "LEGACY_NO_STATUS_RECORD": true,
+        "__http": 200
+      },
+      "md3Instrumented": true,
+      "md3": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "ec7f9de0c0505e040de5f9f9607dd0d824357536abbb0449420e0d53929957bc",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      },
+      "histPhone": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "24eb2021a7771c0d03289d78c822268c416ff533591cdd5aa4dce7cbf54d733d",
+        "exportSessionId": "8190776b6550f73c998a6d2b6c6aed2f737a27bf36bcf2e7ade450906871629c",
+        "completeness": "COMPLETE",
+        "eventCount": 3,
+        "batchCount": 1,
+        "committedBatchSeq": 0,
+        "cursorAfter": {
+          "createdAt": 1791658361,
+          "eventId": "ad20b33ef1e25f5168e0514076bdf90b2def2f4bff1ea1772465240fde832800"
+        },
+        "ROOT_K_SENT_TO_DESKTOP": false,
+        "NSEC_SENT_TO_DESKTOP": false
+      },
+      "histPhoneInstrumented": true,
+      "histDesktop": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "24eb2021a7771c0d03289d78c822268c416ff533591cdd5aa4dce7cbf54d733d",
+        "exportSessionId": "8190776b6550f73c998a6d2b6c6aed2f737a27bf36bcf2e7ade450906871629c",
+        "importedCount": 3,
+        "duplicateCount": 0,
+        "rejectedCount": 0,
+        "rejectedSample": [],
+        "suppressedCount": 0,
+        "tombstoneCount": 0,
+        "batchesAcked": 1,
+        "importedIds": [
+          "dd50214545ac0a2d756a24cdb072901f6966b0ff4cb062a57008d5a182ac2af6",
+          "589ddd5163b1781b071682e25178bcfdd501acc04705d9638ea8f04f5955e087",
+          "ad20b33ef1e25f5168e0514076bdf90b2def2f4bff1ea1772465240fde832800"
+        ],
+        "completeness": "COMPLETE",
+        "cursorCommitted": {
+          "createdAt": 1791658361,
+          "eventId": "ad20b33ef1e25f5168e0514076bdf90b2def2f4bff1ea1772465240fde832800"
+        },
+        "authOkCount": 1,
+        "attachmentsQueued": 0,
+        "attachmentsComplete": 0,
+        "attachmentsMissing": 0,
+        "attachmentsFailed": 0,
+        "mediaComplete": true,
+        "ROOT_K_PRESENT": false,
+        "NSEC_PRESENT": false,
+        "PERSISTED_PLAINTEXT_CKI": false,
+        "FINAL_ACK": true,
+        "ACK_AEAD": true
+      },
+      "LIVE_CKI": true,
+      "ROOT_K_ON_DESKTOP": false,
+      "completeness": "COMPLETE",
+      "authOkCount": 1,
+      "DUPLICATE_AUTH_OK_SAFE": true,
+      "reload": {
+        "peers": [
+          {
+            "key": "7a34fb0446eb987d8485e916daf217e307b9a0cc89c8ab5c17c7090d207a27aa:ec7f9de0c0505e040de5f9f9607dd0d824357536abbb0449420e0d53929957bc",
+            "n": 3
+          }
+        ],
+        "total": 3,
+        "deletedHas": false,
+        "resurrect": null,
+        "resurrectSigned": null,
+        "storageKey": "nostr_chat_ec7f9de0c0505e040de5f9f9607dd0d824357536abbb0449420e0d53929957bc"
+      },
+      "reloadOk": true,
+      "tombOk": true,
+      "ok": true
+    },
+    "LEGACY_TOMBSTONE": {
+      "label": "LEGACY_TOMBSTONE",
+      "accountP": "38d3103c7626590dd7873441c2cb44707ffcea2cd8e1e6abc82d14c58de23fbc",
+      "mode": "LEGACY_NO_PHONE",
+      "seed": "tombstone",
+      "statusGet": {
+        "result": "OK",
+        "status": "ACTIVE",
+        "revision": 0,
+        "exists": false,
+        "statusEvent": null,
+        "issuerPubkey": "f4a700d0bc2d1557d7210b01ac55cf6b844f61419517fbe7b3eef295ddf788b4",
+        "LEGACY_NO_STATUS_RECORD": true,
+        "__http": 200
+      },
+      "md3Instrumented": true,
+      "md3": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "38d3103c7626590dd7873441c2cb44707ffcea2cd8e1e6abc82d14c58de23fbc",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      },
+      "tombMeta": {
+        "originalId": "f7474aee5db9231b24867ca1e756ea88266f198db5c0e2123b7036618649d36a",
+        "tombId": "560c3fa9047e8d112ffbccbcf68ee0480a8495f6ee1393f108b43f94c343f629"
+      },
+      "histPhone": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "b74e91f618a68ed4e80395045c359752c9efaf2503b752c6c4eed35666a23055",
+        "exportSessionId": "6b75e871a2f0b987d2e5fe9bb549839753618482bfdde3115f1e5993124ec2ee",
+        "completeness": "COMPLETE",
+        "eventCount": 2,
+        "batchCount": 1,
+        "committedBatchSeq": 0,
+        "cursorAfter": {
+          "createdAt": 1791658373,
+          "eventId": "560c3fa9047e8d112ffbccbcf68ee0480a8495f6ee1393f108b43f94c343f629"
+        },
+        "ROOT_K_SENT_TO_DESKTOP": false,
+        "NSEC_SENT_TO_DESKTOP": false
+      },
+      "histPhoneInstrumented": true,
+      "histDesktop": {
+        "ok": true,
+        "code": "OK",
+        "sessionId": "b74e91f618a68ed4e80395045c359752c9efaf2503b752c6c4eed35666a23055",
+        "exportSessionId": "6b75e871a2f0b987d2e5fe9bb549839753618482bfdde3115f1e5993124ec2ee",
+        "importedCount": 1,
+        "duplicateCount": 0,
+        "rejectedCount": 0,
+        "rejectedSample": [],
+        "suppressedCount": 0,
+        "tombstoneCount": 1,
+        "batchesAcked": 1,
+        "importedIds": [
+          "f7474aee5db9231b24867ca1e756ea88266f198db5c0e2123b7036618649d36a"
+        ],
+        "completeness": "COMPLETE",
+        "cursorCommitted": {
+          "createdAt": 1791658373,
+          "eventId": "560c3fa9047e8d112ffbccbcf68ee0480a8495f6ee1393f108b43f94c343f629"
+        },
+        "authOkCount": 1,
+        "attachmentsQueued": 0,
+        "attachmentsComplete": 0,
+        "attachmentsMissing": 0,
+        "attachmentsFailed": 0,
+        "mediaComplete": true,
+        "ROOT_K_PRESENT": false,
+        "NSEC_PRESENT": false,
+        "PERSISTED_PLAINTEXT_CKI": false,
+        "FINAL_ACK": true,
+        "ACK_AEAD": true
+      },
+      "LIVE_CKI": true,
+      "ROOT_K_ON_DESKTOP": false,
+      "completeness": "COMPLETE",
+      "authOkCount": 1,
+      "DUPLICATE_AUTH_OK_SAFE": true,
+      "reload": {
+        "peers": [
+          {
+            "key": "38d3103c7626590dd7873441c2cb44707ffcea2cd8e1e6abc82d14c58de23fbc:bd6e43f02e8ff3058cb58872f54491ba463532fb735b1cee1d4fff839494a822",
+            "n": 0
+          }
+        ],
+        "total": 0,
+        "deletedHas": true,
+        "resurrect": {
+          "ok": false,
+          "code": "MISSING_OUTER_SIGNATURE"
+        },
+        "resurrectSigned": {
+          "ok": true,
+          "id": "f7474aee5db9231b24867ca1e756ea88266f198db5c0e2123b7036618649d36a",
+          "suppressed": true,
+          "reason": "TOMBSTONE_AUTHORITATIVE"
+        },
+        "storageKey": "nostr_chat_38d3103c7626590dd7873441c2cb44707ffcea2cd8e1e6abc82d14c58de23fbc"
+      },
+      "reloadOk": true,
+      "tombOk": true,
+      "ok": true
+    }
+  },
+  "ROOT_K_SENT_TO_DESKTOP": false,
+  "NSEC_SENT_TO_DESKTOP": false,
+  "results": {
+    "ANDROID_EMULATOR_PRESENT": {
+      "ok": true,
+      "detail": null
+    },
+    "RELAY_UP": {
+      "ok": true,
+      "detail": {
+        "DESKTOP_RELAY": "ws://127.0.0.1:7805",
+        "ANDROID_RELAY": "ws://10.0.2.2:7805"
+      }
+    },
+    "ADMISSION_UP": {
+      "ok": true,
+      "detail": {
+        "ADM_URL": "http://127.0.0.1:8799"
+      }
+    },
+    "WEB_UP": {
+      "ok": true,
+      "detail": {
+        "WEB_PORT": 8831
+      }
+    },
+    "ANDROID_APKS_INSTALLED": {
+      "ok": true,
+      "detail": null
+    },
+    "NEW_EMPTY_MD3": {
+      "ok": true,
+      "detail": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "f232461f1f00810c00d98e23189e141890ec4bf7d2ae8bbb4923add6646df4a1",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      }
+    },
+    "NEW_EMPTY_DURABLE": {
+      "ok": true,
+      "detail": {
+        "deviceId": "9bdc1b8ffa3d408dedf7b8fecd16e8cd0bd955d9ace496df04347d24b1bddf2e"
+      }
+    },
+    "NEW_EMPTY_HIST_BOOTSTRAP": {
+      "ok": true,
+      "detail": {
+        "phoneOk": true,
+        "desktopOk": true,
+        "imported": 0,
+        "batchesAcked": 1,
+        "tombstones": 0,
+        "completeness": "COMPLETE",
+        "reloadOk": true,
+        "largeOk": true,
+        "authOkCount": 1,
+        "exportSessionId": "dc9c0bb60cef955c165e699fab2ca3448dda43639a98a65abd8f58547aea7ec5"
+      }
+    },
+    "NEW_ONE_PEER_MD3": {
+      "ok": true,
+      "detail": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "52a8c1ab1e125adc66d80535dd12b840116c06d843197b4ade3db8b927a2e88e",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      }
+    },
+    "NEW_ONE_PEER_DURABLE": {
+      "ok": true,
+      "detail": {
+        "deviceId": "ccba95f944dce038add3445eefaba777a927107ee2d150132124f76e2da7661c"
+      }
+    },
+    "NEW_ONE_PEER_HIST_BOOTSTRAP": {
+      "ok": true,
+      "detail": {
+        "phoneOk": true,
+        "desktopOk": true,
+        "imported": 3,
+        "batchesAcked": 1,
+        "tombstones": 0,
+        "completeness": "COMPLETE",
+        "reloadOk": true,
+        "largeOk": true,
+        "authOkCount": 1,
+        "exportSessionId": "6cc1a738fe77d5401bf953ac6ee77ae06b832aa07bb7f7e041e0463f7b26b66a"
+      }
+    },
+    "NEW_TWO_PEER_MD3": {
+      "ok": true,
+      "detail": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "9832f9c4b1929930b5c842e54432fef2d89128e66180d32f2e029f4f87261701",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      }
+    },
+    "NEW_TWO_PEER_DURABLE": {
+      "ok": true,
+      "detail": {
+        "deviceId": "ebee1249b977b0d921130e487a08de5387aa813a20ffdd5016ca6eb683b1d304"
+      }
+    },
+    "NEW_TWO_PEER_HIST_BOOTSTRAP": {
+      "ok": true,
+      "detail": {
+        "phoneOk": true,
+        "desktopOk": true,
+        "imported": 5,
+        "batchesAcked": 1,
+        "tombstones": 0,
+        "completeness": "COMPLETE",
+        "reloadOk": true,
+        "largeOk": true,
+        "authOkCount": 1,
+        "exportSessionId": "78125aab8e0433a65b16ccc3dc9fa0c1fcf70355e8ab8f6b375382a9dc6799c1"
+      }
+    },
+    "NEW_LARGE_MD3": {
+      "ok": true,
+      "detail": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "c94275d35a4cff5ad2597a008a1a22867a3464acbe08799be914b9f89f45523d",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      }
+    },
+    "NEW_LARGE_DURABLE": {
+      "ok": true,
+      "detail": {
+        "deviceId": "a117a4d665a074162050af7ced3117c86ad49b6877e93404075c47dadaecd968"
+      }
+    },
+    "NEW_LARGE_HIST_BOOTSTRAP": {
+      "ok": true,
+      "detail": {
+        "phoneOk": true,
+        "desktopOk": true,
+        "imported": 260,
+        "batchesAcked": 6,
+        "tombstones": 0,
+        "completeness": "COMPLETE",
+        "reloadOk": true,
+        "largeOk": true,
+        "authOkCount": 1,
+        "exportSessionId": "4bd886759f5f18735f960bf23dca46b36f60862bf5a439eb295c0168c739c087"
+      }
+    },
+    "NEW_TOMBSTONE_MD3": {
+      "ok": true,
+      "detail": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "6dc27a3a6229d29246056aef84166b00262befd5a2b3476d89fd167fbbf3aeef",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      }
+    },
+    "NEW_TOMBSTONE_DURABLE": {
+      "ok": true,
+      "detail": {
+        "deviceId": "8303e7a6bcf358c522d61afba7144ad734ddafbfcf065b342c49c477d6fcea7f"
+      }
+    },
+    "NEW_TOMBSTONE_HIST_BOOTSTRAP": {
+      "ok": true,
+      "detail": {
+        "phoneOk": true,
+        "desktopOk": true,
+        "imported": 1,
+        "batchesAcked": 1,
+        "tombstones": 1,
+        "completeness": "COMPLETE",
+        "reloadOk": true,
+        "largeOk": true,
+        "authOkCount": 1,
+        "exportSessionId": "06d48c7d62c473e40dc46cdfd2e5ca517703fe13b9b38ab3c828fdf9a9db394f"
+      }
+    },
+    "NEW_INTERRUPT_RESUME_MD3": {
+      "ok": true,
+      "detail": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "2c0fddb8f9fb5f56755ec9ed9af987d12deebe0d5399335dcdaab3d7330651c6",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      }
+    },
+    "NEW_INTERRUPT_RESUME_DURABLE": {
+      "ok": true,
+      "detail": {
+        "deviceId": "3a7cc563289c2ee291b450ccf9ae0ae47fa7df73c514dfee0944a83950b508fc"
+      }
+    },
+    "NEW_INTERRUPT_RESUME_HIST_BOOTSTRAP": {
+      "ok": true,
+      "detail": {
+        "phoneOk": true,
+        "desktopOk": true,
+        "imported": 70,
+        "batchesAcked": 2,
+        "tombstones": 0,
+        "completeness": "COMPLETE",
+        "reloadOk": true,
+        "largeOk": true,
+        "authOkCount": 1,
+        "exportSessionId": "a80968b11526e4b5bf2d777e0b8cfe567f5803bbc3f819ff4770acbf13680bfe"
+      }
+    },
+    "LEGACY_EMPTY_MD3": {
+      "ok": true,
+      "detail": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "b3f637fff401286a4a76503bf3d3ac7f0ad131985aa6027ef049076f3d34e441",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      }
+    },
+    "LEGACY_EMPTY_DURABLE": {
+      "ok": true,
+      "detail": {
+        "deviceId": "f14ad20c2fb65fc5b222bf12bb675a0aa41e59abba4ef8ea9a6311bbf405f92e"
+      }
+    },
+    "LEGACY_EMPTY_HIST_BOOTSTRAP": {
+      "ok": true,
+      "detail": {
+        "phoneOk": true,
+        "desktopOk": true,
+        "imported": 0,
+        "batchesAcked": 1,
+        "tombstones": 0,
+        "completeness": "COMPLETE",
+        "reloadOk": true,
+        "largeOk": true,
+        "authOkCount": 1,
+        "exportSessionId": "a4074e5390fc8eb1738b66e7b158ffaf7da9c23c4b3a1564a14ee0e473feda15"
+      }
+    },
+    "LEGACY_ONE_PEER_MD3": {
+      "ok": true,
+      "detail": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "ec7f9de0c0505e040de5f9f9607dd0d824357536abbb0449420e0d53929957bc",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      }
+    },
+    "LEGACY_ONE_PEER_DURABLE": {
+      "ok": true,
+      "detail": {
+        "deviceId": "d1c0c013e58208c63b5ca8a4713d28a1943318ba2ced1fa06aa6a1d6d2e0b277"
+      }
+    },
+    "LEGACY_ONE_PEER_HIST_BOOTSTRAP": {
+      "ok": true,
+      "detail": {
+        "phoneOk": true,
+        "desktopOk": true,
+        "imported": 3,
+        "batchesAcked": 1,
+        "tombstones": 0,
+        "completeness": "COMPLETE",
+        "reloadOk": true,
+        "largeOk": true,
+        "authOkCount": 1,
+        "exportSessionId": "8190776b6550f73c998a6d2b6c6aed2f737a27bf36bcf2e7ade450906871629c"
+      }
+    },
+    "LEGACY_TOMBSTONE_MD3": {
+      "ok": true,
+      "detail": {
+        "android": {
+          "ok": true,
+          "phase": "המכשיר קושר בהצלחה",
+          "accountP": "38d3103c7626590dd7873441c2cb44707ffcea2cd8e1e6abc82d14c58de23fbc",
+          "SECURE_IDENTITY_STORE_INITIALIZED": true,
+          "ROOT_K_SENT_TO_DESKTOP": false,
+          "NSEC_SENT_TO_DESKTOP": false
+        },
+        "linked": {
+          "ok": true
+        },
+        "ok": true
+      }
+    },
+    "LEGACY_TOMBSTONE_DURABLE": {
+      "ok": true,
+      "detail": {
+        "deviceId": "a24291c6f6740300baa748fdb425e6c02d8b99ab067ff0b4d359f675e81247ae"
+      }
+    },
+    "LEGACY_TOMBSTONE_HIST_BOOTSTRAP": {
+      "ok": true,
+      "detail": {
+        "phoneOk": true,
+        "desktopOk": true,
+        "imported": 1,
+        "batchesAcked": 1,
+        "tombstones": 1,
+        "completeness": "COMPLETE",
+        "reloadOk": true,
+        "largeOk": true,
+        "authOkCount": 1,
+        "exportSessionId": "6b75e871a2f0b987d2e5fe9bb549839753618482bfdde3115f1e5993124ec2ee"
+      }
+    },
+    "NEG_UNLINKED_DESKTOP": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "NO_DEVICE"
+      }
+    },
+    "NEG_PROTOCOL_COLLISION": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "CROSS_PROTOCOL_TAG_COLLISION",
+        "protocol": null
+      }
+    },
+    "NEG_CROSS_ACCOUNT_CHECKPOINT": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "CHECKPOINT_ACCOUNT_MISMATCH"
+      }
+    },
+    "NEG_CONFLICTING_EVENT": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "CONFLICTING_EVENT"
+      }
+    },
+    "RESOURCE_LIMITS": {
+      "ok": true,
+      "detail": {
+        "unlinked": {
+          "ok": false,
+          "code": "NO_DEVICE"
+        },
+        "both": {
+          "ok": false,
+          "code": "CROSS_PROTOCOL_TAG_COLLISION",
+          "protocol": null
+        },
+        "cross": {
+          "ok": false,
+          "code": "CHECKPOINT_ACCOUNT_MISMATCH"
+        },
+        "conflict": {
+          "ok": true,
+          "id": "619a20e1f85b2debac55c9f6613630912c407cb7b36de526be5fb134652b26be",
+          "attachment": false,
+          "logicalMessageId": "619a20e1f85b2debac55c9f6613630912c407cb7b36de526be5fb134652b26be",
+          "peer": "427da0a69428ca111af90aef283838c5b1f966e0067d33431ccc345ad24cfe2b",
+          "sender": "56271402fadafd10dd2c42dec3ed6280c4deffd20c51e3308159110b580bf005",
+          "recipient": "427da0a69428ca111af90aef283838c5b1f966e0067d33431ccc345ad24cfe2b"
+        },
+        "conflict2": {
+          "ok": false,
+          "code": "CONFLICTING_EVENT"
+        },
+        "maxBatch": 50,
+        "maxBytes": 262144
+      }
+    }
+  },
+  "failCount": 0,
+  "LIVE_CKI_RELAY_TRANSFER": true,
+  "TOMBSTONE_LIVE_E2E": true,
+  "LARGE_HISTORY_E2E": true,
+  "INTERRUPT_RESUME_E2E": true,
+  "relayStats": {
+    "received": 144,
+    "broadcast": 144,
+    "connections": 56,
+    "lastKind": 25060
+  }
+}

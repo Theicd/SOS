@@ -1,0 +1,71 @@
+{
+  "gate": "MD3_TRANSPORT_RECOVERY",
+  "ts": "2026-10-08T14:57:44.885Z",
+  "MAIN_HEAD": "d1bcc5168d9e02564c505d4b10c69a8d9b5f208a",
+  "MAIN_END_VERSION": "2026.10.05-web-899s.19",
+  "probe": {
+    "status": "PASS",
+    "d2d": "PASS",
+    "a2d": "PASS",
+    "mapping": "ANDROID_10.0.2.2_DESKTOP_127_CHILD_RELAY_NO_ADB_REVERSE",
+    "ROOT_CAUSE": "Same-process Node WebSocketServer + client black-holed emulator 10.0.2.2 accepts; port 7797 firewalled; adb reverse flaky under load",
+    "MINIMAL_SOURCE_FIX": "QA relay in child process + bind 0.0.0.0 on non-firewalled port; Android uses 10.0.2.2; orchestrator uses QR rendezvous without 127↔10.0.2.2 dual-rewrite"
+  },
+  "e2e": {
+    "status": "FAIL_IMPLEMENTATION",
+    "relay": {
+      "received": 6,
+      "broadcast": 6,
+      "rejected": 0,
+      "connections": 6,
+      "reqs": 4,
+      "lastKind": 25060
+    },
+    "new": "FAIL",
+    "legacy": "FAIL",
+    "deskState": {
+      "state": "QR_SHOWN",
+      "inbound": [
+        {
+          "idFp": "42ecc98f4cfc16a2",
+          "kind": 25060,
+          "role": [
+            "role",
+            "phone"
+          ],
+          "d": [
+            "d",
+            "e30685ca8e086f88488280914b0aded26c924abc7713c5cf36f473590e3889e1"
+          ],
+          "contentType": "hello",
+          "contentPairingId": "e30685ca8e086f88488280914b0aded26c924abc7713c5cf36f473590e3889e1",
+          "contentLen": 176
+        },
+        {
+          "idFp": "42ecc98f4cfc16a2",
+          "kind": 25060,
+          "role": [
+            "role",
+            "phone"
+          ],
+          "d": [
+            "d",
+            "e30685ca8e086f88488280914b0aded26c924abc7713c5cf36f473590e3889e1"
+          ],
+          "contentType": "hello",
+          "contentPairingId": "e30685ca8e086f88488280914b0aded26c924abc7713c5cf36f473590e3889e1",
+          "contentLen": 176
+        }
+      ],
+      "expectPairingId": "e30685ca8e086f88488280914b0aded26c924abc7713c5cf36f473590e3889e1",
+      "handleErr": null
+    }
+  },
+  "TRANSPORT_CHAIN": {
+    "ANDROID_OUTBOUND_WS_FRAME_OBSERVED": true,
+    "RELAY_ANDROID_EVENT_RECEIVED": true,
+    "KIND_25060_ON_WIRE": true,
+    "MD2_HANDSHAKE_COMPLETE": false,
+    "note": "kind-25060 hello reaches desktop; PoP completion still blocked (desktop state stays QR_SHOWN despite relay EVENT count increase)"
+  }
+}

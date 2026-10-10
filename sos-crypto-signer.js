@@ -39,6 +39,9 @@
     SIGN_LIVE_TV: { kinds: [30078] },
     SIGN_LOGIN_METRIC: { kinds: [1050] },
     SIGN_MEDIA_RECHECK: { kinds: [1] },
+    // Ephemeral auth for global phone lookup (not a public directory event).
+    SIGN_PHONE_LOOKUP: { kinds: [22242] },
+    SIGN_REACHABILITY: { kinds: [10002] },
   };
 
   let forcedBackend = null; // 'MAIN_THREAD' | 'WORKER_VAULT' | null(auto)
@@ -345,6 +348,52 @@
         Object.assign({}, request, { groupId })
       );
       draft = P.buildMembershipDraft(body);
+    } else if (typeof P.isAccountStatusOp === 'function' && P.isAccountStatusOp(op)) {
+      const baseEvent = request.baseEvent;
+      if (!baseEvent || !strictVerifyEvent(baseEvent)) fail('BASE_VERIFY_FAILED');
+      const baseControl = P.parseControlRecordFromEvent(baseEvent);
+      const groupId = P.resolveNetworkTag(request && request.groupId, baseControl);
+      if (baseControl.groupId !== groupId) fail('CROSS_GROUP');
+      let tipBody = null;
+      if (request.accountStatusTipEvent) {
+        if (!strictVerifyEvent(request.accountStatusTipEvent)) fail('ACCOUNT_STATUS_TIP_VERIFY_FAILED');
+        try {
+          tipBody = JSON.parse(request.accountStatusTipEvent.content);
+        } catch (_e) {
+          fail('BAD_ACCOUNT_STATUS_TIP');
+        }
+      }
+      const body = P.applyAccountStatusOperation(
+        op,
+        baseControl,
+        tipBody,
+        actor,
+        Object.assign({}, request, { groupId })
+      );
+      draft = P.buildAccountStatusDraft(body);
+    } else if (typeof P.isDirectoryHygieneOp === 'function' && P.isDirectoryHygieneOp(op)) {
+      const baseEvent = request.baseEvent;
+      if (!baseEvent || !strictVerifyEvent(baseEvent)) fail('BASE_VERIFY_FAILED');
+      const baseControl = P.parseControlRecordFromEvent(baseEvent);
+      const groupId = P.resolveNetworkTag(request && request.groupId, baseControl);
+      if (baseControl.groupId !== groupId) fail('CROSS_GROUP');
+      let tipBody = null;
+      if (request.directoryHygieneTipEvent) {
+        if (!strictVerifyEvent(request.directoryHygieneTipEvent)) fail('DIRECTORY_HYGIENE_TIP_VERIFY_FAILED');
+        try {
+          tipBody = JSON.parse(request.directoryHygieneTipEvent.content);
+        } catch (_e) {
+          fail('BAD_DIRECTORY_HYGIENE_TIP');
+        }
+      }
+      const body = P.applyDirectoryHygieneOperation(
+        op,
+        baseControl,
+        tipBody,
+        actor,
+        Object.assign({}, request, { groupId })
+      );
+      draft = P.buildDirectoryHygieneDraft(body);
     } else {
       fail('UNKNOWN_OP');
     }
@@ -673,6 +722,8 @@
     signFollowEvent: (d) => signTyped('SIGN_FOLLOW', d),
     signInviteEvent: (d) => signTyped('SIGN_INVITE', d),
     signInviteRevokeEvent: (d) => signTyped('SIGN_INVITE_REVOKE', d),
+    signPhoneLookupAuth: (d) => signTyped('SIGN_PHONE_LOOKUP', d),
+    signReachabilityEvent: (d) => signTyped('SIGN_REACHABILITY', d),
     signModerationAction: (d) => signTyped('SIGN_MODERATION_ACTION', d),
     /** @deprecated AC9 — removed broad membership sign */
     signMembershipState: function () {
@@ -704,6 +755,17 @@
     nip04Decrypt,
     unwrapCallGiftwrap,
     f1CryptoModuleSessionKeyHex,
+    /**
+     * MD3W-W1B — Worker-only typed DeviceAuthorization issuance (T2 artifact required).
+     * Never available as a main-thread silent path.
+     */
+    authorizeLinkedDevice: function (params) {
+      requireValidSession('AUTHORIZE_LINKED_DEVICE');
+      if (!isWorkerAuthoritative()) {
+        fail('WORKER_VAULT_REQUIRED', 'AUTHORIZE_LINKED_DEVICE requires Worker Vault');
+      }
+      return workerRpc('AUTHORIZE_LINKED_DEVICE', params || {});
+    },
     OP_SPECS,
   };
 

@@ -22,7 +22,14 @@
   const READY_EVENT = 'sos-feature-flags-ready';
   const FETCH_TIMEOUT_MS = 5000;
   const MAX_CONFIG_BYTES = 2048;
-  const ALLOWED_KEYS = ['schema', 'accessControlV2', 'accessControlV2Scope', 'admin2faEnforcement', 'admin2faSignerPubkey'];
+  const ALLOWED_KEYS = [
+    'schema',
+    'accessControlV2',
+    'accessControlV2Scope',
+    'admin2faEnforcement',
+    'admin2faSignerPubkey',
+    'md3wT2SignerApproval',
+  ];
   // FULL: V2 also gates member content/P2P and enables the multi-community UI.
   // CONTROL_PLANE: V2 governs admin/control/invite/admission only; member content, P2P and the single-network UI stay as V2 off.
   const V2_SCOPES = ['FULL', 'CONTROL_PLANE'];
@@ -72,6 +79,9 @@
     admin2faEnforcement: false,
     admin2faSignerPubkey: '',
     v2Scope: 'FULL',
+    // MD3W-W1B: Mobile Web T2 issuance — default OFF; production always OFF.
+    md3wT2SignerApproval: false,
+    md3wLocalOverride: false,
   };
 
   function effective() {
@@ -109,7 +119,16 @@
     if (obj.admin2faSignerPubkey != null && !/^[0-9a-f]{64}$/.test(String(obj.admin2faSignerPubkey))) {
       return 'INVALID_VALUE';
     }
+    if (obj.md3wT2SignerApproval != null && typeof obj.md3wT2SignerApproval !== 'boolean') {
+      return 'INVALID_VALUE';
+    }
     return null;
+  }
+
+  function md3wEffective() {
+    if (hostIsProduction()) return false;
+    if (state.md3wT2SignerApproval === true) return true;
+    return localOverrideAllowed && state.md3wLocalOverride === true;
   }
 
   function snapshot() {
@@ -126,6 +145,7 @@
       guardInstalled: state.guardInstalled,
       admin2faEnforcement: state.admin2faEnforcement,
       accessControlV2Scope: state.v2Scope,
+      md3wT2SignerApproval: md3wEffective(),
     };
   }
 
@@ -191,6 +211,8 @@
       state.admin2faEnforcement = obj.admin2faEnforcement === true;
       state.admin2faSignerPubkey = obj.admin2faSignerPubkey || '';
       state.v2Scope = obj.accessControlV2Scope || 'FULL';
+      // Production config must keep this false; non-prod may enable for isolated QA.
+      state.md3wT2SignerApproval = obj.md3wT2SignerApproval === true && !hostIsProduction();
       return finish(obj.accessControlV2 === true, 'canonical_config', null);
     }).then(() => snapshot());
   }
@@ -211,11 +233,17 @@
     accessControlV2Scope: () => state.v2Scope,
     /** V2 member-content / multi-community gating (true only for V2 on + FULL scope). */
     isV2MemberScopeEnabled: () => effective() && state.v2Scope === 'FULL',
+    isMd3wT2SignerApprovalEnabled: md3wEffective,
+    /** Local/QA only — ignored on production hosts. */
+    setMd3wT2SignerApprovalLocal: (v) => {
+      if (localOverrideAllowed && !hostIsProduction()) state.md3wLocalOverride = v === true;
+    },
     whenReady: () => ready,
     snapshot,
     validate,
   });
 
   App.FeatureFlags = api;
+  App.SosFeatureFlags = api;
   window.SosFeatureFlags = api;
 })(typeof window !== 'undefined' ? window : globalThis);

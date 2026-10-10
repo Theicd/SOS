@@ -1,0 +1,34 @@
+{
+  "gate": "MD4_S6_SECURITY_MATRIX",
+  "STATUS": "PASS_WITH_RELEASE_GAPS",
+  "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+  "started": "2026-10-10T18:46:28.191Z",
+  "finished": "2026-10-10T18:46:56.507Z",
+  "BASELINE_HEAD": "d1bcc5168d9e02564c505d4b10c69a8d9b5f208a",
+  "counts": {
+    "TOTAL": 120,
+    "PASS": 92,
+    "FAIL": 0,
+    "NOT_VERIFIED": 28,
+    "BLOCKED": 0,
+    "NOT_APPLICABLE": 0
+  },
+  "domains": {
+    "DEVICE_AUTH": "PASS_WITH_GAPS",
+    "CKI": "PASS",
+    "HISTORY": "PASS_WITH_GAPS",
+    "ACK": "PASS_WITH_GAPS",
+    "CHECKPOINT": "PASS_WITH_GAPS",
+    "TOMBSTONE": "PASS_WITH_GAPS",
+    "ATTACH": "PASS_WITH_GAPS",
+    "CROSS_PROTOCOL": "PASS",
+    "KEY_LEAK": "PASS",
+    "RESOURCE": "PASS",
+    "CROSS": "PASS_WITH_GAPS"
+  },
+  "PUBLIC_WEBTORRENT_E2E": "NOT_VERIFIED",
+  "CHROMIUM_IN_PAGE_MEMORY": "NOT_MEASURED",
+  "HARDWARE_CAMERA_QR": "NOT_VERIFIED",
+  "SECURITY_FINDINGS": [],
+  "casesPath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-cases.json"
+}

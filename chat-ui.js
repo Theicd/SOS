@@ -5161,7 +5161,77 @@
     ensureContactsP2PStatusWiring();
   }
 
-  // חלק חיפוש רשת (chat-ui.js) – שאילתת שם בריליים דרך תיבת החיפוש הקיימת | HYPER CORE TECH
+  function looksLikePhoneQuery(q) {
+    const s = String(q || '').trim();
+    if (!s) return false;
+    // Exact-number lookup only — reject pure prefix browse (too short / letters).
+    if (/[a-zA-Zא-ת]/.test(s)) return false;
+    const digits = s.replace(/\D+/g, '');
+    if (digits.length < 9) return false;
+    return /^[+0-9\s\-().]+$/.test(s);
+  }
+
+  async function runSocallPhoneSearch(rawQuery) {
+    const PN = App.PhoneNormalize || window.SosPhoneNormalize;
+    const GA = App.GlobalAdmission || window.SosGlobalAdmission;
+    if (!PN || typeof PN.normalizePhoneE164 !== 'function' || !GA || typeof GA.lookupPhone !== 'function') {
+      return [];
+    }
+    const norm = PN.normalizePhoneE164(rawQuery);
+    if (!norm.ok) return [];
+    const look = await GA.lookupPhone(norm.e164);
+    if (!look || look.result !== 'OK') return [];
+    if (look.unavailable === true) {
+      return [
+        {
+          pubkey: '',
+          name: 'לא זמין כרגע',
+          picture: '',
+          initials: '—',
+          lastMessage: 'לא ניתן ליצור קשר עם מספר זה כרגע.',
+          fromPhoneSearch: true,
+          unavailable: true,
+          SOCALL_PHONE_SEARCH_REQUIRES_SHARED_COMMUNITY: false,
+        },
+      ];
+    }
+    if (!look.registered || !look.pubkey) return [];
+    const pk = String(look.pubkey).toLowerCase();
+    let name = `משתמש ${pk.slice(0, 8)}`;
+    let picture = '';
+    try {
+      if (typeof App.getProfileDisplay === 'function') {
+        const d = App.getProfileDisplay(pk);
+        if (d && d.name) name = d.name;
+        if (d && d.picture) picture = d.picture;
+      } else if (typeof App.searchProfilesByName === 'function') {
+        // Prefer cached newest-wins profile if already loaded for this pubkey.
+        const cached = App.chatState?.contacts?.get?.(pk);
+        if (cached && cached.name) name = cached.name;
+        if (cached && cached.picture) picture = cached.picture;
+      }
+      if (typeof App.ensureProfileForPubkey === 'function') {
+        const p = await App.ensureProfileForPubkey(pk);
+        if (p && p.name) name = p.name;
+        if (p && (p.picture || p.image)) picture = p.picture || p.image || '';
+      }
+    } catch (_e) {}
+    return [
+      {
+        pubkey: pk,
+        name,
+        picture,
+        initials: typeof App.getInitials === 'function' ? App.getInitials(name) : name.slice(0, 2),
+        lastMessage: 'נמצא לפי מספר טלפון',
+        fromPhoneSearch: true,
+        SOCALL_PHONE_SEARCH_IMPLEMENTED: true,
+        SOCALL_PHONE_SEARCH_REQUIRES_SHARED_COMMUNITY: false,
+        SOCALL_PROFILE_COMMUNITY_SCOPED: false,
+      },
+    ];
+  }
+
+  // חלק חיפוש רשת (chat-ui.js) – שם ברשת + חיפוש טלפון מדויק (SO-CALL) | HYPER CORE TECH
   async function runNetworkContactSearch(query) {
     const token = ++state.networkSearchToken;
     const q = String(query || '').trim();
@@ -5173,23 +5243,23 @@
       renderContacts(true);
       return;
     }
-    if (typeof App.searchProfilesByName !== 'function') {
-      state.networkSearchResults = [];
-      state.networkSearchPending = false;
-      updateSearchLoadingUI();
-      renderContacts(true);
-      return;
-    }
     state.networkSearchPending = true;
     state.networkSearchQuery = q;
     updateSearchLoadingUI();
     renderContacts(true);
     try {
-      const results = await App.searchProfilesByName(q, { limit: 20 });
+      let results = [];
+      if (looksLikePhoneQuery(q)) {
+        results = await runSocallPhoneSearch(q);
+      } else if (typeof App.searchProfilesByName === 'function') {
+        results = await App.searchProfilesByName(q, { limit: 20 });
+      }
       if (token !== state.networkSearchToken) return;
-      state.networkSearchResults = Array.isArray(results) ? results : [];
+      state.networkSearchResults = Array.isArray(results)
+        ? results.filter((r) => r && r.pubkey)
+        : [];
     } catch (err) {
-      console.warn('[CHAT/UI] network name search failed', err);
+      console.warn('[CHAT/UI] network search failed', err && err.message);
       if (token !== state.networkSearchToken) return;
       state.networkSearchResults = [];
     } finally {

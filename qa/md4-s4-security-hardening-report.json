@@ -1,0 +1,166 @@
+{
+  "gate": "MD4_S4_SECURITY_HARDENING",
+  "runId": "af61253c-5969-46fa-bdc3-501300c236ad",
+  "ts": "2026-10-10T20:17:48.219Z",
+  "pass": 29,
+  "fail": 0,
+  "results": {
+    "STATIC_ACK_AEAD_DESKTOP": {
+      "ok": true,
+      "detail": null
+    },
+    "STATIC_ACK_AEAD_PHONE": {
+      "ok": true,
+      "detail": null
+    },
+    "STATIC_PLAINTEXT_ACK_REJECTED": {
+      "ok": true,
+      "detail": null
+    },
+    "STATIC_NO_COMPLETE_WITHOUT_FINAL": {
+      "ok": true,
+      "detail": null
+    },
+    "STATIC_TOMBSTONE_VERIFY_EVENT": {
+      "ok": true,
+      "detail": null
+    },
+    "STATIC_ACK_BIND_FIELDS": {
+      "ok": true,
+      "detail": null
+    },
+    "STATIC_ACK_AAD_DOMAIN": {
+      "ok": true,
+      "detail": null
+    },
+    "ORIGIN_UNCHANGED": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_ANDROID_ACK_GATE_UNIT": {
+      "ok": true,
+      "detail": {
+        "tail": ":app:compileDebugUnitTestKotlin UP-TO-DATE\r\n> Task :app:preDebugUnitTestBuild UP-TO-DATE\r\n> Task :app:javaPreCompileDebugUnitTest UP-TO-DATE\r\n> Task :app:compileDebugUnitTestJavaWithJavac NO-SOURCE\r\n> Task :app:processDebugJavaRes UP-TO-DATE\r\n> Task :app:processDebugUnitTestJavaRes UP-TO-DATE\r\n> Task :app:testDebugUnitTest\r\n\r\nBUILD SUCCESSFUL in 3s\r\n25 actionable tasks: 2 executed, 23 up-to-date\r\n"
+      }
+    },
+    "ACK1_ROUNDTRIP_AEAD": {
+      "ok": true,
+      "detail": {
+        "roundTrip": true,
+        "modifiedTag": true,
+        "wrongAad": true,
+        "wrongKey": true,
+        "wrongAccountAad": true,
+        "wrongDeviceAad": true,
+        "wrongAuthAad": true,
+        "wrongEpochAad": true,
+        "wrongSessionAad": true,
+        "wrongTranscript": true,
+        "finalRoundTrip": true,
+        "finalWrongKey": true,
+        "plaintextNotAead": true
+      }
+    },
+    "ACK11_MODIFIED_CT_REJECTED": {
+      "ok": true,
+      "detail": null
+    },
+    "ACK_WRONG_AAD_REJECTED": {
+      "ok": true,
+      "detail": null
+    },
+    "ACK3_WRONG_SESSION_KEY": {
+      "ok": true,
+      "detail": null
+    },
+    "ACK5_WRONG_ACCOUNT_AAD": {
+      "ok": true,
+      "detail": null
+    },
+    "ACK4_WRONG_DEVICE_AAD": {
+      "ok": true,
+      "detail": null
+    },
+    "ACK6_WRONG_AUTH_AAD": {
+      "ok": true,
+      "detail": null
+    },
+    "ACK6_WRONG_EPOCH_AAD": {
+      "ok": true,
+      "detail": null
+    },
+    "ACK_WRONG_SESSION_AAD": {
+      "ok": true,
+      "detail": null
+    },
+    "ACK7_WRONG_TRANSCRIPT": {
+      "ok": true,
+      "detail": null
+    },
+    "ACK2_FINAL_AEAD": {
+      "ok": true,
+      "detail": null
+    },
+    "TOMB17_FORGED_SIG": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "BAD_EVENT_SIG"
+      }
+    },
+    "TOMB18_BAD_EVENT_ID": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "EVENT_ID_MISMATCH"
+      }
+    },
+    "TOMB19_AFTER_TARGET": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "id": "15cf6f88959a897cc9ce6007a8add1d8eb200924974e5563666ee6a0cbd2bcbc",
+        "tombstone": true
+      }
+    },
+    "TOMB20_BEFORE_TARGET": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "TOMBSTONE_BEFORE_TARGET"
+      }
+    },
+    "TOMB21_UNAUTH": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "UNAUTHORIZED_CONVERSATION"
+      }
+    },
+    "TOMB22_TAMPERED_TARGET": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "TOMBSTONE_TARGET_MISMATCH"
+      }
+    },
+    "TOMB25_MISSING_SIG": {
+      "ok": true,
+      "detail": null
+    },
+    "TOMB_NO_RESURRECTION": {
+      "ok": true,
+      "detail": null
+    },
+    "TOMB_VALID_VERIFY": {
+      "ok": true,
+      "detail": null
+    }
+  },
+  "STATUS": "PASS",
+  "FORGED_ACK_ADVANCES_CHECKPOINT": false,
+  "FORGED_FINAL_ACK_COMPLETES_SESSION": false,
+  "SYNC_ACK_AEAD_AUTHENTICATED": true,
+  "SYNC_FINAL_ACK_AEAD_AUTHENTICATED": true,
+  "TOMBSTONE_OUTER_SIGNATURE_VERIFIED": true
+}

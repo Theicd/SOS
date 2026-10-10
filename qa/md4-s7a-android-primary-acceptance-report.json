@@ -1,0 +1,147 @@
+{
+  "gate": "MD4_S7A_ANDROID_PRIMARY_FULL_E2E",
+  "status": "BLOCKED_HARDWARE",
+  "ts": "2026-10-10T20:05:00.000Z",
+  "baselineHead": "d1bcc5168d9e02564c505d4b10c69a8d9b5f208a",
+  "worktree": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349",
+  "originalWorktreeUnchanged": true,
+  "checkpointIntegrity": {
+    "s6Preflight": "C:\\BRAIN\\SOS-MD4-S6-PREFLIGHT-CHECKPOINT-20261010\\CHECKPOINT_MANIFEST.json",
+    "s6Present": true,
+    "s7aPreflight": "C:\\BRAIN\\SOS-MD4-S7A-PREFLIGHT-CHECKPOINT-20261010\\PREFLIGHT.json"
+  },
+  "HARDWARE_CAMERA_QR": "NOT_VERIFIED",
+  "REAL_ANDROID_DEVICE_USED": false,
+  "ANDROID_DEVICE_MODEL": null,
+  "ANDROID_VERSION": null,
+  "emulatorObserved": {
+    "serial": "emulator-5554",
+    "model": "sdk_gphone64_x86_64",
+    "androidVersion": "12",
+    "usedFor": "paste-path MD3 instrumented E2E only — not hardware camera acceptance"
+  },
+  "DESKTOP_BROWSER_VERSION": "Chromium/147.0.7727.15 (Playwright)",
+  "preflight": {
+    "roadmapDualPrimary": true,
+    "canonicalRoadmap": "docs/security/STAGE5_LINKED_DEVICES_ROADMAP.md",
+    "physicalAndroidAttached": false,
+    "linkedDevicesCameraScanner": false,
+    "linkedDevicesEntry": "SosLinkedDevicesActivity — EditText paste + Continue; no CameraX/BarcodeScanner",
+    "desktopQrGeneration": "sos-md2-pairing-qr.js / sos-web-linked-devices.js SOSPAIR1",
+    "md3IssuancePath": "ANDROID_NATIVE PhoneIssuer; WEB_MD3_ISSUANCE=false"
+  },
+  "blockers": [
+    {
+      "id": "NO_PHYSICAL_ANDROID",
+      "detail": "adb listed only emulator-5554; no USB physical device."
+    },
+    {
+      "id": "NO_CAMERA_QR_PRODUCT_PATH",
+      "detail": "Linked Devices UI is paste-only despite copy mentioning scan. CAMERA permission exists for MainActivity/WebView calls, not Linked Devices scanner."
+    },
+    {
+      "id": "B6-22_HARDWARE_CAMERA_QR",
+      "detail": "S6 gap B6-22 remains NOT_VERIFIED; mandatory S7A physical camera acceptance cannot close."
+    }
+  ],
+  "physicalAcceptance": {
+    "QR_SCAN": "NOT_EXECUTED_NO_CAMERA_PATH",
+    "NEW_ACCOUNT_PHYSICAL_E2E": "NOT_EXECUTED",
+    "LEGACY_ACCOUNT_PHYSICAL_E2E": "NOT_EXECUTED",
+    "CAMERA_PERMISSION_NEGATIVES": "NOT_EXECUTED_NO_SCANNER",
+    "DESKTOP_RESTART_RELINK": "NOT_EXECUTED_PHYSICAL",
+    "ANDROID_RESTART": "NOT_EXECUTED_PHYSICAL",
+    "NETWORK_RECONNECT": "NOT_EXECUTED_PHYSICAL"
+  },
+  "pastePathDiagnostics": {
+    "MD3_ANDROID_DESKTOP_LIVE_E2E": "PASS",
+    "evidence": "qa/md3-android-desktop-live-e2e-report.json",
+    "log": "qa/.md4-s7a-md3-live-e2e.txt",
+    "NEW_ACCOUNT": "PASS (instrumented handoff QR paste, not camera)",
+    "LEGACY_NO_PHONE": "PASS (instrumented handoff QR paste, not camera)",
+    "SAME_GLOBAL_P": true,
+    "ROOT_K_SENT_TO_DESKTOP": false,
+    "NSEC_SENT_TO_DESKTOP": false,
+    "REAL_HARDWARE_QR_SCAN_VERIFIED": false,
+    "MD2_POP_VERIFIED": "PASS_PASTE_PATH",
+    "MD3_AUTH_VERIFIED": "PASS_PASTE_PATH",
+    "USER_CONFIRMATION": "PASS_INSTRUMENTED_APPROVE",
+    "QR_GENERATION": "PASS_SOSPAIR1",
+    "QR_TTL": "COVERED_MD2_UNIT_EXPIRED_REJECT",
+    "QR_REPLAY_PROTECTION": "COVERED_MD2_UNIT_REPLAY"
+  },
+  "historyMediaNonHardware": {
+    "HISTORY_SYNC": "PASS via MD4 S3/S4 gates (not physical camera path)",
+    "ENCRYPTED_MEDIA_RESTORE": "PASS via MD4 S5 large + P2P gates",
+    "runIds": {
+      "s3_negatives": "fdba54f7-d320-44f5-9474-ea40f31e39ba",
+      "s4_hardening": "8ea4d188-49bb-4d7b-a222-c140fb03fd92",
+      "s4_negatives": "829c36ef-067a-4388-814a-d8d5b7945470",
+      "s5_negatives": "87c5680c-b179-4c41-8f79-5864a0208550",
+      "s5_large": "07ad79ab-5635-468d-b439-54135339694c",
+      "s5_p2p": "b5107c91-ee73-442d-b7d1-a18b174e599b",
+      "s1": "ffe8c34d-8f5c-4834-b9c2-fa3f890aedea",
+      "s2": "dd51da86-dca9-424c-bc36-63280fd4ffac",
+      "s3_isolation": "3be43273-8ca2-41a9-b801-6015394a5686",
+      "fg_network_e2e": "bcab3a06-38fb-4d5c-a03d-fa56ea19784e"
+    }
+  },
+  "s6GapTriageS7A": {
+    "S6_RELEVANT_GAPS_CLOSED": [],
+    "S6_GAPS_REMAINING": 28,
+    "directlyAffectsS7A": ["B6-22"],
+    "partiallyExercisedNonHardwareStillNotVerified": [
+      "B1-21", "B1-22", "B3-43", "B3-45", "B4-20", "B4-21", "B4-22", "B6-21", "C-08"
+    ],
+    "deferredToS7B_S8_or_Final": [
+      "B1-20", "B1-23", "B3-40", "B3-41", "B3-42", "B3-44", "B3-46",
+      "B4-23", "B4-24", "B5-20", "B6-20",
+      "C-01", "C-02", "C-03", "C-04", "C-05", "C-07", "C-09"
+    ],
+    "markersKept": {
+      "PUBLIC_WEBTORRENT_E2E": "NOT_VERIFIED",
+      "CHROMIUM_IN_PAGE_MEMORY": "NOT_MEASURED",
+      "HARDWARE_CAMERA_QR": "NOT_VERIFIED"
+    }
+  },
+  "regressionGates": {
+    "MD1_DEVICE_IDENTITY_GATE": "PASS",
+    "MD2_PAIRING_PROTOCOL_GATE": "PASS",
+    "WEB_QR_MD2_PRESENTATION": "PASS",
+    "MD3_ANDROID_DESKTOP_LIVE_E2E": "PASS",
+    "MD4_S1": "PASS",
+    "MD4_S2": "PASS",
+    "MD4_S3_ISOLATION": "PASS",
+    "MD4_S3_NEGATIVES": "PASS",
+    "MD4_S4_HARDENING": "PASS",
+    "MD4_S4_NEGATIVES": "PASS",
+    "MD4_S5_NEGATIVES": "PASS",
+    "MD4_S5_LARGE": "PASS",
+    "MD4_S5_P2P": "PASS",
+    "FG_NETWORK_E2E_136": "PASS",
+    "FG_FUNCTIONAL": "PASS",
+    "GLOBAL_IDENTITY_PHONE_FOUNDATION": "PASS",
+    "IDENTITY_KEY_PRESERVATION": "PASS",
+    "SIGNER_F1": "PASS",
+    "E2EE_FOUNDATION": "PASS",
+    "LEGACY_ACCOUNT_COMPATIBILITY": "PASS",
+    "PHONE_ONBOARDING_SOCALL_WIRING": "PASS",
+    "ONBOARDING_INITIAL_RECOVERY": "PASS",
+    "ACCOUNT_REVOCATION_DIRECTORY_HYGIENE": "PASS",
+    "S6_FULL_MATRIX_RERUN": "NOT_RERUN_THIS_SLICE (prior PASS_WITH_RELEASE_GAPS retained; fresh S1–S5 negatives + MD3 live cover applicable pairing/history cases)"
+  },
+  "filesChanged": [
+    "docs/security/STAGE5_LINKED_DEVICES_ROADMAP.md (S7A status row)",
+    "qa/md4-s7a-android-primary-acceptance-report.json",
+    "qa/.md4-s7a-*.txt / qa/.md4-s7a-reg/* (evidence logs)",
+    "C:\\BRAIN\\SOS-MD4-S7A-PREFLIGHT-CHECKPOINT-20261010\\PREFLIGHT.json"
+  ],
+  "productCodeChanged": false,
+  "implementationNote": "Camera QR scanner is product feature work, not a minimal wiring fix. Not implemented. No MD3W/MD4W/MD5. No Root K expansion.",
+  "READY_FOR_MD3W_W0": true,
+  "readyForW0Note": "W0 = read-only security audit only. S7A hardware acceptance remains blocked; do not start W1/W2/W3.",
+  "commitCreated": false,
+  "pushed": false,
+  "prCreated": false,
+  "deployExecuted": false
+}

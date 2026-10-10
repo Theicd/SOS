@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp"
+        android:layoutDirection="rtl">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="מכשירים מקושרים"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:paddingBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="קישור מחשב — סרקו את קוד ה־QR‏ (SOSPAIR1) מהמסך. אין העברת מפתח שורש."
+            android:textSize="14sp"
+            android:paddingBottom="12dp" />
+
+        <Button
+            android:id="@+id/linkedScanCamera"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="סריקת QR במצלמה" />
+
+        <androidx.camera.view.PreviewView
+            android:id="@+id/linkedCameraPreview"
+            android:layout_width="match_parent"
+            android:layout_height="240dp"
+            android:layout_marginTop="8dp"
+            android:visibility="gone"
+            android:contentDescription="תצוגת מצלמה לסריקת QR" />
+
+        <Button
+            android:id="@+id/linkedStopCamera"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="סגירת מצלמה"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/linkedPasteHint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="16dp"
+            android:paddingBottom="4dp"
+            android:textSize="13sp"
+            android:text="הדבקה ידנית (בדיקות / גיבוי בלבד — אינה נחשבת סריקת מצלמה):" />
+
+        <EditText
+            android:id="@+id/linkedQrInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minLines="3"
+            android:gravity="top|start"
+            android:hint="SOSPAIR1:…"
+            android:inputType="textMultiLine"
+            android:importantForAutofill="no" />
+
+        <Button
+            android:id="@+id/linkedScanContinue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="המשך מהדבקה"
+            android:layout_marginTop="8dp" />
+
+        <TextView
+            android:id="@+id/linkedStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="12dp"
+            android:textSize="14sp"
+            android:minHeight="48dp" />
+
+        <TextView
+            android:id="@+id/linkedDetail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:paddingTop="4dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingTop="12dp">
+
+            <Button
+                android:id="@+id/linkedApprove"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="אשר קישור"
+                android:enabled="false" />
+
+            <Button
+                android:id="@+id/linkedCancel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="ביטול"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

@@ -26,8 +26,12 @@ SOCIAL POSTS / LIKES / COMMENTS / FOLLOWS / SHARES
     ↓
 GROUP / COMMUNITY ACCESS CONTROL (V2 gated; currently OFF)
     ↓
-MULTI-DEVICE AUTHORIZATION / PAIRING (MD1–MD3 local; QR UI not productized)
+MULTI-DEVICE AUTHORIZATION / PAIRING (MD1–MD4 local; Android Primary live;
+    Mobile Web Primary issuance NOT_IMPLEMENTED — see STAGE5_LINKED_DEVICES_ROADMAP)
 ```
+
+**Canonical Stage 5 linked-device order / dual-primary requirement:**  
+`docs/security/STAGE5_LINKED_DEVICES_ROADMAP.md` (`REQ_ID=STAGE5_DUAL_PRIMARY_QR_PAIRING`).
 
 ---
 

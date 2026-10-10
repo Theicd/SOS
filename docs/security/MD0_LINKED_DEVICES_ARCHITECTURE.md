@@ -707,6 +707,8 @@ No plaintext `K`/`nsec` to any server.
 2. **`MAX_LINKED_DEVICES` hard cap** — recommend **8**. Confirm.
 3. **Standard public Nostr-as-P from desktop** — ship with **phone co-sign only** initially, or invest early in delegated-Nostr profile?
 4. **Recovery Hello every ceremony** — architecture requires **YES** (no remember-me). Confirm.
+5. **`MD5_OFFLINE_SIGNING_DECISION` (OPEN):** How Desktop (and Mobile Web primary when suspended) authors account-P / product events offline — delegated `sig_D` vs phone co-sign vs other reviewed model. **Forbidden:** copy Root K to Desktop. See Stage 5 roadmap.
+6. **Dual-primary Stage 5 order** — acknowledge `STAGE5_DUAL_PRIMARY_QR_PAIRING` and gates in `STAGE5_LINKED_DEVICES_ROADMAP.md`.
 
 No other blocking product forks for MD0 design closure.
 
@@ -714,18 +716,25 @@ No other blocking product forks for MD0 design closure.
 
 ## 45. Implementation roadmap
 
+> **Canonical Stage 5 delivery order** (including mandatory dual-primary QR) lives in  
+> [`docs/security/STAGE5_LINKED_DEVICES_ROADMAP.md`](./STAGE5_LINKED_DEVICES_ROADMAP.md).  
+> Cryptographic selections in this MD0 document remain authoritative. The table below is the  
+> **historical MD0 sketch** and must not be used to skip dual-primary gates.
+
 | Phase | Scope |
 |-------|-------|
 | **MD1** | Device identity keygen + secure storage (Android + desktop stub) |
 | **MD2** | QR pairing protocol (QR fields, transcript, PoP, AEAD channel) |
 | **MD3** | DeviceAuthorization + capability classes + list UX |
-| **MD4** | Initial history/key sync (sealed key index) |
-| **MD5** | Continuous sync / reconciliation / offline queues |
-| **MD6** | Recovery capsule (wrap K; at-rest; no daily unwrap) |
+| **MD4** | Initial history/key sync (sealed key index) — includes S0–S8 dual-primary closure per Stage 5 roadmap |
+| **MD5** | Continuous sync / reconciliation / offline queues (**dual-primary**; offline account-P signing decision OPEN — never copy Root K) |
+| **MD6** | Recovery capsule (wrap K; at-rest; no daily unwrap) *(historical MD0 label; Stage 5 delivery uses MD6 for device revoke/recovery — see Stage 5 roadmap)* |
 | **MD7** | New-phone recovery ceremony |
 | **MD8** | Revocation + post-revoke rekey |
 | **MD9** | Nostr interop (co-sign path + delegated event verify) |
 | **MD10** | Adversarial + scale acceptance |
+
+**REQ_ID=STAGE5_DUAL_PRIMARY_QR_PAIRING:** Desktop link via QR must work from **Android APK Primary** and **Mobile Web Primary** (no APK), same Global P and DeviceAuthorization model. Authenticated web session alone does not authorize DeviceAuthorization signing.
 
 | Insert | When |
 |--------|------|

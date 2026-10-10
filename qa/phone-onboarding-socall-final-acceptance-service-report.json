@@ -1,0 +1,232 @@
+{
+  "gate": "PHONE_ONBOARDING_SOCALL_FINAL_ACCEPTANCE_SERVICE",
+  "status": "PASS",
+  "REAL_WORKER_USED": true,
+  "REAL_DURABLE_OBJECT_USED": true,
+  "MOCK_ONLY": false,
+  "ts": "2026-10-10T16:48:35.531Z",
+  "results": {
+    "REAL_WORKER_HEALTH": {
+      "ok": true,
+      "detail": {
+        "url": "http://127.0.0.1:8839"
+      }
+    },
+    "PHONE_PEPPER_DISCLOSED": {
+      "ok": true,
+      "detail": {
+        "hasPepperLiteral": false,
+        "hasPhoneTokenValue": false,
+        "note": "scheme field names allowed; secret value and token digests must not appear"
+      }
+    },
+    "ANONYMOUS_GENERAL_PHONE_LOOKUP": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "code": "UNAUTHORIZED",
+        "http": 401
+      }
+    },
+    "AUTH_LOOKUP_EMPTY": {
+      "ok": true,
+      "detail": {
+        "result": "OK",
+        "registered": false,
+        "PHONE_LOOKUP_REQUIRES_SHARED_COMMUNITY": false,
+        "PHONE_PREFIX_SEARCH": false,
+        "__http": 200
+      }
+    },
+    "REGISTER_NEW_ACCOUNT_INVITE": {
+      "ok": true,
+      "detail": {}
+    },
+    "WRONG_PHONE_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "code": "WRONG_PHONE"
+      }
+    },
+    "WRONG_PHONE_DOES_NOT_CONSUME": {
+      "ok": true,
+      "detail": {
+        "result": "OK",
+        "known": true,
+        "state": "UNUSED",
+        "expiresAt": 1791654520,
+        "redeemerPubkey": null,
+        "__http": 200
+      }
+    },
+    "REDEEM_OK": {
+      "ok": true,
+      "detail": {}
+    },
+    "GLOBAL_ACCOUNT_CERT_ISSUED": {
+      "ok": true,
+      "detail": {
+        "hasCert": true
+      }
+    },
+    "ONBOARDING_RETRY_IDEMPOTENT": {
+      "ok": true,
+      "detail": {
+        "already": true
+      }
+    },
+    "INVITE_REPLAY_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "code": "ALREADY_USED"
+      }
+    },
+    "TWO_ACTIVE_ACCOUNTS_SAME_PHONE": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "code": "PHONE_REBIND_NOT_IMPLEMENTED_YET"
+      }
+    },
+    "UNAUTHORIZED_PHONE_BIND_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "code": "PHONE_REBIND_NOT_IMPLEMENTED_YET",
+        "http": 401
+      }
+    },
+    "ONE_ACTIVE_PHONE_BINDING_ONLY": {
+      "ok": true,
+      "detail": {
+        "winners": 1,
+        "pubkey": "set",
+        "b": "PHONE_ALREADY_REGISTERED"
+      }
+    },
+    "DURABLE_OBJECT_CONCURRENCY_GATE": {
+      "ok": true,
+      "detail": {
+        "winners": 1,
+        "registered": true
+      }
+    },
+    "ORPHAN_PHONE_RESERVATION": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "orphanClaimed": false,
+        "stR1": "USED",
+        "stR2": "PHONE_CONFLICT",
+        "loserCode": "PHONE_ALREADY_REGISTERED",
+        "winnerState": "USED",
+        "INVITE_CLAIM_CONFLICT_CLEANED": true
+      }
+    },
+    "INVITE_CLAIM_CONFLICT_CLEANED": {
+      "ok": true,
+      "detail": null
+    },
+    "SECOND_IDENTITY_CREATED": {
+      "ok": true,
+      "detail": {
+        "createdSecond": false,
+        "winners": 1
+      }
+    },
+    "FORGED_CERT_EVENT_VERIFY_SELF": {
+      "ok": true,
+      "detail": null
+    },
+    "FORGED_GLOBAL_CERT_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "exists": false
+      }
+    },
+    "COMMUNITY_ADMIN_GLOBAL_DISABLE_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "code": "NOT_GLOBAL_ROOT"
+      }
+    },
+    "GLOBAL_DISABLE_SET": {
+      "ok": true,
+      "detail": {}
+    },
+    "DISABLED_LOOKUP_PRIVACY": {
+      "ok": true,
+      "detail": {
+        "unavailable": true,
+        "pubkey": null
+      }
+    },
+    "DISABLED_P_LOOKUP_DENIED": {
+      "ok": true,
+      "detail": {
+        "code": "ACCOUNT_DISABLED",
+        "http": 401
+      }
+    },
+    "DISABLED_PHONE_SECOND_ACCOUNT": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "code": "PHONE_UNAVAILABLE"
+      }
+    },
+    "FORGED_PHONE_TOKEN_IGNORED_BY_SERVER": {
+      "ok": true,
+      "detail": {
+        "note": "bind uses server computePhoneToken only",
+        "code": "PHONE_REBIND_NOT_IMPLEMENTED_YET"
+      }
+    },
+    "PHONE_LOOKUP_RATE_LIMIT_GATE": {
+      "ok": true,
+      "detail": {
+        "limitedAt": 35,
+        "windowMax": 40
+      }
+    },
+    "PHONE_DIRECTORY_BROWSE_ABSENT": {
+      "ok": true,
+      "detail": {
+        "status": 405
+      }
+    },
+    "PHONE_PRIVACY_LOG_GATE": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "leak": false
+      }
+    },
+    "TEST_PEPPER_NOT_IN_PRODUCTION_CONFIG": {
+      "ok": true,
+      "detail": {
+        "hasPhonePepperAssignment": false
+      }
+    },
+    "MISSING_PEPPER_PHONE_OPERATIONS_FAIL_CLOSED": {
+      "ok": true,
+      "detail": {
+        "bind": "PHONE_REBIND_NOT_IMPLEMENTED_YET",
+        "look": "PHONE_PEPPER_MISSING",
+        "reg": "PHONE_PEPPER_MISSING"
+      }
+    },
+    "HEALTH_OK_WITHOUT_PHONE_PEPPER": {
+      "ok": true,
+      "detail": {
+        "hasHealth": true
+      }
+    }
+  },
+  "fails": [],
+  "pass": 32,
+  "fail": 0
+}

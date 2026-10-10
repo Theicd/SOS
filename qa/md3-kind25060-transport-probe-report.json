@@ -1,0 +1,173 @@
+{
+  "gate": "MD3_KIND25060_TRANSPORT_PROBE",
+  "status": "PASS",
+  "ANDROID_RELAY_ENDPOINT": "ws://10.0.2.2:7805",
+  "DESKTOP_RELAY_ENDPOINT": "ws://127.0.0.1:7805",
+  "SAME_RELAY_INSTANCE": true,
+  "mapping": "ANDROID_10.0.2.2_DESKTOP_127_CHILD_RELAY_NO_ADB_REVERSE",
+  "ROOT_CAUSE": "Same-process Node WebSocketServer + client black-holed emulator 10.0.2.2 accepts; port 7797 firewalled; adb reverse flaky under load",
+  "MINIMAL_SOURCE_FIX": "QA relay in child process + bind 0.0.0.0 on non-firewalled port; Android uses 10.0.2.2; orchestrator uses QR rendezvous without 127↔10.0.2.2 dual-rewrite",
+  "ts": "2026-10-08T19:53:15.939Z",
+  "relayStarted": true,
+  "DESKTOP_TO_DESKTOP_KIND25060": "PASS",
+  "ANDROID_TO_DESKTOP_KIND25060": "PASS",
+  "ANDROID_SOCKET_OPEN": true,
+  "ANDROID_OUTBOUND_WS_FRAME_OBSERVED": true,
+  "KIND_25060_EVENT_VALID": true,
+  "KIND_25060_SIGNATURE_VALID": true,
+  "RELAY_ANDROID_EVENT_RECEIVED": true,
+  "RELAY_ANDROID_EVENT_ACCEPTED": true,
+  "RELAY_DESKTOP_EVENT_FORWARDED": true,
+  "DESKTOP_SUBSCRIPTION_ACTIVE_BEFORE_PUBLISH": true,
+  "DESKTOP_FILTER_MATCHES_ANDROID_EVENT": true,
+  "androidProbe": {
+    "runId": "probe-1791489219013",
+    "ok": true,
+    "ANDROID_SOCKET_OPEN": true,
+    "ANDROID_EVENT_SERIALIZED": true,
+    "ANDROID_EVENT_SEND_INVOKED": true,
+    "ANDROID_SEND_SOCKET_OPEN": true,
+    "ANDROID_OUTBOUND_WS_FRAME_OBSERVED": true,
+    "KIND_25060_EVENT_VALID": true,
+    "TRANSPORT_PUBLISH_OK": true,
+    "relayCategory": "EMULATOR_HOST_ALIAS",
+    "eventIdFp": "833aaac669594a07",
+    "trace": [
+      {
+        "ts": 1791489221157,
+        "phase": "CONNECT_START",
+        "relayCategory": "EMULATOR_HOST_ALIAS",
+        "extra": {
+          "urlHost": "10.0.2.2:7805"
+        }
+      },
+      {
+        "ts": 1791489221193,
+        "phase": "OPEN",
+        "relayCategory": "EMULATOR_HOST_ALIAS",
+        "extra": {
+          "code": 101
+        }
+      },
+      {
+        "ts": 1791489221194,
+        "phase": "OPEN_WAIT_DONE",
+        "relayCategory": "EMULATOR_HOST_ALIAS",
+        "extra": {
+          "opened": true,
+          "awaitOk": true
+        }
+      },
+      {
+        "ts": 1791489221241,
+        "phase": "EVENT_SIGNED",
+        "relayCategory": "EMULATOR_HOST_ALIAS",
+        "extra": {
+          "idFp": "833aaac669594a07",
+          "kind": 25060,
+          "verify": true
+        }
+      },
+      {
+        "ts": 1791489221241,
+        "phase": "SEND",
+        "relayCategory": "EMULATOR_HOST_ALIAS",
+        "extra": {
+          "ok": true,
+          "frameLen": 583
+        }
+      },
+      {
+        "ts": 1791489222051,
+        "phase": "TRANSPORT_PUBLISH",
+        "relayCategory": "EMULATOR_HOST_ALIAS",
+        "extra": {
+          "ok": true
+        }
+      }
+    ]
+  },
+  "notes": [
+    {
+      "test": "DESKTOP_TO_DESKTOP",
+      "ok": true,
+      "got": 1,
+      "verify": true
+    },
+    {
+      "test": "ANDROID_TO_DESKTOP",
+      "ok": true,
+      "androidResult": {
+        "runId": "probe-1791489219013",
+        "ok": true,
+        "ANDROID_SOCKET_OPEN": true,
+        "ANDROID_EVENT_SERIALIZED": true,
+        "ANDROID_EVENT_SEND_INVOKED": true,
+        "ANDROID_SEND_SOCKET_OPEN": true,
+        "ANDROID_OUTBOUND_WS_FRAME_OBSERVED": true,
+        "KIND_25060_EVENT_VALID": true,
+        "TRANSPORT_PUBLISH_OK": true,
+        "relayCategory": "EMULATOR_HOST_ALIAS",
+        "eventIdFp": "833aaac669594a07",
+        "trace": [
+          {
+            "ts": 1791489221157,
+            "phase": "CONNECT_START",
+            "relayCategory": "EMULATOR_HOST_ALIAS",
+            "extra": {
+              "urlHost": "10.0.2.2:7805"
+            }
+          },
+          {
+            "ts": 1791489221193,
+            "phase": "OPEN",
+            "relayCategory": "EMULATOR_HOST_ALIAS",
+            "extra": {
+              "code": 101
+            }
+          },
+          {
+            "ts": 1791489221194,
+            "phase": "OPEN_WAIT_DONE",
+            "relayCategory": "EMULATOR_HOST_ALIAS",
+            "extra": {
+              "opened": true,
+              "awaitOk": true
+            }
+          },
+          {
+            "ts": 1791489221241,
+            "phase": "EVENT_SIGNED",
+            "relayCategory": "EMULATOR_HOST_ALIAS",
+            "extra": {
+              "idFp": "833aaac669594a07",
+              "kind": 25060,
+              "verify": true
+            }
+          },
+          {
+            "ts": 1791489221241,
+            "phase": "SEND",
+            "relayCategory": "EMULATOR_HOST_ALIAS",
+            "extra": {
+              "ok": true,
+              "frameLen": 583
+            }
+          },
+          {
+            "ts": 1791489222051,
+            "phase": "TRANSPORT_PUBLISH",
+            "relayCategory": "EMULATOR_HOST_ALIAS",
+            "extra": {
+              "ok": true
+            }
+          }
+        ]
+      },
+      "desktopGot": 2,
+      "instOk": true,
+      "instTail": "ream=\r\ncom.sos010.app.SosKind25060TransportProbeInstrumentedTest:\r\nINSTRUMENTATION_STATUS: test=publishSyntheticKind25060ToLocalRelay\r\nINSTRUMENTATION_STATUS_CODE: 1\r\nINSTRUMENTATION_STATUS: class=com.sos010.app.SosKind25060TransportProbeInstrumentedTest\r\nINSTRUMENTATION_STATUS: current=1\r\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\r\nINSTRUMENTATION_STATUS: numtests=1\r\nINSTRUMENTATION_STATUS: stream=.\r\nINSTRUMENTATION_STATUS: test=publishSyntheticKind25060ToLocalRelay\r\nINSTRUMENTATION_STATUS_CODE: 0\r\nINSTRUMENTATION_RESULT: stream=\r\n\r\nTime: 1.92\r\n\r\nOK (1 test)\r\n\r\n\r\nINSTRUMENTATION_CODE: -1\r\n"
+    }
+  ],
+  "DESKTOP_TO_ANDROID_KIND25060": "SOCKET_PATH_OK_UNTESTIFIED"
+}

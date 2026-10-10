@@ -1,0 +1,30 @@
+{
+  "gate": "S6_28_GAP_TRIAGE",
+  "ts": "2026-10-10T19:40:00.000Z",
+  "source": "qa/md4-s6-security-matrix-cases.json",
+  "canonicalRoadmap": "docs/security/STAGE5_LINKED_DEVICES_ROADMAP.md",
+  "markers": {
+    "PUBLIC_WEBTORRENT_E2E": "NOT_VERIFIED",
+    "CHROMIUM_IN_PAGE_MEMORY": "NOT_MEASURED",
+    "HARDWARE_CAMERA_QR": "NOT_VERIFIED"
+  },
+  "count": 28,
+  "caseIds": [
+    "B1-20", "B1-21", "B1-22", "B1-23",
+    "B3-40", "B3-41", "B3-42", "B3-43", "B3-44", "B3-45", "B3-46",
+    "B4-20", "B4-21", "B4-22", "B4-23", "B4-24",
+    "B5-20",
+    "B6-20", "B6-21", "B6-22",
+    "C-01", "C-02", "C-03", "C-04", "C-05", "C-07", "C-08", "C-09"
+  ],
+  "hardReleaseBlockersAmongGaps": ["B1-23", "B3-46", "B6-22", "C-09"],
+  "s7a": {
+    "ts": "2026-10-10T20:05:00.000Z",
+    "status": "BLOCKED_HARDWARE",
+    "directlyAffectsS7A": ["B6-22"],
+    "closedInS7A": [],
+    "remaining": 28,
+    "note": "No NOT_VERIFIED case relabeled PASS. B6-22 still blocks S7A physical acceptance."
+  },
+  "note": "Do not relabel any as PASS. Full per-case triage table: STAGE5_LINKED_DEVICES_ROADMAP.md § S6 triage."
+}

@@ -2126,16 +2126,19 @@
     <script src="./call-cold-boot.js?v=20260920cold2"></script>
     <!-- Package 896: canonical runtime feature flags — must load before any V2 module -->
     <script src="./feature-flags.js?pkg=899g4"></script>
-    <script src="./admin-2fa-protocol.js?pkg=899p4"></script>
+    <script src="./admin-2fa-protocol.js?pkg=899s9"></script>
     <script src="./key-storage.js?pkg=899" defer></script>
     <script src="./identity-storage-bootstrap.js?pkg=899" defer></script>
     <script src="./config.js?pkg=899p" defer></script>
     <script src="./community-context.js?pkg=899g4" defer></script>
+    <script src="./phone-normalize.js?pkg=899s13" defer></script>
+    <script src="./global-identity-foundation.js?pkg=899s13" defer></script>
+    <script src="./global-admission-client.js?pkg=899s13" defer></script>
     <script src="./community-branding-ui.js?pkg=899g4" defer></script>
     <script src="./community-feed-selection.js?pkg=899g4" defer></script>
     <script src="./access-control-v2-local-test.js?v=20260926acv2prod1" defer></script>
     <script src="./access-control.js?v=20260923ac1" defer></script>
-    <script src="./admin-signing-policy.js?pkg=899p4" defer></script>
+    <script src="./admin-signing-policy.js?pkg=899s9" defer></script>
     <script src="./guest-access-control.js?v=20260923ac8" defer></script>
     <script src="./guest-p2p-schema.js?pkg=899g4" defer></script>
     <script src="./group-control-state.js?pkg=899p4" defer></script>
@@ -2143,9 +2146,9 @@
     <script src="./utils.js?v=20260916sec18" defer></script>
     <script src="./nostr-event-integrity.js?pkg=899" defer></script>
     <script src="./secure-channel.js" defer></script>
-    <script src="./keys.js?pkg=899" defer></script>
-    <script src="./f5b6w-handoff-client.js?pkg=899i" defer></script>
-    <script src="./identity-lifecycle.js?pkg=899i" defer></script>
+    <script src="./keys.js?pkg=899s9" defer></script>
+    <script src="./f5b6w-handoff-client.js?pkg=899s11" defer></script>
+    <script src="./identity-lifecycle.js?pkg=899s9" defer></script>
     <script src="./session-authority.js?pkg=899" defer></script>
     <script src="./native-typed-crypto-bridge.js?pkg=899" defer></script>
     <script src="./signer-outage-isolation.js?v=20260923f5b4r" defer></script>
@@ -2166,8 +2169,8 @@
     <script src="./p2p-peer-exchange.js?v=20260916sec18" defer></script>
     <script src="./p2p-metadata-transfer.js" defer></script>
     <script src="./contract-dashboard-v2.js" defer></script>
-    <script src="./app.js?pkg=899" defer></script>
-    <script src="./sos-crypto-signer.js?pkg=899p4" defer></script>
+    <script src="./app.js?pkg=899s13" defer></script>
+    <script src="./sos-crypto-signer.js?pkg=899s13" defer></script>
     <script src="./sos-crypto-worker-vault.js?pkg=899i" defer></script>
     <!-- חלק ניווט (videos.html) — הגדרת לשונית פעילה לוידאו וטעינת מודול הניווט | HYPER CORE TECH -->
     <script>
@@ -2242,22 +2245,38 @@
     <script src="./invite-policy.js?pkg=899p4" defer></script>
     <script src="./moderation-policy.js?pkg=899q" defer></script>
     <script src="./membership-state.js?pkg=899g4" defer></script>
+    <script src="./account-status-state.js?pkg=899s9" defer></script>
+    <script src="./global-account-status-state.js?pkg=899s13" defer></script>
+    <script src="./directory-hygiene-state.js?pkg=899s9" defer></script>
+    <script src="./account-directory-ops.js?pkg=899s9" defer></script>
     <script src="./group-control-mutations.js?pkg=899p4" defer></script>
     <script src="./member-admin-operations.js?pkg=899p" defer></script>
     <script src="./first-group-admission-client.js?pkg=899p" defer></script>
-    <script src="./first-group-network-authority.js?pkg=899p" defer></script>
+    <script src="./first-group-network-authority.js?pkg=899s9" defer></script>
     <script src="./admin-2fa-client.js?pkg=899p4" defer></script>
     <script src="./admin-pin-lock.js?pkg=899p4" defer></script>
-    <script src="./first-group-admin.js?pkg=899q" defer></script>
+    <script src="./first-group-admin.js?pkg=899s9" defer></script>
     <script src="./admin-settings-ui.js?pkg=899j" defer></script>
     <script src="./member-directory-ui.js?v=20260923ac7" defer></script>
     <script src="./group-reports.js?pkg=899m" defer></script>
-    <script src="./group-admin-product-ui.js?pkg=899q" defer></script>
-    <script src="./invite-service.js?pkg=899p" defer></script>
+    <script src="./group-admin-product-ui.js?pkg=899s9" defer></script>
+    <script src="./invite-service.js?pkg=899s13" defer></script>
     <script src="./vendor/qrcode-browser.js?v=20260926web1" defer></script>
     <script src="./sos-invite-qr-ui.js?v=20260926web1" defer></script>
-    <script src="./sos-md2-pairing-qr.js?v=20260926web1" defer></script>
-    <script src="./guest-auth.js?pkg=899i" defer></script>
+    <script src="./sos-md2-pairing-qr.js?v=20260926web1&pkg=899s18" defer></script>
+    <script src="./sos-md2-pairing-session.js?pkg=899s20" defer></script>
+    <script src="./sos-md4-device-auth.js?pkg=899s20" defer></script>
+    <script src="./sos-md4-device-store.js?pkg=899s20" defer></script>
+    <script src="./sos-ald-w1a-verify.js?pkg=md3w-w1b" defer></script>
+    <script src="./sos-authorize-linked-device.js?pkg=md3w-w1b" defer></script>
+    <script src="./sos-web-phone-issuer.js?pkg=md3w-w1b" defer></script>
+    <script src="./sos-web-linked-qr-scanner.js?pkg=md3w-w2" defer></script>
+    <script src="./sos-md4-cki.js?pkg=899s21" defer></script>
+    <script src="./sos-md4-history-checkpoint.js?pkg=899s40" defer></script>
+    <script src="./sos-md4-attachment-sync.js?pkg=899s50" defer></script>
+    <script src="./sos-md4-history-sync.js?pkg=899s50" defer></script>
+    <script src="./sos-web-linked-devices.js?pkg=899s20" defer></script>
+    <script src="./guest-auth.js?pkg=899s13" defer></script>
     <!-- מודולי צ'אט (videos.html) — זהים לעמודים הראשיים | HYPER CORE TECH -->
     <script src="./chat-state.js?v=20260920pres2" defer></script>
     <script src="./chat-e2ee.js?v=20260929cb1" defer></script>
@@ -2288,7 +2307,7 @@
     <script src="./chat-composer-enhanced.js?v=20260816voice1" defer></script>
     <script src="./chat-p2p-secure-v2.js?v=20260922p2psecv2" defer></script>
     <script src="./chat-p2p-datachannel.js?v=20260929cb1" defer></script>
-    <script src="./chat-ui.js?v=20260920pres2" defer></script>
+    <script src="./chat-ui.js?v=20260920pres2&pkg=899s13" defer></script>
     <!-- רשת חירום מקומית (AndroidBridge) | HYPER CORE TECH -->
     <script src="./android-bridge.js?v=20260916sec18" defer></script>
     <script src="./emergency-bridge.js?v=20260905p1" defer></script>
@@ -2951,26 +2970,19 @@
           </div>
         </div>
 
-        <!-- שלב הרשמה: הזמנה -->
+        <!-- שלב הרשמה: הזמנה + טלפון + מייל + אישור משפטי (מסך אחד) -->
         <div id="authStepInvite" class="auth-step" style="display:none;">
           <button type="button" id="btnBackFromInvite" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">→</button>
-          <h2 style="margin-bottom: 12px; font-size: 22px;">הזמנה לרשת</h2>
-          <p style="margin-bottom: 18px; color: #666; font-size: 14px; line-height: 1.5;">
-            פתיחת משתמש חדש אפשרית עם קוד הזמנה שקיבלתם מחבר ברשת (בדרך כלל בקישור מוואטסאפ).
+          <h2 style="margin-bottom: 12px; font-size: 22px;">פתיחת חשבון</h2>
+          <p style="margin-bottom: 14px; color: #666; font-size: 14px; line-height: 1.5;">
+            הזמנה, מספר טלפון ומייל — ואז יצירת הזהות ושמירת המפתח.
           </p>
+          <label for="signupInviteCodeInput" style="display:block;font-size:13px;color:#888;margin-bottom:4px;">קוד הזמנה</label>
           <input type="text" id="signupInviteCodeInput" placeholder="קוד הזמנה" autocomplete="off" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 12px; letter-spacing: 1px; text-transform: uppercase;" />
-          <input type="tel" id="signupInvitePhoneInput" hidden autocomplete="off" tabindex="-1" aria-hidden="true" />
-          <p id="inviteStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
-          <button type="button" class="button-primary" id="btnInviteNext" style="width: 100%; padding: 14px; font-size: 16px;">
-            המשך
-          </button>
-        </div>
-
-        <!-- שלב 1 הרשמה: מייל -->
-        <div id="authStepEmail" class="auth-step" style="display:none;">
-          <button type="button" id="btnBackFromEmail" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">→</button>
-          <h2 style="margin-bottom: 20px; font-size: 22px;">מה כתובת המייל שלך?</h2>
-          <input type="email" id="signupEmailInput" placeholder="your@email.com" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 15px;" />
+          <label for="signupInvitePhoneInput" style="display:block;font-size:13px;color:#888;margin-bottom:4px;">מספר טלפון</label>
+          <input type="tel" id="signupInvitePhoneInput" placeholder="050-123-4567" autocomplete="tel" inputmode="tel" dir="ltr" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 12px;" />
+          <label for="signupEmailInput" style="display:block;font-size:13px;color:#888;margin-bottom:4px;">אימייל</label>
+          <input type="email" id="signupEmailInput" placeholder="your@email.com" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 15px; margin-bottom: 12px;" />
           <div class="auth-legal-block">
             <label class="auth-legal-checkbox">
               <input type="checkbox" id="signupLegalAgree" />
@@ -2984,12 +2996,37 @@
                 </span>
               </span>
             </label>
-            <p class="auth-legal-note">המייל נרשם כ-hash ברשת כדי למנוע הרשמה כפולה. לא נשלח מייל אימות בשלב זה.</p>
           </div>
-          <p id="emailStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
-          <button type="button" class="button-primary" id="btnEmailNext" style="width: 100%; padding: 14px; font-size: 16px;">
-            הבא
+          <p id="inviteStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
+          <button type="button" class="button-primary" id="btnInviteNext" style="width: 100%; padding: 14px; font-size: 16px;">
+            המשך
           </button>
+        </div>
+
+        <!-- שלב מייל (legacy container; fields live on invite step) -->
+        <div id="authStepEmail" class="auth-step" style="display:none;" aria-hidden="true">
+          <button type="button" id="btnBackFromEmail" style="position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">→</button>
+          <p id="emailStatus" style="margin-bottom: 15px; font-size: 14px; min-height: 20px;"></p>
+          <button type="button" class="button-primary" id="btnEmailNext" style="width: 100%; padding: 14px; font-size: 16px;display:none;" hidden aria-hidden="true">
+            המשך
+          </button>
+        </div>
+
+        <!-- מודאל הזמן חבר: אנשי קשר / הזנה ידנית -->
+        <div id="inviteFriendModal" class="modal" aria-hidden="true" hidden style="display:none;">
+          <div class="modal-content" style="max-width:420px;text-align:right;" dir="rtl">
+            <h2 style="margin:0 0 12px;font-size:20px;">הזמן חבר</h2>
+            <p style="margin:0 0 14px;color:#aaa;font-size:14px;line-height:1.5;">בחרו איש קשר או הזינו מספר. לא מועלה ספר כתובות שלם.</p>
+            <button type="button" class="button-primary" id="btnInvitePickContact" style="width:100%;margin-bottom:10px;padding:12px;">בחר מאנשי הקשר</button>
+            <button type="button" class="button-secondary" id="btnInviteManualPhone" style="width:100%;margin-bottom:12px;padding:12px;">הזן מספר ידנית</button>
+            <div id="inviteFriendManualBlock" hidden>
+              <input type="tel" id="inviteFriendPhoneInput" placeholder="050-123-4567" inputmode="tel" dir="ltr" style="width:100%;padding:12px;border-radius:8px;border:1px solid #444;margin-bottom:10px;font-size:15px;" />
+              <button type="button" class="button-primary" id="btnInviteFriendContinue" style="width:100%;padding:12px;margin-bottom:10px;">המשך</button>
+            </div>
+            <div id="inviteFriendResult" hidden style="margin-bottom:12px;"></div>
+            <p id="inviteFriendStatus" style="min-height:20px;font-size:13px;color:#ffc107;"></p>
+            <button type="button" class="button-secondary" id="btnInviteFriendClose" style="width:100%;padding:10px;">סגור</button>
+          </div>
         </div>
 
         <!-- שלב 2 הרשמה: שם משתמש -->
@@ -3060,16 +3097,16 @@
             </button>
           </div>
           <div id="workerIdentityDone" hidden style="text-align: right; margin-bottom: 20px;">
-            <p style="font-size: 15px; color: #4caf50; margin: 0 0 10px; font-weight: bold;">הזהות שלך נוצרה. נשאר שלב אחד: לשמור את המפתח האישי.</p>
-            <p style="font-size: 14px; color: #ffffff; margin: 0 0 12px; line-height: 1.6;">המפתח האישי מאפשר לך לחזור לאותו חשבון אם תחליף או תאבד את המכשיר.</p>
-            <p style="font-size: 13px; color: #aaa; margin: 0 0 4px;">PUBLIC KEY</p>
+            <p style="font-size: 15px; color: #4caf50; margin: 0 0 10px; font-weight: bold;">הזהות שלך נוצרה</p>
+            <p style="font-size: 14px; color: #ffffff; margin: 0 0 12px; line-height: 1.6;">קובץ זה משמש לכניסה ולשחזור החשבון. שמרו אותו במקום בטוח. SOS אינו יכול לשחזר אותו עבורכם.</p>
+            <p style="font-size: 13px; color: #aaa; margin: 0 0 4px;">מזהה ציבורי</p>
             <p id="workerIdentityPubkey" dir="ltr" style="font-family: monospace; font-size: 12px; color: #ffffff; word-break: break-all; margin: 0 0 10px;"></p>
-            <p style="font-size: 13px; color: #aaa; margin: 0 0 4px;">FINGERPRINT</p>
+            <p style="font-size: 13px; color: #aaa; margin: 0 0 4px;">טביעת אצבע</p>
             <p id="workerIdentityFingerprint" dir="ltr" style="font-family: monospace; font-size: 14px; color: #ffffff; margin: 0 0 14px;"></p>
-            <p id="recoveryBackupStatus" style="font-size: 14px; color: #ffc107; margin: 0 0 12px;">המפתח האישי עדיין לא נשמר כקובץ</p>
-            <button type="button" class="button-primary" id="btnRecoveryBackup" style="width: 100%; padding: 12px; font-size: 15px; margin-bottom: 10px;">קבלת המפתח ושמירה כקובץ</button>
-            <button type="button" class="button-primary" id="btnWorkerIdentityContinue" hidden style="width: 100%; padding: 12px; font-size: 15px;">כניסה ל-SOS</button>
-            <button type="button" class="button-secondary" id="btnWorkerIdentitySkip" style="width: 100%; padding: 8px; font-size: 13px; background: transparent; border: none; color: #aaa;">אשמור מאוחר יותר (המפתח עדיין לא נשמר)</button>
+            <p id="recoveryBackupStatus" style="font-size: 14px; color: #ffc107; margin: 0 0 12px;">יש לשמור את המפתח לפני הכניסה ל-SOS</p>
+            <button type="button" class="button-primary" id="btnRecoveryBackup" style="width: 100%; padding: 12px; font-size: 15px; margin-bottom: 10px;">שמירת המפתח</button>
+            <button type="button" class="button-primary" id="btnWorkerIdentityContinue" hidden style="width: 100%; padding: 12px; font-size: 15px;">בדקתי שהקובץ ירד — כניסה ל-SOS</button>
+            <button type="button" class="button-secondary" id="btnWorkerIdentitySkip" hidden style="display:none;width: 100%; padding: 8px; font-size: 13px; background: transparent; border: none; color: #aaa;" aria-hidden="true" tabindex="-1">אשמור מאוחר יותר</button>
           </div>
           <label id="legacyKeyConfirm" style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 20px; cursor: pointer;">
             <input type="checkbox" id="keyConfirmCheckbox" style="width: 18px; height: 18px; cursor: pointer;" />

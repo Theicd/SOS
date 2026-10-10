@@ -1,10 +1,10 @@
 {
   "gate": "PACKAGE894_REAL_BROWSER_P2P",
   "status": "PASS",
-  "ts": "2026-09-27T23:56:14.160Z",
+  "ts": "2026-10-08T10:42:08.810Z",
   "production": {
     "url": "http://127.0.0.1:8794/videos.html",
-    "package": "2026.09.28-web-898"
+    "package": "2026.10.05-web-899s.17"
   },
   "p2p": {
     "REAL_BROWSER_P2P_CAPABILITY_A": true,
@@ -22,7 +22,7 @@
         "initiator": true
       }
     ],
-    "REAL_BROWSER_P2P_SETUP_MS": 5500,
+    "REAL_BROWSER_P2P_SETUP_MS": 3065,
     "REAL_BROWSER_P2P_OFFER_SENT": true,
     "REAL_BROWSER_P2P_ANSWER_RECEIVED": true,
     "REAL_BROWSER_P2P_ICE_STARTED": true,
@@ -52,8 +52,8 @@
         "host"
       ],
       "remote": [
-        "host",
-        "srflx"
+        "srflx",
+        "host"
       ]
     },
     "P2P_CODE_FIX_REQUIRED": false
@@ -66,7 +66,7 @@
       "via": "raw-dc",
       "pubTransport": "DC",
       "recvA": true,
-      "tokenA": "SOS-PROD-REAL-P2P-A2B-1790553386521"
+      "tokenA": "SOS-PROD-REAL-P2P-A2B-1791456139493"
     },
     "REAL_BROWSER_P2P_TEXT_B2A_GATE": "PASS",
     "sendB": {
@@ -74,7 +74,7 @@
       "via": "raw-dc",
       "pubTransport": "DC",
       "recvB": true,
-      "tokenB": "SOS-PROD-REAL-P2P-B2A-1790553386524"
+      "tokenB": "SOS-PROD-REAL-P2P-B2A-1791456139496"
     }
   },
   "file": {
@@ -82,29 +82,29 @@
     "REAL_BROWSER_P2P_FILE_HASH_MATCH": true,
     "REAL_BROWSER_P2P_FILE_GATE": "PASS",
     "send": {
-      "hash": "97f8d97fcd90a1f9dfc80faf75514c802469b52e91352c8e68a16d73bb9842ba",
-      "ackHash": "97f8d97fcd90a1f9dfc80faf75514c802469b52e91352c8e68a16d73bb9842ba",
-      "ms": 5010,
+      "hash": "5b885b6616cfec42d068ed7e2d43025d38096737d810a08add5fcf72cfe3a21b",
+      "ackHash": "5b885b6616cfec42d068ed7e2d43025d38096737d810a08add5fcf72cfe3a21b",
+      "ms": 4400,
       "size": 10485760,
       "ok": true
     },
     "recv": {
       "ok": true,
-      "hash": "97f8d97fcd90a1f9dfc80faf75514c802469b52e91352c8e68a16d73bb9842ba",
+      "hash": "5b885b6616cfec42d068ed7e2d43025d38096737d810a08add5fcf72cfe3a21b",
       "bytes": 10485760
     }
   },
   "perf": {
     "REAL_BROWSER_P2P_RTT_SAMPLES": [
+      1,
+      1,
+      8,
       2,
-      1,
-      1,
-      1,
       1
     ],
-    "REAL_BROWSER_P2P_RTT_AVG_MS": 1,
-    "REAL_BROWSER_P2P_SETUP_MS": 5500,
-    "REAL_BROWSER_P2P_10MB_MBPS": 16.744,
+    "REAL_BROWSER_P2P_RTT_AVG_MS": 3,
+    "REAL_BROWSER_P2P_SETUP_MS": 3065,
+    "REAL_BROWSER_P2P_10MB_MBPS": 19.065,
     "REAL_BROWSER_P2P_PERFORMANCE_GATE": "PASS"
   },
   "fallback": {

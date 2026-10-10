@@ -292,7 +292,14 @@ const pushSrc = read('push-trigger.js');
 const nativeWatcher = read('android-shell/app/src/main/java/com/sos010/app/SosRelayWatcher.kt');
 
 // --- Static cutover-ready assertions ---
-record('app-version call-coldanswer1', String(appVer.version || '').includes('call-coldanswer1'));
+// Version pin: call-coldanswer1 was a cutover milestone; current lineage is 899s.* with E2EE flags explicit.
+record(
+  'app-version 899s E2EE lineage',
+  /^2026\.10\.05-web-899s\./.test(String(appVer.version || '')) &&
+    appVer.e2eeSendRequired === true &&
+    appVer.mediaServerE2eeRequired === true &&
+    appVer.callSignalGiftWrapRequired === true,
+);
 record('minSecureChatEpoch=2', Number(appVer.minSecureChatEpoch) === 2);
 record('e2eeSendRequired explicit true (E3B ACTIVE)',
   Object.prototype.hasOwnProperty.call(appVer, 'e2eeSendRequired') && appVer.e2eeSendRequired === true);
@@ -300,9 +307,12 @@ record('mediaServerE2eeRequired explicit true (Phase B ACTIVE)',
   Object.prototype.hasOwnProperty.call(appVer, 'mediaServerE2eeRequired') && appVer.mediaServerE2eeRequired === true);
 record('callSignalGiftWrapRequired true (RC)',
   Object.prototype.hasOwnProperty.call(appVer, 'callSignalGiftWrapRequired') && appVer.callSignalGiftWrapRequired === true);
-record('SW cache v871', /sos-cache-v871/.test(sw));
+// SW cache advanced with 899 packages (v871 pin was pre-899 cutover).
+record('SW cache v899 lineage', /sos-cache-v899/.test(sw));
 record('chat-service resolves relay policy before publish',
-  svc.includes('resolveRelayE2eeSendDecision') && svc.includes('encryptPrivateChatPayload'));
+  svc.includes('resolveRelayE2eeSendDecision') &&
+    svc.includes('nip44ChatEncrypt') &&
+    svc.includes('e2ee-encrypt-failed'));
 record('chat-service fail-closed encrypt errors', svc.includes('e2ee-encrypt-failed') && svc.includes('e2ee-key-unavailable'));
 record('chat-service blocks on policy unavailable', svc.includes('e2ee-policy-unavailable'));
 record('no plaintext fallback comment/guard', svc.includes('never plaintext') || svc.includes('Fail closed'));

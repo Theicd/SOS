@@ -74,7 +74,9 @@
     inviteCode: '',
     invitePhone: '',
     invitePhoneHash: '',
-    inviterPubkey: ''
+    inviterPubkey: '',
+    invitePurpose: '',
+    inviteEventId: ''
   };
 
   function normalizeEmail(email) {
@@ -328,7 +330,9 @@
       inviteCode: '',
       invitePhone: '',
       invitePhoneHash: '',
-      inviterPubkey: ''
+      inviterPubkey: '',
+      invitePurpose: '',
+      inviteEventId: ''
     };
   }
 
@@ -349,10 +353,11 @@
   }
 
   function resolveAuthStep(step) {
+    // Legacy 'email' step maps to combined invite+phone+email registration screen.
+    if (step === 'email' || step === 'authStepEmail') return 'authStepInvite';
     if (!step || step === 'initial') return 'authStepInitial';
     if (step === 'invite' || step === 'authStepInvite') return 'authStepInvite';
     if (step === 'login' || step === 'authStepLogin') return 'authStepLogin';
-    if (step === 'email' || step === 'authStepEmail') return 'authStepEmail';
     if (String(step).indexOf('authStep') === 0) return step;
     return 'authStepInitial';
   }
@@ -482,15 +487,23 @@
     function renderRecoveryBackupStatus() {
       var statusEl = document.getElementById('recoveryBackupStatus');
       var btn = document.getElementById('btnRecoveryBackup');
+      var continueBtn = document.getElementById('btnWorkerIdentityContinue');
       var RB = App.RecoveryBackup;
       var exported = !!(RB && RB.isPersonalKeyExported(App.publicKey));
       if (statusEl) {
-        statusEl.textContent = exported ? 'המפתח נשמר בהצלחה' : 'המפתח האישי עדיין לא נשמר כקובץ';
+        // Blob+anchor download can only confirm initiation — not durable disk write.
+        statusEl.textContent = exported
+          ? 'הורדת המפתח התחילה. ודאו שקובץ המפתח הופיע בתיקיית ההורדות ושמרו אותו במקום בטוח.'
+          : 'קובץ זה משמש לכניסה ולשחזור החשבון. שמרו אותו במקום בטוח. SOS אינו יכול לשחזר אותו עבורכם.';
         statusEl.style.color = exported ? '#4caf50' : '#ffc107';
       }
       setBlockVisible(btn, !exported);
-      setBlockVisible(document.getElementById('btnWorkerIdentityContinue'), exported);
-      setBlockVisible(document.getElementById('btnWorkerIdentitySkip'), !exported);
+      setBlockVisible(continueBtn, exported);
+      if (continueBtn && exported) {
+        continueBtn.textContent = 'בדקתי שהקובץ ירד — כניסה ל-SOS';
+      }
+      // INITIAL_BACKUP_REQUIRED: never offer skip-later for new Worker identities.
+      setBlockVisible(document.getElementById('btnWorkerIdentitySkip'), false);
     }
 
     function showWorkerIdentityDone() {
@@ -507,6 +520,8 @@
       setBlockVisible(document.getElementById('workerIdentityDone'), true);
       var title = document.getElementById('authKeyTitle');
       if (title) title.textContent = 'המפתח האישי שלך';
+      var saveBtn = document.getElementById('btnRecoveryBackup');
+      if (saveBtn) saveBtn.textContent = 'שמירת המפתח';
       renderRecoveryBackupStatus();
     }
 
@@ -514,29 +529,42 @@
     if (btnRecoveryBackup) {
       btnRecoveryBackup.addEventListener('click', function() {
         var RB = App.RecoveryBackup;
-        var r = RB && typeof RB.start === 'function' ? RB.start() : { ok: false, code: 'UNAVAILABLE' };
+        var r = RB && typeof RB.start === 'function' ? RB.start({ initialRecovery: true }) : { ok: false, code: 'UNAVAILABLE' };
         if (!r || !r.ok) {
           setStatus('keyStatus', r && r.code === 'POPUP_BLOCKED' ? 'הדפדפן חסם את החלון המאובטח. אפשרו חלונות קופצים ונסו שוב.' : 'לא ניתן לפתוח את החלון המאובטח כרגע.', true);
           return;
         }
-        setStatus('keyStatus', 'המשיכו בחלון המאובטח (signer.sos010.com): אימות במכשיר ושמירת המפתח כקובץ.', false);
+        setStatus('keyStatus', 'המשיכו בחלון המאובטח: שמירת המפתח כקובץ.', false);
       });
     }
     window.addEventListener('sos-recovery-backup-state', function(ev) {
       renderRecoveryBackupStatus();
       var st = ev && ev.detail && ev.detail.state;
-      if (st === 'CONFIRMED') setStatus('keyStatus', 'המפתח נשמר בהצלחה.', false);
-      else if (st === 'IN_SIGNER') setStatus('keyStatus', 'המפתח הועבר לחותם המאובטח. השלימו את שמירת הקובץ בחלון החותם.', false);
-      else if (st === 'ERROR') setStatus('keyStatus', 'קבלת המפתח נכשלה: ' + ((ev.detail && ev.detail.code) || 'שגיאה'), true);
-    });
-    ['btnWorkerIdentityContinue', 'btnWorkerIdentitySkip'].forEach(function(id) {
-      var b = document.getElementById(id);
-      if (b) {
-        b.addEventListener('click', function() {
-          window.location.reload();
-        });
+      if (st === 'CONFIRMED') {
+        setStatus('keyStatus', 'הורדת המפתח התחילה. ודאו שקובץ המפתח הופיע בתיקיית ההורדות ושמרו אותו במקום בטוח.', false);
+      } else if (st === 'IN_SIGNER') {
+        setStatus('keyStatus', 'המפתח הועבר לחלון המאובטח. השלימו שם את שמירת הקובץ.', false);
+      } else if (st === 'ERROR') {
+        setStatus('keyStatus', 'קבלת המפתח נכשלה: ' + ((ev.detail && ev.detail.code) || 'שגיאה'), true);
       }
     });
+    var btnWorkerContinue = document.getElementById('btnWorkerIdentityContinue');
+    if (btnWorkerContinue) {
+      // AUTO_ENTER_AFTER_DOWNLOAD_TRIGGER=false — user must click after download initiation.
+      btnWorkerContinue.addEventListener('click', function() {
+        var RB = App.RecoveryBackup;
+        if (!(RB && RB.isPersonalKeyExported(App.publicKey))) {
+          setStatus('keyStatus', 'יש להתחיל את הורדת המפתח לפני הכניסה ל-SOS.', true);
+          return;
+        }
+        window.location.reload();
+      });
+    }
+    var btnWorkerSkip = document.getElementById('btnWorkerIdentitySkip');
+    if (btnWorkerSkip) {
+      btnWorkerSkip.hidden = true;
+      btnWorkerSkip.style.display = 'none';
+    }
 
     function updateFinalConnectState() {
       if (!btnFinalConnect) return;
@@ -567,13 +595,10 @@
     if (btnStartSignup) {
       btnStartSignup.addEventListener('click', function() {
         var inviteCode = prefillInviteFromUrl(true);
-        if (inviteCode || requireInviteEnabled()) {
-          showStep('authStepInvite');
-          if (inviteCode) {
-            setTimeout(function() { submitInviteStep({ auto: true }); }, 200);
-          }
-        } else {
-          showStep('authStepEmail');
+        // Phone + email + legal always on the invite registration screen.
+        showStep('authStepInvite');
+        if (inviteCode) {
+          setTimeout(function() { submitInviteStep({ auto: true }); }, 200);
         }
       });
     }
@@ -655,13 +680,15 @@
             if (!switchedLogin || !switchedLogin.ok) {
               var errCode = (switchedLogin && (switchedLogin.code || switchedLogin.reason)) || '';
               var msg =
-                (switchedLogin && switchedLogin.hebrewError) ||
-                (typeof App.existingKeyImportHebrewError === 'function'
-                  ? App.existingKeyImportHebrewError(errCode)
-                  : '') ||
-                (switchedLogin && switchedLogin.state === 'IDENTITY_RECOVERY_REQUIRED'
-                  ? 'לא ניתן היה לחבר את החשבון. נסה שוב.'
-                  : 'המפתח שהוזן אינו תקין');
+                errCode === 'ACCOUNT_DISABLED'
+                  ? (switchedLogin.message || 'החשבון הושבת ואינו מורשה להתחבר ל-SOS.')
+                  : (switchedLogin && switchedLogin.hebrewError) ||
+                    (typeof App.existingKeyImportHebrewError === 'function'
+                      ? App.existingKeyImportHebrewError(errCode)
+                      : '') ||
+                    (switchedLogin && switchedLogin.state === 'IDENTITY_RECOVERY_REQUIRED'
+                      ? 'לא ניתן היה לחבר את החשבון. נסה שוב.'
+                      : 'המפתח שהוזן אינו תקין');
               setStatus('loginStatus', msg, true);
               return;
             }
@@ -691,64 +718,146 @@
           }
           storeNostrPrivateKeyGuest(normalizedLogin);
           App.privateKey = normalizedLogin;
-          if (typeof App.ensureKeys === 'function') {
-            var loginResult = App.ensureKeys();
-            if (!loginResult || loginResult.ok !== true) {
-              setStatus('loginStatus', 'המפתח לא תקין', true);
+          var derivedPub = '';
+          try {
+            var getPk2 = App.getPublicKey || (window.NostrTools && window.NostrTools.getPublicKey);
+            if (typeof getPk2 === 'function') derivedPub = String(getPk2(normalizedLogin) || '').toLowerCase();
+          } catch (_dp) {
+            derivedPub = '';
+          }
+          function finishKeyLogin() {
+            if (typeof App.ensureKeys === 'function') {
+              var loginResult = App.ensureKeys();
+              if (!loginResult || loginResult.ok !== true) {
+                var disabled =
+                  loginResult && (loginResult.code === 'ACCOUNT_DISABLED' || loginResult.ACCOUNT_DISABLED === true);
+                setStatus(
+                  'loginStatus',
+                  disabled ? (loginResult.message || 'החשבון הושבת ואינו מורשה להתחבר ל-SOS.') : 'המפתח לא תקין',
+                  true,
+                );
+                return;
+              }
+            }
+            App.guestMode = false;
+            try {
+              if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
+            } catch (_s) {}
+            setStatus('loginStatus', 'מתחבר...', false);
+            setTimeout(function () {
+              window.location.reload();
+            }, 500);
+          }
+          try {
+            var GA = App.GlobalAdmission || window.SosGlobalAdmission;
+            if (GA && typeof GA.reconcileAccountStatus === 'function' && /^[0-9a-f]{64}$/.test(derivedPub)) {
+              Promise.resolve(GA.reconcileAccountStatus(derivedPub))
+                .then(finishKeyLogin)
+                .catch(finishKeyLogin);
               return;
             }
-          }
-          App.guestMode = false;
-          try { if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi(); } catch (_s) {}
-          setStatus('loginStatus', 'מתחבר...', false);
-          setTimeout(function() {
-            window.location.reload();
-          }, 500);
+          } catch (_recLogin) {}
+          finishKeyLogin();
         } catch (e) {
           setStatus('loginStatus', 'שגיאה בשמירת המפתח', true);
         }
       });
     }
 
-    // הרשמה - שלב הזמנה
+    // הרשמה — מסך אחד: הזמנה + טלפון + מייל + אישור משפטי
     async function submitInviteStep(options) {
       var opts = options || {};
       var auto = !!opts.auto;
       var code = prefillInviteFromUrl(true) ||
         ((signupInviteCodeInput && signupInviteCodeInput.value) || '').trim().toUpperCase();
-      var phone = (signupInvitePhoneInput && signupInvitePhoneInput.value || '').trim();
+      var phoneRaw = (signupInvitePhoneInput && signupInvitePhoneInput.value || '').trim();
+      var email = normalizeEmail(signupEmailInput && signupEmailInput.value);
+      var PN = App.PhoneNormalize || window.SosPhoneNormalize;
+      var inviteRequired = requireInviteEnabled();
 
       if (signupInviteCodeInput && code) {
         signupInviteCodeInput.value = code;
       }
 
-      if (!code) {
+      if (!code && inviteRequired) {
         if (!auto) setStatus('inviteStatus', 'נא להזין קוד הזמנה', true);
+        return false;
+      }
+      // Deep-link auto-fill must NOT skip phone/email — user must enter phone.
+      if (auto && !phoneRaw) {
+        setStatus('inviteStatus', 'הזינו את מספר הטלפון שאליו נשלחה ההזמנה.', false);
+        if (signupInvitePhoneInput) signupInvitePhoneInput.focus();
+        return false;
+      }
+      if (!phoneRaw) {
+        setStatus('inviteStatus', 'נא להזין מספר טלפון', true);
+        return false;
+      }
+      var phoneNorm = PN && typeof PN.normalizePhoneE164 === 'function' ? PN.normalizePhoneE164(phoneRaw) : null;
+      if (!phoneNorm || !phoneNorm.ok) {
+        setStatus('inviteStatus', 'מספר טלפון לא תקין', true);
+        return false;
+      }
+      if (signupLegalCheckbox && !signupLegalCheckbox.checked) {
+        setStatus('inviteStatus', 'נא לאשר את תנאי השימוש לפני המשך.', true);
+        return false;
+      }
+      if (!isValidEmail(email)) {
+        setStatus('inviteStatus', 'נא להזין כתובת מייל תקינה', true);
         return false;
       }
 
       if (btnInviteNext) btnInviteNext.disabled = true;
-      setStatus('inviteStatus', auto ? 'מאמת הזמנה מהקישור...' : 'בודק הזמנה...', false);
+      setStatus('inviteStatus', code ? 'בודק הזמנה ומספר טלפון...' : 'בודק מספר טלפון ומייל...', false);
       try {
         if (!(await waitForPool(25))) {
           setStatus('inviteStatus', 'אין חיבור לריליים. נסו שוב בעוד רגע.', true);
           return false;
         }
-        if (typeof App.validateInvite !== 'function') {
-          setStatus('inviteStatus', 'מנגנון ההזמנות לא נטען', true);
+        if (code) {
+          if (typeof App.validateInvite !== 'function') {
+            setStatus('inviteStatus', 'מנגנון ההזמנות לא נטען', true);
+            return false;
+          }
+          var result = await App.validateInvite({ code: code, phone: phoneNorm.e164 });
+          if (!result || !result.ok) {
+            var errMsg = (result && result.error) || 'ההזמנה לא תקפה';
+            if (result && result.code === 'WRONG_PHONE') errMsg = 'מספר הטלפון אינו תואם להזמנה.';
+            setStatus('inviteStatus', errMsg, true);
+            return false;
+          }
+          // WRONG_PHONE must not create identity — stop before key.
+          signupData.inviteCode = result.code;
+          signupData.invitePhone = phoneNorm.e164;
+          signupData.invitePhoneHash = '';
+          signupData.inviterPubkey = result.inviterPubkey || '';
+          signupData.invitePurpose = result.purpose || 'NEW_ACCOUNT_INVITE';
+          signupData.inviteEventId = result.inviteEvent && result.inviteEvent.id ? result.inviteEvent.id : '';
+        } else {
+          signupData.inviteCode = '';
+          signupData.invitePhone = phoneNorm.e164;
+          signupData.invitePurpose = '';
+          signupData.inviteEventId = '';
+        }
+
+        setStatus('inviteStatus', 'בודק שהמייל פנוי...', false);
+        var hash = await computeEmailHash(email);
+        var availability = await checkEmailAvailability(hash);
+        if (!availability.ok) {
+          setStatus('inviteStatus', availability.error || 'לא ניתן לבדוק את המייל כרגע. נסו שוב.', true);
           return false;
         }
-        var result = await App.validateInvite({ code: code, phone: phone });
-        if (!result || !result.ok) {
-          setStatus('inviteStatus', (result && result.error) || 'ההזמנה לא תקפה', true);
+        if (availability.used) {
+          setStatus('inviteStatus', 'המייל הזה כבר קיבל מפתח בעבר. התחברו עם המפתח הקיים.', true);
           return false;
         }
-        signupData.inviteCode = result.code;
-        signupData.invitePhone = phone || '';
-        signupData.invitePhoneHash = result.phoneHash || '';
-        signupData.inviterPubkey = result.inviterPubkey || '';
+        signupData.email = email;
+        signupData.emailHash = hash;
+        signupData.name = '';
+        signupData.avatarDataUrl = '';
         setStatus('inviteStatus', '', false);
-        showStep('authStepEmail');
+        showStep('authStepKey');
+        generateAndShowKey();
         return true;
       } catch (e) {
         setStatus('inviteStatus', 'שגיאה בבדיקת הזמנה: ' + (e.message || e), true);
@@ -785,71 +894,75 @@
 
       // אורח = אין זהות מאומתת (בלי לקרוא raw K)
       var isGuest = !isAuthenticatedIdentity();
-      if (!isGuest) return false;
+
+      // AUTHENTICATED_EXISTING_P_CAN_PROCESS_COMMUNITY_INVITE=true
+      // Existing P must never be pushed through new-signup / second identity.
+      if (!isGuest) {
+        processAuthenticatedCommunityInvite(code);
+        return true;
+      }
 
       if (signupInviteCodeInput) {
         signupInviteCodeInput.value = code;
       }
 
-      App.openAuthPrompt('הזמנה זוהתה — הקוד כבר מולא. המשיכו בהרשמה.', {
+      App.openAuthPrompt('הזמנה זוהתה — הקוד כבר מולא. הזינו טלפון ומייל להמשך.', {
         step: 'invite',
         fromInviteLink: true
       });
       prefillInviteFromUrl(true);
-
-      // ניסיון אימות אוטומטי כדי לחסוך לחיצה נוספת במובייל | HYPER CORE TECH
+      // Do not auto-submit: phone must be entered and verified against authoritative binding.
       setTimeout(function() {
         submitInviteStep({ auto: true });
-      }, 500);
+      }, 400);
       return true;
     }
 
-    // הרשמה - שלב מייל
+    async function processAuthenticatedCommunityInvite(code) {
+      try {
+        if (typeof App.validateInvite !== 'function' || typeof App.markInviteUsed !== 'function') return;
+        var result = await App.validateInvite({ code: code });
+        if (!result || !result.ok) {
+          if (typeof App.showToast === 'function') {
+            App.showToast((result && result.error) || 'ההזמנה אינה תקפה', 'error');
+          }
+          return;
+        }
+        var purpose = result.purpose || 'COMMUNITY_INVITE';
+        if (purpose === 'NEW_ACCOUNT_INVITE') {
+          // Already has global P — do not create another identity.
+          if (typeof App.showToast === 'function') {
+            App.showToast('כבר יש לכם חשבון SOS. הזמנה זו מיועדת למשתמש חדש.', 'info');
+          }
+          return;
+        }
+        var used = await App.markInviteUsed({
+          code: code,
+          inviterPubkey: result.inviterPubkey,
+          inviteEventId: result.inviteEvent && result.inviteEvent.id
+        });
+        if (typeof App.showToast === 'function') {
+          App.showToast(
+            used && used.ok !== false ? 'ההזמנה מומשה עבור החשבון הקיים (אותו מפתח ציבורי).' : 'מימוש ההזמנה נכשל או כבר בוצע.',
+            used && used.ok !== false ? 'success' : 'error'
+          );
+        }
+      } catch (e) {
+        if (typeof App.showToast === 'function') {
+          App.showToast('שגיאה במימוש הזמנה: ' + (e && e.message ? e.message : 'שגיאה'), 'error');
+        }
+      }
+    }
+
+    // Legacy email-next → combined invite+phone+email submit
     if (btnEmailNext) {
-      btnEmailNext.addEventListener('click', async function() {
-        var email = normalizeEmail(signupEmailInput && signupEmailInput.value);
-        if (signupLegalCheckbox && !signupLegalCheckbox.checked) {
-          setStatus('emailStatus', 'נא לאשר את תנאי השימוש לפני המשך.', true);
-          return;
-        }
-        if (!isValidEmail(email)) {
-          setStatus('emailStatus', 'נא להזין כתובת מייל תקינה', true);
-          return;
-        }
-        if (requireInviteEnabled() && !signupData.inviteCode) {
-          setStatus('emailStatus', 'חסרה הזמנה תקפה. חזרו לשלב ההזמנה.', true);
-          showStep('authStepInvite');
-          return;
-        }
-
-        btnEmailNext.disabled = true;
-        setStatus('emailStatus', 'בודק שהמייל פנוי...', false);
-
-        try {
-          var hash = await computeEmailHash(email);
-          var availability = await checkEmailAvailability(hash);
-          if (!availability.ok) {
-            setStatus('emailStatus', availability.error || 'לא ניתן לבדוק את המייל כרגע. נסו שוב.', true);
-            return;
-          }
-          if (availability.used) {
-            setStatus('emailStatus', 'המייל הזה כבר קיבל מפתח בעבר. התחברו עם המפתח הקיים.', true);
-            return;
-          }
-          signupData.email = email;
-          signupData.emailHash = hash;
-          setStatus('emailStatus', '', false);
-          showStep('authStepName');
-        } catch (e) {
-          console.error('Email check error:', e);
-          setStatus('emailStatus', 'שגיאה בבדיקת המייל: ' + e.message, true);
-        } finally {
-          btnEmailNext.disabled = false;
-        }
+      btnEmailNext.addEventListener('click', function() {
+        showStep('authStepInvite');
+        submitInviteStep({ auto: false });
       });
     }
 
-    // הרשמה - שלב שם
+    // הרשמה - שלב שם (legacy UI retained; no longer on the blocking new-user path)
     if (btnNameNext) {
       btnNameNext.addEventListener('click', function() {
         var name = signupNameInput.value.trim().slice(0, 15);
@@ -1189,10 +1302,13 @@
             }
             var usedResult = await App.markInviteUsed({
               code: signupData.inviteCode,
-              inviterPubkey: signupData.inviterPubkey
+              inviterPubkey: signupData.inviterPubkey,
+              inviteEventId: signupData.inviteEventId,
+              phone: signupData.invitePhone,
+              purpose: signupData.invitePurpose || 'NEW_ACCOUNT_INVITE'
             });
             if (!usedResult || !usedResult.ok) {
-              console.warn('Invite mark-used failed', usedResult);
+              console.warn('Invite mark-used failed', usedResult && usedResult.code);
               setStatus(
                 'keyStatus',
                 usedResult && usedResult.userMessage
@@ -1204,6 +1320,14 @@
               updateFinalConnectState();
               return;
             }
+            try {
+              signupData._redeemMeta = {
+                INVITE_REDEEMED_ONCE: usedResult.INVITE_REDEEMED_ONCE === true,
+                GLOBAL_ACCOUNT_CREATED_ONCE: usedResult.GLOBAL_ACCOUNT_CREATED_ONCE === true,
+                PHONE_BINDING_CREATED_ONCE: usedResult.PHONE_BINDING_CREATED_ONCE === true,
+                MEMBERSHIP_FINALIZED_ONCE: usedResult.MEMBERSHIP_FINALIZED_ONCE === true
+              };
+            } catch (_rm) {}
           }
 
           setStatus('keyStatus', 'שומר נתונים...', false);
@@ -1211,8 +1335,13 @@
             App.privateKey = null;
           }
 
+          // Neutral pubkey fingerprint placeholder — never derive display name from email.
+          var pkShort = String(App.publicKey || '').toLowerCase();
+          var placeholderName = pkShort
+            ? 'משתמש ' + pkShort.slice(0, 8)
+            : 'משתמש';
           var profile = {
-            name: signupData.name || 'משתמש אנונימי',
+            name: signupData.name || placeholderName,
             picture: signupData.avatarDataUrl || '',
             about: '',
             banner: ''
@@ -1222,14 +1351,15 @@
 
           App.guestMode = false;
           try { if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi(); } catch (_s) {}
-          setStatus('keyStatus', 'מפרסם פרופיל...', false);
-
-          if (typeof App.publishProfileMetadata === 'function') {
-            try {
-              await App.publishProfileMetadata();
-              console.log('Profile published successfully');
-            } catch (e) {
-              console.warn('Profile publish failed', e);
+          // Profile publish is optional after SOS; skip blocking publish when name/avatar were not collected.
+          if (signupData.name || signupData.avatarDataUrl) {
+            setStatus('keyStatus', 'מפרסם פרופיל...', false);
+            if (typeof App.publishProfileMetadata === 'function') {
+              try {
+                await App.publishProfileMetadata();
+              } catch (e) {
+                console.warn('Profile publish failed', e);
+              }
             }
           }
 
@@ -1252,7 +1382,218 @@
       updateFinalConnectState();
     }
 
-    // כפתור הזמן משתמש — פותח וואטסאפ לבחירת איש קשר (בלי הקלדת טלפון) | HYPER CORE TECH
+    // הזמן חבר — בחירת איש קשר / הזנה ידנית + lookup לפני הזמנה
+    var inviteFriendModal = document.getElementById('inviteFriendModal');
+    var btnInvitePickContact = document.getElementById('btnInvitePickContact');
+    var btnInviteManualPhone = document.getElementById('btnInviteManualPhone');
+    var inviteFriendManualBlock = document.getElementById('inviteFriendManualBlock');
+    var inviteFriendPhoneInput = document.getElementById('inviteFriendPhoneInput');
+    var btnInviteFriendContinue = document.getElementById('btnInviteFriendContinue');
+    var inviteFriendResult = document.getElementById('inviteFriendResult');
+    var inviteFriendStatus = document.getElementById('inviteFriendStatus');
+    var btnInviteFriendClose = document.getElementById('btnInviteFriendClose');
+
+    function setInviteFriendStatus(msg, isError) {
+      if (!inviteFriendStatus) return;
+      inviteFriendStatus.textContent = msg || '';
+      inviteFriendStatus.style.color = isError ? '#dc3545' : '#ffc107';
+    }
+
+    function openInviteFriendModal() {
+      if (!inviteFriendModal) return;
+      inviteFriendModal.hidden = false;
+      inviteFriendModal.style.display = 'flex';
+      inviteFriendModal.setAttribute('aria-hidden', 'false');
+      if (inviteFriendManualBlock) inviteFriendManualBlock.hidden = true;
+      if (inviteFriendResult) {
+        inviteFriendResult.hidden = true;
+        inviteFriendResult.innerHTML = '';
+      }
+      if (inviteFriendPhoneInput) inviteFriendPhoneInput.value = '';
+      setInviteFriendStatus('', false);
+      // Contact Picker: feature-detect; hide if unsupported (manual always works).
+      var supported = !!(
+        typeof navigator !== 'undefined' &&
+        navigator.contacts &&
+        typeof navigator.contacts.select === 'function'
+      );
+      if (btnInvitePickContact) {
+        btnInvitePickContact.style.display = supported ? '' : 'none';
+        btnInvitePickContact.hidden = !supported;
+      }
+    }
+
+    function closeInviteFriendModal() {
+      if (!inviteFriendModal) return;
+      inviteFriendModal.hidden = true;
+      inviteFriendModal.style.display = 'none';
+      inviteFriendModal.setAttribute('aria-hidden', 'true');
+    }
+
+    async function resolveProfileCard(pubkey) {
+      var name = 'משתמש ' + String(pubkey || '').slice(0, 8);
+      var picture = '';
+      try {
+        if (typeof App.resolveProfileForPubkey === 'function') {
+          var p = await App.resolveProfileForPubkey(pubkey);
+          if (p && p.name) name = p.name;
+          if (p && (p.picture || p.image)) picture = p.picture || p.image;
+        } else if (typeof App.getCachedProfile === 'function') {
+          var c = App.getCachedProfile(pubkey);
+          if (c && c.name) name = c.name;
+          if (c && c.picture) picture = c.picture;
+        }
+      } catch (_e) {}
+      return { name: name, picture: picture, pubkey: pubkey };
+    }
+
+    async function handleInviteFriendPhone(rawPhone, localContactName) {
+      var PN = App.PhoneNormalize || window.SosPhoneNormalize;
+      var norm = PN && typeof PN.normalizePhoneE164 === 'function' ? PN.normalizePhoneE164(rawPhone) : null;
+      if (!norm || !norm.ok) {
+        setInviteFriendStatus('מספר טלפון לא תקין', true);
+        return;
+      }
+      // CONTACT_NAME_BECOMES_GLOBAL_PROFILE=false — local display only, never sent as profile.
+      var localLabel = localContactName ? String(localContactName).slice(0, 40) : '';
+      setInviteFriendStatus('בודק מספר ב-SOS...', false);
+      var GA = App.GlobalAdmission || window.SosGlobalAdmission;
+      if (!GA || typeof GA.lookupPhone !== 'function') {
+        setInviteFriendStatus('שירות החיפוש אינו זמין', true);
+        return;
+      }
+      var look = await GA.lookupPhone(norm.e164);
+      if (look && look.unavailable === true) {
+        setInviteFriendStatus('לא ניתן לשלוח הזמנה למספר זה כרגע.', true);
+        if (inviteFriendResult) {
+          inviteFriendResult.hidden = false;
+          inviteFriendResult.innerHTML = '<p style="color:#ccc;">לא ניתן לשלוח הזמנה למספר זה כרגע.</p>';
+        }
+        return;
+      }
+      if (look && look.registered === true && look.pubkey) {
+        var card = await resolveProfileCard(look.pubkey);
+        var display = localLabel ? localLabel + ' · ' + card.name : card.name;
+        if (inviteFriendResult) {
+          inviteFriendResult.hidden = false;
+          inviteFriendResult.innerHTML =
+            '<div style="padding:12px;border:1px solid #444;border-radius:10px;text-align:right;">' +
+            '<p style="margin:0 0 8px;font-weight:600;">כבר נמצא ב-SOS</p>' +
+            '<p style="margin:0 0 12px;color:#aaa;">' +
+            display.replace(/[<>&]/g, '') +
+            '</p>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:8px;">' +
+            '<button type="button" class="button-primary" id="btnInviteOpenProfile" data-pk="' +
+            look.pubkey +
+            '">פתח פרופיל</button>' +
+            '<button type="button" class="button-secondary" id="btnInviteSendMsg" data-pk="' +
+            look.pubkey +
+            '">שלח הודעה</button>' +
+            '<button type="button" class="button-secondary" id="btnInviteCall" data-pk="' +
+            look.pubkey +
+            '">התקשר</button>' +
+            '</div></div>';
+          var openBtn = document.getElementById('btnInviteOpenProfile');
+          var msgBtn = document.getElementById('btnInviteSendMsg');
+          var callBtn = document.getElementById('btnInviteCall');
+          if (openBtn) {
+            openBtn.addEventListener('click', function() {
+              closeInviteFriendModal();
+              if (typeof App.openPublicProfile === 'function') App.openPublicProfile(look.pubkey);
+              else if (typeof App.showProfile === 'function') App.showProfile(look.pubkey);
+            });
+          }
+          if (msgBtn) {
+            msgBtn.addEventListener('click', function() {
+              closeInviteFriendModal();
+              if (typeof App.showChatConversation === 'function') App.showChatConversation(look.pubkey);
+              else if (typeof App.openChatList === 'function') App.openChatList();
+            });
+          }
+          if (callBtn) {
+            callBtn.addEventListener('click', function() {
+              closeInviteFriendModal();
+              if (typeof App.showChatConversation === 'function') App.showChatConversation(look.pubkey);
+              if (App.voiceCall && typeof App.voiceCall.start === 'function') {
+                App.voiceCall.start(look.pubkey);
+              }
+            });
+          }
+        }
+        setInviteFriendStatus('', false);
+        return;
+      }
+      // Case A: not registered → create NEW_ACCOUNT_INVITE + WhatsApp specific recipient
+      setInviteFriendStatus('יוצר הזמנה...', false);
+      try {
+        var created = await App.createInvite({
+          purpose: 'NEW_ACCOUNT_INVITE',
+          recipientPhone: norm.e164
+        });
+        if (inviteFriendResult) {
+          inviteFriendResult.hidden = false;
+          inviteFriendResult.innerHTML =
+            '<p style="margin:0 0 10px;">ההזמנה מוכנה' +
+            (localLabel ? ' עבור ' + localLabel.replace(/[<>&]/g, '') : '') +
+            '.</p>' +
+            '<a class="button-primary" id="btnInviteWhatsAppGo" href="' +
+            String(created.whatsappUrl || '#').replace(/"/g, '') +
+            '" target="_blank" rel="noopener" style="display:inline-block;padding:12px 16px;text-decoration:none;">שלח הזמנה ב-WhatsApp</a>';
+        }
+        setInviteFriendStatus('', false);
+        if (typeof App.showInviteQrModal === 'function' && created.inviteUrl) {
+          try {
+            await App.showInviteQrModal(created.inviteUrl, created.code);
+          } catch (_qr) {}
+        }
+      } catch (e) {
+        if (e && e.code === 'PHONE_ALREADY_REGISTERED') {
+          setInviteFriendStatus('כבר נמצא ב-SOS', true);
+        } else if (e && e.code === 'PHONE_UNAVAILABLE') {
+          setInviteFriendStatus('לא ניתן לשלוח הזמנה למספר זה כרגע.', true);
+        } else {
+          setInviteFriendStatus((e && e.message) || 'יצירת ההזמנה נכשלה', true);
+        }
+      }
+    }
+
+    if (btnInviteFriendClose) btnInviteFriendClose.addEventListener('click', closeInviteFriendModal);
+    if (btnInviteManualPhone) {
+      btnInviteManualPhone.addEventListener('click', function() {
+        if (inviteFriendManualBlock) inviteFriendManualBlock.hidden = false;
+        if (inviteFriendPhoneInput) inviteFriendPhoneInput.focus();
+      });
+    }
+    if (btnInviteFriendContinue) {
+      btnInviteFriendContinue.addEventListener('click', function() {
+        handleInviteFriendPhone(inviteFriendPhoneInput && inviteFriendPhoneInput.value);
+      });
+    }
+    if (btnInvitePickContact) {
+      btnInvitePickContact.addEventListener('click', async function() {
+        try {
+          if (!(navigator.contacts && typeof navigator.contacts.select === 'function')) {
+            setInviteFriendStatus('בחירת אנשי קשר אינה נתמכת בדפדפן זה — הזינו מספר ידנית.', true);
+            if (inviteFriendManualBlock) inviteFriendManualBlock.hidden = false;
+            return;
+          }
+          // Minimum fields: phone required; name for local UI only. FULL_ADDRESS_BOOK_UPLOAD=false.
+          var contacts = await navigator.contacts.select(['tel', 'name'], { multiple: false });
+          var c0 = contacts && contacts[0];
+          var tel = c0 && c0.tel && c0.tel[0] ? c0.tel[0] : '';
+          var nm = c0 && c0.name && c0.name[0] ? c0.name[0] : '';
+          if (!tel) {
+            setInviteFriendStatus('לא נבחר מספר טלפון', true);
+            return;
+          }
+          await handleInviteFriendPhone(tel, nm);
+        } catch (e) {
+          setInviteFriendStatus('בחירת איש קשר בוטלה או נכשלה — ניתן להזין ידנית.', true);
+          if (inviteFriendManualBlock) inviteFriendManualBlock.hidden = false;
+        }
+      });
+    }
+
     var btnOpenInviteFriend = document.getElementById('topBarInviteFriend');
     if (btnOpenInviteFriend) {
       btnOpenInviteFriend.addEventListener('click', async function() {
@@ -1276,13 +1617,15 @@
           return;
         }
 
+        // Canonical INVITE_USERS path: COMMUNITY invite + QR modal (First Group remote inviter).
+        // Phone-first NEW_ACCOUNT UX remains via openInviteFriendModal (lookup-before-invite);
+        // do not replace this top-bar path with phone-only — that broke FG network e2e / sosInviteQrModal.
         btnOpenInviteFriend.disabled = true;
         try {
           if (typeof App.createInvite !== 'function') {
             throw new Error('מנגנון ההזמנות לא נטען');
           }
           var created = await App.createInvite();
-          // Web: show invite QR (URL payload only) before/alongside WhatsApp share | HYPER CORE TECH
           if (typeof App.showInviteQrModal === 'function' && created && created.inviteUrl) {
             try {
               await App.showInviteQrModal(created.inviteUrl, created.code);
@@ -1292,16 +1635,19 @@
           }
           if (typeof App.openWhatsAppInvite === 'function') {
             App.openWhatsAppInvite(created.whatsappUrl);
-          } else {
+          } else if (created && created.whatsappUrl) {
             window.open(created.whatsappUrl, '_blank', 'noopener');
           }
         } catch (e) {
-          alert(e.message || 'יצירת ההזמנה נכשלה');
+          alert((e && e.message) || 'יצירת ההזמנה נכשלה');
         } finally {
           btnOpenInviteFriend.disabled = false;
         }
       });
     }
+
+    // Phone NEW_ACCOUNT invite modal (inviteFriendModal) remains for SO-CALL lookup-before-invite
+    // flows; top-bar INVITE_USERS keeps COMMUNITY createInvite + sosInviteQrModal above.
 
     // אם נכנסו עם ?invite= — פותחים ישר את שלב ההזמנה עם קוד ממולא | HYPER CORE TECH
     try {

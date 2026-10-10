@@ -288,7 +288,13 @@
         content = JSON.stringify(envelope);
       }
       const tags = [['p', payload.to], ['t', 'yalachat']];
-      if (App.NETWORK_TAG) tags.push(['t', App.NETWORK_TAG]);
+      // GLOBAL presence: fixed identity tags (not ambient community).
+      (function () {
+        const GI = App.GlobalIdentity || window.SosGlobalIdentity;
+        tags.push(['t', (GI && GI.GLOBAL_IDENTITY_TAG) || 'sos-global-identity']);
+        const compat = (GI && GI.GLOBAL_DISCOVERY_COMPAT_TAG) || 'israel-network';
+        if (compat) tags.push(['t', compat]);
+      })();
       const signed = await Promise.resolve(App.SosCryptoSigner.signPresence({
         kind: PRESENCE_KIND,
         pubkey: App.publicKey,

@@ -154,6 +154,30 @@
         } catch (_ep) {}
       }
       if (!hadRaw && typedPub && isHex64(typedPub)) {
+        try {
+          const ASS =
+            App.GlobalAccountStatusState ||
+            (typeof window !== 'undefined' && window.SosGlobalAccountStatusState) ||
+            App.AccountStatusState ||
+            (typeof window !== 'undefined' && window.SosAccountStatusState);
+          if (ASS && typeof ASS.assertLoginAllowed === 'function') {
+            const gate = ASS.assertLoginAllowed(typedPub);
+            if (gate && gate.ok === false && gate.code === 'ACCOUNT_DISABLED') {
+              clearAppIdentityMemory();
+              setIdentityState(IDENTITY_RECOVERY_REQUIRED);
+              return {
+                ok: false,
+                state: IDENTITY_RECOVERY_REQUIRED,
+                privateKey: null,
+                publicKey: null,
+                code: 'ACCOUNT_DISABLED',
+                message: gate.message || 'החשבון הושבת ואינו מורשה להתחבר ל-SOS.',
+                ACCOUNT_DISABLED: true,
+                KEY_CLAIMED_INVALID: false,
+              };
+            }
+          }
+        } catch (_tg) {}
         App.privateKey = null;
         App.publicKey = typedPub.toLowerCase();
         setIdentityState(IDENTITY_OK);
@@ -237,6 +261,38 @@
         publicKey: null,
       };
     }
+
+    // ACCOUNT_DISABLED (GLOBAL): deny before SessionAuthority bind. Key material may be valid; access is revoked.
+    try {
+      const ASS =
+        App.GlobalAccountStatusState ||
+        (typeof window !== 'undefined' && window.SosGlobalAccountStatusState) ||
+        App.AccountStatusState ||
+        (typeof window !== 'undefined' && window.SosAccountStatusState);
+      if (ASS && typeof ASS.assertLoginAllowed === 'function') {
+        const gate = ASS.assertLoginAllowed(publicKey);
+        if (gate && gate.ok === false && gate.code === 'ACCOUNT_DISABLED') {
+          clearAppIdentityMemory();
+          setIdentityState(IDENTITY_RECOVERY_REQUIRED);
+          try {
+            const SA = App.SessionAuthority || (typeof window !== 'undefined' && window.SosSessionAuthority);
+            if (SA && typeof SA.revokeSession === 'function') {
+              SA.revokeSession({ reason: 'account_disabled', rebind: false });
+            }
+          } catch (_rev) {}
+          return {
+            ok: false,
+            state: IDENTITY_RECOVERY_REQUIRED,
+            privateKey: null,
+            publicKey: null,
+            code: 'ACCOUNT_DISABLED',
+            message: gate.message || 'החשבון הושבת ואינו מורשה להתחבר ל-SOS.',
+            ACCOUNT_DISABLED: true,
+            KEY_CLAIMED_INVALID: false,
+          };
+        }
+      }
+    } catch (_gate) {}
 
     App.privateKey = privateKey;
     App.publicKey = publicKey;

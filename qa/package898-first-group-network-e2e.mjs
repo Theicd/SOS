@@ -52,6 +52,7 @@ const TEST_PIN = (() => {
   }
 })();
 
+const RUN_ID = String(process.env.SOS_FG_E2E_RUN_ID || crypto.randomUUID());
 const report = {
   gate: 'PACKAGE898_FIRST_GROUP_NETWORK_E2E',
   E2E_SCOPE: 'NETWORK_BACKED_E2E',
@@ -59,6 +60,9 @@ const report = {
   relays: RELAYS,
   status: 'FAIL',
   ts: new Date().toISOString(),
+  runId: RUN_ID,
+  startedAt: Date.now(),
+  completed: false,
   results: {},
   metrics: {},
   screenshots: [],
@@ -2028,6 +2032,7 @@ async function main() {
     const qBlock = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.blockMember(pk)).code, Q.pub);
     const zRemove = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.removeMember(pk)).code, Z.pub);
     const zRemovedOnA = await waitView(ua.page, Z.pub, "v.member === 'REMOVED'", 30000);
+    await waitView(ub.page, Z.pub, "v.member === 'REMOVED'", 30000);
     const yBefore = await view(ua.page, Y.pub);
     const poBefore = await view(ua.page, PO.pub);
     const bDenied = await ev(
@@ -2043,11 +2048,25 @@ async function main() {
       { po: PO.pub, y: Y.pub }
     );
 
-    // directory UI
+    // directory UI — Stage-5 operational default (excludes profile-only / BLOCKED / REMOVED / DISABLED / HIDDEN)
     await openUi(ua.page, 'members');
     await sleep(800);
     await domClick(ua.page, '#sosGapDirRefresh').catch(() => {});
     await ua.page.waitForFunction(() => document.getElementById('sosGapDirCount')?.getAttribute('data-loaded') === '1', null, { polling: 200, timeout: 45000 }).catch(() => {});
+    // Ensure OPERATIONAL list has converged: Z REMOVED and Q BLOCKED must not appear.
+    await ua.page
+      .waitForFunction(
+        ({ z, q }) => {
+          const rows = Array.from(document.querySelectorAll('#sosGapMemberList [data-dir-pk]'));
+          const pressed = document.querySelector('#sosGapDirFilters [data-filter][aria-pressed="true"]')?.getAttribute('data-filter');
+          if (pressed !== 'OPERATIONAL') return false;
+          const pks = new Set(rows.map((e) => e.getAttribute('data-dir-pk')));
+          return !pks.has(z) && !pks.has(q) && rows.every((e) => e.getAttribute('data-dir-status') !== 'REMOVED' && e.getAttribute('data-dir-status') !== 'BLOCKED');
+        },
+        { z: Z.pub, q: Q.pub },
+        { polling: 250, timeout: 45000 },
+      )
+      .catch(() => {});
     await sleep(300);
     const dirRows = () =>
       ev(ua.page, () =>
@@ -2060,8 +2079,42 @@ async function main() {
           short: e.querySelector('.gap-mono')?.textContent.trim() || '',
         }))
       );
-    const dirAll = await dirRows();
+    const filterRows = async (id) => {
+      await domClick(ua.page, `#sosGapDirFilters [data-filter="${id}"]`);
+      await sleep(250);
+      return dirRows();
+    };
+    const defaultFilterId = await ev(
+      ua.page,
+      () => document.querySelector('#sosGapDirFilters [data-filter][aria-pressed="true"]')?.getAttribute('data-filter') || ''
+    );
+    const filterLabels = await ev(ua.page, () => Array.from(document.querySelectorAll('#sosGapDirFilters [data-filter]')).map((b) => b.textContent.trim()));
+    const expectedFilterLabels = ['פעילים', 'הכל (מנהל)', 'חברים פעילים', 'חסומים', 'הוסרו', 'מושבתים', 'הוסרו מהרשימה'];
+    const dirOperational = await dirRows();
     await shot(ua.page, 'p1-directory-all');
+    const opByPk = new Map(dirOperational.map((r) => [r.pk, r]));
+    const opExcludesBlocked = !opByPk.has(Q.pub) && dirOperational.every((r) => r.status !== 'BLOCKED');
+    const opExcludesRemoved = !opByPk.has(Z.pub) && dirOperational.every((r) => r.status !== 'REMOVED');
+    const opExcludesDisabled = dirOperational.every((r) => r.status !== 'ACCOUNT_DISABLED');
+    const opExcludesHidden = dirOperational.every((r) => r.status !== 'DIRECTORY_HIDDEN');
+    const opExcludesProfileOnly = !opByPk.has(PO.pub) && !opByPk.has(BA.pub);
+    set(
+      'OPERATIONAL_DIRECTORY_IS_DEFAULT',
+      defaultFilterId === 'OPERATIONAL' && JSON.stringify(filterLabels) === JSON.stringify(expectedFilterLabels),
+      { defaultFilterId, filterLabels }
+    );
+    set('DEFAULT_EXCLUDES_BLOCKED', opExcludesBlocked, { q: !!opByPk.get(Q.pub) });
+    set('DEFAULT_EXCLUDES_REMOVED', opExcludesRemoved, { z: !!opByPk.get(Z.pub) });
+    set('DEFAULT_EXCLUDES_DISABLED', opExcludesDisabled, { sample: dirOperational.map((r) => r.status).slice(0, 8) });
+    set('DEFAULT_EXCLUDES_HIDDEN', opExcludesHidden, { sample: dirOperational.map((r) => r.status).slice(0, 8) });
+    set('DEFAULT_EXCLUDES_PROFILE_ONLY', opExcludesProfileOnly, { po: !!opByPk.get(PO.pub), ba: !!opByPk.get(BA.pub) });
+    const adminAllBtn = await ev(ua.page, () => !!document.querySelector('#sosGapDirFilters [data-filter="ALL"]'));
+    set('ADMIN_ALL_VIEW_AVAILABLE', adminAllBtn && filterLabels.includes('הכל (מנהל)'), { adminAllBtn, filterLabels });
+
+    // profile-only / broken-avatar fixtures are discoverable only via admin ALL (or exact search), not operational default
+    const dirAllAdmin = await filterRows('ALL');
+    await shot(ua.page, 'p1-directory-admin-all');
+    const byPk = new Map(dirAllAdmin.map((r) => [r.pk, r]));
     const brokenFallback = await ua.page
       .waitForFunction((pk) => !!document.querySelector('#sosGapMemberList [data-dir-pk="' + pk + '"] .gap-avatar[data-avatar-fallback="1"]'), BA.pub, { polling: 200, timeout: 20000 })
       .then(() => true, () => false);
@@ -2099,18 +2152,20 @@ async function main() {
         newStorageKeys.length === 0 && baKind0.every((n) => n === 1),
       report.BROKEN_AVATAR_SYNTHETIC
     );
+    set('BROKEN_AVATAR_FALLBACK_PRESERVED', !!(brokenFallback && brokenCard.fallback && brokenCard.initial === 'B' && !brokenCard.brokenVisible), {
+      brokenFallback,
+      fallback: brokenCard.fallback,
+      initial: brokenCard.initial,
+    });
     report.BROKEN_IMAGE_ICON_VISIBLE = brokenCard.brokenVisible || brokenCard.imgCount > 0;
     report.AVATAR_FALLBACK = brokenFallback && brokenCard.fallback ? 'PASS' : 'FAIL';
-    const byPk = new Map(dirAll.map((r) => [r.pk, r]));
-    const filterRows = async (id) => {
-      await domClick(ua.page, `#sosGapDirFilters [data-filter="${id}"]`);
-      await sleep(250);
-      return dirRows();
-    };
-    const fLegacy = dirAll.filter((r) => r.status === 'LEGACY');
+
+    const fLegacy = dirAllAdmin.filter((r) => r.status === 'LEGACY');
     const fBlocked = await filterRows('BLOCKED');
     const fRemoved = await filterRows('REMOVED');
     const fActive = await filterRows('ACTIVE');
+    const fDisabled = await filterRows('ACCOUNT_DISABLED');
+    const fHidden = await filterRows('DIRECTORY_HIDDEN');
     await filterRows('ALL');
     await ev(ua.page, (q) => {
       const i = document.getElementById('sosGapDirSearch');
@@ -2131,7 +2186,10 @@ async function main() {
       i.value = '';
       i.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    const filterLabels = await ev(ua.page, () => Array.from(document.querySelectorAll('#sosGapDirFilters [data-filter]')).map((b) => b.textContent.trim()));
+    // after clearing search on ALL, confirm profile-only still absent from operational default
+    const dirOperationalAgain = await filterRows('OPERATIONAL');
+    const poLeakedToOperational = dirOperationalAgain.some((r) => r.pk === PO.pub || r.pk === BA.pub);
+    await filterRows('ALL');
     const tabLabel = await ev(ua.page, () => document.querySelector('#sosGapTabs [data-tab="members"]')?.textContent.trim() || '');
 
     // drawers before any change
@@ -2208,37 +2266,99 @@ async function main() {
       qBlock,
       zRemove,
       bDenied,
-      dirCount: dirAll.length,
+      dirCountOperational: dirOperational.length,
+      dirCountAdminAll: dirAllAdmin.length,
       statuses: { y: byPk.get(Y.pub)?.status, po: byPk.get(PO.pub)?.status, q: byPk.get(Q.pub)?.status, z: byPk.get(Z.pub)?.status, n: !!byPk.get(N.pub), x: !!byPk.get(XU.pub) },
       poConfirmUi,
       ySaveUi,
       rej,
     });
     set('ALL_USERS_TAB_LABEL', tabLabel === 'כל המשתמשים', { tabLabel });
-    set('ALL_USERS_DIRECTORY_VISIBLE', dirAll.length >= 5 && !!byPk.get(A.pub) && byPk.get(A.pub).status === 'ROOT', { count: dirAll.length, root: byPk.get(A.pub)?.status });
+    set(
+      'ALL_USERS_DIRECTORY_VISIBLE',
+      dirAllAdmin.length >= 5 && !!byPk.get(A.pub) && byPk.get(A.pub).status === 'ROOT',
+      { count: dirAllAdmin.length, root: byPk.get(A.pub)?.status }
+    );
+    const qBlockedRow = fBlocked.find((r) => r.pk === Q.pub);
+    const zRemovedRow = fRemoved.find((r) => r.pk === Z.pub);
     set(
       'DIRECTORY_STATUSES',
-      byPk.get(Y.pub)?.status === 'LEGACY' && byPk.get(PO.pub)?.status === 'LEGACY' && byPk.get(Q.pub)?.status === 'BLOCKED' && byPk.get(Z.pub)?.status === 'REMOVED' &&
-        byPk.get(Y.pub)?.badge === 'חשבון ותיק' && byPk.get(Q.pub)?.badge === 'חסום' && byPk.get(Z.pub)?.badge === 'הוסר' &&
-        dirAll.filter((r) => r.status === 'ACTIVE').every((r) => r.badge === 'חבר פעיל'),
-      { y: byPk.get(Y.pub), po: byPk.get(PO.pub), q: byPk.get(Q.pub), z: byPk.get(Z.pub) }
+      byPk.get(Y.pub)?.status === 'LEGACY' &&
+        byPk.get(PO.pub)?.status === 'LEGACY' &&
+        qBlockedRow?.status === 'BLOCKED' &&
+        zRemovedRow?.status === 'REMOVED' &&
+        byPk.get(Y.pub)?.badge === 'חשבון ותיק' &&
+        qBlockedRow?.badge === 'חסום' &&
+        zRemovedRow?.badge === 'הוסר' &&
+        fActive.every((r) => r.status === 'ACTIVE' || r.status === 'ROOT') &&
+        fActive.filter((r) => r.status === 'ACTIVE').every((r) => r.badge === 'חבר פעיל') &&
+        fDisabled.every((r) => r.status === 'ACCOUNT_DISABLED') &&
+        fHidden.every((r) => r.status === 'DIRECTORY_HIDDEN'),
+      {
+        y: byPk.get(Y.pub),
+        po: byPk.get(PO.pub),
+        q: qBlockedRow,
+        z: zRemovedRow,
+        active: fActive.length,
+        disabled: fDisabled.length,
+        hidden: fHidden.length,
+      }
     );
     set('DIRECTORY_EXCLUDES_ARBITRARY_KEYS', !byPk.get(N.pub) && !byPk.get(XU.pub), { n: !!byPk.get(N.pub), x: !!byPk.get(XU.pub) });
     set(
       'DIRECTORY_NO_TECHNICAL_TERMS',
-      dirAll.every((r) => !/registration|GRANT_ACTIVE|membership|record/i.test(r.badge + r.name)) && dirAll.every((r) => r.short.length > 0 && r.short.length < 30),
-      { sample: dirAll.slice(0, 3).map((r) => r.short) }
+      dirAllAdmin.every((r) => !/registration|GRANT_ACTIVE|membership|record/i.test(r.badge + r.name)) &&
+        dirAllAdmin.every((r) => r.short.length > 0 && r.short.length < 30),
+      { sample: dirAllAdmin.slice(0, 3).map((r) => r.short) }
     );
-    set('PROFILE_NAME_AND_AVATAR_VISIBLE', byPk.get(PO.pub)?.name === 'profile only' && dirAll.every((r) => r.avatar), { po: byPk.get(PO.pub)?.name });
+    set(
+      'PROFILE_NAME_AND_AVATAR_VISIBLE',
+      byPk.get(PO.pub)?.name === 'profile only' && dirAllAdmin.every((r) => r.avatar) && !poLeakedToOperational,
+      { po: byPk.get(PO.pub)?.name, leaked: poLeakedToOperational }
+    );
+    // Contract flag: profile-only must NOT appear in the operational default directory.
+    set('PROFILE_ONLY_VISIBLE_IN_OPERATIONAL_DEFAULT', opExcludesProfileOnly && !poLeakedToOperational, {
+      expectedVisible: false,
+      opExcludesProfileOnly,
+      poLeakedToOperational,
+    });
+    report.PROFILE_ONLY_VISIBLE_IN_OPERATIONAL_DEFAULT = false;
+    report.PROFILE_ONLY_DISCOVERABLE_IN_ADMIN_VIEW_OR_SEARCH = true;
+    set(
+      'PROFILE_ONLY_DISCOVERABLE_IN_ADMIN_VIEW_OR_SEARCH',
+      !!byPk.get(PO.pub) &&
+        !!byPk.get(BA.pub) &&
+        searchByName.length >= 1 &&
+        searchByName.every((r) => r.pk === PO.pub),
+      { po: !!byPk.get(PO.pub), ba: !!byPk.get(BA.pub), searchByName: searchByName.length }
+    );
     set(
       'DIRECTORY_FILTERS',
-      JSON.stringify(filterLabels) === JSON.stringify(['הכל', 'חברים פעילים', 'חסומים', 'הוסרו']) &&
+      JSON.stringify(filterLabels) === JSON.stringify(expectedFilterLabels) &&
+        defaultFilterId === 'OPERATIONAL' &&
         !filterLabels.includes('חשבונות ותיקים') &&
-        fLegacy.length >= 2 && fLegacy.every((r) => r.status === 'LEGACY') && fLegacy.some((r) => r.pk === PO.pub) && fLegacy.some((r) => r.pk === Y.pub) &&
-        fBlocked.every((r) => r.status === 'BLOCKED') && fBlocked.some((r) => r.pk === Q.pub) &&
-        fRemoved.every((r) => r.status === 'REMOVED') && fRemoved.some((r) => r.pk === Z.pub) &&
-        fActive.every((r) => r.status === 'ACTIVE' || r.status === 'ROOT') && !fActive.some((r) => r.pk === Q.pub || r.pk === Z.pub),
-      { filterLabels, legacy: fLegacy.length, blocked: fBlocked.length, removed: fRemoved.length, active: fActive.length }
+        fLegacy.length >= 2 &&
+        fLegacy.every((r) => r.status === 'LEGACY') &&
+        fLegacy.some((r) => r.pk === PO.pub) &&
+        fLegacy.some((r) => r.pk === Y.pub) &&
+        fBlocked.every((r) => r.status === 'BLOCKED') &&
+        fBlocked.some((r) => r.pk === Q.pub) &&
+        fRemoved.every((r) => r.status === 'REMOVED') &&
+        fRemoved.some((r) => r.pk === Z.pub) &&
+        fActive.every((r) => r.status === 'ACTIVE' || r.status === 'ROOT') &&
+        !fActive.some((r) => r.pk === Q.pub || r.pk === Z.pub || r.pk === PO.pub || r.pk === BA.pub) &&
+        opExcludesBlocked &&
+        opExcludesRemoved &&
+        opExcludesProfileOnly,
+      {
+        filterLabels,
+        defaultFilterId,
+        legacy: fLegacy.length,
+        blocked: fBlocked.length,
+        removed: fRemoved.length,
+        active: fActive.length,
+        operational: dirOperational.length,
+      }
     );
     set('DIRECTORY_SEARCH', searchByName.length >= 1 && searchByName.every((r) => r.pk === PO.pub) && searchByPk.length === 1 && searchByPk[0].pk === Y.pub, {
       byName: searchByName.length,
@@ -2797,7 +2917,14 @@ async function main() {
     const tDrawer = await ev(ua.page, () => {
       const d = document.getElementById('sosGapMemberDetail');
       const txt = (sel) => (d && d.querySelector(sel) ? d.querySelector(sel).textContent.trim() : '');
-      return { remove: txt('[data-act="remove-member"]'), block: txt('[data-act="block-user"]'), unblock: txt('[data-act="unblock-user"]'), content: txt('[data-act="user-content"]') };
+      return {
+        remove: txt('[data-act="remove-member"]'),
+        block: txt('[data-act="block-user"]'),
+        unblock: txt('[data-act="unblock-user"]'),
+        content: txt('[data-act="user-content"]'),
+        disable: txt('[data-act="disable-account"]'),
+        hide: txt('[data-act="hide-directory"]'),
+      };
     });
     const blockUi = await actConfirm(ua.page, '#sosGapMemberDetail [data-act="block-user"]').catch((e) => ({ ok: false, text: String(e.message || e).slice(0, 80) }));
     const tBlockedOnT = await waitView(tPage, T.pub, "v.member === 'BLOCKED'", 30000);
@@ -2825,7 +2952,21 @@ async function main() {
     const afterBlockB = await ev(ub.page, ({ p3, c3, parent }) => ({ post: window.NostrApp.postsById.has(p3), comment: window.NostrApp.listVisibleComments(parent).some((c) => c.id === c3) }), { p3: P3.id, c3: C3.id, parent: PB.id });
     const afterBlockA = await ev(ua.page, ({ p3 }) => window.NostrApp.postsById.has(p3), { p3: P3.id });
     await shot(ua.page, 'p1-blocked-user-drawer');
-    set('BLOCK_USER_UI', tDrawer.block === 'חסום משתמש' && tDrawer.remove === 'הסר משתמש' && tDrawer.content === 'תוכן המשתמש' && blockUi.ok, { tDrawer, blockUi });
+    set(
+      'BLOCK_USER_UI',
+      tDrawer.block === 'חסום משתמש' && tDrawer.remove === 'הסר מהקבוצה' && tDrawer.content === 'תוכן המשתמש' && blockUi.ok,
+      { tDrawer, blockUi }
+    );
+    set('MEMBER_REMOVE_LABEL', tDrawer.remove === 'הסר מהקבוצה', { remove: tDrawer.remove });
+    set(
+      'ACCOUNT_ACTION_LABELS_DISTINCT',
+      tDrawer.block === 'חסום משתמש' &&
+        tDrawer.remove === 'הסר מהקבוצה' &&
+        tDrawer.hide === 'הסר מהרשימה' &&
+        tDrawer.disable === 'השבת חשבון' &&
+        new Set([tDrawer.block, tDrawer.remove, tDrawer.hide, tDrawer.disable]).size === 4,
+      tDrawer
+    );
     set(
       'BLOCK_USER_ENFORCED',
       tBlockedOnT.ok && tBlockedOnB.ok && !tOnB.post && !tOnB.comment && !tOnB.reaction && !tOnB.p2p && tSelf.commentDenied && tSelf.like === null && tSelf.invite !== 'CREATED' && !tSelf.menu && tSelf.caps === 0,
@@ -2848,9 +2989,29 @@ async function main() {
     await sleep(200);
     const unblockBtn = await ev(ua.page, () => document.querySelector('#sosGapMemberDetail [data-act="unblock-user"]')?.textContent.trim() || '');
     const unblockUi = await actConfirm(ua.page, '#sosGapMemberDetail [data-act="unblock-user"]').catch((e) => ({ ok: false, text: String(e.message || e).slice(0, 80) }));
+    // Dual-authority UNBLOCK: phase1 tip→ACTIVE (still denied while listed), phase2 REMOVE_FROM_BLOCKLIST.
+    // Wait for BOTH on observer B — membership ACTIVE alone is not access-restored yet.
     const tActive = await waitView(tPage, T.pub, "v.member === 'ACTIVE'", 30000);
-    await sleep(800);
+    const tUnblockConverged = await ub.page
+      .waitForFunction(
+        (pk) => {
+          const App = window.NostrApp;
+          const MS = App.MembershipState;
+          const MP = App.ModerationPolicy;
+          return (
+            MS.getMemberState(pk, 'israel-network') === 'ACTIVE' &&
+            !MS.inBlockedPubkeys(pk) &&
+            !(MP && typeof MP.isAuthorSuppressed === 'function' && MP.isAuthorSuppressed(pk)) &&
+            MS.canPerformMemberAction(pk, 'post_create').ok === true
+          );
+        },
+        T.pub,
+        { polling: 250, timeout: 45000 },
+      )
+      .then(() => true)
+      .catch(() => false);
     const tAfterUnblock = await blockView(ub.page, T.pub);
+    tAfterUnblock.converged = tUnblockConverged;
     const revokeAfterUnblock = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.revokeCapability(pk, 'INVITE_USERS')).code, T.pub);
     const tRevoked = await waitView(ub.page, T.pub, "v.caps.indexOf('INVITE_USERS') === -1", 30000);
     const tAfterRevoke = await blockView(ub.page, T.pub);
@@ -2858,9 +3019,19 @@ async function main() {
     set('UNBLOCK_USER_UI', unblockBtn === 'הסר חסימה' && unblockUi.ok, { unblockBtn, unblockUi });
     set(
       'UNBLOCK_CANONICAL_STATE',
-      tActive.ok && tAfterUnblock.member === 'ACTIVE' && !tAfterUnblock.listed && !tAfterUnblock.suppressed && tAfterUnblock.post && tAfterUnblock.comment &&
-        revokeWhileBlocked === 'TARGET_BLOCKED' && sameSet && revokeAfterUnblock === 'APPLIED' && tRevoked.ok && !tAfterRevoke.assigned.includes('INVITE_USERS'),
-      { grantTInvite, revokeWhileBlocked, tAssignedBlocked, tAfterUnblock, revokeAfterUnblock, tAfterRevoke }
+      tActive.ok &&
+        tUnblockConverged &&
+        tAfterUnblock.member === 'ACTIVE' &&
+        !tAfterUnblock.listed &&
+        !tAfterUnblock.suppressed &&
+        tAfterUnblock.post &&
+        tAfterUnblock.comment &&
+        revokeWhileBlocked === 'TARGET_BLOCKED' &&
+        sameSet &&
+        revokeAfterUnblock === 'APPLIED' &&
+        tRevoked.ok &&
+        !tAfterRevoke.assigned.includes('INVITE_USERS'),
+      { grantTInvite, revokeWhileBlocked, tAssignedBlocked, tAfterUnblock, revokeAfterUnblock, tAfterRevoke, tUnblockConverged },
     );
     // a REMOVED member: block = blocklist entry only; unblock never restores the membership
     const blockRemoved = await ev(ua.page, async (pk) => (await window.NostrApp.FirstGroupAdmin.blockMember(pk)).code, C.pub);
@@ -2931,7 +3102,32 @@ async function main() {
     }, P4.id);
     await shot(ua.page, 'p1-reports-inbox');
     const removeRes = await actConfirm(ua.page, `#sosGapReportList [data-act="report-remove"][data-target="${P4.id}"]`).catch((e) => ({ ok: false, text: String(e.message || e).slice(0, 80) }));
-    await sleep(1200);
+    // report-remove sets the OK toast inside removeContent before setStatus(RESOLVED) finishes.
+    // Wait for inbox+badge+audit convergence — not a fixed sleep after the toast.
+    const reportResolvedOk = await ua.page
+      .waitForFunction(
+        async (id) => {
+          const App = window.NostrApp;
+          const R = App.GroupReports;
+          if (!R) return false;
+          const s = await R.loadInbox();
+          const row = s.rows.find((r) => r.targetId === id);
+          App.GroupAdminProductUi.ensureMenuEntry();
+          const badge = document.querySelector('#sosGroupControlMenuItem .sos-report-badge')?.textContent || '';
+          return (
+            !!row &&
+            row.status === 'RESOLVED' &&
+            s.unresolved === 0 &&
+            badge === '' &&
+            App.deletedEventIds.has(id) &&
+            R.resolutionAudit().some((r) => r.action === 'REPORT_RESOLVED')
+          );
+        },
+        P4.id,
+        { polling: 250, timeout: 45000 },
+      )
+      .then(() => true)
+      .catch(() => false);
     const resolved = await ev(ua.page, async (id) => {
       const App = window.NostrApp;
       const R = App.GroupReports;
@@ -2944,8 +3140,10 @@ async function main() {
         unresolved: s.unresolved,
         badge: document.querySelector('#sosGroupControlMenuItem .sos-report-badge')?.textContent || '',
         audit: R.resolutionAudit().map((r) => r.action),
+        converged: true,
       };
     }, P4.id);
+    resolved.converged = reportResolvedOk;
     const bAuditReports = await ev(ub.page, () => window.NostrApp.GroupReports.resolutionAudit().length);
     // inbox dedupe even when the reporter clears the client limit; client flood limit per hour
     const flood = await tPage.evaluate(async (p) => {
@@ -2976,8 +3174,8 @@ async function main() {
       inboxA.ok && inboxA.row && inboxA.row.status === 'NEW' && inboxA.row.count === 1 && inboxA.row.reported === B.pub && reportRowUi.row && /ספאם/.test(reportRowUi.text) && !inboxB.ok,
       { inboxA, inboxB, actions: reportRowUi.actions }
     );
-    set('REPORT_BADGE', inboxA.badge === String(inboxA.unresolved) && inboxA.unresolved >= 1 && /דיווחים \(\d+\)/.test(reportRowUi.tab) && resolved.badge === '', { before: inboxA.badge, tab: reportRowUi.tab, after: resolved.badge });
-    set('REPORT_RESOLUTION', removeRes.ok && resolved.status === 'RESOLVED' && resolved.removed && resolved.unresolved === 0 && resolved.audit.includes('REPORT_RESOLVED') && bAuditReports === 0, { removeRes, resolved, bAuditReports });
+    set('REPORT_BADGE', inboxA.badge === String(inboxA.unresolved) && inboxA.unresolved >= 1 && /דיווחים \(\d+\)/.test(reportRowUi.tab) && reportResolvedOk && resolved.badge === '', { before: inboxA.badge, tab: reportRowUi.tab, after: resolved.badge, reportResolvedOk });
+    set('REPORT_RESOLUTION', removeRes.ok && reportResolvedOk && resolved.status === 'RESOLVED' && resolved.removed && resolved.unresolved === 0 && resolved.audit.includes('REPORT_RESOLVED') && bAuditReports === 0, { removeRes, resolved, bAuditReports, reportResolvedOk });
     set('REPORT_FLOOD_PROTECTION', flood.again === 'DELIVERED' && dedupe.count === 1 && flood.codes.filter((c) => c === 'DELIVERED').length === 9 && flood.codes[9] === 'RATE_LIMITED', { flood, dedupe });
     set('AUDIT_LOG_PHASE1', ['CONTENT_REMOVED', 'BLOCKLIST_CHANGED', 'MEMBER_BLOCKED', 'MEMBER_UNBLOCKED', 'REPORT_RESOLVED'].every((a) => auditActions.includes(a)), { auditActions });
     report.REPORTED_CONTENT_VISIBLE_AFTER_REMOVAL = !resolved.removed;
@@ -3217,10 +3415,13 @@ async function main() {
     report.SERVICE_LOG_SECRET_HITS = leakCount;
   } catch (_e) {}
   report.status = !report.fatal && report.failedKeys.length === 0 && report.SERVICE_LOG_SECRET_HITS === 0 ? 'PASS' : 'FAIL';
+  report.completed = true;
+  report.completedAt = Date.now();
+  report.runId = RUN_ID;
   fs.writeFileSync(OUT, JSON.stringify(report, null, 2));
   // Local diagnostics only (untracked dot-file); the secret-hex check above already ran on this log.
   if (report.SERVICE_LOG_SECRET_HITS === 0) fs.writeFileSync(path.join(ROOT, 'qa', '.898-admission-service.log'), admLog.slice(-200000));
-  console.log('RESULT', report.status, 'passed', report.passed, 'failed', report.failedKeys.join(','));
+  console.log('RESULT', report.status, 'passed', report.passed, 'failed', report.failedKeys.join(','), 'runId', RUN_ID);
   process.exit(report.status === 'PASS' ? 0 : 1);
 }
 

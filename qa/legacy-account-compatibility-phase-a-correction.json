@@ -1,0 +1,84 @@
+{
+  "gate": "LEGACY_ACCOUNT_COMPATIBILITY_PHASE_A_CORRECTION",
+  "supersedes": "qa/legacy-account-compatibility-report.json status LEGACY_ACCOUNT_COMPATIBILITY_PASS",
+  "source": "Deep audit after Phase A fixture gate (agent c7a085da-d6ef-4716-af57-4612cdd879c8)",
+  "ts": "2026-10-08T09:10:00.000Z",
+  "CORRECTED_PHASE_A_STATUS": "LEGACY_ACCOUNT_COMPATIBILITY_BLOCKED",
+  "PHASE_B_SHOULD_HAVE_STOPPED": true,
+  "NOTE": "Fixture gate verified key-login without phone/39007 and client-side tip ingest. Deep audit found systemic disable-delivery and unauthenticated Worker surfaces that fail mandatory security scenarios. Product source not modified in this correction — explicit authorization required for fixes.",
+  "STILL_TRUE": {
+    "LEGACY_NO_PHONE_LOGIN": "works (key import / ensureKeys)",
+    "LEGACY_NO_39007_LOGIN": "works (no client requires 39007)",
+    "PHONE_REQUIRED_FOR_LEGACY_LOGIN": false,
+    "PHONE_REQUIRED_FOR_LINKED_DEVICE": false,
+    "LEGACY_37377_FORGERY_AS_GLOBAL_ACCOUNT": false,
+    "LEGACY_MIGRATION_REQUIRED_FOR_LOGIN": false
+  },
+  "CORRECTED_FALSE_OR_BLOCKED": {
+    "LEGACY_DISABLED_ACCOUNT_BYPASS": {
+      "previousGateClaim": false,
+      "corrected": "PARTIAL_BYPASS_RISK",
+      "evidence": [
+        "Worker setStatus signs 39008 but does not publish to relays",
+        "Client never queries kind 39008 from relays; GAS.ingest only used on admin directory path",
+        "Login deny on target device still depends on legacy 39005 coexistence",
+        "app.js finishWorkerBootOk / typed boot bind session without assertLoginAllowed",
+        "auth.html import path loads without account-status / global-account-status modules"
+      ]
+    },
+    "LEGACY_MIGRATION_SAFELY_IMPLEMENTED": false,
+    "TRUSTED_CERT_ISSUANCE": false,
+    "TRUSTED_PHONE_BIND": false
+  },
+  "PHASE_A_BLOCKERS": [
+    {
+      "id": "UNAUTH_CERT_ISSUE",
+      "file": "admission-service/src/global-accounts.js",
+      "function": "issueCert / route /account/cert/issue",
+      "issue": "No operator/owner auth — any caller can mint 39007 for any pubkey",
+      "minimalFix": "Require ROOT/operator attested authEvent with purpose ISSUE_GLOBAL_CERT + evidence checks; refuse anonymous issue"
+    },
+    {
+      "id": "UNAUTH_PHONE_BIND",
+      "file": "admission-service/src/global-accounts.js",
+      "function": "bindPhone / route /phone/bind",
+      "issue": "Unauthenticated bind of unbound phone to arbitrary pubkey",
+      "minimalFix": "Require authenticated owner proof + uniqueness; keep PHONE_REBIND_NOT_IMPLEMENTED until product flow exists"
+    },
+    {
+      "id": "SET_STATUS_AUTH_TOO_WEAK",
+      "file": "admission-service/src/global-accounts.js",
+      "function": "setStatus",
+      "issue": "Auth checks only ROOT pubkey signature — missing kind/purpose/target/freshness binding (replay risk)",
+      "minimalFix": "Require fresh single-purpose authEvent bound to targetPubkey+status+expiry; reject reuse"
+    },
+    {
+      "id": "39008_NOT_DELIVERED_TO_TARGET",
+      "files": ["admission-service/src/global-accounts.js setStatus", "global-account-status-state.js", "app.js bootGuestIdentity"],
+      "issue": "Global disable tip not published/fetched; boot/login paths can skip assertLoginAllowed",
+      "minimalFix": "Publish 39008 to relays; client reconcile on boot before SessionAuthority bind; fail-closed if modules missing"
+    },
+    {
+      "id": "REDEEM_NO_OWNERSHIP_PROOF",
+      "file": "admission-service/src/global-accounts.js",
+      "function": "redeemNewAccountInvite",
+      "issue": "redeemerPubkey taken from body without signature proving key possession",
+      "minimalFix": "Require redeemer-signed challenge/authEvent bound to inviteId"
+    },
+    {
+      "id": "NEW_ACCOUNT_WITHOUT_PHONE_PATHS",
+      "files": ["guest-auth.js", "auth.js", "config.js invite flag"],
+      "issue": "COMMUNITY/legacy invite, invite-off, auth.html email flow can create accounts without phone binding",
+      "minimalFix": "Product policy: keep legacy login; close or clearly label non-phone NEW registration paths if phone-mandatory for new global accounts"
+    }
+  ],
+  "MD_INVENTORY_CONFIRMATION": {
+    "source": "agent e66e1f6c-9914-4657-9dc8-76f8745db72a",
+    "alignedWithPhaseBResult": true,
+    "ANDROID_SDK": "missing — MD1/MD2/MD3 gradle FAIL env-only",
+    "MD3_ISSUANCE": "Android PhoneIssuer only; no WebView authorize API",
+    "note": "Partial web UI wiring in 899s.15 does not clear cryptographic pairing E2E"
+  },
+  "PRODUCT_CHANGES_IN_CORRECTION": false,
+  "NEXT": "Do not continue Phase B crypto E2E. Seek explicit authorization for Worker auth hardening + 39008 delivery before re-running Phase A."
+}

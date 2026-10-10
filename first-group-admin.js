@@ -348,6 +348,10 @@
     'SET_ADMISSION_DELEGATE',
     'RETIRE_ADMISSION_DELEGATE',
     'REVOKE_ADMISSION_DELEGATE',
+    'DISABLE_ACCOUNT',
+    'REENABLE_ACCOUNT',
+    'HIDE_DIRECTORY',
+    'RESTORE_DIRECTORY',
   ]);
 
   function PIN() {
@@ -1204,6 +1208,10 @@
         row.lastActiveAt = Math.max(row.lastActiveAt, ev.created_at || 0);
       });
     const root = normalizePubkey(st.rootAdminPubkey);
+    const ASS = App.AccountStatusState || window.SosAccountStatusState;
+    const DHS = App.DirectoryHygieneState || window.SosDirectoryHygieneState;
+    if (ASS && root) ASS.setRoot(root);
+    if (DHS && root) DHS.setRoot(root);
     const out = Array.from(rows.values()).map((r) => {
       const a = authorityFor(r.pubkey);
       const ms = memberStatus(r.pubkey);
@@ -1212,6 +1220,9 @@
       if (r.pubkey === root) status = 'ROOT';
       else if (listed && ms !== 'REMOVED') status = 'BLOCKED';
       else if (ms === 'UNKNOWN') status = 'LEGACY';
+      const accountDisabled = !!(ASS && ASS.isDisabled(r.pubkey));
+      const directoryHidden = !!(DHS && DHS.isHidden(r.pubkey));
+      const profileOnly = !r.registered && !!r.sosProfile && (ms === 'UNKNOWN' || status === 'LEGACY');
       return Object.assign(r, {
         status,
         isRoot: r.pubkey === root,
@@ -1219,13 +1230,73 @@
         roleLabel: roleLabel(a.role),
         assigned: a.assigned.slice(),
         caps: a.caps.slice(),
+        accountDisabled,
+        directoryHidden,
+        profileOnly,
+        operationalVisible: !(
+          accountDisabled ||
+          directoryHidden ||
+          status === 'REMOVED' ||
+          status === 'BLOCKED' ||
+          profileOnly
+        ),
       });
     });
-    const counts = { ALL: out.length };
+    const counts = { ALL: out.length, OPERATIONAL: 0, ACCOUNT_DISABLED: 0, DIRECTORY_HIDDEN: 0, PROFILE_ONLY: 0 };
     out.forEach((r) => {
       counts[r.status] = (counts[r.status] || 0) + 1;
+      if (r.operationalVisible) counts.OPERATIONAL += 1;
+      if (r.accountDisabled) counts.ACCOUNT_DISABLED += 1;
+      if (r.directoryHidden) counts.DIRECTORY_HIDDEN += 1;
+      if (r.profileOnly) counts.PROFILE_ONLY += 1;
     });
     return { ok: true, groupId: FIRST_GROUP.groupId, rows: out, counts };
+  }
+
+  async function disableAccount(targetPubkey, opts) {
+    const g = await nguard('DISABLE_ACCOUNT', ['MANAGE_ADMINS']);
+    if (!g.ok) return g;
+    if (!g.auth.isRoot) return fail('ROOT_ONLY');
+    const bad = blockTargetGuard(g, targetPubkey);
+    if (bad) return bad;
+    const ops = App.AccountDirectoryOps || window.SosAccountDirectoryOps;
+    if (!ops) return fail('NO_ACCOUNT_OPS');
+    const res = await ops.disableAccount(normalizePubkey(targetPubkey), opts || {});
+    return res && res.ok ? done(res) : res || fail('DISABLE_FAILED');
+  }
+
+  async function reenableAccount(targetPubkey, opts) {
+    const g = await nguard('REENABLE_ACCOUNT', ['MANAGE_ADMINS']);
+    if (!g.ok) return g;
+    if (!g.auth.isRoot) return fail('ROOT_ONLY');
+    const bad = blockTargetGuard(g, targetPubkey);
+    if (bad) return bad;
+    const ops = App.AccountDirectoryOps || window.SosAccountDirectoryOps;
+    if (!ops) return fail('NO_ACCOUNT_OPS');
+    const res = await ops.reenableAccount(normalizePubkey(targetPubkey), opts || {});
+    return res && res.ok ? done(res) : res || fail('REENABLE_FAILED');
+  }
+
+  async function hideFromDirectory(targetPubkey, opts) {
+    const g = await nguard('HIDE_DIRECTORY', ['MANAGE_ADMINS']);
+    if (!g.ok) return g;
+    if (!g.auth.isRoot) return fail('ROOT_ONLY');
+    const bad = blockTargetGuard(g, targetPubkey);
+    if (bad) return bad;
+    const ops = App.AccountDirectoryOps || window.SosAccountDirectoryOps;
+    if (!ops) return fail('NO_ACCOUNT_OPS');
+    const res = await ops.hideFromDirectory(normalizePubkey(targetPubkey), opts || {});
+    return res && res.ok ? done(res) : res || fail('HIDE_FAILED');
+  }
+
+  async function restoreToDirectory(targetPubkey, opts) {
+    const g = await nguard('RESTORE_DIRECTORY', ['MANAGE_ADMINS']);
+    if (!g.ok) return g;
+    if (!g.auth.isRoot) return fail('ROOT_ONLY');
+    const ops = App.AccountDirectoryOps || window.SosAccountDirectoryOps;
+    if (!ops) return fail('NO_ACCOUNT_OPS');
+    const res = await ops.restoreToDirectory(normalizePubkey(targetPubkey), opts || {});
+    return res && res.ok ? done(res) : res || fail('RESTORE_FAILED');
   }
 
   /** Known SOS account (own email-registry record or SOS-published profile); arbitrary keys are not. */
@@ -1992,6 +2063,10 @@
     listMembershipGaps,
     reconcileRegisteredMembers,
     listKnownUsers,
+    disableAccount,
+    reenableAccount,
+    hideFromDirectory,
+    restoreToDirectory,
     isKnownSosAccount,
     confirmLegacyMember,
     savePermissions,

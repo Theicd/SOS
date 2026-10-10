@@ -1,0 +1,123 @@
+{
+  "gate": "MD3W_W2_WEB_QR_SCANNER",
+  "status": "PASS",
+  "ts": "2026-10-10T22:38:20.443Z",
+  "runId": "ec03d486-6a27-4969-8be8-05db6f810e04",
+  "checks": {
+    "SCANNER_MODULE": {
+      "ok": true,
+      "detail": ""
+    },
+    "NO_REMOTE_QR_SERVICE": {
+      "ok": true,
+      "detail": ""
+    },
+    "NO_CDN_RUNTIME": {
+      "ok": true,
+      "detail": ""
+    },
+    "GET_USER_MEDIA": {
+      "ok": true,
+      "detail": ""
+    },
+    "REAR_CAMERA_IDEAL": {
+      "ok": true,
+      "detail": ""
+    },
+    "BARCODE_DETECTOR": {
+      "ok": true,
+      "detail": ""
+    },
+    "JSQR_FALLBACK_BUNDLED": {
+      "ok": true,
+      "detail": ""
+    },
+    "STOP_TRACKS": {
+      "ok": true,
+      "detail": ""
+    },
+    "DECODE_NOT_AUTH": {
+      "ok": true,
+      "detail": ""
+    },
+    "SOSPAIR1_PARSER_REUSE": {
+      "ok": true,
+      "detail": ""
+    },
+    "GROUP_INVITE_REJECT_HINT": {
+      "ok": true,
+      "detail": ""
+    },
+    "DUPLICATE_CONSUME": {
+      "ok": true,
+      "detail": ""
+    },
+    "WIRED_UI_SCAN_BUTTON": {
+      "ok": true,
+      "detail": ""
+    },
+    "VIDEOS_SCRIPT_TAG": {
+      "ok": true,
+      "detail": ""
+    },
+    "PRODUCTION_FLAG_OFF": {
+      "ok": true,
+      "detail": ""
+    },
+    "T1_STILL_DISABLED": {
+      "ok": true,
+      "detail": ""
+    },
+    "NO_SECRET_LOG": {
+      "ok": true,
+      "detail": ""
+    },
+    "JSQR_VENDORED_HASH": {
+      "ok": true,
+      "detail": "BC40C8A15196236B"
+    },
+    "MD2_QR_MODULE": {
+      "ok": true,
+      "detail": ""
+    },
+    "POS_SOSPAIR1_PARSE": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_NON_PAIR_PREFIX": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_EXPIRED_QR": {
+      "ok": true,
+      "detail": ""
+    }
+  },
+  "notes": [
+    "[w2] PASS SCANNER_MODULE",
+    "[w2] PASS NO_REMOTE_QR_SERVICE",
+    "[w2] PASS NO_CDN_RUNTIME",
+    "[w2] PASS GET_USER_MEDIA",
+    "[w2] PASS REAR_CAMERA_IDEAL",
+    "[w2] PASS BARCODE_DETECTOR",
+    "[w2] PASS JSQR_FALLBACK_BUNDLED",
+    "[w2] PASS STOP_TRACKS",
+    "[w2] PASS DECODE_NOT_AUTH",
+    "[w2] PASS SOSPAIR1_PARSER_REUSE",
+    "[w2] PASS GROUP_INVITE_REJECT_HINT",
+    "[w2] PASS DUPLICATE_CONSUME",
+    "[w2] PASS WIRED_UI_SCAN_BUTTON",
+    "[w2] PASS VIDEOS_SCRIPT_TAG",
+    "[w2] PASS PRODUCTION_FLAG_OFF",
+    "[w2] PASS T1_STILL_DISABLED",
+    "[w2] PASS NO_SECRET_LOG",
+    "[w2] PASS JSQR_VENDORED_HASH — BC40C8A15196236B",
+    "[w2] PASS MD2_QR_MODULE",
+    "[w2] PASS POS_SOSPAIR1_PARSE",
+    "[w2] PASS NEG_NON_PAIR_PREFIX",
+    "[w2] PASS NEG_EXPIRED_QR"
+  ],
+  "failCount": 0,
+  "OPTICAL_HARDWARE_CLAIMED": false,
+  "LIVE_E2E_CLAIMED": false
+}

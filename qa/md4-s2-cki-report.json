@@ -1,0 +1,211 @@
+{
+  "gate": "MD4_S2_CKI",
+  "runId": "0ca344bd-eaa0-4139-9cb4-37bede212bf0",
+  "startedAt": "2026-10-10T20:17:39.220Z",
+  "finishedAt": "2026-10-10T20:17:41.233Z",
+  "pass": 27,
+  "fail": 0,
+  "results": {
+    "FILE_sos-md4-cki.js": {
+      "ok": true,
+      "detail": null
+    },
+    "FILE_sos-md4-device-auth.js": {
+      "ok": true,
+      "detail": null
+    },
+    "FILE_sos-md4-device-store.js": {
+      "ok": true,
+      "detail": null
+    },
+    "FILE_android-shell_app_src_main_java_com_sos010_app_SosConversationKeyIndex.kt": {
+      "ok": true,
+      "detail": null
+    },
+    "FILE_android-shell_app_src_main_java_com_sos010_app_SosHistorySyncExporter.kt": {
+      "ok": true,
+      "detail": null
+    },
+    "VIDEOS_LOADS_CKI": {
+      "ok": true,
+      "detail": null
+    },
+    "NO_GENERIC_ROOT_DERIVE_API": {
+      "ok": true,
+      "detail": null
+    },
+    "BRIDGE_SEALED_ONLY": {
+      "ok": true,
+      "detail": null
+    },
+    "NO_CHAT_IMPORT_IN_S2": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_PROTOCOL_PAIR_ON_HIST": {
+      "ok": true,
+      "detail": null
+    },
+    "POS_PROTOCOL_HIST": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_PROTOCOL_COLLISION": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_PLAINTEXT_DOWNGRADE": {
+      "ok": true,
+      "detail": null
+    },
+    "POS_SEAL_SHAPE_OK": {
+      "ok": true,
+      "detail": null
+    },
+    "ANDROID_FIXTURE_DESKTOP_OPEN": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "entryCount": 1,
+        "peer": "cc8704b8a60a0defa3a99a7299f2e9c3fbc395afb04ac078425ef8a1793cc030",
+        "ckMatch": true,
+        "wrongOk": false,
+        "wrongCode": "AEAD_FAIL",
+        "replayCode": "REPLAY_EXPORT_SESSION",
+        "summaryHasCk": false
+      }
+    },
+    "NEG_WRONG_DENC_DESKTOP": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "entryCount": 1,
+        "peer": "cc8704b8a60a0defa3a99a7299f2e9c3fbc395afb04ac078425ef8a1793cc030",
+        "ckMatch": true,
+        "wrongOk": false,
+        "wrongCode": "AEAD_FAIL",
+        "replayCode": "REPLAY_EXPORT_SESSION",
+        "summaryHasCk": false
+      }
+    },
+    "NEG_REPLAY_DESKTOP": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "entryCount": 1,
+        "peer": "cc8704b8a60a0defa3a99a7299f2e9c3fbc395afb04ac078425ef8a1793cc030",
+        "ckMatch": true,
+        "wrongOk": false,
+        "wrongCode": "AEAD_FAIL",
+        "replayCode": "REPLAY_EXPORT_SESSION",
+        "summaryHasCk": false
+      }
+    },
+    "NO_CK_IN_PUBLIC_SUMMARY": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "entryCount": 1,
+        "peer": "cc8704b8a60a0defa3a99a7299f2e9c3fbc395afb04ac078425ef8a1793cc030",
+        "ckMatch": true,
+        "wrongOk": false,
+        "wrongCode": "AEAD_FAIL",
+        "replayCode": "REPLAY_EXPORT_SESSION",
+        "summaryHasCk": false
+      }
+    },
+    "NEG_MISSING_OR_FORGED_SIG": {
+      "ok": true,
+      "detail": {
+        "rootSkMissing": "MISSING_SIGNATURE",
+        "noHist": "MISSING_DEVICE_HISTORY_SYNC",
+        "wrongAccount": "ACCOUNT_MISMATCH",
+        "wrongDevice": "DEVICE_ID_MISMATCH",
+        "staleEpoch": "AUTH_EPOCH_MISMATCH",
+        "badCt": "AEAD_FAIL",
+        "crossAccount": "ACCOUNT_MISMATCH"
+      }
+    },
+    "NEG_MISSING_HISTORY_SYNC": {
+      "ok": true,
+      "detail": {
+        "rootSkMissing": "MISSING_SIGNATURE",
+        "noHist": "MISSING_DEVICE_HISTORY_SYNC",
+        "wrongAccount": "ACCOUNT_MISMATCH",
+        "wrongDevice": "DEVICE_ID_MISMATCH",
+        "staleEpoch": "AUTH_EPOCH_MISMATCH",
+        "badCt": "AEAD_FAIL",
+        "crossAccount": "ACCOUNT_MISMATCH"
+      }
+    },
+    "NEG_WRONG_ACCOUNT": {
+      "ok": true,
+      "detail": {
+        "rootSkMissing": "MISSING_SIGNATURE",
+        "noHist": "MISSING_DEVICE_HISTORY_SYNC",
+        "wrongAccount": "ACCOUNT_MISMATCH",
+        "wrongDevice": "DEVICE_ID_MISMATCH",
+        "staleEpoch": "AUTH_EPOCH_MISMATCH",
+        "badCt": "AEAD_FAIL",
+        "crossAccount": "ACCOUNT_MISMATCH"
+      }
+    },
+    "NEG_WRONG_DEVICE": {
+      "ok": true,
+      "detail": {
+        "rootSkMissing": "MISSING_SIGNATURE",
+        "noHist": "MISSING_DEVICE_HISTORY_SYNC",
+        "wrongAccount": "ACCOUNT_MISMATCH",
+        "wrongDevice": "DEVICE_ID_MISMATCH",
+        "staleEpoch": "AUTH_EPOCH_MISMATCH",
+        "badCt": "AEAD_FAIL",
+        "crossAccount": "ACCOUNT_MISMATCH"
+      }
+    },
+    "NEG_STALE_AUTH_EPOCH": {
+      "ok": true,
+      "detail": {
+        "rootSkMissing": "MISSING_SIGNATURE",
+        "noHist": "MISSING_DEVICE_HISTORY_SYNC",
+        "wrongAccount": "ACCOUNT_MISMATCH",
+        "wrongDevice": "DEVICE_ID_MISMATCH",
+        "staleEpoch": "AUTH_EPOCH_MISMATCH",
+        "badCt": "AEAD_FAIL",
+        "crossAccount": "ACCOUNT_MISMATCH"
+      }
+    },
+    "NEG_CORRUPTED_AEAD": {
+      "ok": true,
+      "detail": {
+        "rootSkMissing": "MISSING_SIGNATURE",
+        "noHist": "MISSING_DEVICE_HISTORY_SYNC",
+        "wrongAccount": "ACCOUNT_MISMATCH",
+        "wrongDevice": "DEVICE_ID_MISMATCH",
+        "staleEpoch": "AUTH_EPOCH_MISMATCH",
+        "badCt": "AEAD_FAIL",
+        "crossAccount": "ACCOUNT_MISMATCH"
+      }
+    },
+    "NEG_CROSS_ACCOUNT_INJECTION": {
+      "ok": true,
+      "detail": {
+        "rootSkMissing": "MISSING_SIGNATURE",
+        "noHist": "MISSING_DEVICE_HISTORY_SYNC",
+        "wrongAccount": "ACCOUNT_MISMATCH",
+        "wrongDevice": "DEVICE_ID_MISMATCH",
+        "staleEpoch": "AUTH_EPOCH_MISMATCH",
+        "badCt": "AEAD_FAIL",
+        "crossAccount": "ACCOUNT_MISMATCH"
+      }
+    },
+    "NEG_KEY_MATERIAL_CONSOLE": {
+      "ok": true,
+      "detail": []
+    },
+    "NEG_ROOT_K_LEAKAGE_SOURCE": {
+      "ok": true,
+      "detail": null
+    }
+  },
+  "STATUS": "PASS"
+}

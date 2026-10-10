@@ -1,0 +1,160 @@
+{
+  "gate": "PHONE_ONBOARDING_SOCALL_FINAL_ACCEPTANCE_NIP65_UX",
+  "status": "PASS",
+  "ts": "2026-10-08T10:35:17.901Z",
+  "results": {
+    "NIP65_GLOBAL_SCOPE_STATIC": {
+      "ok": true,
+      "detail": null
+    },
+    "NIP65_NO_PRIVATE_RELAY_LEAK_STATIC": {
+      "ok": true,
+      "detail": null
+    },
+    "LEGACY_STATUS_COMPATIBILITY_REVIEWED": {
+      "ok": true,
+      "detail": {
+        "globalKind": 39008,
+        "communityLegacyKind": 39005,
+        "note": "39005 remains Admin2FA community account-status cosign; 39008 is global disable tip"
+      }
+    },
+    "NIP65_SIGNED_BY_GLOBAL_PUBKEY": {
+      "ok": true,
+      "detail": {
+        "kind": 10002
+      }
+    },
+    "NIP65_NO_COMMUNITY_AUTHORITY_TAG": {
+      "ok": true,
+      "detail": null
+    },
+    "NIP65_NO_PRIVATE_RELAY_LEAK": {
+      "ok": true,
+      "detail": {
+        "hasWsLocal": false,
+        "hasWss": true,
+        "tagCount": 3
+      }
+    },
+    "NIP65_PUBLICATION_READBACK": {
+      "ok": true,
+      "detail": {
+        "found": 1,
+        "idMatch": true
+      }
+    },
+    "NIP65_GLOBAL_SCOPE": {
+      "ok": true,
+      "detail": null
+    },
+    "VIEWPORT_M390": {
+      "ok": true,
+      "detail": {
+        "phone": true,
+        "pick": false,
+        "contactsApi": false,
+        "overflow": true,
+        "sw": 390,
+        "cw": 390
+      }
+    },
+    "VIEWPORT_M412": {
+      "ok": true,
+      "detail": {
+        "phone": true,
+        "pick": false,
+        "contactsApi": false,
+        "overflow": true,
+        "sw": 412,
+        "cw": 412
+      }
+    },
+    "VIEWPORT_D1280": {
+      "ok": true,
+      "detail": {
+        "phone": true,
+        "pick": false,
+        "contactsApi": false,
+        "overflow": true,
+        "sw": 1280,
+        "cw": 1280
+      }
+    },
+    "VIEWPORT_D1440": {
+      "ok": true,
+      "detail": {
+        "phone": true,
+        "pick": false,
+        "contactsApi": false,
+        "overflow": true,
+        "sw": 1440,
+        "cw": 1440
+      }
+    },
+    "MOBILE_UI_GATE": {
+      "ok": true,
+      "detail": {
+        "m390": {
+          "phone": true,
+          "pick": false,
+          "contactsApi": false,
+          "overflow": true,
+          "sw": 390,
+          "cw": 390
+        },
+        "m412": {
+          "phone": true,
+          "pick": false,
+          "contactsApi": false,
+          "overflow": true,
+          "sw": 412,
+          "cw": 412
+        }
+      }
+    },
+    "DESKTOP_UI_GATE": {
+      "ok": true,
+      "detail": {
+        "d1280": {
+          "phone": true,
+          "pick": false,
+          "contactsApi": false,
+          "overflow": true,
+          "sw": 1280,
+          "cw": 1280
+        },
+        "d1440": {
+          "phone": true,
+          "pick": false,
+          "contactsApi": false,
+          "overflow": true,
+          "sw": 1440,
+          "cw": 1440
+        }
+      }
+    },
+    "CONTACT_PICKER_AUTOMATED_E2E_UNSUPPORTED": {
+      "ok": true,
+      "detail": {
+        "note": "Chromium headless has no Contact Picker; manual Android Chrome required"
+      }
+    },
+    "FULL_ADDRESS_BOOK_UPLOAD_FALSE": {
+      "ok": true,
+      "detail": {
+        "selectedOnly": true,
+        "multipleFalse": true,
+        "noBulkUpload": true
+      }
+    },
+    "MANUAL_PHONE_ENTRY_UI": {
+      "ok": true,
+      "detail": null
+    }
+  },
+  "CONTACT_PICKER_AUTOMATED_E2E": "UNSUPPORTED",
+  "fails": [],
+  "pass": 17,
+  "fail": 0
+}

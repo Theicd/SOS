@@ -1,0 +1,64 @@
+{
+  "gate": "MD3W_W1_SECURE_MOBILE_WEB_PHONEISSUER",
+  "status": "BLOCKED_SECURITY",
+  "ts": "2026-10-10T21:20:00.000Z",
+  "baselineHead": "d1bcc5168d9e02564c505d4b10c69a8d9b5f208a",
+  "worktree": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349",
+  "originalWorktreeUnchanged": true,
+  "codeChanged": false,
+  "docsChanged": false,
+  "commitCreated": false,
+  "pushed": false,
+  "prCreated": false,
+  "deployExecuted": false,
+  "TRUSTED_SIGNING_AUTHORITY": "Android PhoneIssuer (live MD3); Worker Vault typed SIGN_* (no AUTHORIZE_LINKED_DEVICE); signer.sos010.com vault for F5B4/F5B5/F5B6-W only",
+  "AUTHORIZE_LINKED_DEVICE_TYPED_OP": false,
+  "CANONICAL_MD3_SIGNATURE_PARITY": "N/A_NOT_IMPLEMENTED",
+  "USER_APPROVAL_BOUNDARY": "MISSING_INDEPENDENT_WEB_BOUNDARY",
+  "T2_WEB_AUTHN_UV": "BLOCKED_OUT_OF_SCOPE",
+  "T1_FALLBACK_STATUS": "NOT_ENABLED_MUST_NOT_SHIP_PRODUCTION",
+  "ROOT_K_ISOLATION": "PRESERVED",
+  "WEB_PHONEISSUER": "ABSENT",
+  "MD2_REUSE": "AVAILABLE_UNCHANGED",
+  "DESKTOP_VERIFY_STRICT": "AVAILABLE_UNCHANGED",
+  "SAME_GLOBAL_P": "N/A_NO_WEB_ISSUANCE",
+  "NEW_WEB_ACCOUNT_E2E": "NOT_EXECUTED",
+  "LEGACY_WEB_ACCOUNT_E2E": "NOT_EXECUTED",
+  "ANDROID_MD3_REGRESSION": "NOT_RERUN_NO_CODE_CHANGE",
+  "SIGNER_SECURITY_REGRESSION": "N/A_SIGNER_NOT_MODIFIED",
+  "F5B_SECURITY_REGRESSION": "N/A_NO_CODE_CHANGE",
+  "SECURITY_NEGATIVES": "NOT_EXECUTED_STOPPED",
+  "outOfScopeDependency": {
+    "component": "Isolated Trusted Signer (T2 WebAuthn UV + AUTHORIZE_LINKED_DEVICE ceremony)",
+    "localPath": "C:\\BRAIN\\SOS-signer",
+    "productionOrigin": "https://signer.sos010.com",
+    "inAuthorizedWorktree": false,
+    "existingAssets": [
+      "js/webauthn-*.js",
+      "js/trusted-export-intent.js",
+      "js/trusted-export-ui.js",
+      "js/signer-vault.js",
+      "handoff flow (F5B6-W)"
+    ],
+    "missingAssets": [
+      "AUTHORIZE_LINKED_DEVICE typed ceremony page",
+      "WebAuthn-bound authorize challenge (non-export)",
+      "canonical DeviceAuthorization sign under vault K without reveal"
+    ]
+  },
+  "stopReason": "T2 independently protected confirmation requires SOS-signer changes outside authorized worktree; T1-only production path forbidden; no silent T2→T1 downgrade; no production Trusted Signer changes without separate approval",
+  "READY_FOR_MD3W_W2_APPROVAL": false,
+  "S7A2_HARDWARE_STATUS": "NOT_VERIFIED",
+  "S6_REMAINING_RELEASE_GAPS": 28,
+  "remainingBlockers": [
+    "Owner approval to work in C:\\BRAIN\\SOS-signer (non-prod first)",
+    "Implement T2 AUTHORIZE_LINKED_DEVICE + WebAuthn UV on signer origin",
+    "Then resume W1 main-repo PhoneIssuer adapter under WEB_MD3_ISSUANCE QA gate"
+  ],
+  "evidencePaths": [
+    "qa/md3w-w1-blocked-security-report.md",
+    "qa/md3w-w1-blocked-security-report.json",
+    "qa/md3w-w0-web-primary-security-audit.md",
+    "C:\\BRAIN\\SOS-MD3W-W1-CHECKPOINT-20261010\\STOP.json"
+  ]
+}

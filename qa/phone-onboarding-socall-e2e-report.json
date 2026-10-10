@@ -1,0 +1,300 @@
+{
+  "gate": "PHONE_ONBOARDING_SOCALL_E2E",
+  "status": "PASS",
+  "ts": "2026-10-08T08:34:13.646Z",
+  "results": {
+    "ANONYMOUS_GENERAL_PHONE_LOOKUP": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "code": "UNAUTHORIZED"
+      }
+    },
+    "ROOT_BOOTSTRAP": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "code": "BOOTSTRAPPED"
+      }
+    },
+    "ADMISSION_DELEGATION": {
+      "ok": true,
+      "detail": {
+        "code": "APPLIED",
+        "push": "OK"
+      }
+    },
+    "MANUAL_PHONE_FALLBACK": {
+      "ok": true,
+      "detail": {
+        "modal": true,
+        "manual": true,
+        "pick": true
+      }
+    },
+    "CONTACT_PICKER_IMPLEMENTED": {
+      "ok": true,
+      "detail": {
+        "modal": true,
+        "manual": true,
+        "pick": true
+      }
+    },
+    "LOOKUP_BEFORE_INVITE_UNREGISTERED": {
+      "ok": true,
+      "detail": {
+        "registered": false
+      }
+    },
+    "NEW_ACCOUNT_INVITE_CREATED": {
+      "ok": true,
+      "detail": "[redacted]"
+    },
+    "WHATSAPP_SPECIFIC_RECIPIENT": {
+      "ok": true,
+      "detail": {
+        "url": "https://wa.me/972501111111?text=%D7%94%D7%96%D7%9E%D7%A0%D7%94%20%D7%9C-SOS%3A%0"
+      }
+    },
+    "PHONE_TOKEN_IN_INVITE_URL": {
+      "ok": true,
+      "detail": null
+    },
+    "PHONE_ONBOARDING_FIELD_PRESENT": {
+      "ok": true,
+      "detail": {
+        "phonePresent": true,
+        "inviteVisible": true,
+        "nameHidden": true,
+        "codePrefill": true
+      }
+    },
+    "NAME_ONBOARDING_STEP_ABSENT": {
+      "ok": true,
+      "detail": {
+        "nameHidden": true
+      }
+    },
+    "NAME_ONBOARDING_STEP_PRESENT": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "absent": true
+      }
+    },
+    "AVATAR_ONBOARDING_STEP_PRESENT": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "absent": true
+      }
+    },
+    "WRONG_PHONE_CREATES_IDENTITY": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "blocked": true,
+        "status": "מספר הטלפון אינו תואם להזמנה.",
+        "keyVisible": false,
+        "pub": ""
+      }
+    },
+    "WRONG_PHONE_CONSUMES_INVITE": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "state": "UNUSED"
+      }
+    },
+    "IDENTITY_CREATED_ONCE": {
+      "ok": true,
+      "detail": "[redacted]"
+    },
+    "GLOBAL_ACCOUNT_CREATED_ONCE": {
+      "ok": true,
+      "detail": "[redacted]"
+    },
+    "PHONE_BINDING_CREATED_ONCE": {
+      "ok": true,
+      "detail": {
+        "pubkeyMatch": true
+      }
+    },
+    "INVITE_REDEEMED_ONCE": {
+      "ok": true,
+      "detail": "[redacted]"
+    },
+    "MEMBERSHIP_FINALIZED_ONCE": {
+      "ok": true,
+      "detail": {
+        "mem": "ACTIVE"
+      }
+    },
+    "INITIAL_EXPORT_LOGIN_ROUNDTRIP_GATE": {
+      "ok": true,
+      "detail": {
+        "decodedOk": true
+      }
+    },
+    "USER_ENTERED_AFTER_CONFIRM": {
+      "ok": true,
+      "detail": "[redacted]"
+    },
+    "LOGOUT_AFTER_BACKUP_ALLOWED": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "blocked": false
+      }
+    },
+    "ROUNDTRIP_PUBKEY_MATCH": {
+      "ok": true,
+      "detail": {
+        "match": true
+      }
+    },
+    "SAME_PHONE_SECOND_ACTIVE_ACCOUNT_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "ok": false,
+        "code": "PHONE_ALREADY_REGISTERED"
+      }
+    },
+    "REGISTERED_PHONE_NEW_ACCOUNT_INVITE_CREATED": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "ok": false,
+        "code": "PHONE_ALREADY_REGISTERED"
+      }
+    },
+    "SOCALL_PHONE_SEARCH_IMPLEMENTED": {
+      "ok": true,
+      "detail": "[redacted]"
+    },
+    "SOCALL_PHONE_SEARCH_REQUIRES_SHARED_COMMUNITY": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "shared": false
+      }
+    },
+    "CROSS_COMMUNITY_SOCALL_LOOKUP": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_SWITCH_CHANGES_SOCALL_IDENTITY": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "before": "22a9bff61241b6bb1dc482abbbdb5b68aca1949e8c63a62a36ff85b725f378b8",
+        "after": "22a9bff61241b6bb1dc482abbbdb5b68aca1949e8c63a62a36ff85b725f378b8",
+        "same": true
+      }
+    },
+    "CROSS_COMMUNITY_SOCALL_DM": {
+      "ok": true,
+      "detail": {
+        "contact": true,
+        "canCall": true
+      }
+    },
+    "CROSS_COMMUNITY_SOCALL_CALL": {
+      "ok": true,
+      "detail": {
+        "contact": true,
+        "canCall": true
+      }
+    },
+    "GLOBAL_ACCOUNT_DISABLE_SET": {
+      "ok": true,
+      "detail": {
+        "result": "OK"
+      }
+    },
+    "DISABLED_PHONE_NEW_ACCOUNT_INVITE_CREATED": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "unavailable": true
+      }
+    },
+    "ACCOUNT_DISABLED_REASON_LEAKED_TO_SEARCHER": {
+      "ok": true,
+      "detail": {
+        "required": false
+      }
+    },
+    "MOBILE_PHONE_ONBOARDING_GATE": {
+      "ok": true,
+      "detail": {
+        "scrollWidth": 412,
+        "clientWidth": 412,
+        "phone": true
+      }
+    },
+    "NIP65_AUTO_ENSURE_IMPLEMENTED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "skipped": true,
+        "code": "NO_IDENTITY"
+      }
+    },
+    "NIP65_COMMUNITY_SWITCH_REPUBLISH": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "ok": false,
+        "skipped": true,
+        "code": "NIP65_COMMUNITY_SWITCH_REPUBLISH_FALSE"
+      }
+    },
+    "DESKTOP_PHONE_ONBOARDING_GATE": {
+      "ok": true,
+      "detail": {
+        "phone": true,
+        "overflow": true
+      }
+    },
+    "PAGE_RAW_K_VISIBLE": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "noted": "recovery UI has no raw K field"
+      }
+    },
+    "PAGE_NSEC_VISIBLE": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "noted": "recovery UI has no nsec field"
+      }
+    },
+    "INITIAL_EXPORT_WEBAUTHN_REQUIRED": {
+      "ok": true,
+      "detail": false
+    },
+    "LATER_EXPORT_WEBAUTHN_REQUIRED": {
+      "ok": true,
+      "detail": true
+    },
+    "PHONE_PROOF_LEVEL": {
+      "ok": true,
+      "detail": "WHATSAPP_DELIVERY_BOUND_INVITE"
+    },
+    "GLOBAL_ACCOUNT_DISABLE_REGRESSION": {
+      "ok": true,
+      "detail": "disabled lookup unavailable + status set"
+    },
+    "PHONE_INVITE_FULL_BROWSER_E2E": {
+      "ok": true,
+      "detail": null
+    }
+  },
+  "metrics": {
+    "fails": []
+  },
+  "CONTACT_PICKER_BROWSER_E2E": "UNSUPPORTED_BY_TEST_BROWSER"
+}

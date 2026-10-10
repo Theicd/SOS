@@ -205,6 +205,23 @@
         WORKER_VAULT_AUTHORITATIVE: false,
       };
     }
+    // Fresh CREATE_BROWSER_IDENTITY already set ready+authoritative — do not respawn Worker via init().
+    if (
+      authoritative &&
+      ready &&
+      worker &&
+      lastMeta &&
+      lastMeta.vaultState === 'READY' &&
+      lastMeta.pubkey
+    ) {
+      App.privateKey = null;
+      App.publicKey = lastMeta.pubkey;
+      App.guestMode = false;
+      App.identityState = 'IDENTITY_OK';
+      App.workerVaultState = lastMeta;
+      installRawKReadGuard();
+      return { ok: true, WORKER_VAULT_AUTHORITATIVE: true, meta: lastMeta, reused: true };
+    }
     // Prefer BrowserSecureProvider, but allow vault success as source of truth
     // (provider name may lag until boot completes).
     const boot = await init();

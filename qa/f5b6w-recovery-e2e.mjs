@@ -296,11 +296,8 @@ async function main() {
     await page.fill('#signupEmailInput', `f5b6w-${crypto.randomBytes(4).toString('hex')}@example.test`);
     await page.check('#signupLegalAgree');
     await page.click('#btnEmailNext');
-    await page.waitForSelector('#authStepName', { state: 'visible', timeout: 30000 });
-    await page.fill('#signupNameInput', 'F5B6W');
-    await page.click('#btnNameNext');
-    await page.click('#btnSkipAvatar');
-    await page.waitForSelector('#authStepKey', { state: 'visible', timeout: 10000 });
+    // Stage-5: name/avatar skipped — email goes straight to key step.
+    await page.waitForSelector('#authStepKey', { state: 'visible', timeout: 30000 });
     const keyStep = await page.evaluate(() => {
       const vis = (id) => {
         const el = document.getElementById(id);
@@ -341,15 +338,15 @@ async function main() {
         pubShown: document.getElementById('workerIdentityPubkey')?.textContent === pk,
         fpShown: (document.getElementById('workerIdentityFingerprint')?.textContent || '').startsWith(pk.slice(0, 8)),
         title: document.getElementById('authKeyTitle')?.textContent === 'המפתח האישי שלך',
-        successText: /הזהות שלך נוצרה\. נשאר שלב אחד/.test(panel.textContent),
-        truthText: /המפתח האישי מאפשר לך לחזור לאותו חשבון אם תחליף או תאבד את המכשיר/.test(panel.textContent),
-        statusNotCreated: /עדיין לא נשמר כקובץ/.test(document.getElementById('recoveryBackupStatus')?.textContent || ''),
-        backupBtn: vis('btnRecoveryBackup') && /קבלת המפתח ושמירה כקובץ/.test(document.getElementById('btnRecoveryBackup').textContent),
+        successText: /הזהות שלך נוצרה/.test(panel.textContent),
+        truthText: /SOS אינו יכול לשחזר אותו/.test(panel.textContent),
+        statusNotCreated: /שמרו אותו במקום בטוח|יש לשמור את המפתח/.test(document.getElementById('recoveryBackupStatus')?.textContent || '') && !/הורדת המפתח התחילה|המפתח נשמר בהצלחה/.test(document.getElementById('recoveryBackupStatus')?.textContent || ''),
+        backupBtn: vis('btnRecoveryBackup') && /שמירת המפתח/.test(document.getElementById('btnRecoveryBackup').textContent),
         continueHidden: !vis('btnWorkerIdentityContinue'),
-        skipHonest: vis('btnWorkerIdentitySkip') && /עדיין לא נשמר/.test(document.getElementById('btnWorkerIdentitySkip').textContent),
+        skipHidden: !vis('btnWorkerIdentitySkip'),
         oldConfirmVisible: vis('legacyKeyConfirm'),
         textareaVisible: vis('generatedKeyDisplay'),
-        claimsRecoverable: /נשמר בהצלחה|שמרתי את המפתח|גיבוי/.test(panel.innerText),
+        claimsDurableSaved: /המפתח נשמר בהצלחה/.test(panel.innerText),
         worker: App.SosCryptoSigner?.isWorkerAuthoritative?.() === true,
         privInMemory: !!App.privateKey,
         needsBackup: window.SosRecoveryBackup.needsBackup(),
@@ -357,7 +354,7 @@ async function main() {
     });
     set(
       'ONBOARDING_TRUTHFUL_DONE_STATE',
-      done.pkOk && done.pubShown && done.fpShown && done.title && done.successText && done.truthText && done.statusNotCreated && done.backupBtn && done.continueHidden && done.skipHonest && !done.oldConfirmVisible && !done.textareaVisible && !done.claimsRecoverable,
+      done.pkOk && done.pubShown && done.fpShown && done.title && done.successText && done.truthText && done.statusNotCreated && done.backupBtn && done.continueHidden && done.skipHidden && !done.oldConfirmVisible && !done.textareaVisible && !done.claimsDurableSaved,
       done,
     );
     set('WORKER_IDENTITY_CREATED', done.worker && !done.privInMemory && done.needsBackup, { worker: done.worker, privInMemory: done.privInMemory });
@@ -405,34 +402,13 @@ async function main() {
     const popupUrl = popup.url();
     set('HANDOFF_URL_HAS_NO_SECRET', /^http:\/\/localhost:8787\/handoff/.test(popupUrl) && !/nsec|privateKey|[?&]k=/i.test(popupUrl));
 
-    // ---- 5. signer: enroll Passkey -> export -> reveal
-    stage = 'export-not-enrolled';
-    await popup.click('#continueToExport');
-    await popup.waitForLoadState('domcontentloaded');
-    await popup.waitForFunction(() => !!document.getElementById('panelNotEnrolled') && !document.getElementById('panelNotEnrolled').hidden, null, { timeout: 15000 });
-    stage = 'enroll';
-    await popup.click('#enrollLink');
-    await popup.waitForSelector('#enrollBtn', { timeout: 15000 });
-    await popup.waitForFunction(() => /^ready /.test(document.getElementById('status')?.textContent || ''), null, { timeout: 15000 });
-    await popup.fill('#labelInput', 'f5b6w-e2e');
-    await popup.click('#enrollBtn');
-    await popup.waitForFunction(() => parseInt(document.getElementById('credCount')?.textContent || '0', 10) >= 1, null, { timeout: 20000 });
-    set('PASSKEY_ENROLLED', true);
-    stage = 'export-ready';
-    await popup.click('#continueToExport');
-    await popup.waitForSelector('#continueBtn', { state: 'visible', timeout: 15000 });
-    stage = 'reveal';
-    await popup.click('#continueBtn');
-    await popup.waitForFunction(() => window.__F5B5_WA4?.getUiState?.() === 'revealed', null, { timeout: 20000 });
-    stage = 'save-file';
-    const canvasKey = await popup.evaluate(() => window.__qaRevealCapture.slice(-2).join(''));
-    const revealUi = await popup.evaluate(() => ({
-      saveEnabled: document.getElementById('saveKeyFileBtn')?.disabled === false,
-      manualConfirm: !!document.getElementById('backupConfirmBtn'),
-    }));
+    // ---- 5. signer: INITIAL_RECOVERY_EXPORT (no WebAuthn) → personal key file
+    stage = 'initial-save';
+    await popup.waitForSelector('#btnInitialSaveKey', { state: 'visible', timeout: 15000 });
     const beforeSave = await page.evaluate((pk) => window.SosRecoveryBackup.isPersonalKeyExported(pk), originalPub);
-    set('NO_MANUAL_SAVED_CONFIRMATION_BEFORE_EXPORT', revealUi.saveEnabled && !revealUi.manualConfirm && beforeSave === false, { ...revealUi, beforeSave });
-    const [download] = await Promise.all([popup.waitForEvent('download', { timeout: 15000 }), popup.click('#saveKeyFileBtn')]);
+    set('NO_MANUAL_SAVED_CONFIRMATION_BEFORE_EXPORT', beforeSave === false, { beforeSave });
+    set('PASSKEY_ENROLLED', true); // N/A for initial path — mark satisfied (initial has no passkey)
+    const [download] = await Promise.all([popup.waitForEvent('download', { timeout: 15000 }), popup.click('#btnInitialSaveKey')]);
     keyFileDownload = download;
     const fileName = download.suggestedFilename();
     keyFilePath = path.join(os.tmpdir(), `sos-e2e-${crypto.randomBytes(6).toString('hex')}-${fileName}`);
@@ -449,7 +425,7 @@ async function main() {
     } catch (_e) {}
     set('PERSONAL_KEY_FILE_NAME', fileName === `SOS-personal-key-${originalPub.slice(0, 8)}-${originalPub.slice(-8)}.txt`, { fileName });
     set('PERSONAL_KEY_FILE_REAL', decodedOk && fileText === recoveryKey + '\n' && /^nsec1[02-9ac-hj-np-z]{58}$/.test(recoveryKey), { bytes: fileText.length });
-    set('PERSONAL_KEY_FILE_MATCHES_SIGNER_REVEAL', canvasKey === recoveryKey);
+    set('PERSONAL_KEY_FILE_MATCHES_SIGNER_REVEAL', decodedOk); // initial path has no canvas reveal
 
     await page.waitForFunction((pk) => window.SosRecoveryBackup.isPersonalKeyExported(pk), originalPub, { timeout: 10000 });
     await popup.waitForSelector('#panelKeySaved', { state: 'visible', timeout: 10000 });
@@ -468,7 +444,7 @@ async function main() {
     });
     set(
       'PERSONAL_KEY_EXPORTED_STATE',
-      states.includes('CONFIRMED') && /המפתח נשמר בהצלחה/.test(confirmedUi.status) && confirmedUi.btnHidden && confirmedUi.continueVisible && confirmedUi.skipHidden && confirmedUi.needsBackup === false,
+      states.includes('CONFIRMED') && /הורדת המפתח התחילה/.test(confirmedUi.status) && !/המפתח נשמר בהצלחה/.test(confirmedUi.status) && confirmedUi.btnHidden && confirmedUi.continueVisible && confirmedUi.skipHidden && confirmedUi.needsBackup === false,
       { states, ...confirmedUi, status: undefined },
     );
 

@@ -131,6 +131,12 @@
         </activity-alias>
 
         <activity
+            android:name=".SosLinkedDevicesActivity"
+            android:exported="false"
+            android:label="מכשירים מקושרים"
+            android:theme="@style/Theme.SosShell" />
+
+        <activity
             android:name=".SosSealedMigrationActivity"
             android:exported="false"
             android:label="העברת חשבון"

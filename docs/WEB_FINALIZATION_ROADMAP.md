@@ -41,6 +41,14 @@ Work stops after each phase and reports in the agreed format. Phase N+1 starts o
 - Phone linked devices live under one menu entry: "מכשירים מחוברים".
 - Initial key delivery is "המפתח האישי שלך" — never "backup".
 
+## Linked-device dual-primary (Stage 5)
+
+Desktop QR login / linked devices (Phases 3–5 above) must eventually satisfy  
+`STAGE5_DUAL_PRIMARY_QR_PAIRING`: **Android APK Primary** and **Mobile Web Primary**  
+(same Global P, DeviceAuthorization, history/media). Canonical gates and order:  
+`docs/security/STAGE5_LINKED_DEVICES_ROADMAP.md`. This web finalization doc does **not**  
+authorize MD3-W / MD4 S7 implementation by itself.
+
 ## Do not touch without explicit owner approval
 
 ROOT identity, genesis, Admission delegation, Admin 2FA signer, control relay set, V2 scope, multi-community, Android, APK, MD4. No force push, no `git reset`, no cleaning unexplained worktrees.

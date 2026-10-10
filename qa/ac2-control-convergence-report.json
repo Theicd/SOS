@@ -1,0 +1,25 @@
+{
+  "STATUS": "PASS",
+  "notes": [
+    "PASS order-independent CONFLICT",
+    "PASS tip frozen at epoch 1",
+    "PASS candidates retained",
+    "PASS root resolve",
+    "PASS delegated resolve rejected",
+    "PASS resolve permutations converge when applicable",
+    "PASS late first fork applied",
+    "PASS late second fork → CONTROL_CONFLICT",
+    "PASS cold-start reconstruction CONFLICT"
+  ],
+  "CURRENT_CONTROL_CONFLICT_RECOVERY_MODEL": "Event-set + deterministic reconstruct: unique exact_+1 chain from epoch 1; ≥2 distinct valid states at same epoch → CONTROL_CONFLICT (tip frozen at prior epoch); ROOT_ADMIN issues RESOLVE_CONTROL_CONFLICT at conflictEpoch+1 referencing candidate event ids; no first-seen / created_at / arrival-order winner.",
+  "ROOT_CAN_RESOLVE_CONTROL_CONFLICT": true,
+  "DELEGATED_ADMIN_CAN_RESOLVE_CONTROL_CONFLICT": true,
+  "CONTROL_CONFLICT_FAILS_CLOSED": true,
+  "CONTROL_CONFLICT_CANDIDATES_RETAINED": true,
+  "CONTROL_CONFLICT_RESOLUTION_DETERMINISTIC": true,
+  "CONTROL_RECONSTRUCTION_ORDER_INDEPENDENT": true,
+  "LATE_CONTROL_CONFLICT_DETECTED": true,
+  "LATE_CONTROL_EVENT_CAN_CAUSE_ORDER_DEPENDENCE": false,
+  "CONTROL_COLD_START_RECONSTRUCTION_PASS": true,
+  "CONTROL_LOCAL_CACHE_IS_AUTHORITY": false
+}

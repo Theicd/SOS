@@ -1,0 +1,765 @@
+{
+  "gate": "MD3_ANDROID_DESKTOP_LIVE_E2E",
+  "status": "PASS",
+  "ts": "2026-10-10T20:16:43.859Z",
+  "cases": {
+    "NEW_ACCOUNT": {
+      "label": "NEW_ACCOUNT",
+      "accountP": "4c8cd467a160869eab948f2e7f23e503bfe9ee4b2a949b6114dae13be7f4e9db",
+      "mode": "NEW_39007",
+      "newAccount": {
+        "result": "OK",
+        "has39007": true,
+        "exists": true,
+        "status": "ACTIVE"
+      },
+      "statusGet": {
+        "result": "OK",
+        "exists": true,
+        "status": "ACTIVE",
+        "revision": 1,
+        "updatedAt": 1791663423,
+        "ACCOUNT_DISABLED": false,
+        "statusEvent": null,
+        "event": null,
+        "issuerPubkey": "ff8afd44a5e91ca1099dbb6d6ab7260cee914a213094e6ca650a2727796dad11",
+        "__http": 200
+      },
+      "desktopQr": {
+        "prefix": true,
+        "secretHit": false,
+        "pairingIdLen": 64
+      },
+      "desktopSubReady": true,
+      "instrumented": {
+        "ok": true,
+        "tail": "INSTRUMENTATION_STATUS: class=com.sos010.app.SosMd3LinkedDevicePairingInstrumentedTest\r\nINSTRUMENTATION_STATUS: current=1\r\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\r\nINSTRUMENTATION_STATUS: numtests=1\r\nINSTRUMENTATION_STATUS: stream=\r\ncom.sos010.app.SosMd3LinkedDevicePairingInstrumentedTest:\r\nINSTRUMENTATION_STATUS: test=importPrimaryAndCompleteMd3PairingFromHandoff\r\nINSTRUMENTATION_STATUS_CODE: 1\r\nINSTRUMENTATION_STATUS: class=com.sos010.app.SosMd3LinkedDevicePairingInstrumentedTest\r\nINSTRUMENTATION_STATUS: current=1\r\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\r\nINSTRUMENTATION_STATUS: numtests=1\r\nINSTRUMENTATION_STATUS: stream=.\r\nINSTRUMENTATION_STATUS: test=importPrimaryAndCompleteMd3PairingFromHandoff\r\nINSTRUMENTATION_STATUS_CODE: 0\r\nINSTRUMENTATION_RESULT: stream=\r\n\r\nTime: 5.108\r\n\r\nOK (1 test)\r\n\r\n\r\nINSTRUMENTATION_CODE: -1\r\n"
+      },
+      "desktopProgress": [
+        {
+          "t": 1791663428492,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663429249,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663430013,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663430775,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663431549,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663432319,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663433085,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663433839,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663434603,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663435359,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663436118,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663436872,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663437627,
+          "state": "CHANNEL_READY",
+          "phases": [
+            {
+              "t": 1791663437021,
+              "phase": "HELLO_ACCEPTED",
+              "pairingFp": "d4e4d3bc6897"
+            },
+            {
+              "t": 1791663437027,
+              "phase": "POP_SIGN_BEGIN",
+              "via": "bridge"
+            },
+            {
+              "t": 1791663437053,
+              "phase": "POP_SENT",
+              "pairingFp": "d4e4d3bc6897"
+            },
+            {
+              "t": 1791663437169,
+              "phase": "CHANNEL_READY",
+              "pairingFp": "d4e4d3bc6897"
+            }
+          ],
+          "inboundN": 6,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663438381,
+          "state": "LINKED",
+          "phases": [
+            {
+              "t": 1791663437021,
+              "phase": "HELLO_ACCEPTED",
+              "pairingFp": "d4e4d3bc6897"
+            },
+            {
+              "t": 1791663437027,
+              "phase": "POP_SIGN_BEGIN",
+              "via": "bridge"
+            },
+            {
+              "t": 1791663437053,
+              "phase": "POP_SENT",
+              "pairingFp": "d4e4d3bc6897"
+            },
+            {
+              "t": 1791663437169,
+              "phase": "CHANNEL_READY",
+              "pairingFp": "d4e4d3bc6897"
+            }
+          ],
+          "inboundN": 6,
+          "handleErr": null,
+          "noble": false
+        }
+      ],
+      "androidResult": {
+        "ok": true,
+        "phase": "המכשיר קושר בהצלחה",
+        "accountP": "4c8cd467a160869eab948f2e7f23e503bfe9ee4b2a949b6114dae13be7f4e9db",
+        "SECURE_IDENTITY_STORE_INITIALIZED": true,
+        "ROOT_K_SENT_TO_DESKTOP": false,
+        "NSEC_SENT_TO_DESKTOP": false
+      },
+      "desktopStateAfterAndroid": {
+        "state": "LINKED",
+        "inbound": [
+          {
+            "idFp": "dff53871663f737e",
+            "kind": 25060,
+            "role": [
+              "role",
+              "phone"
+            ],
+            "d": [
+              "d",
+              "d4e4d3bc68979bc0cb4c106bde45f4a55342bd97add2203701fc246aaf8c28e8"
+            ],
+            "contentType": "hello",
+            "contentPairingId": "d4e4d3bc68979bc0cb4c106bde45f4a55342bd97add2203701fc246aaf8c28e8",
+            "contentLen": 176
+          },
+          {
+            "idFp": "dff53871663f737e",
+            "kind": 25060,
+            "role": [
+              "role",
+              "phone"
+            ],
+            "d": [
+              "d",
+              "d4e4d3bc68979bc0cb4c106bde45f4a55342bd97add2203701fc246aaf8c28e8"
+            ],
+            "contentType": "hello",
+            "contentPairingId": "d4e4d3bc68979bc0cb4c106bde45f4a55342bd97add2203701fc246aaf8c28e8",
+            "contentLen": 176
+          },
+          {
+            "idFp": "1e70e1cede12e7eb",
+            "kind": 25060,
+            "role": [
+              "role",
+              "desktop"
+            ],
+            "d": [
+              "d",
+              "d4e4d3bc68979bc0cb4c106bde45f4a55342bd97add2203701fc246aaf8c28e8"
+            ],
+            "contentType": "aead",
+            "contentPairingId": "d4e4d3bc68979bc0cb4c106bde45f4a55342bd97add2203701fc246aaf8c28e8",
+            "contentLen": 454
+          },
+          {
+            "idFp": "fcd4af0dc06d611b",
+            "kind": 25060,
+            "role": [
+              "role",
+              "phone"
+            ],
+            "d": [
+              "d",
+              "d4e4d3bc68979bc0cb4c106bde45f4a55342bd97add2203701fc246aaf8c28e8"
+            ],
+            "contentType": "aead",
+            "contentPairingId": "d4e4d3bc68979bc0cb4c106bde45f4a55342bd97add2203701fc246aaf8c28e8",
+            "contentLen": 713
+          },
+          {
+            "idFp": "8fcc99dbb4c5fcf9",
+            "kind": 25060,
+            "role": [
+              "role",
+              "phone"
+            ],
+            "d": [
+              "d",
+              "d4e4d3bc68979bc0cb4c106bde45f4a55342bd97add2203701fc246aaf8c28e8"
+            ],
+            "contentType": "aead",
+            "contentPairingId": "d4e4d3bc68979bc0cb4c106bde45f4a55342bd97add2203701fc246aaf8c28e8",
+            "contentLen": 1713
+          },
+          {
+            "idFp": "733fe02fb61118af",
+            "kind": 25060,
+            "role": [
+              "role",
+              "desktop"
+            ],
+            "d": [
+              "d",
+              "d4e4d3bc68979bc0cb4c106bde45f4a55342bd97add2203701fc246aaf8c28e8"
+            ],
+            "contentType": "aead",
+            "contentPairingId": "d4e4d3bc68979bc0cb4c106bde45f4a55342bd97add2203701fc246aaf8c28e8",
+            "contentLen": 506
+          }
+        ],
+        "expectPairingId": "d4e4d3bc68979bc0cb4c106bde45f4a55342bd97add2203701fc246aaf8c28e8",
+        "handleErr": null,
+        "phases": [
+          {
+            "t": 1791663437021,
+            "phase": "HELLO_ACCEPTED",
+            "pairingFp": "d4e4d3bc6897"
+          },
+          {
+            "t": 1791663437027,
+            "phase": "POP_SIGN_BEGIN",
+            "via": "bridge"
+          },
+          {
+            "t": 1791663437053,
+            "phase": "POP_SENT",
+            "pairingFp": "d4e4d3bc6897"
+          },
+          {
+            "t": 1791663437169,
+            "phase": "CHANNEL_READY",
+            "pairingFp": "d4e4d3bc6897"
+          }
+        ]
+      },
+      "desktopLinked": {
+        "ok": true,
+        "devices": [],
+        "via": "session_state"
+      },
+      "SAME_GLOBAL_P_LIVE_PROVEN": true,
+      "ok": true
+    },
+    "LEGACY_NO_PHONE": {
+      "label": "LEGACY_NO_PHONE",
+      "accountP": "e316788c5272259053ae96679d2197a263aca531412d1e2b3a23dbd04ab36040",
+      "mode": "LEGACY",
+      "statusGet": {
+        "result": "OK",
+        "status": "ACTIVE",
+        "exists": false,
+        "LEGACY_NO_STATUS_RECORD": true
+      },
+      "desktopQr": {
+        "prefix": true,
+        "secretHit": false,
+        "pairingIdLen": 64
+      },
+      "desktopSubReady": true,
+      "instrumented": {
+        "ok": true,
+        "tail": "INSTRUMENTATION_STATUS: class=com.sos010.app.SosMd3LinkedDevicePairingInstrumentedTest\r\nINSTRUMENTATION_STATUS: current=1\r\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\r\nINSTRUMENTATION_STATUS: numtests=1\r\nINSTRUMENTATION_STATUS: stream=\r\ncom.sos010.app.SosMd3LinkedDevicePairingInstrumentedTest:\r\nINSTRUMENTATION_STATUS: test=importPrimaryAndCompleteMd3PairingFromHandoff\r\nINSTRUMENTATION_STATUS_CODE: 1\r\nINSTRUMENTATION_STATUS: class=com.sos010.app.SosMd3LinkedDevicePairingInstrumentedTest\r\nINSTRUMENTATION_STATUS: current=1\r\nINSTRUMENTATION_STATUS: id=AndroidJUnitRunner\r\nINSTRUMENTATION_STATUS: numtests=1\r\nINSTRUMENTATION_STATUS: stream=.\r\nINSTRUMENTATION_STATUS: test=importPrimaryAndCompleteMd3PairingFromHandoff\r\nINSTRUMENTATION_STATUS_CODE: 0\r\nINSTRUMENTATION_RESULT: stream=\r\n\r\nTime: 4.272\r\n\r\nOK (1 test)\r\n\r\n\r\nINSTRUMENTATION_CODE: -1\r\n"
+      },
+      "desktopProgress": [
+        {
+          "t": 1791663441110,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663441875,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663442647,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663443412,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663444210,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663444968,
+          "state": "QR_SHOWN",
+          "phases": [],
+          "inboundN": 0,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663445735,
+          "state": "CHANNEL_READY",
+          "phases": [
+            {
+              "t": 1791663445200,
+              "phase": "HELLO_ACCEPTED",
+              "pairingFp": "cbcb0f738eb0"
+            },
+            {
+              "t": 1791663445203,
+              "phase": "POP_SIGN_BEGIN",
+              "via": "bridge"
+            },
+            {
+              "t": 1791663445229,
+              "phase": "POP_SENT",
+              "pairingFp": "cbcb0f738eb0"
+            },
+            {
+              "t": 1791663445418,
+              "phase": "CHANNEL_READY",
+              "pairingFp": "cbcb0f738eb0"
+            }
+          ],
+          "inboundN": 4,
+          "handleErr": null,
+          "noble": false
+        },
+        {
+          "t": 1791663446494,
+          "state": "LINKED",
+          "phases": [
+            {
+              "t": 1791663445200,
+              "phase": "HELLO_ACCEPTED",
+              "pairingFp": "cbcb0f738eb0"
+            },
+            {
+              "t": 1791663445203,
+              "phase": "POP_SIGN_BEGIN",
+              "via": "bridge"
+            },
+            {
+              "t": 1791663445229,
+              "phase": "POP_SENT",
+              "pairingFp": "cbcb0f738eb0"
+            },
+            {
+              "t": 1791663445418,
+              "phase": "CHANNEL_READY",
+              "pairingFp": "cbcb0f738eb0"
+            }
+          ],
+          "inboundN": 6,
+          "handleErr": null,
+          "noble": false
+        }
+      ],
+      "androidResult": {
+        "ok": true,
+        "phase": "המכשיר קושר בהצלחה",
+        "accountP": "e316788c5272259053ae96679d2197a263aca531412d1e2b3a23dbd04ab36040",
+        "SECURE_IDENTITY_STORE_INITIALIZED": true,
+        "ROOT_K_SENT_TO_DESKTOP": false,
+        "NSEC_SENT_TO_DESKTOP": false
+      },
+      "desktopStateAfterAndroid": {
+        "state": "LINKED",
+        "inbound": [
+          {
+            "idFp": "5b41eccbe5be2b6e",
+            "kind": 25060,
+            "role": [
+              "role",
+              "phone"
+            ],
+            "d": [
+              "d",
+              "cbcb0f738eb0ff61c1d76d84dea8e03f66a4a948a221c7c2da5a03d3c24b9173"
+            ],
+            "contentType": "hello",
+            "contentPairingId": "cbcb0f738eb0ff61c1d76d84dea8e03f66a4a948a221c7c2da5a03d3c24b9173",
+            "contentLen": 176
+          },
+          {
+            "idFp": "5b41eccbe5be2b6e",
+            "kind": 25060,
+            "role": [
+              "role",
+              "phone"
+            ],
+            "d": [
+              "d",
+              "cbcb0f738eb0ff61c1d76d84dea8e03f66a4a948a221c7c2da5a03d3c24b9173"
+            ],
+            "contentType": "hello",
+            "contentPairingId": "cbcb0f738eb0ff61c1d76d84dea8e03f66a4a948a221c7c2da5a03d3c24b9173",
+            "contentLen": 176
+          },
+          {
+            "idFp": "7ff406735330e093",
+            "kind": 25060,
+            "role": [
+              "role",
+              "desktop"
+            ],
+            "d": [
+              "d",
+              "cbcb0f738eb0ff61c1d76d84dea8e03f66a4a948a221c7c2da5a03d3c24b9173"
+            ],
+            "contentType": "aead",
+            "contentPairingId": "cbcb0f738eb0ff61c1d76d84dea8e03f66a4a948a221c7c2da5a03d3c24b9173",
+            "contentLen": 454
+          },
+          {
+            "idFp": "85c777faf150570c",
+            "kind": 25060,
+            "role": [
+              "role",
+              "phone"
+            ],
+            "d": [
+              "d",
+              "cbcb0f738eb0ff61c1d76d84dea8e03f66a4a948a221c7c2da5a03d3c24b9173"
+            ],
+            "contentType": "aead",
+            "contentPairingId": "cbcb0f738eb0ff61c1d76d84dea8e03f66a4a948a221c7c2da5a03d3c24b9173",
+            "contentLen": 714
+          },
+          {
+            "idFp": "518bf5a70ca9382a",
+            "kind": 25060,
+            "role": [
+              "role",
+              "phone"
+            ],
+            "d": [
+              "d",
+              "cbcb0f738eb0ff61c1d76d84dea8e03f66a4a948a221c7c2da5a03d3c24b9173"
+            ],
+            "contentType": "aead",
+            "contentPairingId": "cbcb0f738eb0ff61c1d76d84dea8e03f66a4a948a221c7c2da5a03d3c24b9173",
+            "contentLen": 1710
+          },
+          {
+            "idFp": "d03156470acc4ab1",
+            "kind": 25060,
+            "role": [
+              "role",
+              "desktop"
+            ],
+            "d": [
+              "d",
+              "cbcb0f738eb0ff61c1d76d84dea8e03f66a4a948a221c7c2da5a03d3c24b9173"
+            ],
+            "contentType": "aead",
+            "contentPairingId": "cbcb0f738eb0ff61c1d76d84dea8e03f66a4a948a221c7c2da5a03d3c24b9173",
+            "contentLen": 506
+          }
+        ],
+        "expectPairingId": "cbcb0f738eb0ff61c1d76d84dea8e03f66a4a948a221c7c2da5a03d3c24b9173",
+        "handleErr": null,
+        "phases": [
+          {
+            "t": 1791663445200,
+            "phase": "HELLO_ACCEPTED",
+            "pairingFp": "cbcb0f738eb0"
+          },
+          {
+            "t": 1791663445203,
+            "phase": "POP_SIGN_BEGIN",
+            "via": "bridge"
+          },
+          {
+            "t": 1791663445229,
+            "phase": "POP_SENT",
+            "pairingFp": "cbcb0f738eb0"
+          },
+          {
+            "t": 1791663445418,
+            "phase": "CHANNEL_READY",
+            "pairingFp": "cbcb0f738eb0"
+          }
+        ]
+      },
+      "desktopLinked": {
+        "ok": true,
+        "devices": [],
+        "via": "session_state"
+      },
+      "SAME_GLOBAL_P_LIVE_PROVEN": true,
+      "ok": true
+    }
+  },
+  "ROOT_K_SENT_TO_DESKTOP": false,
+  "NSEC_SENT_TO_DESKTOP": false,
+  "REAL_HARDWARE_QR_SCAN_VERIFIED": false,
+  "results": {
+    "ANDROID_EMULATOR_PRESENT": {
+      "ok": true,
+      "detail": null
+    },
+    "ADMISSION_WORKER_UP": {
+      "ok": true,
+      "detail": {
+        "url": "http://127.0.0.1:8799"
+      }
+    },
+    "ISOLATED_PAIRING_RELAY_UP": {
+      "ok": true,
+      "detail": {
+        "desktop": "ws://127.0.0.1:7805",
+        "android": "ws://10.0.2.2:7805"
+      }
+    },
+    "ANDROID_TEST_APKS_INSTALLED": {
+      "ok": true,
+      "detail": {
+        "tail": "O-DATE\r\n> Task :app:createDebugAndroidTestApkListingFileRedirect UP-TO-DATE\r\n> Task :app:assembleDebugAndroidTest UP-TO-DATE\r\n\r\nBUILD SUCCESSFUL in 6s\r\n68 actionable tasks: 3 executed, 65 up-to-date\r\n"
+      }
+    },
+    "STATUS_AUTHORITY_REACHABLE": {
+      "ok": true,
+      "detail": {
+        "result": "OK",
+        "status": "ACTIVE",
+        "revision": 0,
+        "exists": false,
+        "statusEvent": null,
+        "issuerPubkey": "ff8afd44a5e91ca1099dbb6d6ab7260cee914a213094e6ca650a2727796dad11",
+        "LEGACY_NO_STATUS_RECORD": true,
+        "__http": 200
+      }
+    },
+    "NEW_ACCOUNT_DESKTOP_QR": {
+      "ok": true,
+      "detail": {
+        "prefix": true,
+        "secretHit": false,
+        "pairingIdLen": 64
+      }
+    },
+    "NEW_ACCOUNT_ANDROID_LOGIN": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "phase": "המכשיר קושר בהצלחה",
+        "accountP": "4c8cd467a160869eab948f2e7f23e503bfe9ee4b2a949b6114dae13be7f4e9db",
+        "SECURE_IDENTITY_STORE_INITIALIZED": true,
+        "ROOT_K_SENT_TO_DESKTOP": false,
+        "NSEC_SENT_TO_DESKTOP": false
+      }
+    },
+    "NEW_ACCOUNT_MD3_PAIRING": {
+      "ok": true,
+      "detail": {
+        "instrumented": true,
+        "androidOk": true,
+        "desktopOk": true,
+        "sameP": true,
+        "phase": "המכשיר קושר בהצלחה",
+        "deskState": "LINKED",
+        "deskPhases": [
+          {
+            "t": 1791663437021,
+            "phase": "HELLO_ACCEPTED",
+            "pairingFp": "d4e4d3bc6897"
+          },
+          {
+            "t": 1791663437027,
+            "phase": "POP_SIGN_BEGIN",
+            "via": "bridge"
+          },
+          {
+            "t": 1791663437053,
+            "phase": "POP_SENT",
+            "pairingFp": "d4e4d3bc6897"
+          },
+          {
+            "t": 1791663437169,
+            "phase": "CHANNEL_READY",
+            "pairingFp": "d4e4d3bc6897"
+          }
+        ]
+      }
+    },
+    "LEGACY_NO_PHONE_DESKTOP_QR": {
+      "ok": true,
+      "detail": {
+        "prefix": true,
+        "secretHit": false,
+        "pairingIdLen": 64
+      }
+    },
+    "LEGACY_NO_PHONE_ANDROID_LOGIN": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "phase": "המכשיר קושר בהצלחה",
+        "accountP": "e316788c5272259053ae96679d2197a263aca531412d1e2b3a23dbd04ab36040",
+        "SECURE_IDENTITY_STORE_INITIALIZED": true,
+        "ROOT_K_SENT_TO_DESKTOP": false,
+        "NSEC_SENT_TO_DESKTOP": false
+      }
+    },
+    "LEGACY_NO_PHONE_MD3_PAIRING": {
+      "ok": true,
+      "detail": {
+        "instrumented": true,
+        "androidOk": true,
+        "desktopOk": true,
+        "sameP": true,
+        "phase": "המכשיר קושר בהצלחה",
+        "deskState": "LINKED",
+        "deskPhases": [
+          {
+            "t": 1791663445200,
+            "phase": "HELLO_ACCEPTED",
+            "pairingFp": "cbcb0f738eb0"
+          },
+          {
+            "t": 1791663445203,
+            "phase": "POP_SIGN_BEGIN",
+            "via": "bridge"
+          },
+          {
+            "t": 1791663445229,
+            "phase": "POP_SENT",
+            "pairingFp": "cbcb0f738eb0"
+          },
+          {
+            "t": 1791663445418,
+            "phase": "CHANNEL_READY",
+            "pairingFp": "cbcb0f738eb0"
+          }
+        ]
+      }
+    },
+    "RELAY_SAW_TRAFFIC": {
+      "ok": true,
+      "detail": {
+        "received": 12,
+        "broadcast": 12,
+        "rejected": 0,
+        "connections": 8,
+        "reqs": 4,
+        "lastKind": 25060
+      }
+    }
+  },
+  "NEW_ACCOUNT_MD3_PAIRING": "PASS",
+  "LEGACY_NO_PHONE_MD3_PAIRING": "PASS",
+  "SAME_GLOBAL_P_LIVE_PROVEN": true,
+  "ANDROID_DESKTOP_RELAY_REACHABLE": true,
+  "KIND_25060_TRANSPORT_REAL": true,
+  "relayStats": {
+    "received": 12,
+    "broadcast": 12,
+    "rejected": 0,
+    "connections": 8,
+    "reqs": 4,
+    "lastKind": 25060
+  },
+  "MD2_REAL_TRANSPORT_PASS": true,
+  "MD3_NATIVE_PHONEISSUER_EXECUTED": true,
+  "failCount": 0
+}

@@ -1,0 +1,270 @@
+{
+  "gate": "GLOBAL_IDENTITY_PHONE_FOUNDATION",
+  "status": "PASS",
+  "pass": 46,
+  "fail": 0,
+  "GLOBAL_IDENTITY_MODEL": "single_P_across_communities",
+  "GLOBAL_ACCOUNT_CERT_IMPLEMENTED": true,
+  "GLOBAL_ACCOUNT_DEPENDS_ON_ISRAEL_NETWORK": false,
+  "SELF_ASSERTED_37377_GLOBAL_ACCOUNT_ACCEPTED": false,
+  "GLOBAL_ACCOUNT_DISABLE_IMPLEMENTED": true,
+  "ACCOUNT_DISABLED_GLOBAL": true,
+  "COMMUNITY_ADMIN_GLOBAL_DISABLE_ACCEPTED": false,
+  "PHONE_NORMALIZATION_SINGLE_SOURCE_OF_TRUTH": true,
+  "PHONE_TOKEN_SCHEME": "HMAC-SHA256(PHONE_PEPPER, sos|phone|v1|+E164)",
+  "PHONE_TOKEN_CLIENT_COMPUTABLE": false,
+  "PHONE_TOKEN_SECRET_IN_BROWSER": false,
+  "GLOBAL_PHONE_DIRECTORY": true,
+  "GLOBAL_PHONE_DIRECTORY_PUBLICLY_ENUMERABLE": false,
+  "PHONE_LOOKUP_IMPLEMENTED": true,
+  "PHONE_LOOKUP_REQUIRES_SHARED_COMMUNITY": false,
+  "SAME_PHONE_CAN_CREATE_SECOND_ACTIVE_ACCOUNT": false,
+  "NEW_ACCOUNT_INVITE_PHONE_BOUND": true,
+  "WHATSAPP_SPECIFIC_RECIPIENT": true,
+  "PHONE_PROOF_LEVEL": "WHATSAPP_DELIVERY_BOUND_INVITE",
+  "WRONG_PHONE_INVITE_REDEEM_ACCEPTED": false,
+  "CLIENT_HASH_ONLY_REDEEM_ACCEPTED": false,
+  "INVITE_TYPES_EXPLICIT": true,
+  "AUTHENTICATED_EXISTING_P_CAN_PROCESS_COMMUNITY_INVITE": true,
+  "EXISTING_P_COMMUNITY_INVITE_CREATES_NEW_K": false,
+  "USER_REACHABILITY_GLOBAL": true,
+  "REACHABILITY_STANDARD_USED": "NIP-65",
+  "COMMUNITY_HTML_MODEL_PHASE1": "SAME_ORIGIN",
+  "CROSS_ORIGIN_COMMUNITY_HTML_DEFERRED": true,
+  "PHONE_ONBOARDING_UI_CHANGED": false,
+  "results": [
+    {
+      "name": "APP_VERSION_ADVANCED",
+      "ok": true,
+      "detail": {
+        "version": "2026.10.05-web-899s.19"
+      }
+    },
+    {
+      "name": "PHONE_ONBOARDING_UI_WIRED_OR_FROZEN",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "GLOBAL_IDENTITY_MODEL",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "COMMUNITY_MEMBERSHIP_CAN_CREATE_IDENTITY_FALSE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "GLOBAL_PUBKEY_IS_ACCOUNT_ID",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "KIND_39007_CERT",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "KIND_39008_STATUS",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "SELF_ASSERTED_37377_NOT_AUTHORITY",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "EMAIL_NOT_GLOBAL_AUTHORITY",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "GLOBAL_ACCOUNT_DISABLE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "COMMUNITY_ADMIN_GLOBAL_DISABLE_FALSE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "PHONE_NORM_SINGLE_SOURCE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "PHONE_TOKEN_HMAC",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "PHONE_TOKEN_NOT_CLIENT",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "PHONE_TOKEN_NOT_IN_BROWSER_SECRET",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "GLOBAL_PHONE_DIRECTORY",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "NOT_PUBLICLY_ENUMERABLE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "LOOKUP_NO_COMMUNITY",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "NEW_ACCOUNT_INVITE_PHONE_BOUND",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "WHATSAPP_SPECIFIC",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "PHONE_PROOF_LEVEL",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "INVITE_TYPES_EXPLICIT",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "AUTHENTICATED_COMMUNITY_INVITE_ROUTE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "EXISTING_P_NO_SECOND_IDENTITY",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "AMBIENT_PROFILE_FIXED",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "AMBIENT_PRESENCE_FIXED",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "AMBIENT_FOLLOW_FIXED",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "AMBIENT_EMAIL_REGISTRY_FIXED",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "REACHABILITY_NIP65",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "SAME_ORIGIN_COMMUNITY",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "CROSS_ORIGIN_DEFERRED",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "GLOBAL_ROUTES_BEFORE_GROUP",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "WRANGLER_V3_MIGRATION",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "SCRIPTS_WIRED",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "WRONG_PHONE_REJECT",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "CLIENT_FORGE_BINDING_FALSE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "PHONE_ALREADY_REGISTERED",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "PHONE_VECTORS_IL_MOBILE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "PHONE_VECTOR_INVALID",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "PHONE_VECTOR_EMPTY",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "FORGED_GLOBAL_ACCOUNT_CERT_ACCEPTED_FALSE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "SELF_ASSERTED_37377_GLOBAL_ACCOUNT_ACCEPTED_FALSE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "CLIENT_FORGED_PHONE_TOKEN_ACCEPTED_FALSE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "PHONE_TOKEN_ENUMERATION_ENDPOINT_ABSENT",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "SAME_PHONE_SECOND_ACCOUNT_FALSE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "DISABLED_LOGIN_USES_GLOBAL",
+      "ok": true,
+      "detail": null
+    }
+  ],
+  "ts": "2026-10-10T20:18:31.084Z"
+}

@@ -1,12 +1,12 @@
 {
   "gate": "F5B6W_PRODUCTION_CHECK",
-  "status": "PASS",
-  "ts": "2026-10-01T02:55:55.383Z",
+  "status": "FAIL",
+  "ts": "2026-10-08T10:35:23.965Z",
   "results": {
     "LIVE_BUILD_899I": {
-      "ok": true,
+      "ok": false,
       "detail": {
-        "version": "2026.10.01-web-899i",
+        "version": "2026.10.05-web-899s.8",
         "v2": true,
         "scope": "CONTROL_PLANE",
         "signerOrigin": "https://signer.sos010.com",
@@ -65,7 +65,7 @@
     "PROD_PERSONAL_KEY_FILE_NAME": {
       "ok": true,
       "detail": {
-        "fileName": "SOS-personal-key-143854fc-3dd0d947.txt"
+        "fileName": "SOS-personal-key-7055d0c8-80a66761.txt"
       }
     },
     "PROD_PERSONAL_KEY_FILE_REAL": {
@@ -102,7 +102,7 @@
     "PROD_PRIVATE_KEY_NETWORK_RETURN_TO_SOS010": {
       "ok": true,
       "detail": {
-        "requests": 387
+        "requests": 382
       }
     },
     "PROD_NO_RELAY_SOCKETS_OPENED": {
@@ -124,8 +124,8 @@
   "popupErrors": [
     "nav https://signer.sos010.com/export",
     "nav https://signer.sos010.com/enroll",
-    "nav https://signer.sos010.com/export.html"
+    "nav https://signer.sos010.com/export"
   ],
-  "passed": 18,
-  "failed": 0
+  "passed": 17,
+  "failed": 1
 }

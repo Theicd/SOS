@@ -67,6 +67,83 @@ class SosJsBridge(
     @JavascriptInterface
     fun isNativeShell(): Boolean = true
 
+    /**
+     * MD4 S2 — export ConversationKeyIndex sealed to authorized desktop D_enc.
+     * Returns sealed packages only. Never returns root K, nsec, or plaintext conversation keys.
+     * authJson: full signed DeviceAuthorization; peersJson: JSON array of peer P hex.
+     */
+    @JavascriptInterface
+    fun exportConversationKeyIndexSealed(authJson: String?, peersJson: String?): String {
+        return try {
+            val auth = authJson?.trim().orEmpty()
+            val peers = peersJson?.trim().orEmpty().ifEmpty { "[]" }
+            if (auth.isEmpty()) {
+                return JSONObject().put("ok", false).put("code", "NO_AUTHORIZATION").toString()
+            }
+            val engine = SosSecureIdentityStore.productionEngine(context.applicationContext)
+            SosHistorySyncExporter.exportSealedIndexJson(
+                phoneIdentity = engine,
+                authJson = auth,
+                peersJson = peers,
+            )
+        } catch (e: Exception) {
+            JSONObject().put("ok", false).put("code", "EXPORT_FAIL").put("error", e.message ?: "").toString()
+        }
+    }
+
+    /** MD3 PhoneIssuer entry — opens native linked-device approval UI (no WebView root signing). */
+    @JavascriptInterface
+    fun startLinkedDevicePairing(qrText: String?, admissionUrl: String?): String {
+        return try {
+            val qr = qrText?.trim().orEmpty()
+            if (qr.isEmpty()) return JSONObject().put("ok", false).put("code", "EMPTY_QR").toString()
+            if (!admissionUrl.isNullOrBlank()) {
+                SosLinkedDeviceOrchestrator.writeAdmissionUrl(context.applicationContext, admissionUrl)
+            }
+            val account = SosSecureIdentityStore.readIdentityForNativeUse(context.applicationContext)?.publicKeyHex
+            mainHandler.post {
+                try {
+                    val intent = android.content.Intent(context, SosLinkedDevicesActivity::class.java)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        .putExtra(SosLinkedDevicesActivity.EXTRA_QR, qr)
+                        .putExtra(SosLinkedDevicesActivity.EXTRA_ACCOUNT_P, account)
+                        .putExtra(SosLinkedDevicesActivity.EXTRA_ADMISSION_URL, admissionUrl)
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    Log.w(TAG, "startLinkedDevicePairing failed: ${e.message}")
+                }
+            }
+            JSONObject()
+                .put("ok", true)
+                .put("WEB_MD3_ISSUANCE", false)
+                .put("MD3_ISSUANCE_PATH", "ANDROID_NATIVE")
+                .toString()
+        } catch (e: Exception) {
+            JSONObject().put("ok", false).put("code", "START_FAILED").put("error", e.message ?: "").toString()
+        }
+    }
+
+    @JavascriptInterface
+    fun openLinkedDevicesSettings(admissionUrl: String?): String {
+        return try {
+            if (!admissionUrl.isNullOrBlank()) {
+                SosLinkedDeviceOrchestrator.writeAdmissionUrl(context.applicationContext, admissionUrl)
+            }
+            mainHandler.post {
+                try {
+                    val intent = android.content.Intent(context, SosLinkedDevicesActivity::class.java)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    Log.w(TAG, "openLinkedDevicesSettings failed: ${e.message}")
+                }
+            }
+            JSONObject().put("ok", true).toString()
+        } catch (e: Exception) {
+            JSONObject().put("ok", false).put("code", e.message ?: "FAIL").toString()
+        }
+    }
+
     /** true רק כשהממשק בחזית – ל-JS: התראות / אי־סימון נצפה ברקע | HYPER CORE TECH */
     @JavascriptInterface
     fun isHostAlive(): Boolean = MainActivity.isHostAlive

@@ -1,0 +1,131 @@
+{
+  "gate": "MD4_S5_SECURITY_PREFLIGHT",
+  "STATUS": "BLOCKED_SECURITY",
+  "ts": "2026-10-10T06:48:00.000Z",
+  "BASELINE_HEAD": "d1bcc5168d9e02564c505d4b10c69a8d9b5f208a",
+  "S5_WORKTREE_PATH": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349",
+  "ORIGINAL_WORKTREE_UNCHANGED": true,
+  "S4_BASELINE_PRESERVED": true,
+  "S5_IMPLEMENTATION_STARTED": false,
+  "findings": {
+    "A1_SYNC_ACK": {
+      "verdict": "FAIL_UNAUTHENTICATED",
+      "influencesTrustedState": true,
+      "summary": "SYNC_ACK / SYNC_FINAL_ACK are plaintext kind-25060 contents signed only with a disposable ephemeral Nostr key. Phone advances durable checkpoints and completes sync without verifying D_sign, session AEAD, or binding beyond t=sos-hist-v1 + role!=phone.",
+      "codePaths": [
+        {
+          "file": "sos-md4-history-sync.js",
+          "fn": "publish()",
+          "lines": "395-412",
+          "detail": "finalizeEvent(..., ephSk) — not DeviceAuthorization D_sign. SYNC_ACK content is JSON.stringify plaintext."
+        },
+        {
+          "file": "sos-md4-history-sync.js",
+          "fn": "HIST_BATCH handler → publish SYNC_ACK",
+          "lines": "579-595",
+          "detail": "After flush+checkpoint on desktop, emits plaintext SYNC_ACK with batchId/batchSeq/cursorCommitted."
+        },
+        {
+          "file": "android-shell/.../SosHistorySyncPhoneSession.kt",
+          "fn": "transport callback",
+          "lines": "109-141",
+          "detail": "Comment: 'plaintext desktop control'. On type==SYNC_ACK: acked[batchId]=true AND SosHistoryCheckpointStore.saveAtomic(...). On SYNC_FINAL_ACK: done.countDown()."
+        },
+        {
+          "file": "android-shell/.../SosHistoryNostrTransport.kt",
+          "fn": "handleRelayFrame",
+          "lines": "189-216",
+          "detail": "Accepts any EVENT kind=25060 with t=sos-hist-v1 and role!=localRole. Does not verify Schnorr against D_sign. Does not require AEAD. Does not bind pubkey to authorized desktop."
+        }
+      ],
+      "properties": {
+        "cryptographicAuthenticityBeyondEphemeralNostrSig": false,
+        "senderRecipientBindingToD_sign": false,
+        "sessionIdTagPresent": true,
+        "authorizationIdBoundInAckPayload": false,
+        "accountPDeviceBoundInAckCrypto": false,
+        "replayProtectionBeyondSeenEventId": "partial (event id de-dupe only; forged new ids accepted)",
+        "forgedAckCanAdvanceCheckpoint": true,
+        "forgedFinalAckCanCompleteSession": true,
+        "duplicateAckDoubleAdvance": "mitigated for same batchId map entry; forged new batchId+cursor can still advance seq/cursor"
+      },
+      "minimalCorrectiveDesign": [
+        "1. Seal SYNC_ACK / SYNC_FINAL_ACK with the existing hist session AEAD (sessionKey + transcript bind AAD), same as HIST_BATCH — never plaintext control.",
+        "2. Optionally also sign ACK payload with D_sign (Schnorr over SOS|hist|ack|v1 || bind || batchId || batchSeq || cursor || exportSessionId) and verify on phone against authorization.D_sign_pub.",
+        "3. Phone: reject ACK unless AEAD opens under current sessionKey; require batchId ∈ outstanding in-flight set; require batchSeq == expected; ignore/reject cursor that moves backward or skips without replay window policy.",
+        "4. Bind ACK fields: accountP, deviceId, authorizationId, authEpoch, sessionId, exportSessionId.",
+        "5. Idempotent: spentAckIds set; duplicate AEAD ciphertext or batchId ACK must not re-save checkpoint.",
+        "6. Missing ACK → timeout INTERRUPTED (already present); never invent COMPLETE from silence.",
+        "7. Add negative tests: forged plaintext ACK, wrong-session ACK, replayed ACK, ACK without AEAD, ACK with wrong D_sign."
+      ]
+    },
+    "A2_TOMBSTONE_FALLBACK": {
+      "verdict": "CONCERN_NOT_SOLE_BLOCKER",
+      "summary": "Raw NIP-44 fallback only replaces chat-e2ee facade parse; ciphertext still requires conversation key from sealed CKI. However desktop import never calls verifyEvent on outer kind-1050 signatures before applying tombstones.",
+      "codePaths": [
+        {
+          "file": "sos-md4-history-sync.js",
+          "fn": "decryptEnvelopeWithCk",
+          "lines": "163-184",
+          "detail": "On SosChatE2ee failure, nip44.decrypt(ct, ck) then JSON.parse — accepts atypical inners including tombstone markers."
+        },
+        {
+          "file": "sos-md4-history-sync.js",
+          "fn": "importDecryptedMessage",
+          "lines": "200-241",
+          "detail": "Tombstone allowed if author∈{self,peer}; markDeleted(targetId). No event.sig verification anywhere in HIST_BATCH loop."
+        }
+      ],
+      "preserved": [
+        "Batch envelope authenticated by hist session AEAD (phone→desktop).",
+        "Conversation key comes from D_enc-opened CKI under DeviceAuthorization.",
+        "Account/conversation scope checks before decrypt.",
+        "Participant-only tombstone author check; no resurrection after deletedChatMessageIds."
+      ],
+      "gaps": [
+        "Outer Nostr event.sig not verified against event.pubkey before deletion applies.",
+        "Any holder of conversation key can produce NIP-44 ciphertext that decrypts to {type:tombstone}; without sig check, pubkey attribution is not cryptographically bound to the inner."
+      ],
+      "minimalCorrectiveDesign": [
+        "Before importDecryptedMessage: NostrTools.verifyEvent(ev) fail-closed.",
+        "For tombstones: require event.pubkey === original author or self per existing deletion policy; prefer e-tag targetId matching a previously imported event id.",
+        "Do not treat facade-rejected payloads as deletions unless verifyEvent + participant policy pass."
+      ]
+    },
+    "A3_TEST_ONLY_KEYS": {
+      "verdict": "PASS",
+      "copyEncPrivateKeyForTestsOnJsBridge": false,
+      "copyEncPrivateKeyForTestsDebugGated": true,
+      "exportConversationKeyIndexSealedPresent": true,
+      "notes": "SosJsBridge has exportConversationKeyIndexSealed only; copyEncPrivateKeyForTests gated by BuildConfig.DEBUG in SosDeviceIdentityStore."
+    },
+    "A4_S4_PRESERVE": {
+      "verdict": "PASS",
+      "S4_STATUS": "PASS_S4",
+      "originHasMd4HistoryModules": false,
+      "md4Head": "d1bcc5168d9e02564c505d4b10c69a8d9b5f208a"
+    }
+  },
+  "STOP_REASON": "A1: unauthenticated SYNC_ACK advances durable phone checkpoints and can forge session completion. Mission forbids implementing attachment sync behind an untrusted completion mechanism.",
+  "S5_FIELDS": {
+    "ATTACHMENT_MANIFEST": "NOT_STARTED",
+    "BLOSSOM_ENCRYPTED_FETCH": "NOT_STARTED",
+    "P2P_ENCRYPTED_FETCH": "NOT_STARTED",
+    "LOCAL_ONLY_MEDIA_TRANSFER": "NOT_STARTED",
+    "AES_GCM_INTEGRITY": "NOT_STARTED",
+    "IMAGE_RESTORE": "NOT_STARTED",
+    "VIDEO_RESTORE": "NOT_STARTED",
+    "GENERIC_FILE_RESTORE": "NOT_STARTED",
+    "LARGE_ATTACHMENT_TRANSFER": "NOT_STARTED",
+    "DURABLE_RESUME": "NOT_STARTED",
+    "MID_AEAD_INTERRUPTION": "NOT_STARTED",
+    "ATTACHMENT_DEDUP": "NOT_STARTED",
+    "TOMBSTONE_NO_RESURRECTION": "NOT_STARTED",
+    "MISSING_MEDIA_ACCOUNTING": "NOT_STARTED",
+    "EXISTING_MEDIA_UI_INTEGRATION": "NOT_STARTED",
+    "NEW_ACCOUNT_E2E": "NOT_STARTED",
+    "LEGACY_ACCOUNT_E2E": "NOT_STARTED",
+    "S5_SECURITY_NEGATIVES": "NOT_STARTED",
+    "READY_FOR_MD4_S6_APPROVAL": false
+  }
+}

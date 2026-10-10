@@ -1,7 +1,7 @@
 {
   "gate": "ACCESS_CONTROL_V2_PRODUCT",
-  "status": "PASS",
-  "ts": "2026-09-26T12:33:15.061Z",
+  "status": "FAIL",
+  "ts": "2026-10-08T10:36:17.665Z",
   "results": {
     "ACCESS_CONTROL_IMPLEMENTATION_RECONCILIATION_GATE": {
       "ok": true,
@@ -24,11 +24,11 @@
       "detail": null
     },
     "GROUP_ADMIN_HEBREW_GATE": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "GROUP_ADMIN_MOJIBAKE_FOUND": {
-      "ok": true,
+      "ok": false,
       "detail": null
     },
     "CREATOR_ROOT_BOOTSTRAP_CODE": {
@@ -53,7 +53,7 @@
     },
     "GROUP_CREATE_PROTOCOL_GATE": {
       "ok": true,
-      "detail": "community-test-muiderkm"
+      "detail": "community-test-muzeikxc"
     },
     "GROUP_CREATOR_ADMIN_GATE": {
       "ok": true,
@@ -89,7 +89,7 @@
   "MAIN_PUSH_EXECUTED": false,
   "NEXT_WEB_PACKAGE": 895,
   "NEXT_CACHE_VERSION": "sos-cache-v895",
-  "ACCESS_CONTROL_RC_GATE": "PARTIAL_LOCAL",
+  "ACCESS_CONTROL_RC_GATE": "FAIL",
   "ACCESS_CONTROL_V2_READY_FOR_OWNER_APPROVAL": false,
   "NOTES": "Product shell + creator-root bootstrap + local test mode landed; full 3-role/adversarial product flow still required before READY_FOR_OWNER_APPROVAL"
 }

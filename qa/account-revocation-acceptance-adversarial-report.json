@@ -1,0 +1,172 @@
+{
+  "gate": "account-revocation-acceptance-adversarial",
+  "passed": true,
+  "total": 29,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "NON_ROOT_ACCOUNT_DISABLE_ACCEPTED",
+      "ok": true,
+      "detail": null,
+      "observedAccepted": false
+    },
+    {
+      "name": "DELEGATED_ADMIN_ACCOUNT_DISABLE_ACCEPTED",
+      "ok": true,
+      "detail": null,
+      "observedAccepted": false
+    },
+    {
+      "name": "ROOT_DISABLE_SELF_ACCEPTED",
+      "ok": true,
+      "detail": null,
+      "observedAccepted": false
+    },
+    {
+      "name": "TARGET_SELF_DISABLE_AS_ADMIN_ACCEPTED",
+      "ok": true,
+      "detail": null,
+      "observedAccepted": false
+    },
+    {
+      "name": "TARGET_SELF_ENABLE_ACCEPTED",
+      "ok": true,
+      "detail": null,
+      "observedAccepted": false
+    },
+    {
+      "name": "WRONG_NETWORK_ACCEPTED",
+      "ok": true,
+      "detail": null,
+      "observedAccepted": false
+    },
+    {
+      "name": "ROOT_DISABLE_SIGNED_VERIFIES",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ROOT_DISABLE_INGEST",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "DISABLED_KEY_FILE_LOGIN_ACCEPTED",
+      "ok": true,
+      "detail": null,
+      "observedAccepted": false
+    },
+    {
+      "name": "DISABLED_LOGIN_MESSAGE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "FORGED_ACCOUNT_DISABLE_ACCEPTED",
+      "ok": true,
+      "detail": null,
+      "observedAccepted": false
+    },
+    {
+      "name": "BAD_SIGNATURE_ACCEPTED",
+      "ok": true,
+      "detail": null,
+      "observedAccepted": false
+    },
+    {
+      "name": "BAD_SIGNATURE_VERIFY_FALSE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "WRONG_NETWORK_INGEST_ACCEPTED",
+      "ok": true,
+      "detail": null,
+      "observedAccepted": false
+    },
+    {
+      "name": "WRONG_TARGET_DOES_NOT_CLEAR_DISABLED",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "WRONG_TARGET_ACCEPTED",
+      "ok": true,
+      "detail": null,
+      "observedAccepted": false
+    },
+    {
+      "name": "REENABLED_LOGIN_ACCEPTED",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "NEW_DISABLE_WINS",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "OLD_ENABLE_AFTER_NEW_DISABLE_ACCEPTED",
+      "ok": true,
+      "detail": null,
+      "observedAccepted": false
+    },
+    {
+      "name": "OLD_DISABLE_AFTER_NEW_ENABLE_ACCEPTED",
+      "ok": true,
+      "detail": null,
+      "observedAccepted": false
+    },
+    {
+      "name": "ROLLBACK_ACCEPTED",
+      "ok": true,
+      "detail": null,
+      "observedAccepted": false
+    },
+    {
+      "name": "DUPLICATE_REVISION_CONFLICT_FAILS_OPEN",
+      "ok": true,
+      "detail": null,
+      "observedAccepted": false
+    },
+    {
+      "name": "CACHED_DISABLED_OFFLINE_LOGIN_ACCEPTED",
+      "ok": true,
+      "detail": null,
+      "observedAccepted": false
+    },
+    {
+      "name": "DIRECTORY_HIDE_INGEST",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "DIRECTORY_HIDE_DOES_NOT_DISABLE_LOGIN",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "RESTORE_DIRECTORY_RECORD_WORKS",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "DIRECTORY_HIDE_SURVIVES_RELOAD",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "DIRECTORY_HIDE_PERSISTENT",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "DIRECTORY_HIDE_SURVIVES_REFRESH",
+      "ok": true,
+      "detail": null
+    }
+  ],
+  "EVENT_KIND_39005_COLLISION": false,
+  "EVENT_KIND_39006_COLLISION": false,
+  "generatedAt": "2026-10-08T08:22:06.739Z"
+}

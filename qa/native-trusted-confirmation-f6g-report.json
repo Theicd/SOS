@@ -55,5 +55,5 @@
     "HIGH_RISK_ADMIN_OP_CAN_SIGN_AFTER_VALID_NATIVE_CONFIRMATION": true,
     "NATIVE_UI_INSTRUMENTATION": "ESPRESSO_ACTIVITYSCENARIO_SosNativeTrustedConfirmationInstrumentedTest"
   },
-  "generatedAt": "2026-09-25T00:38:54.073Z"
+  "generatedAt": "2026-10-10T20:17:36.844Z"
 }

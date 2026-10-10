@@ -1,11 +1,11 @@
 {
   "gate": "PACKAGE894_PRODUCT_RC",
-  "status": "PASS",
-  "ts": "2026-09-26T11:39:53.181Z",
+  "status": "FAIL",
+  "ts": "2026-10-08T10:38:58.949Z",
   "results": {
     "IDENTITY": {
       "ok": true,
-      "detail": "2026.09.26-web-894"
+      "detail": "2026.10.05-web-899s.17"
     },
     "NEW_ACCOUNT": {
       "ok": true,
@@ -16,8 +16,8 @@
       "detail": null
     },
     "PACKAGE_894_VISIBLE": {
-      "ok": true,
-      "detail": "2026.09.26-web-894"
+      "ok": false,
+      "detail": "2026.10.05-web-899s.17"
     },
     "HEBREW": {
       "ok": true,
@@ -49,14 +49,14 @@
     },
     "POST": {
       "ok": true,
-      "detail": "1da418912106"
+      "detail": "c63f92c1864e"
     },
     "SHARE": {
       "ok": true,
       "detail": {
         "ok": true,
         "kind": 6,
-        "id": "ad3c63104ceb"
+        "id": "ab65c3d93455"
       }
     },
     "LIKE": {
@@ -100,7 +100,7 @@
       "detail": null
     },
     "PACKAGE894_PRODUCT_RC_GATE": {
-      "ok": true,
+      "ok": false,
       "detail": null
     }
   }

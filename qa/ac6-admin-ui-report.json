@@ -1,0 +1,6 @@
+{
+  "STATUS": "FAIL",
+  "notes": [
+    "admin-settings-ui.js:536\n  window.addEventListener('sos-feature-flags-ready', boot);\n         ^\n\nTypeError: window.addEventListener is not a function\n    at initAdminSettingsUi (admin-settings-ui.js:536:10)\n    at admin-settings-ui.js:542:3\n    at Script.runInThisContext (node:vm:136:12)\n    at Object.runInThisContext (node:vm:316:38)\n    at loadModules (file:///C:/BRAIN/SOS-fga-ux-polish/qa/access-control-ac6-admin-ui-gate.mjs:130:8)\n    at file:///C:/BRAIN/SOS-fga-ux-polish/qa/access-control-ac6-admin-ui-gate.mjs:204:13\n    at file:///C:/BRAIN/SOS-fga-ux-polish/qa/access-control-ac6-admin-ui-gate.mjs:568:3\n    at ModuleJob.run (node:internal/modules/esm/module_job:222:25)\n    at async ModuleLoader.import (node:internal/modules/esm/loader:323:24)\n    at async loadESM (node:internal/process/esm_loader:28:7)"
+  ]
+}

@@ -98,7 +98,10 @@ for (const rel of FILES) {
       if (rule.name === 'profile picture/base64' && /diagProfileLog|diagSafeUrl|diagRedactForLog/.test(call)) {
         continue;
       }
-      if (rule.name === 'private key/nsec dump' && /missing signer|nsec decode failed|Failed to encode nsec|חסר fileId או keyStr/.test(call)) {
+      if (
+        rule.name === 'private key/nsec dump' &&
+        /missing signer|nsec decode failed|Failed to encode nsec|חסר fileId או keyStr|\(no keyStr\)/.test(call)
+      ) {
         continue;
       }
       if (rule.re.test(call)) {

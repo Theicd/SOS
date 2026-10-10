@@ -448,6 +448,12 @@
     ADMIN_STEP_UP_REQUIRED: 'פעולה רגישה דורשת הזנה חוזרת של קוד המנהל',
     ADMIN_2FA_DENIED: 'שרת אימות המנהל לא אישר את הפעולה',
     ALREADY_BLOCKED: 'המשתמש כבר חסום',
+    ALREADY_DISABLED: 'החשבון כבר מושבת',
+    NOT_DISABLED: 'החשבון אינו מושבת',
+    ALREADY_HIDDEN: 'הזהות כבר הוסרה מהרשימה',
+    NOT_HIDDEN: 'הזהות אינה מוסתרת מהרשימה',
+    NO_ACCOUNT_OPS: 'מודול השבתת חשבון לא נטען',
+    ROOT_ONLY: 'פעולה זו זמינה למנהל הראשי בלבד',
     ALREADY_MEMBER: 'המשתמש כבר חבר בקבוצה',
     TARGET_BLOCKED: 'המשתמש חסום. הסירו את החסימה לפני הוספה',
     TARGET_NOT_ADDABLE: 'אי אפשר להוסיף את המשתמש כרגע',
@@ -643,19 +649,24 @@
     REMOVED: 'הוסר',
     BLOCKED: 'חסום',
     CONFLICT: 'בבדיקה',
+    ACCOUNT_DISABLED: 'חשבון מושבת',
+    DIRECTORY_HIDDEN: 'הוסר מהרשימה',
   });
 
   const DIR_FILTERS = Object.freeze([
-    { id: 'ALL', label: 'הכל' },
+    { id: 'OPERATIONAL', label: 'פעילים' },
+    { id: 'ALL', label: 'הכל (מנהל)' },
     { id: 'ACTIVE', label: 'חברים פעילים' },
     { id: 'BLOCKED', label: 'חסומים' },
     { id: 'REMOVED', label: 'הוסרו' },
+    { id: 'ACCOUNT_DISABLED', label: 'מושבתים' },
+    { id: 'DIRECTORY_HIDDEN', label: 'הוסרו מהרשימה' },
   ]);
   const DIR_MAX_ROWS = 300;
   let knownUsers = null;
   let knownUsersLoading = false;
   let knownUsersError = '';
-  let dirFilter = 'ALL';
+  let dirFilter = 'OPERATIONAL';
   let dirQuery = '';
   let knownUsersGen = 0;
   const knownExtra = new Set();
@@ -794,6 +805,12 @@
       avatar: (canon && canon.avatar) || (known && known.avatar) || '',
     };
     const role = isRoot ? 'ROOT' : a.role;
+    const accountDisabled = !!(known && known.accountDisabled);
+    const directoryHidden = !!(known && known.directoryHidden);
+    const operationalVisible = known ? known.operationalVisible !== false : true;
+    let statusLabel = USER_STATUS[status] || (isV2() ? 'לא חבר בקבוצה' : 'עדיין אין נתוני חברות');
+    if (accountDisabled) statusLabel = USER_STATUS.ACCOUNT_DISABLED;
+    else if (directoryHidden && status !== 'REMOVED' && status !== 'BLOCKED') statusLabel = USER_STATUS.DIRECTORY_HIDDEN;
     return {
       pubkey: pk,
       isRoot,
@@ -802,10 +819,14 @@
       assigned: isRoot ? [] : a.assigned.slice(),
       status,
       canonStatus,
-      statusLabel: USER_STATUS[status] || (isV2() ? 'לא חבר בקבוצה' : 'עדיין אין נתוני חברות'),
+      statusLabel,
       member: isRoot || status === 'ACTIVE',
       profile: profileOf(pk, row),
       lastActiveAt: (known && known.lastActiveAt) || 0,
+      accountDisabled,
+      directoryHidden,
+      operationalVisible,
+      profileOnly: !!(known && known.profileOnly),
     };
   }
 
@@ -1004,7 +1025,21 @@
 
   function dirFilterMatch(u) {
     if (dirFilter === 'ALL') return true;
-    if (dirFilter === 'ACTIVE') return u.member;
+    if (dirFilter === 'OPERATIONAL') {
+      // Fail closed on live membership tip: never keep REMOVED/BLOCKED/profile-only in
+      // "פעילים" even if knownUsers.operationalVisible is briefly stale after a mutation.
+      return (
+        u.status !== 'REMOVED' &&
+        u.status !== 'BLOCKED' &&
+        !u.profileOnly &&
+        u.operationalVisible !== false &&
+        !u.accountDisabled &&
+        !u.directoryHidden
+      );
+    }
+    if (dirFilter === 'ACTIVE') return u.member && !u.accountDisabled && !u.directoryHidden;
+    if (dirFilter === 'ACCOUNT_DISABLED') return !!u.accountDisabled;
+    if (dirFilter === 'DIRECTORY_HIDDEN') return !!u.directoryHidden;
     return u.status === dirFilter;
   }
 
@@ -1645,18 +1680,23 @@
     );
   }
 
-  /** Remove / block / unblock / user content. ROOT and self never get these actions. */
+  /** Remove / block / unblock / account disable / directory hide / user content. ROOT and self never get these actions. */
   function userActionsHtml(u, s, me) {
     if (!isV2() || u.isRoot || u.pubkey === me) return '';
     const f = FGA();
     const blockState = typeof f.blockStateOf === 'function' ? f.blockStateOf(u.pubkey) : 'NONE';
     const pk = escapeHtml(u.pubkey);
+    const isRootActor = !!(f && typeof f.myAuthority === 'function' && f.myAuthority().isRoot);
     const btn = (act, label, cls) =>
-      '<button type="button" class="gap-btn' + (cls ? ' ' + cls : '') + '" data-act="' + act + '" data-pk="' + pk + '"' + (cls === 'danger' || act === 'unblock-user' ? ' data-mutation="1"' : '') + '>' + label + '</button>';
+      '<button type="button" class="gap-btn' + (cls ? ' ' + cls : '') + '" data-act="' + act + '" data-pk="' + pk + '"' + (cls === 'danger' || act === 'unblock-user' || act.indexOf('account') !== -1 || act.indexOf('directory') !== -1 ? ' data-mutation="1"' : '') + '>' + label + '</button>';
     const btns = [];
-    if (s.removeMembers && (u.canonStatus === 'ACTIVE' || u.canonStatus === 'BLOCKED')) btns.push(btn('remove-member', 'הסר משתמש', 'danger'));
+    if (s.removeMembers && (u.canonStatus === 'ACTIVE' || u.canonStatus === 'BLOCKED')) btns.push(btn('remove-member', 'הסר מהקבוצה', 'danger'));
     if (s.blockMembers && (blockState === 'NONE' || (blockState === 'LISTED' && u.status === 'ACTIVE'))) btns.push(btn('block-user', 'חסום משתמש', 'danger'));
     if (s.blockMembers && blockState !== 'NONE') btns.push(btn('unblock-user', 'הסר חסימה', ''));
+    if (isRootActor && !u.accountDisabled) btns.push(btn('disable-account', 'השבת חשבון', 'danger'));
+    if (isRootActor && u.accountDisabled) btns.push(btn('reenable-account', 'הפעל חשבון מחדש', ''));
+    if (isRootActor && !u.directoryHidden) btns.push(btn('hide-directory', 'הסר מהרשימה', ''));
+    if (isRootActor && u.directoryHidden) btns.push(btn('restore-directory', 'החזר לרשימה', ''));
     if (s.moderation || s.reports) btns.push(btn('user-content', 'תוכן המשתמש', ''));
     if (!btns.length) return '';
     return (
@@ -1701,6 +1741,9 @@
       body +=
         '<p class="gap-note" id="sosGapRootLocked">המנהל הראשי הוא הבעלים של הקבוצה. התפקיד וההרשאות שלו מוגנים ולא ניתן לשנות או להסיר אותם.</p>' +
         '<h3>הרשאות</h3>' + capsEditorHtml(caps, () => true, () => false, false);
+    } else if (isV2() && u.accountDisabled) {
+      body +=
+        '<p class="gap-note" id="sosGapAccountDisabledNote">החשבון הושבת ואינו מורשה להתחבר ל-SOS. השבתה אינה זהה לחסימה או להסרה מהקבוצה.</p>';
     } else if (isV2() && (u.status === 'BLOCKED' || u.status === 'REMOVED')) {
       body +=
         '<p class="gap-note" id="sosGapUserStateNote">' +
@@ -1982,6 +2025,30 @@
     if (act === 'unblock-user') {
       return run('הסרת חסימה', () => f.unblockMember(pk), 'להסיר את החסימה? משתמש שהוסר מהקבוצה לא יחזור אליה, והרשאות שבוטלו לא יחזרו.');
     }
+    if (act === 'disable-account') {
+      return run(
+        'השבתת חשבון',
+        () => f.disableAccount(pk),
+        'להשבית את החשבון? הוא לא יוכל להתחבר ל-SOS (כולל ייבוא מפתח). חסימה/הסרה מהקבוצה אינן משתנות אוטומטית.'
+      );
+    }
+    if (act === 'reenable-account') {
+      return run(
+        'הפעלת חשבון מחדש',
+        () => f.reenableAccount(pk),
+        'להפעיל מחדש את החשבון? חברות, הרשאות וחסימה לא ישוחזרו אוטומטית.'
+      );
+    }
+    if (act === 'hide-directory') {
+      return run(
+        'הסרה מהרשימה',
+        () => f.hideFromDirectory(pk),
+        'להסיר מהרשימה התפעולית? זה אינו מחיקה קריפטוגרפית ואינו מוחק נתונים מהרשת.'
+      );
+    }
+    if (act === 'restore-directory') {
+      return run('החזרה לרשימה', () => f.restoreToDirectory(pk), 'להחזיר את הזהות לרשימה התפעולית?');
+    }
     if (act === 'user-content') return loadUserContent(pk);
     if (act === 'remove-content') {
       const id = el.getAttribute('data-target') || '';
@@ -2031,7 +2098,7 @@
     if (act === 'load-joins') return loadJoins();
     if (act === 'dir-filter') {
       const want = String(el.getAttribute('data-filter') || 'ALL');
-      dirFilter = DIR_FILTERS.some((x) => x.id === want) ? want : 'ALL';
+      dirFilter = DIR_FILTERS.some((x) => x.id === want) ? want : 'OPERATIONAL';
       document.querySelectorAll('#sosGapDirFilters [data-filter]').forEach((b) => {
         const on = b.getAttribute('data-filter') === dirFilter;
         b.classList.toggle('primary', on);
@@ -2282,7 +2349,7 @@
       knownUsersError = '';
       knownUsersGen++;
       dirQuery = '';
-      dirFilter = 'ALL';
+      dirFilter = 'OPERATIONAL';
       knownExtra.clear();
       knownChecked.clear();
       registrationLookups.clear();

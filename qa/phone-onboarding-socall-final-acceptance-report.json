@@ -1,0 +1,91 @@
+{
+  "gate": "PHONE_ONBOARDING_SOCALL_FINAL_ACCEPTANCE",
+  "status": "FAIL_ACCEPTANCE",
+  "ts": "2026-10-08T08:25:00.000Z",
+  "baseline": {
+    "MAIN_HEAD": "d1bcc5168d9e02564c505d4b10c69a8d9b5f208a",
+    "MAIN_APP_VERSION": "2026.10.05-web-899s.13",
+    "SIGNER_HEAD": "8777307992aee6ad0f716b85a30917fb6d8f59a0",
+    "SIGNER_VERSION": "0.5.1-initial-recovery",
+    "ADMISSION_WORKER_VERSION": "1.0.0",
+    "PREVIOUS_STATUS": "PHONE_ONBOARDING_SOCALL_WIRING_PASS"
+  },
+  "authenticity": {
+    "REAL_BROWSER_USED": true,
+    "REAL_WORKER_USED": true,
+    "REAL_DURABLE_OBJECT_USED": true,
+    "REAL_HTTP": true,
+    "REAL_SIGNER": true,
+    "MOCK_ONLY_GATES": [
+      "CONTACT_PICKER (Chromium headless has no navigator.contacts)",
+      "CROSS_COMMUNITY simulated via same-origin CommunityContext switch (no second Community created)",
+      "CALL_SIGNALING capability/UI presence (not full cross-relay WebRTC media)"
+    ],
+    "priorWiringE2E": "real Playwright + wrangler --local --persist-to + signer + local WS relays"
+  },
+  "securityBlocker": {
+    "id": "ORPHAN_PHONE_RESERVATION",
+    "file": "admission-service/src/global-accounts.js",
+    "function": "redeemNewAccountInvite",
+    "evidence": {
+      "concurrentRedeems": "two UNUSED invites same phone → Promise.all redeem",
+      "winners": 1,
+      "loserCode": "PHONE_ALREADY_REGISTERED",
+      "stR1": "CLAIMED",
+      "stR2": "CLAIMED",
+      "note": "invite claimed in transactionSync before bindPhone; bind failure does not rollback claim"
+    },
+    "minimalCorrectiveAction": "On PHONE_ALREADY_REGISTERED (different pubkey) after claim, rollback invite state to UNUSED (or RELEASED) in the Durable Object; prefer claim+bind inside one transactionSync so losers never burn invites."
+  },
+  "deploymentChecklist": {
+    "SAFE_TO_DEPLOY": false,
+    "BLOCKED_PENDING_CONFIGURATION": [
+      "Provision Worker secret PHONE_PEPPER (no default; never commit)",
+      "Confirm production PHONE_PEPPER retention/rotation policy (HMAC tokens irreversible without pepper)",
+      "Pin production global issuer / ROOT authority for 39007 and 39008",
+      "Confirm ALLOWED_ORIGINS and admission URL for production host",
+      "Admin 2FA signer pubkey already pinned — verify unchanged cutover"
+    ],
+    "REQUIRES_MIGRATION": [
+      "Admission Worker Durable Object migration v3: GlobalAccountAuthority (new_sqlite_classes)",
+      "Deploy routes for /v1/global/* alongside existing invite/group/pin DO classes",
+      "Coexistence: legacy 37377 remains non-authority for global account; legacy 39005 remains community Admin2FA account-status (not global 39008)"
+    ],
+    "REQUIRES_MANUAL_ACCEPTANCE": [
+      "Android Chrome Contact Picker (user gesture + permissions + cancel + selected-contact-only)",
+      "Production WhatsApp delivery UX (not cryptographic ownership proof)",
+      "Post-deploy phone enroll/lookup smoke with production pepper",
+      "First Group continuity after Worker cutover (ROOT bootstrap + membership)"
+    ],
+    "rollbackImplications": "Removing GlobalAccountAuthority or changing PHONE_PEPPER invalidates phoneTokens and breaks lookup/bind; keep pepper consistent across rollback window or accept re-enrollment.",
+    "doNotDeployFromLocalPass": true
+  },
+  "gates": {
+    "service": "FAIL (29/30) — ORPHAN_PHONE_RESERVATION",
+    "browserE2E": "PASS",
+    "nip65Ux": "PASS (17/17)",
+    "package898": "FAIL (899s.13 delta vs frozen 898 RC expectations)",
+    "ac10": "PASS",
+    "admin2fa": "PASS client+phase3",
+    "fgaUx": "PASS",
+    "accountRevocationHygiene": "PASS",
+    "membershipAc5": "PASS",
+    "moderationAc4": "PASS",
+    "inviteAc3": "PASS",
+    "c0": "PASS",
+    "signerF1": "PASS",
+    "workerF2a": "PASS",
+    "workerF2b": "PASS",
+    "identityKey": "PASS",
+    "multitab": "PASS",
+    "logPrivacy": "PASS",
+    "onboardingInitialRecovery": "FAIL 1/19 PHONE_FIELD_HIDDEN (expected: phone onboarding shows field)",
+    "f5b6": "FAIL Android gradle unit tests (env/out of phone scope)",
+    "e2eeSend": "FAIL 3 stale version/cache assertions (call-coldanswer1, SW v871, relay-policy-before-publish)"
+  },
+  "COMMIT_CREATED": false,
+  "PUSHED": false,
+  "PR_CREATED": false,
+  "DEPLOY_EXECUTED": false,
+  "PRODUCTION_CHANGED": false
+}

@@ -1,0 +1,4 @@
+jsQR v1.4.0 (Apache-2.0)
+Source: npm package "jsqr" / https://github.com/cozmo/jsQR
+Bundled locally at vendor/jsQR.js for MD3W-W2 offline QR fallback.
+No runtime CDN load. SHA256(jsQR.js)=BC40C8A15196236B2314DB0856F72CA0B49980CD5413B8C852A7349F5FEE0859

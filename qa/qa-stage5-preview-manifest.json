@@ -1,0 +1,28 @@
+﻿{
+    "status":  "QA_PUBLICATION_MANIFEST",
+    "baselineHead":  "d1bcc5168d9e02564c505d4b10c69a8d9b5f208a",
+    "qaBranch":  "qa/stage5-dual-primary-qr-20261011",
+    "buildId":  "qa-stage5-dual-primary-w2-20261011",
+    "buildTimestampUtc":  "2026-10-10T23:34:34.921Z",
+    "sourceWorktree":  "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349",
+    "publicationWorktree":  "C:\\BRAIN\\SOS-qa-stage5-dual-primary-qr-20261011",
+    "publishedVersion":  "2026.10.11-qa-stage5-dual-primary-w2",
+    "productionMustRemain":  "https://sos010.com",
+    "w2ScannerIncluded":  true,
+    "w1bWebPhoneIssuerIncluded":  true,
+    "md3wT2SignerApprovalDefault":  false,
+    "moduleSha256":  {
+                         "sos-web-linked-qr-scanner.js":  "7B26DC17D10B58411C42D74EB1BBFA84D07F8E1C4F5FB973254138DB157B4E6D",
+                         "vendor/jsQR.js":  "BC40C8A15196236B2314DB0856F72CA0B49980CD5413B8C852A7349F5FEE0859",
+                         "sos-web-phone-issuer.js":  "B262FA6210FEF2560D0937C7E7B69D5C50FC205847FA815B53F23A5A7FE8C545",
+                         "sos-authorize-linked-device.js":  "7F7D5A9BDCE7D3949BC8506273EE2B5037A766CD25DA3E2CBB8229833DC9C495",
+                         "sos-ald-w1a-verify.js":  "556A954C278DB39AF8378F6ACD28B1672F118EBE6836CE4C4D876D47C895648E",
+                         "sos-web-linked-devices.js":  "8581FA2BF24A5D0458445C852A319B6EDF74A6C221EFE05320D36360A6C24FB1",
+                         "videos.html":  "D794E8D6D635A2896E8EC7C8E117E55A5BFA3911A6A653D7D64FEF965E53DD4E",
+                         "feature-flags.js":  "54AE8C2B5A22DAAB624C8895370326A7F645AE83BAB3CFEA03C5110E341B1173",
+                         "guest-auth.js":  "F0AD88A6087E0C24EACB5AEEEA4AAF9C64B5F8369065C1B9CE79CB090AC83A36",
+                         "service-worker.js":  "FF716E53847F379B546BA91FC62CDE40BC2AE9D70E8C049B6DAC078984786010"
+                     },
+    "githubActionsDeployRisk":  "LOW_PAGES_SOURCE_MAIN_ONLY",
+    "secretScan":  "PASS_PLACEHOLDERS_ONLY"
+}

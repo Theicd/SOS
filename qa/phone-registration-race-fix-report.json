@@ -1,0 +1,305 @@
+{
+  "gate": "PHONE_REGISTRATION_RACE_FIX",
+  "status": "PASS",
+  "REAL_WORKER_USED": true,
+  "REAL_DURABLE_OBJECT_USED": true,
+  "ts": "2026-10-08T09:26:59.440Z",
+  "results": {
+    "REAL_WORKER_HEALTH": {
+      "ok": true,
+      "detail": {
+        "url": "http://127.0.0.1:8841"
+      }
+    },
+    "TWO_WAY_ONE_WINNER": {
+      "ok": true,
+      "detail": {
+        "winners": 1,
+        "loserCode": "PHONE_ALREADY_REGISTERED"
+      }
+    },
+    "ORPHAN_PHONE_RESERVATION": {
+      "ok": true,
+      "detail": {
+        "loserState": "PHONE_CONFLICT",
+        "winnerState": "USED"
+      }
+    },
+    "ORPHAN_PHONE_RESERVATION_FALSE": {
+      "ok": true,
+      "detail": {
+        "ORPHAN_PHONE_RESERVATION": false
+      }
+    },
+    "INVITE_CLAIM_CONFLICT_CLEANED": {
+      "ok": true,
+      "detail": {
+        "loser": "PHONE_CONFLICT",
+        "winner": "USED"
+      }
+    },
+    "FAILED_REDEEM_INVITE_PERMANENTLY_CLAIMED": {
+      "ok": true,
+      "detail": {
+        "state": "PHONE_CONFLICT"
+      }
+    },
+    "FAILED_REDEEM_CREATES_ACCOUNT": {
+      "ok": true,
+      "detail": {
+        "accounts": [
+          true,
+          false
+        ]
+      }
+    },
+    "TWO_ACTIVE_ACCOUNTS_SAME_PHONE": {
+      "ok": true,
+      "detail": {
+        "winners": 1,
+        "registered": true,
+        "note": "ok means second active account rejected"
+      }
+    },
+    "LATE_LOSER_CANNOT_ROLLBACK_WINNER": {
+      "ok": true,
+      "detail": {
+        "lateCode": "PHONE_ALREADY_REGISTERED"
+      }
+    },
+    "PHONE_BINDING_CANNOT_BE_STOLEN": {
+      "ok": true,
+      "detail": null
+    },
+    "RETRY_IDEMPOTENT": {
+      "ok": true,
+      "detail": {
+        "already": true
+      }
+    },
+    "INVITE_REPLAY_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "code": "ALREADY_USED"
+      }
+    },
+    "STRESS_N_2": {
+      "ok": true,
+      "detail": {
+        "winners": 1,
+        "orphanClaimed": 0,
+        "accounts": 1,
+        "conflicts": 1
+      }
+    },
+    "STRESS_N_5": {
+      "ok": true,
+      "detail": {
+        "winners": 1,
+        "orphanClaimed": 0,
+        "accounts": 1,
+        "conflicts": 4
+      }
+    },
+    "STRESS_N_10": {
+      "ok": true,
+      "detail": {
+        "winners": 1,
+        "orphanClaimed": 0,
+        "accounts": 1,
+        "conflicts": 9
+      }
+    },
+    "STRESS_N_25": {
+      "ok": true,
+      "detail": {
+        "winners": 1,
+        "orphanClaimed": 0,
+        "accounts": 1,
+        "conflicts": 24
+      }
+    },
+    "ORPHAN_CLAIM_COUNT": {
+      "ok": true,
+      "detail": {
+        "orphanTotal": 0
+      }
+    },
+    "ACTIVE_PHONE_BINDINGS_PER_PHONE_MAX": {
+      "ok": true,
+      "detail": {
+        "maxObservedWinners": 1
+      }
+    },
+    "DUPLICATE_ACCOUNT_CERT_COUNT": {
+      "ok": true,
+      "detail": {
+        "maxAccounts": 1
+      }
+    },
+    "SAME_INVITE_CONCURRENT_ONE_WINNER": {
+      "ok": true,
+      "detail": {
+        "winners": 1,
+        "state": "USED"
+      }
+    },
+    "MULTI_PHONE_SIMULTANEOUS": {
+      "ok": true,
+      "detail": {
+        "okCount": 3
+      }
+    }
+  },
+  "inviteStateMachine": {
+    "UNUSED": [
+      "USED",
+      "PHONE_CONFLICT"
+    ],
+    "USED": [
+      "USED (idempotent same redeemer)"
+    ],
+    "PHONE_CONFLICT": [
+      "terminal"
+    ],
+    "CLAIMED_legacy": "treated as USED for winner idempotency"
+  },
+  "transactionBoundary": "computePhoneToken+codeHash outside; claim uniqueness + phone_bindings ACTIVE insert inside one storage.transactionSync; cert 39007 after txn idempotent; First Group membership outside this DO",
+  "stress": {
+    "2": {
+      "n": 2,
+      "winners": 1,
+      "registered": true,
+      "orphanClaimed": 0,
+      "used": 1,
+      "conflicts": 1,
+      "accountCount": 1,
+      "states": [
+        "PHONE_CONFLICT",
+        "USED"
+      ],
+      "loserCodes": [
+        "PHONE_ALREADY_REGISTERED"
+      ]
+    },
+    "5": {
+      "n": 5,
+      "winners": 1,
+      "registered": true,
+      "orphanClaimed": 0,
+      "used": 1,
+      "conflicts": 4,
+      "accountCount": 1,
+      "states": [
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "USED",
+        "PHONE_CONFLICT"
+      ],
+      "loserCodes": [
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED"
+      ]
+    },
+    "10": {
+      "n": 10,
+      "winners": 1,
+      "registered": true,
+      "orphanClaimed": 0,
+      "used": 1,
+      "conflicts": 9,
+      "accountCount": 1,
+      "states": [
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "USED"
+      ],
+      "loserCodes": [
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED"
+      ]
+    },
+    "25": {
+      "n": 25,
+      "winners": 1,
+      "registered": true,
+      "orphanClaimed": 0,
+      "used": 1,
+      "conflicts": 24,
+      "accountCount": 1,
+      "states": [
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "USED",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT",
+        "PHONE_CONFLICT"
+      ],
+      "loserCodes": [
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED",
+        "PHONE_ALREADY_REGISTERED"
+      ]
+    }
+  },
+  "fails": [],
+  "pass": 21,
+  "fail": 0
+}

@@ -1,0 +1,70 @@
+{
+  "audit": "account-directory-source",
+  "generatedAt": "2026-10-07T12:00:00+03:00",
+  "baseline": "d1bcc5168d9e02564c505d4b10c69a8d9b5f208a",
+  "function": "FirstGroupAdmin.listKnownUsers",
+  "file": "first-group-admin.js",
+  "whyApproximatelySixty": "The management directory unions every identity that appears in ANY of several discovery sources, not only ACTIVE members. In practice that merges (1) signed membership tips (ACTIVE/REMOVED/BLOCKED/CONFLICT), (2) control blocklist pubkeys, (3) SOS email-registry authors (kind 37377), (4) SOS-tagged kind:0 profile authors, and (5) last-activity enrichment from kind:1 notes for already-known keys. Profile-only and registry-only identities that never became operational members still appear under LEGACY. Historical REMOVED/BLOCKED tips remain visible. Relays return up to KNOWN_USERS_MAX per query, so a busy israel-network easily reaches ~50–70 distinct pubkeys even when ACTIVE membership is much smaller.",
+  "sources": [
+    {
+      "id": "membership_directory",
+      "description": "Canonical membership rows from MembershipState / directory('') — ACTIVE, REMOVED, BLOCKED, CONFLICT, ROOT",
+      "pollutesDefaultList": true,
+      "excludedFromOperationalDefault": ["REMOVED", "BLOCKED"]
+    },
+    {
+      "id": "control_blocklist",
+      "description": "blockedPubkeys on verified group-control tip (may include non-members)",
+      "pollutesDefaultList": true,
+      "excludedFromOperationalDefault": ["BLOCKED", "LISTED"]
+    },
+    {
+      "id": "email_registry_37377",
+      "description": "Own SOS email-registry events tagged email-registry + israel-network",
+      "pollutesDefaultList": true,
+      "excludedFromOperationalDefault": []
+    },
+    {
+      "id": "sos_profile_kind0",
+      "description": "Verified kind:0 profiles tagged israel-network (profile-only identities)",
+      "pollutesDefaultList": true,
+      "excludedFromOperationalDefault": ["profileOnly"]
+    },
+    {
+      "id": "kind1_activity",
+      "description": "Kind:1 notes used only to stamp lastActiveAt for already-known keys (does not add new keys)",
+      "pollutesDefaultList": false,
+      "excludedFromOperationalDefault": []
+    },
+    {
+      "id": "account_status_39005",
+      "description": "ACCOUNT_DISABLED / ENABLED tips (new). Disabled identities remain searchable in admin filters but leave the operational default list.",
+      "pollutesDefaultList": false,
+      "excludedFromOperationalDefault": ["ACCOUNT_DISABLED"]
+    },
+    {
+      "id": "directory_hygiene_39006",
+      "description": "DIRECTORY_HIDDEN / VISIBLE tips (new). Hide is list hygiene, not cryptographic deletion.",
+      "pollutesDefaultList": false,
+      "excludedFromOperationalDefault": ["DIRECTORY_HIDDEN"]
+    }
+  ],
+  "operationalDefaultFilter": {
+    "uiDefault": "OPERATIONAL",
+    "excludes": ["profileOnly", "REMOVED", "BLOCKED", "ACCOUNT_DISABLED", "DIRECTORY_HIDDEN"],
+    "adminViews": ["ALL", "ACTIVE", "BLOCKED", "REMOVED", "ACCOUNT_DISABLED", "DIRECTORY_HIDDEN"]
+  },
+  "distinctActions": {
+    "חסום משתמש": "restrict activity / blocklist + membership BLOCKED",
+    "הסר מהקבוצה": "membership REMOVED",
+    "הסר מהרשימה": "directory hygiene HIDDEN (not erasure)",
+    "השבת חשבון": "ACCOUNT_DISABLED — deny SOS session/login"
+  },
+  "claims": {
+    "DIRECTORY_HIDE_IS_CRYPTOGRAPHIC_DELETION": false,
+    "DIRECTORY_HIDE_ERASES_RELAY_HISTORY": false,
+    "REENABLE_RESTORES_MEMBERSHIP": false,
+    "REENABLE_RESTORES_CAPABILITIES": false,
+    "REENABLE_RESTORES_BLOCKLIST": false
+  }
+}

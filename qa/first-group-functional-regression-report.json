@@ -1,0 +1,319 @@
+{
+  "gate": "FIRST_GROUP_FUNCTIONAL_REGRESSION",
+  "status": "FAIL",
+  "FIRST_GROUP_FUNCTIONAL_REGRESSION": "FAIL",
+  "HISTORICAL_VERSION_ASSERTIONS_CLASSIFIED": true,
+  "HISTORICAL_PACKAGE898_GATE": "CLASSIFIED_OBSOLETE_DELTA",
+  "classifications": [
+    {
+      "assertion": "PACKAGE898_SCOPE_DELTA",
+      "class": "B",
+      "note": "Frozen package898 release delta/version hash — Stage 5 source diverged by design"
+    },
+    {
+      "assertion": "ANDROID_UNTOUCHED",
+      "class": "B",
+      "note": "Frozen package898 release delta/version hash — Stage 5 source diverged by design"
+    },
+    {
+      "assertion": "NO_MULTI_COMMUNITY_PROTOCOL_CHANGES",
+      "class": "D",
+      "note": "Needs per-assertion review: [\"community-branding-ui.js\",\"community-context.js\",\"community-feed-selection.js\"]"
+    },
+    {
+      "assertion": "GLOBAL_COMMUNICATION_UNCHANGED",
+      "class": "D",
+      "note": "Needs per-assertion review: [\"call-signal-e2ee.js\",\"chat-audio-player.js\",\"chat-e2ee.js\",\"chat-file-transfer-state.js\",\"chat-file-transfer-ui.js\",\"c"
+    },
+    {
+      "assertion": "PACKAGE898_VERSION_GATE",
+      "class": "B",
+      "note": "Frozen package898 release delta/version hash — Stage 5 source diverged by design"
+    },
+    {
+      "assertion": "PACKAGE898_CACHE_GATE",
+      "class": "B",
+      "note": "Frozen package898 release delta/version hash — Stage 5 source diverged by design"
+    },
+    {
+      "assertion": "SHIPPED_CONFIG_V2_OFF",
+      "class": "D",
+      "note": "Needs per-assertion review: {\"schema\":\"sos-feature-flags-v1\",\"accessControlV2\":true,\"accessControlV2Scope\":\"CONTROL_PLANE\",\"admin2faEnforcement\":tru"
+    },
+    {
+      "assertion": "FLAG_LOADS_BEFORE_V2_SYNC",
+      "class": "D",
+      "note": "Needs per-assertion review: {\"loaderIdx\":-1,\"firstV2\":71937}"
+    },
+    {
+      "assertion": "FIRST_GROUP_NETWORK_AUTHORITY_WIRED",
+      "class": "D",
+      "note": "Needs per-assertion review: \"\""
+    },
+    {
+      "assertion": "FIRST_GROUP_ADMISSION_CLIENT_WIRED",
+      "class": "D",
+      "note": "Needs per-assertion review: \"\""
+    },
+    {
+      "assertion": "NETWORK_GATEWAY_ON_EVERY_PRIVILEGED_OP",
+      "class": "D",
+      "note": "Needs per-assertion review: 24"
+    },
+    {
+      "assertion": "SIGNER_CORE_UNCHANGED_SINCE_897",
+      "class": "B",
+      "note": "Frozen package898 release delta/version hash — Stage 5 source diverged by design"
+    },
+    {
+      "assertion": "ADMIN_SIGNING_POLICY_SCOPED_DELTA",
+      "class": "D",
+      "note": "Needs per-assertion review: {\"changed\":210,\"other\":[\"+    DISABLE_ACCOUNT: 'DISABLE_ACCOUNT',\",\"+    REENABLE_ACCOUNT: 'REENABLE_ACCOUNT',\",\"+    HI"
+    },
+    {
+      "assertion": "ADMIN_SIGNING_POLICY_DTAG_ONLY",
+      "class": "D",
+      "note": "Needs per-assertion review: {\"changed\":210,\"other\":[\"+    DISABLE_ACCOUNT: 'DISABLE_ACCOUNT',\",\"+    REENABLE_ACCOUNT: 'REENABLE_ACCOUNT',\",\"+    HI"
+    },
+    {
+      "assertion": "AC8_GUEST_HARDENING",
+      "class": "D",
+      "note": "Needs per-assertion review: \"\\n[AC8] PASS XSS isolation not claimed\\n[AC8] PASS shared validator symbols\\n{\\n  \\\"STATUS\\\": \\\"FAIL\\\",\\n  \\\"FAIL_NOTES"
+    },
+    {
+      "assertion": "FIRST_GROUP_NETWORK_E2E",
+      "class": "D",
+      "note": "Needs per-assertion review: {\"status\":\"FAIL\",\"checks\":23,\"failed\":[]}"
+    },
+    {
+      "assertion": "THREE_BROWSER_NETWORK_E2E",
+      "class": "D",
+      "note": "Needs per-assertion review: [\"REMOTE_INVITER\",\"NETWORK_QR_RENDER\",\"CROSS_USER_JOIN\",\"REMOTE_ADMIN_PROMOTE\",\"REMOTE_CAPABILITY_REVOKE\",\"REMOTE_ADMIN_"
+    },
+    {
+      "assertion": "FRESH_PROFILE_AUTHORITY",
+      "class": "D",
+      "note": "Needs per-assertion review: [\"FRESH_PROFILE_AUTHORITY\"]"
+    },
+    {
+      "assertion": "REMOTE_CAPABILITY",
+      "class": "D",
+      "note": "Needs per-assertion review: [\"REMOTE_CAPABILITY_REVOKE\"]"
+    },
+    {
+      "assertion": "CROSS_USER_JOIN",
+      "class": "D",
+      "note": "Needs per-assertion review: [\"CROSS_USER_JOIN\",\"JOIN_OBSERVABILITY\",\"REMOTE_INVITER\",\"NETWORK_QR_RENDER\"]"
+    },
+    {
+      "assertion": "NETWORK_AUTHORITATIVE_GATEWAY",
+      "class": "D",
+      "note": "Needs per-assertion review: [\"NETWORK_AUTHORITATIVE_GATEWAY\",\"DIRECT_NETWORK_PRIVILEGED_BYPASS_REJECTED\",\"FAIL_CLOSED_NO_RELAY_CONFIRMATION\",\"TYPED_"
+    },
+    {
+      "assertion": "NETWORK_ADVERSARIAL",
+      "class": "D",
+      "note": "Needs per-assertion review: [\"EVENT_INTEGRITY\",\"STALE_EVENT\",\"CONTROL_CONFLICT_FAIL_CLOSED\",\"DUPLICATE_EVENT_NO_CORRUPTION\",\"EVENT_ARRIVAL_ORDER_DET"
+    },
+    {
+      "assertion": "MULTI_USER_SESSION",
+      "class": "D",
+      "note": "Needs per-assertion review: [\"MULTITAB_REVOCATION\",\"OFFLINE_STALE_CACHE_FAIL_CLOSED\",\"OFFLINE_RECONNECT\",\"ACCOUNT_SWITCH\"]"
+    },
+    {
+      "assertion": "NETWORK_BACKED_ADMIN_UI",
+      "class": "D",
+      "note": "Needs per-assertion review: [\"NETWORK_BACKED_ADMIN_UI\",\"ADMIN_UI_LOADING_STATE\"]"
+    },
+    {
+      "assertion": "PACKAGE898_EXISTING_E2E_PASS",
+      "class": "D",
+      "note": "Needs per-assertion review: \"11/42\""
+    },
+    {
+      "assertion": "ADMISSION_SERVICE_ROOT_DELEGATION_GATE",
+      "class": "D",
+      "note": "Needs per-assertion review: \"\""
+    },
+    {
+      "assertion": "FIRST_GROUP_NETWORK_DOUBLE_REDEEM_GATE",
+      "class": "D",
+      "note": "Needs per-assertion review: \"\""
+    },
+    {
+      "assertion": "FIRST_GROUP_REDEEM_RESPONSE_LOSS_GATE",
+      "class": "D",
+      "note": "Needs per-assertion review: \"\""
+    },
+    {
+      "assertion": "FIRST_GROUP_THREE_BROWSER_NETWORK_E2E_GATE",
+      "class": "D",
+      "note": "Needs per-assertion review: \"\""
+    },
+    {
+      "assertion": "FIRST_GROUP_NETWORK_ADVERSARIAL_GATE",
+      "class": "D",
+      "note": "Needs per-assertion review: \"\""
+    },
+    {
+      "assertion": "PRODUCT_SECURITY_894",
+      "class": "B",
+      "note": "Historical master allowlist tied to package894/898 frozen tree"
+    },
+    {
+      "assertion": "404_AUDIT",
+      "class": "C",
+      "note": "External blossom 404 noise / environmental"
+    },
+    {
+      "assertion": "PRODUCT_MODULES_UNCHANGED",
+      "class": "B",
+      "note": "Frozen package898 release delta/version hash — Stage 5 source diverged by design"
+    },
+    {
+      "assertion": "PRODUCT_REGRESSION",
+      "class": "B",
+      "note": "Historical master allowlist tied to package894/898 frozen tree"
+    },
+    {
+      "assertion": "MASTER_SECURITY_REGRESSION",
+      "class": "B",
+      "note": "Historical master allowlist tied to package894/898 frozen tree"
+    },
+    {
+      "assertion": "FG_LIVE_TIMEOUT",
+      "class": "C",
+      "note": "Spawn timeout — refuse stale/incomplete PASS (fail closed)"
+    }
+  ],
+  "results": {
+    "PRIOR_FG_E2E_CORE_ASSERTIONS": {
+      "ok": true,
+      "detail": {
+        "passed": 136,
+        "failed": 0,
+        "fatal": false,
+        "note": "Core FG assertions passed; fatal classified separately"
+      }
+    },
+    "HISTORICAL_VERSION_ASSERTIONS_CLASSIFIED": {
+      "ok": true,
+      "detail": {
+        "count": 35,
+        "byClass": {
+          "B": 9,
+          "D": 25,
+          "C": 1
+        }
+      }
+    },
+    "file:fga": {
+      "ok": true,
+      "detail": null
+    },
+    "file:na": {
+      "ok": true,
+      "detail": null
+    },
+    "file:adm": {
+      "ok": true,
+      "detail": null
+    },
+    "file:a2fa": {
+      "ok": true,
+      "detail": null
+    },
+    "file:mut": {
+      "ok": true,
+      "detail": null
+    },
+    "file:mem": {
+      "ok": true,
+      "detail": null
+    },
+    "file:inv": {
+      "ok": true,
+      "detail": null
+    },
+    "file:gas": {
+      "ok": true,
+      "detail": null
+    },
+    "file:ass": {
+      "ok": true,
+      "detail": null
+    },
+    "SIGNED_CONTROL_AUTHORITY": {
+      "ok": true,
+      "detail": null
+    },
+    "MEMBERSHIP_CANONICAL": {
+      "ok": true,
+      "detail": null
+    },
+    "PERMISSIONS_CAPABILITIES": {
+      "ok": true,
+      "detail": null
+    },
+    "ADMIN_2FA_ENFORCEMENT": {
+      "ok": true,
+      "detail": null
+    },
+    "REPORTS_PATH": {
+      "ok": true,
+      "detail": null
+    },
+    "MODERATION_PATH": {
+      "ok": true,
+      "detail": null
+    },
+    "BLOCK_REMOVE_PATH": {
+      "ok": true,
+      "detail": null
+    },
+    "INVITES_PATH": {
+      "ok": true,
+      "detail": null
+    },
+    "ACCOUNT_STATUS_39005": {
+      "ok": true,
+      "detail": null
+    },
+    "GLOBAL_DISABLE_39008": {
+      "ok": true,
+      "detail": null
+    },
+    "EXISTING_USER_ACCESS": {
+      "ok": true,
+      "detail": null
+    },
+    "NO_MULTI_COMMUNITY_PROTOCOL": {
+      "ok": true,
+      "detail": null
+    },
+    "CURRENT_FIRST_GROUP_FUNCTIONAL_LIVE": {
+      "ok": false,
+      "detail": {
+        "exitError": "spawnSync C:\\WINDOWS\\system32\\cmd.exe ETIMEDOUT",
+        "timedOut": true,
+        "verdict": "TIMEOUT_FAIL_CLOSED",
+        "status": "INCOMPLETE",
+        "fatal": null,
+        "runId": "32c56c0f-8e98-4969-9f8e-f142e90b3882",
+        "expectRunId": "32c56c0f-8e98-4969-9f8e-f142e90b3882",
+        "completed": false,
+        "TIMEOUT_FALSE_PASS_PREVENTED": true
+      }
+    },
+    "QA_REPORT_FRESHNESS_VERIFIED": {
+      "ok": false,
+      "detail": {
+        "runId": "32c56c0f-8e98-4969-9f8e-f142e90b3882",
+        "expectRunId": "32c56c0f-8e98-4969-9f8e-f142e90b3882"
+      }
+    }
+  },
+  "pass": 23,
+  "fail": 2,
+  "ts": "2026-10-10T20:46:32.332Z"
+}

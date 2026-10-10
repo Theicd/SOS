@@ -1,0 +1,203 @@
+{
+  "gate": "ONBOARDING_INITIAL_RECOVERY_E2E",
+  "mode": "mobile-pixel7",
+  "status": "PASS",
+  "ts": "2026-10-07T23:27:30.941Z",
+  "results": {
+    "NAME_AVATAR_SKIPPED": {
+      "ok": true,
+      "detail": {
+        "nameHidden": true,
+        "avatarHidden": true,
+        "keyVisible": true
+      }
+    },
+    "IDENTITY_CREATED_ONCE": {
+      "ok": true,
+      "detail": null
+    },
+    "RECOVERY_SCREEN_READY": {
+      "ok": true,
+      "detail": {
+        "title": "המפתח האישי שלך",
+        "saveLabel": "שמירת המפתח",
+        "continueHidden": true,
+        "skipHidden": true,
+        "textareaVisible": false,
+        "privMem": false,
+        "worker": true
+      }
+    },
+    "PAGE_RAW_K_VISIBLE": {
+      "ok": true,
+      "detail": null
+    },
+    "PAGE_NSEC_VISIBLE": {
+      "ok": true,
+      "detail": null
+    },
+    "INITIAL_EXPORT_UI_SHOWN": {
+      "ok": true,
+      "detail": "[redacted]"
+    },
+    "HANDOFF_URL_HAS_NO_SECRET": {
+      "ok": true,
+      "detail": null
+    },
+    "INITIAL_RECOVERY_REAL_FILE_CREATED": {
+      "ok": true,
+      "detail": {
+        "fileName": "SOS-personal-key-b764e4f8-42f980e4.txt"
+      }
+    },
+    "INITIAL_RECOVERY_FILE_NONEMPTY": {
+      "ok": true,
+      "detail": {
+        "bytes": 64
+      }
+    },
+    "INITIAL_RECOVERY_FILE_IMPORTABLE": {
+      "ok": true,
+      "detail": {
+        "decodedOk": true
+      }
+    },
+    "INITIAL_EXPORT_WITHOUT_SCREEN_LOCK": {
+      "ok": true,
+      "detail": {
+        "webauthnOps": 0,
+        "states": [
+          "OPENED",
+          "SEALED",
+          "IN_SIGNER",
+          "CONFIRMED"
+        ]
+      }
+    },
+    "INITIAL_EXPORT_WEBAUTHN_PROMPT_SHOWN": {
+      "ok": true,
+      "detail": null
+    },
+    "DOWNLOAD_STARTED_COPY_PRESENT": {
+      "ok": true,
+      "detail": {
+        "main": "הורדת המפתח התחילה. ודאו שקובץ המפתח הופיע בתיקיית ההורדות ושמרו אותו במקום בטוח",
+        "signerTitle": "הורדת המפתח התחילה"
+      }
+    },
+    "OLD_FALSE_SUCCESS_COPY_PRESENT": {
+      "ok": true,
+      "detail": null
+    },
+    "RECOVERY_SUCCESS_TEXT_TRUTHFUL": {
+      "ok": true,
+      "detail": null
+    },
+    "USER_CONFIRMATION_REQUIRED_AFTER_DOWNLOAD_TRIGGER": {
+      "ok": true,
+      "detail": {
+        "continueLabel": "בדקתי שהקובץ ירד — כניסה ל-SOS"
+      }
+    },
+    "AUTO_ENTER_AFTER_DOWNLOAD_TRIGGER": {
+      "ok": true,
+      "detail": null
+    },
+    "USER_ENTERED_AFTER_CONFIRM": {
+      "ok": true,
+      "detail": null
+    },
+    "RECOVERY_RELOAD_GATE": {
+      "ok": true,
+      "detail": {
+        "match": true
+      }
+    },
+    "RECOVERY_RELOAD_SAME_PUBKEY": {
+      "ok": true,
+      "detail": null
+    },
+    "LATER_EXPORT_WITHOUT_INITIAL_FLAG": {
+      "ok": true,
+      "detail": {
+        "initialHidden": true,
+        "laterVisible": true,
+        "continueHref": "./export.html",
+        "hasInitialFlag": false
+      }
+    },
+    "LATER_EXPORT_WITHOUT_WEBAUTHN_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "path": "/export.html",
+        "notEnrolled": true,
+        "hasContinue": true,
+        "saveBtn": true
+      }
+    },
+    "LATER_EXPORT_WITH_VALID_WEBAUTHN": {
+      "ok": true,
+      "detail": {
+        "laterMatch": true
+      }
+    },
+    "PAGE_RAW_K_VISIBLE_AFTER": {
+      "ok": true,
+      "detail": null
+    },
+    "PAGE_NSEC_VISIBLE_AFTER": {
+      "ok": true,
+      "detail": null
+    },
+    "LOGOUT_AFTER_BACKUP_ALLOWED": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "blocked": false
+      }
+    },
+    "INITIAL_EXPORT_LOGIN_ROUNDTRIP_GATE": {
+      "ok": true,
+      "detail": {
+        "match": true,
+        "freshDiffers": true
+      }
+    },
+    "ROUNDTRIP_PUBKEY_MATCH": {
+      "ok": true,
+      "detail": null
+    },
+    "DISABLED_EXPORTED_KEY_LOGIN_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "ACCOUNT_DISABLED",
+        "message": "החשבון הושבת ואינו מורשה להתחבר ל-SOS."
+      }
+    },
+    "DISABLED_KEY_FILE_LOGIN_SESSION_DENIED": {
+      "ok": true,
+      "detail": {
+        "pk": "",
+        "guest": true
+      }
+    },
+    "NEW_USER_FULL_BROWSER_E2E": {
+      "ok": true,
+      "detail": null
+    },
+    "MOBILE_ONBOARDING_GATE": {
+      "ok": true,
+      "detail": null
+    }
+  },
+  "passed": 32,
+  "failed": 0,
+  "AUTO_ENTER_AFTER_DOWNLOAD_TRIGGER": false,
+  "USER_CONFIRMATION_REQUIRED_AFTER_DOWNLOAD_TRIGGER": true,
+  "RECOVERY_SUCCESS_TEXT_TRUTHFUL": true,
+  "CAN_OBSERVE_USER_CANCEL": false,
+  "CAN_CONFIRM_DURABLE_FILE_WRITE": false,
+  "INITIAL_EXPORT_WEBAUTHN_REQUIRED": false,
+  "LATER_EXPORT_WEBAUTHN_REQUIRED": true
+}

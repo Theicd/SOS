@@ -1,0 +1,59 @@
+{
+  "gate": "MD3_SECURITY_NEGATIVE_MATRIX",
+  "status": "PASS",
+  "ts": "2026-10-08T19:57:06.000Z",
+  "evidence": "android-shell/app/build/test-results/testDebugUnitTest",
+  "executed": {
+    "SosDeviceAuthorizationTest": {
+      "tests": 18,
+      "failures": 0,
+      "cases": [
+        "tamperedCapabilitiesFailVerify → forged authorization rejected",
+        "accountMismatchRejected → wrong Global P / cross-account rejected",
+        "pairingConsumedOnce → replayed pairing rejected",
+        "confirmationReplayRejected → forged/replayed ACK path rejected",
+        "destinationRejectsOtherDeviceAuth → cross-device auth rejected",
+        "loggedOutCannotAuthorize → disabled/unknown primary issuance rejected",
+        "expiredRejected → expired session rejected",
+        "tamperedEpochFailsSignature → mismatched auth fails verify",
+        "accountIsolationRegistry → cross-account registry isolation",
+        "fifthDeviceRejected → duplicate/stale slot limit",
+        "unknownVersionFailsClosed → stale/unknown messages fail closed",
+        "happyPathLinkedAuthorized → positive control"
+      ]
+    },
+    "SosPairingSessionTest": {
+      "tests": 10,
+      "failures": 0,
+      "cases": [
+        "replayRejected",
+        "deviceKeySubstitutionFailsChannelOrPop",
+        "aeadTamperFails",
+        "expiredQrRejected",
+        "unknownProtocolVersionFailsClosed",
+        "secretFieldInQrRejected"
+      ]
+    },
+    "SosGlobalAccountStatusGateTest": {
+      "tests": 4,
+      "failures": 0,
+      "cases": [
+        "unreachableAuthorityRejected → unknown Primary issuance denied",
+        "unknownWithoutAdmissionUrlRejected",
+        "emptyAdmissionUrlRejected",
+        "badPubkeyRejected"
+      ]
+    }
+  },
+  "mapping": {
+    "Forged authorization": "tamperedCapabilitiesFailVerify, tamperedEpochFailsSignature PASS",
+    "Wrong Global P": "accountMismatchRejected PASS",
+    "Replayed pairing": "pairingConsumedOnce, SosPairingSessionTest.replayRejected PASS",
+    "Forged ACK": "confirmationReplayRejected PASS",
+    "Disabled Primary issuance": "loggedOutCannotAuthorize PASS",
+    "Unknown Primary issuance": "SosGlobalAccountStatusGateTest unreachable/unknown PASS",
+    "Expired or mismatched session": "expiredRejected, expiredQrRejected PASS",
+    "Cross-account authorization": "accountIsolationRegistry, destinationRejectsOtherDeviceAuth PASS",
+    "Duplicate or stale pairing messages": "fifthDeviceRejected, unknownVersionFailsClosed, aeadTamperFails PASS"
+  }
+}

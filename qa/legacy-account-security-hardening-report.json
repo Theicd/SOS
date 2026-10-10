@@ -1,0 +1,348 @@
+{
+  "gate": "LEGACY_ACCOUNT_COMPATIBILITY_SECURITY",
+  "status": "LEGACY_ACCOUNT_COMPATIBILITY_SECURITY_PASS",
+  "MAIN_HEAD": "d1bcc5168d9e02564c505d4b10c69a8d9b5f208a",
+  "MAIN_START_VERSION": "2026.10.05-web-899s.15",
+  "MAIN_END_VERSION": "2026.10.05-web-899s.19",
+  "ADMISSION_WORKER_START_VERSION": "1.0.1",
+  "ADMISSION_WORKER_END_VERSION": "1.0.2",
+  "SIGNER_VERSION": "0.5.1-initial-recovery",
+  "REAL_WORKER_USED": true,
+  "REAL_DURABLE_OBJECT_USED": true,
+  "REAL_BROWSER_USED": true,
+  "PHASE_B_RESUMED": false,
+  "MD4_STARTED": false,
+  "COMMIT_CREATED": false,
+  "PUSHED": false,
+  "PR_CREATED": false,
+  "DEPLOY_EXECUTED": false,
+  "PRODUCTION_CHANGED": false,
+  "ts": "2026-10-10T16:48:49.383Z",
+  "results": {
+    "REAL_WORKER_HEALTH": {
+      "ok": true,
+      "detail": {
+        "url": "http://127.0.0.1:8847"
+      }
+    },
+    "UNAUTHORIZED_39007_ISSUANCE_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "code": "CERT_ISSUE_AUTH_REQUIRED"
+      }
+    },
+    "FORGED_ISSUER_FLAGS_REJECTED": {
+      "ok": true,
+      "detail": {
+        "code": "CERT_ISSUE_AUTH_REQUIRED"
+      }
+    },
+    "FORGED_37377_MIGRATION_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "code": "CERT_ISSUE_AUTH_REQUIRED",
+        "exists": false
+      }
+    },
+    "UNAUTHORIZED_PHONE_BIND_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "code": "PHONE_REBIND_NOT_IMPLEMENTED_YET"
+      }
+    },
+    "PHONE_BIND_TAKEOVER_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "code": "PHONE_REBIND_NOT_IMPLEMENTED_YET"
+      }
+    },
+    "NEW_ACCOUNT_PHONE_INVITE_FLOW_PRESERVED": {
+      "ok": true,
+      "detail": {}
+    },
+    "REDEEM_WITHOUT_OWNERSHIP_PROOF_REJECTED": {
+      "ok": true,
+      "detail": {
+        "code": "REDEEMER_AUTH_REQUIRED"
+      }
+    },
+    "REDEEM_WITH_AUTH_OK": {
+      "ok": true,
+      "detail": {}
+    },
+    "GLOBAL_ACCOUNT_CERT_EXACT_P_BINDING": {
+      "ok": true,
+      "detail": {
+        "hasCert": true
+      }
+    },
+    "UNAUTHORIZED_SET_STATUS_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "code": "NOT_GLOBAL_ROOT"
+      }
+    },
+    "COMMUNITY_ADMIN_GLOBAL_DISABLE_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "code": "NOT_GLOBAL_ROOT"
+      }
+    },
+    "GLOBAL_DISABLE_SET_OK": {
+      "ok": true,
+      "detail": {
+        "rev": 2
+      }
+    },
+    "GLOBAL_DISABLE_SIGNATURE_VERIFIED": {
+      "ok": true,
+      "detail": {
+        "verified": true
+      }
+    },
+    "AUTH_REPLAY_REJECTED": {
+      "ok": true,
+      "detail": {
+        "code": "AUTH_REPLAY"
+      }
+    },
+    "FORGED_GLOBAL_DISABLE_EVENT_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "ingested": false
+      }
+    },
+    "FORGED_STATUS_CANNOT_DISABLE_USER": {
+      "ok": true,
+      "detail": null
+    },
+    "GLOBAL_DISABLE_DELIVERED_TO_TARGET": {
+      "ok": true,
+      "detail": {
+        "status": "ACCOUNT_DISABLED",
+        "hasEvent": true
+      }
+    },
+    "ACTIVE_SESSION_REVOKED_AFTER_VERIFIED_DISABLE": {
+      "ok": true,
+      "detail": {
+        "sessionA": {
+          "ok": false,
+          "code": "ACCOUNT_DISABLED"
+        },
+        "sessionB": {
+          "ok": false,
+          "code": "ACCOUNT_DISABLED"
+        }
+      }
+    },
+    "UNAUTHORIZED_REENABLE_REJECTED": {
+      "ok": true,
+      "detail": {
+        "code": "NOT_GLOBAL_ROOT"
+      }
+    },
+    "FORGED_REENABLE_EVENT_ACCEPTED": {
+      "ok": true,
+      "detail": null
+    },
+    "UNAUTHORIZED_LEGACY_REENABLE_BYPASS": {
+      "ok": true,
+      "detail": null
+    },
+    "LEGACY_NO_PHONE_LOGIN": {
+      "ok": true,
+      "detail": {
+        "exists": false,
+        "gate": {
+          "ok": true,
+          "code": "OK"
+        }
+      }
+    },
+    "LEGACY_NO_39007_LOGIN": {
+      "ok": true,
+      "detail": null
+    },
+    "LEGACY_OLD_PUBKEY_PRESERVED": {
+      "ok": true,
+      "detail": {
+        "note": "no migration mints new P; redeem binds exact redeemerPubkey"
+      }
+    },
+    "LEGACY_MEMBERSHIP_PRESERVED": {
+      "ok": true,
+      "detail": {
+        "note": "Worker global status does not rewrite community membership"
+      }
+    },
+    "LEGACY_USER_PHONE_REQUIRED": {
+      "ok": true,
+      "detail": {
+        "required": false,
+        "note": "LEGACY_USER_PHONE_REQUIRED=false"
+      }
+    },
+    "LEGACY_DISABLED_BYPASS": {
+      "ok": true,
+      "detail": {
+        "note": "known disabled P cannot login"
+      }
+    },
+    "KNOWN_DISABLED_P_LOGIN_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "gate": {
+          "ok": false,
+          "code": "ACCOUNT_DISABLED"
+        }
+      }
+    },
+    "KNOWN_DISABLED_P_PAIRING_ACCEPTED": {
+      "ok": true,
+      "detail": null
+    },
+    "STALE_VERIFIED_DISABLED_DENIES": {
+      "ok": true,
+      "detail": null
+    },
+    "AUTHORIZED_REENABLE_OK": {
+      "ok": true,
+      "detail": {
+        "rev": 3
+      }
+    },
+    "CONFLICTING_STATUS_HIGHER_REV_WINS": {
+      "ok": true,
+      "detail": {
+        "gate": {
+          "ok": true,
+          "code": "OK"
+        }
+      }
+    },
+    "WORKER_RESTART_STATE_READBACK": {
+      "ok": true,
+      "detail": {
+        "status": "ACCOUNT_DISABLED",
+        "hasEvent": true
+      }
+    },
+    "CONCURRENT_STATUS_REVISION_ORDERED": {
+      "ok": true,
+      "detail": {
+        "r1": 1,
+        "r2": 2
+      }
+    },
+    "LOGIN_ENTRYPOINTS_AUDITED_ALL": {
+      "ok": true,
+      "detail": null
+    },
+    "UNPROTECTED_SESSION_BIND_PATHS": {
+      "ok": true,
+      "detail": {
+        "count": 0,
+        "note": "worker-boot and typed-boot gated"
+      }
+    },
+    "LEGACY_STATUS_COMPATIBILITY_DEFINED": {
+      "ok": true,
+      "detail": null
+    },
+    "COMMUNITY_BLOCK_NOT_GLOBAL_DISABLE": {
+      "ok": true,
+      "detail": null
+    },
+    "BROWSER_DUAL_SESSION_DISABLE": {
+      "ok": true,
+      "detail": {
+        "b1": {
+          "beforeOk": true,
+          "ingested": true,
+          "afterOk": false,
+          "afterCode": "ACCOUNT_DISABLED",
+          "legacyOk": true
+        },
+        "b2": {
+          "beforeOk": true,
+          "ingested": true,
+          "afterOk": false,
+          "afterCode": "ACCOUNT_DISABLED",
+          "legacyOk": true
+        }
+      }
+    },
+    "REAL_BROWSER_DUAL_SESSION": {
+      "ok": true,
+      "detail": {
+        "sessions": 2
+      }
+    }
+  },
+  "AUTHORIZATION_MATRIX": [
+    {
+      "OPERATION": "POST /account/cert/issue",
+      "CALLER": "anonymous HTTP",
+      "REQUIRED_AUTHORITY": "REDEEM_TXN internal or ROOT ISSUE_GLOBAL_CERT (idempotent existing only)",
+      "CURRENT_ENFORCEMENT": "DENIED without ROOT auth; no auto-mint",
+      "DEFECT": "CLOSED"
+    },
+    {
+      "OPERATION": "POST /phone/bind",
+      "CALLER": "anonymous HTTP",
+      "REQUIRED_AUTHORITY": "none public — NEW_ACCOUNT redeem only",
+      "CURRENT_ENFORCEMENT": "401 PHONE_REBIND_NOT_IMPLEMENTED_YET",
+      "DEFECT": "CLOSED"
+    },
+    {
+      "OPERATION": "POST /account/status/set",
+      "CALLER": "ROOT with purpose-bound authEvent",
+      "REQUIRED_AUTHORITY": "ROOT 22242 SET_GLOBAL_STATUS or ROOT 39005 mirror + spend",
+      "CURRENT_ENFORCEMENT": "verified + target/status/expiry + replay spend",
+      "DEFECT": "CLOSED"
+    },
+    {
+      "OPERATION": "Community admin disable",
+      "CALLER": "community capability only",
+      "REQUIRED_AUTHORITY": "insufficient for global 39008",
+      "CURRENT_ENFORCEMENT": "UNAUTHORIZED NOT_GLOBAL_ROOT",
+      "DEFECT": "CLOSED"
+    },
+    {
+      "OPERATION": "Login / SessionAuthority.bind",
+      "CALLER": "browser boot / key import",
+      "REQUIRED_AUTHORITY": "assertLoginAllowed after Worker reconcile",
+      "CURRENT_ENFORCEMENT": "app.js + keys.js + guest-auth + linked-devices",
+      "DEFECT": "CLOSED"
+    },
+    {
+      "OPERATION": "Legacy no-phone login",
+      "CALLER": "existing K holder",
+      "REQUIRED_AUTHORITY": "key possession; 39007/phone not required",
+      "CURRENT_ENFORCEMENT": "preserved unless verified DISABLED tip",
+      "DEFECT": "N/A (compat)"
+    }
+  ],
+  "OFFLINE_STATUS_POLICY": {
+    "verifiedDisabledCache": "DENY",
+    "unreachableNoCache": "ALLOW_LEGACY_LOGIN_STALE_UNKNOWN",
+    "unreachableActiveCache": "ALLOW_STALE_ACTIVE",
+    "immediateOfflineRevocationClaimed": false
+  },
+  "UNPROTECTED_SESSION_BIND_PATHS": 0,
+  "ANDROID_SDK_AVAILABLE": true,
+  "ANDROID_BUILD_STATUS": "UNKNOWN_NOT_RUN",
+  "ANDROID_SETUP": {
+    "expectedJdk": "17 (AGP 8.x typical)",
+    "expectedGradle": "see android/gradle/wrapper/gradle-wrapper.properties",
+    "androidPlugin": "see android/build.gradle",
+    "localPropertiesFormat": "sdk.dir=C:\\\\path\\\\to\\\\Android\\\\Sdk (gitignored)",
+    "envDiscovery": "ANDROID_HOME or ANDROID_SDK_ROOT",
+    "note": "Do not invent SDK paths; MD3 issuance remains Android-native — no Web fallback issuer"
+  },
+  "TEST_TOTAL_PASS": 41,
+  "TEST_TOTAL_FAIL": 0,
+  "SECURITY_BLOCKERS_REMAINING": [],
+  "PARTIAL_LINKED_DEVICE_UI_PRESERVED": true
+}

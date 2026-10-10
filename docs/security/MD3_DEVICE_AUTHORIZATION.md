@@ -1,9 +1,10 @@
 # MD3 — Device Authorization + Capability Foundation
 
-**Status:** IMPLEMENTED (local)  
+**Status:** IMPLEMENTED (local) — **Android PhoneIssuer only**  
 **Version:** `sos-device-authorization-v1`  
 **Depends:** MD1 device identity, MD2 `sos-pair-v1` BoundDestination  
-**Non-goals:** history sync (MD4+), Recovery Capsule (MD6), revocation (MD8), Nostr delegation (MD9), F5B6 sealed migration
+**Non-goals:** history sync (MD4+), Recovery Capsule (MD6), revocation (MD8), Nostr delegation (MD9), F5B6 sealed migration  
+**Stage 5 roadmap:** `docs/security/STAGE5_LINKED_DEVICES_ROADMAP.md` (`STAGE5_DUAL_PRIMARY_QR_PAIRING`)
 
 ---
 
@@ -20,7 +21,8 @@ DEVICE_AUTH_ROOT_SIGNING_PATH =
 - **No** generic `sign(bytes)` / `getPrivkey` / `getNsec` API  
 - Typed operation name: `AUTHORIZE_LINKED_DEVICE`  
 - Confirmation gate binds exact semantic payload hash (capabilities, D pubs, deviceId, transcript, authId)  
-- Session must be logged-in + account match
+- Session must be logged-in + account match  
+- **Mobile Web Primary issuance:** **not implemented**. Authenticated web session alone must not sign DeviceAuthorization. Future path = MD3W_W0 audit → MD3W_W1 trusted typed issuer (no new root-key dump APIs). Desktop/`verifyStrict` consumers remain valid.
 
 ---
 

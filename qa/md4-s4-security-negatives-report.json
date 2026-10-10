@@ -1,0 +1,156 @@
+{
+  "gate": "MD4_S4_SECURITY_NEGATIVES",
+  "runId": "6ad789a1-8de5-47bd-938e-1652c182e2a4",
+  "ts": "2026-10-10T20:17:55.039Z",
+  "pass": 24,
+  "fail": 0,
+  "results": {
+    "NEG_NO_CKI_IN_CHECKPOINT_MODULE": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_NO_ROOT_IN_HIST": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_TEST_KEY_NOT_BRIDGED": {
+      "ok": true,
+      "detail": null
+    },
+    "POS_SESSION_STARTED_AUTH_OK_GUARD": {
+      "ok": true,
+      "detail": null
+    },
+    "POS_ACK_BEFORE_CHECKPOINT": {
+      "ok": true,
+      "detail": null
+    },
+    "ORIGIN_UNCHANGED": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_ANDROID_PAGINATION_UNIT": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_UNLINKED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "NO_DEVICE"
+      }
+    },
+    "NEG_CROSS_PROTOCOL": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "CROSS_PROTOCOL_TAG_COLLISION",
+        "protocol": null
+      }
+    },
+    "NEG_PLAINTEXT_DOWNGRADE": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "PLAINTEXT_DOWNGRADE"
+      }
+    },
+    "NEG_CHECKPOINT_WRONG_ACCOUNT": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "CHECKPOINT_ACCOUNT_MISMATCH"
+      }
+    },
+    "NEG_CHECKPOINT_WRONG_DEVICE": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "CHECKPOINT_DEVICE_MISMATCH"
+      }
+    },
+    "NEG_CHECKPOINT_STALE_EPOCH": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "CHECKPOINT_AUTH_EPOCH_MISMATCH"
+      }
+    },
+    "NEG_CHECKPOINT_TAMPER": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "CHECKPOINT_CORRUPT"
+      }
+    },
+    "NEG_CONFLICTING_EVENT": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "CONFLICTING_EVENT"
+      }
+    },
+    "NEG_RESURRECTION_AFTER_TOMBSTONE": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "id": "57d826d871da1cbc66a42fe49681fee896f849cb5f0bec8faef756e28dcb3401",
+        "suppressed": true,
+        "reason": "TOMBSTONE_AUTHORITATIVE"
+      }
+    },
+    "NEG_UNAUTHORIZED_TOMBSTONE": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "UNAUTHORIZED_CONVERSATION"
+      }
+    },
+    "NEG_FORGED_EVENT_IDENTITY": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "FORGED_EVENT_IDENTITY"
+      }
+    },
+    "NEG_MISSING_OUTER_SIG": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "MISSING_OUTER_SIGNATURE"
+      }
+    },
+    "POS_IDEMPOTENT_DUP": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "id": "57d826d871da1cbc66a42fe49681fee896f849cb5f0bec8faef756e28dcb3401",
+        "duplicate": true
+      }
+    },
+    "POS_TOMBSTONE_VERIFIED": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "id": "57d826d871da1cbc66a42fe49681fee896f849cb5f0bec8faef756e28dcb3401",
+        "tombstone": true
+      }
+    },
+    "POS_VERIFY_OUTER_API": {
+      "ok": true,
+      "detail": null
+    },
+    "RESOURCE_LIMITS": {
+      "ok": true,
+      "detail": {
+        "events": 50,
+        "bytes": 262144
+      }
+    },
+    "POS_ACK_AEAD_HELPERS": {
+      "ok": true,
+      "detail": null
+    }
+  },
+  "STATUS": "PASS"
+}

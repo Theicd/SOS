@@ -1,0 +1,21 @@
+{
+  "STATUS": "PASS",
+  "REACTION_TYPED_OPERATION": "SIGN_REACTION",
+  "REACTION_KIND_ALLOWLIST": [
+    7
+  ],
+  "LIKE_ALLOWED_BY_CURRENT_SIGNER": true,
+  "LIKE_PASS": true,
+  "UNLIKE_IMPLEMENTATION": "kind 7 content='-' toggle via likePost",
+  "UNLIKE_PASS": true,
+  "COMMENT_REACTION_GENERIC_SIGN_BYPASS": false,
+  "FOLLOW_PASS": true,
+  "UNFOLLOW_PASS": true,
+  "GENERIC_SIGN_API": false,
+  "notes": [
+    "has SIGN_REACTION=true",
+    "feedUsesReaction=true unlikeToggle=true",
+    "comment bypass gone=true typed=true"
+  ],
+  "REACTION_RELOAD_PASS": true
+}

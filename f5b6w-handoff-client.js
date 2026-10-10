@@ -73,12 +73,19 @@
     } catch (_e) {}
   }
 
-  function start() {
+  /**
+   * @param {{ initialRecovery?: boolean }} [opts]
+   * initialRecovery=true — onboarding first backup only (signer may mint INITIAL_RECOVERY_EXPORT without WebAuthn).
+   * Later Key Viewer / logout guard must omit this flag so later export stays UV-gated.
+   */
+  function start(opts) {
     const pk = currentPubkey();
     if (!pk) return { ok: false, code: 'NO_IDENTITY' };
     if (!isWorkerIdentity()) return { ok: false, code: 'NOT_WORKER_IDENTITY' };
     const origin = signerOrigin();
+    const initialRecovery = !!(opts && opts.initialRecovery === true);
     const q = new URLSearchParams({ protocol: String(PROTOCOL), expectedPubkey: pk, returnOrigin: window.location.origin });
+    if (initialRecovery) q.set('initialRecovery', '1');
     let win = null;
     try {
       // A live window reference is required for the sealed-envelope channel (no noopener).
@@ -87,9 +94,9 @@
       win = null;
     }
     if (!win) return { ok: false, code: 'POPUP_BLOCKED' };
-    active = { win, origin, pubkey: pk, sealed: new Set(), acked: new Set() };
+    active = { win, origin, pubkey: pk, sealed: new Set(), acked: new Set(), initialRecovery };
     emit('OPENED');
-    return { ok: true, signerOrigin: origin };
+    return { ok: true, signerOrigin: origin, initialRecovery };
   }
 
   async function handleOffer(d) {
@@ -233,7 +240,7 @@
       }
       const st = ev && ev.detail && ev.detail.state;
       if (st === 'CONFIRMED') {
-        status.textContent = 'המפתח נשמר בהצלחה. כעת ניתן להתנתק בבטחה.';
+        status.textContent = 'הורדת המפתח התחילה. ודאו שקובץ המפתח הופיע בתיקיית ההורדות. כעת ניתן להתנתק בבטחה.';
         status.style.color = '#4caf50';
         primary.hidden = true;
       } else if (st === 'ERROR') {

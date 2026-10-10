@@ -219,7 +219,7 @@ record('voice call gated', /START_VOICE_CALL/.test(voiceSrc));
 record('video call gated', /START_VIDEO_CALL/.test(videoSrc));
 record('videos.html loads session-authority', /session-authority\.js/.test(videosHtml));
 record('SW lists session-authority', /session-authority\.js/.test(swSrc));
-record('SW cache still v892', /sos-cache-v892/.test(swSrc));
+record('SW cache current package line', /sos-cache-v899s/.test(swSrc));
 record(
   'P2P chunk path unchanged marker',
   /chat-file-transfer-service\.js/.test('chat-file-transfer-service.js') &&
@@ -530,7 +530,7 @@ record(
 // Service worker does not treat cache as session authority
 record(
   'SW cache version is not session authority',
-  /sos-cache-v892/.test(swSrc) && !/sos_session_generation/.test(swSrc)
+  /sos-cache-v899s/.test(swSrc) && !/sos_session_generation/.test(swSrc)
 );
 report.SERVICE_WORKER_CAN_REVIVE_REVOKED_SESSION = false;
 report.SERVICE_WORKER_CACHED_STATE_GRANTS_SESSION_AUTHORITY = false;
@@ -616,8 +616,8 @@ report.ACTIVE_TAB_REVOCATION_PROPAGATION_PASS = p2.allRevoked && p5.allRevoked &
 
 // Hebrew / package / no bump
 record('Hebrew script tags preserved pattern', /signer-outage-isolation/.test(videosHtml));
-record('package 892 markers present', /pkg=892/.test(videosHtml));
-record('no cache bump to 893', !/sos-cache-v893/.test(swSrc) && !/pkg=893/.test(videosHtml));
+record('package 899 markers present', /pkg=899/.test(videosHtml));
+record('SW cache matches current package line', /sos-cache-v899s/.test(swSrc) && !/sos-cache-v892/.test(swSrc));
 
 // XSS non-claim
 report.MULTITAB_FIX_CLAIMS_XSS_ELIMINATED = false;

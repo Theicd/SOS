@@ -1,0 +1,253 @@
+{
+  "gate": "MD4_S1_DURABLE_DEVICE",
+  "runId": "77820118-174c-485c-9ca4-8d143429f076",
+  "startedAt": 1791663457677,
+  "completed": true,
+  "status": "PASS",
+  "results": {
+    "file:sos-md4-device-auth.js": {
+      "ok": true,
+      "detail": null
+    },
+    "file:sos-md4-device-store.js": {
+      "ok": true,
+      "detail": null
+    },
+    "file:sos-web-linked-devices.js": {
+      "ok": true,
+      "detail": null
+    },
+    "file:sos-md2-pairing-session.js": {
+      "ok": true,
+      "detail": null
+    },
+    "file:docs/security/MD4_HISTORY_SYNC_S0.md": {
+      "ok": true,
+      "detail": null
+    },
+    "file:docs/security/MD4_S1_DEFINITION_OF_DONE.md": {
+      "ok": true,
+      "detail": null
+    },
+    "VIDEOS_LOADS_MD4_MODULES": {
+      "ok": true,
+      "detail": null
+    },
+    "NO_HISTORY_TRANSFER_IN_S1": {
+      "ok": true,
+      "detail": null
+    },
+    "VERIFY_STRICT_GOOD": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "code": "OK"
+      }
+    },
+    "NEG_BAD_SIGNATURE": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "BAD_SIGNATURE"
+      }
+    },
+    "NEG_WRONG_ACCOUNT": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "ACCOUNT_MISMATCH"
+      }
+    },
+    "NEG_WRONG_DEVICE": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "DEVICE_ID_MISMATCH"
+      }
+    },
+    "NEG_WRONG_D_SIGN": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "D_SIGN_MISMATCH"
+      }
+    },
+    "NEG_EXPIRED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "EXPIRED"
+      }
+    },
+    "NEG_MISSING_HISTORY_SYNC": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "MISSING_DEVICE_HISTORY_SYNC"
+      }
+    },
+    "NEG_ADMIN_CAP": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "ADMIN_NOT_ALLOWED"
+      }
+    },
+    "NEG_AUTH_EPOCH": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "AUTH_EPOCH_MISMATCH"
+      }
+    },
+    "NEG_REVOKED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "REVOKED"
+      }
+    },
+    "NEG_SIG_PRESENCE_INSUFFICIENT": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "BAD_SIG_LEN"
+      }
+    },
+    "KIND25060_MD2_ACCEPTS_PAIR": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "code": "OK",
+        "protocol": "sos-pair-v1"
+      }
+    },
+    "KIND25060_MD2_REJECTS_HIST": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "MD2_REJECTS_NON_PAIR",
+        "protocol": "sos-hist-v1"
+      }
+    },
+    "KIND25060_HIST_REJECTS_PAIR": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "HIST_REJECTS_NON_HIST",
+        "protocol": "sos-pair-v1"
+      }
+    },
+    "KIND25060_HIST_NO_DELIVERY": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "code": "OK_CLASSIFIED_NO_DELIVERY",
+        "protocol": "sos-hist-v1",
+        "delivery": false
+      }
+    },
+    "KIND25060_UNKNOWN_FAIL_CLOSED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "UNKNOWN_PROTOCOL_TAG",
+        "protocol": null,
+        "tags": [
+          "sos-evil-v1"
+        ]
+      }
+    },
+    "KIND25060_COLLISION_FAIL_CLOSED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "CROSS_PROTOCOL_TAG_COLLISION",
+        "protocol": null
+      }
+    },
+    "NEG_CANONICAL_MISMATCH": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "BAD_SIGNATURE"
+      }
+    },
+    "UNSUPPORTED_BROWSER_API": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "code": "OK"
+      }
+    },
+    "DURABLE_PERSIST": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "code": "OK",
+        "accountP": "9ede5c669fe4fc41a249ac6abbac1ccbc1832e817cdf0143f11c83802eeeaf6c",
+        "deviceId": "58feb1cca9a2891234af508c8027bb06bd85ba3e1079bce2bf758904e22adc65",
+        "storageClass": "BROWSER_WEBCYPTO_WRAPPED",
+        "RECOVERY_CAPABLE": false,
+        "ROOT_K_SENT_TO_DESKTOP": false
+      }
+    },
+    "RESTART_RESTORE": {
+      "ok": true,
+      "detail": {
+        "deviceId": "58feb1cca9a2891234af508c8027bb06bd85ba3e1079bce2bf758904e22adc65",
+        "accountP": "9ede5c669fe4fc41a249ac6abbac1ccbc1832e817cdf0143f11c83802eeeaf6c"
+      }
+    },
+    "SCHNORR_ON_RESTORE": {
+      "ok": true,
+      "detail": "OK"
+    },
+    "PLAINTEXT_SECRET_SCAN_CLEAN": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "code": "CLEAN",
+        "ROOT_K_PRESENT": false
+      }
+    },
+    "CORRUPT_IDB_FAIL_CLOSED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "CORRUPT_OR_TAMPERED"
+      }
+    },
+    "ACCOUNT_SWITCH_ISOLATION": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "NOT_FOUND"
+      }
+    },
+    "RECOVERY_CAPABLE_FALSE": {
+      "ok": true,
+      "detail": {
+        "recovery": false
+      }
+    },
+    "HISTORY_SYNC_GATE": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "code": "OK"
+      }
+    },
+    "LOCALSTORAGE_NO_PRIV": {
+      "ok": true,
+      "detail": {
+        "nsec": false,
+        "privField": false
+      }
+    }
+  },
+  "pass": 36,
+  "fail": 0,
+  "failedKeys": [],
+  "completedAt": 1791663458381
+}

@@ -1,9 +1,26 @@
 import { InviteLedger, SERVICE_TAG } from './ledger.js';
 import { GroupAuthority } from './group.js';
 import { AdminPinAuthority } from './pin.js';
+import { GlobalAccountAuthority } from './global-accounts.js';
 import { cosignPubkey } from './cosign-keys.js';
 
-export { InviteLedger, GroupAuthority, AdminPinAuthority };
+export { InviteLedger, GroupAuthority, AdminPinAuthority, GlobalAccountAuthority };
+
+const GLOBAL_ROUTES = {
+  '/v1/global/meta': '/meta',
+  '/v1/global/phone/normalize': '/phone/normalize',
+  '/v1/global/phone/lookup': '/phone/lookup',
+  '/v1/global/phone/bind': '/phone/bind',
+  '/v1/global/account/cert/issue': '/account/cert/issue',
+  '/v1/global/account/status/set': '/account/status/set',
+  '/v1/global/account/status/get': '/account/status/get',
+  '/v1/global/account/exists': '/account/exists',
+  '/v1/global/invites/new-account/register': '/invites/new-account/register',
+  '/v1/global/invites/new-account/redeem': '/invites/new-account/redeem',
+  '/v1/global/invites/new-account/status': '/invites/new-account/status',
+  '/v1/global/invites/new-account/check-phone': '/invites/new-account/check-phone',
+  '/v1/global/ald/approval/consume': '/ald/approval/consume',
+};
 
 const PIN_ROUTES = {
   '/v1/admin-pin/params': '/params',
@@ -169,7 +186,34 @@ export default {
     } catch (_e) {
       return reply(request, env, { result: 'INVALID', code: 'BAD_JSON' }, 400);
     }
-    if (!body || typeof body !== 'object' || body.groupId !== env.FIRST_GROUP_ID) {
+    if (!body || typeof body !== 'object') {
+      return reply(request, env, { result: 'INVALID', code: 'BAD_JSON' }, 400);
+    }
+
+    // GLOBAL routes: no israel-network / groupId requirement (phone + account authority).
+    const globalInner = GLOBAL_ROUTES[url.pathname];
+    if (globalInner) {
+      if (!env.GLOBAL_ACCOUNTS) {
+        return reply(request, env, { result: 'INVALID', code: 'GLOBAL_ACCOUNTS_UNBOUND' }, 503);
+      }
+      try {
+        const stub = env.GLOBAL_ACCOUNTS.get(env.GLOBAL_ACCOUNTS.idFromName('global:accounts'));
+        const res = await stub.fetch('https://global' + globalInner, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        // Preserve auth denials (401) and rate limits; map other non-OK upstream statuses carefully.
+        const upstream = res.status;
+        const outStatus =
+          upstream === 429 ? 429 : upstream === 401 ? 401 : upstream >= 500 ? 503 : upstream >= 400 ? 400 : 200;
+        return reply(request, env, await res.json(), outStatus);
+      } catch (_e) {
+        return reply(request, env, { result: 'TEMPORARILY_UNAVAILABLE', code: 'UPSTREAM' }, 503);
+      }
+    }
+
+    if (body.groupId !== env.FIRST_GROUP_ID) {
       return reply(request, env, { result: 'INVALID', code: 'WRONG_GROUP' }, 400);
     }
 

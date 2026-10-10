@@ -450,8 +450,9 @@
     if (!pool || !Array.isArray(App.relayUrls) || App.relayUrls.length === 0) return false;
     const generation = followState.generation;
     const filter = { kinds: [FOLLOW_KIND], authors: [viewer], limit: 400 };
-    if (App.NETWORK_TAG) {
-      filter['#t'] = [App.NETWORK_TAG];
+    {
+      const GI = App.GlobalIdentity || window.SosGlobalIdentity;
+      filter['#t'] = [(GI && GI.GLOBAL_DISCOVERY_COMPAT_TAG) || App.NETWORK_TAG || 'israel-network'];
     }
     const run = (async () => {
       let events;
@@ -656,8 +657,9 @@
 
     if (!followState.followerSubscriptions.has(target) && App.pool && Array.isArray(App.relayUrls)) {
       const filter = { kinds: [FOLLOW_KIND], '#p': [target], limit: 400 };
-      if (App.NETWORK_TAG) {
-        filter['#t'] = [App.NETWORK_TAG];
+      {
+        const GI = App.GlobalIdentity || window.SosGlobalIdentity;
+        filter['#t'] = [(GI && GI.GLOBAL_DISCOVERY_COMPAT_TAG) || App.NETWORK_TAG || 'israel-network'];
       }
       const sub = App.pool.subscribeMany(App.relayUrls, [filter], {
         onevent(event) {
@@ -756,9 +758,13 @@
         picture: normalizedMetaPicture || fallbackPicture || '',
       };
       const tags = [['p', target]];
-      if (App.NETWORK_TAG) {
-        tags.push(['t', App.NETWORK_TAG]);
-      }
+      // GLOBAL follow graph: fixed identity tags (not ambient community).
+      (function () {
+        const GI = App.GlobalIdentity || window.SosGlobalIdentity;
+        tags.push(['t', (GI && GI.GLOBAL_IDENTITY_TAG) || 'sos-global-identity']);
+        const compat = (GI && GI.GLOBAL_DISCOVERY_COMPAT_TAG) || 'israel-network';
+        if (compat) tags.push(['t', compat]);
+      })();
       const draft = {
         kind: FOLLOW_KIND,
         pubkey: App.publicKey,

@@ -14,6 +14,8 @@ export const PBKDF2_ITERATIONS = 600000;
 const CONTROL_KIND = 39001;
 const MODERATION_KIND = 39002;
 const MEMBERSHIP_KIND = 39003;
+const ACCOUNT_STATUS_KIND = 39005;
+const DIRECTORY_HYGIENE_KIND = 39006;
 const INVITE_KIND = 37378;
 const INVITE_REVOKE_KIND = 37380;
 const DELETION_KIND = 5;
@@ -278,6 +280,40 @@ export class AdminPinAuthority extends DurableObject {
       const op = P.membershipOperation(v.body.transition);
       if (!op) throw fail('INVALID', 'OPERATION_NOT_PRIVILEGED');
       return { operations: [op], controlEpoch: state.controlEpoch, targetIsAdmin: P.isAdminTier(capsOf(state, v.memberPubkey)) };
+    }
+
+    if (ev.kind === ACCOUNT_STATUS_KIND || ev.kind === DIRECTORY_HYGIENE_KIND) {
+      if (principal !== root) throw fail('UNAUTHORIZED', 'ROOT_ONLY');
+      if (!strictVerify(ev)) throw fail('INVALID', 'BAD_EVENT_SIG');
+      if (!(ev.tags || []).some((t) => Array.isArray(t) && t[0] === 't' && t[1] === group)) {
+        throw fail('INVALID', 'CROSS_GROUP');
+      }
+      let body;
+      try {
+        body = JSON.parse(ev.content);
+      } catch (_e) {
+        throw fail('INVALID', 'BAD_CONTENT');
+      }
+      if (!body || body.groupId !== group) throw fail('INVALID', 'CROSS_GROUP');
+      const target = String(body.targetPubkey || '').toLowerCase();
+      if (!HEX64.test(target)) throw fail('INVALID', 'BAD_TARGET');
+      if (target === root || target === principal) throw fail('INVALID', 'ROOT_PROTECTED');
+      if (ev.kind === ACCOUNT_STATUS_KIND) {
+        if (body.schema !== 'sos-account-status') throw fail('INVALID', 'BAD_SCHEMA');
+        const op = body.transition === 'DISABLE' ? 'DISABLE_ACCOUNT' : body.transition === 'REENABLE' ? 'REENABLE_ACCOUNT' : '';
+        if (!op || (body.status !== 'DISABLED' && body.status !== 'ENABLED')) throw fail('INVALID', 'BAD_STATUS');
+        if ((op === 'DISABLE_ACCOUNT' && body.status !== 'DISABLED') || (op === 'REENABLE_ACCOUNT' && body.status !== 'ENABLED')) {
+          throw fail('INVALID', 'STATUS_MISMATCH');
+        }
+        return { operations: [op], controlEpoch: state.controlEpoch, targetIsAdmin: P.isAdminTier(capsOf(state, target)) };
+      }
+      if (body.schema !== 'sos-directory-hygiene') throw fail('INVALID', 'BAD_SCHEMA');
+      const op = body.transition === 'HIDE' ? 'HIDE_DIRECTORY' : body.transition === 'RESTORE' ? 'RESTORE_DIRECTORY' : '';
+      if (!op || (body.visibility !== 'HIDDEN' && body.visibility !== 'VISIBLE')) throw fail('INVALID', 'BAD_VISIBILITY');
+      if ((op === 'HIDE_DIRECTORY' && body.visibility !== 'HIDDEN') || (op === 'RESTORE_DIRECTORY' && body.visibility !== 'VISIBLE')) {
+        throw fail('INVALID', 'VISIBILITY_MISMATCH');
+      }
+      return { operations: [op], controlEpoch: state.controlEpoch, targetIsAdmin: false };
     }
 
     // INVITE_REVOKE_KIND: only revoking another author's invite is an admin action.

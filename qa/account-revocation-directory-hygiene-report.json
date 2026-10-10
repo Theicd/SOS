@@ -1,0 +1,265 @@
+{
+  "gate": "account-revocation-directory-hygiene",
+  "version": "2026.10.05-web-899s.19",
+  "passed": true,
+  "total": 51,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "VERSION_899S_LINE",
+      "ok": true,
+      "detail": "2026.10.05-web-899s.19"
+    },
+    {
+      "name": "MODULE_ACCOUNT_STATUS",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "MODULE_DIRECTORY_HYGIENE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "MODULE_ACCOUNT_DIRECTORY_OPS",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "KIND_39005",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "KIND_39006",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "OP_DISABLE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "OP_REENABLE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "OP_HIDE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "OP_RESTORE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "IS_ACCOUNT_STATUS_OP",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "IS_DIR_OP",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "MEMBER_OPS_UNCHANGED_BLOCK",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "MEMBER_OPS_UNCHANGED_REMOVE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "DISABLE_STATUS",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "DISABLE_DRAFT_KIND",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "NON_ROOT_DISABLE_REJECTED",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ROOT_IMMUTABLE_DISABLE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "REENABLE_STATUS",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "HIDE_VISIBILITY",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "HIDE_NOTE_NO_ERASURE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "A2FA_KINDS",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "A2FA_OPS",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "A2FA_STEP_UP",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "SIGNER_ACCOUNT_STATUS",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "WORKER_ACCOUNT_STATUS",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "LOGIN_GATE_ENSURE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "LOGIN_NO_INVALID_CLAIM",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "SWITCH_GATE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "UI_MSG_GUEST",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "UI_MSG_AUTH",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "FGA_DISABLE_API",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "FGA_OPERATIONAL_FLAG",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "UI_DISABLE_ACTION",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "UI_HIDE_ACTION",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "UI_REMOVE_LABEL",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "UI_BLOCK_LABEL",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "UI_DEFAULT_OPERATIONAL",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "UI_NO_ERASURE_CLAIM",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "REENABLE_NO_RESTORE_MEMBERSHIP",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "REENABLE_NO_RESTORE_CAPS",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "REENABLE_NO_RESTORE_BLOCK",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "HIDE_NOT_ERASURE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "NET_FETCH_39005_39006",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "SCRIPT_TAGS",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "PIN_CLASSIFY_39005",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "CACHE_FAIL_CLOSED",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "DISABLED_LOGIN_NOT_ACCEPTED",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "DIRECTORY_AUDIT_PRESENT",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "DIRECTORY_AUDIT_HAS_SOURCES",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "DIRECTORY_AUDIT_EXPLAINED_BLOAT",
+      "ok": true,
+      "detail": null
+    }
+  ],
+  "generatedAt": "2026-10-10T19:49:35.813Z"
+}

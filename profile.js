@@ -1503,7 +1503,14 @@
       kind: 0,
       pubkey: App.publicKey,
       created_at: createdAt,
-      tags: [['t', App.NETWORK_TAG]],
+      // GLOBAL profile: fixed identity tags — never ambient App.NETWORK_TAG (community switch must not retag).
+      tags: (function () {
+        const GI = App.GlobalIdentity || window.SosGlobalIdentity;
+        const tags = [['t', (GI && GI.GLOBAL_IDENTITY_TAG) || 'sos-global-identity']];
+        const compat = (GI && GI.GLOBAL_DISCOVERY_COMPAT_TAG) || 'israel-network';
+        if (compat) tags.push(['t', compat]);
+        return tags;
+      })(),
       content: content.length > maxLength ? JSON.stringify(metadata) : content,
     };
 

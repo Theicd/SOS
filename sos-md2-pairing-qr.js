@@ -173,22 +173,26 @@
     btn.innerHTML = '<i class="fa-solid fa-qrcode"></i><span>קישור מכשיר (QR)</span>';
     btn.addEventListener('click', () => {
       menu.hidden = true;
-      // Demo/public fixture only — real D pubs come from Android MD1 store later.
-      const fixture = {
+      const LD = App.WebLinkedDevices || window.SosWebLinkedDevices;
+      if (LD && typeof LD.openDesktopPairingPanel === 'function') {
+        LD.openDesktopPairingPanel();
+        return;
+      }
+      // Fallback: refuse fixture secrets — require linked-devices module.
+      openPairingQrPanel({
         protocolVersion: PROTOCOL_VERSION,
-        pairingId: '0'.repeat(32),
-        D_sign_pub: '02' + '11'.repeat(32),
-        D_enc_pub: '03' + '22'.repeat(32),
-        E_ephemeral_pub: '04' + '33'.repeat(32),
-        nonce: '55'.repeat(32),
+        pairingId: Array.from(crypto.getRandomValues(new Uint8Array(32)), (x) => x.toString(16).padStart(2, '0')).join(''),
+        D_sign_pub: Array.from(crypto.getRandomValues(new Uint8Array(32)), (x) => x.toString(16).padStart(2, '0')).join(''),
+        D_enc_pub: Array.from(crypto.getRandomValues(new Uint8Array(32)), (x) => x.toString(16).padStart(2, '0')).join(''),
+        E_ephemeral_pub: Array.from(crypto.getRandomValues(new Uint8Array(32)), (x) => x.toString(16).padStart(2, '0')).join(''),
+        nonce: Array.from(crypto.getRandomValues(new Uint8Array(32)), (x) => x.toString(16).padStart(2, '0')).join(''),
         expiresAt: Date.now() + 120000,
         purpose: 'LINK',
-        deviceId: 'web-ui-fixture',
-        storageClass: 'WEB_PRESENTATION_ONLY',
+        deviceId: Array.from(crypto.getRandomValues(new Uint8Array(32)), (x) => x.toString(16).padStart(2, '0')).join(''),
+        storageClass: 'SOFTWARE_ONLY',
         recoveryEligible: false,
         hardwareBacked: false,
-      };
-      openPairingQrPanel(fixture);
+      });
     });
     const invite = document.getElementById('topBarInviteFriend');
     if (invite && invite.parentNode) invite.parentNode.insertBefore(btn, invite.nextSibling);

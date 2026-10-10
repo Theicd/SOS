@@ -1,0 +1,476 @@
+{
+  "STATUS": "GLOBAL_IDENTITY_SOCALL_READINESS_AUDIT_COMPLETE",
+  "MODE": "AUDIT_ONLY",
+  "RECOVERY_ONBOARDING_SECURITY_ACCEPTED": true,
+  "PHONE_ONBOARDING_FINAL_ACCEPTED": false,
+  "BASELINE": {
+    "MAIN_HEAD": "d1bcc5168d9e02564c505d4b10c69a8d9b5f208a",
+    "MAIN_LOCAL_VERSION": "2026.10.05-web-899s.11",
+    "SIGNER_HEAD": "8777307992aee6ad0f716b85a30917fb6d8f59a0",
+    "SIGNER_VERSION": "0.5.1-initial-recovery",
+    "ONBOARDING_UX_AND_INITIAL_RECOVERY_ACCEPTANCE_PASS": true
+  },
+  "CODE_CHANGED": false,
+  "COMMIT_CREATED": false,
+  "PUSHED": false,
+  "PR_CREATED": false,
+  "DEPLOY_EXECUTED": false,
+  "PRODUCTION_CHANGED": false,
+  "generatedAt": "2026-10-07T21:50:00.000Z",
+
+  "1_GLOBAL_PRODUCT_MODEL": {
+    "GLOBAL_INTENDED": [
+      "cryptographic identity P/pubkey",
+      "account registration",
+      "recovery",
+      "linked devices",
+      "account-disabled",
+      "global profile",
+      "phone identity",
+      "SO-CALL",
+      "direct messages",
+      "direct calls"
+    ],
+    "COMMUNITY_SCOPED_INTENDED": [
+      "membership",
+      "roles",
+      "permissions/capabilities",
+      "moderation",
+      "community blocklist",
+      "community content",
+      "posts/comments/reactions",
+      "community invitation/admission",
+      "community relays/configuration"
+    ],
+    "MISMATCHES": [
+      {
+        "item": "account registration evidence (kind 37377)",
+        "actual": "israel-network tagged; existence inferred via First Group admin directory",
+        "intended": "GLOBAL ACCOUNT_EXISTS(P)",
+        "class": "MUST_FIX_BEFORE_COMMUNITIES"
+      },
+      {
+        "item": "ACCOUNT_DISABLED (39005)",
+        "actual": "hardcoded GROUP_ID=israel-network + israel ROOT",
+        "intended": "GLOBAL disable of SOS identity",
+        "class": "SECURITY_BLOCKER"
+      },
+      {
+        "item": "DIRECTORY_HIDDEN (39006)",
+        "actual": "israel-network only",
+        "intended": "COMMUNITY admin directory",
+        "class": "MUST_FIX_BEFORE_COMMUNITIES"
+      },
+      {
+        "item": "profile kind-0 write tag",
+        "actual": "tagged with ambient App.NETWORK_TAG",
+        "intended": "one global base profile",
+        "class": "MUST_FIX_BEFORE_COMMUNITIES"
+      },
+      {
+        "item": "follow graph",
+        "actual": "publish/query use ambient NETWORK_TAG",
+        "intended": "global (C0 declares USER_FOLLOW not community-scoped)",
+        "class": "MUST_FIX_BEFORE_COMMUNITIES"
+      },
+      {
+        "item": "phone identity",
+        "actual": "removed from product path; leftover client helpers only",
+        "intended": "GLOBAL phone → pubkey directory for SO-CALL",
+        "class": "MUST_FIX_BEFORE_PHONE_ONBOARDING_FINAL"
+      },
+      {
+        "item": "invite model",
+        "actual": "single community membership invite conflated with account creation",
+        "intended": "separate GLOBAL_ACCOUNT_INVITE vs COMMUNITY_INVITE",
+        "class": "MUST_FIX_BEFORE_PHONE_ONBOARDING_FINAL"
+      },
+      {
+        "item": "community join for existing P",
+        "actual": "no path; invite deep-link is guest-signup only → new K",
+        "intended": "P → Community B membership without new identity",
+        "class": "MUST_FIX_BEFORE_COMMUNITIES"
+      },
+      {
+        "item": "relay configuration",
+        "actual": "single App.relayUrls pool for almost everything",
+        "intended": "separated global discovery / DM / community content / authority",
+        "class": "MUST_FIX_BEFORE_COMMUNITIES"
+      },
+      {
+        "item": "DM/call transport",
+        "actual": "global by pubkey (yalachat / canonical call relays) — MATCHES intent on shared origin+relays",
+        "intended": "global",
+        "class": "READY"
+      },
+      {
+        "item": "membership/roles/moderation/blocklist/content",
+        "actual": "community/group scoped via NETWORK_TAG / groupId",
+        "intended": "community-scoped",
+        "class": "READY"
+      }
+    ]
+  },
+
+  "2_SINGLE_GLOBAL_PUBKEY": {
+    "GLOBAL_IDENTITY_SINGLE_P_READY": "PARTIAL",
+    "COMMUNITY_JOIN_CAN_CREATE_SECOND_IDENTITY": true,
+    "DUPLICATE_IDENTITY_PATHS": [
+      "guest-auth Worker/in-page signup via invite deep-link (only join path today) → new K",
+      "keys.js createNewIdentityExplicit overwrites stored K with no account-exists gate",
+      "disabled P can re-register as new P (no email OTP; invite requirement client-bypassable)"
+    ],
+    "SAFE_PATHS_KEEP_P": [
+      "existing-key login / recovery file import (identity-lifecycle prepareAccountSwitch)",
+      "community-context setActive (metadata only; P unchanged)",
+      "F5B6-W / INITIAL_RECOVERY_EXPORT bound to expectedPubkey"
+    ],
+    "notes": "P is stable across community *switches*, but there is no join path for an existing P into another community."
+  },
+
+  "3_ACCOUNT_REGISTRY": {
+    "ACCOUNT_REGISTRY_CURRENT_SCOPE": "israel-network",
+    "EMAIL_REGISTRY_CURRENT_SCOPE": "global uniqueness check on #h; records tagged with ambient NETWORK_TAG at write",
+    "ISRAEL_NETWORK_DEPENDENCY": true,
+    "GLOBAL_ACCOUNT_REGISTRY_READY": false,
+    "MIGRATION_REQUIRED": true,
+    "evidence": [
+      "auth.js publishEmailRegistry tags App.NETWORK_TAG",
+      "first-group-admin.js isRegistryEvent / isKnownSosAccount require israel-network",
+      "kind 37377 is self-asserted; signer SIGN_EMAIL_REGISTRY checks kind only"
+    ]
+  },
+
+  "4_PHONE_REQUIREMENT": {
+    "PHONE_UI_CURRENTLY_PRESENT": false,
+    "PHONE_CURRENTLY_REQUIRED": false,
+    "PHONE_NORMALIZATION": "digits-only; Israel-specific 0→972 / 5→9725 prefix heuristics; length 9–15 — not E.164-strict",
+    "PHONE_HASH_ALGORITHM": "SHA-256(normalizedDigits) unsalted hex",
+    "PHONE_STORED_WHERE": "in-memory signupData only (always empty today); not profile/localStorage",
+    "PHONE_PUBLISHED_TO_RELAYS": false,
+    "PHONE_SENT_TO_ADMISSION": false,
+    "current_flow": "signupInvitePhoneInput hidden → never filled → createInvite() takes no phone → wa.me/?text= generic share → admission has no phone column",
+    "legacy_helpers": "invite-service.js normalizePhone/isValidPhone/hashPhone/readInvitePhoneHash still exported; redeem checks ph only for legacy invites and is skipped on admission path"
+  },
+
+  "5_PHONE_BOUND_INVITE": {
+    "CREATE_INVITE_ACCEPTS_RECIPIENT_PHONE": false,
+    "CREATE_INVITE_WRITES_PHONE_BINDING": false,
+    "WHATSAPP_TARGETS_SPECIFIC_PHONE": false,
+    "WHATSAPP_CURRENTLY_GENERIC": true,
+    "REDEEM_CHECKS_PHONE": "legacy_ph_only_and_skipped_on_admission_path",
+    "PHONE_BINDING_AUTHORITATIVE": false,
+    "CLIENT_CAN_FORGE_PHONE_HASH": true
+  },
+
+  "6_VERIFICATION_SEMANTICS": {
+    "PHONE_VERIFICATION_SECURITY_MODEL": "delivery_binding_not_sim_ownership",
+    "WHAT_IS_PROVEN_IF_PHONE_BOUND_WA_IMPLEMENTED": "invitation was created for a specific phone number and delivered via the WhatsApp route selected for that phone",
+    "WHAT_IS_NOT_PROVEN": [
+      "cryptographic SIM ownership",
+      "that the signup actor uniquely controls the number",
+      "that the number was not forwarded",
+      "SMS/telecom verification"
+    ],
+    "CURRENTLY_PROVEN": "nothing about phone (generic wa.me/?text= only proves someone received a URL)"
+  },
+
+  "7_GLOBAL_PHONE_DIRECTORY": {
+    "GLOBAL_PHONE_DIRECTORY_EXISTS": false,
+    "PHONE_TO_PUBKEY_LOOKUP_EXISTS": false,
+    "PHONE_LOOKUP_COMMUNITY_SCOPED": "N/A",
+    "SO_CALL_CROSS_COMMUNITY_DIRECTORY_READY": false,
+    "current_discovery": "profile name search (kind 0) filtered by ambient NETWORK_TAG with untagged fallback"
+  },
+
+  "8_PHONE_PRIVACY": {
+    "LEGACY_SHA_PHONE_LOCATIONS": [
+      "invite-service.js hashPhone / readInvitePhoneHash",
+      "historical kind 37378 events with ph tag (pre 0cb2c69)",
+      "possible invite_json copies in admission DO if those invites were registered"
+    ],
+    "PUBLIC_PHONE_ENUMERATION_RISK": "HIGH_IF_REUSED_ON_PUBLIC_RELAYS (Israeli mobile space enumerable); no new exposure today",
+    "WORKER_HMAC_FEASIBLE": true,
+    "EXISTING_SERVICE_CAN_HOST_PHONE_DIRECTORY": "partial_same_worker_needs_global_namespace",
+    "NEW_BACKEND_REQUIRED": true,
+    "notes": "Admission Worker already has HMAC-SHA-256 with server pepper (pin.js). Same pattern can host phoneToken=HMAC(PHONE_PEPPER, E.164) but MUST be global (not FIRST_GROUP_ID keyed) and never emit plaintext/phone SHA to public relays."
+  },
+
+  "9_DUPLICATE_PREVENTION": {
+    "GLOBAL_PHONE_UNIQUENESS_EXISTS": false,
+    "DUPLICATE_PHONE_ACCOUNT_CURRENTLY_POSSIBLE": true,
+    "INVITE_CAN_DETECT_EXISTING_ACCOUNT": false,
+    "REQUIRED_CONFLICT_POLICY": "atomic phoneToken→P claim; if exists show כבר נמצא ב-SOS (profile/DM/call) — never create-account invite"
+  },
+
+  "10_TWO_INVITATION_TYPES": {
+    "CURRENT_INVITE_MODEL": "single kind-37378 code; redeem during signup creates account AND grants community membership (admission 39003 GRANT_ACTIVE)",
+    "GLOBAL_ACCOUNT_INVITE_EXISTS": false,
+    "COMMUNITY_INVITE_EXISTS": true,
+    "ACCOUNT_AND_COMMUNITY_INVITE_CONFLATED": true,
+    "DUPLICATE_ACCOUNT_RISK": "HIGH"
+  },
+
+  "11_CONTACTS": {
+    "WEB_CONTACT_PICKER_IMPLEMENTED": false,
+    "WEB_CONTACT_PICKER_FEASIBLE": "partial_android_chrome_only",
+    "ANDROID_CONTACTS_BRIDGE_EXISTS": false,
+    "MANUAL_PHONE_FALLBACK_EXISTS": false,
+    "CONTACT_UPLOAD_REQUIRED": false
+  },
+
+  "12_SO_CALL": {
+    "SO_CALL_PRIMARY_IDENTITY": "nostr_pubkey_hex",
+    "SO_CALL_REQUIRES_SHARED_COMMUNITY": false,
+    "SO_CALL_REQUIRES_ACTIVE_COMMUNITY": false,
+    "SO_CALL_GLOBAL_READY": "TRANSPORT_YES_DISCOVERY_NO"
+  },
+
+  "13_DM_CROSS_COMMUNITY": {
+    "DM_SEND_GLOBAL": true,
+    "DM_RECEIVE_GLOBAL": true,
+    "DM_HISTORY_GLOBAL": true,
+    "READ_RECEIPTS_GLOBAL": true,
+    "PRESENCE_GLOBAL": "mostly_yalachat_but_tags_ambient_NETWORK_TAG",
+    "NETWORK_TAG_DM_DEPENDENCIES": [
+      "chat-service.js subscribe extra filters",
+      "chat-presence.js presence tag",
+      "chat-service.js searchProfilesByName #t filter"
+    ],
+    "CROSS_COMMUNITY_DM_READY": "true_same_origin_same_relay_set"
+  },
+
+  "14_CALL_CROSS_COMMUNITY": {
+    "CALL_SIGNAL_GLOBAL": true,
+    "INCOMING_CALL_GLOBAL": true,
+    "WEBRTC_SIGNAL_GLOBAL": true,
+    "PUSH_ROUTING_GLOBAL": "pubkey_global_origin_hardcoded_sos010",
+    "CROSS_COMMUNITY_CALL_READY": "true_on_canonical_shared_relays"
+  },
+
+  "15_RELAY_SEPARATION": {
+    "CURRENT_SINGLE_RELAY_POOL_ASSUMPTION": true,
+    "GLOBAL_AND_COMMUNITY_RELAY_CONFLATION": true,
+    "PRIVATE_COMMUNITY_RELAY_READY": false,
+    "CROSS_RELAY_DM_READY": false,
+    "CROSS_RELAY_CALL_READY": "partial_canonical_hardcoded_only",
+    "affected": [
+      "config.js App.relayUrls",
+      "app.js SimplePool",
+      "chat-service.js",
+      "chat-presence.js",
+      "chat-p2p-datachannel.js",
+      "call-signal-e2ee.js CANONICAL_CALL_RELAYS",
+      "profile.js / feed.js / invite-service.js / first-group-* / account-status-state.js"
+    ]
+  },
+
+  "16_REACHABILITY": {
+    "USER_REACHABILITY_RECORD_EXISTS": false,
+    "PUBKEY_TO_RELAY_DISCOVERY_EXISTS": false,
+    "GLOBAL_FALLBACK_RELAY_EXISTS": "implicit_defaults_only",
+    "MISSING_REACHABILITY_LAYER": true
+  },
+
+  "17_PROFILE": {
+    "PROFILE_GLOBAL": "reads_yes_writes_ambient_tagged",
+    "PROFILE_COMMUNITY_DEPENDENCY": true,
+    "PROFILE_CACHE_COMMUNITY_DEPENDENCY": false
+  },
+
+  "18_ACCOUNT_DISABLED": {
+    "ACCOUNT_DISABLED_CURRENT_SCOPE": "israel-network",
+    "ACCOUNT_DISABLED_USES_ISRAEL_NETWORK": true,
+    "DISABLED_PUBKEY_COULD_ENTER_FUTURE_COMMUNITY": true,
+    "GLOBAL_DISABLE_READY": false,
+    "MIGRATION_REQUIRED": true,
+    "fail_open_gaps": [
+      "fresh device / V2 off / pages without account-status-state.js skip gate",
+      "admission redeem ignores 39005",
+      "re-register as new P possible"
+    ]
+  },
+
+  "19_BLOCK_REMOVE_DIRECTORY_MATRIX": {
+    "BLOCKED": { "actual": "COMMUNITY", "intended": "COMMUNITY", "match": true },
+    "REMOVED": { "actual": "COMMUNITY", "intended": "COMMUNITY", "match": true },
+    "ACCOUNT_DISABLED": { "actual": "israel-network_FIRST_GROUP", "intended": "GLOBAL", "match": false },
+    "DIRECTORY_HIDDEN": { "actual": "israel-network_FIRST_GROUP", "intended": "COMMUNITY_ADMIN_DIRECTORY", "match": false }
+  },
+
+  "20_CROSS_ORIGIN": {
+    "CROSS_ORIGIN_IDENTITY_REUSE_EXISTS": false,
+    "SIGNER_SINGLE_ORIGIN_ASSUMPTION": true,
+    "NEW_COMMUNITY_DOMAIN_CAN_USE_EXISTING_P": false,
+    "CROSS_ORIGIN_SECURITY_GAP": "missing_feature_not_open_hole_fails_closed",
+    "evidence": [
+      "SOS-signer-f5b6w signer-import-session.js ALLOWED_RETURN_ORIGINS sos010(+localhost)",
+      "f5b6w-handoff-client.js PRODUCTION_SIGNER_ORIGIN signer.sos010.com",
+      "IndexedDB sos_identity_secure / SessionAuthority / chat DB are origin-scoped",
+      "Android SosJsBridge trusts sos010.com / *.sos010.com"
+    ]
+  },
+
+  "21_LINKED_DEVICES": {
+    "LINKED_DEVICE_BOUND_TO_GLOBAL_P": true,
+    "LINKED_DEVICE_USES_ISRAEL_NETWORK": false,
+    "LINKED_DEVICE_USES_SINGLE_RELAY_SET": "not_yet_implemented_rendezvous_optional",
+    "FIX_REQUIRED_BEFORE_LINKED_DEVICES": true,
+    "architecture_doc": "docs/security/MD0_LINKED_DEVICES_ARCHITECTURE.md LINKED_DEVICES_ACCOUNT_GLOBAL=true",
+    "fixes_before_wiring": [
+      "decide reachability/rendezvous relay model for pairing + DM/call after link",
+      "stop ambient NETWORK_TAG on kind-0 / presence before multi-device discovery depends on tags",
+      "cross-origin vault/signer story remains deferred unless multi-domain Communities ship first"
+    ]
+  },
+
+  "22_FIRST_GROUP_HARDCODE_INVENTORY": [
+    { "file": "account-status-state.js", "symbol": "GROUP_ID", "class": "E", "note": "ACCOUNT_DISABLED should be global" },
+    { "file": "account-directory-ops.js", "symbol": "israel-network ROOT issuer", "class": "E", "note": "global disable authority coupled to First Group ROOT" },
+    { "file": "first-group-admin.js", "symbol": "isRegistryEvent/isKnownSosAccount", "class": "B", "note": "account existence from israel tag" },
+    { "file": "auth.js", "symbol": "publishEmailRegistry", "class": "B", "note": "ambient NETWORK_TAG on global registry write" },
+    { "file": "profile.js", "symbol": "kind-0 publish tag", "class": "B", "note": "ambient tag on global profile" },
+    { "file": "follow-service.js", "symbol": "publish/query #t", "class": "B", "note": "C0 says follows not community-scoped" },
+    { "file": "chat-service.js", "symbol": "searchProfilesByName #t", "class": "B", "note": "SO-CALL discovery community-biased" },
+    { "file": "chat-presence.js", "symbol": "presence tag", "class": "B", "note": "leaks active community on global presence" },
+    { "file": "invite-service.js", "symbol": "admission() israel-network gate", "class": "A", "note": "intentionally First-Group admission path" },
+    { "file": "first-group-network-authority.js", "symbol": "applyEventSet", "class": "A", "note": "First Group control plane" },
+    { "file": "first-group-admission-client.js", "symbol": "FIRST_GROUP", "class": "A", "note": "intentional" },
+    { "file": "admission-service/*", "symbol": "FIRST_GROUP_ID", "class": "A", "note": "intentional single-group DO namespace" },
+    { "file": "directory-hygiene-state.js", "symbol": "GROUP_ID israel-network", "class": "D", "note": "needs per-community when Communities ship" },
+    { "file": "group-control-state.js / admin-2fa-*", "symbol": "israel-network", "class": "A", "note": "First Group admin plane" },
+    { "file": "community-context.js", "symbol": "SOS010 default + syncLegacyAmbient", "class": "C", "note": "legacy ambient bridge" },
+    { "file": "config.js", "symbol": "App.NETWORK_TAG default", "class": "C", "note": "legacy ambient" },
+    { "file": "access-control.js / membership-state.js / invite-policy.js / moderation-policy.js / feed.js", "symbol": "israel-network fallback", "class": "C", "note": "legacy default group resolution" },
+    { "file": "SOS-signer-f5b6w/js/signer-import-session.js", "symbol": "ALLOWED_RETURN_ORIGINS", "class": "D", "note": "multi-domain Communities need explicit allowlist expansion — security sensitive" },
+    { "file": "f5b6w-handoff-client.js", "symbol": "PRODUCTION_SIGNER_ORIGIN", "class": "D", "note": "sos010 signer assumption" },
+    { "file": "push-trigger.js / SosCallUrls.kt", "symbol": "https://sos010.com/videos.html", "class": "D", "note": "origin-hardcoded deep links" }
+  ],
+
+  "23_C0_FOUNDATION": {
+    "C0_DECLARATIONS_MATCH_RUNTIME": false,
+    "declared_vs_runtime": {
+      "GLOBAL_IDENTITY_MODEL=single_P_across_communities": "PARTIAL — P stable on switch; no existing-P join; registry/disable israel-scoped",
+      "PROFILE_COMMUNITY_SCOPED=false": "MISMATCH — writes tag ambient NETWORK_TAG",
+      "PHONE_IDENTITY_COMMUNITY_OWNED=false": "VACUOUS — no phone identity implemented",
+      "PRIVATE_CHAT_REQUIRES_ACTIVE_COMMUNITY=false": "MATCH for message tags; discovery/presence ambient-coupled",
+      "DIRECT_CALL_REQUIRES_ACTIVE_COMMUNITY=false": "MATCH on canonical relays"
+    },
+    "gate_note": "qa/community-c0-scope-foundation-gate.mjs hard-codes many report flags; does not load chat-service/profile/follow for ambient-tag mismatches"
+  },
+
+  "24_INVITE_E2E_GAP": {
+    "INVITE_FULL_BROWSER_E2E_MISSING": true,
+    "MUST_RUN_BEFORE_PHONE_ONBOARDING_ACCEPTANCE": true,
+    "classification": "MUST_FIX_BEFORE_PHONE_ONBOARDING_FINAL",
+    "reason": "onboarding E2E sets nostr_require_invite=0; package898 redeems via page.evaluate not full signup UI"
+  },
+
+  "VERDICTS": {
+    "GLOBAL_IDENTITY_SINGLE_P_READY": "PARTIAL",
+    "GLOBAL_ACCOUNT_REGISTRY_READY": false,
+    "PHONE_BOUND_INVITE_READY": false,
+    "GLOBAL_PHONE_DIRECTORY_READY": false,
+    "PHONE_PRIVACY_READY": false,
+    "DUPLICATE_PHONE_PREVENTION_READY": false,
+    "SO_CALL_GLOBAL_READY": "TRANSPORT_YES_DISCOVERY_NO",
+    "CROSS_COMMUNITY_DM_READY": "SAME_ORIGIN_SAME_RELAYS",
+    "CROSS_COMMUNITY_CALL_READY": "SAME_CANONICAL_RELAYS",
+    "PROFILE_GLOBAL_READY": false,
+    "ACCOUNT_DISABLED_GLOBAL_READY": false,
+    "DIRECTORY_SCOPE_READY": false,
+    "RELAY_SCOPE_READY": false,
+    "REACHABILITY_READY": false,
+    "CROSS_ORIGIN_IDENTITY_READY": false,
+    "LINKED_DEVICE_GLOBAL_IDENTITY_READY": "ARCHITECTURE_YES_WIRING_GATED",
+    "C0_DECLARATIONS_MATCH_RUNTIME": false,
+    "INVITE_FULL_BROWSER_E2E_MISSING": true
+  },
+
+  "SECURITY_BLOCKERS": [
+    "ACCOUNT_DISABLED is First-Group-scoped and fail-open on fresh device / V2-off / pages without module; admission ignores 39005; disabled user can re-register new P",
+    "Self-asserted kind 37377 email registry (unsalted SHA on public relays; signer kind-only; no email OTP) — not a phone blocker but blocks trustworthy GLOBAL_ACCOUNT_EXISTS",
+    "Plain SHA256(phone) must never return as public global directory (enumeration)"
+  ],
+
+  "MUST_FIX_BEFORE_PHONE_ONBOARDING_FINAL": [
+    "Restore phone-bound invite: createInvite(recipientPhone) → E.164 → authoritative Admission binding → wa.me/<E.164>",
+    "Server-side phoneToken=HMAC(secret,E.164); never client-authoritative phoneHash; never plaintext/SHA on public relays",
+    "Global phoneToken→P directory + uniqueness + כבר נמצא ב-SOS conflict UX",
+    "Split GLOBAL_ACCOUNT_INVITE vs COMMUNITY_INVITE so existing P does not mint new K",
+    "Full browser E2E: phone-bound invite → register once → redeem once → membership once → recovery → roundtrip",
+    "Define security model explicitly as delivery-binding (not SIM ownership) in product/acceptance copy"
+  ],
+
+  "MUST_FIX_BEFORE_LINKED_DEVICES": [
+    "Confirm pairing rendezvous/reachability model (MD0 rendezvous still optional; no pubkey→relay discovery)",
+    "Stop ambient NETWORK_TAG pollution on kind-0/presence before multi-device discovery depends on tags",
+    "Do not bind linked-device product wiring to israel-network (architecture already global — keep it)"
+  ],
+
+  "MUST_FIX_BEFORE_COMMUNITIES": [
+    "Existing-P community join / community-only invite (no new identity)",
+    "Global ACCOUNT_EXISTS(P) registry independent of israel-network",
+    "Migrate ACCOUNT_DISABLED to global scope + global authority",
+    "Per-community DIRECTORY_HIDDEN; keep BLOCKED/REMOVED community-scoped",
+    "Relay separation + reachability (NIP-65/outbox or SOS reachability record)",
+    "Detag ambient global writers (profile/follow/email registry/chat search)",
+    "Cross-origin identity reuse design (signer allowlist + vault) if community HTML leaves sos010.com"
+  ],
+
+  "SAFE_TO_DEFER_TO_C1_PLUS": [
+    "Private community relay product UX",
+    "Remote community directory",
+    "External interaction / community bridge / community-follow",
+    "Android ContactsContract bridge (after web Contact Picker + manual fallback)",
+    "WhatsApp Business API OTP (only if product later requires SIM-control proof — not required for delivery-binding model)",
+    "Multi-domain community HTML (until cross-origin identity architecture lands)"
+  ],
+
+  "ARCHITECTURE_DECISIONS_REQUIRED": [
+    "Global account registry primitive: new kind vs retarget 37377; who is issuer; how ACCOUNT_EXISTS(P) is proven",
+    "Phone directory host: extend Admission Worker with global DO namespace vs new Worker; pepper custody; rate limits",
+    "What phone-bound WhatsApp prove level is accepted for launch (delivery-binding vs WA Business OTP)",
+    "How community invite to existing P works (deep-link membership grant without signup)",
+    "ACCOUNT_DISABLED global authority (who can disable across Communities; migration of existing 39005 tips)",
+    "Reachability record format and which relays are SOS global fallbacks",
+    "Whether future Communities share sos010.com origin (/c/slug) or own domains (drives signer/vault work)"
+  ],
+
+  "FILES_REQUIRING_FUTURE_CHANGE": [
+    "invite-service.js",
+    "guest-auth.js",
+    "videos.html",
+    "auth.js",
+    "admission-service/src/ledger.js",
+    "admission-service/src/index.js",
+    "admission-service/wrangler.toml",
+    "account-status-state.js",
+    "account-directory-ops.js",
+    "directory-hygiene-state.js",
+    "first-group-admin.js",
+    "profile.js",
+    "follow-service.js",
+    "chat-service.js",
+    "chat-presence.js",
+    "community-context.js",
+    "config.js",
+    "f5b6w-handoff-client.js",
+    "SOS-signer-f5b6w/js/signer-import-session.js",
+    "qa/onboarding-initial-recovery-e2e.mjs",
+    "qa/community-c0-scope-foundation-gate.mjs"
+  ],
+
+  "RECOMMENDED_EXECUTION_ORDER": [
+    "1. Architecture decisions: phone proof level, global registry, phoneToken host, existing-P community invite",
+    "2. Phone privacy foundation (Worker HMAC + rate limit) — before any public phone directory",
+    "3. Phone-bound invite + Admission binding + WhatsApp direct target",
+    "4. Global phone uniqueness + כבר נמצא ב-SOS",
+    "5. Split GLOBAL_ACCOUNT_INVITE vs COMMUNITY_INVITE; block second-identity join path",
+    "6. Full browser phone-invite E2E + restore phone onboarding UI (after E2E harness)",
+    "7. Detag ambient global writers (profile/presence/follow) — also unblocks Linked Devices discovery cleanliness",
+    "8. Linked Devices product wiring (global P) with explicit rendezvous/reachability decision",
+    "9. Global ACCOUNT_DISABLED migration",
+    "10. Communities: existing-P join, relay separation, reachability, directory scope, optional cross-origin"
+  ]
+}

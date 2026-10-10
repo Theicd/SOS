@@ -81,5 +81,5 @@
   "LINKED_DEVICES_WEB_UI_CURRENT_STATUS": "NOT_AVAILABLE_WEB — MD1–MD3 device keys Android-only; MD4 not started",
   "LINKED_DEVICES_WEB_UI_GATE": "BLOCKED_ARCHITECTURE",
   "GROUP_ACCESS_CONTROL_WEB_GATE": "BLOCKED_WITH_EXACT_ARCHITECTURE_REASON — admin/member/role UI exists (admin-settings-ui.js, member-directory-ui.js) but requires SOS_ACCESS_CONTROL_V2=true; global default must remain OFF",
-  "ts": "2026-09-26T00:23:16.727Z"
+  "ts": "2026-10-10T19:49:14.000Z"
 }

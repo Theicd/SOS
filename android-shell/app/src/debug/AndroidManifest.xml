@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Debug-only F6G.1 host — not shipped in release. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application>
+<!-- Debug-only F6G.1 host — not shipped in release.
+     Cleartext enabled for local QA admission/relay only (release stays false). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application
+        android:usesCleartextTraffic="true"
+        tools:replace="android:usesCleartextTraffic">
         <activity
             android:name="com.sos010.app.SosTrustedConfirmHostActivity"
             android:exported="false"

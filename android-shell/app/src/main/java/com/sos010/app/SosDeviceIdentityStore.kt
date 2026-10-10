@@ -304,6 +304,18 @@ object SosDeviceIdentityStore {
             true
         }
 
+        /**
+         * Test-only copy of D_enc private key for MD4 S2 sealed-index open verification.
+         * Hard-gated to DEBUG builds. Must never be plumbed to WebView / JsBridge.
+         */
+        fun copyEncPrivateKeyForTests(): ByteArray? {
+            if (!BuildConfig.DEBUG) return null
+            return when (val loaded = loadVerifiedPrivate(Purpose.ENC)) {
+                is LoadOk -> loaded.priv.copyOf().also { SosDeviceKeyCrypto.zeroize(loaded.priv) }
+                is LoadErr -> null
+            }
+        }
+
         private sealed class LoadResult
         private data class LoadOk(val priv: ByteArray, val pubHex: String) : LoadResult()
         private data class LoadErr(val code: String) : LoadResult()

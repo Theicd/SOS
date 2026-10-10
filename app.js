@@ -131,28 +131,74 @@
         function finishWorkerBootOk(res) {
           App.privateKey = null;
           if (res && res.meta && res.meta.pubkey) App.publicKey = res.meta.pubkey;
-          App.guestMode = false;
-          App.identityState = 'IDENTITY_OK';
-          try {
-            const SA = App.SessionAuthority || window.SosSessionAuthority;
-            if (SA && typeof SA.bindCurrentSession === 'function') {
-              const detached = typeof SA.isDetached === 'function' && SA.isDetached();
-              const already = typeof SA.isSessionValid === 'function' && SA.isSessionValid();
-              if (!detached && !already) {
-                SA.bindCurrentSession({ accountPubkey: App.publicKey, bump: false });
+          function continueWorkerBootOk() {
+            App.guestMode = false;
+            App.identityState = 'IDENTITY_OK';
+            try {
+              const SA = App.SessionAuthority || window.SosSessionAuthority;
+              if (SA && typeof SA.bindCurrentSession === 'function') {
+                const detached = typeof SA.isDetached === 'function' && SA.isDetached();
+                const already = typeof SA.isSessionValid === 'function' && SA.isSessionValid();
+                if (!detached && !already) {
+                  SA.bindCurrentSession({ accountPubkey: App.publicKey, bump: false });
+                }
               }
+            } catch (_sa) {}
+            try {
+              publishLoginActivity();
+            } catch (_e2) {}
+            if (typeof App.loadOwnProfileMetadata === 'function') App.loadOwnProfileMetadata();
+            if (typeof App.subscribeOwnProfileMetadata === 'function') App.subscribeOwnProfileMetadata();
+            try {
+              App._topBarAuthUiReady = true;
+              if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
+            } catch (_syncErr) {}
+            notifyCallIdentity('worker-boot');
+            try {
+              window.dispatchEvent(new CustomEvent('sos-identity-ready', { detail: { reason: 'worker-boot', pubkey: App.publicKey } }));
+            } catch (_idReady) {}
+            try {
+              const GI = App.GlobalIdentity || window.SosGlobalIdentity;
+              if (GI && typeof GI.ensureGlobalReachability === 'function') {
+                Promise.resolve(GI.ensureGlobalReachability('worker-boot')).catch(function () {});
+              }
+            } catch (_nip65) {}
+          }
+          function denyDisabledBoot() {
+            try {
+              const GAS = App.GlobalAccountStatusState || window.SosGlobalAccountStatusState;
+              if (GAS && typeof GAS.enforceLiveSession === 'function') GAS.enforceLiveSession();
+            } catch (_e) {}
+            finishWorkerBootFail('ACCOUNT_DISABLED');
+          }
+          function gateAfterReconcile() {
+            try {
+              const GAS = App.GlobalAccountStatusState || window.SosGlobalAccountStatusState;
+              if (GAS && typeof GAS.assertLoginAllowed === 'function' && App.publicKey) {
+                const gate = GAS.assertLoginAllowed(App.publicKey);
+                if (gate && gate.ok === false && gate.code === 'ACCOUNT_DISABLED') {
+                  denyDisabledBoot();
+                  return;
+                }
+              }
+            } catch (_g) {}
+            continueWorkerBootOk();
+          }
+          try {
+            const GA = App.GlobalAdmission || window.SosGlobalAdmission;
+            if (GA && typeof GA.reconcileAccountStatus === 'function' && App.publicKey) {
+              Promise.resolve(GA.reconcileAccountStatus(App.publicKey))
+                .then(function () {
+                  gateAfterReconcile();
+                })
+                .catch(function () {
+                  // Offline: cache DISABLED still denies; unknown/stale ACTIVE allows legacy boot.
+                  gateAfterReconcile();
+                });
+              return;
             }
-          } catch (_sa) {}
-          try {
-            publishLoginActivity();
-          } catch (_e2) {}
-          if (typeof App.loadOwnProfileMetadata === 'function') App.loadOwnProfileMetadata();
-          if (typeof App.subscribeOwnProfileMetadata === 'function') App.subscribeOwnProfileMetadata();
-          try {
-            App._topBarAuthUiReady = true;
-            if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
-          } catch (_syncErr) {}
-          notifyCallIdentity('worker-boot');
+          } catch (_rec) {}
+          gateAfterReconcile();
         }
         function finishWorkerBootFail(code) {
           try {
@@ -244,18 +290,47 @@
         if (typedPub && /^[0-9a-f]{64}$/.test(typedPub)) {
           App.privateKey = null;
           App.publicKey = typedPub;
-          App.guestMode = false;
-          App.identityState = 'IDENTITY_OK';
-          try {
-            const SA = App.SessionAuthority || window.SosSessionAuthority;
-            if (SA && typeof SA.bindCurrentSession === 'function') {
-              const detached = typeof SA.isDetached === 'function' && SA.isDetached();
-              const already = typeof SA.isSessionValid === 'function' && SA.isSessionValid();
-              if (!detached && !already) {
-                SA.bindCurrentSession({ accountPubkey: typedPub, bump: false });
+          function bindTypedBootSession() {
+            try {
+              const GAS = App.GlobalAccountStatusState || window.SosGlobalAccountStatusState;
+              if (GAS && typeof GAS.assertLoginAllowed === 'function') {
+                const gate = GAS.assertLoginAllowed(typedPub);
+                if (gate && gate.ok === false && gate.code === 'ACCOUNT_DISABLED') {
+                  App.guestMode = true;
+                  App.publicKey = null;
+                  App.identityState = 'ACCOUNT_DISABLED';
+                  try {
+                    if (GAS.enforceLiveSession) GAS.enforceLiveSession();
+                  } catch (_e) {}
+                  return;
+                }
               }
+            } catch (_tg) {}
+            App.guestMode = false;
+            App.identityState = 'IDENTITY_OK';
+            try {
+              const SA = App.SessionAuthority || window.SosSessionAuthority;
+              if (SA && typeof SA.bindCurrentSession === 'function') {
+                const detached = typeof SA.isDetached === 'function' && SA.isDetached();
+                const already = typeof SA.isSessionValid === 'function' && SA.isSessionValid();
+                if (!detached && !already) {
+                  SA.bindCurrentSession({ accountPubkey: typedPub, bump: false });
+                }
+              }
+            } catch (_saBoot) {}
+          }
+          try {
+            const GA = App.GlobalAdmission || window.SosGlobalAdmission;
+            if (GA && typeof GA.reconcileAccountStatus === 'function') {
+              Promise.resolve(GA.reconcileAccountStatus(typedPub))
+                .then(bindTypedBootSession)
+                .catch(bindTypedBootSession);
+            } else {
+              bindTypedBootSession();
             }
-          } catch (_saBoot) {}
+          } catch (_rec2) {
+            bindTypedBootSession();
+          }
         } else {
           App.guestMode = true;
           App.privateKey = null;

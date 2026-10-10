@@ -706,9 +706,14 @@
       ['t', App.EMAIL_REGISTRY_TAG],
       [App.EMAIL_REGISTRY_HASH_TAG, emailHash],
     ];
-    if (App.NETWORK_TAG) {
-      tags.push(['t', App.NETWORK_TAG]);
-    }
+    // Email registry is NOT GLOBAL_ACCOUNT_EXISTS authority. Tag with fixed identity tags (not ambient).
+    (function () {
+      const GI = App.GlobalIdentity || window.SosGlobalIdentity;
+      tags.push(['t', (GI && GI.GLOBAL_IDENTITY_TAG) || 'sos-global-identity']);
+      const compat = (GI && GI.GLOBAL_DISCOVERY_COMPAT_TAG) || 'israel-network';
+      if (compat) tags.push(['t', compat]);
+      tags.push(['t', 'email-registry-legacy']);
+    })();
     const draft = {
       kind: App.EMAIL_REGISTRY_KIND,
       created_at: createdAt,
@@ -1065,10 +1070,13 @@
       if (typeof App.switchAccountFromRawKey === 'function') {
         const switched = App.switchAccountFromRawKey(privateKey, { reload: false });
         if (!switched || !switched.ok) {
+          const code = (switched && (switched.code || switched.reason)) || '';
           setImportStatus(
-            switched && switched.state === 'IDENTITY_RECOVERY_REQUIRED'
-              ? 'מעבר חשבון נכשל — נדרש שחזור זהות.'
-              : 'לא זוהה מפתח פרטי חוקי.',
+            code === 'ACCOUNT_DISABLED'
+              ? switched.message || 'החשבון הושבת ואינו מורשה להתחבר ל-SOS.'
+              : switched && switched.state === 'IDENTITY_RECOVERY_REQUIRED'
+                ? 'מעבר חשבון נכשל — נדרש שחזור זהות.'
+                : 'לא זוהה מפתח פרטי חוקי.',
             'error'
           );
           return;

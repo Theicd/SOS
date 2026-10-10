@@ -299,6 +299,27 @@
       return { ok: false, reason: 'INVALID_TARGET' };
     }
 
+    try {
+      const ASS =
+        App.GlobalAccountStatusState ||
+        window.SosGlobalAccountStatusState ||
+        App.AccountStatusState ||
+        window.SosAccountStatusState;
+      if (ASS && typeof ASS.assertLoginAllowed === 'function') {
+        const gate = ASS.assertLoginAllowed(pair.publicKey);
+        if (gate && gate.ok === false && gate.code === 'ACCOUNT_DISABLED') {
+          logMarker('ACCOUNT_SWITCH_ABORT reason=ACCOUNT_DISABLED');
+          return {
+            ok: false,
+            reason: 'ACCOUNT_DISABLED',
+            code: 'ACCOUNT_DISABLED',
+            message: gate.message || 'החשבון הושבת ואינו מורשה להתחבר ל-SOS.',
+            KEY_CLAIMED_INVALID: false,
+          };
+        }
+      }
+    } catch (_gate) {}
+
     logTransition('SWITCH_PREPARED');
     return {
       ok: true,

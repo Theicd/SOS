@@ -1,0 +1,2832 @@
+[
+  {
+    "id": "B1-01",
+    "domain": "DEVICE_AUTH",
+    "threat": "Valid authorization baseline",
+    "invariant": "verifyStrict accepts good auth",
+    "entryPoint": "SosMd4DeviceAuth.verifyStrict",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": true,
+      "code": "OK"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s1-durable-device-gate.mjs",
+    "exitCode": 0,
+    "runId": "ca5848ba-ca92-49cf-9570-3750f6ae4f65",
+    "ts": "2026-10-10T18:46:29.954Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s1-durable-device-report.json"
+  },
+  {
+    "id": "B1-02",
+    "domain": "DEVICE_AUTH",
+    "threat": "Invalid Schnorr signature",
+    "invariant": "Forged auth rejected",
+    "entryPoint": "verifyStrict",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "BAD_SIGNATURE"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s1-durable-device-gate.mjs",
+    "exitCode": 0,
+    "runId": "ca5848ba-ca92-49cf-9570-3750f6ae4f65",
+    "ts": "2026-10-10T18:46:29.955Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s1-durable-device-report.json"
+  },
+  {
+    "id": "B1-03",
+    "domain": "DEVICE_AUTH",
+    "threat": "Wrong account P",
+    "invariant": "ACCOUNT_MISMATCH",
+    "entryPoint": "verifyStrict",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "ACCOUNT_MISMATCH"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s1-durable-device-gate.mjs",
+    "exitCode": 0,
+    "runId": "ca5848ba-ca92-49cf-9570-3750f6ae4f65",
+    "ts": "2026-10-10T18:46:29.956Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s1-durable-device-report.json"
+  },
+  {
+    "id": "B1-04",
+    "domain": "DEVICE_AUTH",
+    "threat": "Wrong deviceId",
+    "invariant": "DEVICE_ID_MISMATCH",
+    "entryPoint": "verifyStrict",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "DEVICE_ID_MISMATCH"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s1-durable-device-gate.mjs",
+    "exitCode": 0,
+    "runId": "ca5848ba-ca92-49cf-9570-3750f6ae4f65",
+    "ts": "2026-10-10T18:46:29.957Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s1-durable-device-report.json"
+  },
+  {
+    "id": "B1-05",
+    "domain": "DEVICE_AUTH",
+    "threat": "Wrong D_sign",
+    "invariant": "D_SIGN_MISMATCH",
+    "entryPoint": "verifyStrict",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "D_SIGN_MISMATCH"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s1-durable-device-gate.mjs",
+    "exitCode": 0,
+    "runId": "ca5848ba-ca92-49cf-9570-3750f6ae4f65",
+    "ts": "2026-10-10T18:46:29.958Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s1-durable-device-report.json"
+  },
+  {
+    "id": "B1-06",
+    "domain": "DEVICE_AUTH",
+    "threat": "Expired authorization",
+    "invariant": "EXPIRED",
+    "entryPoint": "verifyStrict",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "EXPIRED"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s1-durable-device-gate.mjs",
+    "exitCode": 0,
+    "runId": "ca5848ba-ca92-49cf-9570-3750f6ae4f65",
+    "ts": "2026-10-10T18:46:29.959Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s1-durable-device-report.json"
+  },
+  {
+    "id": "B1-07",
+    "domain": "DEVICE_AUTH",
+    "threat": "Missing DEVICE_HISTORY_SYNC",
+    "invariant": "MISSING_DEVICE_HISTORY_SYNC",
+    "entryPoint": "verifyStrict",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "MISSING_DEVICE_HISTORY_SYNC"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s1-durable-device-gate.mjs",
+    "exitCode": 0,
+    "runId": "ca5848ba-ca92-49cf-9570-3750f6ae4f65",
+    "ts": "2026-10-10T18:46:29.960Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s1-durable-device-report.json"
+  },
+  {
+    "id": "B1-08",
+    "domain": "DEVICE_AUTH",
+    "threat": "Revoked device",
+    "invariant": "REVOKED",
+    "entryPoint": "verifyStrict",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "REVOKED"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s1-durable-device-gate.mjs",
+    "exitCode": 0,
+    "runId": "ca5848ba-ca92-49cf-9570-3750f6ae4f65",
+    "ts": "2026-10-10T18:46:29.961Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s1-durable-device-report.json"
+  },
+  {
+    "id": "B1-09",
+    "domain": "DEVICE_AUTH",
+    "threat": "Stale authEpoch",
+    "invariant": "AUTH_EPOCH_MISMATCH",
+    "entryPoint": "verifyStrict",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "AUTH_EPOCH_MISMATCH"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s1-durable-device-gate.mjs",
+    "exitCode": 0,
+    "runId": "ca5848ba-ca92-49cf-9570-3750f6ae4f65",
+    "ts": "2026-10-10T18:46:29.962Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s1-durable-device-report.json"
+  },
+  {
+    "id": "B1-10",
+    "domain": "DEVICE_AUTH",
+    "threat": "Account switch isolation",
+    "invariant": "Cross-account store isolation",
+    "entryPoint": "device-store",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "NOT_FOUND"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s1-durable-device-gate.mjs",
+    "exitCode": 0,
+    "runId": "ca5848ba-ca92-49cf-9570-3750f6ae4f65",
+    "ts": "2026-10-10T18:46:29.963Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s1-durable-device-report.json"
+  },
+  {
+    "id": "B1-11",
+    "domain": "DEVICE_AUTH",
+    "threat": "Tampered stored authorization",
+    "invariant": "Corrupt IDB fail-closed",
+    "entryPoint": "device-store",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "CORRUPT_OR_TAMPERED"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s1-durable-device-gate.mjs",
+    "exitCode": 0,
+    "runId": "ca5848ba-ca92-49cf-9570-3750f6ae4f65",
+    "ts": "2026-10-10T18:46:29.964Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s1-durable-device-report.json"
+  },
+  {
+    "id": "B1-12",
+    "domain": "DEVICE_AUTH",
+    "threat": "Unsupported crypto/storage env",
+    "invariant": "support probe",
+    "entryPoint": "device-store",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": true,
+      "code": "OK"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s1-durable-device-gate.mjs",
+    "exitCode": 0,
+    "runId": "ca5848ba-ca92-49cf-9570-3750f6ae4f65",
+    "ts": "2026-10-10T18:46:29.965Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s1-durable-device-report.json"
+  },
+  {
+    "id": "B1-13",
+    "domain": "CROSS_PROTOCOL",
+    "threat": "kind25060 hist/pair confusion",
+    "invariant": "Protocol isolation",
+    "entryPoint": "classifyKind25060",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "CROSS_PROTOCOL_TAG_COLLISION",
+      "protocol": null
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s1-durable-device-gate.mjs",
+    "exitCode": 0,
+    "runId": "ca5848ba-ca92-49cf-9570-3750f6ae4f65",
+    "ts": "2026-10-10T18:46:29.966Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s1-durable-device-report.json"
+  },
+  {
+    "id": "B1-14",
+    "domain": "KEY_LEAK",
+    "threat": "No private material in localStorage",
+    "invariant": "No nsec/priv in LS",
+    "entryPoint": "localStorage scan",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "nsec": false,
+      "privField": false
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s1-durable-device-gate.mjs",
+    "exitCode": 0,
+    "runId": "ca5848ba-ca92-49cf-9570-3750f6ae4f65",
+    "ts": "2026-10-10T18:46:29.967Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s1-durable-device-report.json"
+  },
+  {
+    "id": "B2-01",
+    "domain": "CKI",
+    "threat": "Wrong recipient D_enc",
+    "invariant": "Sealed index open fails",
+    "entryPoint": "openConversationKeyIndex",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": true,
+      "entryCount": 1,
+      "peer": "cc8704b8a60a0defa3a99a7299f2e9c3fbc395afb04ac078425ef8a1793cc030",
+      "ckMatch": true,
+      "wrongOk": false,
+      "wrongCode": "AEAD_FAIL",
+      "replayCode": "REPLAY_EXPORT_SESSION",
+      "summaryHasCk": false
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s2-cki-gate.mjs",
+    "exitCode": 0,
+    "runId": "bad389d2-402a-404c-bbaf-c19020a27f62",
+    "ts": "2026-10-10T18:46:35.498Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s2-cki-report.json"
+  },
+  {
+    "id": "B2-02",
+    "domain": "CKI",
+    "threat": "Replay old index export",
+    "invariant": "REPLAY_EXPORT_SESSION",
+    "entryPoint": "openConversationKeyIndex",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": true,
+      "entryCount": 1,
+      "peer": "cc8704b8a60a0defa3a99a7299f2e9c3fbc395afb04ac078425ef8a1793cc030",
+      "ckMatch": true,
+      "wrongOk": false,
+      "wrongCode": "AEAD_FAIL",
+      "replayCode": "REPLAY_EXPORT_SESSION",
+      "summaryHasCk": false
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s2-cki-gate.mjs",
+    "exitCode": 0,
+    "runId": "bad389d2-402a-404c-bbaf-c19020a27f62",
+    "ts": "2026-10-10T18:46:35.499Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s2-cki-report.json"
+  },
+  {
+    "id": "B2-03",
+    "domain": "CKI",
+    "threat": "Index ciphertext tampering",
+    "invariant": "AEAD_FAIL",
+    "entryPoint": "openConversationKeyIndex",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "rootSkMissing": "MISSING_SIGNATURE",
+      "noHist": "MISSING_DEVICE_HISTORY_SYNC",
+      "wrongAccount": "ACCOUNT_MISMATCH",
+      "wrongDevice": "DEVICE_ID_MISMATCH",
+      "staleEpoch": "AUTH_EPOCH_MISMATCH",
+      "badCt": "AEAD_FAIL",
+      "crossAccount": "ACCOUNT_MISMATCH"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s2-cki-gate.mjs",
+    "exitCode": 0,
+    "runId": "bad389d2-402a-404c-bbaf-c19020a27f62",
+    "ts": "2026-10-10T18:46:35.500Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s2-cki-report.json"
+  },
+  {
+    "id": "B2-04",
+    "domain": "CKI",
+    "threat": "Wrong authorization epoch",
+    "invariant": "AUTH_EPOCH_MISMATCH",
+    "entryPoint": "export/open",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "rootSkMissing": "MISSING_SIGNATURE",
+      "noHist": "MISSING_DEVICE_HISTORY_SYNC",
+      "wrongAccount": "ACCOUNT_MISMATCH",
+      "wrongDevice": "DEVICE_ID_MISMATCH",
+      "staleEpoch": "AUTH_EPOCH_MISMATCH",
+      "badCt": "AEAD_FAIL",
+      "crossAccount": "ACCOUNT_MISMATCH"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s2-cki-gate.mjs",
+    "exitCode": 0,
+    "runId": "bad389d2-402a-404c-bbaf-c19020a27f62",
+    "ts": "2026-10-10T18:46:35.501Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s2-cki-report.json"
+  },
+  {
+    "id": "B2-05",
+    "domain": "CKI",
+    "threat": "Cross-account injection",
+    "invariant": "ACCOUNT_MISMATCH",
+    "entryPoint": "openConversationKeyIndex",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "rootSkMissing": "MISSING_SIGNATURE",
+      "noHist": "MISSING_DEVICE_HISTORY_SYNC",
+      "wrongAccount": "ACCOUNT_MISMATCH",
+      "wrongDevice": "DEVICE_ID_MISMATCH",
+      "staleEpoch": "AUTH_EPOCH_MISMATCH",
+      "badCt": "AEAD_FAIL",
+      "crossAccount": "ACCOUNT_MISMATCH"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s2-cki-gate.mjs",
+    "exitCode": 0,
+    "runId": "bad389d2-402a-404c-bbaf-c19020a27f62",
+    "ts": "2026-10-10T18:46:35.502Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s2-cki-report.json"
+  },
+  {
+    "id": "B2-06",
+    "domain": "CKI",
+    "threat": "Missing/forged root signature",
+    "invariant": "BAD/MISSING_SIGNATURE",
+    "entryPoint": "export path",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "rootSkMissing": "MISSING_SIGNATURE",
+      "noHist": "MISSING_DEVICE_HISTORY_SYNC",
+      "wrongAccount": "ACCOUNT_MISMATCH",
+      "wrongDevice": "DEVICE_ID_MISMATCH",
+      "staleEpoch": "AUTH_EPOCH_MISMATCH",
+      "badCt": "AEAD_FAIL",
+      "crossAccount": "ACCOUNT_MISMATCH"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s2-cki-gate.mjs",
+    "exitCode": 0,
+    "runId": "bad389d2-402a-404c-bbaf-c19020a27f62",
+    "ts": "2026-10-10T18:46:35.502Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s2-cki-report.json"
+  },
+  {
+    "id": "B2-07",
+    "domain": "CKI",
+    "threat": "Missing HISTORY_SYNC on export",
+    "invariant": "capability gate",
+    "entryPoint": "export",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "rootSkMissing": "MISSING_SIGNATURE",
+      "noHist": "MISSING_DEVICE_HISTORY_SYNC",
+      "wrongAccount": "ACCOUNT_MISMATCH",
+      "wrongDevice": "DEVICE_ID_MISMATCH",
+      "staleEpoch": "AUTH_EPOCH_MISMATCH",
+      "badCt": "AEAD_FAIL",
+      "crossAccount": "ACCOUNT_MISMATCH"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s2-cki-gate.mjs",
+    "exitCode": 0,
+    "runId": "bad389d2-402a-404c-bbaf-c19020a27f62",
+    "ts": "2026-10-10T18:46:35.503Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s2-cki-report.json"
+  },
+  {
+    "id": "B2-08",
+    "domain": "CKI",
+    "threat": "Plaintext downgrade",
+    "invariant": "PLAINTEXT_DOWNGRADE rejected",
+    "entryPoint": "seal shape",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s2-cki-gate.mjs",
+    "exitCode": 0,
+    "runId": "bad389d2-402a-404c-bbaf-c19020a27f62",
+    "ts": "2026-10-10T18:46:35.504Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s2-cki-report.json"
+  },
+  {
+    "id": "B2-09",
+    "domain": "CKI",
+    "threat": "No CK in public summary",
+    "invariant": "no key leakage",
+    "entryPoint": "public summary",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": true,
+      "entryCount": 1,
+      "peer": "cc8704b8a60a0defa3a99a7299f2e9c3fbc395afb04ac078425ef8a1793cc030",
+      "ckMatch": true,
+      "wrongOk": false,
+      "wrongCode": "AEAD_FAIL",
+      "replayCode": "REPLAY_EXPORT_SESSION",
+      "summaryHasCk": false
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s2-cki-gate.mjs",
+    "exitCode": 0,
+    "runId": "bad389d2-402a-404c-bbaf-c19020a27f62",
+    "ts": "2026-10-10T18:46:35.505Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s2-cki-report.json"
+  },
+  {
+    "id": "B2-10",
+    "domain": "CKI",
+    "threat": "No key material to console",
+    "invariant": "log hygiene",
+    "entryPoint": "console",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": [],
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s2-cki-gate.mjs",
+    "exitCode": 0,
+    "runId": "bad389d2-402a-404c-bbaf-c19020a27f62",
+    "ts": "2026-10-10T18:46:35.506Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s2-cki-report.json"
+  },
+  {
+    "id": "B2-11",
+    "domain": "CKI",
+    "threat": "No Root K export API",
+    "invariant": "no root derive/export",
+    "entryPoint": "static",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s2-cki-gate.mjs",
+    "exitCode": 0,
+    "runId": "bad389d2-402a-404c-bbaf-c19020a27f62",
+    "ts": "2026-10-10T18:46:35.507Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s2-cki-report.json"
+  },
+  {
+    "id": "B2-12",
+    "domain": "CKI",
+    "threat": "Bridge sealed-only",
+    "invariant": "no nsec/root bridge",
+    "entryPoint": "SosJsBridge",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s2-cki-gate.mjs",
+    "exitCode": 0,
+    "runId": "bad389d2-402a-404c-bbaf-c19020a27f62",
+    "ts": "2026-10-10T18:46:35.507Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s2-cki-report.json"
+  },
+  {
+    "id": "B3-01",
+    "domain": "HISTORY",
+    "threat": "Unlinked desktop sync",
+    "invariant": "NO_DEVICE fail-closed",
+    "entryPoint": "history bootstrap",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "NO_DEVICE"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s3-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "b96daf14-b1f7-4aec-a937-ba9b0e4f52c1",
+    "ts": "2026-10-10T18:46:40.339Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s3-security-negatives-report.json"
+  },
+  {
+    "id": "B3-02",
+    "domain": "HISTORY",
+    "threat": "Cross-protocol kind25060",
+    "invariant": "collision fail-closed",
+    "entryPoint": "classify",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "unlinked": {
+        "ok": false,
+        "code": "NO_DEVICE"
+      },
+      "pairOnHist": {
+        "ok": true,
+        "code": "PAIR",
+        "protocol": "sos-pair-v1"
+      },
+      "histOk": {
+        "ok": true,
+        "code": "HIST",
+        "protocol": "sos-hist-v1"
+      },
+      "both": {
+        "ok": false,
+        "code": "CROSS_PROTOCOL_TAG_COLLISION",
+        "protocol": null
+      },
+      "plaintext": {
+        "ok": false,
+        "code": "PLAINTEXT_DOWNGRADE"
+      },
+      "importOk": {
+        "ok": true,
+        "id": "49d6c13c356700ff65e6698595327c9dabcbc6a25d9bd8a22806e6f7074f54d6",
+        "attachment": false,
+        "logicalMessageId": "49d6c13c356700ff65e6698595327c9dabcbc6a25d9bd8a22806e6f7074f54d6",
+        "peer": "31087115c71afbffba5378c882235f0b7fbdb6aebf21c0e48393511bd3e7c60d",
+        "sender": "671dd26abb77e8f2f4ce9c3b4d2508787b8203fb4b9b14156e22609e96b899de",
+        "recipient": "31087115c71afbffba5378c882235f0b7fbdb6aebf21c0e48393511bd3e7c60d"
+      },
+      "importDup": {
+        "ok": true,
+        "id": "49d6c13c356700ff65e6698595327c9dabcbc6a25d9bd8a22806e6f7074f54d6",
+        "duplicate": true
+      },
+      "importConflict": {
+        "ok": false,
+        "code": "CONFLICTING_EVENT"
+      },
+      "forgedId": {
+        "ok": false,
+        "code": "FORGED_EVENT_IDENTITY"
+      },
+      "crossAccount": {
+        "ok": false,
+        "code": "MISSING_OUTER_SIGNATURE"
+      },
+      "unauthConv": {
+        "ok": false,
+        "code": "MISSING_OUTER_SIGNATURE"
+      },
+      "maxBatch": 50,
+      "missingHist": {
+        "ok": false,
+        "code": "UNKNOWN_VERSION"
+      },
+      "expired": {
+        "ok": false,
+        "code": "UNKNOWN_VERSION"
+      },
+      "staleEpoch": {
+        "ok": false,
+        "code": "UNKNOWN_VERSION"
+      },
+      "wrongP": {
+        "ok": false,
+        "code": "UNKNOWN_VERSION"
+      }
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s3-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "b96daf14-b1f7-4aec-a937-ba9b0e4f52c1",
+    "ts": "2026-10-10T18:46:40.340Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s3-security-negatives-report.json"
+  },
+  {
+    "id": "B3-03",
+    "domain": "HISTORY",
+    "threat": "Plaintext downgrade",
+    "invariant": "rejected",
+    "entryPoint": "import",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "PLAINTEXT_DOWNGRADE"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s3-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "b96daf14-b1f7-4aec-a937-ba9b0e4f52c1",
+    "ts": "2026-10-10T18:46:40.341Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s3-security-negatives-report.json"
+  },
+  {
+    "id": "B3-04",
+    "domain": "HISTORY",
+    "threat": "Forged event identity",
+    "invariant": "FORGED_EVENT_IDENTITY",
+    "entryPoint": "import",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "FORGED_EVENT_IDENTITY"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s3-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "b96daf14-b1f7-4aec-a937-ba9b0e4f52c1",
+    "ts": "2026-10-10T18:46:40.341Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s3-security-negatives-report.json"
+  },
+  {
+    "id": "B3-05",
+    "domain": "HISTORY",
+    "threat": "Conflicting duplicate event",
+    "invariant": "CONFLICTING_EVENT",
+    "entryPoint": "import",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "CONFLICTING_EVENT"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s3-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "b96daf14-b1f7-4aec-a937-ba9b0e4f52c1",
+    "ts": "2026-10-10T18:46:40.342Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s3-security-negatives-report.json"
+  },
+  {
+    "id": "B3-06",
+    "domain": "HISTORY",
+    "threat": "Cross-account import",
+    "invariant": "rejected",
+    "entryPoint": "import",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "MISSING_OUTER_SIGNATURE"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s3-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "b96daf14-b1f7-4aec-a937-ba9b0e4f52c1",
+    "ts": "2026-10-10T18:46:40.343Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s3-security-negatives-report.json"
+  },
+  {
+    "id": "B3-07",
+    "domain": "HISTORY",
+    "threat": "Unauthorized conversation",
+    "invariant": "rejected",
+    "entryPoint": "import",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "MISSING_OUTER_SIGNATURE"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s3-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "b96daf14-b1f7-4aec-a937-ba9b0e4f52c1",
+    "ts": "2026-10-10T18:46:40.344Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s3-security-negatives-report.json"
+  },
+  {
+    "id": "B3-08",
+    "domain": "HISTORY",
+    "threat": "Expired authorization mid-bootstrap",
+    "invariant": "rejected",
+    "entryPoint": "auth gate",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "UNKNOWN_VERSION"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s3-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "b96daf14-b1f7-4aec-a937-ba9b0e4f52c1",
+    "ts": "2026-10-10T18:46:40.345Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s3-security-negatives-report.json"
+  },
+  {
+    "id": "B3-09",
+    "domain": "HISTORY",
+    "threat": "Stale authEpoch",
+    "invariant": "rejected",
+    "entryPoint": "auth gate",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "UNKNOWN_VERSION"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s3-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "b96daf14-b1f7-4aec-a937-ba9b0e4f52c1",
+    "ts": "2026-10-10T18:46:40.346Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s3-security-negatives-report.json"
+  },
+  {
+    "id": "B3-10",
+    "domain": "HISTORY",
+    "threat": "Wrong global P",
+    "invariant": "rejected",
+    "entryPoint": "auth gate",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "UNKNOWN_VERSION"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s3-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "b96daf14-b1f7-4aec-a937-ba9b0e4f52c1",
+    "ts": "2026-10-10T18:46:40.346Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s3-security-negatives-report.json"
+  },
+  {
+    "id": "B3-11",
+    "domain": "HISTORY",
+    "threat": "Missing HISTORY_SYNC",
+    "invariant": "rejected",
+    "entryPoint": "auth gate",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "UNKNOWN_VERSION"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s3-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "b96daf14-b1f7-4aec-a937-ba9b0e4f52c1",
+    "ts": "2026-10-10T18:46:40.347Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s3-security-negatives-report.json"
+  },
+  {
+    "id": "B3-12",
+    "domain": "HISTORY",
+    "threat": "Oversized bootstrap bound",
+    "invariant": "MAX_BATCH=50",
+    "entryPoint": "resource",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": 50,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s3-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "b96daf14-b1f7-4aec-a937-ba9b0e4f52c1",
+    "ts": "2026-10-10T18:46:40.348Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s3-security-negatives-report.json"
+  },
+  {
+    "id": "B3-13",
+    "domain": "KEY_LEAK",
+    "threat": "No secret leakage in source",
+    "invariant": "no priv logging",
+    "entryPoint": "static",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s3-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "b96daf14-b1f7-4aec-a937-ba9b0e4f52c1",
+    "ts": "2026-10-10T18:46:40.349Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s3-security-negatives-report.json"
+  },
+  {
+    "id": "B3-14",
+    "domain": "CKI",
+    "threat": "No plaintext CKI persist",
+    "invariant": "PERSISTED_PLAINTEXT_CKI:false",
+    "entryPoint": "static",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s3-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "b96daf14-b1f7-4aec-a937-ba9b0e4f52c1",
+    "ts": "2026-10-10T18:46:40.350Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s3-security-negatives-report.json"
+  },
+  {
+    "id": "B4-01",
+    "domain": "CHECKPOINT",
+    "threat": "Tampered durable checkpoint",
+    "invariant": "fail-closed",
+    "entryPoint": "checkpoint load",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "CHECKPOINT_CORRUPT"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "efca43cc-3087-4fb3-be46-ffe1f47cfd3d",
+    "ts": "2026-10-10T18:46:46.385Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-negatives-report.json"
+  },
+  {
+    "id": "B4-02",
+    "domain": "CHECKPOINT",
+    "threat": "Cross-account checkpoint reuse",
+    "invariant": "rejected",
+    "entryPoint": "checkpoint",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "CHECKPOINT_ACCOUNT_MISMATCH"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "efca43cc-3087-4fb3-be46-ffe1f47cfd3d",
+    "ts": "2026-10-10T18:46:46.386Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-negatives-report.json"
+  },
+  {
+    "id": "B4-03",
+    "domain": "CHECKPOINT",
+    "threat": "Wrong device resume",
+    "invariant": "rejected",
+    "entryPoint": "checkpoint",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "CHECKPOINT_DEVICE_MISMATCH"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "efca43cc-3087-4fb3-be46-ffe1f47cfd3d",
+    "ts": "2026-10-10T18:46:46.387Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-negatives-report.json"
+  },
+  {
+    "id": "B4-04",
+    "domain": "CHECKPOINT",
+    "threat": "Stale epoch resume",
+    "invariant": "rejected",
+    "entryPoint": "checkpoint",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "CHECKPOINT_AUTH_EPOCH_MISMATCH"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "efca43cc-3087-4fb3-be46-ffe1f47cfd3d",
+    "ts": "2026-10-10T18:46:46.388Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-negatives-report.json"
+  },
+  {
+    "id": "B4-05",
+    "domain": "TOMBSTONE",
+    "threat": "Resurrection after tombstone",
+    "invariant": "suppressed",
+    "entryPoint": "import",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": true,
+      "id": "27044ce216f9147e3eb81b43839962388463b384677291b984891e8b230b7d65",
+      "suppressed": true,
+      "reason": "TOMBSTONE_AUTHORITATIVE"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "efca43cc-3087-4fb3-be46-ffe1f47cfd3d",
+    "ts": "2026-10-10T18:46:46.389Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-negatives-report.json"
+  },
+  {
+    "id": "B4-06",
+    "domain": "TOMBSTONE",
+    "threat": "Unauthorized tombstone",
+    "invariant": "rejected",
+    "entryPoint": "applyTombstone",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "UNAUTHORIZED_CONVERSATION"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "efca43cc-3087-4fb3-be46-ffe1f47cfd3d",
+    "ts": "2026-10-10T18:46:46.390Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-negatives-report.json"
+  },
+  {
+    "id": "B4-07",
+    "domain": "HISTORY",
+    "threat": "Missing outer sig",
+    "invariant": "rejected",
+    "entryPoint": "verifyOuter",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "MISSING_OUTER_SIGNATURE"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "efca43cc-3087-4fb3-be46-ffe1f47cfd3d",
+    "ts": "2026-10-10T18:46:46.391Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-negatives-report.json"
+  },
+  {
+    "id": "B4-08",
+    "domain": "HISTORY",
+    "threat": "Forged event identity",
+    "invariant": "rejected",
+    "entryPoint": "import",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "FORGED_EVENT_IDENTITY"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "efca43cc-3087-4fb3-be46-ffe1f47cfd3d",
+    "ts": "2026-10-10T18:46:46.391Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-negatives-report.json"
+  },
+  {
+    "id": "B4-09",
+    "domain": "HISTORY",
+    "threat": "Conflicting event",
+    "invariant": "CONFLICTING_EVENT",
+    "entryPoint": "import",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "CONFLICTING_EVENT"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "efca43cc-3087-4fb3-be46-ffe1f47cfd3d",
+    "ts": "2026-10-10T18:46:46.392Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-negatives-report.json"
+  },
+  {
+    "id": "B4-10",
+    "domain": "HISTORY",
+    "threat": "Unlinked",
+    "invariant": "fail-closed",
+    "entryPoint": "sync",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "NO_DEVICE"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "efca43cc-3087-4fb3-be46-ffe1f47cfd3d",
+    "ts": "2026-10-10T18:46:46.393Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-negatives-report.json"
+  },
+  {
+    "id": "B4-11",
+    "domain": "HISTORY",
+    "threat": "Plaintext downgrade",
+    "invariant": "rejected",
+    "entryPoint": "import",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "PLAINTEXT_DOWNGRADE"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "efca43cc-3087-4fb3-be46-ffe1f47cfd3d",
+    "ts": "2026-10-10T18:46:46.394Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-negatives-report.json"
+  },
+  {
+    "id": "B4-12",
+    "domain": "CROSS_PROTOCOL",
+    "threat": "Cross-protocol",
+    "invariant": "rejected",
+    "entryPoint": "classify",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "CROSS_PROTOCOL_TAG_COLLISION",
+      "protocol": null
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "efca43cc-3087-4fb3-be46-ffe1f47cfd3d",
+    "ts": "2026-10-10T18:46:46.395Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-negatives-report.json"
+  },
+  {
+    "id": "B4-13",
+    "domain": "RESOURCE",
+    "threat": "Batch resource limits",
+    "invariant": "events/bytes bounds",
+    "entryPoint": "limits",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "events": 50,
+      "bytes": 262144
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "efca43cc-3087-4fb3-be46-ffe1f47cfd3d",
+    "ts": "2026-10-10T18:46:46.395Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-negatives-report.json"
+  },
+  {
+    "id": "B3-20",
+    "domain": "ACK",
+    "threat": "AEAD SYNC_ACK roundtrip",
+    "invariant": "valid ACK accepted",
+    "entryPoint": "publishAckSealed",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "roundTrip": true,
+      "modifiedTag": true,
+      "wrongAad": true,
+      "wrongKey": true,
+      "wrongAccountAad": true,
+      "wrongDeviceAad": true,
+      "wrongAuthAad": true,
+      "wrongEpochAad": true,
+      "wrongSessionAad": true,
+      "wrongTranscript": true,
+      "finalRoundTrip": true,
+      "finalWrongKey": true,
+      "plaintextNotAead": true
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.427Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B3-21",
+    "domain": "ACK",
+    "threat": "Modified ciphertext/tag",
+    "invariant": "rejected before durable advance",
+    "entryPoint": "validateSyncAck",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.428Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B3-22",
+    "domain": "ACK",
+    "threat": "Wrong AAD",
+    "invariant": "rejected",
+    "entryPoint": "ackAad",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.429Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B3-23",
+    "domain": "ACK",
+    "threat": "Wrong session key",
+    "invariant": "rejected",
+    "entryPoint": "decrypt",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.429Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B3-24",
+    "domain": "ACK",
+    "threat": "Wrong account AAD",
+    "invariant": "rejected",
+    "entryPoint": "ackAad",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.430Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B3-25",
+    "domain": "ACK",
+    "threat": "Wrong device AAD",
+    "invariant": "rejected",
+    "entryPoint": "ackAad",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.431Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B3-26",
+    "domain": "ACK",
+    "threat": "Wrong auth AAD",
+    "invariant": "rejected",
+    "entryPoint": "ackAad",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.432Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B3-27",
+    "domain": "ACK",
+    "threat": "Wrong epoch AAD",
+    "invariant": "rejected",
+    "entryPoint": "ackAad",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.432Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B3-28",
+    "domain": "ACK",
+    "threat": "Wrong session AAD",
+    "invariant": "rejected",
+    "entryPoint": "ackAad",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.433Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B3-29",
+    "domain": "ACK",
+    "threat": "Wrong pairing transcript",
+    "invariant": "rejected",
+    "entryPoint": "ackAad",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.434Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B3-30",
+    "domain": "ACK",
+    "threat": "FINAL_ACK AEAD",
+    "invariant": "roundtrip + wrong key",
+    "entryPoint": "FINAL_ACK",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.435Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B5-01",
+    "domain": "TOMBSTONE",
+    "threat": "Forged outer signature",
+    "invariant": "rejected",
+    "entryPoint": "verifyEvent",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "BAD_EVENT_SIG"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.435Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B5-02",
+    "domain": "TOMBSTONE",
+    "threat": "Bad event id/hash",
+    "invariant": "rejected",
+    "entryPoint": "verify",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "EVENT_ID_MISMATCH"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.436Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B5-03",
+    "domain": "TOMBSTONE",
+    "threat": "Tombstone after target",
+    "invariant": "applied",
+    "entryPoint": "apply",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": true,
+      "id": "583f0aaa97ae27b64076ac53d638228137ca46210af30f197010184852effa81",
+      "tombstone": true
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.437Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B5-04",
+    "domain": "TOMBSTONE",
+    "threat": "Tombstone before target",
+    "invariant": "fail-closed order",
+    "entryPoint": "apply",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "TOMBSTONE_BEFORE_TARGET"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.438Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B5-05",
+    "domain": "TOMBSTONE",
+    "threat": "Unauthorized deletion",
+    "invariant": "rejected",
+    "entryPoint": "apply",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "UNAUTHORIZED_CONVERSATION"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.439Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B5-06",
+    "domain": "TOMBSTONE",
+    "threat": "Tampered target",
+    "invariant": "rejected",
+    "entryPoint": "apply",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "ok": false,
+      "code": "TOMBSTONE_TARGET_MISMATCH"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.439Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B5-07",
+    "domain": "TOMBSTONE",
+    "threat": "No resurrection",
+    "invariant": "historical replay suppressed",
+    "entryPoint": "import",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.440Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B5-08",
+    "domain": "TOMBSTONE",
+    "threat": "Valid verify path",
+    "invariant": "verifyEvent required",
+    "entryPoint": "verifyOuterKind1050",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s4-security-hardening-gate.mjs",
+    "exitCode": 0,
+    "runId": "30adf63d-5bfc-4c34-8812-fed51d832fae",
+    "ts": "2026-10-10T18:46:52.441Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s4-security-hardening-report.json"
+  },
+  {
+    "id": "B6-01",
+    "domain": "ATTACH",
+    "threat": "Wrong device bind",
+    "invariant": "rejected",
+    "entryPoint": "validateJobBind",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s5-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "e96da6ff-0584-40bd-9e3f-24a374ab595e",
+    "ts": "2026-10-10T18:46:54.928Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s5-security-negatives-report.json"
+  },
+  {
+    "id": "B6-02",
+    "domain": "ATTACH",
+    "threat": "Wrong epoch bind",
+    "invariant": "rejected",
+    "entryPoint": "validateJobBind",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s5-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "e96da6ff-0584-40bd-9e3f-24a374ab595e",
+    "ts": "2026-10-10T18:46:54.928Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s5-security-negatives-report.json"
+  },
+  {
+    "id": "B6-03",
+    "domain": "ATTACH",
+    "threat": "Wrong auth bind",
+    "invariant": "rejected",
+    "entryPoint": "validateJobBind",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s5-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "e96da6ff-0584-40bd-9e3f-24a374ab595e",
+    "ts": "2026-10-10T18:46:54.929Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s5-security-negatives-report.json"
+  },
+  {
+    "id": "B6-04",
+    "domain": "ATTACH",
+    "threat": "SSRF metadata URL",
+    "invariant": "URL_SSRF_BLOCKED",
+    "entryPoint": "assertSafeUrl",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s5-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "e96da6ff-0584-40bd-9e3f-24a374ab595e",
+    "ts": "2026-10-10T18:46:54.930Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s5-security-negatives-report.json"
+  },
+  {
+    "id": "B6-05",
+    "domain": "ATTACH",
+    "threat": "SSRF file URL",
+    "invariant": "blocked",
+    "entryPoint": "assertSafeUrl",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s5-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "e96da6ff-0584-40bd-9e3f-24a374ab595e",
+    "ts": "2026-10-10T18:46:54.931Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s5-security-negatives-report.json"
+  },
+  {
+    "id": "B6-06",
+    "domain": "ATTACH",
+    "threat": "Bad filename",
+    "invariant": "sanitized/rejected",
+    "entryPoint": "sanitizeFilename",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s5-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "e96da6ff-0584-40bd-9e3f-24a374ab595e",
+    "ts": "2026-10-10T18:46:54.932Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s5-security-negatives-report.json"
+  },
+  {
+    "id": "B6-07",
+    "domain": "ATTACH",
+    "threat": "Bad MIME",
+    "invariant": "sanitized/rejected",
+    "entryPoint": "sanitizeMime",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s5-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "e96da6ff-0584-40bd-9e3f-24a374ab595e",
+    "ts": "2026-10-10T18:46:54.932Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s5-security-negatives-report.json"
+  },
+  {
+    "id": "B6-08",
+    "domain": "ATTACH",
+    "threat": "Oversized cipher",
+    "invariant": "OVERSIZED_CIPHER",
+    "entryPoint": "buildJob",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s5-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "e96da6ff-0584-40bd-9e3f-24a374ab595e",
+    "ts": "2026-10-10T18:46:54.933Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s5-security-negatives-report.json"
+  },
+  {
+    "id": "B6-09",
+    "domain": "ATTACH",
+    "threat": "Tombstone blocks job",
+    "invariant": "TOMBSTONED",
+    "entryPoint": "buildJob",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s5-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "e96da6ff-0584-40bd-9e3f-24a374ab595e",
+    "ts": "2026-10-10T18:46:54.934Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s5-security-negatives-report.json"
+  },
+  {
+    "id": "B6-10",
+    "domain": "ATTACH",
+    "threat": "Partial ciphertext reject",
+    "invariant": "SIZE_MISMATCH / fail-closed",
+    "entryPoint": "acceptLocalCiphertext",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s5-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "e96da6ff-0584-40bd-9e3f-24a374ab595e",
+    "ts": "2026-10-10T18:46:54.935Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s5-security-negatives-report.json"
+  },
+  {
+    "id": "B6-11",
+    "domain": "ATTACH",
+    "threat": "Missing outer sig",
+    "invariant": "rejected",
+    "entryPoint": "verify",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s5-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "e96da6ff-0584-40bd-9e3f-24a374ab595e",
+    "ts": "2026-10-10T18:46:54.936Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s5-security-negatives-report.json"
+  },
+  {
+    "id": "B6-12",
+    "domain": "ATTACH",
+    "threat": "Cross-protocol",
+    "invariant": "rejected",
+    "entryPoint": "classify",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s5-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "e96da6ff-0584-40bd-9e3f-24a374ab595e",
+    "ts": "2026-10-10T18:46:54.936Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s5-security-negatives-report.json"
+  },
+  {
+    "id": "B6-13",
+    "domain": "ATTACH",
+    "threat": "Job has no enc.key leak",
+    "invariant": "durable job clean",
+    "entryPoint": "loadJob",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s5-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "e96da6ff-0584-40bd-9e3f-24a374ab595e",
+    "ts": "2026-10-10T18:46:54.937Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s5-security-negatives-report.json"
+  },
+  {
+    "id": "B6-14",
+    "domain": "ATTACH",
+    "threat": "AAD domain separated from ACK",
+    "invariant": "distinct domains",
+    "entryPoint": "attachAad/ackAad",
+    "testType": "browser/unit-orchestrated",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "node qa/md4-s5-security-negatives-gate.mjs",
+    "exitCode": 0,
+    "runId": "e96da6ff-0584-40bd-9e3f-24a374ab595e",
+    "ts": "2026-10-10T18:46:54.938Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s5-security-negatives-report.json"
+  },
+  {
+    "id": "B1-20",
+    "domain": "DEVICE_AUTH",
+    "threat": "Forged DeviceAuthorization full wire",
+    "invariant": "Live MD3 wire forgery beyond verifyStrict vectors",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Covered partially by S1 verifyStrict negatives; full live forged-auth wire E2E not separately instrumented in S6",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.938Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B1-21",
+    "domain": "DEVICE_AUTH",
+    "threat": "Wrong pairing transcript on auth object",
+    "invariant": "pairingTranscriptHash bind",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Transcript bind covered on ACK/HELLO AAD; dedicated DeviceAuthorization transcript-mismatch vector not isolated as separate S6 case key",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.938Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B1-22",
+    "domain": "DEVICE_AUTH",
+    "threat": "Wrong D_enc on authorization",
+    "invariant": "D_enc mismatch",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "S1 gate covers D_sign; D_enc mismatch on authorization record not separately keyed in S1 report",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.938Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B1-23",
+    "domain": "DEVICE_AUTH",
+    "threat": "Device substitution mid-sync",
+    "invariant": "active session device bind",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Store isolation + bind checks exist; live mid-sync substitution race not freshly instrumented",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.938Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B3-40",
+    "domain": "ACK",
+    "threat": "ACK for non-in-flight batch",
+    "invariant": "batchId/seq gate",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "AckGate validates bind fields; dedicated non-in-flight batchId case not isolated in hardening report keys",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.938Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B3-41",
+    "domain": "ACK",
+    "threat": "Duplicate valid ACK",
+    "invariant": "idempotent / no double-advance",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Idempotent import covered; duplicate ACK advance semantics not separately asserted in S6",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.938Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B3-42",
+    "domain": "ACK",
+    "threat": "Cross-session ACK replay",
+    "invariant": "session bind",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Wrong session AAD covered; explicit cross-session replay corpus not separate",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.938Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B3-43",
+    "domain": "HISTORY",
+    "threat": "Forged SYNC_HELLO",
+    "invariant": "HelloGate reject",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Android HelloGate unit covered in S3; forged HELLO browser wire case not freshly mapped",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.938Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B3-44",
+    "domain": "HISTORY",
+    "threat": "Session downgrade",
+    "invariant": "version/protocol downgrade",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Protocol collision covered; explicit version downgrade vector not isolated",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.938Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B3-45",
+    "domain": "HISTORY",
+    "threat": "Premature SYNC_DONE",
+    "invariant": "FINAL_ACK required",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "MISSING_FINAL_ACK static preserved; live premature DONE case not freshly keyed",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.938Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B3-46",
+    "domain": "HISTORY",
+    "threat": "Concurrent conflicting sync sessions",
+    "invariant": "single-flight",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Not freshly instrumented in S6 matrix",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B4-20",
+    "domain": "CHECKPOINT",
+    "threat": "Crash between import and checkpoint",
+    "invariant": "resume safety",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Ordering helpers asserted; crash-injection harness not run in S6",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B4-21",
+    "domain": "CHECKPOINT",
+    "threat": "Crash between commit and ACK",
+    "invariant": "no false COMPLETE",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "ACK-before-complete static; crash injection not run",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B4-22",
+    "domain": "CHECKPOINT",
+    "threat": "Android process interruption resume",
+    "invariant": "phone session resume",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Requires instrumented crash harness; not executed in S6",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B4-23",
+    "domain": "CHECKPOINT",
+    "threat": "Incomplete relay coverage false COMPLETE",
+    "invariant": "relay quorum",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Not freshly instrumented",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B4-24",
+    "domain": "CHECKPOINT",
+    "threat": "Same-timestamp pagination boundary",
+    "invariant": "cursor correctness",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Covered by S4 E2E pagination suite when run in Phase G, not as S6 negative matrix key",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B5-20",
+    "domain": "TOMBSTONE",
+    "threat": "Raw NIP-44 fallback bypass",
+    "invariant": "no plaintext tombstone bypass",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Outer verifyEvent path enforced; dedicated NIP-44 bypass probe not isolated",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B5-21",
+    "domain": "TOMBSTONE",
+    "threat": "Deleted attachment restoration attempt",
+    "invariant": "tombstone blocks attach job",
+    "entryPoint": "buildJob",
+    "testType": "derived",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "via": "B6-09",
+      "status": "PASS"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": "Derived from fresh child PASS B6-09",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B6-20",
+    "domain": "ATTACH",
+    "threat": "Public WebTorrent swarm encrypted fetch",
+    "invariant": "real swarm P2P",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Mock/contract PASS in S5 acceptance; public swarm NOT VERIFIED (release gap)",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B6-21",
+    "domain": "ATTACH",
+    "threat": "Chromium in-page peak memory",
+    "invariant": "browser heap bound",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "usedJSHeapSize": 23100000,
+      "jsHeapSizeLimit": 3760000000,
+      "phase": "idle-after-small-attach"
+    },
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "performance.memory idle sample available (usedJSHeapSize=23100000) but peak during large transfer not measured in S6",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B6-22",
+    "domain": "ATTACH",
+    "threat": "Hardware camera QR",
+    "invariant": "physical QR",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Paste-path QR only; hardware camera NOT VERIFIED (release gap)",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "C-01",
+    "domain": "CROSS",
+    "threat": "Valid MD3 pairing then auth expiry",
+    "invariant": "expiry fail-closed",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Expiry verifyStrict covered; full MD3→expiry multi-step live chain not freshly orchestrated",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "C-02",
+    "domain": "CROSS",
+    "threat": "Account switch during history import",
+    "invariant": "isolation",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Account switch store isolation covered; mid-import switch race not freshly instrumented",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "C-03",
+    "domain": "CROSS",
+    "threat": "Device revocation during media transfer",
+    "invariant": "transfer abort",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Revoked auth + attach bind covered separately; combined mid-transfer race not freshly instrumented",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "C-04",
+    "domain": "CROSS",
+    "threat": "Relay replay across history sessions",
+    "invariant": "session bind",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Session AAD covered; multi-session relay replay corpus not freshly run",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "C-05",
+    "domain": "CROSS",
+    "threat": "Device key substitution on reconnect",
+    "invariant": "D_sign bind",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "D_sign mismatch covered; reconnect substitution E2E not freshly run",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "C-06",
+    "domain": "CROSS",
+    "threat": "Valid tombstone + malicious backfill",
+    "invariant": "no resurrection",
+    "entryPoint": "import",
+    "testType": "derived",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": {
+      "via": "B4-05",
+      "status": "PASS"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": "Derived from fresh child PASS B4-05",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "C-07",
+    "domain": "CROSS",
+    "threat": "Corrupted media then fallback source",
+    "invariant": "no plaintext downgrade",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "P2P/Blossom hybrid fail-closed covered in S5 P2P gate; combined corrupt→fallback matrix case not re-keyed here",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "C-08",
+    "domain": "CROSS",
+    "threat": "Interrupted bootstrap + forged completion",
+    "invariant": "no false COMPLETE",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "FINAL_ACK requirements static; forged completion live case not freshly instrumented",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "C-09",
+    "domain": "CROSS",
+    "threat": "Concurrent desktop sessions one account",
+    "invariant": "isolation/binding",
+    "entryPoint": "n/a",
+    "testType": "gap-inventory",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": true
+    },
+    "observed": null,
+    "protectedStateChanged": false,
+    "status": "NOT_VERIFIED",
+    "justification": "Not freshly instrumented in S6",
+    "command": null,
+    "exitCode": null,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:54.939Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B6-30",
+    "domain": "ATTACH",
+    "threat": "Truncated ciphertext accepted as complete",
+    "invariant": "Partial AEAD never trusted",
+    "entryPoint": "SosMd4AttachmentSync.acceptLocalCiphertext",
+    "testType": "browser",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": false
+    },
+    "observed": {
+      "ok": false,
+      "code": "SIZE_MISMATCH",
+      "state": "PENDING"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "md4-s6-security-matrix-gate supplement",
+    "exitCode": 0,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:56.439Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B6-31",
+    "domain": "ATTACH",
+    "threat": "Tampered AES-GCM tag/ciphertext",
+    "invariant": "Auth failure fail-closed",
+    "entryPoint": "acceptLocalCiphertext",
+    "testType": "browser",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": false
+    },
+    "observed": {
+      "ok": false,
+      "code": "MEDIA_E2EE_HASH_MISMATCH",
+      "state": "FAILED"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "md4-s6-security-matrix-gate supplement",
+    "exitCode": 0,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:56.440Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B6-32",
+    "domain": "ATTACH",
+    "threat": "Forged attachment hash manifest",
+    "invariant": "MEDIA_E2EE_HASH_MISMATCH",
+    "entryPoint": "acceptLocalCiphertext",
+    "testType": "browser",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "ok": false
+    },
+    "observed": {
+      "ok": false,
+      "code": "MEDIA_E2EE_HASH_MISMATCH"
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "md4-s6-security-matrix-gate supplement",
+    "exitCode": 0,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:56.440Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  },
+  {
+    "id": "B6-33",
+    "domain": "ATTACH",
+    "threat": "Unauthorized plaintext media fallback",
+    "invariant": "resolveServerMediaAttachment ignores non-encrypted",
+    "entryPoint": "resolveServerMediaAttachment",
+    "testType": "browser",
+    "inputClass": "synthetic-adversarial",
+    "expected": {
+      "resolved": false
+    },
+    "observed": {
+      "resolved": false,
+      "threw": false
+    },
+    "protectedStateChanged": false,
+    "status": "PASS",
+    "justification": null,
+    "command": "md4-s6-security-matrix-gate supplement",
+    "exitCode": 0,
+    "runId": "241bc6d8-8fd7-41ec-888f-89ad5f72e0d4",
+    "ts": "2026-10-10T18:46:56.440Z",
+    "evidencePath": "C:\\BRAIN\\SOS-MD4-S0-RECON-20261009-155349\\qa\\md4-s6-security-matrix-report.json"
+  }
+]

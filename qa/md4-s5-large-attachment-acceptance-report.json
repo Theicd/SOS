@@ -1,0 +1,84 @@
+{
+  "gate": "MD4_S5_LARGE_ATTACHMENT_ACCEPTANCE",
+  "runId": "07ad79ab-5635-468d-b439-54135339694c",
+  "ts": "2026-10-10T19:48:58.831Z",
+  "pass": 7,
+  "fail": 0,
+  "results": {
+    "LARGE_CIPHER_WRITTEN": {
+      "ok": true,
+      "detail": {
+        "cipherBytes": 33554448,
+        "plainBytes": 33554432,
+        "uploaded": 33554448
+      }
+    },
+    "MID_AEAD_FAIL_CLOSED": {
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "MEDIA_E2EE_SIZE_MISMATCH",
+        "state": "FAILED",
+        "errorCode": "MEDIA_E2EE_SIZE_MISMATCH"
+      }
+    },
+    "LARGE_MEDIA_REAL_E2E": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "state": "COMPLETE",
+        "source": "blossom",
+        "restoredLen": 33554432,
+        "restoredSha": "553f0937fc273f9cf5fe812e7c8d38bc6b81264c96a74a46a5967c695fb7b78e",
+        "expectPlainSha": "553f0937fc273f9cf5fe812e7c8d38bc6b81264c96a74a46a5967c695fb7b78e",
+        "equal": true
+      }
+    },
+    "LARGE_MEDIA_INTEGRITY": {
+      "ok": true,
+      "detail": {
+        "restoredLen": 33554432,
+        "equal": true
+      }
+    },
+    "LARGE_MEDIA_INTERRUPT_RESUME": {
+      "ok": true,
+      "detail": {
+        "mid": {
+          "ok": false,
+          "code": "MEDIA_E2EE_SIZE_MISMATCH",
+          "state": "FAILED",
+          "errorCode": "MEDIA_E2EE_SIZE_MISMATCH"
+        },
+        "fullOk": true
+      }
+    },
+    "SIZE_LIMIT_ENFORCEMENT": {
+      "ok": true,
+      "detail": {
+        "max": 104857600,
+        "code": "OVERSIZED_CIPHER",
+        "ok": false
+      }
+    },
+    "BOUNDED_MEMORY": {
+      "ok": true,
+      "detail": {
+        "peakRss": 209268736,
+        "peakHeap": 21038680,
+        "plainBytes": 33554432,
+        "cipherBytes": 33554448,
+        "tempDisk": 33554448
+      }
+    }
+  },
+  "STATUS": "PASS",
+  "LARGE_MEDIA_TEST_SIZE": 33554432,
+  "LARGE_MEDIA_CIPHER_BYTES": 33554448,
+  "PEAK_MEMORY_RSS": 209268736,
+  "PEAK_HEAP": 21038680,
+  "TEMP_DISK_USAGE": 33554448,
+  "MID_AEAD_FAIL_CLOSED": true,
+  "LARGE_MEDIA_INTERRUPT_RESUME": true,
+  "SIZE_LIMIT_ENFORCEMENT": true
+}

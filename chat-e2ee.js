@@ -332,6 +332,28 @@
     };
   }
 
+  /**
+   * MD4 S3 — decrypt using a ConversationKeyIndex entry (no root private key).
+   * Linked desktop bootstrap only; never persists the conversation key.
+   */
+  function decryptPrivateChatPayloadWithConversationKey({ encryptedEnvelope, conversationKeyHex }) {
+    const env = parseEncryptedEnvelope(encryptedEnvelope);
+    const ckHex = requireHexPubkey(conversationKeyHex, 'BAD_CONVERSATION_KEY');
+    const nip44 = getNip44();
+    const ck = new Uint8Array(32);
+    for (let i = 0; i < 32; i++) ck[i] = parseInt(ckHex.slice(i * 2, i * 2 + 2), 16);
+    try {
+      const decrypted = nip44.decrypt(env.ciphertext, ck);
+      if (typeof decrypted !== 'string') e2eeFail('DECRYPT_FAILURE', 'decrypt returned non-string');
+      return parseE2eeChatPayloadV1(decrypted);
+    } catch (err) {
+      if (err && err.name === 'ChatE2eeError') throw err;
+      e2eeFail('DECRYPT_FAILURE', 'nip44 decrypt with conversation key failed');
+    } finally {
+      ck.fill(0);
+    }
+  }
+
   function decryptPrivateChatPayload({
     localPrivateKeyHex,
     localPubkey,
@@ -424,6 +446,7 @@
     MAX_E2EE_CIPHERTEXT_CHARS,
     encryptPrivateChatPayload,
     decryptPrivateChatPayload,
+    decryptPrivateChatPayloadWithConversationKey,
     parseE2eeChatPayloadV1,
     parseEncryptedEnvelope,
     bindOuterInnerIdentities,
@@ -437,6 +460,7 @@
   Object.assign(App, {
     encryptPrivateChatPayload,
     decryptPrivateChatPayload,
+    decryptPrivateChatPayloadWithConversationKey,
     parseE2eeChatPayloadV1,
     parseEncryptedEnvelope,
     bindOuterInnerIdentities,

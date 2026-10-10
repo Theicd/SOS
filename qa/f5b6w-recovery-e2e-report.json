@@ -2,7 +2,7 @@
   "gate": "F5B6W_RECOVERY_E2E",
   "mode": "mobile-pixel7",
   "status": "PASS",
-  "ts": "2026-10-01T11:02:54.902Z",
+  "ts": "2026-10-07T21:10:24.297Z",
   "results": {
     "ONBOARDING_KEY_STEP_WORKER_MODE": {
       "ok": true,
@@ -28,10 +28,10 @@
         "statusNotCreated": true,
         "backupBtn": true,
         "continueHidden": true,
-        "skipHonest": true,
+        "skipHidden": true,
         "oldConfirmVisible": false,
         "textareaVisible": false,
-        "claimsRecoverable": false,
+        "claimsDurableSaved": false,
         "worker": true,
         "privInMemory": false,
         "needsBackup": true
@@ -78,22 +78,20 @@
       "ok": true,
       "detail": null
     },
+    "NO_MANUAL_SAVED_CONFIRMATION_BEFORE_EXPORT": {
+      "ok": true,
+      "detail": {
+        "beforeSave": false
+      }
+    },
     "PASSKEY_ENROLLED": {
       "ok": true,
       "detail": null
     },
-    "NO_MANUAL_SAVED_CONFIRMATION_BEFORE_EXPORT": {
-      "ok": true,
-      "detail": {
-        "saveEnabled": true,
-        "manualConfirm": false,
-        "beforeSave": false
-      }
-    },
     "PERSONAL_KEY_FILE_NAME": {
       "ok": true,
       "detail": {
-        "fileName": "SOS-personal-key-17ed666e-24854524.txt"
+        "fileName": "SOS-personal-key-e7728f16-a37a2c27.txt"
       }
     },
     "PERSONAL_KEY_FILE_REAL": {
@@ -138,14 +136,14 @@
     "PRIVATE_KEY_LOGGING": {
       "ok": true,
       "detail": {
-        "consoleLines": 201
+        "consoleLines": 164
       }
     },
     "PRIVATE_KEY_NETWORK_RETURN_TO_SOS010": {
       "ok": true,
       "detail": {
-        "requests": 396,
-        "relayFrames": 104
+        "requests": 323,
+        "relayFrames": 78
       }
     },
     "SEAL_WRONG_PUBKEY_REFUSED": {

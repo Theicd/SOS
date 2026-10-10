@@ -63,6 +63,10 @@
     REMOVE_MEMBER: 'REMOVE_MEMBER',
     RESOLVE_MEMBERSHIP_CONFLICT: 'RESOLVE_MEMBERSHIP_CONFLICT',
     BOOTSTRAP_MEMBER_ACTIVE: 'BOOTSTRAP_MEMBER_ACTIVE',
+    DISABLE_ACCOUNT: 'DISABLE_ACCOUNT',
+    REENABLE_ACCOUNT: 'REENABLE_ACCOUNT',
+    HIDE_DIRECTORY: 'HIDE_DIRECTORY',
+    RESTORE_DIRECTORY: 'RESTORE_DIRECTORY',
   });
 
   const CONTROL_OPS = new Set([
@@ -86,6 +90,13 @@
     ADMIN_OP.RESOLVE_MEMBERSHIP_CONFLICT,
     ADMIN_OP.BOOTSTRAP_MEMBER_ACTIVE,
   ]);
+
+  const ACCOUNT_STATUS_OPS = new Set([ADMIN_OP.DISABLE_ACCOUNT, ADMIN_OP.REENABLE_ACCOUNT]);
+  const DIRECTORY_HYGIENE_OPS = new Set([ADMIN_OP.HIDE_DIRECTORY, ADMIN_OP.RESTORE_DIRECTORY]);
+  const ACCOUNT_STATUS_KIND = 39005;
+  const DIRECTORY_HYGIENE_KIND = 39006;
+  const SCHEMA_ACCOUNT_STATUS = 'sos-account-status';
+  const SCHEMA_DIRECTORY_HYGIENE = 'sos-directory-hygiene';
 
   function fail(code, message) {
     const err = new Error(message || code);
@@ -577,6 +588,140 @@
     };
   }
 
+  function applyAccountStatusOperation(operation, baseControl, tipBody, actorPubkey, params) {
+    const actor = normalizePubkey(actorPubkey);
+    if (!actor) fail('NO_ACTOR');
+    if (!baseControl) fail('NO_BASE_CONTROL');
+    const p = params && typeof params === 'object' ? params : {};
+    if (hasProtoPollution(p)) fail('PROTOTYPE_POLLUTION');
+    const expectedGroup = resolveNetworkTag(p.groupId, baseControl);
+    if (baseControl.groupId !== expectedGroup) fail('CROSS_GROUP');
+    if (!actorIsRoot(actor, baseControl)) fail('ROOT_ONLY');
+    if (p.controlConflict === true) fail('CONTROL_CONFLICT');
+    const targetPubkey = normalizePubkey(p.targetPubkey || p.memberPubkey);
+    if (!targetPubkey) fail('NO_TARGET');
+    if (targetPubkey === normalizePubkey(baseControl.rootAdminPubkey)) fail('ROOT_PROTECTED');
+    if (targetPubkey === actor) fail('SELF_TARGET_FORBIDDEN');
+    let status;
+    let transition;
+    if (operation === ADMIN_OP.DISABLE_ACCOUNT) {
+      status = 'DISABLED';
+      transition = 'DISABLE';
+    } else if (operation === ADMIN_OP.REENABLE_ACCOUNT) {
+      status = 'ENABLED';
+      transition = 'REENABLE';
+    } else {
+      fail('UNKNOWN_OP');
+    }
+    const tipRev = tipBody && Number.isInteger(tipBody.revision) ? Number(tipBody.revision) : 0;
+    const paramRev = Number.isInteger(p.priorRevision) ? Number(p.priorRevision) : 0;
+    const prevRev = Math.max(tipRev, paramRev, 0);
+    const revision = prevRev + 1;
+    const reasonCode = String(p.reasonCode || 'ADMIN_DISABLED').slice(0, 64);
+    return {
+      schema: SCHEMA_ACCOUNT_STATUS,
+      version: 1,
+      groupId: baseControl.groupId,
+      targetPubkey,
+      status,
+      revision,
+      reasonCode,
+      controlEpochAtIssue: baseControl.controlEpoch,
+      issuerPubkey: actor,
+      transition,
+      createdAt: Math.floor(Date.now() / 1000),
+    };
+  }
+
+  function buildAccountStatusDraft(body) {
+    const actor = normalizePubkey(body.issuerPubkey);
+    const targetPubkey = normalizePubkey(body.targetPubkey);
+    const d = body.groupId + ':' + targetPubkey + ':' + body.revision;
+    const createdAt = Math.floor(Date.now() / 1000);
+    const contentBody = Object.assign({}, body, { createdAt, issuerPubkey: actor });
+    return {
+      kind: ACCOUNT_STATUS_KIND,
+      created_at: createdAt,
+      tags: [
+        ['d', d],
+        ['p', targetPubkey],
+        ['t', body.groupId],
+        ['t', 'sos-account-status'],
+        ['status', body.status],
+        ['rev', String(body.revision)],
+        ['control-epoch', String(body.controlEpochAtIssue)],
+      ],
+      content: JSON.stringify(contentBody),
+      pubkey: actor,
+    };
+  }
+
+  function applyDirectoryHygieneOperation(operation, baseControl, tipBody, actorPubkey, params) {
+    const actor = normalizePubkey(actorPubkey);
+    if (!actor) fail('NO_ACTOR');
+    if (!baseControl) fail('NO_BASE_CONTROL');
+    const p = params && typeof params === 'object' ? params : {};
+    if (hasProtoPollution(p)) fail('PROTOTYPE_POLLUTION');
+    const expectedGroup = resolveNetworkTag(p.groupId, baseControl);
+    if (baseControl.groupId !== expectedGroup) fail('CROSS_GROUP');
+    if (!actorIsRoot(actor, baseControl)) fail('ROOT_ONLY');
+    if (p.controlConflict === true) fail('CONTROL_CONFLICT');
+    const targetPubkey = normalizePubkey(p.targetPubkey || p.memberPubkey);
+    if (!targetPubkey) fail('NO_TARGET');
+    if (targetPubkey === normalizePubkey(baseControl.rootAdminPubkey)) fail('ROOT_PROTECTED');
+    let visibility;
+    let transition;
+    if (operation === ADMIN_OP.HIDE_DIRECTORY) {
+      visibility = 'HIDDEN';
+      transition = 'HIDE';
+    } else if (operation === ADMIN_OP.RESTORE_DIRECTORY) {
+      visibility = 'VISIBLE';
+      transition = 'RESTORE';
+    } else {
+      fail('UNKNOWN_OP');
+    }
+    const tipRev = tipBody && Number.isInteger(tipBody.revision) ? Number(tipBody.revision) : 0;
+    const paramRev = Number.isInteger(p.priorRevision) ? Number(p.priorRevision) : 0;
+    const prevRev = Math.max(tipRev, paramRev, 0);
+    const revision = prevRev + 1;
+    return {
+      schema: SCHEMA_DIRECTORY_HYGIENE,
+      version: 1,
+      groupId: baseControl.groupId,
+      targetPubkey,
+      visibility,
+      revision,
+      controlEpochAtIssue: baseControl.controlEpoch,
+      issuerPubkey: actor,
+      transition,
+      createdAt: Math.floor(Date.now() / 1000),
+      note: 'Directory hide is not cryptographic deletion and does not erase relay history.',
+    };
+  }
+
+  function buildDirectoryHygieneDraft(body) {
+    const actor = normalizePubkey(body.issuerPubkey);
+    const targetPubkey = normalizePubkey(body.targetPubkey);
+    const d = body.groupId + ':' + targetPubkey + ':' + body.revision;
+    const createdAt = Math.floor(Date.now() / 1000);
+    const contentBody = Object.assign({}, body, { createdAt, issuerPubkey: actor });
+    return {
+      kind: DIRECTORY_HYGIENE_KIND,
+      created_at: createdAt,
+      tags: [
+        ['d', d],
+        ['p', targetPubkey],
+        ['t', body.groupId],
+        ['t', 'sos-directory-hygiene'],
+        ['visibility', body.visibility],
+        ['rev', String(body.revision)],
+        ['control-epoch', String(body.controlEpochAtIssue)],
+      ],
+      content: JSON.stringify(contentBody),
+      pubkey: actor,
+    };
+  }
+
   function mapLegacyMutationType(type) {
     const m = {
       SET_GROUP_DISPLAY_NAME: ADMIN_OP.SET_GROUP_DISPLAY_NAME,
@@ -628,10 +773,14 @@
     PROTOCOL_VERSION,
     GROUP_CONTROL_KIND,
     MEMBERSHIP_KIND,
+    ACCOUNT_STATUS_KIND,
+    DIRECTORY_HYGIENE_KIND,
     ADMIN_OP,
     ADMIN_TYPED_SIGN_OPERATIONS: Object.freeze(Object.keys(ADMIN_OP)),
     CONTROL_OPS,
     MEMBER_OPS,
+    ACCOUNT_STATUS_OPS,
+    DIRECTORY_HYGIENE_OPS,
     INVITE_POLICIES,
     MAP_CAPABILITIES,
     DELEGABLE_BY_PERMISSION_MANAGER,
@@ -653,12 +802,18 @@
     buildControlDraft,
     applyMembershipOperation,
     buildMembershipDraft,
+    applyAccountStatusOperation,
+    buildAccountStatusDraft,
+    applyDirectoryHygieneOperation,
+    buildDirectoryHygieneDraft,
     mapLegacyMutationType,
     ADMIN_2FA_AUTH_KIND,
     ADMIN_2FA_AUTH_ACTIONS,
     buildAdmin2faAuthDraft,
     isControlOp: (op) => CONTROL_OPS.has(op),
     isMemberOp: (op) => MEMBER_OPS.has(op),
+    isAccountStatusOp: (op) => ACCOUNT_STATUS_OPS.has(op),
+    isDirectoryHygieneOp: (op) => DIRECTORY_HYGIENE_OPS.has(op),
     ADMIN_SIGNER_CAN_PROVE_BASE_IS_LATEST: false,
     ADMIN_SIGNER_FRESHNESS_DEPENDS_ON_ACCEPTANCE_LAYER: true,
     AC9_CLAIMS_XSS_ISOLATION: false,

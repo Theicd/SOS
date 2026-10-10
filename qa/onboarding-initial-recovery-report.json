@@ -1,0 +1,98 @@
+{
+  "gate": "ONBOARDING_INITIAL_RECOVERY",
+  "status": "PASS",
+  "pass": 19,
+  "fail": 0,
+  "NAME_ONBOARDING_STEP_PRESENT": false,
+  "AVATAR_ONBOARDING_STEP_PRESENT": false,
+  "PHONE_ONBOARDING_FIELD_PRESENT": false,
+  "INITIAL_BACKUP_REQUIRED": true,
+  "INITIAL_EXPORT_WEBAUTHN_REQUIRED": false,
+  "LATER_EXPORT_WEBAUTHN_REQUIRED": true,
+  "OLD_FALSE_SUCCESS_COPY_PRESENT": false,
+  "DOWNLOAD_STARTED_COPY_PRESENT": true,
+  "USER_CONFIRMATION_REQUIRED_AFTER_DOWNLOAD_TRIGGER": true,
+  "AUTO_ENTER_AFTER_DOWNLOAD_TRIGGER": false,
+  "RECOVERY_SUCCESS_TEXT_TRUTHFUL": true,
+  "results": {
+    "NAME_ONBOARDING_STEP_NOT_BLOCKING": {
+      "ok": true,
+      "detail": null
+    },
+    "AVATAR_ONBOARDING_STEP_NOT_BLOCKING": {
+      "ok": true,
+      "detail": null
+    },
+    "PHONE_FIELD_VISIBLE_FOR_PHONE_ONBOARDING": {
+      "ok": true,
+      "detail": null
+    },
+    "PHONE_NOT_REQUIRED_IN_SIGNUP": {
+      "ok": true,
+      "detail": null
+    },
+    "SKIP_LATER_HIDDEN": {
+      "ok": true,
+      "detail": null
+    },
+    "INITIAL_BACKUP_START_FLAG": {
+      "ok": true,
+      "detail": null
+    },
+    "HANDOFF_SUPPORTS_INITIAL_FLAG": {
+      "ok": true,
+      "detail": null
+    },
+    "RECOVERY_TITLE_PRESENT": {
+      "ok": true,
+      "detail": null
+    },
+    "SAVE_KEY_LABEL": {
+      "ok": true,
+      "detail": null
+    },
+    "ENTER_SOS_LABEL": {
+      "ok": true,
+      "detail": null
+    },
+    "NO_EMAIL_AS_DISPLAY_NAME": {
+      "ok": true,
+      "detail": null
+    },
+    "ACCOUNT_DISABLED_BEFORE_BIND": {
+      "ok": true,
+      "detail": null
+    },
+    "PAGE_RAW_K_NOT_IN_ONBOARDING_WORKER_PATH": {
+      "ok": true,
+      "detail": null
+    },
+    "APP_VERSION_899S11_PLUS": {
+      "ok": true,
+      "detail": {
+        "version": "2026.10.05-web-899s.19"
+      }
+    },
+    "OLD_FALSE_SUCCESS_COPY_PRESENT": {
+      "ok": true,
+      "detail": null
+    },
+    "DOWNLOAD_STARTED_COPY_PRESENT": {
+      "ok": true,
+      "detail": null
+    },
+    "USER_CONFIRMATION_REQUIRED_AFTER_DOWNLOAD_TRIGGER": {
+      "ok": true,
+      "detail": null
+    },
+    "AUTO_ENTER_AFTER_DOWNLOAD_TRIGGER": {
+      "ok": true,
+      "detail": null
+    },
+    "RECOVERY_SUCCESS_TEXT_TRUTHFUL": {
+      "ok": true,
+      "detail": null
+    }
+  },
+  "ts": "2026-10-10T20:00:42.607Z"
+}

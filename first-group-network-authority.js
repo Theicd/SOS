@@ -22,6 +22,8 @@
   const KIND_CONTROL = 39001;
   const KIND_MEMBERSHIP = 39003;
   const KIND_ATTESTATION = 39004;
+  const KIND_ACCOUNT_STATUS = 39005;
+  const KIND_DIRECTORY_HYGIENE = 39006;
   const MAX_ATTESTATIONS = 4000;
   const QUERY_TIMEOUT_MS = 6000;
   const CONNECT_TIMEOUT_MS = 4000;
@@ -169,7 +171,9 @@
   }
 
   function authorityFilters() {
-    const f = [{ kinds: [KIND_CONTROL, KIND_MEMBERSHIP], '#t': [GROUP_ID], limit: 2000 }];
+    const f = [
+      { kinds: [KIND_CONTROL, KIND_MEMBERSHIP, KIND_ACCOUNT_STATUS, KIND_DIRECTORY_HYGIENE], '#t': [GROUP_ID], limit: 2000 },
+    ];
     if (admin2faActive()) f.push({ kinds: [KIND_ATTESTATION], '#t': [GROUP_ID], limit: 2000 });
     return f;
   }
@@ -207,9 +211,13 @@
     const attested = A && attestations.size ? A.ingestAttestations(Array.from(attestations.values())) : 0;
     const control = [];
     const membership = [];
+    const accountStatus = [];
+    const directoryHygiene = [];
     networkEvents.forEach((ev) => {
       if (ev.kind === KIND_CONTROL) control.push(ev);
       else if (ev.kind === KIND_MEMBERSHIP) membership.push(ev);
+      else if (ev.kind === KIND_ACCOUNT_STATUS) accountStatus.push(ev);
+      else if (ev.kind === KIND_DIRECTORY_HYGIENE) directoryHygiene.push(ev);
     });
     const seenControl = new Set(control.map((e) => e.id));
     localControlEvents().forEach((ev) => {
@@ -221,11 +229,34 @@
     if (status === 'CONTROL_CONFLICT') return { ok: false, code: 'CONTROL_CONFLICT' };
     const st = verifiedControl();
     if (!st) return { ok: false, code: 'NO_VERIFIED_CONTROL' };
+    try {
+      const ASS = App.AccountStatusState || window.SosAccountStatusState;
+      const DHS = App.DirectoryHygieneState || window.SosDirectoryHygieneState;
+      const root = st.rootAdminPubkey ? String(st.rootAdminPubkey).toLowerCase() : '';
+      if (ASS) {
+        if (root) ASS.setRoot(root);
+        ASS.ingestMany(accountStatus);
+        ASS.enforceLiveSession();
+      }
+      if (DHS) {
+        if (root) DHS.setRoot(root);
+        DHS.ingestMany(directoryHygiene);
+      }
+    } catch (_acc) {}
     const seenMem = new Set(membership.map((e) => e.id));
     (m.exportMembershipEvents(GROUP_ID) || []).forEach((ev) => {
       if (!seenMem.has(ev.id)) membership.push(ev);
     });
-    const fp = st.eventId + '|' + attestations.size + '|' + membership.map((e) => e.id).sort().join(',');
+    const fp =
+      st.eventId +
+      '|' +
+      attestations.size +
+      '|' +
+      membership.map((e) => e.id).sort().join(',') +
+      '|' +
+      accountStatus.map((e) => e.id).sort().join(',') +
+      '|' +
+      directoryHygiene.map((e) => e.id).sort().join(',');
     const changed = fp !== state.fingerprint || attested > 0;
     if (changed) {
       m.rebuildFromEvents(membership, st);
@@ -256,8 +287,14 @@
       return { ok: false, code: 'NETWORK_AUTHORITY_UNVERIFIED', detail: 'RELAY_UNAVAILABLE', codes: res.codes };
     }
     res.events.forEach((ev) => {
-      if (ev.kind === KIND_CONTROL || ev.kind === KIND_MEMBERSHIP) networkEvents.set(ev.id, ev);
-      else keepAttestation(ev);
+      if (
+        ev.kind === KIND_CONTROL ||
+        ev.kind === KIND_MEMBERSHIP ||
+        ev.kind === KIND_ACCOUNT_STATUS ||
+        ev.kind === KIND_DIRECTORY_HYGIENE
+      ) {
+        networkEvents.set(ev.id, ev);
+      } else keepAttestation(ev);
     });
     const applied = applyEventSet();
     state.lastLatencyMs = Date.now() - t0;
@@ -292,7 +329,15 @@
     if (ev.kind === KIND_ATTESTATION) {
       if (!keepAttestation(ev)) return;
     } else {
-      if ((ev.kind !== KIND_CONTROL && ev.kind !== KIND_MEMBERSHIP) || networkEvents.has(ev.id)) return;
+      if (
+        (ev.kind !== KIND_CONTROL &&
+          ev.kind !== KIND_MEMBERSHIP &&
+          ev.kind !== KIND_ACCOUNT_STATUS &&
+          ev.kind !== KIND_DIRECTORY_HYGIENE) ||
+        networkEvents.has(ev.id)
+      ) {
+        return;
+      }
       networkEvents.set(ev.id, ev);
     }
     clearTimeout(liveTimer);
@@ -314,7 +359,9 @@
         relayList(),
         [
           {
-            kinds: admin2faActive() ? [KIND_CONTROL, KIND_MEMBERSHIP, KIND_ATTESTATION] : [KIND_CONTROL, KIND_MEMBERSHIP],
+            kinds: admin2faActive()
+              ? [KIND_CONTROL, KIND_MEMBERSHIP, KIND_ACCOUNT_STATUS, KIND_DIRECTORY_HYGIENE, KIND_ATTESTATION]
+              : [KIND_CONTROL, KIND_MEMBERSHIP, KIND_ACCOUNT_STATUS, KIND_DIRECTORY_HYGIENE],
             '#t': [GROUP_ID],
             since: Math.floor(Date.now() / 1000) - 5,
           },

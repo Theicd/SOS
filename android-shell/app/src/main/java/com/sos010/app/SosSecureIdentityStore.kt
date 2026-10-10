@@ -380,6 +380,9 @@ object SosSecureIdentityStore {
         legacyReader: () -> Pair<String, String> = { "" to "" },
     ): Engine = Engine(prefs, crypto, derivePubkey, legacyReader)
 
+    /** Production engine for MD3 PhoneIssuer / linked-device product path. */
+    fun productionEngine(context: Context): Engine = engine(context)
+
     private fun engine(context: Context): Engine {
         val app = context.applicationContext
         return Engine(

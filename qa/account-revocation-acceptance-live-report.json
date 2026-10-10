@@ -1,0 +1,269 @@
+{
+  "gate": "account-revocation-acceptance-live-matrix",
+  "passed": true,
+  "total": 20,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "DISABLE_EVENT_VERIFIES",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "ACTIVE_KEY_FILE_LOGIN_ACCEPTED",
+      "ok": true,
+      "detail": {
+        "gate": {
+          "ok": true,
+          "code": "OK"
+        },
+        "bound": true,
+        "ensure": true
+      }
+    },
+    {
+      "name": "DISABLED_KEY_FILE_LOGIN_ACCEPTED_IS_FALSE",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "ACCOUNT_DISABLED",
+        "message": "החשבון הושבת ואינו מורשה להתחבר ל-SOS."
+      }
+    },
+    {
+      "name": "DISABLED_LOGIN_DENIED",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "DISABLED_ACCOUNT_SWITCH_ACCEPTED_IS_FALSE",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "reason": "ACCOUNT_DISABLED",
+        "code": "ACCOUNT_DISABLED",
+        "message": "החשבון הושבת ואינו מורשה להתחבר ל-SOS.",
+        "KEY_CLAIMED_INVALID": false
+      }
+    },
+    {
+      "name": "ACTIVE_DISABLED_SESSION_CONTINUES_IS_FALSE",
+      "ok": true,
+      "detail": {
+        "before": true,
+        "after": false
+      }
+    },
+    {
+      "name": "DIRECTORY_HIDE_PRODUCT",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "DIRECTORY_HIDE_DOES_NOT_CLAIM_ERASURE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "SAME_KEY_REIMPORT_BYPASS_IS_FALSE",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "reason": "ACCOUNT_DISABLED",
+        "code": "ACCOUNT_DISABLED",
+        "message": "החשבון הושבת ואינו מורשה להתחבר ל-SOS.",
+        "KEY_CLAIMED_INVALID": false
+      }
+    },
+    {
+      "name": "DISABLED_SECOND_TAB_CONTINUES_IS_FALSE",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "ACCOUNT_DISABLED",
+        "message": "החשבון הושבת ואינו מורשה להתחבר ל-SOS."
+      }
+    },
+    {
+      "name": "DISABLED_RELOAD_ACCEPTED_IS_FALSE",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "ACCOUNT_DISABLED",
+        "message": "החשבון הושבת ואינו מורשה להתחבר ל-SOS."
+      }
+    },
+    {
+      "name": "CACHED_DISABLED_OFFLINE_LOGIN_ACCEPTED_IS_FALSE",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "code": "ACCOUNT_DISABLED",
+        "message": "החשבון הושבת ואינו מורשה להתחבר ל-SOS."
+      }
+    },
+    {
+      "name": "OFFLINE_NEW_REVOCATION_LIMITATION_DOCUMENTED",
+      "ok": true,
+      "detail": {
+        "note": "Client that never learned a verified tip cannot deny a brand-new remote disable while fully offline.",
+        "gate": {
+          "ok": true,
+          "code": "OK"
+        }
+      }
+    },
+    {
+      "name": "REENABLED_LOGIN_ACCEPTED",
+      "ok": true,
+      "detail": {
+        "ing": {
+          "ok": true,
+          "code": "APPLIED",
+          "tip": {
+            "targetPubkey": "d9f1ba5438371014e6716eec910c3c639b90b9d265d02f1f0d9b3a0faad1bb76",
+            "status": "ENABLED",
+            "revision": 2,
+            "reasonCode": "ADMIN_DISABLED",
+            "eventId": "543ff3edcfc2415966c117693df5b67b3a38187807229ccc01b48ff993919a58",
+            "issuer": "cbcfa0e554537a3b4f34a272261c5dd4955e8b73c37f6dddbca7655b4939a6fa",
+            "createdAt": 1791378281,
+            "groupId": "israel-network",
+            "event": {
+              "kind": 39005,
+              "created_at": 1791378281,
+              "tags": [
+                [
+                  "d",
+                  "israel-network:d9f1ba5438371014e6716eec910c3c639b90b9d265d02f1f0d9b3a0faad1bb76:2"
+                ],
+                [
+                  "p",
+                  "d9f1ba5438371014e6716eec910c3c639b90b9d265d02f1f0d9b3a0faad1bb76"
+                ],
+                [
+                  "t",
+                  "israel-network"
+                ],
+                [
+                  "t",
+                  "sos-account-status"
+                ],
+                [
+                  "status",
+                  "ENABLED"
+                ],
+                [
+                  "rev",
+                  "2"
+                ],
+                [
+                  "control-epoch",
+                  "2"
+                ]
+              ],
+              "content": "{\"schema\":\"sos-account-status\",\"version\":1,\"groupId\":\"israel-network\",\"targetPubkey\":\"d9f1ba5438371014e6716eec910c3c639b90b9d265d02f1f0d9b3a0faad1bb76\",\"status\":\"ENABLED\",\"revision\":2,\"reasonCode\":\"ADMIN_DISABLED\",\"controlEpochAtIssue\":2,\"issuerPubkey\":\"cbcfa0e554537a3b4f34a272261c5dd4955e8b73c37f6dddbca7655b4939a6fa\",\"transition\":\"REENABLE\",\"createdAt\":1791378281}",
+              "pubkey": "cbcfa0e554537a3b4f34a272261c5dd4955e8b73c37f6dddbca7655b4939a6fa",
+              "id": "543ff3edcfc2415966c117693df5b67b3a38187807229ccc01b48ff993919a58",
+              "sig": "9f4b98c662e73ecb59fa2768e9235c0af9230e44fcee28e5f173537f3fdf9f8b6d71d8a2859466ef26bce629bb2982be6d17e130aae9dc5d682c826321e9293b"
+            }
+          }
+        },
+        "gate": {
+          "ok": true,
+          "code": "OK"
+        },
+        "disabled": false
+      }
+    },
+    {
+      "name": "REENABLE_RESTORES_OLD_ADMIN_CAPS_IS_FALSE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "REENABLE_RESTORES_REMOVED_MEMBERSHIP_IS_FALSE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "REENABLE_CLEARS_BLOCKLIST_IS_FALSE",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "RESTORE_DIRECTORY_RECORD_WORKS",
+      "ok": true,
+      "detail": {
+        "ing": {
+          "ok": true,
+          "code": "APPLIED",
+          "tip": {
+            "targetPubkey": "d9f1ba5438371014e6716eec910c3c639b90b9d265d02f1f0d9b3a0faad1bb76",
+            "visibility": "VISIBLE",
+            "revision": 2,
+            "eventId": "21a1f50bb633b51bd43671346741931a57de1a572a366b6beba5edfb99428894",
+            "issuer": "cbcfa0e554537a3b4f34a272261c5dd4955e8b73c37f6dddbca7655b4939a6fa",
+            "createdAt": 1791378281,
+            "groupId": "israel-network",
+            "event": {
+              "kind": 39006,
+              "created_at": 1791378281,
+              "tags": [
+                [
+                  "d",
+                  "israel-network:d9f1ba5438371014e6716eec910c3c639b90b9d265d02f1f0d9b3a0faad1bb76:2"
+                ],
+                [
+                  "p",
+                  "d9f1ba5438371014e6716eec910c3c639b90b9d265d02f1f0d9b3a0faad1bb76"
+                ],
+                [
+                  "t",
+                  "israel-network"
+                ],
+                [
+                  "t",
+                  "sos-directory-hygiene"
+                ],
+                [
+                  "visibility",
+                  "VISIBLE"
+                ],
+                [
+                  "rev",
+                  "2"
+                ],
+                [
+                  "control-epoch",
+                  "2"
+                ]
+              ],
+              "content": "{\"schema\":\"sos-directory-hygiene\",\"version\":1,\"groupId\":\"israel-network\",\"targetPubkey\":\"d9f1ba5438371014e6716eec910c3c639b90b9d265d02f1f0d9b3a0faad1bb76\",\"visibility\":\"VISIBLE\",\"revision\":2,\"controlEpochAtIssue\":2,\"issuerPubkey\":\"cbcfa0e554537a3b4f34a272261c5dd4955e8b73c37f6dddbca7655b4939a6fa\",\"transition\":\"RESTORE\",\"createdAt\":1791378281,\"note\":\"Directory hide is not cryptographic deletion and does not erase relay history.\"}",
+              "pubkey": "cbcfa0e554537a3b4f34a272261c5dd4955e8b73c37f6dddbca7655b4939a6fa",
+              "id": "21a1f50bb633b51bd43671346741931a57de1a572a366b6beba5edfb99428894",
+              "sig": "0da7da179ae3753d3cd11cb090d6207688eb2d3ff1819b8a6cb1d372a2e5472f10936a28ab5940d0ac3404baa1f8b93551b3efaef281602c2c2581154f20b4d4"
+            }
+          }
+        },
+        "hidden": false
+      }
+    },
+    {
+      "name": "DIRECTORY_HIDE_DOES_NOT_DISABLE_LOGIN",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "DIRECTORY_HIDE_DOES_NOT_CHANGE_MEMBERSHIP",
+      "ok": true,
+      "detail": null
+    }
+  ],
+  "fingerprints": {
+    "active": "8da97111",
+    "disabled": "d9f1ba54"
+  },
+  "PRODUCTION_CHANGED": false,
+  "generatedAt": "2026-10-07T13:04:42.066Z"
+}

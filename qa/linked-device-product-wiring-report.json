@@ -1,0 +1,162 @@
+{
+  "gate": "LINKED_DEVICE_PRODUCT_WIRING",
+  "status": "PASS_WITH_E2E_PENDING",
+  "ts": "2026-10-08T10:33:48.685Z",
+  "results": {
+    "VERSION_899S15": {
+      "ok": true,
+      "detail": {
+        "version": "2026.10.05-web-899s.17"
+      }
+    },
+    "WEB_MODULE_PRESENT": {
+      "ok": true,
+      "detail": null
+    },
+    "VIDEOS_LOADS_MODULE": {
+      "ok": true,
+      "detail": null
+    },
+    "NO_ROOT_K_IN_QR_MODULE": {
+      "ok": true,
+      "detail": null
+    },
+    "ROOT_K_SENT_TO_DESKTOP_FALSE": {
+      "ok": true,
+      "detail": null
+    },
+    "NSEC_SENT_TO_DESKTOP_FALSE": {
+      "ok": true,
+      "detail": null
+    },
+    "PAIRING_REQUIRES_PHONE_NUMBER_BINDING_FALSE": {
+      "ok": true,
+      "detail": null
+    },
+    "FAKE_HISTORY_SYNC_FALSE": {
+      "ok": true,
+      "detail": null
+    },
+    "NO_FAKE_REVOKE_BUTTON": {
+      "ok": true,
+      "detail": null
+    },
+    "WEB_MD3_ISSUANCE_FALSE": {
+      "ok": true,
+      "detail": null
+    },
+    "MD2_NO_STATIC_FIXTURE_ZEROS": {
+      "ok": true,
+      "detail": null
+    },
+    "ANDROID_ENV_CLASSIFIED": {
+      "ok": true,
+      "detail": {
+        "ANDROID_LINKED_DEVICES_E2E": "ANDROID_UNIT_PASS_PRODUCT_E2E_PENDING",
+        "md3UnitPass": true
+      }
+    },
+    "DESKTOP_LINK_DEVICE_ENTRY_VISIBLE": {
+      "ok": true,
+      "detail": {
+        "hasLoginBtn": true,
+        "hasSettings": true,
+        "qrPrefix": true,
+        "parsedOk": true,
+        "secretOk": true,
+        "state": "WAITING",
+        "pairingIdLen": 64,
+        "webMd3": true,
+        "phoneBindRequired": true
+      }
+    },
+    "PHONE_LINKED_DEVICE_ENTRY_VISIBLE": {
+      "ok": true,
+      "detail": {
+        "hasLoginBtn": true,
+        "hasSettings": true,
+        "qrPrefix": true,
+        "parsedOk": true,
+        "secretOk": true,
+        "state": "WAITING",
+        "pairingIdLen": 64,
+        "webMd3": true,
+        "phoneBindRequired": true
+      }
+    },
+    "DESKTOP_PAIRING_QR_WORKS": {
+      "ok": true,
+      "detail": {
+        "hasLoginBtn": true,
+        "hasSettings": true,
+        "qrPrefix": true,
+        "parsedOk": true,
+        "secretOk": true,
+        "state": "WAITING",
+        "pairingIdLen": 64,
+        "webMd3": true,
+        "phoneBindRequired": true
+      }
+    },
+    "PHONE_EXPLICIT_APPROVAL_REQUIRED": {
+      "ok": true,
+      "detail": null
+    },
+    "PAIR_REPLAY_FIXTURE_REJECT_PATH": {
+      "ok": true,
+      "detail": null
+    },
+    "PAIR_EXPIRED_ACCEPTED": {
+      "ok": true,
+      "detail": {
+        "error": "EXPIRED"
+      }
+    },
+    "NEW_ACCOUNT_PAIRING_E2E": {
+      "ok": false,
+      "detail": {
+        "status": "PENDING_REAL_DEVICE_ACCOUNT",
+        "reason": "Emulator/device has PhoneIssuer path; full QR→approve→verify E2E needs logged-in primary identity on Android + desktop session",
+        "ANDROID_MD3_UNIT": "PASS"
+      }
+    },
+    "LEGACY_NO_PHONE_PAIRING_E2E": {
+      "ok": false,
+      "detail": {
+        "status": "PENDING_REAL_DEVICE_ACCOUNT",
+        "reason": "Emulator/device has PhoneIssuer path; full QR→approve→verify E2E needs logged-in primary identity on Android + desktop session",
+        "ANDROID_MD3_UNIT": "PASS"
+      }
+    },
+    "MD3_AUTHORIZATION_VERIFIED": {
+      "ok": true,
+      "detail": {
+        "WEB_MD3_ISSUANCE": false,
+        "ANDROID_UNIT_CRYPTO": "PASS",
+        "note": "Root schnorr DeviceAuthorization verified in Android unit tests; live product E2E separate"
+      }
+    }
+  },
+  "ANDROID_LINKED_DEVICES_E2E": "ANDROID_UNIT_PASS_PRODUCT_E2E_PENDING",
+  "DEVICE_REVOKE_PRODUCT_READY": false,
+  "HISTORY_SYNC_READY": false,
+  "LIVE_SYNC_READY": false,
+  "TEST_ENVIRONMENT_BLOCKERS": [],
+  "NEW_ACCOUNT_PAIRING_E2E": "PENDING_REAL_DEVICE_ACCOUNT",
+  "LEGACY_NO_PHONE_PAIRING_E2E": "PENDING_REAL_DEVICE_ACCOUNT",
+  "SAME_GLOBAL_P_AFTER_PAIRING": null,
+  "WEB_PAIRING_E2E": "QR_SESSION_PASS",
+  "MD1_GATE": "PASS",
+  "MD2_GATE": "WEB_PRESENTATION_PLUS_SESSION",
+  "MD3_GATE": "ANDROID_UNIT_PASS",
+  "SECURITY_BLOCKERS": [
+    "MD3 DeviceAuthorization issuance is Android-native (no WebView authorize API by design)",
+    "Real Android↔desktop pairing E2E pending logged-in primary on device/emulator"
+  ],
+  "fails": [
+    "NEW_ACCOUNT_PAIRING_E2E",
+    "LEGACY_NO_PHONE_PAIRING_E2E"
+  ],
+  "pass": 19,
+  "fail": 2
+}

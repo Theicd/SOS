@@ -1,0 +1,170 @@
+{
+  "gate": "MD4_S5_SECURITY_NEGATIVES",
+  "runId": "f1ee1526-ec87-47dc-b66b-65bb6390c0ac",
+  "ts": "2026-10-10T20:16:55.888Z",
+  "pass": 25,
+  "fail": 0,
+  "results": {
+    "STATIC_ATTACH_MODULE": {
+      "ok": true,
+      "detail": null
+    },
+    "STATIC_HIST_WIRES_ATTACH": {
+      "ok": true,
+      "detail": null
+    },
+    "STATIC_S4_ACK_PRESERVED": {
+      "ok": true,
+      "detail": null
+    },
+    "STATIC_NO_ROOT_EXPORT": {
+      "ok": true,
+      "detail": null
+    },
+    "STATIC_NO_KEY_IN_JOB": {
+      "ok": true,
+      "detail": null
+    },
+    "STATIC_SSRF_GUARD": {
+      "ok": true,
+      "detail": null
+    },
+    "STATIC_PLAINTEXT_ACK_STILL_REJECTED": {
+      "ok": true,
+      "detail": null
+    },
+    "ORIGIN_UNCHANGED": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_JOB_BUILDS": {
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "job": {
+          "v": 1,
+          "protocol": "sos-history-attach-v1",
+          "id": "7ca9dca7f52b43c5d3f244bd065cc9ac8b970272a6a8df2620f6fcc4e29615f5:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:46eafffb288464cd6c147f4c829a42c9",
+          "collectionId": "hist-attach-v1",
+          "accountP": "7ca9dca7f52b43c5d3f244bd065cc9ac8b970272a6a8df2620f6fcc4e29615f5",
+          "deviceId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "authorizationId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "authEpoch": 1,
+          "sessionId": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "exportSessionId": "",
+          "peerP": "7a4f961a1c559e3362abc205734741155e053345c3e61c72e81dfacb687a160a",
+          "eventId": "1111111111111111111111111111111111111111111111111111111111111111",
+          "messageId": "cmsg-s5-neg-1",
+          "sender": "7ca9dca7f52b43c5d3f244bd065cc9ac8b970272a6a8df2620f6fcc4e29615f5",
+          "recipient": "7a4f961a1c559e3362abc205734741155e053345c3e61c72e81dfacb687a160a",
+          "attachmentId": "46eafffb288464cd6c147f4c829a42c9",
+          "cipherSize": 28,
+          "cipherSha256": "5bb9b6f92ab78cbc506abc3a146f96a46949fc428eb20174647d6d9ed44dff35",
+          "mime": "image/png",
+          "filename": "pic.png",
+          "availability": "BLOSSOM",
+          "resourceUrl": "https://blossom.example/ciphertext.bin",
+          "hasP2p": false,
+          "state": "PENDING",
+          "bytesReceived": 0,
+          "retries": 0,
+          "updatedAtMs": 1791663415666,
+          "errorCode": ""
+        },
+        "attachment": {
+          "v": 2,
+          "type": "encrypted-media",
+          "attachmentId": "46eafffb288464cd6c147f4c829a42c9",
+          "enc": {
+            "alg": "aes-256-gcm",
+            "mode": "single",
+            "key": "WhnuXP1u9DQAoux9xk1SWfc4hajTFAsAnx6JG8zVhug",
+            "nonce": "beWL2x6t02BoJPIY"
+          },
+          "cipher": {
+            "size": 28,
+            "sha256": "5bb9b6f92ab78cbc506abc3a146f96a46949fc428eb20174647d6d9ed44dff35"
+          },
+          "media": {
+            "mime": "image/png",
+            "filename": "pic.png",
+            "originalSize": 12
+          },
+          "resource": {
+            "transport": "blossom",
+            "url": "https://blossom.example/ciphertext.bin",
+            "encoding": "raw"
+          }
+        }
+      }
+    },
+    "NEG_WRONG_DEVICE_BIND": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_WRONG_EPOCH_BIND": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_WRONG_AUTH_BIND": {
+      "ok": true,
+      "detail": null
+    },
+    "POS_BIND_OK": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_SSRF_METADATA": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_SSRF_FILE": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_BAD_FILENAME": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_BAD_MIME": {
+      "ok": true,
+      "detail": null
+    },
+    "POS_GOOD_FILENAME": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_OVERSIZED": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_TOMBSTONE_BLOCKS_JOB": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_PARTIAL_CIPHER_REJECT": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_MISSING_OUTER_SIG": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_CROSS_PROTOCOL": {
+      "ok": true,
+      "detail": null
+    },
+    "POS_AAD_DOMAIN_SEPARATED": {
+      "ok": true,
+      "detail": null
+    },
+    "NEG_JOB_NO_KEY_LEAK": {
+      "ok": true,
+      "detail": null
+    }
+  },
+  "STATUS": "PASS",
+  "SYNC_ACK_AUTHENTICATED": true,
+  "TOMBSTONE_OUTER_VERIFY": true,
+  "ROOT_K_ISOLATION": true
+}

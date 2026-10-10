@@ -1,0 +1,56 @@
+{
+  "gate": "MD4_S3_SECURITY_ISOLATION",
+  "runId": "3be43273-8ca2-41a9-b801-6015394a5686",
+  "ts": "2026-10-10T19:48:10.158Z",
+  "pass": 11,
+  "fail": 0,
+  "results": {
+    "COPY_ENC_PRIV_DEBUG_GATED": {
+      "ok": true,
+      "detail": null
+    },
+    "COPY_ENC_PRIV_NOT_ON_JSBRIDGE": {
+      "ok": true,
+      "detail": null
+    },
+    "BRIDGE_EXPORT_SEALED_ONLY": {
+      "ok": true,
+      "detail": null
+    },
+    "EXPORTER_NO_PLAINTEXT_KEYS_IN_PUBLIC_JSON": {
+      "ok": true,
+      "detail": null
+    },
+    "PHONE_SESSION_NO_ROOT_EXPORT": {
+      "ok": true,
+      "detail": null
+    },
+    "HIST_JS_NO_ROOT": {
+      "ok": true,
+      "detail": null
+    },
+    "PAIR_TRANSPORT_REJECTS_NON_PAIR_TAG": {
+      "ok": true,
+      "detail": null
+    },
+    "HIST_TRANSPORT_USES_HIST_TAG": {
+      "ok": true,
+      "detail": null
+    },
+    "FIXTURE_PRIV_NOT_IN_PRODUCT_RUNTIME": {
+      "ok": true,
+      "detail": null
+    },
+    "ORIGIN_UNCHANGED": {
+      "ok": true,
+      "detail": null
+    },
+    "S3_UNIT_CRYPTO_AND_CKI": {
+      "ok": true,
+      "detail": null
+    }
+  },
+  "STATUS": "PASS",
+  "TEST_ONLY_KEY_API_RELEASE_ISOLATION": true,
+  "PRODUCTION_BRIDGE_SECRET_ISOLATION": true
+}

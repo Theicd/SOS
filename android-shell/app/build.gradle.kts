@@ -70,6 +70,11 @@ dependencies {
     implementation("androidx.webkit:webkit:1.11.0")
     implementation("androidx.activity:activity-ktx:1.9.1")
     implementation("androidx.biometric:biometric:1.1.0")
+    implementation("androidx.camera:camera-camera2:1.3.4")
+    implementation("androidx.camera:camera-lifecycle:1.3.4")
+    implementation("androidx.camera:camera-view:1.3.4")
+    // On-device barcode model (no remote QR processing service).
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // P2P Native בשירות הרקע | HYPER CORE TECH

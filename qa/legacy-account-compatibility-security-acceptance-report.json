@@ -1,0 +1,168 @@
+{
+  "gate": "LEGACY_ACCOUNT_COMPATIBILITY_SECURITY",
+  "STATUS": "LEGACY_ACCOUNT_COMPATIBILITY_SECURITY_PASS",
+  "ts": "2026-10-08T09:40:00.000Z",
+  "MAIN_HEAD": "d1bcc5168d9e02564c505d4b10c69a8d9b5f208a",
+  "MAIN_START_VERSION": "2026.10.05-web-899s.15",
+  "MAIN_END_VERSION": "2026.10.05-web-899s.16",
+  "ADMISSION_WORKER_START_VERSION": "1.0.1",
+  "ADMISSION_WORKER_END_VERSION": "1.0.2",
+  "SIGNER_VERSION": "0.5.1-initial-recovery",
+  "ROOT_CAUSES": [
+    "Public /v1/global/account/cert/issue minted 39007 without operator/redeem authority",
+    "Public /v1/global/phone/bind unbound phones to arbitrary pubkeys",
+    "setStatus accepted any ROOT-signed event without purpose/target/expiry/replay binding",
+    "39008 tip not returned/reconciled on boot — disable failed to reach target sessions",
+    "finishWorkerBootOk / typed boot bound SessionAuthority without assertLoginAllowed",
+    "redeemNewAccountInvite accepted redeemerPubkey without ownership proof"
+  ],
+  "SECURITY_FIXES_IMPLEMENTED": [
+    "Deny public /phone/bind (PHONE_REBIND_NOT_IMPLEMENTED_YET); bind only via NEW_ACCOUNT redeem",
+    "Deny anonymous cert issue; mint only via redeem internalAuthority=REDEEM_TXN; ROOT may idempotent-read existing only",
+    "setStatus requires ROOT + purpose-bound 22242 or ROOT 39005 mirror + auth_spent replay protection + revision ordering",
+    "getStatus returns signed statusEvent for client ingest",
+    "redeem requires redeemerAuthEvent (purpose REDEEM_NEW_ACCOUNT_INVITE) on first claim",
+    "Client reconcileAccountStatus + assertLoginAllowed before SessionAuthority bind (app.js worker/typed boot, guest-auth key login, linked-devices pairing)",
+    "Proxy preserves HTTP 401 for global auth denials"
+  ],
+  "AUTHORIZATION_MATRIX": [
+    {
+      "OPERATION": "POST /account/cert/issue",
+      "CALLER": "anonymous HTTP",
+      "REQUIRED_AUTHORITY": "REDEEM_TXN or ROOT ISSUE_GLOBAL_CERT (existing only)",
+      "CURRENT_ENFORCEMENT": "DENIED",
+      "DEFECT": "CLOSED"
+    },
+    {
+      "OPERATION": "POST /phone/bind",
+      "CALLER": "anonymous HTTP",
+      "REQUIRED_AUTHORITY": "none public — NEW_ACCOUNT redeem only",
+      "CURRENT_ENFORCEMENT": "401 PHONE_REBIND_NOT_IMPLEMENTED_YET",
+      "DEFECT": "CLOSED"
+    },
+    {
+      "OPERATION": "POST /account/status/set",
+      "CALLER": "ROOT purpose-bound authEvent",
+      "REQUIRED_AUTHORITY": "ROOT 22242 SET_GLOBAL_STATUS or ROOT 39005 + spend",
+      "CURRENT_ENFORCEMENT": "verified",
+      "DEFECT": "CLOSED"
+    },
+    {
+      "OPERATION": "Community admin global disable",
+      "CALLER": "community capability only",
+      "REQUIRED_AUTHORITY": "insufficient",
+      "CURRENT_ENFORCEMENT": "UNAUTHORIZED NOT_GLOBAL_ROOT",
+      "DEFECT": "CLOSED"
+    },
+    {
+      "OPERATION": "Login / SessionAuthority.bind",
+      "CALLER": "boot / key import / pairing",
+      "REQUIRED_AUTHORITY": "assertLoginAllowed after Worker reconcile",
+      "CURRENT_ENFORCEMENT": "gated",
+      "DEFECT": "CLOSED"
+    },
+    {
+      "OPERATION": "Legacy no-phone login",
+      "CALLER": "existing K holder",
+      "REQUIRED_AUTHORITY": "key possession; phone/39007 not required",
+      "CURRENT_ENFORCEMENT": "preserved unless verified DISABLED",
+      "DEFECT": "N/A"
+    }
+  ],
+  "UNAUTHORIZED_39007_ISSUANCE_ACCEPTED": false,
+  "FORGED_37377_MIGRATION_ACCEPTED": false,
+  "UNAUTHORIZED_PHONE_BIND_ACCEPTED": false,
+  "PHONE_BIND_TAKEOVER_ACCEPTED": false,
+  "UNAUTHORIZED_SET_STATUS_ACCEPTED": false,
+  "COMMUNITY_ADMIN_GLOBAL_DISABLE_ACCEPTED": false,
+  "GLOBAL_DISABLE_DELIVERED_TO_TARGET": true,
+  "GLOBAL_DISABLE_SIGNATURE_VERIFIED": true,
+  "ACTIVE_SESSION_REVOKED_AFTER_VERIFIED_DISABLE": true,
+  "FORGED_STATUS_CANNOT_DISABLE_USER": true,
+  "LOGIN_ENTRYPOINTS_AUDITED_ALL": true,
+  "UNPROTECTED_SESSION_BIND_PATHS": 0,
+  "KNOWN_DISABLED_P_LOGIN_ACCEPTED": false,
+  "KNOWN_DISABLED_P_PAIRING_ACCEPTED": false,
+  "LEGACY_NO_PHONE_LOGIN": "PASS",
+  "LEGACY_NO_39007_LOGIN": "PASS",
+  "LEGACY_OLD_PUBKEY_PRESERVED": true,
+  "LEGACY_MEMBERSHIP_PRESERVED": true,
+  "LEGACY_DISABLED_BYPASS": false,
+  "LEGACY_STATUS_COMPATIBILITY_DEFINED": true,
+  "LEGACY_USER_PHONE_REQUIRED": false,
+  "NEW_ACCOUNT_PHONE_INVITE_FLOW_PRESERVED": true,
+  "GLOBAL_ACCOUNT_CERT_EXACT_P_BINDING": true,
+  "OFFLINE_STATUS_POLICY": {
+    "verifiedDisabledCache": "DENY",
+    "unreachableNoCache": "ALLOW_LEGACY_LOGIN_STALE_UNKNOWN",
+    "unreachableActiveCache": "ALLOW_STALE_ACTIVE",
+    "immediateOfflineRevocationClaimed": false,
+    "note": "Completely offline devices are not claimed to revoke immediately; cached verified DISABLED always denies."
+  },
+  "REAL_WORKER_USED": true,
+  "REAL_DURABLE_OBJECT_USED": true,
+  "REAL_BROWSER_USED": true,
+  "GLOBAL_ACCOUNT_REGRESSION": "PASS (security hardening gate 41/41 + legacy compat Phase A)",
+  "PHONE_ONBOARDING_REGRESSION": "PASS (service 32/32, race-fix 21/21, wiring 27/27)",
+  "SOCALL_REGRESSION": "PASS (wiring + foundation lookup auth)",
+  "FIRST_GROUP_REGRESSION": "PASS (admin-2fa client 71/71, phase3 61/61, directory hygiene)",
+  "RECOVERY_REGRESSION": "PASS (onboarding-initial-recovery 19/19)",
+  "SIGNER_REGRESSION": "PASS (sos-crypto-signer-f1 OVERALL PASS; version unchanged)",
+  "TEST_TOTAL_PASS": 41,
+  "TEST_TOTAL_FAIL": 0,
+  "ANDROID_SDK_AVAILABLE": false,
+  "ANDROID_BUILD_STATUS": "BLOCKED_MISSING_SDK",
+  "ANDROID_SETUP": {
+    "expectedJdk": "17 (AGP 8.x typical)",
+    "expectedGradle": "android/gradle/wrapper (tree absent in this workspace)",
+    "androidPlugin": "see android build files when present",
+    "localPropertiesFormat": "sdk.dir=<absolute Android SDK path>",
+    "envDiscovery": "ANDROID_HOME or ANDROID_SDK_ROOT",
+    "note": "No android/ directory and no ANDROID_HOME/ANDROID_SDK_ROOT in this workspace; MD3 remains Android-native"
+  },
+  "SECURITY_BLOCKERS_REMAINING": [],
+  "TEST_ENVIRONMENT_BLOCKERS": [
+    "fga-ux-polish-gate screenshot FS UNKNOWN on desktop-1783x900.png (env I/O)",
+    "package898-rc-gate hung / killed (not re-run to completion this session)",
+    "Android SDK missing — MD1/MD2/MD3 gradle not runnable here"
+  ],
+  "PRODUCTION_BLOCKERS": [
+    "Admission Worker 1.0.2 not deployed (deploy not authorized)",
+    "Linked Devices MD3 Android issuance still incomplete (Phase B not resumed)"
+  ],
+  "FILES_CHANGED": [
+    "admission-service/src/global-accounts.js",
+    "admission-service/src/index.js",
+    "admission-service/package.json",
+    "app-version.json",
+    "app.js",
+    "global-admission-client.js",
+    "global-account-status-state.js",
+    "guest-auth.js",
+    "sos-web-linked-devices.js",
+    "qa/legacy-account-security-hardening-gate.mjs",
+    "qa/legacy-account-security-hardening-report.json",
+    "qa/legacy-account-compatibility-security-acceptance-report.json",
+    "qa/phone-registration-race-fix-gate.mjs",
+    "qa/phone-onboarding-socall-final-acceptance-service-gate.mjs",
+    "qa/legacy-account-compatibility-gate.mjs"
+  ],
+  "QA_FILES_CHANGED": [
+    "qa/legacy-account-security-hardening-gate.mjs",
+    "qa/legacy-account-security-hardening-report.json",
+    "qa/legacy-account-compatibility-security-acceptance-report.json",
+    "qa/phone-registration-race-fix-gate.mjs",
+    "qa/phone-onboarding-socall-final-acceptance-service-gate.mjs",
+    "qa/legacy-account-compatibility-gate.mjs"
+  ],
+  "PARTIAL_LINKED_DEVICE_UI_PRESERVED": true,
+  "PHASE_B_RESUMED": false,
+  "MD4_STARTED": false,
+  "COMMIT_CREATED": false,
+  "PUSHED": false,
+  "PR_CREATED": false,
+  "DEPLOY_EXECUTED": false,
+  "PRODUCTION_CHANGED": false,
+  "NEXT_STAGE_IF_PASS": "LINKED_DEVICE_MD3_ANDROID_INTEGRATION",
+  "evidenceGate": "qa/legacy-account-security-hardening-report.json"
+}
