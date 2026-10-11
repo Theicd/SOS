@@ -1188,13 +1188,29 @@
    * Sole product owner for primary Linked Devices actions.
    * Replaces the node to drop any legacy MD2 addEventListener handlers.
    */
+  function ensureLinkedDevicesMenuIcon(btn) {
+    if (!btn) return;
+    let ico = btn.querySelector('i');
+    if (!ico) {
+      ico = document.createElement('i');
+      ico.setAttribute('aria-hidden', 'true');
+      btn.insertBefore(ico, btn.firstChild);
+    }
+    // fa-laptop-mobile is missing in some FA kits used by SOS — use desktop (always present).
+    ico.className = 'fa-solid fa-desktop';
+  }
+
   function claimPrimaryLinkControl(el) {
     if (!el || !el.parentNode) return null;
-    if (el.getAttribute('data-sos-ld-owner') === '1' && el.__sosLdPrimaryBound) return el;
+    if (el.getAttribute('data-sos-ld-owner') === '1' && el.__sosLdPrimaryBound) {
+      ensureLinkedDevicesMenuIcon(el);
+      return el;
+    }
     const clean = el.cloneNode(true);
     clean.setAttribute('data-sos-ld-owner', '1');
     clean.onclick = null;
     el.parentNode.replaceChild(clean, el);
+    ensureLinkedDevicesMenuIcon(clean);
     const onPrimary = function (e) {
       if (e) {
         e.preventDefault();
@@ -1258,6 +1274,7 @@
       });
       const ldMenu = document.getElementById('topBarLinkedDevices');
       if (ldMenu) {
+        ensureLinkedDevicesMenuIcon(ldMenu);
         const span = ldMenu.querySelector('span');
         if (span) span.textContent = cls.role === 'DESKTOP_DESTINATION' ? 'קישור מחשב לטלפון' : 'מכשירים מקושרים';
       }
@@ -1304,12 +1321,19 @@
         ldBtn.type = 'button';
         ldBtn.id = 'topBarLinkedDevices';
         ldBtn.className = 'top-bar__dropdown-item';
-        ldBtn.innerHTML = '<i class="fa-solid fa-laptop-mobile"></i><span>מכשירים מקושרים</span>';
+        ldBtn.innerHTML =
+          '<i class="fa-solid fa-desktop" aria-hidden="true"></i><span>מכשירים מקושרים</span>';
         const invite = document.getElementById('topBarInviteFriend');
         if (invite && invite.parentNode) invite.parentNode.insertBefore(ldBtn, invite.nextSibling);
-        else menu.appendChild(ldBtn);
+        else {
+          const before = document.getElementById('pwa-install-menu-btn') || document.getElementById('topBarP2pStats');
+          if (before && before.parentNode) before.parentNode.insertBefore(ldBtn, before);
+          else menu.appendChild(ldBtn);
+        }
       }
+      ensureLinkedDevicesMenuIcon(ldBtn);
       claimPrimaryLinkControl(document.getElementById('topBarLinkedDevices'));
+      ensureLinkedDevicesMenuIcon(document.getElementById('topBarLinkedDevices'));
 
       // Hide legacy MD2 menu item — do not keep a second overlapping owner.
       const legacyMd2 = document.getElementById('topBarMd2Pairing');
