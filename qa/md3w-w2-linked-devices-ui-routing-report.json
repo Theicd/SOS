@@ -1,0 +1,172 @@
+{
+  "status": "PASS",
+  "runId": "6f04aec8-a08b-457e-aa5a-472b4a673e0b",
+  "moduleSha16": {
+    "linkedDevices": "A237B246118824BC",
+    "md2Qr": "366FFDF8916759A4",
+    "scanner": "E9C258E3B445A215"
+  },
+  "checks": [
+    {
+      "name": "CLASSIFY_HELPER",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "PRIMARY_ACTION_HELPER",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MOBILE_ACTION_HELPER",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ROLE_CHOOSER",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "WIREUI_USES_PRIMARY",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "SINGLE_EVENT_OWNER_CLAIM",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NO_WIREUI_ALWAYS_DESKTOP_QR",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MD2_NO_PRODUCT_MENU",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MD2_NO_SYNTHETIC_FALLBACK",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MD2_LEGACY_MODAL_DISABLED",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MD2_NO_AUTO_MENU",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NO_RAW_SOSPAIR1_TEXTAREA",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NO_AMET_TEXT_BUTTON",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "SCANNER_MODULE_PRESENT",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "DECODE_NOT_AUTH",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MOBILE_LABEL",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "DESKTOP_LABEL",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NATIVE_SHELL_OPENS_SETTINGS",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "VIDEOS_CACHE_BUST_899S9",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "VIDEOS_NO_STALE_LEGACY_MD2_ONLY",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "API_EXPORTED",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "DESKTOP_CLASS",
+      "ok": true,
+      "detail": "FINE_POINTER_HOVER"
+    },
+    {
+      "name": "MOBILE_CLASS",
+      "ok": true,
+      "detail": "PHONE_CAPABILITY"
+    },
+    {
+      "name": "NATIVE_CLASS",
+      "ok": true,
+      "detail": "NATIVE_SHELL"
+    },
+    {
+      "name": "AMBIGUOUS_TABLET",
+      "ok": true,
+      "detail": "TABLET_OR_DUAL_INPUT"
+    },
+    {
+      "name": "FORCE_DESKTOP_CLASS",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "FORCE_DESKTOP_PATH_WIRED",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "FORCE_MOBILE_CLASS",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "FORCE_MOBILE_OPENS_SCANNER",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "AMBIGUOUS_STILL",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "PRIMARY_ACTION_EXPORT",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "CHOOSER_WIRED_IN_PRIMARY",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "failed": []
+}

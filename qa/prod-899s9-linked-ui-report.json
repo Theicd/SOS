@@ -1,0 +1,104 @@
+{
+  "status": "PASS",
+  "runId": "0cab01f9-1b3a-48c0-87e9-4b6e891d27fa",
+  "version": "2026.10.11-web-899s.9",
+  "moduleSha16": {
+    "linkedDevices": "A237B246118824BC",
+    "md2Qr": "366FFDF8916759A4",
+    "scanner": "E9C258E3B445A215",
+    "session": "B945FD9E7CD0A08B"
+  },
+  "checks": [
+    {
+      "name": "VERSION_899S9",
+      "ok": true,
+      "detail": "2026.10.11-web-899s.9"
+    },
+    {
+      "name": "SW_CACHE_899S9",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "SW_REGISTER_899S9",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "VIDEOS_WIRED",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "VIDEOS_SCANNER",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "VIDEOS_SESSION",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NO_LEGACY_MD2_MODAL",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NO_SYNTHETIC",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "SINGLE_OWNER",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NO_W1B_SCRIPTS",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NO_W3_SCRIPTS",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "JSQR_PRESENT",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "DECODE_NOT_AUTH",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "WEB_MD3_DEFAULT_FALSE",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "UPDATE_NOW_LABEL",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "UPDATE_SHOWS_VERSION",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "API",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MOBILE_OPENS_SCANNER",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "failed": []
+}

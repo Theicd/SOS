@@ -815,18 +815,22 @@
       return;
     }
 
+    const remoteLabel = String(pendingRemoteAppVersion || '').trim();
     const toast = document.createElement('div');
     toast.id = 'pwa-update-toast';
     toast.className = 'pwa-update-toast';
+    toast.setAttribute('dir', 'rtl');
+    toast.setAttribute('role', 'dialog');
+    toast.setAttribute('aria-label', 'עדכון גרסה');
     toast.innerHTML = `
       <img src="./icons/sos-logo-mobile.png?v=20260802ac" alt="SOS" class="pwa-update-toast__logo">
       <div class="pwa-update-toast__content">
-        <span class="pwa-update-toast__title">גרסה חדשה זמינה!</span>
-        <span class="pwa-update-toast__subtitle">עדכן כדי ליהנות משיפורים ותכונות חדשות</span>
+        <span class="pwa-update-toast__title">גרסה חדשה זמינה</span>
+        <span class="pwa-update-toast__subtitle">${remoteLabel ? `גרסה ${remoteLabel} מוכנה להתקנה` : 'עדכון ממשק חדש מוכן להתקנה'}</span>
       </div>
       <div class="pwa-update-toast__actions">
         <button type="button" class="pwa-update-toast__later">אח״כ</button>
-        <button type="button" class="pwa-update-toast__now">עדכן</button>
+        <button type="button" class="pwa-update-toast__now">עדכן עכשיו</button>
       </div>
     `;
 
@@ -843,6 +847,19 @@
     
     toast.querySelector('.pwa-update-toast__now').onclick = async (e) => {
       try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
+      // Defer reload while Linked Devices pairing/scan UI is active.
+      try {
+        const busy =
+          (document.getElementById('sosLinkedPairPanel') && !document.getElementById('sosLinkedPairPanel').hidden) ||
+          (document.getElementById('sosLinkedScanPanel') && !document.getElementById('sosLinkedScanPanel').hidden);
+        if (busy) {
+          writeSessionFlag(UPDATE_LATER_KEY, pendingRemoteAppVersion || readStoredAppVersion() || 'sw');
+          try { window.alert('מבצעים קישור מכשירים כעת. העדכון יידחה עד שתסיימו או תבטלו.'); } catch (_) {}
+          toast.classList.remove('pwa-update-toast--visible');
+          setTimeout(() => toast.remove(), 300);
+          return;
+        }
+      } catch (_) {}
       clearSessionFlag(UPDATE_LATER_KEY);
       try { sessionStorage.removeItem('pwa_just_updated'); } catch (_) {}
       let version = pendingRemoteAppVersion;

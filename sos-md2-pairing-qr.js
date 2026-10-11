@@ -110,89 +110,27 @@
     return qrText;
   }
 
-  function openPairingQrPanel(payload) {
-    let el = document.getElementById('sosMd2PairingPanel');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'sosMd2PairingPanel';
-      el.innerHTML = `
-        <div class="sos-md2-qr__backdrop" data-md2-close></div>
-        <div class="sos-md2-qr__panel" role="dialog" aria-modal="true">
-          <header><h2>קישור מכשיר (MD2)</h2>
-            <button type="button" data-md2-close aria-label="סגור">×</button></header>
-          <p>QR ציבורי בלבד (SOSPAIR1). ללא מפתח שורש.</p>
-          <canvas id="sosMd2QrCanvas" width="240" height="240"></canvas>
-          <textarea id="sosMd2QrText" rows="4" style="width:100%;margin-top:10px;font-size:11px;"></textarea>
-          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
-            <button type="button" class="button-primary" id="sosMd2ParseBtn">אמת טקסט</button>
-            <button type="button" class="button-secondary" data-md2-close>סגור</button>
-          </div>
-          <p id="sosMd2ParseStatus" style="min-height:1.2em;"></p>
-          <p style="font-size:12px;opacity:.75;">יצירת מפתחות מכשיר / אישור פיזי — Android (דחוי).</p>
-        </div>`;
-      const style = document.createElement('style');
-      style.textContent = `
-        #sosMd2PairingPanel{position:fixed;inset:0;z-index:12010;display:flex;align-items:center;justify-content:center}
-        #sosMd2PairingPanel[hidden]{display:none!important}
-        .sos-md2-qr__backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55)}
-        .sos-md2-qr__panel{position:relative;background:#111;color:#fff;border-radius:14px;padding:18px;max-width:380px;width:92%}
-        .sos-md2-qr__panel header{display:flex;justify-content:space-between;align-items:center}
-        #sosMd2QrCanvas{display:block;margin:12px auto;background:#fff;border-radius:8px}
-      `;
-      document.head.appendChild(style);
-      document.body.appendChild(el);
-      el.addEventListener('click', (e) => {
-        if (e.target && e.target.hasAttribute('data-md2-close')) {
-          el.hidden = true;
-        }
-      });
-      document.getElementById('sosMd2ParseBtn').onclick = () => {
-        const text = document.getElementById('sosMd2QrText').value;
-        const res = parseQr(text);
-        const st = document.getElementById('sosMd2ParseStatus');
-        st.textContent = res.ok ? 'תקין: ' + res.payload.pairingId.slice(0, 12) + '…' : 'שגיאה: ' + res.error;
-      };
-    }
-    el.hidden = false;
-    const canvas = document.getElementById('sosMd2QrCanvas');
-    const ta = document.getElementById('sosMd2QrText');
-    Promise.resolve(renderPairingQrToCanvas(canvas, payload)).then((qr) => {
-      ta.value = qr;
-    }).catch((err) => {
-      document.getElementById('sosMd2ParseStatus').textContent = String(err.message || err);
-    });
+  /**
+   * Legacy product modal DISABLED.
+   * Product Linked Devices UX is owned exclusively by sos-web-linked-devices.js.
+   * Low-level encode/parse/render remain; this never creates synthetic QR or menu entries.
+   */
+  function openPairingQrPanel(_payload) {
+    try {
+      const stale = typeof document !== 'undefined' ? document.getElementById('sosMd2PairingPanel') : null;
+      if (stale) stale.hidden = true;
+    } catch (_h) {}
+    try {
+      if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+        window.alert('קישור מכשירים זמין רק דרך מסך קישור המכשירים המעודכן.');
+      }
+    } catch (_a) {}
+    return { ok: false, code: 'LEGACY_MD2_PRODUCT_UI_DISABLED', SYNTHETIC_QR: false };
   }
 
+  /** No product menu registration — WebLinkedDevices is the sole event owner. */
   function ensureMenuEntry() {
-    const menu = document.getElementById('topBarProfileMenu');
-    if (!menu || document.getElementById('topBarMd2Pairing')) return;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.id = 'topBarMd2Pairing';
-    btn.className = 'top-bar__dropdown-item';
-    btn.innerHTML = '<i class="fa-solid fa-qrcode"></i><span>קישור מכשיר (QR)</span>';
-    btn.addEventListener('click', () => {
-      menu.hidden = true;
-      // Demo/public fixture only — real D pubs come from Android MD1 store later.
-      const fixture = {
-        protocolVersion: PROTOCOL_VERSION,
-        pairingId: '0'.repeat(32),
-        D_sign_pub: '02' + '11'.repeat(32),
-        D_enc_pub: '03' + '22'.repeat(32),
-        E_ephemeral_pub: '04' + '33'.repeat(32),
-        nonce: '55'.repeat(32),
-        expiresAt: Date.now() + 120000,
-        purpose: 'LINK',
-        deviceId: 'web-ui-fixture',
-        storageClass: 'WEB_PRESENTATION_ONLY',
-        recoveryEligible: false,
-        hardwareBacked: false,
-      };
-      openPairingQrPanel(fixture);
-    });
-    const invite = document.getElementById('topBarInviteFriend');
-    if (invite && invite.parentNode) invite.parentNode.insertBefore(btn, invite.nextSibling);
-    else menu.appendChild(btn);
+    return { ok: false, code: 'MD2_PRODUCT_MENU_DISABLED' };
   }
 
   App.Md2PairingQr = {
@@ -203,10 +141,10 @@
     secretScan,
     renderPairingQrToCanvas,
     openPairingQrPanel,
+    ensureMenuEntry,
+    PRODUCT_UI_OWNER: 'WebLinkedDevices',
+    LEGACY_MD2_PRODUCT_UI: false,
+    SYNTHETIC_QR_FALLBACK: false,
   };
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', ensureMenuEntry);
-  } else {
-    ensureMenuEntry();
-  }
+  window.SosMd2PairingQr = App.Md2PairingQr;
 })(window);
