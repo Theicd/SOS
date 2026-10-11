@@ -1,0 +1,35 @@
+{
+  "slice": "UX4",
+  "date": "2026-10-11",
+  "baselineMain": "4107bbbd0cb10d976054205674f2c5d4a1914c7c",
+  "baselineWeb": "2026.10.11-web-899s.10",
+  "targetWeb": "2026.10.11-web-899s.11",
+  "adbDevices": [],
+  "xiaomiAttached": false,
+  "apkInstalledObserved": { "versionName": "1.0.127", "versionCode": 128, "note": "pre-session observation; device not attached this run" },
+  "qaApkBump": { "versionName": "1.0.128", "versionCode": 129, "productionDistribution": false },
+  "guestWelcome": {
+    "onlyContinueButton": true,
+    "autoRefreshExpiredQr": true,
+    "removed": ["קוד חדש", "התחברות / הרשמה"]
+  },
+  "androidImportRootCauseHypothesis": [
+    "writeIdentitySameAccount refused DIFFERENT_IDENTITY_OVERWRITE / EXISTING_CORRUPT when prior sealed blob existed and metadata clear was incomplete",
+    "nsec Uint8Array decode could fail when NostrTools.utils.bytesToHex missing in WebView → INVALID_KEY / המפתח לא תקין",
+    "hebrewError previously collapsed UNTRUSTED_ORIGIN/SECURE_STORE/SESSION_BIND into generic failure"
+  ],
+  "androidImportFixes": [
+    "SosExistingKeyImport always clearSecureIdentity before explicit write",
+    "key-utils nsec Uint8Array hex fallback",
+    "distinct hebrew/error codes in import fix + guest-auth"
+  ],
+  "webT2": {
+    "productionScriptsLoaded": false,
+    "md4QaScripts": ["sos-web-phone-issuer.js", "sos-authorize-linked-device.js", "sos-ald-w1a-verify.js"],
+    "featureFlagDefault": false,
+    "productionEnablement": "NOT_AUTHORIZED",
+    "blocker": "Owner approval required for Production Signer T2 + Worker AUTHORIZE_LINKED_DEVICE"
+  },
+  "md4WorktreeUnchanged": true,
+  "signerWorktreeUnchanged": true
+}

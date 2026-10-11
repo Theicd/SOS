@@ -117,18 +117,23 @@ object SosExistingKeyImport {
             return Result(ok = false, code = CODE_INVALID_KEY)
         }
 
-        // Explicit account import/switch: clear prior sealed identity if different P.
+        // Explicit import replaces any prior sealed blob (different P, corrupt, or same-P re-seal).
+        // writeIdentitySameAccount alone refuses DIFFERENT_IDENTITY_OVERWRITE / CORRUPT — clear first.
         val existingPub = SosSecureIdentityStore.normalizeHex(
             SosSecureIdentityStore.getPublicIdentityMetadata(app).pubkey,
         )
-        if (SosSecureIdentityStore.isHex64(existingPub) && existingPub != derived) {
-            if (SosSecureIdentityStore.clearSecureIdentity(app) !is SosSecureIdentityStore.WriteResult.Ok) {
-                return Result(ok = false, code = CODE_SECURE_STORE_FAILED)
-            }
-            try {
-                sessionAuthority.revoke("existing_key_account_switch")
-            } catch (_: Exception) {
-            }
+        if (SosSecureIdentityStore.clearSecureIdentity(app) !is SosSecureIdentityStore.WriteResult.Ok) {
+            return Result(ok = false, code = CODE_SECURE_STORE_FAILED)
+        }
+        try {
+            sessionAuthority.revoke(
+                if (SosSecureIdentityStore.isHex64(existingPub) && existingPub != derived) {
+                    "existing_key_account_switch"
+                } else {
+                    "existing_key_import_replace"
+                },
+            )
+        } catch (_: Exception) {
         }
 
         SosSessionStore.setPubkey(app, derived)

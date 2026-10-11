@@ -53,11 +53,9 @@ class SosExistingKeyImportTest {
             return SosExistingKeyImport.Result(ok = false, code = SosExistingKeyImport.CODE_INVALID_KEY)
         }
         val derived = pubOf(norm)
-        val existing = SosSecureIdentityStore.normalizeHex(identityEng.getPublicIdentityMetadata().pubkey)
-        if (SosSecureIdentityStore.isHex64(existing) && existing != derived) {
-            identityEng.clearSecureIdentity()
-            sessionAuth.revoke("switch")
-        }
+        // Mirror production: explicit import always clears prior sealed identity first.
+        identityEng.clearSecureIdentity()
+        sessionAuth.revoke("existing_key_import_replace")
         when (val w = identityEng.writeIdentitySameAccount(norm, derived)) {
             is SosSecureIdentityStore.WriteResult.Ok -> {
                 currentPub.set(SosSecureIdentityStore.normalizeHex(w.pubkey))

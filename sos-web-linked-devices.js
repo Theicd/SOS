@@ -44,6 +44,7 @@
   let _durableAuth = null;
   let _pairing = null;
   let _pairTimer = null;
+  let _guestAutoRefreshBusy = false;
 
   function md4Auth() {
     return App.Md4DeviceAuth || window.SosMd4DeviceAuth;
@@ -182,14 +183,36 @@
     if (_pairTimer) clearInterval(_pairTimer);
     _pairTimer = setInterval(() => {
       if (!_pairing) return;
+      // Keep expiry countdown live on open panels.
+      try {
+        renderPairingUi();
+      } catch (_r) {}
       if (Date.now() > _pairing.expiresAt) {
+        const wasState = _pairing.state;
         _pairing.state = 'EXPIRED';
         try {
           _pairing._session && _pairing._session.stop();
         } catch (_e) {}
         renderPairingUi();
-        clearInterval(_pairTimer);
-        _pairTimer = null;
+        // Guest welcome: auto-mint a fresh session (never reuse expired; never during approval).
+        const welcome = document.getElementById('sosLdGuestWelcome');
+        const welcomeActive =
+          welcome &&
+          !welcome.hidden &&
+          window.__sosLdGuestWelcomeActive &&
+          wasState !== 'APPROVAL_PENDING' &&
+          wasState !== 'APPROVED';
+        if (welcomeActive && !_guestAutoRefreshBusy) {
+          _guestAutoRefreshBusy = true;
+          Promise.resolve(startPairingIntoUi(welcome))
+            .catch(function () {})
+            .then(function () {
+              _guestAutoRefreshBusy = false;
+            });
+        } else {
+          clearInterval(_pairTimer);
+          _pairTimer = null;
+        }
       }
     }, 1000);
     session
@@ -523,11 +546,18 @@
       if (result.code === 'NOT_AUTHENTICATED') {
         window.alert('הקוד זוהה. יש להתחבר לחשבון SOS כדי להמשיך לאישור הקישור.');
       } else if (result.ok && result.payload && result.WEB_MD3_ISSUANCE !== true && !result.nativeStarted) {
+        const label = String((result.payload && (result.payload.deviceLabel || result.payload.label)) || 'מחשב').slice(0, 48);
         const did = String((result.payload && result.payload.deviceId) || '').slice(0, 12);
+        const reason = String(result.code || result.MD3_ISSUANCE_PATH || 'WEB_T2_UNAVAILABLE');
         window.alert(
-          'הקוד זוהה' +
-            (did ? ' (מחשב ' + did + '…)' : '') +
-            '. הסריקה אינה מאשרת קישור. לאישור מאובטח השתמשו באפליקציית SOS בטלפון (Android).',
+          'מחשב זוהה' +
+            (label ? ': ' + label : '') +
+            (did ? ' (' + did + '…)' : '') +
+            '.\n\nהסריקה בלבד אינה מאשרת קישור.\n' +
+            'אישור מאובטח בדפדפן (Trusted Signer / T2) אינו פעיל כרגע בסביבה זו (' +
+            reason +
+            ').\n' +
+            'ניתן לאשר דרך אפליקציית SOS ל-Android כשזמינה, או לאחר הפעלת T2 מאושרת.',
         );
       }
     } catch (_ui) {}
@@ -1027,13 +1057,18 @@
         '<p class="sos-ld-status"></p><p class="sos-ld-expiry"></p>' +
         '<div class="sos-ld-actions">' +
         '<button type="button" class="button-primary" data-ld-continue-guest>המשך כאורח</button>' +
-        '<button type="button" class="button-secondary" data-ld-refresh>קוד חדש</button>' +
-        '<button type="button" class="button-secondary" data-ld-open-login>התחברות / הרשמה</button>' +
         '</div>' +
-        '<p class="sos-ld-footnote">אפשר לדפדף כאורח בלי קישור. קישור מאובטח דורש אישור בטלפון ואינו מתבצע מסריקה בלבד.</p>' +
+        '<p class="sos-ld-footnote">הקוד מתחדש אוטומטית כשפג תוקפו. אפשר לדפדף כאורח בלי קישור — קישור מאובטח דורש אישור בטלפון ואינו מתבצע מסריקה בלבד.</p>' +
         '</div>';
       document.body.appendChild(el);
       bindDesktopPairingControls(el, {});
+    } else {
+      // Ensure legacy secondary actions stay removed if an older DOM node is reused.
+      try {
+        el.querySelectorAll('[data-ld-refresh],[data-ld-open-login]').forEach(function (n) {
+          if (n && n.parentNode) n.parentNode.removeChild(n);
+        });
+      } catch (_rm) {}
     }
     el.hidden = false;
     try {
@@ -1045,6 +1080,7 @@
 
   function continueAsGuest() {
     markGuestContinued();
+    _guestAutoRefreshBusy = false;
     disposePairingSession();
     const welcome = document.getElementById('sosLdGuestWelcome');
     if (welcome) welcome.hidden = true;

@@ -663,16 +663,21 @@
           if (typeof App.switchAccountFromRawKey === 'function') {
             var switchedLogin = App.switchAccountFromRawKey(privateKey, { reload: false });
             if (!switchedLogin || !switchedLogin.ok) {
-              var errCode = (switchedLogin && (switchedLogin.code || switchedLogin.reason)) || '';
+              var errCode = (switchedLogin && (switchedLogin.code || switchedLogin.reason || switchedLogin.errorCode)) || '';
               var msg =
                 (switchedLogin && switchedLogin.hebrewError) ||
                 (typeof App.existingKeyImportHebrewError === 'function'
                   ? App.existingKeyImportHebrewError(errCode)
                   : '') ||
-                (switchedLogin && switchedLogin.state === 'IDENTITY_RECOVERY_REQUIRED'
-                  ? 'לא ניתן היה לחבר את החשבון. נסה שוב.'
-                  : 'המפתח שהוזן אינו תקין');
+                (errCode
+                  ? 'לא ניתן היה לחבר את החשבון (' + errCode + ')'
+                  : switchedLogin && switchedLogin.state === 'IDENTITY_RECOVERY_REQUIRED'
+                    ? 'לא ניתן היה לחבר את החשבון. נסה שוב.'
+                    : 'המפתח שהוזן אינו תקין');
               setStatus('loginStatus', msg, true);
+              try {
+                console.warn('LOGIN_IMPORT_FAIL code=' + String(errCode || 'UNKNOWN').slice(0, 64));
+              } catch (_le) {}
               return;
             }
             App.guestMode = false;

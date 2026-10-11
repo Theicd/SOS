@@ -143,16 +143,23 @@
   function hebrewError(code) {
     switch (String(code || '')) {
       case 'INVALID_KEY':
-        return 'המפתח שהוזן אינו תקין';
+        return 'המפתח שהוזן אינו תקין (INVALID_KEY)';
       case 'UNTRUSTED_ORIGIN':
+        return 'ייבוא חסום: מקור הדף אינו מהימן (UNTRUSTED_ORIGIN)';
       case 'SECURE_STORE_FAILED':
+        return 'שמירת הזהות במאגר המאובטח נכשלה (SECURE_STORE_FAILED)';
       case 'SESSION_BIND_FAILED':
+        return 'קישור סשן מקומי נכשל (SESSION_BIND_FAILED)';
       case 'ACCOUNT_MISMATCH':
+        return 'אי-התאמה בזהות המיובאת (ACCOUNT_MISMATCH)';
       case 'IMPORT_IN_PROGRESS':
+        return 'ייבוא כבר בתהליך — המתינו רגע (IMPORT_IN_PROGRESS)';
       case 'NATIVE_CRYPTO_FAILED':
-        return 'לא ניתן היה לחבר את החשבון. נסה שוב.';
+        return 'כשל קריפטו מקומי בייבוא (NATIVE_CRYPTO_FAILED)';
+      case 'ACCOUNT_SWITCH_BLOCKED_NO_RECOVERY_BACKUP':
+        return 'נדרש גיבוי מפתח לפני החלפת חשבון';
       default:
-        return 'לא ניתן היה לחבר את החשבון. נסה שוב.';
+        return 'לא ניתן היה לחבר את החשבון (' + String(code || 'UNKNOWN') + ')';
     }
   }
 

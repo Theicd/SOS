@@ -37,11 +37,25 @@
       try {
         const decoded = nip19.decode(trimmed);
         if (decoded?.type === 'nsec') {
-          if (typeof decoded.data === 'string') {
+          if (typeof decoded.data === 'string' && /^[0-9a-fA-F]{64}$/.test(decoded.data)) {
             return decoded.data.toLowerCase();
           }
-          if (decoded.data instanceof Uint8Array && typeof bytesToHex === 'function') {
-            return bytesToHex(decoded.data).toLowerCase();
+          const bytes =
+            decoded.data instanceof Uint8Array
+              ? decoded.data
+              : Array.isArray(decoded.data)
+                ? Uint8Array.from(decoded.data)
+                : null;
+          if (bytes && bytes.length === 32) {
+            if (typeof bytesToHex === 'function') {
+              return bytesToHex(bytes).toLowerCase();
+            }
+            // Fallback when NostrTools.utils.bytesToHex is unavailable (some WebView loads).
+            let hex = '';
+            for (let i = 0; i < bytes.length; i++) {
+              hex += bytes[i].toString(16).padStart(2, '0');
+            }
+            return hex;
           }
         }
       } catch (err) {

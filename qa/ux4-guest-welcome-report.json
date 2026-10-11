@@ -1,0 +1,68 @@
+{
+  "status": "PASS",
+  "runId": "4d14f644-98b5-4c4e-b536-e9641cbf7d5c",
+  "version": "2026.10.11-web-899s.11",
+  "checks": [
+    {
+      "name": "VERSION_899S11",
+      "ok": true,
+      "detail": "2026.10.11-web-899s.11"
+    },
+    {
+      "name": "SW_899S11",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "VIDEOS_899S11",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "GUEST_CONTINUE_ONLY",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "WELCOME_HAS_CONTINUE",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "WELCOME_HTML_NO_REFRESH",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "WELCOME_HTML_NO_LOGIN",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "GUEST_AUTO_REFRESH",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "T2_TRUTHFUL_MSG",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NO_W1B_ON_PROD_HTML",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NSEC_UINT8_FALLBACK",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "WEB_MD3_OFF",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "failed": []
+}
