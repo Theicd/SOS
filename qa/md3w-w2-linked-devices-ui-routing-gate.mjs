@@ -38,13 +38,27 @@ check('PRIMARY_ACTION_HELPER', /function openLinkedDevicesPrimaryAction/.test(ld
 check('MOBILE_ACTION_HELPER', /function openMobilePrimaryLinkAction/.test(ld));
 check('ROLE_CHOOSER', /sosLdRoleChooser|openRoleChooserPanel/.test(ld));
 check('WIREUI_USES_PRIMARY', /openLinkedDevicesPrimaryAction\(\)/.test(ld) && /topBarMd2Pairing/.test(ld));
+check('SINGLE_EVENT_OWNER_CLAIM', /function claimPrimaryLinkControl/.test(ld) && /cloneNode\(true\)/.test(ld));
 check('NO_WIREUI_ALWAYS_DESKTOP_QR', !/topBarMd2Pairing[\s\S]{0,200}openDesktopPairingPanel\(\)/.test(ld));
-check('MD2_MENU_USES_PRIMARY', /openLinkedDevicesPrimaryAction/.test(md2));
+check('MD2_NO_PRODUCT_MENU', /MD2_PRODUCT_MENU_DISABLED|PRODUCT_UI_OWNER:\s*'WebLinkedDevices'/.test(md2));
+check('MD2_NO_SYNTHETIC_FALLBACK', !/openPairingQrPanel\(\s*\{/.test(md2) && /SYNTHETIC_QR_FALLBACK:\s*false/.test(md2));
+check('MD2_LEGACY_MODAL_DISABLED', /LEGACY_MD2_PRODUCT_UI_DISABLED/.test(md2) && !/קישור מכשיר \(MD2\)/.test(md2));
+check('MD2_NO_AUTO_MENU', !/DOMContentLoaded',\s*ensureMenuEntry/.test(md2) && !/ensureMenuEntry\(\);\s*\n\}\)\(window\)/.test(md2));
+check('NO_RAW_SOSPAIR1_TEXTAREA', !/sosLinkedPairText/.test(ld) && !/sosMd2QrText/.test(md2));
+check('NO_AMET_TEXT_BUTTON', !/אמת טקסט/.test(md2) && !/אמת טקסט/.test(ld));
 check('SCANNER_MODULE_PRESENT', /startLinkedDeviceQrScan/.test(scanner));
 check('DECODE_NOT_AUTH', /DECODE_IS_NOT_AUTHORIZATION:\s*true/.test(ld));
 check('MOBILE_LABEL', /סריקת QR לקישור מחשב/.test(ld));
-check('DESKTOP_LABEL', /קישור טלפון למחשב/.test(ld));
+check('DESKTOP_LABEL', /קישור מחשב באמצעות הטלפון/.test(ld));
 check('NATIVE_SHELL_OPENS_SETTINGS', /openLinkedDevicesSettings/.test(ld) && /NATIVE_SHELL|ANDROID_NATIVE_LINKED_DEVICES/.test(ld));
+const videos = read('videos.html');
+check(
+  'VIDEOS_CACHE_BUST_UX2',
+  /sos-web-linked-devices\.js\?[^"']*pkg=qa-stage5-ux2/.test(videos) &&
+    /sos-md2-pairing-qr\.js\?[^"']*pkg=qa-stage5-ux2/.test(videos) &&
+    /sos-web-linked-qr-scanner\.js\?[^"']*pkg=qa-stage5-ux2/.test(videos),
+);
+check('VIDEOS_NO_STALE_899S20_LD', !/sos-web-linked-devices\.js\?[^"']*pkg=899s20/.test(videos));
 
 // Runtime classification with jsdom-like stubs via vm
 import vm from 'vm';
@@ -62,6 +76,8 @@ const sandbox = {
     readyState: 'complete',
     addEventListener() {},
     getElementById() { return null; },
+    querySelector() { return null; },
+    querySelectorAll() { return []; },
     createElement() {
       return {
         style: {},
@@ -73,7 +89,11 @@ const sandbox = {
         onclick: null,
         addEventListener() {},
         setAttribute() {},
+        getAttribute() { return null; },
         appendChild() {},
+        cloneNode() {
+          return sandbox.document.createElement('div');
+        },
         querySelector() { return null; },
         querySelectorAll() { return []; },
       };

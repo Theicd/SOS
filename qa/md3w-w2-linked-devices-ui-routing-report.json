@@ -1,10 +1,10 @@
 {
   "status": "PASS",
-  "runId": "5164457c-4a46-4c14-873d-f9fcd37d5c70",
+  "runId": "eec49870-07f9-4910-9f3c-b31f8d41e2c2",
   "moduleSha16": {
-    "linkedDevices": "75A8F3740DC68E27",
-    "md2Qr": "E28F4E04B5FBF384",
-    "scanner": "7B26DC17D10B5841"
+    "linkedDevices": "03848503A3E9F62B",
+    "md2Qr": "366FFDF8916759A4",
+    "scanner": "E9C258E3B445A215"
   },
   "checks": [
     {
@@ -33,12 +33,42 @@
       "detail": ""
     },
     {
+      "name": "SINGLE_EVENT_OWNER_CLAIM",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "name": "NO_WIREUI_ALWAYS_DESKTOP_QR",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "MD2_MENU_USES_PRIMARY",
+      "name": "MD2_NO_PRODUCT_MENU",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MD2_NO_SYNTHETIC_FALLBACK",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MD2_LEGACY_MODAL_DISABLED",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MD2_NO_AUTO_MENU",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NO_RAW_SOSPAIR1_TEXTAREA",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NO_AMET_TEXT_BUTTON",
       "ok": true,
       "detail": ""
     },
@@ -64,6 +94,16 @@
     },
     {
       "name": "NATIVE_SHELL_OPENS_SETTINGS",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "VIDEOS_CACHE_BUST_UX2",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "VIDEOS_NO_STALE_899S20_LD",
       "ok": true,
       "detail": ""
     },

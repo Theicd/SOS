@@ -1,8 +1,8 @@
 {
   "gate": "MD3W_W2_WEB_QR_SCANNER",
   "status": "PASS",
-  "ts": "2026-10-10T22:38:20.443Z",
-  "runId": "ec03d486-6a27-4969-8be8-05db6f810e04",
+  "ts": "2026-10-11T00:26:13.228Z",
+  "runId": "36de4d7d-4750-43dc-8936-58b61b50adce",
   "checks": {
     "SCANNER_MODULE": {
       "ok": true,

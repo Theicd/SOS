@@ -96,13 +96,14 @@
       '<div class="sos-ld-scan-sheet" role="dialog" aria-modal="true" dir="rtl">' +
       '<header><h2>סריקת QR לקישור מחשב</h2>' +
       '<button type="button" data-ld-scan-close aria-label="סגור">×</button></header>' +
+      '<p class="sos-ld-scan-guide">כוונו את המצלמה לקוד ה-QR על מסך המחשב</p>' +
       '<p id="sosLinkedScanStatus" style="min-height:1.4em;margin:8px 0;font-size:14px;"></p>' +
-      '<video id="sosLinkedScanVideo" playsinline muted autoplay style="width:100%;max-height:50vh;background:#111;border-radius:8px;object-fit:cover;"></video>' +
+      '<div class="sos-ld-scan-frame"><video id="sosLinkedScanVideo" playsinline muted autoplay style="width:100%;max-height:50vh;background:#111;border-radius:8px;object-fit:cover;"></video></div>' +
       '<canvas id="sosLinkedScanCanvas" hidden width="480" height="480"></canvas>' +
       '<div style="display:flex;gap:8px;margin-top:12px;">' +
       '<button type="button" class="button-secondary" id="sosLinkedScanCancel" style="flex:1;">ביטול</button>' +
       '</div>' +
-      '<p style="font-size:12px;opacity:.75;margin-top:10px;">הסריקה מקומית במכשיר. זיהוי QR אינו מאשר קישור — תידרש אישור מאובטח נפרד.</p>' +
+      '<p style="font-size:12px;opacity:.75;margin-top:10px;">הסריקה מקומית במכשיר. זיהוי הקוד אינו מאשר קישור — יידרש אישור מאובטח נפרד.</p>' +
       '</div>' +
       '<style>' +
       '#' +
@@ -120,6 +121,12 @@
       '#' +
       PANEL_ID +
       ' header h2{margin:0;font-size:1.15rem}' +
+      '#' +
+      PANEL_ID +
+      ' .sos-ld-scan-guide{margin:8px 0;font-size:14px;line-height:1.4;opacity:.9}' +
+      '#' +
+      PANEL_ID +
+      ' .sos-ld-scan-frame{position:relative;border-radius:8px;overflow:hidden;outline:2px solid rgba(255,255,255,.18)}' +
       '</style>';
     document.body.appendChild(el);
     el.addEventListener('click', function (e) {
