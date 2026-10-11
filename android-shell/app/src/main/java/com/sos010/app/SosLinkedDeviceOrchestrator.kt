@@ -2,9 +2,14 @@ package com.sos010.app
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import fr.acinq.secp256k1.Hex
 import org.json.JSONObject
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -61,6 +66,7 @@ class SosLinkedDeviceOrchestrator(
     }
 
     private val io = Executors.newSingleThreadExecutor()
+    private val scheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
     private val responder = SosPairingSession.Responder()
     private val issuer = SosDeviceAuthorizationCeremony.PhoneIssuer(identity, registry)
     private var transport: SosPairingNostrTransport? = null
@@ -70,6 +76,8 @@ class SosLinkedDeviceOrchestrator(
     private var transcript: ByteArray? = null
     private var bound: SosPairingSession.BoundDestination? = null
     private var accountP: String = ""
+    private val handshakeGen = AtomicLong(0)
+    private val handshakeTimedOut = AtomicBoolean(false)
 
     fun setListener(l: Listener?) {
         listener = l
@@ -94,26 +102,30 @@ class SosLinkedDeviceOrchestrator(
                 emit(UiPhase.FAILED, (accepted as SosPairingSession.StepResult.Err).code)
                 return@execute
             }
-            val relays = if (
-                !parsed.rendezvous.isNullOrBlank() &&
-                (parsed.rendezvous!!.startsWith("wss://") || parsed.rendezvous!!.startsWith("ws://"))
-            ) {
-                // ws:// allowed for isolated local/emulator QA relays (QR-bound rendezvous).
-                // Use the QR rendezvous exactly — do not dual-rewrite 127↔10.0.2.2.
-                // Mixing adb-reverse loopback with host-alias black-holes one socket and
-                // races the live path; QA harness picks ONE mapping (reverse or 10.0.2.2).
-                listOf(parsed.rendezvous!!)
-            } else {
-                SosPairingNostrTransport.DEFAULT_RELAYS
-            }
+            val relays = resolveRelays(parsed.rendezvous)
+            Log.i(
+                LOG_TAG,
+                "start pairFp=${parsed.pairingId.take(12)} relays=${relays.map { safeHost(it) }}",
+            )
             val t = SosPairingNostrTransport(relayUrls = relays)
             transport = t
             emit(UiPhase.HANDSHAKING)
+            val gen = handshakeGen.incrementAndGet()
+            handshakeTimedOut.set(false)
+            scheduleHandshakeDeadline(gen, parsed.expiresAt)
             t.start(parsed.pairingId, role = "phone") { inbound ->
                 io.execute { onTransportMessage(inbound, sessionValid) }
             }
             val hello = accepted.outboundMessage
-            if (hello != null) t.publish(hello)
+            if (hello != null) {
+                val published = t.publish(hello)
+                Log.i(LOG_TAG, "hello_publish ok=$published pairFp=${parsed.pairingId.take(12)}")
+                if (!published) {
+                    emit(UiPhase.FAILED, "RELAY_UNREACHABLE")
+                    transport?.stop()
+                    transport = null
+                }
+            }
         }
     }
 
@@ -159,7 +171,27 @@ class SosLinkedDeviceOrchestrator(
         io.execute { cancelInternal(notify = true) }
     }
 
+    private fun scheduleHandshakeDeadline(gen: Long, qrExpiresAt: Long) {
+        val now = System.currentTimeMillis()
+        val untilQr = (qrExpiresAt - now).coerceAtLeast(5_000L)
+        val waitMs = minOf(untilQr, HANDSHAKE_TIMEOUT_MS)
+        scheduler.schedule({
+            io.execute {
+                if (handshakeGen.get() != gen) return@execute
+                val phase = snap.get().phase
+                if (phase == UiPhase.HANDSHAKING || phase == UiPhase.STATUS_CHECK) {
+                    handshakeTimedOut.set(true)
+                    Log.w(LOG_TAG, "handshake_timeout phase=$phase")
+                    emit(UiPhase.FAILED, "HANDSHAKE_TIMEOUT")
+                    transport?.stop()
+                    transport = null
+                }
+            }
+        }, waitMs, TimeUnit.MILLISECONDS)
+    }
+
     private fun onTransportMessage(raw: String, sessionValid: Boolean) {
+        if (handshakeTimedOut.get()) return
         val cur = snap.get().phase
         if (cur == UiPhase.WAITING_ACK) {
             when (val ack = issuer.onDestinationAck(raw)) {
@@ -176,10 +208,14 @@ class SosLinkedDeviceOrchestrator(
         }
         if (cur != UiPhase.HANDSHAKING) return
         when (val step = responder.onMessage(raw)) {
-            is SosPairingSession.StepResult.Err -> emit(UiPhase.FAILED, step.code)
+            is SosPairingSession.StepResult.Err -> {
+                Log.w(LOG_TAG, "md2_step_err code=${step.code}")
+                emit(UiPhase.FAILED, step.code)
+            }
             is SosPairingSession.StepResult.Ok -> {
                 step.outboundMessage?.let { transport?.publish(it) }
                 if (step.state == SosPairingSession.State.CHANNEL_READY && step.bound != null) {
+                    Log.i(LOG_TAG, "channel_ready pairFp=${step.bound.pairingId.take(12)}")
                     bound = step.bound
                     val secrets = responder.exportChannelSecrets()
                     if (secrets == null) {
@@ -238,6 +274,8 @@ class SosLinkedDeviceOrchestrator(
     }
 
     private fun cancelInternal(notify: Boolean) {
+        handshakeGen.incrementAndGet()
+        handshakeTimedOut.set(false)
         try {
             issuer.cancel()
         } catch (_: Exception) {
@@ -277,8 +315,11 @@ class SosLinkedDeviceOrchestrator(
     }
 
     companion object {
+        private const val LOG_TAG = "SosPairMd2"
         private const val PREFS = "sos_linked_devices_product_v1"
         private const val KEY_ADMISSION = "admission_base_url"
+        /** Bounded MD2 handshake wait (also capped by QR expiry). */
+        const val HANDSHAKE_TIMEOUT_MS = 45_000L
 
         fun readAdmissionUrl(ctx: Context): String? {
             val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -290,6 +331,23 @@ class SosLinkedDeviceOrchestrator(
                 .edit()
                 .putString(KEY_ADMISSION, url?.trim().orEmpty())
                 .apply()
+        }
+
+        /** QR rendezvous first (transcript-bound hint), then default relays — never single-relay black hole. */
+        fun resolveRelays(rendezvous: String?): List<String> {
+            val out = linkedSetOf<String>()
+            val rv = rendezvous?.trim().orEmpty()
+            if (rv.startsWith("wss://") || rv.startsWith("ws://")) {
+                out.add(rv)
+            }
+            for (r in SosPairingNostrTransport.DEFAULT_RELAYS) out.add(r)
+            return out.toList()
+        }
+
+        private fun safeHost(url: String): String = try {
+            android.net.Uri.parse(url).host ?: "?"
+        } catch (_: Exception) {
+            "?"
         }
     }
 }

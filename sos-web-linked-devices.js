@@ -986,7 +986,15 @@
           REJECTED: 'הקישור נדחה',
           FAILURE: 'הקישור נכשל — נסו שוב',
         };
-        st.textContent = map[_pairing.state] || _pairing.state;
+        let statusText = map[_pairing.state] || _pairing.state;
+        try {
+          const phases = window.__sosMd3DbgPhases || [];
+          const lastFail = [...phases].reverse().find((p) => p && p.phase === 'POP_SIGN_FAIL');
+          if (lastFail && _pairing.state === 'WAITING') {
+            statusText = 'שגיאת חתימת אימות מחשב — רעננו את הקוד';
+          }
+        } catch (_p) {}
+        st.textContent = statusText;
       }
       if (exp) {
         exp.textContent =

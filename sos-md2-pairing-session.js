@@ -14,7 +14,8 @@
   const KIND = 25060;
   const TAG = 'sos-pair-v1';
   const HKDF_INFO = 'SOS|pair|v1';
-  const DEFAULT_RELAYS = ['wss://relay.snort.social', 'wss://nos.lol', 'wss://nostr-02.uid.ovh'];
+  // Prefer relays that accept browser/mobile WSS; snort kept as secondary.
+  const DEFAULT_RELAYS = ['wss://nos.lol', 'wss://nostr-02.uid.ovh', 'wss://relay.snort.social'];
 
   function hexFromBuf(buf) {
     return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
@@ -254,13 +255,18 @@
 
   /**
    * BIP340 schnorr over an arbitrary 32-byte message.
-   * nostr-tools CDN freezes getEventHash (getter-only) and finalizeEvent hashes
-   * internally — do not patch exports. Use noble schnorr (injected or NT.schnorr).
+   * nostr-tools@2.7.2 CDN bundle does NOT export schnorr (confirmed: zero "schnorr" in bundle).
+   * Production Desktop PoP therefore requires noble secp256k1 schnorr (or a test bridge).
    */
   function getNobleSchnorr() {
     const NT = window.NostrTools;
     if (NT && NT.schnorr && typeof NT.schnorr.sign === 'function') return NT.schnorr;
     if (window.__sosNobleSchnorr && typeof window.__sosNobleSchnorr.sign === 'function') {
+      return window.__sosNobleSchnorr;
+    }
+    // vendor/sos-noble-schnorr.js IIFE global (loaded before this module on videos.html)
+    if (window.SosNobleSecp && window.SosNobleSecp.schnorr && typeof window.SosNobleSecp.schnorr.sign === 'function') {
+      window.__sosNobleSchnorr = window.SosNobleSecp.schnorr;
       return window.__sosNobleSchnorr;
     }
     return null;
@@ -269,11 +275,18 @@
   async function signSchnorrRaw(msg32, sk) {
     const msg = msg32 instanceof Uint8Array ? msg32 : bufFromHex(msg32);
     const skBytes = sk instanceof Uint8Array ? sk : bufFromHex(sk);
-    // Prefer in-page noble (never blocks on host IPC). Playwright bridge is fallback only.
+    // Prefer vendored noble (videos.html). Playwright __sosSchnorrSignHex is fallback only.
     const schnorr = getNobleSchnorr();
     if (schnorr) {
-      const sig = schnorr.sign(msg, skBytes);
-      return typeof sig === 'string' ? String(sig).toLowerCase() : hexFromBuf(sig);
+      // Prefer sync BIP340 when available (noble v1 signSync); async sign uses WebCrypto sha256.
+      let resolved;
+      if (typeof schnorr.signSync === 'function') {
+        resolved = schnorr.signSync(msg, skBytes);
+      } else {
+        const sig = schnorr.sign(msg, skBytes);
+        resolved = typeof sig?.then === 'function' ? await sig : sig;
+      }
+      return typeof resolved === 'string' ? String(resolved).toLowerCase() : hexFromBuf(resolved);
     }
     if (typeof window.__sosSchnorrSignHex === 'function') {
       const sigHex = await window.__sosSchnorrSignHex(hexFromBuf(msg), hexFromBuf(skBytes));
@@ -427,10 +440,23 @@
         sk = await sessionKey(shared, tr);
         shared.fill(0);
         const popMsg = await domainHashPop(tr);
-        dbgPhase('POP_SIGN_BEGIN', {
-          via: getNobleSchnorr() ? 'noble' : typeof window.__sosSchnorrSignHex === 'function' ? 'bridge' : 'none',
-        });
-        const sigHex = await signSchnorrRaw(popMsg, dSignSk);
+        const via = getNobleSchnorr()
+          ? 'noble'
+          : typeof window.__sosSchnorrSignHex === 'function'
+            ? 'bridge'
+            : 'none';
+        dbgPhase('POP_SIGN_BEGIN', { via: via, pairingFp: pairingId.slice(0, 12) });
+        let sigHex;
+        try {
+          sigHex = await signSchnorrRaw(popMsg, dSignSk);
+        } catch (signErr) {
+          const code = String((signErr && signErr.message) || signErr || 'SCHNORR_SIGN_FAIL').slice(0, 80);
+          dbgPhase('POP_SIGN_FAIL', { code: code, pairingFp: pairingId.slice(0, 12) });
+          try {
+            window.__sosMd3HandleInboundErr = code;
+          } catch (_e) {}
+          return;
+        }
         const body = new TextEncoder().encode(JSON.stringify({ type: 'pop', pairingId, sig: sigHex }));
         const sealed = await seal(sk, tr, body);
         // Advance before publish: phone can ACK within the publish await window.

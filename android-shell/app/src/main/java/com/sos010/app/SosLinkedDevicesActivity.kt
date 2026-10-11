@@ -9,6 +9,7 @@ import android.provider.Settings
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -17,17 +18,19 @@ import androidx.core.content.ContextCompat
 
 /**
  * Settings → מכשירים מקושרים → קישור מכשיר חדש.
- * Camera QR (product) + paste fallback (QA). MD3 issuance only via PhoneIssuer
- * after fresh global status gate + explicit approve — never from QR recognition alone.
+ * Product: CameraX scan only. QA paste gated by EXTRA_QA_DIAGNOSTICS.
+ * MD3 issuance only via PhoneIssuer after CHANNEL_READY + explicit approve.
  */
 class SosLinkedDevicesActivity : AppCompatActivity(), SosLinkedDeviceOrchestrator.Listener {
 
     private lateinit var qrInput: EditText
+    private lateinit var qaPasteSection: LinearLayout
     private lateinit var statusView: TextView
     private lateinit var detailView: TextView
     private lateinit var continueBtn: Button
     private lateinit var approveBtn: Button
     private lateinit var cancelBtn: Button
+    private lateinit var retryBtn: Button
     private lateinit var scanCameraBtn: Button
     private lateinit var stopCameraBtn: Button
     private lateinit var previewView: PreviewView
@@ -37,6 +40,9 @@ class SosLinkedDevicesActivity : AppCompatActivity(), SosLinkedDeviceOrchestrato
     private var qrCamera: SosLinkedDeviceQrCamera? = null
     private var pairingStartedFromScan = false
     private var cameraSessionActive = false
+    private var qaDiagnostics = false
+    /** Short-lived in-memory QR — never shown in product UI. */
+    private var pendingQrText: String? = null
 
     private val requestCameraPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -46,9 +52,9 @@ class SosLinkedDevicesActivity : AppCompatActivity(), SosLinkedDeviceOrchestrato
         } else {
             val permanentlyDenied = !shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)
             statusView.text = if (permanentlyDenied) {
-                "הרשאת מצלמה נחסמה. אפשר להפעיל בהגדרות האפליקציה, או להדביק QR לבדיקות."
+                "הרשאת מצלמה נחסמה. אפשר להפעיל בהגדרות האפליקציה."
             } else {
-                "נדרשת הרשאת מצלמה לסריקת QR. ניתן לנסות שוב או להדביק QR."
+                "נדרשת הרשאת מצלמה לסריקת QR."
             }
             if (permanentlyDenied) {
                 detailView.text = "הגדרות → הרשאות → מצלמה"
@@ -67,17 +73,25 @@ class SosLinkedDevicesActivity : AppCompatActivity(), SosLinkedDeviceOrchestrato
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_linked_devices)
+        qaDiagnostics = intent.getBooleanExtra(EXTRA_QA_DIAGNOSTICS, false)
         qrInput = findViewById(R.id.linkedQrInput)
+        qaPasteSection = findViewById(R.id.linkedQaPasteSection)
         statusView = findViewById(R.id.linkedStatus)
         detailView = findViewById(R.id.linkedDetail)
         continueBtn = findViewById(R.id.linkedScanContinue)
         approveBtn = findViewById(R.id.linkedApprove)
         cancelBtn = findViewById(R.id.linkedCancel)
+        retryBtn = findViewById(R.id.linkedRetry)
         scanCameraBtn = findViewById(R.id.linkedScanCamera)
         stopCameraBtn = findViewById(R.id.linkedStopCamera)
         previewView = findViewById(R.id.linkedCameraPreview)
 
-        intent.getStringExtra(EXTRA_QR)?.takeIf { it.isNotBlank() }?.let { qrInput.setText(it) }
+        qaPasteSection.visibility = if (qaDiagnostics) View.VISIBLE else View.GONE
+
+        intent.getStringExtra(EXTRA_QR)?.takeIf { it.isNotBlank() }?.let { qr ->
+            pendingQrText = qr
+            if (qaDiagnostics) qrInput.setText(qr)
+        }
         intent.getStringExtra(EXTRA_ADMISSION_URL)?.let {
             SosLinkedDeviceOrchestrator.writeAdmissionUrl(this, it)
         }
@@ -90,7 +104,17 @@ class SosLinkedDevicesActivity : AppCompatActivity(), SosLinkedDeviceOrchestrato
         stopCameraBtn.setOnClickListener { stopCameraScanner(userCancelled = true) }
         continueBtn.setOnClickListener {
             pairingStartedFromScan = false
-            beginPairingFromUi(eng, fromCameraScan = false)
+            pendingQrText = qrInput.text?.toString()?.trim()
+            beginPairingFromPending(eng, fromCameraScan = false)
+        }
+        retryBtn.setOnClickListener {
+            orchestrator?.cancel()
+            pendingQrText = null
+            if (qaDiagnostics) qrInput.setText("")
+            retryBtn.visibility = View.GONE
+            statusView.text = "מוכן — סרקו קוד QR חדש מהמחשב"
+            detailView.text = "רעננו את הקוד במחשב לפני סריקה חוזרת."
+            scanCameraBtn.isEnabled = true
         }
         approveBtn.setOnClickListener { orchestrator?.approve() }
         cancelBtn.setOnClickListener {
@@ -99,21 +123,22 @@ class SosLinkedDevicesActivity : AppCompatActivity(), SosLinkedDeviceOrchestrato
             finish()
         }
 
-        // Instrumentation / deep-link: QR + account extras auto-start (paste path; not hardware).
-        if (intent.getBooleanExtra(EXTRA_AUTO_START, false) &&
-            !intent.getStringExtra(EXTRA_QR).isNullOrBlank()
-        ) {
-            qrInput.post {
+        // Instrumentation / bridge: QR extras auto-start without showing payload.
+        if (intent.getBooleanExtra(EXTRA_AUTO_START, false) && !pendingQrText.isNullOrBlank()) {
+            statusView.post {
                 pairingStartedFromScan = false
-                beginPairingFromUi(eng, fromCameraScan = false)
+                beginPairingFromPending(eng, fromCameraScan = false)
             }
+        } else if (pendingQrText.isNullOrBlank()) {
+            statusView.text = "מוכן לסריקה"
+            detailView.text = "לחצו על סריקת QR וכוונו למסך המחשב."
         }
     }
 
     private fun onScanCameraClicked() {
         detailView.setOnClickListener(null)
         if (!packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
-            statusView.text = "אין מצלמה במכשיר. ניתן להדביק QR לבדיקות."
+            statusView.text = "אין מצלמה במכשיר."
             return
         }
         when {
@@ -133,6 +158,7 @@ class SosLinkedDevicesActivity : AppCompatActivity(), SosLinkedDeviceOrchestrato
         previewView.visibility = View.VISIBLE
         stopCameraBtn.visibility = View.VISIBLE
         scanCameraBtn.isEnabled = false
+        retryBtn.visibility = View.GONE
         statusView.text = "מכוונים את המצלמה לקוד ה־QR במסך המחשב…"
         detailView.text = "הסריקה מקומית במכשיר. אין שליחת תמונות לשרת."
         val cam = SosLinkedDeviceQrCamera(
@@ -175,39 +201,48 @@ class SosLinkedDevicesActivity : AppCompatActivity(), SosLinkedDeviceOrchestrato
             stopCameraScanner(userCancelled = false)
             statusView.text = when (code) {
                 "GROUP_INVITE_QR" ->
-                    "זה קוד הזמנה לקבוצה — לא קישור מחשב. סרקו QR‏ SOSPAIR1 מהמחשב.\nלחצו שוב על סריקת QR."
+                    "זה קוד הזמנה לקבוצה — לא קישור מחשב. סרקו QR מהמחשב."
                 "EXPIRED" ->
                     "קוד QR פג תוקף. בקשו מהמחשב להציג קוד חדש וסרקו שוב."
                 "BAD_PREFIX", "UNKNOWN_PROTOCOL_VERSION" ->
-                    "קוד QR אינו נתמך לקישור מכשיר.\nלחצו שוב על סריקת QR."
+                    "קוד QR אינו נתמך לקישור מכשיר."
                 "SECRET_IN_QR" -> "קוד QR נדחה מסיבות אבטחה."
                 else -> "QR נדחה: $code"
             }
+            retryBtn.visibility = View.VISIBLE
             return
         }
         stopCameraScanner(userCancelled = false)
-        qrInput.setText(accepted.qrText)
-        statusView.text = "QR זוהה — מאמתים פרוטוקול ומתחברים…"
+        pendingQrText = accepted.qrText
+        // Product: never dump raw SOSPAIR1 into the visible field.
+        if (qaDiagnostics) {
+            qrInput.setText(accepted.qrText)
+        } else {
+            qrInput.setText("")
+        }
+        statusView.text = "QR זוהה — מתחברים למחשב…"
         detailView.text = "מזהה צימוד: ${accepted.pairingId.take(12)}…"
         pairingStartedFromScan = true
         val eng = identity ?: return
-        beginPairingFromUi(eng, fromCameraScan = true)
+        beginPairingFromPending(eng, fromCameraScan = true)
     }
 
-    private fun beginPairingFromUi(
+    private fun beginPairingFromPending(
         identity: SosSecureIdentityStore.Engine,
         fromCameraScan: Boolean,
     ) {
-        val qr = qrInput.text?.toString()?.trim().orEmpty()
+        val qr = pendingQrText?.trim().orEmpty().ifEmpty {
+            if (qaDiagnostics) qrInput.text?.toString()?.trim().orEmpty() else ""
+        }
         if (qr.isEmpty()) {
             statusView.text = if (fromCameraScan) {
                 "סריקה ריקה"
             } else {
-                "יש להדביק QR‏ SOSPAIR1 או לסרוק במצלמה"
+                "יש לסרוק QR מהמחשב"
             }
             return
         }
-        // Defense in depth: same intake for paste and camera.
+        pendingQrText = qr
         val intake = SosLinkedDeviceQrIntake.acceptScannedPayload(qr)
         if (intake.isFailure) {
             val code = intake.exceptionOrNull()?.message ?: "QR_FAIL"
@@ -216,6 +251,7 @@ class SosLinkedDevicesActivity : AppCompatActivity(), SosLinkedDeviceOrchestrato
                 "EXPIRED" -> "קוד QR פג תוקף. הציגו קוד חדש במחשב."
                 else -> "QR נדחה: $code"
             }
+            retryBtn.visibility = View.VISIBLE
             return
         }
         val account = intent.getStringExtra(EXTRA_ACCOUNT_P)
@@ -225,8 +261,9 @@ class SosLinkedDevicesActivity : AppCompatActivity(), SosLinkedDeviceOrchestrato
             return
         }
         approveBtn.isEnabled = false
-        if (!fromCameraScan) {
-            detailView.text = "נתיב הדבקה (לא סריקת מצלמה חומרתית)"
+        retryBtn.visibility = View.GONE
+        if (!fromCameraScan && qaDiagnostics) {
+            detailView.text = "נתיב אבחון QA (הדבקה)"
         }
         orchestrator?.startFromQr(qr, account, sessionValid = true)
     }
@@ -240,6 +277,7 @@ class SosLinkedDevicesActivity : AppCompatActivity(), SosLinkedDeviceOrchestrato
 
     override fun onDestroy() {
         stopCameraScanner(userCancelled = false)
+        pendingQrText = null
         orchestrator?.setListener(null)
         orchestrator?.cancel()
         super.onDestroy()
@@ -248,32 +286,35 @@ class SosLinkedDevicesActivity : AppCompatActivity(), SosLinkedDeviceOrchestrato
     override fun onUpdate(snap: SosLinkedDeviceOrchestrator.Snapshot) {
         runOnUiThread {
             statusView.text = when (snap.phase) {
-                SosLinkedDeviceOrchestrator.UiPhase.IDLE -> "מוכן"
+                SosLinkedDeviceOrchestrator.UiPhase.IDLE -> "מוכן לסריקה"
                 SosLinkedDeviceOrchestrator.UiPhase.PARSING -> "קורא QR…"
                 SosLinkedDeviceOrchestrator.UiPhase.HANDSHAKING -> "מחבר למחשב…"
-                SosLinkedDeviceOrchestrator.UiPhase.STATUS_CHECK -> "בודק סטטוס חשבון גלובלי…"
+                SosLinkedDeviceOrchestrator.UiPhase.STATUS_CHECK -> "בודק סטטוס חשבון…"
                 SosLinkedDeviceOrchestrator.UiPhase.PENDING_APPROVAL -> "אשר קישור למחשב זה"
                 SosLinkedDeviceOrchestrator.UiPhase.SIGNING -> "חותם הרשאת מכשיר…"
                 SosLinkedDeviceOrchestrator.UiPhase.WAITING_ACK -> "ממתין לאישור במחשב…"
                 SosLinkedDeviceOrchestrator.UiPhase.LINKED -> "המכשיר קושר בהצלחה"
-                SosLinkedDeviceOrchestrator.UiPhase.FAILED -> {
-                    val code = snap.code ?: "?"
-                    when (code) {
-                        "EXPIRED" -> "קוד QR פג תוקף — הציגו קוד חדש במחשב וסרקו שוב"
-                        else -> "נכשל: $code"
-                    }
-                }
+                SosLinkedDeviceOrchestrator.UiPhase.FAILED -> failedMessage(snap.code)
                 SosLinkedDeviceOrchestrator.UiPhase.CANCELLED -> "בוטל"
             }
             val parts = mutableListOf<String>()
-            snap.fingerprint?.let { parts.add("טביעת מכשיר: ${it.take(16)}…") }
-            snap.sas?.let { parts.add("SAS: $it") }
-            snap.accountP?.let { parts.add("P: ${it.take(12)}…") }
-            parts.add("K לא נשלח לדפדפן")
-            if (pairingStartedFromScan) {
+            if (snap.phase == SosLinkedDeviceOrchestrator.UiPhase.PENDING_APPROVAL ||
+                snap.phase == SosLinkedDeviceOrchestrator.UiPhase.LINKED
+            ) {
+                snap.fingerprint?.let { parts.add("מחשב: ${it.take(16)}…") }
+                snap.sas?.let { parts.add("קוד אימות: $it") }
+            }
+            if (pairingStartedFromScan && snap.phase != SosLinkedDeviceOrchestrator.UiPhase.IDLE) {
                 parts.add("מקור: סריקת מצלמה")
-            } else if (snap.phase != SosLinkedDeviceOrchestrator.UiPhase.IDLE) {
-                parts.add("מקור: הדבקה/QA")
+            } else if (qaDiagnostics && snap.phase != SosLinkedDeviceOrchestrator.UiPhase.IDLE) {
+                parts.add("מקור: אבחון QA")
+            }
+            when (snap.phase) {
+                SosLinkedDeviceOrchestrator.UiPhase.HANDSHAKING ->
+                    parts.add("ממתינים לתשובת המחשב. אם זה נמשך — רעננו QR במחשב.")
+                SosLinkedDeviceOrchestrator.UiPhase.FAILED ->
+                    parts.add("לחצו ׳נסה שוב׳ לאחר רענון הקוד במחשב.")
+                else -> {}
             }
             detailView.text = parts.joinToString("\n")
             approveBtn.isEnabled = snap.phase == SosLinkedDeviceOrchestrator.UiPhase.PENDING_APPROVAL
@@ -283,6 +324,26 @@ class SosLinkedDevicesActivity : AppCompatActivity(), SosLinkedDeviceOrchestrato
                 snap.phase == SosLinkedDeviceOrchestrator.UiPhase.LINKED
             continueBtn.isEnabled = idleish
             scanCameraBtn.isEnabled = idleish && !cameraSessionActive
+            retryBtn.visibility =
+                if (snap.phase == SosLinkedDeviceOrchestrator.UiPhase.FAILED) View.VISIBLE else View.GONE
+            if (snap.phase == SosLinkedDeviceOrchestrator.UiPhase.LINKED ||
+                snap.phase == SosLinkedDeviceOrchestrator.UiPhase.FAILED ||
+                snap.phase == SosLinkedDeviceOrchestrator.UiPhase.CANCELLED
+            ) {
+                pendingQrText = null
+            }
+        }
+    }
+
+    private fun failedMessage(code: String?): String {
+        return when (code) {
+            "EXPIRED" -> "קוד QR פג תוקף — הציגו קוד חדש במחשב וסרקו שוב"
+            "HANDSHAKE_TIMEOUT" -> "החיבור למחשב לא הושלם בזמן — רעננו QR במחשב ונסו שוב"
+            "RELAY_UNREACHABLE" -> "אין חיבור לרשת הצימוד — בדקו אינטרנט ונסו שוב"
+            "POP_FAIL" -> "אימות המחשב נכשל — רעננו QR ונסו שוב"
+            "AEAD_FAIL" -> "שגיאת ערוץ מאובטח — רעננו QR ונסו שוב"
+            "ACCOUNT_DISABLED" -> "החשבון אינו מורשה לקשר מכשירים"
+            else -> "הקישור נכשל (${code ?: "?"}). רעננו QR במחשב ונסו שוב"
         }
     }
 
@@ -292,5 +353,7 @@ class SosLinkedDevicesActivity : AppCompatActivity(), SosLinkedDeviceOrchestrato
         const val EXTRA_ADMISSION_URL = "admission_url"
         /** When true with EXTRA_QR, start pairing without requiring the Continue tap. */
         const val EXTRA_AUTO_START = "auto_start"
+        /** Explicit QA/diagnostics gate for manual paste UI (off in normal product). */
+        const val EXTRA_QA_DIAGNOSTICS = "qa_diagnostics"
     }
 }

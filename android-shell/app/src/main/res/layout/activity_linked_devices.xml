@@ -22,7 +22,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="קישור מחשב — סרקו את קוד ה־QR‏ (SOSPAIR1) מהמסך. אין העברת מפתח שורש."
+            android:text="סרקו את קוד ה־QR מהמחשב כדי לקשר מכשיר. אין העברת מפתח שורש."
             android:textSize="14sp"
             android:paddingBottom="12dp" />
 
@@ -48,38 +48,46 @@
             android:text="סגירת מצלמה"
             android:visibility="gone" />
 
-        <TextView
-            android:id="@+id/linkedPasteHint"
+        <LinearLayout
+            android:id="@+id/linkedQaPasteSection"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingTop="16dp"
-            android:paddingBottom="4dp"
-            android:textSize="13sp"
-            android:text="הדבקה ידנית (בדיקות / גיבוי בלבד — אינה נחשבת סריקת מצלמה):" />
+            android:orientation="vertical"
+            android:visibility="gone">
 
-        <EditText
-            android:id="@+id/linkedQrInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minLines="3"
-            android:gravity="top|start"
-            android:hint="SOSPAIR1:…"
-            android:inputType="textMultiLine"
-            android:importantForAutofill="no" />
+            <TextView
+                android:id="@+id/linkedPasteHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="16dp"
+                android:paddingBottom="4dp"
+                android:textSize="13sp"
+                android:text="מצב אבחון QA — הדבקת QR (לא מוצר):" />
 
-        <Button
-            android:id="@+id/linkedScanContinue"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="המשך מהדבקה"
-            android:layout_marginTop="8dp" />
+            <EditText
+                android:id="@+id/linkedQrInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minLines="3"
+                android:gravity="top|start"
+                android:hint="SOSPAIR1:…"
+                android:inputType="textMultiLine"
+                android:importantForAutofill="no" />
+
+            <Button
+                android:id="@+id/linkedScanContinue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="המשך מהדבקה"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/linkedStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:paddingTop="12dp"
-            android:textSize="14sp"
+            android:paddingTop="16dp"
+            android:textSize="15sp"
             android:minHeight="48dp" />
 
         <TextView
@@ -88,6 +96,14 @@
             android:layout_height="wrap_content"
             android:textSize="13sp"
             android:paddingTop="4dp" />
+
+        <Button
+            android:id="@+id/linkedRetry"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="נסה שוב"
+            android:visibility="gone" />
 
         <LinearLayout
             android:layout_width="match_parent"

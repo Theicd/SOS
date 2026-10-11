@@ -1,5 +1,6 @@
 package com.sos010.app
 
+import android.util.Log
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -25,13 +26,20 @@ class SosPairingNostrTransport(
     private val ephemeralSkHex: String = randomSk(),
 ) {
     companion object {
+        private const val LOG_TAG = "SosPairMd2"
         const val KIND = 25060
         const val TAG = "sos-pair-v1"
         val DEFAULT_RELAYS = listOf(
-            "wss://relay.snort.social",
             "wss://nos.lol",
             "wss://nostr-02.uid.ovh",
+            "wss://relay.snort.social",
         )
+
+        private fun safeHost(url: String): String = try {
+            android.net.Uri.parse(url).host ?: "?"
+        } catch (_: Exception) {
+            "?"
+        }
 
         private fun randomSk(): String {
             val rnd = SecureRandom()
@@ -89,7 +97,8 @@ class SosPairingNostrTransport(
                                 webSocket.send(reqMsg)
                             } catch (_: Exception) {
                             }
-                            readyCount.incrementAndGet()
+                            val n = readyCount.incrementAndGet()
+                            Log.i(LOG_TAG, "relay_open host=${safeHost(url)} ready=$n pairFp=${pairingId.take(12)}")
                             flushPending(webSocket)
                         }
 
@@ -98,11 +107,12 @@ class SosPairingNostrTransport(
                         }
 
                         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                            // Observed for diagnostics; keep sockets list consistent.
+                            Log.w(LOG_TAG, "relay_fail host=${safeHost(url)} code=${t.javaClass.simpleName}")
                             sockets.remove(webSocket)
                         }
 
                         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                            Log.i(LOG_TAG, "relay_closed host=${safeHost(url)} wsCode=$code")
                             sockets.remove(webSocket)
                         }
                     },
@@ -138,11 +148,16 @@ class SosPairingNostrTransport(
                 pendingFrames.clear()
                 var ok = false
                 for (f in snapshot) if (sendFrame(f)) ok = true
+                Log.i(LOG_TAG, "publish_flushed ok=$ok pairFp=${pairingId.take(12)} ready=${readyCount.get()}")
                 return ok
             }
-            return true // still queued for later onOpen flush
+            // Do not claim success while HELLO is only queued — orchestrator must surface RELAY_UNREACHABLE.
+            Log.w(LOG_TAG, "publish_not_connected pairFp=${pairingId.take(12)}")
+            return false
         }
-        return sendFrame(frame)
+        val sent = sendFrame(frame)
+        Log.i(LOG_TAG, "publish_sent ok=$sent pairFp=${pairingId.take(12)} ready=${readyCount.get()}")
+        return sent
     }
 
     private fun flushPending(ws: WebSocket) {
@@ -219,7 +234,15 @@ class SosPairingNostrTransport(
             // Ignore our own role echoes
             if (role == localRole) return
             val content = ev.optString("content")
-            if (content.isNotBlank()) onMessage?.invoke(content)
+            if (content.isNotBlank()) {
+                val type = try {
+                    JSONObject(content).optString("type").take(24)
+                } catch (_: Exception) {
+                    "?"
+                }
+                Log.i(LOG_TAG, "inbound type=$type role=$role pairFp=${pairingId.take(12)}")
+                onMessage?.invoke(content)
+            }
         } catch (_: Exception) {
         }
     }

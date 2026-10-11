@@ -1,0 +1,10 @@
+{
+  "generatedAt": "2026-10-11T13:19:11.485731Z",
+  "firstFailedTransition": "DESKTOP_POP_SIGNED",
+  "rootCause": "Production nostr-tools@2.7.2 CDN bundle has no schnorr export; Desktop handleInbound HELLO_ACCEPTED then signSchnorrRaw threw SCHNORR_SIGN_UNAVAILABLE; phone stayed HANDSHAKING with Approve disabled.",
+  "fix": "Vendor @noble/secp256k1 schnorr as vendor/sos-noble-schnorr.js; load before sos-md2-pairing-session; Android multi-relay + 45s HANDSHAKE_TIMEOUT + product UI hides raw QR; web 899s.14; APK 1.0.131",
+  "apkSha256": "50a67420b8f479a6379fb6c6689d288520b075b88a5200e0b1885a2e327d4d5e",
+  "webPackage": "899s.14",
+  "apkVersion": "1.0.131",
+  "versionCode": 132
+}
