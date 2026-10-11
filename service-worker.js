@@ -1,8 +1,8 @@
-﻿// ׳—׳׳§ Service Worker (service-worker.js) ג€“ PWA ׳׳׳ ׳¢׳ cache, push, notifications ׳•׳×׳׳™׳›׳” ׳‘׳¨׳§׳¢ | HYPER CORE TECH
+// ׳—׳׳§ Service Worker (service-worker.js) ג€“ PWA ׳׳׳ ׳¢׳ cache, push, notifications ׳•׳×׳׳™׳›׳” ׳‘׳¨׳§׳¢ | HYPER CORE TECH
 (function initServiceWorker(self) {
   
   // ׳—׳׳§ ׳”׳’׳“׳¨׳•׳× Cache (service-worker.js) ג€“ ׳©׳׳•׳× ׳•׳¨׳©׳™׳׳× ׳§׳‘׳¦׳™׳ ׳׳©׳׳™׳¨׳” | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v899s-qa-stage5-20261011'; // I2 pending package only. Delete flag stays false. Not deployed by packaging.
+  const CACHE_NAME = 'sos-cache-v899s-qa-stage5-mobile-scan-20261011'; // I2 pending package only. Delete flag stays false. Not deployed by packaging.
   const PRECACHE_URLS = [
     './',
     './videos.html',

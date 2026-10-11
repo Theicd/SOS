@@ -174,6 +174,11 @@
     btn.addEventListener('click', () => {
       menu.hidden = true;
       const LD = App.WebLinkedDevices || window.SosWebLinkedDevices;
+      // Platform-aware: mobile opens scanner; desktop displays QR (never phone→Display QR by default).
+      if (LD && typeof LD.openLinkedDevicesPrimaryAction === 'function') {
+        LD.openLinkedDevicesPrimaryAction();
+        return;
+      }
       if (LD && typeof LD.openDesktopPairingPanel === 'function') {
         LD.openDesktopPairingPanel();
         return;

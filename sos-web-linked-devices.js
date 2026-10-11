@@ -227,6 +227,162 @@
   }
 
   /**
+   * Capability-aware surface class for Linked Devices primary UX.
+   * Not a security boundary — never bypasses crypto / account checks.
+   * Prefer pointer/hover/touch + native shell over viewport/UA alone.
+   */
+  function classifyLinkedDevicesSurface(opts) {
+    const o = opts || {};
+    const nav = typeof navigator !== 'undefined' ? navigator : null;
+    const win = typeof window !== 'undefined' ? window : null;
+    const bridge =
+      (win && (win.SosNativeShell || win.AndroidBridge || win.SosAndroidBridge)) || null;
+    const nativeShell =
+      !!(bridge && typeof bridge.isNativeShell === 'function' && bridge.isNativeShell() === true) ||
+      !!(nav && /SOSNativeShell\//i.test(String(nav.userAgent || '')));
+
+    let uaDataMobile = null;
+    try {
+      if (nav && nav.userAgentData && typeof nav.userAgentData.mobile === 'boolean') {
+        uaDataMobile = nav.userAgentData.mobile;
+      }
+    } catch (_uad) {}
+
+    let coarsePointer = false;
+    let finePointer = false;
+    let canHover = false;
+    let narrowViewport = false;
+    try {
+      if (win && typeof win.matchMedia === 'function') {
+        coarsePointer = !!win.matchMedia('(pointer: coarse)').matches;
+        finePointer = !!win.matchMedia('(pointer: fine)').matches;
+        canHover = !!win.matchMedia('(hover: hover)').matches;
+        narrowViewport = !!win.matchMedia('(max-width: 900px)').matches;
+      }
+    } catch (_mm) {}
+
+    const maxTouch = nav && typeof nav.maxTouchPoints === 'number' ? nav.maxTouchPoints : 0;
+    const ua = String((nav && nav.userAgent) || '');
+    const uaPhone = /\b(Android|iPhone|iPod|Mobile)\b/i.test(ua) && !/\biPad\b/i.test(ua);
+    const uaTablet = /\b(iPad|Tablet|Android(?!.*Mobile))\b/i.test(ua);
+
+    if (nativeShell || o.forceRole === 'MOBILE_PRIMARY') {
+      return {
+        role: 'MOBILE_PRIMARY',
+        reason: nativeShell ? 'NATIVE_SHELL' : 'FORCE',
+        nativeShell: !!nativeShell,
+        AMBIGUOUS: false,
+      };
+    }
+    if (o.forceRole === 'DESKTOP_DESTINATION') {
+      return {
+        role: 'DESKTOP_DESTINATION',
+        reason: 'FORCE',
+        nativeShell: false,
+        AMBIGUOUS: false,
+      };
+    }
+
+    // Clear desktop: fine pointer + hover, not coarse-primary phone UA.
+    if (finePointer && canHover && !coarsePointer && uaDataMobile !== true && !uaPhone) {
+      return {
+        role: 'DESKTOP_DESTINATION',
+        reason: 'FINE_POINTER_HOVER',
+        nativeShell: false,
+        AMBIGUOUS: false,
+      };
+    }
+
+    // Clear mobile phone: coarse pointer / touch phone / UA mobile.
+    if (uaDataMobile === true || uaPhone || (coarsePointer && maxTouch > 0 && narrowViewport && !canHover)) {
+      return {
+        role: 'MOBILE_PRIMARY',
+        reason: uaPhone || uaDataMobile === true ? 'PHONE_CAPABILITY' : 'COARSE_TOUCH',
+        nativeShell: false,
+        AMBIGUOUS: false,
+      };
+    }
+
+    // Tablets / dual input / emulators — do not guess.
+    if (uaTablet || (coarsePointer && finePointer) || (maxTouch > 0 && canHover) || (narrowViewport && finePointer)) {
+      return {
+        role: 'AMBIGUOUS',
+        reason: 'TABLET_OR_DUAL_INPUT',
+        nativeShell: false,
+        AMBIGUOUS: true,
+      };
+    }
+
+    return {
+      role: 'AMBIGUOUS',
+      reason: 'UNCLASSIFIED',
+      nativeShell: false,
+      AMBIGUOUS: true,
+    };
+  }
+
+  function openRoleChooserPanel() {
+    let el = document.getElementById('sosLdRoleChooser');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'sosLdRoleChooser';
+      el.innerHTML =
+        '<div class="sos-ld-backdrop" data-ld-role-close></div>' +
+        '<div class="sos-ld-panel" role="dialog" aria-modal="true">' +
+        '<header><h2>קישור מכשירים</h2>' +
+        '<button type="button" data-ld-role-close aria-label="סגור">×</button></header>' +
+        '<p style="margin:12px 0;font-size:14px;line-height:1.5;opacity:.9;">בחרו את תפקיד המכשיר הנוכחי. הזיהוי אינו מחליף אימות או אישור קישור.</p>' +
+        '<button type="button" class="button-primary" id="sosLdRoleScan" style="width:100%;margin-bottom:8px;">סריקת QR לקישור מחשב</button>' +
+        '<button type="button" class="button-secondary" id="sosLdRoleShow" style="width:100%;">קישור טלפון למחשב — הצגת QR</button>' +
+        '</div>';
+      document.body.appendChild(el);
+      el.addEventListener('click', function (e) {
+        if (e.target && e.target.hasAttribute('data-ld-role-close')) el.hidden = true;
+      });
+      document.getElementById('sosLdRoleScan').onclick = function () {
+        el.hidden = true;
+        openMobilePrimaryLinkAction();
+      };
+      document.getElementById('sosLdRoleShow').onclick = function () {
+        el.hidden = true;
+        openDesktopPairingPanel();
+      };
+    }
+    el.hidden = false;
+  }
+
+  /** Mobile Primary: open camera scan (or native Linked Devices). Never default to Display QR. */
+  function openMobilePrimaryLinkAction() {
+    const bridge =
+      window.SosNativeShell || window.AndroidBridge || window.SosAndroidBridge;
+    if (bridge && typeof bridge.openLinkedDevicesSettings === 'function') {
+      try {
+        const admission = App.FIRST_GROUP_ADMISSION_URL || App.GLOBAL_ADMISSION_URL || '';
+        bridge.openLinkedDevicesSettings(admission);
+        return { ok: true, path: 'ANDROID_NATIVE_LINKED_DEVICES', DECODE_IS_NOT_AUTHORIZATION: true };
+      } catch (_n) {}
+    }
+    return beginPrimaryCameraScan().catch(function (err) {
+      try {
+        window.alert(String((err && err.message) || err || 'SCAN_FAIL'));
+      } catch (_a) {}
+      return { ok: false, code: 'SCAN_FAIL', DECODE_IS_NOT_AUTHORIZATION: true };
+    });
+  }
+
+  /** Product entry: platform-aware primary Linked Devices action. */
+  function openLinkedDevicesPrimaryAction(opts) {
+    const cls = classifyLinkedDevicesSurface(opts);
+    if (cls.role === 'MOBILE_PRIMARY') return openMobilePrimaryLinkAction();
+    if (cls.role === 'DESKTOP_DESTINATION') {
+      openDesktopPairingPanel();
+      return { ok: true, path: 'DESKTOP_DISPLAY_QR' };
+    }
+    openRoleChooserPanel();
+    return { ok: true, path: 'ROLE_CHOOSER', AMBIGUOUS: true, reason: cls.reason };
+  }
+
+  /**
    * MD3W-W2 — Primary camera scan → SOSPAIR1 parse → existing approval/issuance path.
    * Optical decode never authorizes by itself.
    */
@@ -630,9 +786,9 @@
           <header><h2>מכשירים מקושרים</h2>
             <button type="button" data-ld-dev-close aria-label="סגור">×</button></header>
           <ul id="sosLinkedDevicesList" style="list-style:none;padding:0;margin:12px 0;"></ul>
-          <button type="button" class="button-primary" id="sosLdScanQr" style="width:100%;margin-bottom:8px;">סריקת QR במצלמה</button>
-          <button type="button" class="button-secondary" id="sosLdLinkNew" style="width:100%;">הצג QR במחשב (יעד)</button>
-          <p style="font-size:12px;opacity:.75;margin-top:10px;">סריקת QR בטלפון אינה מאשרת קישור — יידרש אישור מאובטח נפרד. הסרת מכשיר (MD6) עדיין לא זמינה.</p>
+          <button type="button" class="button-primary" id="sosLdScanQr" style="width:100%;margin-bottom:8px;">סריקת QR לקישור מחשב</button>
+          <button type="button" class="button-secondary" id="sosLdLinkNew" style="width:100%;">קישור טלפון למחשב — הצגת QR</button>
+          <p style="font-size:12px;opacity:.75;margin-top:10px;">בטלפון: סריקה במצלמה. במחשב: הצגת QR. סריקה אינה מאשרת קישור — יידרש אישור מאובטח נפרד. הסרת מכשיר (MD6) עדיין לא זמינה.</p>
         </div>`;
       document.body.appendChild(el);
       el.addEventListener('click', (e) => {
@@ -644,12 +800,21 @@
       };
       document.getElementById('sosLdScanQr').onclick = () => {
         el.hidden = true;
-        beginPrimaryCameraScan().catch(function (err) {
-          try {
-            window.alert(String((err && err.message) || err || 'SCAN_FAIL'));
-          } catch (_a) {}
-        });
+        openMobilePrimaryLinkAction();
       };
+    }
+    const cls = classifyLinkedDevicesSurface();
+    const scanBtn = document.getElementById('sosLdScanQr');
+    const showBtn = document.getElementById('sosLdLinkNew');
+    if (scanBtn && showBtn) {
+      // Visual primary follows surface class; both actions remain available (no crypto bypass).
+      if (cls.role === 'DESKTOP_DESTINATION') {
+        showBtn.className = 'button-primary';
+        scanBtn.className = 'button-secondary';
+      } else {
+        scanBtn.className = 'button-primary';
+        showBtn.className = 'button-secondary';
+      }
     }
     const list = document.getElementById('sosLinkedDevicesList');
     const devices = listLinkedDevices();
@@ -679,7 +844,30 @@
   }
 
   function wireUi() {
-    // Login entry: קישור באמצעות הטלפון
+    function syncPrimaryLinkLabels() {
+      const cls = classifyLinkedDevicesSurface();
+      const mobileLabel = 'סריקת QR לקישור מחשב';
+      const desktopLabel = 'קישור טלפון למחשב';
+      const ambiguousLabel = 'קישור מכשיר חדש';
+      const label =
+        cls.role === 'MOBILE_PRIMARY'
+          ? mobileLabel
+          : cls.role === 'DESKTOP_DESTINATION'
+            ? desktopLabel
+            : ambiguousLabel;
+      ['btnLoginLinkPhone', 'btnStartLinkPhone'].forEach(function (id) {
+        const b = document.getElementById(id);
+        if (b) b.textContent = label;
+      });
+      const demo = document.getElementById('topBarMd2Pairing');
+      if (demo) {
+        const span = demo.querySelector('span');
+        if (span) span.textContent = label;
+        else demo.textContent = label;
+      }
+    }
+
+    // Login entry — platform-aware (mobile scans; desktop shows QR)
     const loginStep = document.getElementById('authStepLogin');
     if (loginStep && !document.getElementById('btnLoginLinkPhone')) {
       const btn = document.createElement('button');
@@ -687,8 +875,8 @@
       btn.id = 'btnLoginLinkPhone';
       btn.className = 'button-secondary';
       btn.style.cssText = 'width:100%;margin-top:10px;';
-      btn.textContent = 'קישור באמצעות הטלפון';
-      btn.addEventListener('click', () => openDesktopPairingPanel());
+      btn.textContent = 'קישור מכשיר חדש';
+      btn.addEventListener('click', () => openLinkedDevicesPrimaryAction());
       const actions = loginStep.querySelector('.guest-auth-login-actions');
       if (actions && actions.parentNode) actions.parentNode.insertBefore(btn, actions.nextSibling);
       else loginStep.appendChild(btn);
@@ -701,8 +889,8 @@
         btn.type = 'button';
         btn.id = 'btnStartLinkPhone';
         btn.className = 'button-secondary';
-        btn.textContent = 'קישור באמצעות הטלפון';
-        btn.addEventListener('click', () => openDesktopPairingPanel());
+        btn.textContent = 'קישור מכשיר חדש';
+        btn.addEventListener('click', () => openLinkedDevicesPrimaryAction());
         wrap.appendChild(btn);
       }
     }
@@ -722,17 +910,27 @@
       if (invite && invite.parentNode) invite.parentNode.insertBefore(btn, invite.nextSibling);
       else menu.appendChild(btn);
     }
-    // Replace demo MD2 menu with real session starter
+    // Primary "link new device" — MUST NOT always open Display QR on phones
     const demo = document.getElementById('topBarMd2Pairing');
     if (demo) {
-      demo.querySelector('span') && (demo.querySelector('span').textContent = 'קישור מכשיר חדש');
       demo.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
         menu && (menu.hidden = true);
-        openDesktopPairingPanel();
+        openLinkedDevicesPrimaryAction();
       };
     }
+    syncPrimaryLinkLabels();
+    try {
+      if (typeof window.matchMedia === 'function') {
+        const mq = window.matchMedia('(pointer: coarse)');
+        const onChange = function () {
+          syncPrimaryLinkLabels();
+        };
+        if (mq && typeof mq.addEventListener === 'function') mq.addEventListener('change', onChange);
+        else if (mq && typeof mq.addListener === 'function') mq.addListener(onChange);
+      }
+    } catch (_mq) {}
   }
 
   const api = Object.freeze({
@@ -765,6 +963,9 @@
     openDesktopPairingPanel,
     openLinkedDevicesSettings,
     beginPrimaryCameraScan,
+    classifyLinkedDevicesSurface,
+    openLinkedDevicesPrimaryAction,
+    openMobilePrimaryLinkAction,
     wireUi,
   });
 
