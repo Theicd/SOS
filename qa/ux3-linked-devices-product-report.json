@@ -1,0 +1,198 @@
+{
+  "status": "PASS",
+  "runId": "521911f4-a466-4481-a869-e980ee78f190",
+  "version": "2026.10.11-web-899s.10",
+  "moduleSha16": {
+    "linkedDevices": "79154FB244CF7B39",
+    "logger": "290541649F16804C",
+    "guestAuth": "7A4E0E1D50A75F6F"
+  },
+  "checks": [
+    {
+      "name": "VERSION_899S10",
+      "ok": true,
+      "detail": "2026.10.11-web-899s.10"
+    },
+    {
+      "name": "SW_CACHE_899S10",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "SW_REGISTER_899S10",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "VIDEOS_PKG_899S10",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "LOGGER_CACHE_BUST",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "LOGGER_NORMALIZE_FILTERS",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "LOGGER_TELEMETRY_TRYCATCH",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "LOGGER_ORIG_APPLY",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NO_ARRAY_PROTO_POLYFILL",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "GUEST_WELCOME_UI",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "GUEST_TITLE",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "CONTINUE_AS_GUEST_FN",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "GUEST_SESSION_KEY",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MOBILE_PAGE",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "EMPTY_DEVICES",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "LOCAL_REGISTRY_SCOPE",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NO_REVOKE_PRODUCT",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "QR_ERROR_STATE",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "DESKTOP_REOPEN_LABEL",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "AUTH_PROMPT_DEFER",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NO_W1B",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NO_W3",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "WEB_MD3_OFF",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "DECODE_NOT_AUTH",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "NO_FAKE_LINKED",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "LOGGER_SINGLE_FILTER_NO_THROW",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "LOGGER_PRESERVES_FILTER_SHAPE",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "API_UX3_EXPORTS",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "GUEST_FIRST_ENTRY_PATH",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "GUEST_WELCOME_FLAG",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MD2_SESSION_STARTED",
+      "ok": true,
+      "detail": "2"
+    },
+    {
+      "name": "CONTINUE_PATH",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "GUEST_FLAG_CLEARED",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "GUEST_CONTINUED_SESSION",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MOBILE_PAGE_PATH",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "DEVICE_LIST_LOCAL",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "MOBILE_PRIMARY_OPENS_PAGE",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "failed": []
+}

@@ -1,0 +1,37 @@
+{
+  "status": "PASS",
+  "runId": "30426170-e520-42bb-aa18-e972c83b9861",
+  "version": "2026.10.11-web-899s.10",
+  "ux3Exit": 0,
+  "routingExit": 0,
+  "moduleSha16": {
+    "linkedDevices": "79154FB244CF7B39",
+    "logger": "290541649F16804C",
+    "guestAuth": "7A4E0E1D50A75F6F",
+    "md2Qr": "B1D8502CCACF1C84",
+    "scanner": "E9C258E3B445A215",
+    "session": "B945FD9E7CD0A08B"
+  },
+  "stdout": {
+    "ux3": [
+      "[ux3] PASS CONTINUE_PATH",
+      "[ux3] PASS GUEST_FLAG_CLEARED",
+      "[ux3] PASS GUEST_CONTINUED_SESSION",
+      "[ux3] PASS MOBILE_PAGE_PATH",
+      "[ux3] PASS DEVICE_LIST_LOCAL",
+      "[ux3] PASS MOBILE_PRIMARY_OPENS_PAGE",
+      "STATUS=PASS runId=521911f4-a466-4481-a869-e980ee78f190",
+      ""
+    ],
+    "routing": [
+      "[ui] PASS FORCE_DESKTOP_PATH_WIRED",
+      "[ui] PASS FORCE_MOBILE_CLASS",
+      "[ui] PASS FORCE_MOBILE_OPENS_SCANNER",
+      "[ui] PASS AMBIGUOUS_STILL",
+      "[ui] PASS PRIMARY_ACTION_EXPORT",
+      "[ui] PASS CHOOSER_WIRED_IN_PRIMARY",
+      "STATUS=PASS runId=8e5bd3c8-4eba-41d6-952c-4d8a8480f3f7",
+      ""
+    ]
+  }
+}

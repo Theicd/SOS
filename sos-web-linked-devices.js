@@ -17,6 +17,8 @@
   const DEVICE_KEY = 'sos_web_device_identity_meta_v1';
   const PAIR_TTL_MS = 120000;
   const MAX_LINKED = 4;
+  const GUEST_CONTINUE_KEY = 'sos_ld_guest_continued_v1';
+  const DEVICE_LIST_SCOPE = 'LOCAL_BROWSER_REGISTRY'; // not account-wide until MD6 sync
 
   function hexRand(bytes) {
     const a = new Uint8Array(bytes);
@@ -226,6 +228,103 @@
     return _pairing ? { state: _pairing.state, expiresAt: _pairing.expiresAt, pairingId: _pairing.payload && _pairing.payload.pairingId } : null;
   }
 
+  function disposePairingSession() {
+    if (_pairTimer) {
+      clearInterval(_pairTimer);
+      _pairTimer = null;
+    }
+    if (_pairing && _pairing._session && typeof _pairing._session.stop === 'function') {
+      try {
+        _pairing._session.stop();
+      } catch (_s) {}
+    }
+    _pairing = null;
+  }
+
+  function guestContinuedThisTab() {
+    try {
+      return sessionStorage.getItem(GUEST_CONTINUE_KEY) === '1';
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  function markGuestContinued() {
+    try {
+      sessionStorage.setItem(GUEST_CONTINUE_KEY, '1');
+    } catch (_e) {}
+  }
+
+  function hasInviteDeepLink() {
+    try {
+      if (typeof App.getInviteCodeFromLocation === 'function') {
+        return !!App.getInviteCodeFromLocation();
+      }
+      const u = new URL(window.location.href);
+      return !!(u.searchParams.get('invite') || u.searchParams.get('inviteCode'));
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  function isGuestDesktopEntry() {
+    const cls = classifyLinkedDevicesSurface();
+    if (cls.role !== 'DESKTOP_DESTINATION') return false;
+    if (App.guestMode === false && App.publicKey) return false;
+    if (hasInviteDeepLink()) return false;
+    if (guestContinuedThisTab()) return false;
+    return true;
+  }
+
+  function maybeShowGuestQrWelcome() {
+    if (!isGuestDesktopEntry()) return { ok: false, skipped: true };
+    // Defer slightly so guest-auth / feed init settle; never cover invite deep links.
+    const run = function () {
+      if (!isGuestDesktopEntry()) return;
+      if (document.getElementById('sosLdGuestWelcome') && !document.getElementById('sosLdGuestWelcome').hidden) {
+        return;
+      }
+      showGuestQrWelcome();
+    };
+    if (document.readyState === 'complete') setTimeout(run, 80);
+    else window.addEventListener('load', function () { setTimeout(run, 80); });
+    return { ok: true, scheduled: true };
+  }
+
+  function ensureLinkedDevicesStyles() {
+    if (document.getElementById('sosLdProductStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'sosLdProductStyles';
+    style.textContent =
+      '#sosLdGuestWelcome,#sosLdMobilePage,#sosLinkedPairPanel{position:fixed;inset:0;z-index:12030;display:flex;align-items:center;justify-content:center}' +
+      '#sosLdGuestWelcome[hidden],#sosLdMobilePage[hidden],#sosLinkedPairPanel[hidden]{display:none!important}' +
+      '#sosLdMobilePage{background:var(--sos-bg,#0d0d0d);align-items:stretch;justify-content:stretch}' +
+      '.sos-ld-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.58)}' +
+      '.sos-ld-shell{position:relative;width:min(440px,94vw);max-height:94vh;overflow:auto;background:var(--sos-surface,#141414);color:var(--sos-text,#f5f5f5);border-radius:18px;padding:22px 20px;box-shadow:0 16px 48px rgba(0,0,0,.5)}' +
+      '.sos-ld-shell h1,.sos-ld-shell h2{margin:0;font-size:1.25rem;font-weight:650;line-height:1.3}' +
+      '.sos-ld-shell .sos-ld-sub{margin:10px 0 0;font-size:14px;line-height:1.5;opacity:.9}' +
+      '.sos-ld-qr-wrap{margin:18px auto 10px;width:340px;height:340px;max-width:86vw;max-height:86vw;background:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;padding:14px;box-sizing:border-box}' +
+      '.sos-ld-qr-wrap canvas{display:block;width:100%;height:100%;max-width:312px;max-height:312px;background:#fff}' +
+      '.sos-ld-qr-wrap.is-error{background:#2a2a2a;color:#f0f0f0;text-align:center;padding:20px;font-size:14px;line-height:1.45}' +
+      '.sos-ld-status,.sos-ld-expiry{text-align:center;margin:6px 0;font-size:13px}' +
+      '.sos-ld-expiry{opacity:.8}' +
+      '.sos-ld-actions{display:flex;flex-direction:column;gap:10px;margin-top:16px}' +
+      '.sos-ld-actions .button-primary,.sos-ld-actions .button-secondary{width:100%;min-height:44px}' +
+      '.sos-ld-mobile-page{position:relative;width:100%;max-width:560px;height:100%;max-height:100%;border-radius:0;display:flex;flex-direction:column;padding:0}' +
+      '.sos-ld-mobile-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08)}' +
+      '.sos-ld-mobile-head button{background:transparent;border:0;color:inherit;font-size:22px;line-height:1;padding:4px 8px}' +
+      '.sos-ld-mobile-body{padding:16px;overflow:auto;flex:1}' +
+      '.sos-ld-device-list{list-style:none;margin:16px 0 0;padding:0}' +
+      '.sos-ld-device-list li{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.08)}' +
+      '.sos-ld-device-ico{width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center}' +
+      '.sos-ld-device-meta{flex:1;min-width:0}' +
+      '.sos-ld-device-meta strong{display:block;font-size:15px}' +
+      '.sos-ld-device-meta span{display:block;font-size:12px;opacity:.75;margin-top:3px}' +
+      '.sos-ld-empty{opacity:.8;font-size:14px;margin-top:18px}' +
+      '.sos-ld-footnote{font-size:12px;opacity:.7;margin-top:14px;line-height:1.45}';
+    document.head.appendChild(style);
+  }
+
   /**
    * Capability-aware surface class for Linked Devices primary UX.
    * Not a security boundary — never bypasses crypto / account checks.
@@ -381,10 +480,13 @@
     });
   }
 
-  /** Product entry: platform-aware primary Linked Devices action. */
+  /** Product entry: platform-aware primary Linked Devices action (menu / login buttons). */
   function openLinkedDevicesPrimaryAction(opts) {
     const cls = classifyLinkedDevicesSurface(opts);
-    if (cls.role === 'MOBILE_PRIMARY') return openMobilePrimaryLinkAction();
+    // Mobile: dedicated Linked Devices page (scan is the in-page primary CTA).
+    if (cls.role === 'MOBILE_PRIMARY' || cls.nativeShell) {
+      return openMobileLinkedDevicesPage();
+    }
     if (cls.role === 'DESKTOP_DESTINATION') {
       openDesktopPairingPanel();
       return { ok: true, path: 'DESKTOP_DISPLAY_QR' };
@@ -735,155 +837,307 @@
     return m > 0 ? m + ':' + String(s).padStart(2, '0') + ' דק׳' : s + ' שנ׳';
   }
 
-  function renderPairingUi() {
-    const panel = document.getElementById('sosLinkedPairPanel');
-    if (!panel || !_pairing) return;
-    const st = document.getElementById('sosLinkedPairStatus');
-    const canvas = document.getElementById('sosLinkedPairCanvas');
-    const exp = document.getElementById('sosLinkedPairExpiry');
-    if (st) {
-      const map = {
-        WAITING: 'ממתין לסריקה בטלפון…',
-        EXPIRED: 'פג תוקף הקוד — לחצו ליצירת קוד חדש',
-        APPROVAL_PENDING: 'ממתין לאישור בטלפון…',
-        APPROVED: 'המכשיר אושר בהצלחה',
-        REJECTED: 'הקישור נדחה',
-        FAILURE: 'הקישור נכשל — נסו שוב',
+  function setQrErrorState(wrapEl, statusEl, message) {
+    if (wrapEl) {
+      wrapEl.classList.add('is-error');
+      wrapEl.innerHTML =
+        '<div><strong>לא ניתן ליצור קוד כרגע</strong><br/>' +
+        '<span style="opacity:.85">' +
+        escapeHtml(message || 'נסו שוב בעוד רגע') +
+        '</span><br/>' +
+        '<button type="button" class="button-secondary" data-ld-retry-qr style="margin-top:12px;min-height:40px;">נסה שוב</button></div>';
+      const retry = wrapEl.querySelector('[data-ld-retry-qr]');
+      if (retry) {
+        retry.onclick = function () {
+          const root = wrapEl.closest('#sosLdGuestWelcome, #sosLinkedPairPanel') || wrapEl.parentElement;
+          if (root) startPairingIntoUi(root);
+        };
+      }
+    }
+    if (statusEl) statusEl.textContent = 'שגיאה ביצירת קוד';
+  }
+
+  function ensureQrCanvas(wrapEl) {
+    if (!wrapEl) return null;
+    wrapEl.classList.remove('is-error');
+    let canvas = wrapEl.querySelector('canvas');
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      canvas.id = 'sosLinkedPairCanvas';
+      canvas.width = 320;
+      canvas.height = 320;
+      canvas.setAttribute('aria-label', 'קוד לקישור מחשב');
+      wrapEl.innerHTML = '';
+      wrapEl.appendChild(canvas);
+    }
+    return canvas;
+  }
+
+  function bindDesktopPairingControls(root, opts) {
+    const o = opts || {};
+    const refreshBtn = root.querySelector('[data-ld-refresh]');
+    if (refreshBtn) {
+      refreshBtn.onclick = () => {
+        Promise.resolve(refreshPairingQr())
+          .then(renderPairingUi)
+          .catch((err) => {
+            const wrap = root.querySelector('.sos-ld-qr-wrap');
+            const st = root.querySelector('.sos-ld-status');
+            setQrErrorState(wrap, st, String((err && err.message) || err || ''));
+          });
       };
-      st.textContent = map[_pairing.state] || _pairing.state;
     }
-    if (exp) {
-      exp.textContent =
-        _pairing.state === 'EXPIRED'
-          ? 'הקוד אינו תקף עוד'
-          : 'תוקף הקוד: ' + formatPairExpiry(_pairing.expiresAt);
-    }
-    const Md2 = App.Md2PairingQr;
-    if (canvas && Md2 && _pairing.qrText && _pairing.state !== 'EXPIRED') {
-      Promise.resolve(Md2.renderPairingQrToCanvas(canvas, _pairing.qrText)).catch(() => {});
+    const guestBtn = root.querySelector('[data-ld-continue-guest]');
+    if (guestBtn) guestBtn.onclick = () => continueAsGuest();
+    const closeBtn = root.querySelector('[data-ld-close]');
+    if (closeBtn && o.onClose) closeBtn.onclick = o.onClose;
+    const loginBtn = root.querySelector('[data-ld-open-login]');
+    if (loginBtn) {
+      loginBtn.onclick = () => {
+        if (typeof App.openAuthPrompt === 'function') {
+          App.openAuthPrompt('התחברו או הירשמו כדי ליצור פרופיל אישי.');
+        }
+      };
     }
   }
 
+  function renderPairingUi() {
+    ensureLinkedDevicesStyles();
+    const roots = [
+      document.getElementById('sosLdGuestWelcome'),
+      document.getElementById('sosLinkedPairPanel'),
+    ].filter(Boolean);
+    roots.forEach((root) => {
+      if (root.hidden) return;
+      const wrap = root.querySelector('.sos-ld-qr-wrap');
+      const st = root.querySelector('.sos-ld-status');
+      const exp = root.querySelector('.sos-ld-expiry');
+      if (!_pairing) return;
+      if (st) {
+        const map = {
+          WAITING: 'ממתינים לסריקה בטלפון…',
+          EXPIRED: 'פג תוקף הקוד — צרו קוד חדש',
+          APPROVAL_PENDING: 'ממתינים לאישור בטלפון…',
+          APPROVED: 'המכשיר אושר בהצלחה',
+          REJECTED: 'הקישור נדחה',
+          FAILURE: 'הקישור נכשל — נסו שוב',
+        };
+        st.textContent = map[_pairing.state] || _pairing.state;
+      }
+      if (exp) {
+        exp.textContent =
+          _pairing.state === 'EXPIRED'
+            ? 'הקוד אינו תקף עוד'
+            : 'תוקף הקוד: ' + formatPairExpiry(_pairing.expiresAt);
+      }
+      const Md2 = App.Md2PairingQr;
+      if (wrap && Md2 && _pairing.qrText && _pairing.state !== 'EXPIRED') {
+        const canvas = ensureQrCanvas(wrap);
+        Promise.resolve(Md2.renderPairingQrToCanvas(canvas, _pairing.qrText)).catch((err) => {
+          setQrErrorState(wrap, st, String((err && err.message) || err || 'RENDER_FAIL'));
+        });
+      }
+    });
+  }
+
+  function startPairingIntoUi(root) {
+    if (!root || typeof root.querySelector !== 'function') {
+      return Promise.resolve({ ok: false, code: 'UI_ROOT_MISSING' });
+    }
+    const wrap = root.querySelector('.sos-ld-qr-wrap');
+    const st = root.querySelector('.sos-ld-status');
+    if (wrap) {
+      try {
+        if (wrap.classList && typeof wrap.classList.remove === 'function') wrap.classList.remove('is-error');
+      } catch (_c) {}
+      wrap.innerHTML = '<canvas id="sosLinkedPairCanvas" width="320" height="320" aria-label="קוד לקישור מחשב"></canvas>';
+    }
+    if (st) st.textContent = 'יוצרים קוד…';
+    return Promise.resolve(startDesktopPairingSession())
+      .then(renderPairingUi)
+      .catch((err) => {
+        setQrErrorState(wrap, st, 'לא ניתן ליצור קוד כרגע. אפשר להמשיך כאורח או לנסות שוב.');
+        try {
+          window.__sosLdQrCreateErr = String((err && err.message) || err).slice(0, 240);
+        } catch (_e) {}
+        return { ok: false, code: 'QR_CREATE_FAIL' };
+      });
+  }
+
+  /** Polished desktop QR panel (menu reopen / non-welcome). */
   function openDesktopPairingPanel() {
+    ensureLinkedDevicesStyles();
     const Md2 = App.Md2PairingQr || window.SosMd2PairingQr;
     const Session = App.Md2PairingSession || window.SosMd2PairingSession;
     if (!Md2 || typeof Md2.renderPairingQrToCanvas !== 'function' || !Session) {
       try {
-        window.alert('מודול קישור המכשירים אינו זמין כעת. רעננו את העמוד ונסו שוב.');
+        window.alert('קישור המכשירים אינו זמין כעת. רעננו את העמוד ונסו שוב.');
       } catch (_a) {}
       return { ok: false, code: 'LINKED_DEVICES_MODULE_MISSING' };
     }
+    // Hide guest welcome if open as separate layer
+    const welcome = document.getElementById('sosLdGuestWelcome');
+    if (welcome) welcome.hidden = true;
     let el = document.getElementById('sosLinkedPairPanel');
     if (!el) {
       el = document.createElement('div');
       el.id = 'sosLinkedPairPanel';
       el.innerHTML =
         '<div class="sos-ld-backdrop" data-ld-close></div>' +
-        '<div class="sos-ld-panel" role="dialog" aria-modal="true" aria-labelledby="sosLdTitle" dir="rtl">' +
-        '<header><h2 id="sosLdTitle">קישור מחשב באמצעות הטלפון</h2>' +
-        '<button type="button" data-ld-close aria-label="סגור">×</button></header>' +
-        '<p class="sos-ld-lead">פתחו SOS בטלפון המורשה וסרקו את הקוד. הסריקה אינה מאשרת קישור — יידרש אישור מאובטח בטלפון.</p>' +
-        '<canvas id="sosLinkedPairCanvas" width="240" height="240" aria-label="קוד QR לקישור"></canvas>' +
-        '<p id="sosLinkedPairStatus" class="sos-ld-status"></p>' +
-        '<p id="sosLinkedPairExpiry" class="sos-ld-expiry"></p>' +
+        '<div class="sos-ld-shell" role="dialog" aria-modal="true" dir="rtl">' +
+        '<h2>קישור מחשב לטלפון</h2>' +
+        '<p class="sos-ld-sub">פתחו SOS בטלפון, היכנסו למכשירים מקושרים וסרקו את הקוד.</p>' +
+        '<div class="sos-ld-qr-wrap"><canvas id="sosLinkedPairCanvas" width="320" height="320"></canvas></div>' +
+        '<p class="sos-ld-status"></p><p class="sos-ld-expiry"></p>' +
         '<div class="sos-ld-actions">' +
-        '<button type="button" class="button-primary" id="sosLdRefreshQr">קוד חדש</button>' +
+        '<button type="button" class="button-primary" data-ld-refresh>קוד חדש</button>' +
         '<button type="button" class="button-secondary" data-ld-close>סגור</button>' +
-        '</div>' +
-        '</div>';
-      const style = document.createElement('style');
-      style.textContent =
-        '#sosLinkedPairPanel{position:fixed;inset:0;z-index:12020;display:flex;align-items:center;justify-content:center}' +
-        '#sosLinkedPairPanel[hidden]{display:none!important}' +
-        '.sos-ld-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55)}' +
-        '.sos-ld-panel{position:relative;background:var(--sos-surface,#161616);color:var(--sos-text,#f5f5f5);border-radius:16px;padding:20px;max-width:400px;width:92%;box-shadow:0 12px 40px rgba(0,0,0,.45)}' +
-        '.sos-ld-panel header{display:flex;justify-content:space-between;align-items:center;gap:8px}' +
-        '.sos-ld-panel header h2{margin:0;font-size:1.15rem;font-weight:600}' +
-        '.sos-ld-lead{margin:12px 0 8px;font-size:14px;line-height:1.45;opacity:.92}' +
-        '#sosLinkedPairCanvas{display:block;margin:14px auto;background:#fff;border-radius:12px}' +
-        '.sos-ld-status{min-height:1.4em;margin:10px 0 4px;font-size:14px;text-align:center}' +
-        '.sos-ld-expiry{margin:0 0 12px;font-size:13px;opacity:.8;text-align:center}' +
-        '.sos-ld-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}';
-      document.head.appendChild(style);
+        '</div></div>';
       document.body.appendChild(el);
       el.addEventListener('click', (e) => {
-        if (e.target && e.target.hasAttribute('data-ld-close')) el.hidden = true;
+        if (e.target && e.target.hasAttribute('data-ld-close')) {
+          el.hidden = true;
+          disposePairingSession();
+        }
       });
-      document.getElementById('sosLdRefreshQr').onclick = () => {
-        Promise.resolve(refreshPairingQr()).then(renderPairingUi).catch((err) => {
-          const st = document.getElementById('sosLinkedPairStatus');
-          if (st) st.textContent = String((err && err.message) || err || 'שגיאה');
-        });
-      };
+      bindDesktopPairingControls(el, {
+        onClose: () => {
+          el.hidden = true;
+          disposePairingSession();
+        },
+      });
     }
     el.hidden = false;
-    Promise.resolve(startDesktopPairingSession())
-      .then(renderPairingUi)
-      .catch((err) => {
-        const st = document.getElementById('sosLinkedPairStatus');
-        if (st) st.textContent = String((err && err.message) || err || 'שגיאה ביצירת קישור');
-      });
+    startPairingIntoUi(el);
     return { ok: true, path: 'DESKTOP_DISPLAY_QR' };
   }
 
-  function openLinkedDevicesSettings() {
-    let el = document.getElementById('sosLinkedDevicesPanel');
+  function showGuestQrWelcome() {
+    ensureLinkedDevicesStyles();
+    let el = document.getElementById('sosLdGuestWelcome');
     if (!el) {
       el = document.createElement('div');
-      el.id = 'sosLinkedDevicesPanel';
-      el.innerHTML = `
-        <div class="sos-ld-backdrop" data-ld-dev-close></div>
-        <div class="sos-ld-panel" role="dialog" aria-modal="true">
-          <header><h2>מכשירים מקושרים</h2>
-            <button type="button" data-ld-dev-close aria-label="סגור">×</button></header>
-          <ul id="sosLinkedDevicesList" style="list-style:none;padding:0;margin:12px 0;"></ul>
-          <button type="button" class="button-primary" id="sosLdScanQr" style="width:100%;margin-bottom:8px;">סריקת QR לקישור מחשב</button>
-          <button type="button" class="button-secondary" id="sosLdLinkNew" style="width:100%;">קישור מחשב באמצעות הטלפון</button>
-          <p style="font-size:12px;opacity:.75;margin-top:10px;">בטלפון: סריקה במצלמה. במחשב: הצגת קוד QR. סריקה אינה מאשרת קישור — יידרש אישור מאובטח נפרד.</p>
-        </div>`;
+      el.id = 'sosLdGuestWelcome';
+      el.innerHTML =
+        '<div class="sos-ld-backdrop"></div>' +
+        '<div class="sos-ld-shell" role="dialog" aria-modal="true" dir="rtl">' +
+        '<h1>חיבור SOS באמצעות הטלפון</h1>' +
+        '<p class="sos-ld-sub">פתחו SOS בטלפון, היכנסו למכשירים מקושרים וסרקו את הקוד.</p>' +
+        '<div class="sos-ld-qr-wrap"><canvas width="320" height="320"></canvas></div>' +
+        '<p class="sos-ld-status"></p><p class="sos-ld-expiry"></p>' +
+        '<div class="sos-ld-actions">' +
+        '<button type="button" class="button-primary" data-ld-continue-guest>המשך כאורח</button>' +
+        '<button type="button" class="button-secondary" data-ld-refresh>קוד חדש</button>' +
+        '<button type="button" class="button-secondary" data-ld-open-login>התחברות / הרשמה</button>' +
+        '</div>' +
+        '<p class="sos-ld-footnote">אפשר לדפדף כאורח בלי קישור. קישור מאובטח דורש אישור בטלפון ואינו מתבצע מסריקה בלבד.</p>' +
+        '</div>';
       document.body.appendChild(el);
-      el.addEventListener('click', (e) => {
-        if (e.target && e.target.hasAttribute('data-ld-dev-close')) el.hidden = true;
-      });
-      document.getElementById('sosLdLinkNew').onclick = () => {
+      bindDesktopPairingControls(el, {});
+    }
+    el.hidden = false;
+    try {
+      window.__sosLdGuestWelcomeActive = true;
+    } catch (_f) {}
+    startPairingIntoUi(el);
+    return { ok: true, path: 'GUEST_FIRST_ENTRY_QR' };
+  }
+
+  function continueAsGuest() {
+    markGuestContinued();
+    disposePairingSession();
+    const welcome = document.getElementById('sosLdGuestWelcome');
+    if (welcome) welcome.hidden = true;
+    const panel = document.getElementById('sosLinkedPairPanel');
+    if (panel) panel.hidden = true;
+    try {
+      window.__sosLdGuestWelcomeActive = false;
+    } catch (_f) {}
+    // Reveal feed / normal browsing without forcing auth modal.
+    try {
+      const modal = document.getElementById('guestAuthModal');
+      if (modal) {
+        modal.style.display = 'none';
+        modal.hidden = true;
+      }
+    } catch (_m) {}
+    try {
+      if (typeof App.loadFeed === 'function') App.loadFeed();
+      const home = document.getElementById('btnHome') || document.querySelector('[data-nav="home"]');
+      if (home && typeof home.click === 'function') home.click();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (_feed) {}
+    return { ok: true, path: 'CONTINUE_AS_GUEST', LINKED: false };
+  }
+
+  function openMobileLinkedDevicesPage() {
+    ensureLinkedDevicesStyles();
+    let el = document.getElementById('sosLdMobilePage');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'sosLdMobilePage';
+      el.innerHTML =
+        '<div class="sos-ld-shell sos-ld-mobile-page" role="dialog" aria-modal="true" dir="rtl">' +
+        '<div class="sos-ld-mobile-head">' +
+        '<button type="button" data-ld-mobile-back aria-label="חזרה">›</button>' +
+        '<h2>מכשירים מקושרים</h2>' +
+        '</div>' +
+        '<div class="sos-ld-mobile-body">' +
+        '<p class="sos-ld-sub">חברו את המחשב לחשבון SOS שלכם באמצעות סריקת קוד QR.</p>' +
+        '<button type="button" class="button-primary" id="sosLdMobileScan" style="width:100%;min-height:48px;margin-top:14px;">קישור מכשיר</button>' +
+        '<h3 style="margin:22px 0 0;font-size:1rem;">מכשירים מקושרים</h3>' +
+        '<ul class="sos-ld-device-list" id="sosLdMobileDeviceList"></ul>' +
+        '<p class="sos-ld-footnote">הרשימה מציגה רשומות מקומיות במכשיר זה בלבד. הסרה מרחוק של מכשיר חשבון עדיין אינה זמינה.</p>' +
+        '</div></div>';
+      document.body.appendChild(el);
+      el.querySelector('[data-ld-mobile-back]').onclick = () => {
         el.hidden = true;
-        openDesktopPairingPanel();
       };
-      document.getElementById('sosLdScanQr').onclick = () => {
-        el.hidden = true;
+      el.querySelector('#sosLdMobileScan').onclick = () => {
         openMobilePrimaryLinkAction();
       };
     }
-    const cls = classifyLinkedDevicesSurface();
-    const scanBtn = document.getElementById('sosLdScanQr');
-    const showBtn = document.getElementById('sosLdLinkNew');
-    if (scanBtn && showBtn) {
-      // Visual primary follows surface class; both actions remain available (no crypto bypass).
-      if (cls.role === 'DESKTOP_DESTINATION') {
-        showBtn.className = 'button-primary';
-        scanBtn.className = 'button-secondary';
-      } else {
-        scanBtn.className = 'button-primary';
-        showBtn.className = 'button-secondary';
-      }
-    }
-    const list = document.getElementById('sosLinkedDevicesList');
+    const list = el.querySelector('#sosLdMobileDeviceList');
     const devices = listLinkedDevices();
-    list.innerHTML = devices.length
-      ? devices
-          .map(
-            (d) =>
-              `<li style="padding:10px 0;border-bottom:1px solid #333;">
-                <strong>${escapeHtml(d.deviceName)}</strong>
-                ${d.isCurrent ? ' <span>(מכשיר נוכחי)</span>' : ''}
-                <div style="font-size:12px;opacity:.8;">מזהה: ${escapeHtml(String(d.deviceId).slice(0, 12))}…</div>
-                <div style="font-size:12px;opacity:.8;">מצב: ${escapeHtml(d.authorizationState)}</div>
-                <div style="font-size:12px;opacity:.8;">קושר: ${d.linkedAt ? new Date(d.linkedAt).toLocaleString('he-IL') : '—'}</div>
-              </li>`,
-          )
-          .join('')
-      : '<li style="opacity:.8;">אין מכשירים מורשים עדיין.</li>';
+    if (list) {
+      list.innerHTML = devices.length
+        ? devices
+            .map((d) => {
+              const when = d.linkedAt ? new Date(d.linkedAt).toLocaleString('he-IL') : '';
+              return (
+                '<li>' +
+                '<div class="sos-ld-device-ico"><i class="fa-solid fa-laptop"></i></div>' +
+                '<div class="sos-ld-device-meta">' +
+                '<strong>' +
+                escapeHtml(d.deviceName) +
+                (d.isCurrent ? ' · מכשיר נוכחי' : '') +
+                '</strong>' +
+                '<span>מצב: ' +
+                escapeHtml(d.authorizationState || 'ACTIVE') +
+                '</span>' +
+                (when ? '<span>קושר: ' + escapeHtml(when) + '</span>' : '') +
+                '<span>מקור: רשומה מקומית במכשיר זה</span>' +
+                '</div></li>'
+              );
+            })
+            .join('')
+        : '<li class="sos-ld-empty">אין עדיין מכשירים מקושרים</li>';
+    }
     el.hidden = false;
+    return { ok: true, path: 'MOBILE_LINKED_DEVICES_PAGE', DEVICE_LIST_SOURCE: DEVICE_LIST_SCOPE };
+  }
+
+  function openLinkedDevicesSettings() {
+    const cls = classifyLinkedDevicesSurface();
+    if (cls.role === 'MOBILE_PRIMARY' || cls.nativeShell) {
+      return openMobileLinkedDevicesPage();
+    }
+    if (cls.role === 'DESKTOP_DESTINATION') {
+      return openDesktopPairingPanel();
+    }
+    // Ambiguous: chooser stays available
+    openRoleChooserPanel();
+    return { ok: true, path: 'ROLE_CHOOSER' };
   }
 
   function escapeHtml(s) {
@@ -929,10 +1183,29 @@
       }
     } catch (_leg) {}
 
+    // Soft-guard: do not let auth modal auto-cover Guest QR-first welcome (invite deep links still win).
+    try {
+      if (typeof App.openAuthPrompt === 'function' && !App.openAuthPrompt.__sosLdWrapped) {
+        const origPrompt = App.openAuthPrompt;
+        App.openAuthPrompt = function (message, options) {
+          const opts = options || {};
+          if (
+            window.__sosLdGuestWelcomeActive &&
+            !opts.fromInviteLink &&
+            !hasInviteDeepLink()
+          ) {
+            return;
+          }
+          return origPrompt.apply(this, arguments);
+        };
+        App.openAuthPrompt.__sosLdWrapped = true;
+      }
+    } catch (_wrap) {}
+
     function syncPrimaryLinkLabels() {
       const cls = classifyLinkedDevicesSurface();
-      const mobileLabel = 'סריקת QR לקישור מחשב';
-      const desktopLabel = 'קישור מחשב באמצעות הטלפון';
+      const mobileLabel = 'מכשירים מקושרים';
+      const desktopLabel = 'קישור מחשב לטלפון';
       const ambiguousLabel = 'קישור מכשיר חדש';
       const label =
         cls.role === 'MOBILE_PRIMARY'
@@ -947,6 +1220,11 @@
         if (span) span.textContent = label;
         else if (id !== 'topBarMd2Pairing' || !b.querySelector('i')) b.textContent = label;
       });
+      const ldMenu = document.getElementById('topBarLinkedDevices');
+      if (ldMenu) {
+        const span = ldMenu.querySelector('span');
+        if (span) span.textContent = cls.role === 'DESKTOP_DESTINATION' ? 'קישור מחשב לטלפון' : 'מכשירים מקושרים';
+      }
     }
 
     function ensureLoginPrimary(id, mount) {
@@ -981,37 +1259,32 @@
       if (wrap) wrap.appendChild(btn);
     });
 
-    // Settings → מכשירים מקושרים
+    // Profile menu — one authoritative Linked Devices entry (platform label).
     const menu = document.getElementById('topBarProfileMenu');
-    if (menu && !document.getElementById('topBarLinkedDevices')) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.id = 'topBarLinkedDevices';
-      btn.className = 'top-bar__dropdown-item';
-      btn.innerHTML = '<i class="fa-solid fa-laptop-mobile"></i><span>מכשירים מקושרים</span>';
-      btn.addEventListener('click', () => {
-        menu.hidden = true;
-        openLinkedDevicesSettings();
-      });
-      const invite = document.getElementById('topBarInviteFriend');
-      if (invite && invite.parentNode) invite.parentNode.insertBefore(btn, invite.nextSibling);
-      else menu.appendChild(btn);
-    }
-
-    // Primary product action — sole owner (create if missing; strip legacy listeners).
     if (menu) {
-      let primary = document.getElementById('topBarMd2Pairing');
-      if (!primary) {
-        primary = document.createElement('button');
-        primary.type = 'button';
-        primary.id = 'topBarMd2Pairing';
-        primary.className = 'top-bar__dropdown-item';
-        primary.innerHTML = '<i class="fa-solid fa-qrcode"></i><span>קישור מכשיר חדש</span>';
-        const after = document.getElementById('topBarLinkedDevices') || document.getElementById('topBarInviteFriend');
-        if (after && after.parentNode) after.parentNode.insertBefore(primary, after.nextSibling);
-        else menu.appendChild(primary);
+      let ldBtn = document.getElementById('topBarLinkedDevices');
+      if (!ldBtn) {
+        ldBtn = document.createElement('button');
+        ldBtn.type = 'button';
+        ldBtn.id = 'topBarLinkedDevices';
+        ldBtn.className = 'top-bar__dropdown-item';
+        ldBtn.innerHTML = '<i class="fa-solid fa-laptop-mobile"></i><span>מכשירים מקושרים</span>';
+        const invite = document.getElementById('topBarInviteFriend');
+        if (invite && invite.parentNode) invite.parentNode.insertBefore(ldBtn, invite.nextSibling);
+        else menu.appendChild(ldBtn);
       }
-      claimPrimaryLinkControl(primary);
+      claimPrimaryLinkControl(document.getElementById('topBarLinkedDevices'));
+
+      // Hide legacy MD2 menu item — do not keep a second overlapping owner.
+      const legacyMd2 = document.getElementById('topBarMd2Pairing');
+      if (legacyMd2) {
+        legacyMd2.hidden = true;
+        legacyMd2.setAttribute('data-sos-legacy-disabled', '1');
+        legacyMd2.setAttribute('aria-hidden', 'true');
+        try {
+          legacyMd2.onclick = null;
+        } catch (_o) {}
+      }
     }
 
     syncPrimaryLinkLabels();
@@ -1025,6 +1298,8 @@
         else if (mq && typeof mq.addListener === 'function') mq.addListener(onChange);
       }
     } catch (_mq) {}
+
+    maybeShowGuestQrWelcome();
   }
 
   const api = Object.freeze({
@@ -1060,6 +1335,11 @@
     classifyLinkedDevicesSurface,
     openLinkedDevicesPrimaryAction,
     openMobilePrimaryLinkAction,
+    showGuestQrWelcome,
+    continueAsGuest,
+    openMobileLinkedDevicesPage,
+    maybeShowGuestQrWelcome,
+    disposePairingSession,
     wireUi,
   });
 

@@ -53,10 +53,10 @@ check('DESKTOP_LABEL', /קישור מחשב באמצעות הטלפון/.test(ld
 check('NATIVE_SHELL_OPENS_SETTINGS', /openLinkedDevicesSettings/.test(ld) && /NATIVE_SHELL|ANDROID_NATIVE_LINKED_DEVICES/.test(ld));
 const videos = read('videos.html');
 check(
-  'VIDEOS_CACHE_BUST_899S9',
-  /sos-web-linked-devices\.js\?[^"']*pkg=899s9/.test(videos) &&
-    /sos-md2-pairing-qr\.js\?[^"']*pkg=899s9/.test(videos) &&
-    /sos-web-linked-qr-scanner\.js\?[^"']*pkg=899s9/.test(videos),
+  'VIDEOS_CACHE_BUST_LINKED',
+  /sos-web-linked-devices\.js\?[^"']*pkg=899s10/.test(videos) &&
+    /sos-md2-pairing-qr\.js\?[^"']*pkg=899s10/.test(videos) &&
+    /sos-web-linked-qr-scanner\.js\?[^"']*pkg=899s10/.test(videos),
 );
 check('VIDEOS_NO_STALE_LEGACY_MD2_ONLY', !/sos-md2-pairing-qr\.js\?v=20260926web1/.test(videos));
 

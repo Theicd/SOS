@@ -106,7 +106,11 @@
     const qrText = typeof payloadOrQr === 'string' ? payloadOrQr : encodeQr(payloadOrQr);
     const scan = secretScan(qrText);
     if (!scan.ok) throw new Error('MD2_QR_SECRET_REJECTED');
-    await QR.toCanvas(canvas, qrText, { errorCorrectionLevel: 'M', margin: 2, width: 240 });
+    // Dense SOSPAIR1 payloads need more modules than a 240px/M render reliably exposes to scanners.
+    const size = Math.max(320, Number(canvas && canvas.width) || 320);
+    canvas.width = size;
+    canvas.height = size;
+    await QR.toCanvas(canvas, qrText, { errorCorrectionLevel: 'L', margin: 3, width: size });
     return qrText;
   }
 

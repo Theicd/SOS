@@ -1,0 +1,23 @@
+{
+  "version": "2026.10.11-web-899s.10",
+  "desktopLocal": {
+    "guestQrFirst": true,
+    "opticalDecodeSamePairingId": true,
+    "flatMap": false,
+    "continueAsGuest": true,
+    "menuReopen": true,
+    "authModalNoAutoCover": true,
+    "linkedE2E": "NOT_CLAIMED_T2_OFF"
+  },
+  "hashes": {
+    "sos-web-linked-devices.js": "79154fb244cf7b394bd38594894f9fffdc1c3556ff3514a4c58d186637a4e4fb",
+    "chat-request-logger.js": "290541649f16804c02f46627746b282e16e55dd6a406f6c7ca87f3214c9aeeee",
+    "guest-auth.js": "7a4e0e1d50a75f6fe37ec390238f878b0bedbc43f098ab8c2ead751fafb0999e",
+    "sos-md2-pairing-qr.js": "b1d8502ccacf1c84d17d092b3eaad14bc9a57d1154b19a7b8aa33f2913684c9d",
+    "sos-web-linked-qr-scanner.js": "e9c258e3b445a21573d9824d9828d3c51bcdd67258829e96ee88a529645b4872",
+    "sos-md2-pairing-session.js": "b945fd9e7cd0a08b1ed2b81f65f6de01d206980cde2fa8d4ae2a9839f3e5a282",
+    "app-version.json": "0f0a6df46d2f9cc4fb0776c2ed55a045bed19a504eb4c158f497a5fa172c28c7",
+    "service-worker.js": "d7d141fb2aa1c7a1722cb71d0eeea86d07f7f85220d5decb609f4bf4052b28c0",
+    "sw-register.js": "3f7d80d0cd670c6c95fb280606de4b47bcdaa6058354744cc307124172b4162e"
+  }
+}

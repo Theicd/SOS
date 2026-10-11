@@ -361,6 +361,16 @@
   // options.step: 'initial' | 'invite' | 'login' | 'email'
   App.openAuthPrompt = function(message, options) {
     var opts = options && typeof options === 'object' ? options : {};
+    // Guest QR-first welcome owns the first Desktop entry; do not overlay auth unless invite deep-link.
+    try {
+      if (
+        window.__sosLdGuestWelcomeActive &&
+        !opts.fromInviteLink &&
+        !(typeof App.getInviteCodeFromLocation === 'function' && App.getInviteCodeFromLocation())
+      ) {
+        return;
+      }
+    } catch (_ld) {}
     var modal = document.getElementById('guestAuthModal');
     var reasonNode = document.getElementById('guestAuthModalReason');
     if (!modal) return;

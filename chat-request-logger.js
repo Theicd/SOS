@@ -170,30 +170,45 @@
         };
       }
       // pool.subscribeMany — קטגוריזציה לפי kinds בפילטר
+      // SimplePool.subscribeMany may receive a single Filter object (MD2) or Filter[].
+      // Normalize ONLY for logging — never change arguments passed to the pool.
       if (typeof App.pool.subscribeMany === 'function') {
         const orig = App.pool.subscribeMany;
         App.pool.subscribeMany = function(relays, filters, opts) {
-          const kinds = (filters||[]).flatMap(f=>f.kinds||[]);
-          const nRelays = Array.isArray(relays)?relays.length:0;
-          const nFilters = filters?.length||0;
-          // קטגוריזציה חכמה
-          const hasLikes = kinds.includes(7);
-          const hasComments = kinds.includes(1) && (filters||[]).some(f => f['#e']);
-          const hasFeedTag = (filters||[]).some(f => f['#t']);
-          const hasChatKinds = kinds.includes(1050) || kinds.includes(1051);
-          const hasP2PSignal = kinds.includes(30078);
-          if (hasP2PSignal && !hasChatKinds) {
-            logReq('p2p-signal-sub', {relays:nRelays, filters:nFilters, kinds});
-          } else if (hasChatKinds) {
-            logReq('relay-sub', {action:'chat-subscribe', relays:nRelays, filters:nFilters, kinds});
-          } else if (hasLikes && !hasFeedTag) {
-            logReq('feed-like-sub', {relays:nRelays, filters:nFilters, kinds, postCount:((filters||[])[0]?.['#e']||[]).length});
-          } else if (hasComments) {
-            logReq('feed-comment-sub', {relays:nRelays, filters:nFilters, kinds});
-          } else if (hasFeedTag) {
-            logReq('feed-sub', {relays:nRelays, filters:nFilters, kinds});
-          } else {
-            logReq('relay-sub', {action:'subscribeMany', relays:nRelays, filters:nFilters, kinds});
+          try {
+            const filterList = Array.isArray(filters)
+              ? filters
+              : filters && typeof filters === 'object'
+                ? [filters]
+                : [];
+            const kinds = filterList.flatMap((f) => (f && Array.isArray(f.kinds) ? f.kinds : []));
+            const nRelays = Array.isArray(relays) ? relays.length : 0;
+            const nFilters = filterList.length;
+            const hasLikes = kinds.includes(7);
+            const hasComments = kinds.includes(1) && filterList.some((f) => f && f['#e']);
+            const hasFeedTag = filterList.some((f) => f && f['#t']);
+            const hasChatKinds = kinds.includes(1050) || kinds.includes(1051);
+            const hasP2PSignal = kinds.includes(30078);
+            if (hasP2PSignal && !hasChatKinds) {
+              logReq('p2p-signal-sub', { relays: nRelays, filters: nFilters, kinds });
+            } else if (hasChatKinds) {
+              logReq('relay-sub', { action: 'chat-subscribe', relays: nRelays, filters: nFilters, kinds });
+            } else if (hasLikes && !hasFeedTag) {
+              logReq('feed-like-sub', {
+                relays: nRelays,
+                filters: nFilters,
+                kinds,
+                postCount: (filterList[0] && filterList[0]['#e'] || []).length,
+              });
+            } else if (hasComments) {
+              logReq('feed-comment-sub', { relays: nRelays, filters: nFilters, kinds });
+            } else if (hasFeedTag) {
+              logReq('feed-sub', { relays: nRelays, filters: nFilters, kinds });
+            } else {
+              logReq('relay-sub', { action: 'subscribeMany', relays: nRelays, filters: nFilters, kinds });
+            }
+          } catch (_logErr) {
+            /* telemetry must never break subscriptions */
           }
           return orig.apply(this, arguments);
         };
@@ -210,13 +225,22 @@
         if (typeof App.pool[fn] !== 'function') return;
         const orig = App.pool[fn];
         App.pool[fn] = function(relays, filters) {
-          const kinds = (filters||[]).flatMap(f=>f.kinds||[]);
-          const nRelays = Array.isArray(relays)?relays.length:0;
-          const hasLikes = kinds.includes(7);
-          if (hasLikes) {
-            logReq('feed-like-sub', {action:fn+'-prefetch', relays:nRelays, kinds, note:'שליפה חד-פעמית'});
-          } else {
-            logReq('feed-list', {action:fn, relays:nRelays, filters:filters?.length||0, kinds});
+          try {
+            const filterList = Array.isArray(filters)
+              ? filters
+              : filters && typeof filters === 'object'
+                ? [filters]
+                : [];
+            const kinds = filterList.flatMap((f) => (f && Array.isArray(f.kinds) ? f.kinds : []));
+            const nRelays = Array.isArray(relays) ? relays.length : 0;
+            const hasLikes = kinds.includes(7);
+            if (hasLikes) {
+              logReq('feed-like-sub', { action: fn + '-prefetch', relays: nRelays, kinds, note: 'שליפה חד-פעמית' });
+            } else {
+              logReq('feed-list', { action: fn, relays: nRelays, filters: filterList.length, kinds });
+            }
+          } catch (_logErr) {
+            /* telemetry must never break list/listMany */
           }
           return orig.apply(this, arguments);
         };
