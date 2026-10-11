@@ -107,10 +107,11 @@
     const scan = secretScan(qrText);
     if (!scan.ok) throw new Error('MD2_QR_SECRET_REJECTED');
     // Dense SOSPAIR1 payloads need more modules than a 240px/M render reliably exposes to scanners.
-    const size = Math.max(320, Number(canvas && canvas.width) || 320);
+    const size = Math.max(360, Number(canvas && canvas.width) || 440);
     canvas.width = size;
     canvas.height = size;
-    await QR.toCanvas(canvas, qrText, { errorCorrectionLevel: 'L', margin: 3, width: size });
+    // ECC L + quiet zone 4: denser SOSPAIR1 stays scannable; protocol payload unchanged.
+    await QR.toCanvas(canvas, qrText, { errorCorrectionLevel: 'L', margin: 4, width: size });
     return qrText;
   }
 

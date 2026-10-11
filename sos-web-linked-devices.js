@@ -326,8 +326,8 @@
       '.sos-ld-shell{position:relative;width:min(440px,94vw);max-height:94vh;overflow:auto;background:var(--sos-surface,#141414);color:var(--sos-text,#f5f5f5);border-radius:18px;padding:22px 20px;box-shadow:0 16px 48px rgba(0,0,0,.5)}' +
       '.sos-ld-shell h1,.sos-ld-shell h2{margin:0;font-size:1.25rem;font-weight:650;line-height:1.3}' +
       '.sos-ld-shell .sos-ld-sub{margin:10px 0 0;font-size:14px;line-height:1.5;opacity:.9}' +
-      '.sos-ld-qr-wrap{margin:18px auto 10px;width:340px;height:340px;max-width:86vw;max-height:86vw;background:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;padding:14px;box-sizing:border-box}' +
-      '.sos-ld-qr-wrap canvas{display:block;width:100%;height:100%;max-width:312px;max-height:312px;background:#fff}' +
+      '.sos-ld-qr-wrap{margin:18px auto 10px;width:min(440px,86vw);height:min(440px,86vw);aspect-ratio:1;background:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}' +
+      '.sos-ld-qr-wrap canvas{display:block;width:100%;height:100%;max-width:408px;max-height:408px;background:#fff;image-rendering:pixelated;image-rendering:crisp-edges}' +
       '.sos-ld-qr-wrap.is-error{background:#2a2a2a;color:#f0f0f0;text-align:center;padding:20px;font-size:14px;line-height:1.45}' +
       '.sos-ld-status,.sos-ld-expiry{text-align:center;margin:6px 0;font-size:13px}' +
       '.sos-ld-expiry{opacity:.8}' +
@@ -506,7 +506,23 @@
   /** Product entry: platform-aware primary Linked Devices action (menu / login buttons). */
   function openLinkedDevicesPrimaryAction(opts) {
     const cls = classifyLinkedDevicesSurface(opts);
-    // Mobile: dedicated Linked Devices page (scan is the in-page primary CTA).
+    // Native APK: open CameraX PhoneIssuer activity (not the Web QR scanner page).
+    if (cls.nativeShell) {
+      const bridge =
+        window.SosNativeShell || window.AndroidBridge || window.SosAndroidBridge;
+      if (bridge && typeof bridge.openLinkedDevicesSettings === 'function') {
+        try {
+          const admission = App.FIRST_GROUP_ADMISSION_URL || App.GLOBAL_ADMISSION_URL || '';
+          bridge.openLinkedDevicesSettings(admission);
+          return {
+            ok: true,
+            path: 'ANDROID_NATIVE_LINKED_DEVICES',
+            DECODE_IS_NOT_AUTHORIZATION: true,
+          };
+        } catch (_n) {}
+      }
+    }
+    // Mobile web: dedicated Linked Devices page (scan is the in-page primary CTA).
     if (cls.role === 'MOBILE_PRIMARY' || cls.nativeShell) {
       return openMobileLinkedDevicesPage();
     }
@@ -887,19 +903,37 @@
     if (statusEl) statusEl.textContent = 'שגיאה ביצירת קוד';
   }
 
+  function preferredQrCanvasCssPx() {
+    try {
+      const vw = Math.max(280, Math.min(Number(window.innerWidth) || 440, 520));
+      return Math.max(360, Math.min(440, Math.floor(vw * 0.86)));
+    } catch (_e) {
+      return 440;
+    }
+  }
+
   function ensureQrCanvas(wrapEl) {
     if (!wrapEl) return null;
     wrapEl.classList.remove('is-error');
+    const cssPx = preferredQrCanvasCssPx();
+    // Backing store ≥ CSS size × DPR so modules stay sharp on HiDPI desktop screens.
+    let dpr = 1;
+    try {
+      dpr = Math.max(1, Math.min(3, Number(window.devicePixelRatio) || 1));
+    } catch (_d) {}
+    const px = Math.max(360, Math.min(880, Math.round(cssPx * dpr)));
     let canvas = wrapEl.querySelector('canvas');
     if (!canvas) {
       canvas = document.createElement('canvas');
       canvas.id = 'sosLinkedPairCanvas';
-      canvas.width = 320;
-      canvas.height = 320;
       canvas.setAttribute('aria-label', 'קוד לקישור מחשב');
       wrapEl.innerHTML = '';
       wrapEl.appendChild(canvas);
     }
+    canvas.width = px;
+    canvas.height = px;
+    canvas.style.width = cssPx + 'px';
+    canvas.style.height = cssPx + 'px';
     return canvas;
   }
 
@@ -980,7 +1014,7 @@
       try {
         if (wrap.classList && typeof wrap.classList.remove === 'function') wrap.classList.remove('is-error');
       } catch (_c) {}
-      wrap.innerHTML = '<canvas id="sosLinkedPairCanvas" width="320" height="320" aria-label="קוד לקישור מחשב"></canvas>';
+      wrap.innerHTML = '<canvas id="sosLinkedPairCanvas" width="440" height="440" aria-label="קוד לקישור מחשב"></canvas>';
     }
     if (st) st.textContent = 'יוצרים קוד…';
     return Promise.resolve(startDesktopPairingSession())
@@ -1017,7 +1051,7 @@
         '<div class="sos-ld-shell" role="dialog" aria-modal="true" dir="rtl">' +
         '<h2>קישור מחשב לטלפון</h2>' +
         '<p class="sos-ld-sub">פתחו SOS בטלפון, היכנסו למכשירים מקושרים וסרקו את הקוד.</p>' +
-        '<div class="sos-ld-qr-wrap"><canvas id="sosLinkedPairCanvas" width="320" height="320"></canvas></div>' +
+        '<div class="sos-ld-qr-wrap"><canvas id="sosLinkedPairCanvas" width="440" height="440"></canvas></div>' +
         '<p class="sos-ld-status"></p><p class="sos-ld-expiry"></p>' +
         '<div class="sos-ld-actions">' +
         '<button type="button" class="button-primary" data-ld-refresh>קוד חדש</button>' +
@@ -1053,7 +1087,7 @@
         '<div class="sos-ld-shell" role="dialog" aria-modal="true" dir="rtl">' +
         '<h1>חיבור SOS באמצעות הטלפון</h1>' +
         '<p class="sos-ld-sub">פתחו SOS בטלפון, היכנסו למכשירים מקושרים וסרקו את הקוד.</p>' +
-        '<div class="sos-ld-qr-wrap"><canvas width="320" height="320"></canvas></div>' +
+        '<div class="sos-ld-qr-wrap"><canvas width="440" height="440"></canvas></div>' +
         '<p class="sos-ld-status"></p><p class="sos-ld-expiry"></p>' +
         '<div class="sos-ld-actions">' +
         '<button type="button" class="button-primary" data-ld-continue-guest>המשך כאורח</button>' +

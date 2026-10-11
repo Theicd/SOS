@@ -7,6 +7,8 @@ import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import org.json.JSONObject
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * גשר JS ← Native. נחשף כ-window.SosNativeShell בתוך ה-WebView.
@@ -19,6 +21,8 @@ class SosJsBridge(
     private val mainHandler = Handler(Looper.getMainLooper())
     @Volatile private var cachedFcmToken: String = ""
     @Volatile private var typedBridgeEngine: SosNativeTypedBridge.Engine? = null
+    /** Last committed https page URL from onPageFinished (UI thread). Binder-thread fallback. */
+    @Volatile private var lastCommittedPageUrl: String = ""
     private companion object {
         private const val TAG = "SosJsBridge"
     }
@@ -30,13 +34,56 @@ class SosJsBridge(
         return eng
     }
 
+    /** Called from MainActivity.onPageFinished on the UI thread. */
+    fun noteCommittedPageUrl(url: String?) {
+        val u = url?.trim().orEmpty()
+        if (u.startsWith("https://", ignoreCase = true)) {
+            lastCommittedPageUrl = u
+        }
+    }
+
+    /**
+     * JavascriptInterface runs on a binder thread — WebView.getUrl() must be read on the UI thread.
+     * Off-thread reads commonly return null → false UNTRUSTED_ORIGIN on valid sos010.com pages.
+     */
+    private fun readWebViewUrlForTrust(): String? {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            return webView.url ?: lastCommittedPageUrl.ifEmpty { null }
+        }
+        val holder = arrayOfNulls<String>(1)
+        val latch = CountDownLatch(1)
+        mainHandler.post {
+            try {
+                holder[0] = webView.url
+            } finally {
+                latch.countDown()
+            }
+        }
+        try {
+            latch.await(1500, TimeUnit.MILLISECONDS)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
+        val live = holder[0]
+        if (!live.isNullOrBlank()) return live
+        return lastCommittedPageUrl.ifEmpty { null }
+    }
+
     /**
      * F6 write-path: re-read WebView URL at authority boundary before any secret parse/store.
      * Does not grant session; does not claim XSS elimination.
      */
     private fun isTrustedIdentityWriteContext(): Boolean {
         return try {
-            SosNativeTypedBridge.isTrustedIdentityWriteWebViewUrl(webView.url)
+            SosNativeTypedBridge.isTrustedIdentityWriteWebViewUrl(readWebViewUrlForTrust())
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun isTrustedWebViewContext(): Boolean {
+        return try {
+            SosNativeTypedBridge.isTrustedWebViewUrl(readWebViewUrlForTrust())
         } catch (_: Exception) {
             false
         }
@@ -60,12 +107,118 @@ class SosJsBridge(
         }
     }
 
+    /** Admission Worker base URL for global-status gate (sos010 / workers.dev / local QA). */
+    private fun isSafeAdmissionUrl(url: String?): Boolean {
+        val raw = url?.trim().orEmpty()
+        if (raw.isEmpty()) return true
+        if (raw.startsWith("http://127.0.0.1") ||
+            raw.startsWith("http://localhost") ||
+            raw.startsWith("http://10.0.2.2")
+        ) {
+            return true
+        }
+        return try {
+            val uri = android.net.Uri.parse(raw)
+            val host = uri.host?.lowercase().orEmpty()
+            uri.scheme == "https" &&
+                uri.userInfo.isNullOrEmpty() &&
+                (
+                    host == "sos010.com" ||
+                        host.endsWith(".sos010.com") ||
+                        host.endsWith(".workers.dev")
+                    )
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     init {
         refreshFcmToken()
     }
 
     @JavascriptInterface
     fun isNativeShell(): Boolean = true
+
+    /**
+     * MD3 PhoneIssuer entry — opens native linked-device approval UI (no WebView root signing).
+     * Trusted WebView origin required; decode ≠ authorization.
+     */
+    @JavascriptInterface
+    fun startLinkedDevicePairing(qrText: String?, admissionUrl: String?): String {
+        return try {
+            if (!isTrustedWebViewContext()) {
+                return JSONObject()
+                    .put("ok", false)
+                    .put("code", "UNTRUSTED_ORIGIN")
+                    .put("WEB_MD3_ISSUANCE", false)
+                    .toString()
+            }
+            val qr = qrText?.trim().orEmpty()
+            if (qr.isEmpty()) {
+                return JSONObject().put("ok", false).put("code", "EMPTY_QR").toString()
+            }
+            if (!admissionUrl.isNullOrBlank()) {
+                if (!isSafeAdmissionUrl(admissionUrl)) {
+                    return JSONObject().put("ok", false).put("code", "BAD_ADMISSION_URL").toString()
+                }
+                SosLinkedDeviceOrchestrator.writeAdmissionUrl(context.applicationContext, admissionUrl)
+            }
+            val account = SosSecureIdentityStore.readIdentityForNativeUse(context.applicationContext)?.publicKeyHex
+            mainHandler.post {
+                try {
+                    val intent = android.content.Intent(context, SosLinkedDevicesActivity::class.java)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        .putExtra(SosLinkedDevicesActivity.EXTRA_QR, qr)
+                        .putExtra(SosLinkedDevicesActivity.EXTRA_ACCOUNT_P, account)
+                        .putExtra(SosLinkedDevicesActivity.EXTRA_ADMISSION_URL, admissionUrl)
+                        .putExtra(SosLinkedDevicesActivity.EXTRA_AUTO_START, true)
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    Log.w(TAG, "startLinkedDevicePairing failed: ${e.message}")
+                }
+            }
+            JSONObject()
+                .put("ok", true)
+                .put("nativeStarted", true)
+                .put("WEB_MD3_ISSUANCE", false)
+                .put("MD3_ISSUANCE_PATH", "ANDROID_NATIVE")
+                .put("DECODE_IS_NOT_AUTHORIZATION", true)
+                .toString()
+        } catch (e: Exception) {
+            JSONObject()
+                .put("ok", false)
+                .put("code", "START_FAILED")
+                .put("error", e.message ?: "")
+                .toString()
+        }
+    }
+
+    @JavascriptInterface
+    fun openLinkedDevicesSettings(admissionUrl: String?): String {
+        return try {
+            if (!isTrustedWebViewContext()) {
+                return JSONObject().put("ok", false).put("code", "UNTRUSTED_ORIGIN").toString()
+            }
+            if (!admissionUrl.isNullOrBlank()) {
+                if (!isSafeAdmissionUrl(admissionUrl)) {
+                    return JSONObject().put("ok", false).put("code", "BAD_ADMISSION_URL").toString()
+                }
+                SosLinkedDeviceOrchestrator.writeAdmissionUrl(context.applicationContext, admissionUrl)
+            }
+            mainHandler.post {
+                try {
+                    val intent = android.content.Intent(context, SosLinkedDevicesActivity::class.java)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    Log.w(TAG, "openLinkedDevicesSettings failed: ${e.message}")
+                }
+            }
+            JSONObject().put("ok", true).put("path", "ANDROID_NATIVE_LINKED_DEVICES").toString()
+        } catch (e: Exception) {
+            JSONObject().put("ok", false).put("code", e.message ?: "FAIL").toString()
+        }
+    }
 
     /** true רק כשהממשק בחזית – ל-JS: התראות / אי־סימון נצפה ברקע | HYPER CORE TECH */
     @JavascriptInterface
@@ -283,7 +436,7 @@ class SosJsBridge(
     @JavascriptInterface
     fun bindNativeSessionAuthority(requestJson: String?): String {
         return try {
-            if (!SosNativeTypedBridge.isTrustedWebViewUrl(webView.url)) {
+            if (!isTrustedWebViewContext()) {
                 return JSONObject().put("ok", false).put("errorCode", "UNTRUSTED_CONTEXT").toString()
             }
             val req = JSONObject(requestJson ?: "{}")
@@ -680,7 +833,7 @@ class SosJsBridge(
     @JavascriptInterface
     fun getNativeTypedCryptoCapabilitiesJson(): String {
         return try {
-            if (!SosNativeTypedBridge.isTrustedWebViewUrl(webView.url)) {
+            if (!isTrustedWebViewContext()) {
                 return JSONObject()
                     .put("ok", false)
                     .put("errorCode", "UNTRUSTED_CONTEXT")

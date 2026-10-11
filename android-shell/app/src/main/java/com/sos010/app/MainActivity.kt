@@ -51,6 +51,7 @@ import java.util.concurrent.ConcurrentHashMap
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: SosWebView
+    private lateinit var sosJsBridge: SosJsBridge
     private lateinit var loading: ProgressBar
     private var filePickLoading: FrameLayout? = null
     private var soCallSplash: View? = null
@@ -1502,7 +1503,8 @@ class MainActivity : AppCompatActivity() {
         webView.setBackgroundColor(Color.BLACK)
         webView.setBackgroundResource(android.R.color.black)
 
-        webView.addJavascriptInterface(SosJsBridge(this, webView), "SosNativeShell")
+        sosJsBridge = SosJsBridge(this, webView)
+        webView.addJavascriptInterface(sosJsBridge, "SosNativeShell")
         webView.addJavascriptInterface(SosEmergencyBridge(this, webView), "AndroidBridge")
         webView.richContentListener = SosWebView.RichContentListener { info, mime ->
             onKeyboardRichContent(info, mime)
@@ -1665,6 +1667,9 @@ class MainActivity : AppCompatActivity() {
                 if (!url.isNullOrBlank()) {
                     // לא שומרים sticky chat= — רק כתובת בית נקייה | HYPER CORE TECH
                     SosSessionStore.setLastUrl(applicationContext, url)
+                    if (::sosJsBridge.isInitialized) {
+                        sosJsBridge.noteCommittedPageUrl(url)
+                    }
                 }
                 injectNativeFlag()
                 injectNativeFilePickScript()

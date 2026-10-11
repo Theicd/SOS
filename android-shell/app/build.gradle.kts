@@ -16,9 +16,9 @@ android {
         applicationId = "com.sos010.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 129
-        versionName = "1.0.128"
-        buildConfigField("String", "SOS_START_URL", "\"https://sos010.com/videos.html?shell=128\"")
+        versionCode = 131
+        versionName = "1.0.130"
+        buildConfigField("String", "SOS_START_URL", "\"https://sos010.com/videos.html?shell=130\"")
         buildConfigField("boolean", "HAS_FCM", hasGoogleServices.toString())
         buildConfigField("boolean", "SECURE_CALL_FAST_VERIFIER", "true")
         // F6J-R1: native security stack is always compiled; dark rollout = limited install + no WebView migration entry yet
@@ -71,6 +71,12 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.9.1")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // Linked Devices — on-device CameraX + ML Kit QR (no remote frame upload)
+    implementation("androidx.camera:camera-camera2:1.3.4")
+    implementation("androidx.camera:camera-lifecycle:1.3.4")
+    implementation("androidx.camera:camera-view:1.3.4")
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
 
     // P2P Native בשירות הרקע | HYPER CORE TECH
     implementation("io.github.webrtc-sdk:android:125.6422.06.1")

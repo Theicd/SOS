@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2026-10-11T12:58:32.296477Z",
+  "adbDevice": "fe97fda6",
+  "installedBefore": {
+    "versionName": "1.0.129",
+    "versionCode": 130,
+    "startLinkedDevicePairing": "MISSING",
+    "SosLinkedDevicesActivity": "MISSING"
+  },
+  "installedAfter": {
+    "versionName": "1.0.130",
+    "versionCode": 131,
+    "startLinkedDevicePairing": "PRESENT",
+    "SosLinkedDevicesActivity": "PRESENT"
+  },
+  "apkSha256": "23e5f68f042235227d4004f6149d049f2b89872ad9a7c01fc428d917574ec68d",
+  "webPackage": "899s.13",
+  "rootCause": "Installed QA APK 1.0.129 lacked SosJsBridge.startLinkedDevicePairing / SosLinkedDevicesActivity; Web beginPrimaryApproval fell through to REQUIRES_SOS_ANDROID_APP / T2-unavailable messaging while optical decode worked via Web scanner.",
+  "fix": "Ported MD4 Linked Devices native stack + trusted bridge methods into UX4; larger HiDPI QR; CameraX 1280x720 analysis"
+}
