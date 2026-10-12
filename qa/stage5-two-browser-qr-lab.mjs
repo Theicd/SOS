@@ -188,6 +188,20 @@ async function collectBuildMeta(page) {
 
 async function desktopEnsureGuestQr(page) {
   await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 120000 });
+  // Bypass stale Service Worker / CDN caches for Linked Devices assets.
+  await page.evaluate(async () => {
+    try {
+      if (navigator.serviceWorker) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+      if (window.caches && caches.keys) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+    } catch (_e) {}
+  });
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 120000 });
   await waitApp(page);
   // Force guest QR welcome on desktop surface.
   await page.evaluate(() => {
@@ -201,22 +215,11 @@ async function desktopEnsureGuestQr(page) {
   await page.waitForSelector('#sosLdGuestWelcome canvas, #sosLinkedPairPanel canvas, #sosLinkedPairCanvas', {
     timeout: 60000,
   });
-  // Wait until canvas has non-blank pixels (QR rendered).
+  // Wait until public SOSPAIR1 session text is available (canvas pixels alone race ahead of render).
   await page.waitForFunction(() => {
-    const c =
-      document.querySelector('#sosLinkedPairCanvas') ||
-      document.querySelector('#sosLdGuestWelcome canvas') ||
-      document.querySelector('#sosLinkedPairPanel canvas');
-    if (!c) return false;
-    try {
-      const ctx = c.getContext('2d');
-      const { data } = ctx.getImageData(0, 0, Math.min(c.width, 40), Math.min(c.height, 40));
-      let dark = 0;
-      for (let i = 0; i < data.length; i += 4) if (data[i] < 40) dark++;
-      return dark > 20;
-    } catch {
-      return false;
-    }
+    const LD = window.SosWebLinkedDevices || window.NostrApp?.WebLinkedDevices;
+    const t = LD && typeof LD.getCurrentPairingQrText === 'function' ? LD.getCurrentPairingQrText() : null;
+    return !!(t && String(t).indexOf('SOSPAIR1:') === 0);
   }, null, { timeout: 90000 });
 
   const pairing = await page.evaluate(() => {
@@ -291,6 +294,48 @@ async function decodeDesktopQrText(page) {
     const code = window.jsQR(img.data, img.width, img.height, { inversionAttempts: 'attemptBoth' });
     if (!code || !code.data) return { ok: false, code: 'DECODE_FAIL', canvasW: w, canvasH: h };
     return pack(String(code.data), 'CANVAS_JSQR');
+  });
+}
+
+
+async function enableVirtualWebAuthn(context, page) {
+  const client = await context.newCDPSession(page);
+  await client.send('WebAuthn.enable');
+  const { authenticatorId } = await client.send('WebAuthn.addVirtualAuthenticator', {
+    options: {
+      protocol: 'ctap2',
+      transport: 'internal',
+      hasResidentKey: true,
+      hasUserVerification: true,
+      isUserVerified: true,
+      automaticPresenceSimulation: true,
+    },
+  });
+  return { client, authenticatorId };
+}
+
+async function armSignerPopupHandler(context, report) {
+  context.on('page', async (popup) => {
+    try {
+      const url = popup.url() || '';
+      report.timeline.mobile.push({ t: Date.now(), event: 'SIGNER_POPUP_OPEN', url: String(url).slice(0, 120) });
+      report.T2_APPROVAL_ORIGIN = (() => {
+        try {
+          return new URL(url).origin;
+        } catch (_e) {
+          return null;
+        }
+      })();
+      await popup.waitForLoadState('domcontentloaded').catch(() => {});
+      // Best-effort: click Approve if present (virtual UV already unlocked).
+      const approve = popup.locator('button:has-text("אשר"), button:has-text("Approve"), #aldApprove, [data-ald-approve]');
+      if (await approve.count()) {
+        await approve.first().click({ timeout: 5000 }).catch(() => {});
+        report.timeline.mobile.push({ t: Date.now(), event: 'SIGNER_APPROVE_CLICKED' });
+      }
+    } catch (e) {
+      report.timeline.mobile.push({ t: Date.now(), event: 'SIGNER_POPUP_ERR', err: String(e && e.message || e).slice(0, 160) });
+    }
   });
 }
 
@@ -682,6 +727,7 @@ async function main() {
   const desktopCtx = await desktopBrowser.newContext({
     viewport: { width: 1280, height: 800 },
     locale: 'he-IL',
+    serviceWorkers: 'block',
   });
   const desktop = await desktopCtx.newPage();
   attachTrace(desktop, report.traces.desktop, 'DESKTOP');
@@ -743,6 +789,12 @@ async function main() {
     await mobileCtx.grantPermissions(['camera'], { origin: ORIGIN });
     const mobile = await mobileCtx.newPage();
     attachTrace(mobile, report.traces.mobile, 'MOBILE');
+    await armSignerPopupHandler(mobileCtx, report);
+    try {
+      report.virtualWebAuthn = await enableVirtualWebAuthn(mobileCtx, mobile);
+    } catch (e) {
+      report.virtualWebAuthn = { ok: false, err: String((e && e.message) || e).slice(0, 160) };
+    }
     // Canvas getUserMedia feed so BarcodeDetector/jsQR sees current QR frames (SIMULATED_CAMERA_SCAN).
     await installCanvasCamera(mobile, pngPath);
     mobile.on('dialog', async (d) => {
@@ -965,16 +1017,19 @@ async function main() {
     report.FIXES_APPLIED = [];
     report.REMAINING_BLOCKERS = [
       !report.WEB_PHONEISSUER_ENABLED ? 'Web PhoneIssuer / T2 feature flag disabled on production' : null,
-      'Trusted Signer ALD page 404 / no approved HTTPS QA origin for WebAuthn',
-      'Live Worker AUTHORIZE_LINKED_DEVICE unavailable',
-      report.SIMULATED_CAMERA_SCAN !== 'PASS' ? 'Virtual camera optical decode did not PASS (see DIRECT_INTAKE lane)' : null,
+      report.productApproval && report.productApproval.code
+        ? 'Product T2 stopped: ' + report.productApproval.code
+        : null,
+      report.SIMULATED_CAMERA_SCAN !== 'PASS' ? 'Virtual camera optical decode did not PASS' : null,
+      !report.DESKTOP_LINKED ? 'Desktop LINKED not achieved on this run' : null,
     ].filter(Boolean);
     report.OWNER_ACTION_REQUIRED = [
-      'Approve isolated Trusted Signer QA HTTPS origin (not pages.dev) for ALD',
-      'Approve Worker AUTHORIZE_LINKED_DEVICE on isolated QA worker',
-      'Do not enable production T2 without separate approval',
+      'Enroll Passkey for the QA account at https://signer.sos010.com/enroll (RP=signer.sos010.com)',
+      'Complete WebAuthn UV on Signer ALD during link',
+      'Physical Xiaomi Chrome optical + UV after automated PASS',
     ];
-    report.NEXT_SAFE_SLICE = 'Deploy isolated Signer ALD QA origin + QA Worker AUTHORIZE; re-run this lab; keep PHYSICAL_PHONE_CAMERA separate';
+    report.NEXT_SAFE_SLICE =
+      'Enroll production Signer Passkey for QA account → re-run lab → physical Xiaomi acceptance';
 
     // Correlated summary (sanitized)
     report.correlated = {

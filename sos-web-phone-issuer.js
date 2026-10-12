@@ -104,7 +104,9 @@
       window.addEventListener('message', onMsg);
       let popup = null;
       try {
-        popup = window.open(cer.url, 'sos_ald_approval', 'noopener,noreferrer,width=420,height=720');
+        // Do not use noopener: many browsers return null from window.open(noopener)
+        // even when the Signer tab opens, which incorrectly fails closed as POPUP_BLOCKED.
+        popup = window.open(cer.url, 'sos_ald_approval', 'width=420,height=720');
       } catch (_e) {
         popup = null;
       }
