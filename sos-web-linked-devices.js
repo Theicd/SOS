@@ -251,6 +251,13 @@
     return _pairing ? { state: _pairing.state, expiresAt: _pairing.expiresAt, pairingId: _pairing.payload && _pairing.payload.pairingId } : null;
   }
 
+  /** Public SOSPAIR1 text currently shown (no secrets). Null if none / expired. */
+  function getCurrentPairingQrText() {
+    if (!_pairing || _pairing.state === 'EXPIRED') return null;
+    const t = String(_pairing.qrText || '');
+    return t.indexOf(QR_PREFIX) === 0 ? t : null;
+  }
+
   function disposePairingSession() {
     if (_pairTimer) {
       clearInterval(_pairTimer);
@@ -1428,6 +1435,7 @@
     startDesktopPairingSession,
     refreshPairingQr,
     getPairingState,
+    getCurrentPairingQrText,
     beginPrimaryApproval,
     acceptAuthorizationObject,
     restoreDurableSession,
