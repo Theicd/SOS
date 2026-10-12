@@ -1,0 +1,220 @@
+{
+  "gate": "MD3W_W1B_AUTHORIZE_LINKED_DEVICE",
+  "status": "PASS",
+  "ts": "2026-10-12T12:29:17.617Z",
+  "runId": "80cf8956-f78a-4431-aedd-844f0fdb0fb4",
+  "SIGNER_REPO_HEAD": "e2e05f0545e304a43353d497de077ee7cadcae27",
+  "W1A_REGRESSION": "PASS",
+  "checks": {
+    "AUTHORIZE_OP_IN_WORKER": {
+      "ok": true,
+      "detail": ""
+    },
+    "W1A_VERIFY_PORT": {
+      "ok": true,
+      "detail": ""
+    },
+    "NO_T1_FALLBACK": {
+      "ok": true,
+      "detail": ""
+    },
+    "DURABLE_DO_TABLE": {
+      "ok": true,
+      "detail": ""
+    },
+    "ADMISSION_CONSUME_ROUTE": {
+      "ok": true,
+      "detail": ""
+    },
+    "WEB_PHONEISSUER_PRESENT": {
+      "ok": true,
+      "detail": ""
+    },
+    "MD2_PHONE_RESPONDER": {
+      "ok": true,
+      "detail": ""
+    },
+    "FEATURE_FLAG_PRESENT": {
+      "ok": true,
+      "detail": ""
+    },
+    "NO_GENERIC_ROOT_SIGN": {
+      "ok": true,
+      "detail": ""
+    },
+    "PRODUCTION_T2_GATED_BY_FLAG": {
+      "ok": true,
+      "detail": ""
+    },
+    "SIGNER_HEAD_MATCH": {
+      "ok": true,
+      "detail": "e2e05f0545e304a43353d497de077ee7cadcae27"
+    },
+    "SIGNER_W1A_HASH_UNCHANGED": {
+      "ok": true,
+      "detail": "94CF60A3886AC5C6"
+    },
+    "SCHNORR_AVAILABLE": {
+      "ok": true,
+      "detail": "ok"
+    },
+    "POS_AUTHORIZE": {
+      "ok": true,
+      "detail": ""
+    },
+    "POS_NO_K_LEAK": {
+      "ok": true,
+      "detail": ""
+    },
+    "POS_UV_PROVEN": {
+      "ok": true,
+      "detail": ""
+    },
+    "POS_DURABLE": {
+      "ok": true,
+      "detail": ""
+    },
+    "POS_SCHNORR_VERIFY": {
+      "ok": true,
+      "detail": {
+        "okV": true,
+        "sigLen": 64,
+        "msgLen": 32
+      }
+    },
+    "CANONICAL_ENCODING": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_NO_APPROVAL": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_CLIENT_FLAG": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_MISSING_UV": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_WRONG_ACCOUNT": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_WRONG_DEVICE": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_REPLACED_D_SIGN": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_PRIVILEGED_CAPS": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_EXPIRED_APPROVAL": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_REPLAY": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_REPLAY_NO_EXTRA_ISSUE": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_CONCURRENT_DOUBLE": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_T1_DOWNGRADE": {
+      "ok": true,
+      "detail": ""
+    },
+    "POS_PRODUCTION_HOST_FLAG_ON": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_FLAG_OFF": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_DURABLE_UNAVAILABLE": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_CROSS_ORIGIN_ASSERTION": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_ACCOUNT_DISABLED": {
+      "ok": true,
+      "detail": ""
+    },
+    "NEG_STALE_EPOCH": {
+      "ok": true,
+      "detail": ""
+    },
+    "VERIFY_CONTRACT_PRESENT": {
+      "ok": true,
+      "detail": ""
+    },
+    "VERIFY_DOES_NOT_SIGN": {
+      "ok": true,
+      "detail": ""
+    },
+    "W1A_SIGNER_REGRESSION": {
+      "ok": true,
+      "detail": "exit=0"
+    }
+  },
+  "notes": [
+    "[w1b] PASS AUTHORIZE_OP_IN_WORKER",
+    "[w1b] PASS W1A_VERIFY_PORT",
+    "[w1b] PASS NO_T1_FALLBACK",
+    "[w1b] PASS DURABLE_DO_TABLE",
+    "[w1b] PASS ADMISSION_CONSUME_ROUTE",
+    "[w1b] PASS WEB_PHONEISSUER_PRESENT",
+    "[w1b] PASS MD2_PHONE_RESPONDER",
+    "[w1b] PASS FEATURE_FLAG_PRESENT",
+    "[w1b] PASS NO_GENERIC_ROOT_SIGN",
+    "[w1b] PASS PRODUCTION_T2_GATED_BY_FLAG",
+    "[w1b] PASS SIGNER_HEAD_MATCH Γאפ e2e05f0545e304a43353d497de077ee7cadcae27",
+    "[w1b] PASS SIGNER_W1A_HASH_UNCHANGED Γאפ 94CF60A3886AC5C6",
+    "[w1b] PASS SCHNORR_AVAILABLE Γאפ ok",
+    "[w1b] PASS POS_AUTHORIZE",
+    "[w1b] PASS POS_NO_K_LEAK",
+    "[w1b] PASS POS_UV_PROVEN",
+    "[w1b] PASS POS_DURABLE",
+    "[w1b] PASS POS_SCHNORR_VERIFY Γאפ [object Object]",
+    "[w1b] PASS CANONICAL_ENCODING",
+    "[w1b] PASS NEG_NO_APPROVAL",
+    "[w1b] PASS NEG_CLIENT_FLAG",
+    "[w1b] PASS NEG_MISSING_UV",
+    "[w1b] PASS NEG_WRONG_ACCOUNT",
+    "[w1b] PASS NEG_WRONG_DEVICE",
+    "[w1b] PASS NEG_REPLACED_D_SIGN",
+    "[w1b] PASS NEG_PRIVILEGED_CAPS",
+    "[w1b] PASS NEG_EXPIRED_APPROVAL",
+    "[w1b] PASS NEG_REPLAY",
+    "[w1b] PASS NEG_REPLAY_NO_EXTRA_ISSUE",
+    "[w1b] PASS NEG_CONCURRENT_DOUBLE",
+    "[w1b] PASS NEG_T1_DOWNGRADE",
+    "[w1b] PASS POS_PRODUCTION_HOST_FLAG_ON",
+    "[w1b] PASS NEG_FLAG_OFF",
+    "[w1b] PASS NEG_DURABLE_UNAVAILABLE",
+    "[w1b] PASS NEG_CROSS_ORIGIN_ASSERTION",
+    "[w1b] PASS NEG_ACCOUNT_DISABLED",
+    "[w1b] PASS NEG_STALE_EPOCH",
+    "[w1b] PASS VERIFY_CONTRACT_PRESENT",
+    "[w1b] PASS VERIFY_DOES_NOT_SIGN",
+    "[w1b] PASS W1A_SIGNER_REGRESSION Γאפ exit=0"
+  ],
+  "failCount": 0,
+  "FEATURE_FLAG_STATUS": "OFF_DEFAULT",
+  "T1_FALLBACK_DISABLED": true,
+  "ROOT_K_ISOLATION": true
+}

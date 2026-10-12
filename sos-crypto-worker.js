@@ -43,6 +43,16 @@
     SIGN_MEDIA_RECHECK: { kinds: [1] },
   };
 
+  try {
+    importScripts('./sos-ald-w1a-verify.js');
+  } catch (_aldV) {}
+  try {
+    importScripts('./sos-authorize-linked-device.js');
+  } catch (_aldA) {}
+  try {
+    importScripts('./vendor/sos-noble-schnorr.js');
+  } catch (_noble) {}
+
   // AC9 shared policy (same-origin Worker)
   try {
     importScripts('./admin-signing-policy.js');
@@ -663,6 +673,148 @@
     if (sessionPrivHex && s.indexOf(sessionPrivHex) !== -1) fail('WORKER_KEY_LEAK_BLOCKED', 'K in response');
   }
 
+
+  function workerHostname() {
+    try {
+      return new URL(self.location.href).hostname;
+    } catch (_e) {
+      return '';
+    }
+  }
+
+  async function signSchnorrMsgHex(msg32, privHex) {
+    loadNostrTools();
+    let sig;
+    const noble =
+      (self.__sosNobleSchnorr && typeof self.__sosNobleSchnorr.sign === 'function' && self.__sosNobleSchnorr) ||
+      (self.SosNobleSecp && self.SosNobleSecp.schnorr);
+    if (noble && typeof noble.sign === 'function') {
+      sig = await Promise.resolve(noble.sign(msg32, hexToBytes(privHex)));
+    } else {
+      const schnorr = NT && NT.schnorr;
+      if (!schnorr || typeof schnorr.sign !== 'function') {
+        fail('SCHNORR_UNAVAILABLE', 'noble schnorr missing');
+      }
+      sig = schnorr.sign(msg32, hexToBytes(privHex));
+    }
+    return bytesToHex(sig instanceof Uint8Array ? sig : new Uint8Array(sig));
+  }
+
+  /**
+   * MD3W-W1B typed op: verify W1A T2 artifact → durable consume → sign MD3 only.
+   * Production enabled under owner Stage5 PRODUCTION FIRST directive (2026-10-12).
+   */
+  async function authorizeLinkedDeviceOp(params) {
+    requireReady();
+    const Ald = self.SosAuthorizeLinkedDevice;
+    if (!Ald || typeof Ald.authorizeLinkedDevice !== 'function') {
+      fail('ALD_MODULE_MISSING', 'authorize module not loaded');
+    }
+    if (params && (params.t1Fallback === true || params.skipT2 === true)) {
+      fail('T1_FALLBACK_FORBIDDEN', 'T2 required');
+    }
+    const host = workerHostname();
+    if (params.featureEnabled !== true) {
+      fail('WEB_MD3_ISSUANCE_DISABLED', 'feature flag off');
+    }
+
+    let durableStore = null;
+    if (params._qaDurableStore && typeof params._qaDurableStore.consume === 'function') {
+      durableStore = params._qaDurableStore;
+    } else {
+      const base = String(params.admissionBaseUrl || '').replace(/\/$/, '');
+      if (!base || !/^https?:\/\//i.test(base)) {
+        fail('DURABLE_STORE_UNAVAILABLE', 'admissionBaseUrl required');
+      }
+      loadNostrTools();
+      const now = Math.floor(Date.now() / 1000);
+      const authDraft = {
+        kind: 22242,
+        created_at: now,
+        tags: [
+          ['expiration', String(now + 120)],
+          ['p', sessionPubHex],
+        ],
+        content: JSON.stringify({
+          purpose: 'ALD_APPROVAL_CONSUME',
+          approvalId: params.artifact && params.artifact.approvalId,
+        }),
+        pubkey: sessionPubHex,
+      };
+      const authEvent = NT.finalizeEvent(authDraft, sessionPrivHex);
+      durableStore = {
+        async consume(rec) {
+          let res;
+          try {
+            res = await fetch(base + '/v1/global/ald/approval/consume', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                artifact: params.artifact,
+                expectedRequest: params.expectedRequest,
+                authEvent: authEvent,
+              }),
+            });
+          } catch (_e) {
+            return { ok: false, code: 'DURABLE_STORE_UNAVAILABLE' };
+          }
+          let body = null;
+          try {
+            body = await res.json();
+          } catch (_j) {
+            return { ok: false, code: 'DURABLE_STORE_UNAVAILABLE' };
+          }
+          if (!body || body.ok !== true) {
+            return {
+              ok: false,
+              code: (body && body.code) || 'CONSUME_FAILED',
+              CONCURRENT_REPLAY_REJECTED: body && body.code === 'APPROVAL_REPLAY',
+            };
+          }
+          if (String(body.approvalId) !== String(rec.approvalId)) {
+            return { ok: false, code: 'RECEIPT_APPROVAL_MISMATCH' };
+          }
+          if (String(body.requestHash) !== String(rec.requestHash)) {
+            return { ok: false, code: 'RECEIPT_HASH_MISMATCH' };
+          }
+          return { ok: true, code: 'CONSUMED' };
+        },
+      };
+    }
+
+    const out = await Ald.authorizeLinkedDevice({
+      artifact: params.artifact,
+      expectedRequest: params.expectedRequest,
+      accountP: sessionPubHex,
+      privHex: sessionPrivHex,
+      signSchnorrHex: signSchnorrMsgHex,
+      durableStore: durableStore,
+      featureEnabled: true,
+      hostname: host,
+      nowMs: params.nowMs,
+      minAuthEpoch: params.minAuthEpoch,
+      accountDisabled: params.accountDisabled === true,
+      t1FallbackAttempt: false,
+      storageSecurityClass: params.storageSecurityClass || 'SOFTWARE_ONLY',
+    });
+    if (!out || out.ok !== true) {
+      fail(out && out.code ? out.code : 'AUTHORIZE_FAILED', out && out.code ? out.code : 'authorize failed');
+    }
+    return {
+      ok: true,
+      operation: 'AUTHORIZE_LINKED_DEVICE',
+      authorization: out.authorization,
+      approvalId: out.approvalId,
+      requestHash: out.requestHash,
+      TRUSTED_W1A_PROOF_VERIFIED: true,
+      WEBAUTHN_UV_PROVEN: true,
+      DURABLE_ONE_TIME_CONSUMPTION: true,
+      T1_FALLBACK_DISABLED: true,
+      ROOT_K_RETURNED: false,
+      encoding: out.encoding,
+    };
+  }
+
   function rejectBannedOps(op) {
     const banned = [
       'SIGN_RAW',
@@ -680,6 +832,8 @@
       'getPrivateKey',
       'exportRawKey',
       'readPrivateKey',
+      'SIGN_DEVICE_AUTHORIZATION_RAW',
+      'SIGN_ARBITRARY_ROOT',
     ];
     if (banned.indexOf(op) !== -1) fail('UNKNOWN_OP', 'banned operation');
   }
@@ -779,6 +933,8 @@
         return sealIdentityForSigner(params);
       case 'GET_HANDOFF_STATUS':
         return handoffStatus();
+      case 'AUTHORIZE_LINKED_DEVICE':
+        return authorizeLinkedDeviceOp(params || {});
       case 'SIGN_CHAT_EVENT':
         return signTyped('SIGN_CHAT_EVENT', params && params.draft);
       case 'SIGN_PROFILE_EVENT':

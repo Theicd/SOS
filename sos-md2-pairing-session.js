@@ -17,6 +17,128 @@
   // Prefer relays that accept browser/mobile WSS; snort kept as secondary.
   const DEFAULT_RELAYS = ['wss://nos.lol', 'wss://nostr-02.uid.ovh', 'wss://relay.snort.social'];
 
+  /**
+   * Dedicated NIP-01 WebSocket transport for MD2 kind 25060.
+   * App.pool / nostr-tools SimplePool does not reliably deliver ephemeral 25060
+   * across browser contexts (verified: raw WSS OK, SimplePool onevent=0).
+   * Subscribe first (REQ), then publish (EVENT) and require ≥1 OK.
+   */
+  function openMd2Transport(relays, pairingId, onEvent) {
+    const list = (Array.isArray(relays) && relays.length ? relays : DEFAULT_RELAYS).slice();
+    const subId = 'md2' + Math.random().toString(36).slice(2, 10);
+    const filter = { kinds: [KIND], '#t': [TAG], '#d': [String(pairingId).toLowerCase()], limit: 50 };
+    const entries = [];
+
+    function connect(url) {
+      return new Promise((resolve) => {
+        let ws;
+        try {
+          ws = new WebSocket(url);
+        } catch (_e) {
+          resolve(null);
+          return;
+        }
+        const entry = { url, ws, ready: false, okWaiters: new Map() };
+        const failTimer = setTimeout(() => {
+          if (!entry.ready) {
+            try {
+              ws.close();
+            } catch (_c) {}
+            resolve(null);
+          }
+        }, 6000);
+        ws.onopen = function () {
+          entry.ready = true;
+          clearTimeout(failTimer);
+          try {
+            ws.send(JSON.stringify(['REQ', subId, filter]));
+          } catch (_s) {}
+          resolve(entry);
+        };
+        ws.onmessage = function (ev) {
+          let msg;
+          try {
+            msg = JSON.parse(ev.data);
+          } catch (_p) {
+            return;
+          }
+          if (msg[0] === 'EVENT' && msg[2] && typeof onEvent === 'function') {
+            try {
+              onEvent(msg[2], url);
+            } catch (_o) {}
+          }
+          if (msg[0] === 'OK' && entry.okWaiters.has(msg[1])) {
+            const w = entry.okWaiters.get(msg[1]);
+            entry.okWaiters.delete(msg[1]);
+            w({ ok: msg[2] === true, reason: String(msg[3] || '') });
+          }
+        };
+        ws.onerror = function () {
+          /* settle via timeout if never opened */
+        };
+        entries.push(entry);
+      });
+    }
+
+    const ready = Promise.all(list.map(connect)).then((rows) => rows.filter(Boolean));
+
+    return {
+      ready,
+      async publish(ev, dbg) {
+        if (typeof dbg === 'function') dbg('PUBLISH_ATTEMPTED');
+        const live = await ready;
+        if (!live.length) throw new Error('NO_RELAY_WS');
+        const settled = await Promise.all(
+          live.map(function (entry) {
+            return new Promise(function (resolve) {
+              if (!entry.ready || entry.ws.readyState !== 1) {
+                resolve({ status: 'rejected', reason: 'NOT_OPEN' });
+                return;
+              }
+              const t = setTimeout(function () {
+                entry.okWaiters.delete(ev.id);
+                resolve({ status: 'rejected', reason: 'OK_TIMEOUT' });
+              }, 7000);
+              entry.okWaiters.set(ev.id, function (r) {
+                clearTimeout(t);
+                resolve({
+                  status: r.ok ? 'fulfilled' : 'rejected',
+                  value: r.reason,
+                  reason: r.reason,
+                });
+              });
+              try {
+                entry.ws.send(JSON.stringify(['EVENT', ev]));
+              } catch (e) {
+                clearTimeout(t);
+                entry.okWaiters.delete(ev.id);
+                resolve({ status: 'rejected', reason: String((e && e.message) || e) });
+              }
+            });
+          }),
+        );
+        const okCount = settled.filter((s) => s.status === 'fulfilled').length;
+        const muteCount = settled.filter((s) => /mute:|no one was listening/i.test(String(s.reason || ''))).length;
+        if (typeof dbg === 'function') {
+          dbg(okCount > 0 ? 'RELAY_ACCEPTED' : 'RELAY_PUBLISH_FAIL', {
+            okCount,
+            muteCount,
+            settled: settled.length,
+          });
+        }
+        if (okCount === 0) throw new Error('PUBLISH_NO_RELAY_OK');
+        return { okCount, muteCount, settled };
+      },
+      close() {
+        entries.forEach(function (e) {
+          try {
+            if (e.ws) e.ws.close();
+          } catch (_c) {}
+        });
+      },
+    };
+  }
+
   function hexFromBuf(buf) {
     return Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, '0')).join('');
   }
@@ -253,6 +375,108 @@
     return sha256(all);
   }
 
+  /** Minimal sync SHA-256 for noble secp utils.sha256Sync (BIP340 tagged hash). */
+  function sha256SyncBytes(...messages) {
+    // FIPS 180-4 compact implementation — only used to satisfy noble utils hook.
+    const K = new Uint32Array([
+      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+      0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+      0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+      0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+      0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+      0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+    ]);
+    let total = 0;
+    for (let i = 0; i < messages.length; i++) total += messages[i].length;
+    const bitLen = total * 8;
+    const withPad = total + 1 + 8;
+    const blocks = Math.ceil(withPad / 64);
+    const buf = new Uint8Array(blocks * 64);
+    let o = 0;
+    for (let i = 0; i < messages.length; i++) {
+      buf.set(messages[i], o);
+      o += messages[i].length;
+    }
+    buf[o] = 0x80;
+    const view = new DataView(buf.buffer);
+    view.setUint32(buf.length - 4, bitLen >>> 0, false);
+    // high 32 bits of length: always 0 for our message sizes
+    let h0 = 0x6a09e667,
+      h1 = 0xbb67ae85,
+      h2 = 0x3c6ef372,
+      h3 = 0xa54ff53a,
+      h4 = 0x510e527f,
+      h5 = 0x9b05688c,
+      h6 = 0x1f83d9ab,
+      h7 = 0x5be0cd19;
+    const w = new Uint32Array(64);
+    const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+    for (let i = 0; i < blocks; i++) {
+      const off = i * 64;
+      for (let j = 0; j < 16; j++) w[j] = view.getUint32(off + j * 4, false);
+      for (let j = 16; j < 64; j++) {
+        const s0 = rotr(w[j - 15], 7) ^ rotr(w[j - 15], 18) ^ (w[j - 15] >>> 3);
+        const s1 = rotr(w[j - 2], 17) ^ rotr(w[j - 2], 19) ^ (w[j - 2] >>> 10);
+        w[j] = (w[j - 16] + s0 + w[j - 7] + s1) >>> 0;
+      }
+      let a = h0,
+        b = h1,
+        c = h2,
+        d = h3,
+        e = h4,
+        f = h5,
+        g = h6,
+        h = h7;
+      for (let j = 0; j < 64; j++) {
+        const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+        const ch = (e & f) ^ (~e & g);
+        const t1 = (h + S1 + ch + K[j] + w[j]) >>> 0;
+        const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+        const maj = (a & b) ^ (a & c) ^ (b & c);
+        const t2 = (S0 + maj) >>> 0;
+        h = g;
+        g = f;
+        f = e;
+        e = (d + t1) >>> 0;
+        d = c;
+        c = b;
+        b = a;
+        a = (t1 + t2) >>> 0;
+      }
+      h0 = (h0 + a) >>> 0;
+      h1 = (h1 + b) >>> 0;
+      h2 = (h2 + c) >>> 0;
+      h3 = (h3 + d) >>> 0;
+      h4 = (h4 + e) >>> 0;
+      h5 = (h5 + f) >>> 0;
+      h6 = (h6 + g) >>> 0;
+      h7 = (h7 + h) >>> 0;
+    }
+    const out = new Uint8Array(32);
+    const ov = new DataView(out.buffer);
+    ov.setUint32(0, h0, false);
+    ov.setUint32(4, h1, false);
+    ov.setUint32(8, h2, false);
+    ov.setUint32(12, h3, false);
+    ov.setUint32(16, h4, false);
+    ov.setUint32(20, h5, false);
+    ov.setUint32(24, h6, false);
+    ov.setUint32(28, h7, false);
+    return out;
+  }
+
+  function ensureNobleSha256Hooks(secpRoot) {
+    try {
+      const utils = secpRoot && secpRoot.utils;
+      if (!utils) return;
+      if (typeof utils.sha256Sync !== 'function') {
+        utils.sha256Sync = (...msgs) => sha256SyncBytes(...msgs.map((m) => (m instanceof Uint8Array ? m : new Uint8Array(m))));
+      }
+    } catch (_e) {}
+  }
+
   /**
    * BIP340 schnorr over an arbitrary 32-byte message.
    * nostr-tools@2.7.2 CDN bundle does NOT export schnorr (confirmed: zero "schnorr" in bundle).
@@ -261,6 +485,7 @@
   function getNobleSchnorr() {
     const NT = window.NostrTools;
     if (NT && NT.schnorr && typeof NT.schnorr.sign === 'function') return NT.schnorr;
+    if (window.SosNobleSecp) ensureNobleSha256Hooks(window.SosNobleSecp);
     if (window.__sosNobleSchnorr && typeof window.__sosNobleSchnorr.sign === 'function') {
       return window.__sosNobleSchnorr;
     }
@@ -368,31 +593,9 @@
     let linkedAuth = null;
     const waiters = [];
 
-    const pool = o.pool || App.pool;
     const relays = o.relays || DEFAULT_RELAYS;
-    let sub = null;
+    let transport = null;
     const seen = new Set();
-
-    async function publish(content, role) {
-      if (!pool || typeof pool.publish !== 'function') throw new Error('NO_POOL');
-      const draft = {
-        kind: KIND,
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [
-          ['t', TAG],
-          ['d', pairingId],
-          ['role', role || 'desktop'],
-        ],
-        content,
-      };
-      const transportSk = NT.generateSecretKey();
-      const ev = NT.finalizeEvent(draft, transportSk);
-      await Promise.race([
-        Promise.allSettled(pool.publish(relays, ev)),
-        new Promise((r) => setTimeout(r, 4000)),
-      ]);
-      return ev.id;
-    }
 
     function dbgPhase(phase, extra) {
       try {
@@ -406,6 +609,56 @@
         window.__sosMd3DbgPhases.push(row);
       } catch (_e) {}
     }
+
+    async function publish(content, role) {
+      const draft = {
+        kind: KIND,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['t', TAG],
+          ['d', pairingId],
+          ['role', role || 'desktop'],
+        ],
+        content,
+      };
+      const transportSk = NT.generateSecretKey();
+      const ev = NT.finalizeEvent(draft, transportSk);
+      if (!transport) throw new Error('NO_MD2_TRANSPORT');
+      await transport.publish(ev, function (phase, extra) {
+        dbgPhase(phase, Object.assign({ role: role || 'desktop', pairingFp: pairingId.slice(0, 12) }, extra || {}));
+      });
+      return ev.id;
+    }
+
+    function onTransportEvent(ev) {
+      if (!ev || seen.has(ev.id)) return;
+      const Auth = App.Md4DeviceAuth || window.SosMd4DeviceAuth;
+      if (Auth && typeof Auth.assertMd2MayAcceptEvent === 'function') {
+        const gate = Auth.assertMd2MayAcceptEvent(ev);
+        if (!gate.ok) {
+          try {
+            window.__sosMd2ProtocolRejects = window.__sosMd2ProtocolRejects || [];
+            window.__sosMd2ProtocolRejects.push({ id: ev.id, code: gate.code, protocol: gate.protocol || null });
+          } catch (_r) {}
+          return;
+        }
+      } else {
+        const tTag = (ev.tags || []).find((t) => t[0] === 't');
+        if (!tTag || tTag[1] !== TAG) return;
+      }
+      seen.add(ev.id);
+      const role = (ev.tags || []).find((t) => t[0] === 'role');
+      if (role && role[1] === 'desktop') return;
+      dbgPhase('INBOUND_EVENT', { pairingFp: pairingId.slice(0, 12) });
+      handleInbound(ev.content).catch((err) => {
+        try {
+          window.__sosMd3HandleInboundErr = String((err && err.message) || err).slice(0, 240);
+        } catch (_e) {}
+      });
+    }
+
+    transport = openMd2Transport(relays, pairingId, onTransportEvent);
+    await transport.ready;
 
     async function handleInbound(content) {
       let msg;
@@ -497,42 +750,6 @@
       }
     }
 
-    if (pool && typeof pool.subscribeMany === 'function') {
-      // nostr-tools SimplePool.subscribeMany expects a single Filter (not Filter[]).
-      sub = pool.subscribeMany(
-        relays,
-        { kinds: [KIND], '#t': [TAG], '#d': [pairingId], limit: 50 },
-        {
-          onevent(ev) {
-            if (!ev || seen.has(ev.id)) return;
-            // MD4 S1: refuse cross-protocol / unknown t= before content parse.
-            const Auth = App.Md4DeviceAuth || window.SosMd4DeviceAuth;
-            if (Auth && typeof Auth.assertMd2MayAcceptEvent === 'function') {
-              const gate = Auth.assertMd2MayAcceptEvent(ev);
-              if (!gate.ok) {
-                try {
-                  window.__sosMd2ProtocolRejects = window.__sosMd2ProtocolRejects || [];
-                  window.__sosMd2ProtocolRejects.push({ id: ev.id, code: gate.code, protocol: gate.protocol || null });
-                } catch (_r) {}
-                return;
-              }
-            } else {
-              const tTag = (ev.tags || []).find((t) => t[0] === 't');
-              if (!tTag || tTag[1] !== TAG) return;
-            }
-            seen.add(ev.id);
-            const role = (ev.tags || []).find((t) => t[0] === 'role');
-            if (role && role[1] === 'desktop') return;
-            handleInbound(ev.content).catch((err) => {
-              try {
-                window.__sosMd3HandleInboundErr = String((err && err.message) || err).slice(0, 240);
-              } catch (_e) {}
-            });
-          },
-        },
-      );
-    }
-
     let secretsExported = false;
     return {
       qrText,
@@ -556,7 +773,7 @@
       },
       stop() {
         try {
-          if (sub && typeof sub.close === 'function') sub.close();
+          if (transport && typeof transport.close === 'function') transport.close();
         } catch (_e) {}
         try {
           eph.priv.fill(0);
@@ -611,16 +828,23 @@
     let authAck = null;
     const channelWaiters = [];
     const ackWaiters = [];
-    const pool = o.pool || App.pool;
-    const relays = o.relays || (payload.rendezvous ? [payload.rendezvous] : DEFAULT_RELAYS);
+    const relays = o.relays || DEFAULT_RELAYS;
     const seen = new Set();
-    let sub = null;
+    let transport = null;
+
+    function phoneDbg(phase, extra) {
+      try {
+        window.__sosMd3DbgPhases = window.__sosMd3DbgPhases || [];
+        window.__sosMd3DbgPhases.push(
+          Object.assign({ t: Date.now(), phase: String(phase), pairingFp: pairingId.slice(0, 12) }, extra || {}),
+        );
+      } catch (_e) {}
+    }
 
     async function publish(content, role) {
       if (typeof o.publishSigned === 'function') {
         return o.publishSigned(content, role || 'phone', pairingId);
       }
-      if (!pool || typeof pool.publish !== 'function') throw new Error('NO_POOL');
       const draft = {
         kind: KIND,
         created_at: Math.floor(Date.now() / 1000),
@@ -633,10 +857,10 @@
       };
       const transportSk = NT.generateSecretKey();
       const ev = NT.finalizeEvent(draft, transportSk);
-      await Promise.race([
-        Promise.allSettled(pool.publish(relays, ev)),
-        new Promise((r) => setTimeout(r, 4000)),
-      ]);
+      if (!transport) throw new Error('NO_MD2_TRANSPORT');
+      await transport.publish(ev, function (phase, extra) {
+        phoneDbg(phase, Object.assign({ role: role || 'phone' }, extra || {}));
+      });
       return ev.id;
     }
 
@@ -682,9 +906,11 @@
         const popMsg = await domainHashPop(tr);
         const popOk = await verifySchnorrRawAsync(body.sig, popMsg, dSignPub);
         if (!popOk) {
+          phoneDbg('POP_VERIFY_FAIL');
           state = 'FAILED';
           return;
         }
+        phoneDbg('PHONE_POP_VERIFIED');
         const ackBody = new TextEncoder().encode(
           JSON.stringify({
             type: 'ack',
@@ -736,31 +962,28 @@
       }
     }
 
-    if (pool && typeof pool.subscribeMany === 'function') {
-      sub = pool.subscribeMany(
-        relays,
-        { kinds: [KIND], '#t': [TAG], '#d': [pairingId], limit: 50 },
-        {
-          onevent(ev) {
-            if (!ev || seen.has(ev.id)) return;
-            const Auth = App.Md4DeviceAuth || window.SosMd4DeviceAuth;
-            if (Auth && typeof Auth.assertMd2MayAcceptEvent === 'function') {
-              const gate = Auth.assertMd2MayAcceptEvent(ev);
-              if (!gate.ok) return;
-            }
-            seen.add(ev.id);
-            const role = (ev.tags || []).find((t) => t[0] === 'role');
-            if (role && role[1] === 'phone') return;
-            handleInbound(ev.content).catch(function () {});
-          },
-        },
-      );
-    }
+    transport = openMd2Transport(relays, pairingId, function (ev) {
+      if (!ev || seen.has(ev.id)) return;
+      const Auth = App.Md4DeviceAuth || window.SosMd4DeviceAuth;
+      if (Auth && typeof Auth.assertMd2MayAcceptEvent === 'function') {
+        const gate = Auth.assertMd2MayAcceptEvent(ev);
+        if (!gate.ok) return;
+      }
+      seen.add(ev.id);
+      const role = (ev.tags || []).find((t) => t[0] === 'role');
+      if (role && role[1] === 'phone') return;
+      handleInbound(ev.content).catch(function () {});
+    });
+    await transport.ready;
 
     // Send HELLO
     try {
       await publish(JSON.stringify({ type: 'hello', pairingId, E_phone_pub: ePhonePub }), 'phone');
+      phoneDbg('HELLO_RELAY_ACCEPTED_PHASE', { note: 'see RELAY_ACCEPTED publish dbg' });
     } catch (_e) {
+      try {
+        transport.close();
+      } catch (_c) {}
       return { ok: false, code: 'HELLO_PUBLISH_FAIL' };
     }
 
@@ -805,7 +1028,7 @@
       },
       stop: function () {
         try {
-          if (sub && typeof sub.close === 'function') sub.close();
+          if (transport && typeof transport.close === 'function') transport.close();
         } catch (_e) {}
         try {
           eph.priv.fill(0);

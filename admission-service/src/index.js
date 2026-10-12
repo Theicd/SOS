@@ -1,9 +1,14 @@
 import { InviteLedger, SERVICE_TAG } from './ledger.js';
 import { GroupAuthority } from './group.js';
 import { AdminPinAuthority } from './pin.js';
+import { AldApprovalAuthority } from './ald-approval-authority.js';
 import { cosignPubkey } from './cosign-keys.js';
 
-export { InviteLedger, GroupAuthority, AdminPinAuthority };
+export { InviteLedger, GroupAuthority, AdminPinAuthority, AldApprovalAuthority };
+
+const ALD_ROUTES = {
+  '/v1/global/ald/approval/consume': '/ald/approval/consume',
+};
 
 const PIN_ROUTES = {
   '/v1/admin-pin/params': '/params',
@@ -169,7 +174,33 @@ export default {
     } catch (_e) {
       return reply(request, env, { result: 'INVALID', code: 'BAD_JSON' }, 400);
     }
-    if (!body || typeof body !== 'object' || body.groupId !== env.FIRST_GROUP_ID) {
+    if (!body || typeof body !== 'object') {
+      return reply(request, env, { result: 'INVALID', code: 'BAD_JSON' }, 400);
+    }
+
+    // MD3W-W1B ALD durable consume — no israel-network groupId required.
+    const aldInner = ALD_ROUTES[url.pathname];
+    if (aldInner) {
+      if (!env.ALD_APPROVALS) {
+        return reply(request, env, { result: 'INVALID', code: 'ALD_APPROVALS_UNBOUND' }, 503);
+      }
+      try {
+        const stub = env.ALD_APPROVALS.get(env.ALD_APPROVALS.idFromName('global:ald-approvals'));
+        const res = await stub.fetch('https://ald' + aldInner, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const upstream = res.status;
+        const outStatus =
+          upstream === 429 ? 429 : upstream === 401 ? 401 : upstream >= 500 ? 503 : upstream >= 400 ? 400 : 200;
+        return reply(request, env, await res.json(), outStatus);
+      } catch (_e) {
+        return reply(request, env, { result: 'TEMPORARILY_UNAVAILABLE', code: 'UPSTREAM' }, 503);
+      }
+    }
+
+    if (body.groupId !== env.FIRST_GROUP_ID) {
       return reply(request, env, { result: 'INVALID', code: 'WRONG_GROUP' }, 400);
     }
 

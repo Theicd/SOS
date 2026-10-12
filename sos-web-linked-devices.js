@@ -672,7 +672,11 @@
       nativeAuthorizeAvailable: !!nativeAuthorize,
       // Product truth without flag: web cannot mint MD3 root signature.
       WEB_MD3_ISSUANCE: false,
-      MD3_ISSUANCE_PATH: nativeAuthorize ? 'ANDROID_NATIVE' : 'REQUIRES_SOS_ANDROID_APP',
+      MD3_ISSUANCE_PATH: nativeAuthorize
+        ? 'ANDROID_NATIVE'
+        : Issuer
+          ? 'WEB_T2_UNAVAILABLE'
+          : 'REQUIRES_SOS_ANDROID_APP',
       T1_FALLBACK_DISABLED: true,
     };
   }
