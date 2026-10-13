@@ -8,3 +8,5 @@ android-shell/.gradle/
 android-shell/local.properties
 android-shell/.idea/
 *.iml
+qa/.local/
+qa/.stage5-lab/

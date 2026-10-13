@@ -23,6 +23,27 @@
     return Array.from(a, (b) => b.toString(16).padStart(2, '0')).join('');
   }
 
+  function linkTrace(phase, extra) {
+    try {
+      const src = extra && typeof extra === 'object' ? extra : {};
+      const row = { t: Date.now(), phase: String(phase || '') };
+      if (src.pairingFp) row.pairingFp = String(src.pairingFp).slice(0, 12);
+      if (src.accountFp) row.accountFp = String(src.accountFp).slice(0, 8);
+      if (src.sessionFp) row.sessionFp = String(src.sessionFp).slice(0, 8);
+      if (src.code) row.code = String(src.code).slice(0, 64);
+      if (src.vaultState) row.vaultState = String(src.vaultState).slice(0, 32);
+      window.__sosLdLinkTrace = window.__sosLdLinkTrace || [];
+      window.__sosLdLinkTrace.push(row);
+      const parts = ['[SOS-LD]', row.phase];
+      if (row.pairingFp) parts.push('pairingFp=' + row.pairingFp);
+      if (row.accountFp) parts.push('accountFp=' + row.accountFp);
+      if (row.sessionFp) parts.push('sessionFp=' + row.sessionFp);
+      if (row.code) parts.push('code=' + row.code);
+      if (row.vaultState) parts.push('vaultState=' + row.vaultState);
+      console.info(parts.join(' '));
+    } catch (_e) {}
+  }
+
   function featureEnabled() {
     const FF = App.SosFeatureFlags || window.SosFeatureFlags;
     if (FF && typeof FF.isMd3wT2SignerApprovalEnabled === 'function') {
@@ -53,13 +74,23 @@
   function requestTrustedApproval(request, timeoutMs) {
     return new Promise((resolve) => {
       const cer = signerCeremonyUrl();
+      const accountFp = normHex(request && request.accountP).slice(0, 8);
+      const pairingFp = normHex(request && request.pairingId).slice(0, 12);
+      const sessionFp = String(cer.sessionId || '').slice(0, 8);
       let done = false;
+      let requestPosted = false;
+      let popup = null;
       const timer = setTimeout(() => {
-        cleanup();
-        resolve({ ok: false, code: 'SIGNER_TIMEOUT' });
+        linkTrace('SIGNER_APPROVAL_ERROR', {
+          pairingFp: pairingFp,
+          accountFp: accountFp,
+          sessionFp: sessionFp,
+          code: 'SIGNER_TIMEOUT',
+        });
+        finish({ ok: false, code: 'SIGNER_TIMEOUT' });
       }, timeoutMs || 180000);
 
-      function cleanup() {
+      function finish(result) {
         if (done) return;
         done = true;
         clearTimeout(timer);
@@ -67,13 +98,24 @@
         try {
           if (popup && !popup.closed) popup.close();
         } catch (_e) {}
+        resolve(result);
       }
 
       function onMsg(ev) {
+        if (done) return;
         const d = ev.data;
         if (!d || d.channel !== CHANNEL) return;
         if (String(ev.origin) !== String(cer.origin)) return;
+        if (!popup || ev.source !== popup) return;
+        if (String(d.sessionId || '') !== String(cer.sessionId)) return;
         if (d.type === 'SOS_ALD_APPROVAL_READY') {
+          if (requestPosted) return;
+          requestPosted = true;
+          linkTrace('SIGNER_APPROVAL_READY', {
+            pairingFp: pairingFp,
+            accountFp: accountFp,
+            sessionFp: sessionFp,
+          });
           try {
             popup.postMessage(
               {
@@ -84,25 +126,43 @@
               },
               cer.origin,
             );
+            linkTrace('SIGNER_APPROVAL_REQUEST', {
+              pairingFp: pairingFp,
+              accountFp: accountFp,
+              sessionFp: sessionFp,
+            });
           } catch (_e) {
-            cleanup();
-            resolve({ ok: false, code: 'SIGNER_POST_FAIL' });
+            linkTrace('SIGNER_APPROVAL_ERROR', {
+              pairingFp: pairingFp,
+              accountFp: accountFp,
+              sessionFp: sessionFp,
+              code: 'SIGNER_POST_FAIL',
+            });
+            finish({ ok: false, code: 'SIGNER_POST_FAIL' });
           }
           return;
         }
         if (d.type === 'SOS_ALD_APPROVAL_RESULT' && d.artifact) {
-          cleanup();
-          resolve({ ok: true, artifact: d.artifact, sessionId: d.sessionId });
+          finish({ ok: true, artifact: d.artifact, sessionId: d.sessionId });
           return;
         }
         if (d.type === 'SOS_ALD_APPROVAL_ERROR') {
-          cleanup();
-          resolve({ ok: false, code: d.code || 'SIGNER_ERROR' });
+          linkTrace('SIGNER_APPROVAL_ERROR', {
+            pairingFp: pairingFp,
+            accountFp: accountFp,
+            sessionFp: sessionFp,
+            code: d.code || 'SIGNER_ERROR',
+            vaultState: d.vaultState || '',
+          });
+          finish({
+            ok: false,
+            code: d.code || 'SIGNER_ERROR',
+            vaultState: d.vaultState || '',
+          });
         }
       }
 
       window.addEventListener('message', onMsg);
-      let popup = null;
       try {
         // Do not use noopener: many browsers return null from window.open(noopener)
         // even when the Signer tab opens, which incorrectly fails closed as POPUP_BLOCKED.
@@ -111,9 +171,20 @@
         popup = null;
       }
       if (!popup) {
-        cleanup();
-        resolve({ ok: false, code: 'SIGNER_POPUP_BLOCKED' });
+        linkTrace('SIGNER_APPROVAL_ERROR', {
+          pairingFp: pairingFp,
+          accountFp: accountFp,
+          sessionFp: sessionFp,
+          code: 'SIGNER_POPUP_BLOCKED',
+        });
+        finish({ ok: false, code: 'SIGNER_POPUP_BLOCKED' });
+        return;
       }
+      linkTrace('SIGNER_POPUP_OPEN', {
+        pairingFp: pairingFp,
+        accountFp: accountFp,
+        sessionFp: sessionFp,
+      });
     });
   }
 
@@ -172,6 +243,7 @@
       return { ok: false, code: (session && session.code) || 'MD2_START_FAIL' };
     }
 
+    const accountFp = me.slice(0, 8);
     let bound;
     try {
       bound = await session.waitChannelReady(o.pairingTimeoutMs || 120000);
@@ -179,8 +251,11 @@
       try {
         session.stop();
       } catch (_s) {}
+      linkTrace('SIGNER_APPROVAL_ERROR', { accountFp: accountFp, code: 'MD2_CHANNEL_TIMEOUT' });
       return { ok: false, code: 'MD2_CHANNEL_TIMEOUT' };
     }
+    const pairingFp = String((bound && bound.pairingId) || '').slice(0, 12);
+    linkTrace('MD2_CHANNEL_READY', { pairingFp: pairingFp, accountFp: accountFp });
 
     const authorizationId = randomHex(32);
     const expiresAt = Date.now() + (o.authTtlMs || 7 * 24 * 3600 * 1000);
@@ -212,20 +287,32 @@
       try {
         session.stop();
       } catch (_s) {}
+      const vaultState = approval.vaultState || '';
       if (approval.code === 'NO_WEBAUTHN_CREDENTIAL' || approval.code === 'WEBAUTHN_REQUIRED') {
-        return { ok: false, code: 'WEBAUTHN_ENROLLMENT_REQUIRED', ACCOUNTS_WITHOUT_WEBAUTHN: true };
+        return {
+          ok: false,
+          code: 'WEBAUTHN_ENROLLMENT_REQUIRED',
+          vaultState: vaultState,
+          ACCOUNTS_WITHOUT_WEBAUTHN: true,
+        };
       }
       if (approval.code === 'SIGNER_POPUP_BLOCKED' || approval.code === 'SIGNER_TIMEOUT') {
-        return { ok: false, code: 'TRUSTED_SIGNER_UNAVAILABLE' };
+        return { ok: false, code: 'TRUSTED_SIGNER_UNAVAILABLE', vaultState: vaultState };
       }
-      return { ok: false, code: approval.code || 'APPROVAL_FAILED' };
+      return { ok: false, code: approval.code || 'APPROVAL_FAILED', vaultState: vaultState };
     }
 
+    linkTrace('WORKER_ISSUANCE', { pairingFp: pairingFp, accountFp: accountFp });
     const signed = await workerAuthorize(approval.artifact, expectedRequest);
     if (!signed || signed.ok !== true || !signed.authorization) {
       try {
         session.stop();
       } catch (_s) {}
+      linkTrace('SIGNER_APPROVAL_ERROR', {
+        pairingFp: pairingFp,
+        accountFp: accountFp,
+        code: (signed && signed.code) || 'WORKER_AUTHORIZE_FAILED',
+      });
       return { ok: false, code: (signed && signed.code) || 'WORKER_AUTHORIZE_FAILED' };
     }
 
@@ -239,8 +326,14 @@
       try {
         session.stop();
       } catch (_s) {}
+      linkTrace('SIGNER_APPROVAL_ERROR', {
+        pairingFp: pairingFp,
+        accountFp: accountFp,
+        code: (delivered && delivered.code) || 'DELIVER_FAIL',
+      });
       return { ok: false, code: (delivered && delivered.code) || 'DELIVER_FAIL' };
     }
+    linkTrace('MD3_DELIVERED', { pairingFp: pairingFp, accountFp: accountFp });
 
     let ack;
     try {
@@ -253,11 +346,23 @@
     } catch (_s) {}
 
     if (!ack || ack.ok !== true) {
+      linkTrace('SIGNER_APPROVAL_ERROR', {
+        pairingFp: pairingFp,
+        accountFp: accountFp,
+        code: 'DESKTOP_ACK_MISSING',
+      });
       return { ok: false, code: 'DESKTOP_ACK_MISSING', authorization: signed.authorization };
     }
     if (normHex(ack.authorizationId) !== normHex(signed.authorization.authorizationId)) {
+      linkTrace('SIGNER_APPROVAL_ERROR', {
+        pairingFp: pairingFp,
+        accountFp: accountFp,
+        code: 'FORGED_DESKTOP_ACK',
+      });
       return { ok: false, code: 'FORGED_DESKTOP_ACK' };
     }
+    linkTrace('DESKTOP_VERIFY_STRICT', { pairingFp: pairingFp, accountFp: accountFp });
+    linkTrace('DESKTOP_LINKED', { pairingFp: pairingFp, accountFp: accountFp });
 
     return {
       ok: true,

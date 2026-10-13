@@ -1,0 +1,86 @@
+{
+  "gate": "STAGE5_VAULT_UI_CONTRACT",
+  "status": "PASS",
+  "checks": [
+    {
+      "name": "hebrew vault copy",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "signer import action",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "passkey enroll action separate",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "scan button remains",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no alert-only vault path",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "issuer binds popup source",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "issuer binds sessionId",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "issuer returns vaultState",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "issuer traces channel and linked",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "md2 console phase",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "signer posts vault error once after request",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "signer rejects foreign session",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dated ui matches canonical",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ceremony html cache bust",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "signer shell bumped",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "web cache bust 899s16",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}

@@ -351,7 +351,13 @@
       '.sos-ld-device-meta strong{display:block;font-size:15px}' +
       '.sos-ld-device-meta span{display:block;font-size:12px;opacity:.75;margin-top:3px}' +
       '.sos-ld-empty{opacity:.8;font-size:14px;margin-top:18px}' +
-      '.sos-ld-footnote{font-size:12px;opacity:.7;margin-top:14px;line-height:1.45}';
+      '.sos-ld-footnote{font-size:12px;opacity:.7;margin-top:14px;line-height:1.45}' +
+      '.sos-ld-link-status{margin:14px 0;padding:12px 14px;border-radius:12px;background:rgba(180,60,60,.18);border:1px solid rgba(255,120,120,.35);white-space:pre-wrap;line-height:1.5;font-size:14px}' +
+      '.sos-ld-link-status.is-ok{background:rgba(40,120,70,.22);border-color:rgba(120,200,150,.4)}' +
+      '.sos-ld-link-status.is-pending{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12)}' +
+      '.sos-ld-link-status[hidden]{display:none!important}' +
+      '.sos-ld-link-actions{display:flex;flex-direction:column;gap:8px;margin-top:12px;white-space:normal}' +
+      '.sos-ld-link-actions a{display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 14px;border-radius:10px;background:#f5f5f5;color:#111;text-decoration:none;font-weight:650}';
     document.head.appendChild(style);
   }
 
@@ -541,6 +547,122 @@
     return { ok: true, path: 'ROLE_CHOOSER', AMBIGUOUS: true, reason: cls.reason };
   }
 
+  const VAULT_NOT_READY_HE =
+    'כספת החתימה של SOS אינה מוכנה.\nהמחשב זוהה, אך הקישור עדיין לא אושר.\nיש להשלים את הגדרת Trusted Signer עבור חשבון זה.';
+
+  function ldTrace(phase, extra) {
+    try {
+      const src = extra && typeof extra === 'object' ? extra : {};
+      const row = { t: Date.now(), phase: String(phase || '') };
+      if (src.pairingFp) row.pairingFp = String(src.pairingFp).slice(0, 12);
+      if (src.accountFp) row.accountFp = String(src.accountFp).slice(0, 8);
+      if (src.code) row.code = String(src.code).slice(0, 64);
+      if (src.vaultState) row.vaultState = String(src.vaultState).slice(0, 32);
+      window.__sosLdLinkTrace = window.__sosLdLinkTrace || [];
+      window.__sosLdLinkTrace.push(row);
+      const parts = ['[SOS-LD]', row.phase];
+      if (row.pairingFp) parts.push('pairingFp=' + row.pairingFp);
+      if (row.accountFp) parts.push('accountFp=' + row.accountFp);
+      if (row.code) parts.push('code=' + row.code);
+      if (row.vaultState) parts.push('vaultState=' + row.vaultState);
+      console.info(parts.join(' '));
+    } catch (_e) {}
+  }
+
+  function ensureMobileLinkStatusEl() {
+    const page = document.getElementById('sosLdMobilePage');
+    if (!page) return null;
+    let box = document.getElementById('sosLdMobileLinkStatus');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'sosLdMobileLinkStatus';
+      box.className = 'sos-ld-link-status';
+      box.setAttribute('role', 'status');
+      box.hidden = true;
+      const body = page.querySelector('.sos-ld-mobile-body');
+      const scan = page.querySelector('#sosLdMobileScan');
+      if (body && scan && scan.parentNode === body) body.insertBefore(box, scan);
+      else if (body) body.insertBefore(box, body.firstChild);
+    }
+    return box;
+  }
+
+  function showPersistentLinkStatus(result) {
+    if (!document.getElementById('sosLdMobilePage')) {
+      try {
+        openMobileLinkedDevicesPage();
+      } catch (_e) {}
+    }
+    const box = ensureMobileLinkStatusEl();
+    if (!box || !result) return;
+    const code = String(result.code || '');
+    box.classList.remove('is-ok', 'is-pending');
+    box.replaceChildren();
+    if (result.pending) {
+      box.hidden = false;
+      box.classList.add('is-pending');
+      box.textContent = 'הקוד זוהה. מתבצע חיבור מאובטח למחשב.\nהקישור יאושר רק אחרי Trusted Signer.';
+      return;
+    }
+    if (result.ok === true && code === 'LINKED' && result.WEB_MD3_ISSUANCE === true) {
+      box.hidden = false;
+      box.classList.add('is-ok');
+      box.textContent = 'המחשב קושר לחשבון.\nאפשר לסגור את חלון האישור ולרענן את המחשב.';
+      return;
+    }
+    if (result.nativeStarted) return;
+    let text = '';
+    const actions = [];
+    if (code === 'VAULT_NOT_READY') {
+      text =
+        VAULT_NOT_READY_HE +
+        '\n\nלאחר השלמת ההגדרה יש לסרוק קוד QR חדש מהמחשב. קוד שפג תוקף אינו מתקבל.';
+      actions.push({ href: 'https://signer.sos010.com/import.html', label: 'פתיחת Trusted Signer' });
+    } else if (code === 'WEBAUTHN_ENROLLMENT_REQUIRED' || code === 'NO_WEBAUTHN_CREDENTIAL') {
+      text =
+        'נדרשת הרשמת Passkey ב-Trusted Signer.\nהמחשב זוהה, אך הקישור עדיין לא אושר.\nיש להשלים את ההרשמה עבור חשבון זה, ואז לסרוק קוד QR חדש.';
+      actions.push({ href: 'https://signer.sos010.com/enroll.html', label: 'הרשמת Passkey' });
+    } else if (code === 'ACCOUNT_MISMATCH') {
+      text = 'חשבון הכספת אינו תואם לחשבון SOS הפעיל.\nהקישור לא אושר. יש לפתוח את Trusted Signer עם אותו חשבון, ואז לסרוק קוד QR חדש.';
+      actions.push({ href: 'https://signer.sos010.com/import.html', label: 'פתיחת Trusted Signer' });
+    } else if (code === 'NOT_AUTHENTICATED') {
+      text = 'הקוד זוהה. יש להתחבר לחשבון SOS כדי להמשיך לאישור הקישור.';
+    } else if (code === 'USER_CANCELLED' || code === 'SCAN_CANCELLED' || code === 'STOPPED') {
+      box.hidden = true;
+      return;
+    } else if (code === 'TRUSTED_SIGNER_UNAVAILABLE' || code === 'SIGNER_POPUP_BLOCKED' || code === 'SIGNER_TIMEOUT') {
+      text = 'חלון Trusted Signer לא הושלם.\nהקישור לא אושר. יש לאפשר את החלון ולסרוק קוד QR חדש מהמחשב.';
+      actions.push({ href: 'https://signer.sos010.com/', label: 'פתיחת Trusted Signer' });
+    } else if (result.ok === true && result.WEB_MD3_ISSUANCE !== true) {
+      text = 'המחשב זוהה, אך הסריקה לבדה אינה מאשרת קישור.\nאישור Trusted Signer אינו פעיל בסביבה זו.';
+    } else if (result.ok !== true) {
+      text =
+        'הקישור לא הושלם (' +
+        (code || 'UNKNOWN') +
+        ').\nסריקת הקוד אינה מאשרת את המחשב. יש ליצור קוד QR חדש במחשב ולנסות שוב.';
+    } else {
+      box.hidden = true;
+      return;
+    }
+    box.hidden = false;
+    const body = document.createElement('div');
+    body.textContent = text;
+    box.appendChild(body);
+    if (actions.length) {
+      const row = document.createElement('div');
+      row.className = 'sos-ld-link-actions';
+      actions.forEach(function (a) {
+        const link = document.createElement('a');
+        link.href = a.href;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = a.label;
+        row.appendChild(link);
+      });
+      box.appendChild(row);
+    }
+  }
+
   /**
    * MD3W-W2 — Primary camera scan → SOSPAIR1 parse → existing approval/issuance path.
    * Optical decode never authorizes by itself.
@@ -552,38 +674,27 @@
     }
     const scanned = await Scanner.startLinkedDeviceQrScan({});
     if (!scanned || scanned.ok !== true || !scanned.qrText) {
-      return {
+      const cancelled = {
         ok: false,
         code: (scanned && scanned.code) || 'SCAN_CANCELLED',
         DECODE_IS_NOT_AUTHORIZATION: true,
       };
+      showPersistentLinkStatus(cancelled);
+      return cancelled;
     }
+    showPersistentLinkStatus({ pending: true, ok: false, code: 'QR_DECODED' });
     // Reuse product approval path (Web T2 PhoneIssuer when flagged; else Android/native messaging).
     const approved = await beginPrimaryApproval(scanned.qrText);
     const result = Object.assign(
       { DECODE_IS_NOT_AUTHORIZATION: true, W2_SOSPAIR1_SCAN: true },
       approved || { ok: false, code: 'APPROVAL_PATH_FAIL' },
     );
-    // Production truth: optical decode ≠ authorization. Web MD3 issuance remains OFF.
-    try {
-      if (result.code === 'NOT_AUTHENTICATED') {
-        window.alert('הקוד זוהה. יש להתחבר לחשבון SOS כדי להמשיך לאישור הקישור.');
-      } else if (result.ok && result.payload && result.WEB_MD3_ISSUANCE !== true && !result.nativeStarted) {
-        const label = String((result.payload && (result.payload.deviceLabel || result.payload.label)) || 'מחשב').slice(0, 48);
-        const did = String((result.payload && result.payload.deviceId) || '').slice(0, 12);
-        const reason = String(result.code || result.MD3_ISSUANCE_PATH || 'WEB_T2_UNAVAILABLE');
-        window.alert(
-          'מחשב זוהה' +
-            (label ? ': ' + label : '') +
-            (did ? ' (' + did + '…)' : '') +
-            '.\n\nהסריקה בלבד אינה מאשרת קישור.\n' +
-            'אישור מאובטח בדפדפן (Trusted Signer / T2) אינו פעיל כרגע בסביבה זו (' +
-            reason +
-            ').\n' +
-            'ניתן לאשר דרך אפליקציית SOS ל-Android כשזמינה, או לאחר הפעלת T2 מאושרת.',
-        );
-      }
-    } catch (_ui) {}
+    // Optical decode and MD2 never mark the desktop LINKED.
+    if (result.ok === true && result.code === 'LINKED' && result.WEB_MD3_ISSUANCE === true) {
+      showPersistentLinkStatus(result);
+    } else if (!result.nativeStarted) {
+      showPersistentLinkStatus(result);
+    }
     return result;
   }
 
@@ -593,6 +704,10 @@
     const parsed = Md2.parseQr(qrText);
     if (!parsed.ok) return { ok: false, code: parsed.error || 'BAD_QR' };
     const me = String(App.publicKey || '').toLowerCase();
+    ldTrace('QR_DECODED', {
+      pairingFp: String((parsed.payload && parsed.payload.pairingId) || '').slice(0, 12),
+      accountFp: me.slice(0, 8),
+    });
     if (!me || App.guestMode) return { ok: false, code: 'NOT_AUTHENTICATED' };
     try {
       const GA = App.GlobalAdmission || window.SosGlobalAdmission;
@@ -657,6 +772,7 @@
         return {
           ok: false,
           code: (issued && issued.code) || 'WEB_PHONEISSUER_FAILED',
+          vaultState: (issued && issued.vaultState) || '',
           payload: parsed.payload,
           WEB_MD3_ISSUANCE: true,
           MD3_ISSUANCE_PATH: 'WEB_PHONEISSUER_T2',
@@ -1173,6 +1289,7 @@
         '</div>' +
         '<div class="sos-ld-mobile-body">' +
         '<p class="sos-ld-sub">חברו את המחשב לחשבון SOS שלכם באמצעות סריקת קוד QR.</p>' +
+        '<div id="sosLdMobileLinkStatus" class="sos-ld-link-status" role="status" hidden></div>' +
         '<button type="button" class="button-primary" id="sosLdMobileScan" style="width:100%;min-height:48px;margin-top:14px;">קישור מכשיר</button>' +
         '<h3 style="margin:22px 0 0;font-size:1rem;">מכשירים מקושרים</h3>' +
         '<ul class="sos-ld-device-list" id="sosLdMobileDeviceList"></ul>' +

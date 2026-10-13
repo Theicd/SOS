@@ -607,6 +607,8 @@
           });
         }
         window.__sosMd3DbgPhases.push(row);
+        const fp = String(row.pairingFp || pairingId || '').slice(0, 12);
+        console.info('[SOS-LD] ' + row.phase + (fp ? ' pairingFp=' + fp : ''));
       } catch (_e) {}
     }
 
@@ -835,9 +837,11 @@
     function phoneDbg(phase, extra) {
       try {
         window.__sosMd3DbgPhases = window.__sosMd3DbgPhases || [];
+        const fp = pairingId.slice(0, 12);
         window.__sosMd3DbgPhases.push(
-          Object.assign({ t: Date.now(), phase: String(phase), pairingFp: pairingId.slice(0, 12) }, extra || {}),
+          Object.assign({ t: Date.now(), phase: String(phase), pairingFp: fp }, extra || {}),
         );
+        console.info('[SOS-LD] ' + String(phase) + ' pairingFp=' + fp);
       } catch (_e) {}
     }
 
@@ -936,6 +940,7 @@
           recoveryEligible: !!payload.recoveryEligible,
         };
         state = 'CHANNEL_READY';
+        phoneDbg('AEAD_CHANNEL_READY');
         channelWaiters.splice(0).forEach((w) => w(bound));
         return;
       }
