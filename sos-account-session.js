@@ -439,6 +439,31 @@
     return acceptHistoryEvent(ev);
   }
 
+  async function pullLinkedDirectMessages() {
+    const session = getAccountSession();
+    if (session.role !== 'LINKED_DEVICE' || !session.verified || !allows('READ_CONVERSATIONS')) {
+      return { ok: false, code: 'NOT_LINKED' };
+    }
+    const pool = App.pool;
+    if (!pool || !isHex64(session.deviceSignPub)) return { ok: false, code: 'NO_POOL' };
+    const filter = { kinds: [1050], '#p': [session.deviceSignPub], '#t': ['yalachat'], limit: 20 };
+    let events = [];
+    try {
+      if (typeof pool.list === 'function') events = await pool.list(App.relayUrls, [filter]);
+      else if (typeof pool.querySync === 'function') events = await pool.querySync(App.relayUrls, filter);
+    } catch (_e) {
+      return { ok: false, code: 'QUERY_FAILED' };
+    }
+    if (!Array.isArray(events)) events = [];
+    for (let i = 0; i < events.length; i += 1) {
+      if (typeof App.handleIncomingChatEvent === 'function') {
+        try { await App.handleIncomingChatEvent(events[i]); } catch (_in) {}
+      }
+    }
+    root.__sosLdChatPull = { n: events.length };
+    return { ok: true, n: events.length };
+  }
+
   async function resubscribeLinkedTransports() {
     try {
       if (typeof App.stopPrivateChatSubscription === 'function') App.stopPrivateChatSubscription('linked-device');
@@ -454,6 +479,7 @@
     } catch (_e3) {}
     try {
       await pullLinkedHistory();
+      await pullLinkedDirectMessages();
     } catch (_e4) {}
   }
 
@@ -476,6 +502,7 @@
     decryptForLinkedDevice: decryptForLinkedDevice,
     publishLinkedHistoryBundle: publishLinkedHistoryBundle,
     pullLinkedHistory: pullLinkedHistory,
+    pullLinkedDirectMessages: pullLinkedDirectMessages,
     acceptHistoryEvent: acceptHistoryEvent,
     resubscribeLinkedTransports: resubscribeLinkedTransports,
     ROOT_K_ON_DESKTOP: false,

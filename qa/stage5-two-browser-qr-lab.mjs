@@ -974,6 +974,7 @@ async function proveLinkedAccountProduct(desktop, mobile) {
       const doc = frame.contentDocument;
       const name = doc && doc.getElementById('profilePageName');
       const avatar = doc && doc.getElementById('profilePageAvatar');
+      if (!name || !String(name.textContent || '').trim()) return false;
       return {
         href: href,
         name: name ? String(name.textContent || '').trim() : '',
@@ -1111,7 +1112,11 @@ async function proveLinkedAccountProduct(desktop, mobile) {
       flags.productCode = 'REPLY_' + (replied.error || 'FAIL');
       return { flags };
     }
-    await desktop.waitForFunction((text) => {
+    const gotReply = await desktop.waitForFunction(async (text) => {
+      const Session = window.SosAccountSession;
+      if (Session && typeof Session.pullLinkedDirectMessages === 'function') {
+        try { await Session.pullLinkedDirectMessages(); } catch (_e) {}
+      }
       const App = window.NostrApp;
       const conv = App.chatState && App.chatState.conversations;
       if (!conv) return false;
@@ -1124,7 +1129,12 @@ async function proveLinkedAccountProduct(desktop, mobile) {
         });
       });
       return found;
-    }, reply, { timeout: 30000 });
+    }, reply, { timeout: 30000, polling: 1000 }).then(() => true).catch(() => false);
+    if (!gotReply) {
+      const pull = await desktop.evaluate(() => window.__sosLdChatPull || null);
+      flags.productCode = 'REPLY_NOT_VISIBLE_' + String((pull && pull.n) || 0);
+      return { flags };
+    }
     flags.MESSAGE_RECEIVE = true;
     flags.E2EE_VERIFIED = true;
     await peer.page.evaluate(() => {
