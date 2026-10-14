@@ -963,34 +963,28 @@ async function proveLinkedAccountProduct(desktop, mobile) {
       return { flags };
     }
     await desktop.locator('[data-nav="profile"]').click({ timeout: 10000 });
-    await desktop.waitForFunction(() => {
+    const profile = await desktop.waitForFunction(() => {
       const frame = document.getElementById('profilePanelFrame');
       const modal = document.getElementById('guestAuthModal');
-      const src = frame && frame.getAttribute('src') ? frame.getAttribute('src') : '';
       const modalOpen = !!(modal && modal.hidden !== true && window.getComputedStyle(modal).display !== 'none');
-      return src.indexOf('profile.html') !== -1 && src.indexOf('auth.html') === -1 && !modalOpen;
-    }, null, { timeout: 20000 });
-    const frame = desktop.frame({ url: /profile\.html/ });
-    if (!frame) {
-      flags.productCode = 'PROFILE_FRAME';
-      return { flags };
-    }
-    await frame.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
-    const profile = await frame.evaluate(() => {
-      const name = document.getElementById('profilePageName');
-      const avatar = document.getElementById('profilePageAvatar');
+      if (modalOpen || !frame) return false;
+      let href = '';
+      try { href = frame.contentWindow.location.href; } catch (_e) { return false; }
+      if (href.indexOf('profile.html') === -1 && href.indexOf('auth.html') === -1) return false;
+      const doc = frame.contentDocument;
+      const name = doc && doc.getElementById('profilePageName');
+      const avatar = doc && doc.getElementById('profilePageAvatar');
       return {
-        href: location.href,
+        href: href,
         name: name ? String(name.textContent || '').trim() : '',
         avatar: avatar ? String(avatar.textContent || '').trim() : '',
-        img: !!(avatar && avatar.querySelector && avatar.querySelector('img')),
       };
-    }).catch(() => ({ href: '', name: '', avatar: '' }));
+    }, null, { timeout: 25000 }).then((handle) => handle.jsonValue());
     flags.PROFILE_OPENS = profile.href.indexOf('profile.html') !== -1 && profile.href.indexOf('auth.html') === -1;
     flags.REAL_PROFILE_NAME = String(profile.name || '').slice(0, 40);
     flags.AVATAR_DISPLAYS_CORRECTLY = flags.AVATAR_DISPLAYS_CORRECTLY && !/^[0-9a-f]{8}$/i.test(profile.avatar || '');
     if (!flags.PROFILE_OPENS) {
-      flags.productCode = 'PROFILE_OPENS';
+      flags.productCode = profile.href.indexOf('auth.html') !== -1 ? 'PROFILE_AUTH_REDIRECT' : 'PROFILE_OPENS';
       return { flags };
     }
     const peerBrowser = await chromium.launch({
@@ -1038,10 +1032,15 @@ async function proveLinkedAccountProduct(desktop, mobile) {
       flags.HISTORY_SYNC_COMPLETE = false;
       return { flags };
     }
-    await desktop.waitForFunction(() => {
+    const seen = await desktop.waitForFunction(() => {
       const sync = window.__sosLdHistorySync;
       return !!(sync && sync.ok === true && sync.count > 0 && sync.FAKE_HISTORY_SYNC === false);
-    }, null, { timeout: 30000 });
+    }, null, { timeout: 30000 }).then(() => true).catch(() => false);
+    if (!seen) {
+      const diag = await desktop.evaluate(() => window.__sosLdHistorySync || null);
+      flags.productCode = 'HISTORY_DELIVERY_' + String((diag && diag.code) || 'NO_EVENT');
+      return { flags };
+    }
     flags.HISTORY_SYNC_COMPLETE = true;
     await desktop.locator('#messagesToggle').click({ timeout: 10000 });
     const list = await desktop.evaluate(() => {

@@ -21,7 +21,7 @@
     SIGN_CALL_GIFTWRAP: { kinds: [1059], requireRecipientP: true },
     SIGN_CALL_RUMOR_LEGACY: { kinds: [25050] },
     SIGN_READ_RECEIPT: { kinds: [1051], requireRecipientP: true },
-    SIGN_LINKED_HISTORY: { kinds: [22243], requireRecipientP: true },
+    SIGN_LINKED_HISTORY: { kinds: [1050], requireRecipientP: true },
     SIGN_PRESENCE: { kinds: [1054], requireRecipientP: true },
     SIGN_DELETE: { kinds: [5] },
     // kind 6 = NIP-18 repost/share (feed.js sharePost → signFeedEvent)

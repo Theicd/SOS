@@ -1207,8 +1207,10 @@
     if (!event || !event.pubkey) {
       return;
     }
-    if (event.kind === 22243 && window.SosAccountSession && typeof window.SosAccountSession.acceptHistoryEvent === 'function') {
-      try { await window.SosAccountSession.acceptHistoryEvent(event); } catch (_hist) {}
+    if (Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 't' && t[1] === 'sos-hist-v1')) {
+      if (window.SosAccountSession && typeof window.SosAccountSession.acceptHistoryEvent === 'function') {
+        try { await window.SosAccountSession.acceptHistoryEvent(event); } catch (_hist) {}
+      }
       return;
     }
     if (event.kind === CHAT_KIND && Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 'sos-md3')) {
@@ -1754,7 +1756,7 @@
       baseFilter([PRESENCE_KIND], { '#p': listenPubs, '#t': [CHAT_TAG] }),
     ];
     if (devicePub) {
-      filters.push(baseFilter([22243], { '#p': [devicePub], authors: [normalizedSelf], '#t': ['sos-hist-v1'] }));
+      filters.push(baseFilter([1050], { '#p': [devicePub], authors: [normalizedSelf], '#t': ['sos-hist-v1'] }));
     }
 
     if (App.NETWORK_TAG) {

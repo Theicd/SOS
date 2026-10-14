@@ -7,7 +7,7 @@
   'use strict';
 
   const App = root.NostrApp || (root.NostrApp = {});
-  const HIST_KIND = 22243;
+  const HIST_KIND = 1050;
   const HIST_TAG = 'sos-hist-v1';
 
   const OPS = {
@@ -364,21 +364,32 @@
     return { ok: true, count: messages.length, id: String(event.id).slice(0, 12), HISTORY_SYNC_TRANSFERRED: messages.length > 0 };
   }
 
+  function hasHistTag(event) {
+    return Array.isArray(event && event.tags) && event.tags.some(function (t) {
+      return Array.isArray(t) && t[0] === 't' && t[1] === HIST_TAG;
+    });
+  }
+
+  function rememberHistory(result) {
+    root.__sosLdHistorySync = result;
+    return result;
+  }
+
   async function acceptHistoryEvent(event) {
-    if (!event || event.kind !== HIST_KIND) return { ok: false, code: 'NOT_HISTORY' };
+    if (!hasHistTag(event)) return rememberHistory({ ok: false, code: 'NOT_HISTORY', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
     const session = getAccountSession();
-    if (session.role !== 'LINKED_DEVICE' || !session.verified) return { ok: false, code: 'NOT_LINKED' };
-    if (!allows('READ_CONVERSATIONS')) return { ok: false, code: 'CAPABILITY_DENIED' };
+    if (session.role !== 'LINKED_DEVICE' || !session.verified) return rememberHistory({ ok: false, code: 'NOT_LINKED', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
+    if (!allows('READ_CONVERSATIONS')) return rememberHistory({ ok: false, code: 'CAPABILITY_DENIED', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
     const NT = root.NostrTools;
-    if (!NT || typeof NT.verifyEvent !== 'function' || NT.verifyEvent(event) !== true) return { ok: false, code: 'BAD_EVENT_SIG' };
-    if (norm(event.pubkey) !== session.accountP) return { ok: false, code: 'ACCOUNT_MISMATCH' };
+    if (!NT || typeof NT.verifyEvent !== 'function' || NT.verifyEvent(event) !== true) return rememberHistory({ ok: false, code: 'BAD_EVENT_SIG', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
+    if (norm(event.pubkey) !== session.accountP) return rememberHistory({ ok: false, code: 'ACCOUNT_MISMATCH', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
     let env;
-    try { env = JSON.parse(event.content); } catch (_e) { return { ok: false, code: 'BAD_ENVELOPE' }; }
+    try { env = JSON.parse(event.content); } catch (_e) { return rememberHistory({ ok: false, code: 'BAD_ENVELOPE', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false }); }
     const opened = await decryptForLinkedDevice(event, env, false, null);
-    if (!opened || opened.ok !== true || !opened.payload) return { ok: false, code: (opened && opened.code) || 'DECRYPT_FAILED' };
+    if (!opened || opened.ok !== true || !opened.payload) return rememberHistory({ ok: false, code: (opened && opened.code) || 'DECRYPT_FAILED', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
     let bundle;
-    try { bundle = JSON.parse(opened.payload.text); } catch (_e2) { return { ok: false, code: 'BAD_BUNDLE' }; }
-    if (!bundle || bundle.type !== HIST_TAG || norm(bundle.accountP) !== session.accountP) return { ok: false, code: 'BAD_BUNDLE' };
+    try { bundle = JSON.parse(opened.payload.text); } catch (_e2) { return rememberHistory({ ok: false, code: 'BAD_BUNDLE', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false }); }
+    if (!bundle || bundle.type !== HIST_TAG || norm(bundle.accountP) !== session.accountP) return rememberHistory({ ok: false, code: 'BAD_BUNDLE', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
     const list = Array.isArray(bundle.messages) ? bundle.messages : [];
     let n = 0;
     list.forEach(function (m) {
@@ -398,7 +409,7 @@
       n += 1;
     });
     root.__sosLdHistorySync = { ok: true, count: n, HISTORY_SYNC_COMPLETE: true, FAKE_HISTORY_SYNC: false };
-    return { ok: true, count: n, HISTORY_SYNC_COMPLETE: true };
+    return root.__sosLdHistorySync;
   }
 
   async function resubscribeLinkedTransports() {
