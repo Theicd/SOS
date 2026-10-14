@@ -25,8 +25,20 @@
             }
           } catch (_e2) {}
         }
-        if (!pub && window.location && typeof window.location.replace === 'function') {
-          window.location.replace('auth.html');
+        if (!pub) {
+          const Session = window.SosAccountSession;
+          if (Session && typeof Session.restoreVerifiedLinkedDevice === 'function') {
+            Promise.resolve(Session.restoreVerifiedLinkedDevice()).then(function (s) {
+              if (s && s.role === 'LINKED_DEVICE' && s.verified === true) return;
+              if (window.location && typeof window.location.replace === 'function') window.location.replace('auth.html');
+            }).catch(function () {
+              if (window.location && typeof window.location.replace === 'function') window.location.replace('auth.html');
+            });
+            return;
+          }
+          if (window.location && typeof window.location.replace === 'function') {
+            window.location.replace('auth.html');
+          }
         }
         return;
       }
@@ -34,7 +46,18 @@
         window.SOSKeyStorage && typeof window.SOSKeyStorage.readPrivateKeyRaw === 'function'
           ? window.SOSKeyStorage.readPrivateKeyRaw()
           : '';
-      if (!hasKey && window.location && typeof window.location.replace === 'function') {
+      if (hasKey) return;
+      const Session = window.SosAccountSession;
+      if (Session && typeof Session.restoreVerifiedLinkedDevice === 'function') {
+        Promise.resolve(Session.restoreVerifiedLinkedDevice()).then(function (s) {
+          if (s && s.role === 'LINKED_DEVICE' && s.verified === true && s.ROOT_K_PRESENT === false) return;
+          if (window.location && typeof window.location.replace === 'function') window.location.replace('auth.html');
+        }).catch(function () {
+          if (window.location && typeof window.location.replace === 'function') window.location.replace('auth.html');
+        });
+        return;
+      }
+      if (window.location && typeof window.location.replace === 'function') {
         window.location.replace('auth.html');
       }
     } catch (err) {

@@ -406,7 +406,9 @@
 
   // Shared cutover: publishCallSignal picks ONE transport (legacy 25050 XOR gift-wrap 1059).
   async function sendSignal(peer, type, data) {
-    if (!App.pool || !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey()) {
+    const linked = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    const linkedCall = linked && linked.role === 'LINKED_DEVICE' && linked.verified === true && typeof App.accountSessionAllows === 'function' && App.accountSessionAllows('START_CALL');
+    if (!App.pool || !App.publicKey || (!App.SosCryptoSigner?.hasIdentityKey() && !linkedCall)) {
       console.error('CALL_SIGNAL_E2EE_ENCRYPT_FAILED: pool or keys unavailable');
       throw Object.assign(new Error('CALL_SIGNAL_E2EE_ENCRYPT_FAILED'), { code: 'CALL_SIGNAL_E2EE_ENCRYPT_FAILED' });
     }
@@ -417,6 +419,18 @@
     const sessionId = sessionIdForSignal(type);
     if (!sessionId) {
       throw Object.assign(new Error('CALL_VIDEO_SESSION_MISSING'), { code: 'CALL_VIDEO_SESSION_MISSING' });
+    }
+    let senderPubkey = App.publicKey;
+    let senderPrivateKey;
+    if (linkedCall && window.SosWebLinkedDevices && typeof window.SosWebLinkedDevices.withLinkedDeviceSigner === 'function') {
+      const material = await window.SosWebLinkedDevices.withLinkedDeviceSigner(function (dev) { return dev; });
+      if (!material || !material.pub || !material.privHex) {
+        throw Object.assign(new Error('CALL_SIGNAL_E2EE_ENCRYPT_FAILED'), { code: 'NO_DEVICE' });
+      }
+      senderPubkey = material.pub;
+      senderPrivateKey = material.privHex;
+    } else if (!(App.SosCryptoSigner && typeof App.SosCryptoSigner.isWorkerAuthoritative === 'function' && App.SosCryptoSigner.isWorkerAuthoritative())) {
+      senderPrivateKey = App.SosCryptoSigner.f1CryptoModuleSessionKeyHex();
     }
     try {
       const published = await api.publishCallSignal({
@@ -429,11 +443,8 @@
         relays: (App.CallSignalE2ee && typeof App.CallSignalE2ee.getCallSignalRelays === 'function')
           ? App.CallSignalE2ee.getCallSignalRelays()
           : App.relayUrls,
-        senderPubkey: App.publicKey,
-        senderPrivateKey:
-          App.SosCryptoSigner && typeof App.SosCryptoSigner.isWorkerAuthoritative === 'function' && App.SosCryptoSigner.isWorkerAuthoritative()
-            ? undefined
-            : App.SosCryptoSigner.f1CryptoModuleSessionKeyHex(),
+        senderPubkey,
+        senderPrivateKey,
         roomId: getRoomId(peer),
       });
       return published;

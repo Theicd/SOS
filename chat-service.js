@@ -495,6 +495,41 @@
     return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms || 0)));
   }
 
+  async function publishDelegatedChatMessage(peerPubkey, plainText, options = {}) {
+    const peerNorm = String(peerPubkey || '').toLowerCase();
+    const text = typeof plainText === 'string' ? plainText.trim() : '';
+    if (!text) return { ok: false, error: 'empty-message' };
+    const pool = ensurePoolReady();
+    if (!pool) return { ok: false, error: 'pool-unavailable' };
+    const Session = window.SosAccountSession;
+    if (!Session || typeof Session.delegatedChatEncrypt !== 'function') return { ok: false, error: 'delegation-missing' };
+    const messageId = (typeof options?.clientTempId === 'string' && options.clientTempId) || ('ld-' + Date.now());
+    const signed = await Session.delegatedChatEncrypt(peerNorm, text, messageId);
+    if (!signed || signed.ok !== true || !signed.event) return { ok: false, error: (signed && signed.code) || 'delegation-sign-failed' };
+    const event = signed.event;
+    const outgoingMessage = {
+      id: event.id,
+      from: App.publicKey,
+      to: peerNorm,
+      content: text,
+      createdAt: event.created_at,
+      direction: 'outgoing',
+      status: 'sending',
+      e2ee: true,
+      source: 'DELEGATED_DEVICE',
+      transport: 'NOSTR',
+      logicalMessageId: messageId,
+    };
+    if (typeof App.appendChatMessage === 'function') App.appendChatMessage(outgoingMessage);
+    try {
+      await pool.publish(App.relayUrls, event);
+    } catch (err) {
+      return { ok: false, error: 'publish-failed', id: event.id };
+    }
+    outgoingMessage.status = 'sent';
+    return { ok: true, id: event.id, delegated: true, ROOT_K_PRESENT: false };
+  }
+
   async function publishChatMessage(peerPubkey, plainText, options = {}) {
     // חלק אבטחה (chat-service.js) – שער epoch חוסם שליחה פרטית לפני publish/Push | HYPER CORE TECH
     if (typeof App.ensureSecureChatEpochReady === 'function') {
@@ -511,6 +546,10 @@
         try { App.ensureSecureChatEpochReady({ skipAutoReload: true }); } catch (_e) { /* ignore */ }
       }
       return { ok: false, error: 'secure-update-required' };
+    }
+    const linkedSession = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    if (linkedSession && linkedSession.role === 'LINKED_DEVICE' && linkedSession.verified === true) {
+      return publishDelegatedChatMessage(peerPubkey, plainText, options);
     }
     const clientTempId = typeof options?.clientTempId === 'string' ? options.clientTempId : null;
     // חלק צ'אט (chat-service.js) – בודק אם מצורף קובץ לפני סינון טקסט ריק כדי לאפשר שליחת קבצים בלבד
@@ -1088,10 +1127,16 @@
       typeof App.normalizeHexPubkey === 'function'
         ? App.normalizeHexPubkey(event.pubkey)
         : String(event.pubkey || '').trim().toLowerCase();
-    const local =
-      typeof App.normalizeHexPubkey === 'async function'
+    const accountLocal =
+      typeof App.normalizeHexPubkey === 'function'
         ? App.normalizeHexPubkey(App.publicKey)
         : String(App.publicKey || '').trim().toLowerCase();
+    const linkedNow = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    const devicePub = linkedNow && linkedNow.role === 'LINKED_DEVICE' && linkedNow.verified ? String(linkedNow.deviceSignPub || '') : '';
+    const pEarly = extractValidatedChatRecipientPTag(event);
+    const recipientEarly = pEarly && pEarly.ok ? pEarly.recipient : '';
+    const onDevice = !!(devicePub && (author === devicePub || recipientEarly === devicePub));
+    const local = onDevice ? devicePub : accountLocal;
     if (!author || !local) {
       logE2eeReject('BAD_PUBKEY', event);
       return { ok: false, retryable: false, reason: 'BAD_PUBKEY' };
@@ -1112,13 +1157,23 @@
     }
 
     try {
-      const payload = await Promise.resolve(App.SosCryptoSigner.nip44ChatDecrypt({
-        localPubkey: App.publicKey,
-        eventAuthorPubkey: event.pubkey,
-        encryptedEnvelope: envelope,
-        selfAuthored,
-        intendedRecipientPubkey: intendedRecipient,
-      }));
+      let payload;
+      if (onDevice && window.SosAccountSession && typeof window.SosAccountSession.decryptForLinkedDevice === 'function') {
+        const opened = await window.SosAccountSession.decryptForLinkedDevice(event, envelope, selfAuthored, intendedRecipient);
+        if (!opened || opened.ok !== true) {
+          logE2eeReject((opened && opened.code) || 'DECRYPT_FAILED', event);
+          return { ok: false, retryable: false, reason: (opened && opened.code) || 'DECRYPT_FAILED' };
+        }
+        payload = opened.payload;
+      } else {
+        payload = await Promise.resolve(App.SosCryptoSigner.nip44ChatDecrypt({
+          localPubkey: App.publicKey,
+          eventAuthorPubkey: event.pubkey,
+          encryptedEnvelope: envelope,
+          selfAuthored,
+          intendedRecipientPubkey: intendedRecipient,
+        }));
+      }
       try {
         if (selfAuthored) {
           console.log(
@@ -1152,6 +1207,16 @@
     if (!event || !event.pubkey) {
       return;
     }
+    if (event.kind === 22243 && window.SosAccountSession && typeof window.SosAccountSession.acceptHistoryEvent === 'function') {
+      try { await window.SosAccountSession.acceptHistoryEvent(event); } catch (_hist) {}
+      return;
+    }
+    if (event.kind === CHAT_KIND && Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 'sos-md3')) {
+      if (!window.SosAccountSession || typeof window.SosAccountSession.verifyDelegatedEvent !== 'function') return;
+      const delegated = await window.SosAccountSession.verifyDelegatedEvent(event, 'DEVICE_CHAT');
+      if (!delegated || delegated.ok !== true) return;
+      event.__sosDelegatedAccount = delegated.accountP;
+    }
     // Retry E2EE events that arrived before local key was ready.
     if (App.SosCryptoSigner?.hasIdentityKey() && App.publicKey && pendingE2eeEvents.size) {
       flushPendingE2eeEvents();
@@ -1184,11 +1249,9 @@
       return;
     }
     const sender = event.pubkey.toLowerCase();
-    const currentUser = (App.publicKey || '').toLowerCase();
-    const isSelfMessage = sender === currentUser;
+    const accountUser = (App.publicKey || '').toLowerCase();
     let recipient = '';
     if (isE2eeContent) {
-      // Encrypted 1050: deterministic single distinct valid p-tag (fail closed on conflict).
       const pRes = extractValidatedChatRecipientPTag(event);
       if (!pRes.ok) {
         logE2eeReject(pRes.reason || 'BAD_P_TAG', event);
@@ -1199,6 +1262,11 @@
       const peerTag = event.tags?.find?.((tag) => Array.isArray(tag) && tag[0] === 'p');
       recipient = peerTag?.[1]?.toLowerCase?.() || '';
     }
+    const linkedNow = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    const devicePub = linkedNow && linkedNow.role === 'LINKED_DEVICE' && linkedNow.verified ? String(linkedNow.deviceSignPub || '') : '';
+    const onDevice = !!(devicePub && (sender === devicePub || recipient === devicePub));
+    const currentUser = onDevice ? devicePub : accountUser;
+    const isSelfMessage = sender === currentUser;
     if (!isSelfMessage && recipient && recipient !== currentUser) {
       // לא נועד עבור המשתמש הנוכחי
       return;
@@ -1660,6 +1728,10 @@
     if (!normalizedSelf) {
       return;
     }
+    const linkedNow = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    const devicePub = linkedNow && linkedNow.role === 'LINKED_DEVICE' && linkedNow.verified ? String(linkedNow.deviceSignPub || '') : '';
+    const listenPubs = [normalizedSelf];
+    if (devicePub && devicePub !== normalizedSelf) listenPubs.push(devicePub);
 
     const lastSyncTs = typeof App.getChatLastSyncTs === 'function' ? App.getChatLastSyncTs() : 0;
     const retentionFloor = getChatRetentionFloorTs();
@@ -1674,14 +1746,16 @@
     };
 
     const filters = [
-      baseFilter([CHAT_KIND], { '#p': [normalizedSelf], '#t': [CHAT_TAG] }),
-      baseFilter([CHAT_KIND], { authors: [normalizedSelf], '#t': [CHAT_TAG] }),
-      baseFilter([5], { authors: [normalizedSelf], '#t': [CHAT_TAG] }),
-      baseFilter([5], { '#p': [normalizedSelf], '#t': [CHAT_TAG] }),
-      // חלק אישורי קריאה (chat-service.js) – האזנה לאישורי קריאה נכנסים | HYPER CORE TECH
-      baseFilter([READ_RECEIPT_KIND], { '#p': [normalizedSelf], '#t': [CHAT_TAG] }),
-      baseFilter([PRESENCE_KIND], { '#p': [normalizedSelf], '#t': [CHAT_TAG] }),
+      baseFilter([CHAT_KIND], { '#p': listenPubs, '#t': [CHAT_TAG] }),
+      baseFilter([CHAT_KIND], { authors: listenPubs, '#t': [CHAT_TAG] }),
+      baseFilter([5], { authors: listenPubs, '#t': [CHAT_TAG] }),
+      baseFilter([5], { '#p': listenPubs, '#t': [CHAT_TAG] }),
+      baseFilter([READ_RECEIPT_KIND], { '#p': listenPubs, '#t': [CHAT_TAG] }),
+      baseFilter([PRESENCE_KIND], { '#p': listenPubs, '#t': [CHAT_TAG] }),
     ];
+    if (devicePub) {
+      filters.push(baseFilter([22243], { '#p': [devicePub], authors: [normalizedSelf], '#t': ['sos-hist-v1'] }));
+    }
 
     if (App.NETWORK_TAG) {
       filters.push(

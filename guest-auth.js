@@ -104,6 +104,10 @@
   /** F5A — authenticated without reading raw K */
   function isAuthenticatedIdentity() {
     if (App.guestMode === true) return false;
+    try {
+      var linked = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+      if (linked && linked.role === 'LINKED_DEVICE' && linked.verified === true && App.privateKey == null) return true;
+    } catch (_linkedIdentity) {}
     if (App.SosCryptoSigner && typeof App.SosCryptoSigner.isWorkerAuthoritative === 'function' && App.SosCryptoSigner.isWorkerAuthoritative()) {
       return !!(App.publicKey && App.SosCryptoSigner.hasIdentityKey());
     }

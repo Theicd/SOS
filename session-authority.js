@@ -431,6 +431,15 @@
    */
   function assertSessionForSensitiveOp(opName) {
     installResumeHooks();
+    const linked = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    if (linked && linked.role === 'LINKED_DEVICE' && linked.verified === true && App.privateKey == null) {
+      const name = String(opName || '');
+      const need = /CALL/.test(name) ? 'START_CALL' : /CHAT|MESSAGE/.test(name) ? 'SEND_CHAT' : 'VIEW_PRIVATE_UI';
+      if (typeof App.accountSessionAllows === 'function' && App.accountSessionAllows(need)) {
+        return { ok: true, role: 'LINKED_DEVICE', account: linked.accountP, op: name, ROOT_K_PRESENT: false };
+      }
+      failSession('CAPABILITY_DENIED', 'linked device is not granted ' + name);
+    }
     const check = revalidateFromPersistent('SENSITIVE:' + String(opName || 'op'));
     if (!check.ok) {
       failSession(

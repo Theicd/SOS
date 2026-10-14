@@ -24,6 +24,7 @@
     SIGN_CALL_GIFTWRAP: { kinds: [1059], requireRecipientP: true },
     SIGN_CALL_RUMOR_LEGACY: { kinds: [25050] },
     SIGN_READ_RECEIPT: { kinds: [1051], requireRecipientP: true },
+    SIGN_LINKED_HISTORY: { kinds: [22243], requireRecipientP: true },
     SIGN_PRESENCE: { kinds: [1054], requireRecipientP: true },
     SIGN_DELETE: { kinds: [5] },
     SIGN_FEED: { kinds: [1] },
@@ -1053,6 +1054,8 @@
         return signTyped('SIGN_CALL_RUMOR_LEGACY', params && params.draft);
       case 'SIGN_READ_RECEIPT':
         return signTyped('SIGN_READ_RECEIPT', params && params.draft);
+      case 'SIGN_LINKED_HISTORY':
+        return signTyped('SIGN_LINKED_HISTORY', params && params.draft);
       case 'SIGN_PRESENCE':
         return signTyped('SIGN_PRESENCE', params && params.draft);
       case 'SIGN_DELETE':

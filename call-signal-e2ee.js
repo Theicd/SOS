@@ -654,13 +654,23 @@
         ackSecureWrapHandledToNative(wrapId);
         return { status: 'duplicate', reason: 'wrap_id' };
       }
-      if (!App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey) {
+      const linkedGate = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+      const linkedCallOk = !!(linkedGate && linkedGate.role === 'LINKED_DEVICE' && linkedGate.verified === true && typeof App.accountSessionAllows === 'function' && App.accountSessionAllows('RECEIVE_CALL'));
+      if ((!App.SosCryptoSigner?.hasIdentityKey() && !linkedCallOk) || !App.publicKey) {
         if (wrapId) seenWrapIds.delete(wrapId);
         return { status: 'reject', reason: 'no_keys' };
       }
       dispatchStats.unwrapCount += 1;
       let unwrapped = null;
-      if (App.SosCryptoSigner.isWorkerAuthoritative && App.SosCryptoSigner.isWorkerAuthoritative()) {
+      const linkedUnwrap = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+      const pTagUnwrap = getPTag(wrapEvent);
+      const deviceWrap = !!(linkedUnwrap && linkedUnwrap.role === 'LINKED_DEVICE' && linkedUnwrap.verified && pTagUnwrap && pTagUnwrap === linkedUnwrap.deviceSignPub);
+      if (deviceWrap && window.SosWebLinkedDevices && typeof window.SosWebLinkedDevices.withLinkedDeviceSigner === 'function') {
+        const material = await window.SosWebLinkedDevices.withLinkedDeviceSigner(function (dev) { return dev; });
+        unwrapped = material && material.privHex
+          ? await unwrapGiftWrappedCallSignal(wrapEvent, material.privHex, material.pub)
+          : null;
+      } else if (App.SosCryptoSigner.isWorkerAuthoritative && App.SosCryptoSigner.isWorkerAuthoritative()) {
         try {
           const logical = await App.SosCryptoSigner.unwrapCallGiftwrap(wrapEvent, App.publicKey);
           const valid = logical ? validatePayload({
@@ -900,10 +910,15 @@
       } catch (_e2) {}
     }
     const callRelays = getCallSignalRelays();
+    const listen = [me];
+    const linked = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    if (linked && linked.role === 'LINKED_DEVICE' && linked.verified && linked.deviceSignPub && linked.deviceSignPub !== me) {
+      listen.push(linked.deviceSignPub);
+    }
     const filters = [
       {
         kinds: [GIFT_WRAP_KIND],
-        '#p': [me],
+        '#p': listen,
         since: Math.floor(Date.now() / 1000) - TWO_DAYS_SEC - 120,
       },
     ];
@@ -920,7 +935,7 @@
           if (!ev || ev.kind !== GIFT_WRAP_KIND) return;
           if (!verifyEventSig(ev)) return;
           const p = getPTag(ev);
-          if (p !== me || p !== currentAccountPubkey()) return;
+          if (listen.indexOf(p) === -1) return;
           enqueueSecureDispatch(ev);
         },
         onclose: () => {
@@ -1736,11 +1751,13 @@
     const pool = opts && opts.pool;
     const relays = opts && opts.relays;
     const senderPubkey = opts && opts.senderPubkey;
+    const explicitSenderKey = opts && opts.senderPrivateKey;
     const workerAuth =
+      !explicitSenderKey &&
       App.SosCryptoSigner &&
       typeof App.SosCryptoSigner.isWorkerAuthoritative === 'function' &&
       App.SosCryptoSigner.isWorkerAuthoritative();
-    let senderPrivateKey = opts && opts.senderPrivateKey;
+    let senderPrivateKey = explicitSenderKey;
     if (!senderPrivateKey && !workerAuth) {
       senderPrivateKey =
         App.SosCryptoSigner && typeof App.SosCryptoSigner.f1CryptoModuleSessionKeyHex === 'function'

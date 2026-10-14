@@ -353,8 +353,6 @@
       '.sos-ld-qr-wrap canvas{display:block;width:100%;height:100%;max-width:408px;max-height:408px;background:#fff;image-rendering:pixelated;image-rendering:crisp-edges}' +
       '.sos-ld-qr-wrap.is-error{background:#2a2a2a;color:#f0f0f0;text-align:center;padding:20px;font-size:14px;line-height:1.45}' +
       '.sos-ld-status,.sos-ld-expiry{text-align:center;margin:6px 0;font-size:13px}' +
-      '#sosLdAccountChip{position:fixed;top:12px;left:12px;z-index:12040;background:#141414;color:#f5f5f5;border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:8px 14px;font-size:14px;line-height:1.2}' +
-      '#sosLdAccountChip[hidden]{display:none!important}' +
       '.sos-ld-expiry{opacity:.8}' +
       '.sos-ld-actions{display:flex;flex-direction:column;gap:10px;margin-top:16px}' +
       '.sos-ld-actions .button-primary,.sos-ld-actions .button-secondary{width:100%;min-height:44px}' +
@@ -1376,15 +1374,8 @@
     if (!root || typeof root.querySelector !== 'function') return;
     const fp = String(accountP || '').toLowerCase().slice(0, 8);
     if (!/^[0-9a-f]{8}$/.test(fp)) return;
-    let line = root.querySelector('.sos-ld-linked-identity');
-    if (!line) {
-      line = document.createElement('p');
-      line.className = 'sos-ld-linked-identity';
-      const st = root.querySelector('.sos-ld-status');
-      if (st && st.parentNode) st.parentNode.insertBefore(line, st.nextSibling);
-      else root.appendChild(line);
-    }
-    line.textContent = 'חשבון ' + fp;
+    const line = root.querySelector('.sos-ld-linked-identity');
+    if (line && line.parentNode) line.parentNode.removeChild(line);
     try {
       window.__sosLdLinkedIdentity = {
         accountFp: fp,
@@ -1459,17 +1450,19 @@
     App.linkedDeviceSession = true;
     App.identityState = 'LINKED_DEVICE';
     const fp = pk.slice(0, 8);
-    let chip = document.getElementById('sosLdAccountChip');
-    if (!chip) {
-      chip = document.createElement('div');
-      chip.id = 'sosLdAccountChip';
-      chip.setAttribute('role', 'status');
-      document.body.appendChild(chip);
+    const caps = Array.isArray(_durableAuth && _durableAuth.capabilities) ? _durableAuth.capabilities.map(String) : [];
+    if (window.SosAccountSession && typeof window.SosAccountSession.adoptVerified === 'function') {
+      window.SosAccountSession.adoptVerified({
+        accountP: pk,
+        deviceSignPub: _sessionDevice && _sessionDevice.D_sign_pub,
+        deviceId: _sessionDevice && _sessionDevice.deviceId,
+        caps: caps,
+      });
     }
-    chip.hidden = false;
-    chip.textContent = 'חשבון ' + fp;
+    const staleChip = document.getElementById('sosLdAccountChip');
+    if (staleChip && staleChip.parentNode) staleChip.parentNode.removeChild(staleChip);
     const avatar = document.getElementById('topBarProfileAvatar');
-    if (avatar) avatar.textContent = fp;
+    if (avatar && avatar.textContent && /^[0-9a-f]{8}$/i.test(avatar.textContent.trim())) avatar.textContent = '';
     try {
       if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
     } catch (_ui) {}
@@ -1487,6 +1480,7 @@
         identityState: 'LINKED_DEVICE',
         ROOT_K_PRESENT: false,
         HISTORY_SYNC_TRANSFERRED: false,
+        chip: false,
       };
       window.__sosLdCapability = {
         ok: cap.ok === true,
@@ -1496,11 +1490,47 @@
       };
     } catch (_w) {}
     try {
-      if (typeof App.loadOwnProfileMetadata === 'function') {
-        Promise.resolve(App.loadOwnProfileMetadata()).catch(function () {});
+      if (typeof App.ensureSecureChatEpochReady === 'function') {
+        await Promise.resolve(App.ensureSecureChatEpochReady({ skipAutoReload: true })).catch(function () {});
       }
+      if (typeof App.restoreChatState === 'function') {
+        await Promise.resolve(App.restoreChatState()).catch(function () {});
+      }
+      if (typeof App.loadOwnProfileMetadata === 'function') {
+        await Promise.resolve(App.loadOwnProfileMetadata()).catch(function () {});
+      }
+      if (typeof App.renderProfile === 'function') App.renderProfile();
     } catch (_meta) {}
+    try {
+      if (window.SosAccountSession && typeof window.SosAccountSession.resubscribeLinkedTransports === 'function') {
+        await window.SosAccountSession.resubscribeLinkedTransports();
+      }
+    } catch (_sub) {}
     return { ok: true, ROOT_K_PRESENT: false };
+  }
+
+  function devicePrivHex(sk) {
+    if (!sk || sk.length !== 32) return '';
+    let out = '';
+    for (let i = 0; i < sk.length; i++) out += sk[i].toString(16).padStart(2, '0');
+    return out;
+  }
+
+  async function withLinkedDeviceSigner(fn) {
+    if (!_sessionDevice || !_durableAuth || !_sessionDevice.dSignSk || typeof fn !== 'function') {
+      return { ok: false, code: 'NO_DEVICE' };
+    }
+    const material = {
+      privHex: devicePrivHex(_sessionDevice.dSignSk),
+      pub: String(_sessionDevice.D_sign_pub || '').toLowerCase(),
+      accountP: String((_durableAuth && _durableAuth.accountP) || '').toLowerCase(),
+      deviceId: String(_sessionDevice.deviceId || '').toLowerCase(),
+      authorization: _durableAuth,
+    };
+    if (!/^[0-9a-f]{64}$/.test(material.privHex) || !/^[0-9a-f]{64}$/.test(material.pub)) {
+      return { ok: false, code: 'NO_DEVICE' };
+    }
+    return fn(material);
   }
 
   function presentDesktopSurface(root) {
@@ -1857,6 +1887,7 @@
     refreshPairingQr,
     getPairingState,
     getCurrentPairingQrText,
+    withLinkedDeviceSigner,
     beginPrimaryApproval,
     acceptAuthorizationObject,
     restoreDurableSession,

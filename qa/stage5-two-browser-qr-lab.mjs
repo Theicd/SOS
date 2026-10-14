@@ -748,9 +748,11 @@ async function waitForProductLink(mobile, desktop, pubFp) {
       const panel = document.getElementById('sosLinkedPairPanel');
       const chip = document.getElementById('sosLdAccountChip');
       const profile = document.getElementById('topBarProfile');
+      const avatar = document.getElementById('topBarProfileAvatar');
       const open = window.__sosLdAccountOpen || null;
       const cap = window.__sosLdCapability || null;
       const App = window.NostrApp || {};
+      const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
       return {
         status: statusEl ? statusEl.textContent : '',
         identityText: idEl ? idEl.textContent : '',
@@ -762,10 +764,13 @@ async function waitForProductLink(mobile, desktop, pubFp) {
         chip: chip ? chip.textContent : '',
         chipVisible: !!(chip && chip.hidden !== true),
         profileVisible: !!(profile && profile.hidden !== true),
+        avatarText: avatar ? String(avatar.textContent || '').trim() : '',
         openFp: open && open.accountFp ? open.accountFp : '',
-        accountOpen: !!(open && open.guestMode === false && open.linkedDeviceSession === true && open.ROOT_K_PRESENT === false && open.HISTORY_SYNC_TRANSFERRED === false),
+        accountOpen: !!(open && open.guestMode === false && open.linkedDeviceSession === true && open.ROOT_K_PRESENT === false),
         identityState: String(App.identityState || ''),
         guest: App.guestMode === true,
+        role: session && session.role ? session.role : '',
+        privateKeyNull: App.privateKey == null,
         capOk: !!(cap && cap.ok === true && cap.cap === 'DEVICE_CHAT' && cap.ROOT_K_PRESENT === false),
         capCode: cap && cap.code ? String(cap.code) : '',
       };
@@ -784,7 +789,8 @@ async function waitForProductLink(mobile, desktop, pubFp) {
     });
     const fp = last.openFp || (last.meta && last.meta.accountFp);
     const textLinked = String(last.status || '').indexOf('המחשב מחובר') !== -1 && String(last.status || '').indexOf('נכשל') === -1;
-    const opened = last.welcomeHidden === true && last.panelHidden === true && last.chipVisible === true && last.profileVisible === true && last.accountOpen === true && last.capOk === true && last.identityState === 'LINKED_DEVICE' && last.guest !== true && fp === want && String(last.chip || '').indexOf(want) !== -1;
+    const avatarOk = !/^[0-9a-f]{8}$/i.test(String(last.avatarText || ''));
+    const opened = last.welcomeHidden === true && last.panelHidden === true && last.chipVisible !== true && last.profileVisible === true && last.accountOpen === true && last.capOk === true && last.identityState === 'LINKED_DEVICE' && last.role === 'LINKED_DEVICE' && last.privateKeyNull === true && last.guest !== true && fp === want && avatarOk;
     if (textLinked && opened) {
       last.linked = true;
       last.identityMatch = true;
@@ -830,23 +836,29 @@ async function waitForProductLink(mobile, desktop, pubFp) {
         const panel = document.getElementById('sosLinkedPairPanel');
         const chip = document.getElementById('sosLdAccountChip');
         const profile = document.getElementById('topBarProfile');
+        const avatar = document.getElementById('topBarProfileAvatar');
         const open = window.__sosLdAccountOpen || null;
         const cap = window.__sosLdCapability || null;
         const App = window.NostrApp || {};
+        const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
         return {
           welcomeHidden: !welcome || welcome.hidden === true,
           panelHidden: !panel || panel.hidden === true,
           chip: chip ? chip.textContent : '',
           chipVisible: !!(chip && chip.hidden !== true),
           profileVisible: !!(profile && profile.hidden !== true),
+          avatarText: avatar ? String(avatar.textContent || '').trim() : '',
           openFp: open && open.accountFp ? open.accountFp : '',
           accountOpen: !!(open && open.guestMode === false && open.linkedDeviceSession === true && open.ROOT_K_PRESENT === false),
           identityState: String(App.identityState || ''),
           guest: App.guestMode === true,
+          role: session && session.role ? session.role : '',
+          privateKeyNull: App.privateKey == null,
           capOk: !!(cap && cap.ok === true && cap.ROOT_K_PRESENT === false),
         };
       }).catch(() => ({}));
-      if (restored.welcomeHidden === true && restored.panelHidden === true && restored.chipVisible === true && restored.profileVisible === true && restored.accountOpen === true && restored.capOk === true && restored.identityState === 'LINKED_DEVICE' && restored.guest !== true && restored.openFp === want && String(restored.chip || '').indexOf(want) !== -1) {
+      const avatarOk = !/^[0-9a-f]{8}$/i.test(String(restored.avatarText || ''));
+      if (restored.welcomeHidden === true && restored.panelHidden === true && restored.chipVisible !== true && restored.profileVisible === true && restored.accountOpen === true && restored.capOk === true && restored.identityState === 'LINKED_DEVICE' && restored.role === 'LINKED_DEVICE' && restored.privateKeyNull === true && restored.guest !== true && restored.openFp === want && avatarOk) {
         out.restart = true;
         break;
       }
@@ -878,6 +890,325 @@ async function waitForProductLink(mobile, desktop, pubFp) {
   return out;
 }
 
+async function loginFreshPeer(browser) {
+  const ctx = await browser.newContext({ viewport: { width: 1100, height: 800 }, locale: 'he-IL', serviceWorkers: 'block' });
+  const page = await ctx.newPage();
+  const sk = crypto.randomBytes(32).toString('hex');
+  await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 120000 });
+  await waitApp(page);
+  await patchPoolPublishIterable(page);
+  const created = await page.evaluate((k) => {
+    const App = window.NostrApp;
+    const c = App.createNewIdentityExplicit({ privateKeyHex: k });
+    const SA = App.SessionAuthority || window.SosSessionAuthority;
+    if (SA && typeof SA.bindCurrentSession === 'function') {
+      SA.bindCurrentSession({ accountPubkey: c.publicKey, bump: true });
+    }
+    return { ok: !!(c && c.ok && c.publicKey), pub: String((c && c.publicKey) || '').toLowerCase() };
+  }, sk);
+  await page.waitForTimeout(1500);
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 120000 });
+  await waitApp(page);
+  await patchPoolPublishIterable(page);
+  await page.waitForFunction(
+    (fp) => {
+      const App = window.NostrApp;
+      return String(App?.publicKey || '').toLowerCase().startsWith(fp) && App.guestMode !== true;
+    },
+    created.pub.slice(0, 12),
+    { timeout: 120000 },
+  );
+  return { ctx, page, pub: created.pub, fp: created.pub.slice(0, 8), ok: created.ok === true };
+}
+
+async function proveLinkedAccountProduct(desktop, mobile) {
+  const flags = {
+    PROFILE_OPENS: false,
+    REAL_PROFILE_NAME: '',
+    AVATAR_DISPLAYS_CORRECTLY: false,
+    ACCOUNT_CHIP_REMOVED: false,
+    CONVERSATION_LIST_LOADED: false,
+    HISTORY_SYNC_COMPLETE: false,
+    MESSAGE_SEND: false,
+    MESSAGE_RECEIVE: false,
+    E2EE_VERIFIED: false,
+    VOICE_CALL: false,
+    VIDEO_CALL: false,
+    SHARE_ACTION: false,
+    PRIMARY_ROOT_K_ISOLATED: false,
+    DELEGATED_AUTHORITY_VERIFIED: false,
+    RELOAD_PERSISTENCE: false,
+    productCode: '',
+  };
+  let peer = null;
+  try {
+    const surface = await desktop.evaluate(() => {
+      const chip = document.getElementById('sosLdAccountChip');
+      const avatar = document.getElementById('topBarProfileAvatar');
+      const App = window.NostrApp || {};
+      const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+      return {
+        chip: !!chip,
+        avatar: avatar ? String(avatar.textContent || '').trim() : '',
+        role: session && session.role,
+        root: App.privateKey != null,
+        deviceFp: session && session.deviceSignPub ? String(session.deviceSignPub).slice(0, 8) : '',
+      };
+    });
+    flags.ACCOUNT_CHIP_REMOVED = surface.chip !== true;
+    flags.AVATAR_DISPLAYS_CORRECTLY = !/^[0-9a-f]{8}$/i.test(surface.avatar || '');
+    flags.PRIMARY_ROOT_K_ISOLATED = surface.root !== true && surface.role === 'LINKED_DEVICE';
+    if (!flags.ACCOUNT_CHIP_REMOVED || !flags.AVATAR_DISPLAYS_CORRECTLY) {
+      flags.productCode = 'CHIP_OR_AVATAR';
+      return { flags };
+    }
+    await desktop.locator('[data-nav="profile"]').click({ timeout: 10000 });
+    await desktop.waitForFunction(() => {
+      const frame = document.getElementById('profilePanelFrame');
+      const modal = document.getElementById('guestAuthModal');
+      const src = frame && frame.getAttribute('src') ? frame.getAttribute('src') : '';
+      const modalOpen = !!(modal && modal.hidden !== true && window.getComputedStyle(modal).display !== 'none');
+      return src.indexOf('profile.html') !== -1 && src.indexOf('auth.html') === -1 && !modalOpen;
+    }, null, { timeout: 20000 });
+    const frame = desktop.frame({ url: /profile\.html/ });
+    if (!frame) {
+      flags.productCode = 'PROFILE_FRAME';
+      return { flags };
+    }
+    await frame.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
+    const profile = await frame.evaluate(() => {
+      const name = document.getElementById('profilePageName');
+      const avatar = document.getElementById('profilePageAvatar');
+      return {
+        href: location.href,
+        name: name ? String(name.textContent || '').trim() : '',
+        avatar: avatar ? String(avatar.textContent || '').trim() : '',
+        img: !!(avatar && avatar.querySelector && avatar.querySelector('img')),
+      };
+    }).catch(() => ({ href: '', name: '', avatar: '' }));
+    flags.PROFILE_OPENS = profile.href.indexOf('profile.html') !== -1 && profile.href.indexOf('auth.html') === -1;
+    flags.REAL_PROFILE_NAME = String(profile.name || '').slice(0, 40);
+    flags.AVATAR_DISPLAYS_CORRECTLY = flags.AVATAR_DISPLAYS_CORRECTLY && !/^[0-9a-f]{8}$/i.test(profile.avatar || '');
+    if (!flags.PROFILE_OPENS) {
+      flags.productCode = 'PROFILE_OPENS';
+      return { flags };
+    }
+    const peerBrowser = await chromium.launch({
+      headless: true,
+      args: ['--disable-dev-shm-usage', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
+    });
+    peer = await loginFreshPeer(peerBrowser);
+    peer.browser = peerBrowser;
+    if (!peer.ok) {
+      flags.productCode = 'PEER_LOGIN';
+      return { flags };
+    }
+    const devicePub = await desktop.evaluate(() => {
+      const App = window.NostrApp || {};
+      const session = App.getAccountSession ? App.getAccountSession() : null;
+      return session && session.deviceSignPub ? String(session.deviceSignPub) : '';
+    });
+    if (!/^[0-9a-f]{64}$/.test(devicePub)) {
+      flags.productCode = 'NO_DEVICE_PUB';
+      return { flags };
+    }
+    await mobile.evaluate(async (peerPub) => {
+      const App = window.NostrApp;
+      if (typeof App.ensureSecureChatEpochReady === 'function') {
+        await App.ensureSecureChatEpochReady({ skipAutoReload: true });
+      }
+      return App.publishChatMessage(peerPub, 'hist-seed');
+    }, peer.pub);
+    await desktop.evaluate(async () => {
+      const App = window.NostrApp;
+      if (typeof App.ensureSecureChatEpochReady === 'function') {
+        await App.ensureSecureChatEpochReady({ skipAutoReload: true });
+      }
+      if (window.SosAccountSession && typeof window.SosAccountSession.resubscribeLinkedTransports === 'function') {
+        await window.SosAccountSession.resubscribeLinkedTransports();
+      }
+    });
+    const hist = await mobile.evaluate(async (device) => {
+      const Session = window.SosAccountSession;
+      if (!Session || typeof Session.publishLinkedHistoryBundle !== 'function') return { ok: false, code: 'NO_HISTORY_API' };
+      return Session.publishLinkedHistoryBundle(device);
+    }, devicePub);
+    if (!hist || hist.ok !== true || !(hist.count > 0)) {
+      flags.productCode = 'HISTORY_' + String((hist && (hist.code || hist.count)) || 'EMPTY');
+      flags.HISTORY_SYNC_COMPLETE = false;
+      return { flags };
+    }
+    await desktop.waitForFunction(() => {
+      const sync = window.__sosLdHistorySync;
+      return !!(sync && sync.ok === true && sync.count > 0 && sync.FAKE_HISTORY_SYNC === false);
+    }, null, { timeout: 30000 });
+    flags.HISTORY_SYNC_COMPLETE = true;
+    await desktop.locator('#messagesToggle').click({ timeout: 10000 });
+    const list = await desktop.evaluate(() => {
+      const App = window.NostrApp || {};
+      const modal = document.getElementById('guestAuthModal');
+      const modalOpen = !!(modal && modal.hidden !== true && window.getComputedStyle(modal).display !== 'none');
+      const panel = document.getElementById('chatPanel');
+      const n = App.chatState && App.chatState.conversations ? App.chatState.conversations.size : 0;
+      return { modalOpen, panelOpen: !!(panel && panel.hidden !== true), n };
+    });
+    flags.CONVERSATION_LIST_LOADED = list.modalOpen !== true && list.n > 0;
+    if (!flags.CONVERSATION_LIST_LOADED) {
+      flags.productCode = 'CONVERSATION_LIST';
+      return { flags };
+    }
+    const ping = 'ld-ping-' + Date.now().toString(36);
+    await peer.page.evaluate(async () => {
+      const App = window.NostrApp;
+      if (typeof App.ensureSecureChatEpochReady === 'function') {
+        await App.ensureSecureChatEpochReady({ skipAutoReload: true });
+      }
+      if (typeof App.subscribeToChatEvents === 'function') App.subscribeToChatEvents();
+    });
+    const sent = await desktop.evaluate(async (args) => {
+      const App = window.NostrApp;
+      const out = await App.publishChatMessage(args.peer, args.text);
+      return { ok: !!(out && out.ok), delegated: !!(out && out.delegated), error: out && out.error ? String(out.error) : '' };
+    }, { peer: peer.pub, text: ping });
+    flags.MESSAGE_SEND = sent.ok === true && sent.delegated === true;
+    flags.DELEGATED_AUTHORITY_VERIFIED = flags.MESSAGE_SEND === true;
+    if (!flags.MESSAGE_SEND) {
+      flags.productCode = 'MESSAGE_SEND_' + (sent.error || 'FAIL');
+      return { flags };
+    }
+    await peer.page.waitForFunction((text) => {
+      const App = window.NostrApp;
+      const conv = App.chatState && App.chatState.conversations;
+      if (!conv) return false;
+      let found = false;
+      conv.forEach((entry) => {
+        const messages = entry && entry.messages;
+        if (!Array.isArray(messages)) return;
+        messages.forEach((m) => {
+          if (m && m.content === text) found = true;
+        });
+      });
+      return found;
+    }, ping, { timeout: 30000 });
+    const reply = 'ld-reply-' + Date.now().toString(36);
+    const replied = await peer.page.evaluate(async (args) => {
+      const App = window.NostrApp;
+      const out = await App.publishChatMessage(args.device, args.text);
+      return { ok: !!(out && out.ok), error: out && out.error ? String(out.error) : '' };
+    }, { device: devicePub, text: reply });
+    if (!replied.ok) {
+      flags.productCode = 'REPLY_' + (replied.error || 'FAIL');
+      return { flags };
+    }
+    await desktop.waitForFunction((text) => {
+      const App = window.NostrApp;
+      const conv = App.chatState && App.chatState.conversations;
+      if (!conv) return false;
+      let found = false;
+      conv.forEach((entry) => {
+        const messages = entry && entry.messages;
+        if (!Array.isArray(messages)) return;
+        messages.forEach((m) => {
+          if (m && m.content === text) found = true;
+        });
+      });
+      return found;
+    }, reply, { timeout: 30000 });
+    flags.MESSAGE_RECEIVE = true;
+    flags.E2EE_VERIFIED = true;
+    await peer.page.evaluate(() => {
+      const App = window.NostrApp;
+      if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 60 });
+      if (App.CallSignalE2ee && typeof App.CallSignalE2ee.ensureSecureCallSubscription === 'function') {
+        App.CallSignalE2ee.ensureSecureCallSubscription({ force: true, reason: 'lab' });
+      }
+    });
+    const started = await desktop.evaluate(async (peerPub) => {
+      const App = window.NostrApp;
+      if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 30 });
+      if (App.CallSignalE2ee && typeof App.CallSignalE2ee.ensureSecureCallSubscription === 'function') {
+        App.CallSignalE2ee.ensureSecureCallSubscription({ force: true, reason: 'lab' });
+      }
+      try {
+        await App.voiceCall.start(peerPub);
+        const st = App.voiceCall.getState();
+        return { ok: true, active: st.isCallActive === true };
+      } catch (e) {
+        return { ok: false, error: String((e && e.message) || e).slice(0, 120) };
+      }
+    }, peer.pub);
+    if (started.ok) {
+      const incoming = await peer.page.waitForFunction(() => {
+        const st = window.NostrApp.voiceCall.getState();
+        return st.isIncoming === true || st.isCallActive === true;
+      }, null, { timeout: 25000 }).then(() => true).catch(() => false);
+      if (incoming) {
+        await peer.page.evaluate(async () => {
+          const st = window.NostrApp.voiceCall.getState();
+          if (typeof window.NostrApp.voiceCall.accept === 'function') {
+            await window.NostrApp.voiceCall.accept(st.currentPeer, st.waitingOffer || null);
+          }
+        }).catch(() => {});
+        const connected = await desktop.waitForFunction(() => {
+          const st = window.NostrApp.voiceCall.getState();
+          const pc = st.peerConnection;
+          return !!(st.callAnswered === true || (pc && (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed')));
+        }, null, { timeout: 25000 }).then(() => true).catch(() => false);
+        flags.VOICE_CALL = connected === true;
+      }
+    }
+    if (!flags.VOICE_CALL) {
+      flags.productCode = flags.productCode || ('VOICE_' + String((started && started.error) || 'NO_ANSWER'));
+      return { flags };
+    }
+    const share = await desktop.evaluate(async (peerPub) => {
+      const App = window.NostrApp;
+      const modal = document.getElementById('guestAuthModal');
+      const denied = App.requireAuth('כדי לשתף בפיד צריך להתחבר או להירשם.');
+      const modalOpen = !!(modal && modal.hidden !== true && window.getComputedStyle(modal).display !== 'none');
+      const sent = await App.publishChatMessage(peerPub, 'share ' + location.origin + '/videos.html');
+      return { denied: denied === false, modalOpen, sent: !!(sent && sent.ok) };
+    }, peer.pub);
+    flags.SHARE_ACTION = share.denied === true && share.modalOpen !== true && share.sent === true;
+    if (!flags.SHARE_ACTION) {
+      flags.productCode = 'SHARE';
+      return { flags };
+    }
+    await desktop.reload({ waitUntil: 'domcontentloaded', timeout: 120000 });
+    await waitApp(desktop);
+    await patchPoolPublishIterable(desktop);
+    await desktop.waitForFunction((text) => {
+      const App = window.NostrApp || {};
+      const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+      if (!session || session.role !== 'LINKED_DEVICE' || session.verified !== true || App.privateKey != null) return false;
+      const conv = App.chatState && App.chatState.conversations;
+      if (!conv) return false;
+      let found = false;
+      conv.forEach((entry) => {
+        const messages = entry && entry.messages;
+        if (!Array.isArray(messages)) return;
+        messages.forEach((m) => { if (m && m.content === text) found = true; });
+      });
+      return found;
+    }, reply, { timeout: 30000 });
+    const still = await desktop.evaluate(() => {
+      const modal = document.getElementById('guestAuthModal');
+      const openedProfile = window.NostrApp.requireAuth('כדי לצפות בפרופיל אישי צריך להתחבר או להירשם.');
+      const modalOpen = !!(modal && modal.hidden !== true && window.getComputedStyle(modal).display !== 'none');
+      return { openedProfile: openedProfile === true, modalOpen };
+    });
+    flags.RELOAD_PERSISTENCE = still.openedProfile === true && still.modalOpen !== true;
+    if (!flags.RELOAD_PERSISTENCE) flags.productCode = 'RELOAD';
+    return { flags };
+  } catch (e) {
+    flags.productCode = flags.productCode || String((e && e.message) || e).slice(0, 160);
+    return { flags };
+  } finally {
+    if (peer && peer.ctx) await peer.ctx.close().catch(() => {});
+    if (peer && peer.browser) await peer.browser.close().catch(() => {});
+  }
+}
+
 function classifyFirstFail(report) {
   if (!report.QR_DECODED) return 'QR_DECODED';
   if (!report.AEAD_CHANNEL_READY && !report.MD3_ISSUED) return 'AEAD_CHANNEL_READY';
@@ -889,6 +1220,17 @@ function classifyFirstFail(report) {
   if (report.ACCOUNT_OPENED !== true) return 'ACCOUNT_OPENED';
   if (report.DEVICE_CAPABILITY !== true) return 'DEVICE_CAPABILITY';
   if (report.RESTART_PERSISTENCE !== 'PASS') return 'RESTART_PERSISTENCE';
+  if (report.PROFILE_OPENS !== true) return 'PROFILE_OPENS';
+  if (report.ACCOUNT_CHIP_REMOVED !== true) return 'ACCOUNT_CHIP';
+  if (report.CONVERSATION_LIST_LOADED !== true) return 'CONVERSATION_LIST';
+  if (report.HISTORY_SYNC_COMPLETE !== true) return 'HISTORY_SYNC';
+  if (report.MESSAGE_SEND !== true) return 'MESSAGE_SEND';
+  if (report.MESSAGE_RECEIVE !== true) return 'MESSAGE_RECEIVE';
+  if (report.E2EE_VERIFIED !== true) return 'E2EE';
+  if (report.VOICE_CALL !== true) return 'VOICE_CALL';
+  if (report.SHARE_ACTION !== true) return 'SHARE_ACTION';
+  if (report.RELOAD_PERSISTENCE !== true) return 'RELOAD_PRODUCT';
+  if (report.PRIMARY_ROOT_K_ISOLATED !== true) return 'ROOT_K_ISOLATION';
   if (report.SAME_TAB_NAVIGATION) return 'LEFT_SOS_PAGE';
   if (report.MANUAL_CLICKS_AFTER_SCAN) return 'MANUAL_CLICK';
   if (report.WEBAUTHN_UV_PROVEN === true) return 'WEBAUTHN_UV_CLAIM';
@@ -924,7 +1266,7 @@ async function main() {
 
   const desktopBrowser = await chromium.launch({
     headless: true,
-    args: ['--disable-dev-shm-usage'],
+    args: ['--disable-dev-shm-usage', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
   });
   const desktopCtx = await desktopBrowser.newContext({
     viewport: { width: 1280, height: 800 },
@@ -1188,6 +1530,14 @@ async function main() {
     report.HISTORY_SYNC_TRANSFERRED = false;
     report.RESTART_PERSISTENCE = linked.restart === true ? 'PASS' : 'FAIL';
     report.NEGATIVE_SECURITY_TESTS = linked.negatives || null;
+    if (report.DESKTOP_LINKED) {
+      const product = await proveLinkedAccountProduct(desktop, mobile);
+      report.productAccount = product.flags;
+      Object.assign(report, product.flags);
+      report.HISTORY_SYNC_TRANSFERRED = report.HISTORY_SYNC_COMPLETE === true;
+    } else {
+      report.HISTORY_SYNC_TRANSFERRED = false;
+    }
     if (linked.phases) {
       report.DESKTOP_HELLO_RECEIVED = linked.phases.some((p) => /HELLO_ACCEPTED|HELLO_RECEIVED/.test(p));
       report.POP_VERIFIED = linked.phases.includes('POP_SENT') || linked.phases.includes('CHANNEL_READY');

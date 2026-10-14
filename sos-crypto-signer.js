@@ -21,6 +21,7 @@
     SIGN_CALL_GIFTWRAP: { kinds: [1059], requireRecipientP: true },
     SIGN_CALL_RUMOR_LEGACY: { kinds: [25050] },
     SIGN_READ_RECEIPT: { kinds: [1051], requireRecipientP: true },
+    SIGN_LINKED_HISTORY: { kinds: [22243], requireRecipientP: true },
     SIGN_PRESENCE: { kinds: [1054], requireRecipientP: true },
     SIGN_DELETE: { kinds: [5] },
     // kind 6 = NIP-18 repost/share (feed.js sharePost → signFeedEvent)
@@ -666,6 +667,7 @@
     signCallGiftwrap: (d) => signTyped('SIGN_CALL_GIFTWRAP', d),
     signCallRumorLegacy: (d) => signTyped('SIGN_CALL_RUMOR_LEGACY', d),
     signReadReceipt: (d) => signTyped('SIGN_READ_RECEIPT', d),
+    signLinkedHistory: (d) => signTyped('SIGN_LINKED_HISTORY', d),
     signPresence: (d) => signTyped('SIGN_PRESENCE', d),
     signDelete: (d) => signTyped('SIGN_DELETE', d),
     signFeedEvent: (d) => signTyped('SIGN_FEED', d),

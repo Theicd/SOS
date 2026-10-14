@@ -107,8 +107,21 @@
     } catch (_e) {}
   }
 
+  function keepLinkedDeviceBoot() {
+    const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    return !!(session && session.role === 'LINKED_DEVICE' && session.verified === true && App.privateKey == null);
+  }
+
   function bootGuestIdentity() {
     try {
+      if (keepLinkedDeviceBoot()) {
+        App._topBarAuthUiReady = true;
+        try {
+          if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
+        } catch (_linkedUi) {}
+        notifyCallIdentity('linked-device');
+        return;
+      }
       // F2B/F5A: Worker-authoritative durable browser path — never hydrate App.privateKey.
       // Intent is decided BEFORE any raw-K read. Flag ON must never fall through to MAIN_THREAD hydrate.
       const flagOn =
@@ -155,6 +168,7 @@
           notifyCallIdentity('worker-boot');
         }
         function finishWorkerBootFail(code) {
+          if (keepLinkedDeviceBoot()) return;
           try {
             console.warn('[F5A] worker auth boot fail-closed code=' + (code || 'WORKER_VAULT_UNAVAILABLE'));
           } catch (_w) {}
@@ -256,7 +270,7 @@
               }
             }
           } catch (_saBoot) {}
-        } else {
+        } else if (!keepLinkedDeviceBoot()) {
           App.guestMode = true;
           App.privateKey = null;
           App.publicKey = null;
@@ -274,9 +288,11 @@
       if (typeof App.subscribeOwnProfileMetadata === 'function') App.subscribeOwnProfileMetadata();
     } catch (e) {
       console.error('Guest mode init failed, falling back to guest:', e);
-      App.guestMode = true;
-      App.privateKey = null;
-      App.publicKey = null;
+      if (!keepLinkedDeviceBoot()) {
+        App.guestMode = true;
+        App.privateKey = null;
+        App.publicKey = null;
+      }
     }
     try {
       App._topBarAuthUiReady = true;
@@ -408,15 +424,22 @@
   // דרישת התחברות לפעולות שכותבות לרשת (app.js) – Auth Guard | HYPER CORE TECH
   // פונקציה זו משמשת כל הכפתורים של לייק, תגובה, עקוב, פרסום ועוד
   // =======================
-  App.requireAuth = function(requirementText, onAuthenticated) {
+  App.requireAuth = function(requirementText, onAuthenticated, opts) {
     const hasKey = !!(App.SosCryptoSigner && App.SosCryptoSigner.hasIdentityKey());
+    const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    const op = (opts && opts.op) || (typeof App.accountSessionOpForPrompt === 'function' ? App.accountSessionOpForPrompt(requirementText) : 'VIEW_PRIVATE_UI');
 
-    if (hasKey && App.guestMode === false) {
-      // כבר מחובר - אפשר להמשיך
-      if (typeof onAuthenticated === 'function') {
-        onAuthenticated();
-      }
+    if (hasKey && App.guestMode === false && (!session || session.role !== 'LINKED_DEVICE')) {
+      if (typeof onAuthenticated === 'function') onAuthenticated();
       return true;
+    }
+    if (session && session.role === 'LINKED_DEVICE' && session.verified === true && App.privateKey == null) {
+      if (typeof App.accountSessionAllows === 'function' && App.accountSessionAllows(op)) {
+        if (typeof onAuthenticated === 'function') onAuthenticated();
+        return true;
+      }
+      if (typeof App.showLinkedCapabilityDenial === 'function') App.showLinkedCapabilityDenial();
+      return false;
     }
 
     // מצב אורח - מציג חלון התחברות / הרשמה
