@@ -29,10 +29,11 @@ const sw = read(path.join(signer, 'sw.js'));
 const videos = read(path.join(root, 'videos.html'));
 
 const he =
-  'כספת החתימה של SOS אינה מוכנה.\\nהמחשב זוהה, אך הקישור עדיין לא אושר.\\nיש להשלים את הגדרת Trusted Signer עבור חשבון זה.';
+  'כדי לקשר את המחשב יש להשלים פעם אחת את אישור החשבון.\\nהמחשב זוהה, אך הקישור עדיין לא אושר.\\nאין צורך לחזור על כך בכל קישור.';
 check('hebrew vault copy', ld.includes(he));
-check('signer import action', ld.includes('https://signer.sos010.com/import.html'));
-check('passkey enroll action separate', ld.includes('https://signer.sos010.com/enroll.html') && ld.includes('WEBAUTHN_ENROLLMENT_REQUIRED'));
+check('no direct import href', !ld.includes('https://signer.sos010.com/import.html'));
+check('session-bound setup action', ld.includes("action: 'setup'") && ld.includes('startOneTimeAccountSetup'));
+check('passkey enroll action separate', ld.includes('enroll.html') && ld.includes('WEBAUTHN_ENROLLMENT_REQUIRED') && ld.includes('openPasskeyEnrollment'));
 check('scan button remains', ld.includes('id="sosLdMobileScan"'));
 check('no alert-only vault path', !/VAULT_NOT_READY[\s\S]{0,200}window\.alert/.test(ld));
 check('issuer binds popup source', issuer.includes('ev.source !== popup'));
@@ -44,8 +45,12 @@ check('signer posts vault error once after request', ui.includes('postErrorOnce'
 check('signer rejects foreign session', ui.includes('ceremonySessionId') && ui.includes('ev.source !== window.opener'));
 check('dated ui matches canonical', ui === uiDated);
 check('ceremony html cache bust', html.includes('authorize-linked-device-approval-boot-20261014.js'));
-check('signer shell bumped', /signer-shell-v11/.test(sw));
-check('web cache bust 899s16', videos.includes('sos-web-linked-devices.js?v=20261014&pkg=899s16') && videos.includes('sos-web-phone-issuer.js?v=20261014&pkg=899s16'));
+check('signer shell bumped', /signer-shell-v12/.test(sw));
+check('handoff page precached', sw.includes('./handoff.html') && sw.includes('f5b6w-handoff.js'));
+const importer = read(path.join(root, 'isolated-signer-trusted-import.js'));
+check('import launcher keeps opener', importer.includes("window.open(url, 'sos_signer_import', 'width=480,height=720')") && !/window\.open\([^)]*noopener/.test(importer));
+check('import message bound to popup', importer.includes('event.source !== pending.win'));
+check('web cache bust 899s17', videos.includes('sos-web-linked-devices.js?v=20261014&pkg=899s17') && videos.includes('isolated-signer-trusted-import.js?v=20261014&pkg=899s17'));
 
 const failed = checks.filter((c) => !c.ok);
 const out = {

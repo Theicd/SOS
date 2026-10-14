@@ -8,7 +8,12 @@
       "detail": ""
     },
     {
-      "name": "signer import action",
+      "name": "no direct import href",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "session-bound setup action",
       "ok": true,
       "detail": ""
     },
@@ -78,7 +83,22 @@
       "detail": ""
     },
     {
-      "name": "web cache bust 899s16",
+      "name": "handoff page precached",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "import launcher keeps opener",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "import message bound to popup",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "web cache bust 899s17",
       "ok": true,
       "detail": ""
     }

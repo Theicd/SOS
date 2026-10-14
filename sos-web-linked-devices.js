@@ -357,7 +357,7 @@
       '.sos-ld-link-status.is-pending{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12)}' +
       '.sos-ld-link-status[hidden]{display:none!important}' +
       '.sos-ld-link-actions{display:flex;flex-direction:column;gap:8px;margin-top:12px;white-space:normal}' +
-      '.sos-ld-link-actions a{display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 14px;border-radius:10px;background:#f5f5f5;color:#111;text-decoration:none;font-weight:650}';
+      '.sos-ld-link-actions a,.sos-ld-link-actions button{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;padding:0 14px;border-radius:10px;background:#f5f5f5;color:#111;text-decoration:none;font-weight:650;border:0;font:inherit;cursor:pointer}';
     document.head.appendChild(style);
   }
 
@@ -548,7 +548,84 @@
   }
 
   const VAULT_NOT_READY_HE =
-    'כספת החתימה של SOS אינה מוכנה.\nהמחשב זוהה, אך הקישור עדיין לא אושר.\nיש להשלים את הגדרת Trusted Signer עבור חשבון זה.';
+    'כדי לקשר את המחשב יש להשלים פעם אחת את אישור החשבון.\nהמחשב זוהה, אך הקישור עדיין לא אושר.\nאין צורך לחזור על כך בכל קישור.';
+
+  function wireAccountSetupReturn() {
+    if (window.__sosLdSetupReturnBound) return;
+    window.__sosLdSetupReturnBound = true;
+    window.addEventListener('sos-signer-import-success', function () {
+      showPersistentLinkStatus({ ok: false, code: 'ACCOUNT_READY_SCAN_FRESH_QR' });
+    });
+    window.addEventListener('sos-recovery-backup-state', function (ev) {
+      const st = ev && ev.detail && ev.detail.state;
+      if (st === 'IN_SIGNER' || st === 'CONFIRMED') {
+        showPersistentLinkStatus({ ok: false, code: 'ACCOUNT_READY_SCAN_FRESH_QR' });
+      } else if (st === 'ERROR') {
+        showPersistentLinkStatus({
+          ok: false,
+          code: 'ACCOUNT_SETUP_FAILED',
+          detailCode: ev.detail && ev.detail.code,
+        });
+      }
+    });
+  }
+
+  function startOneTimeAccountSetup() {
+    wireAccountSetupReturn();
+    const pk = String(App.publicKey || '')
+      .trim()
+      .toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(pk) || App.guestMode) {
+      showPersistentLinkStatus({ ok: false, code: 'NOT_AUTHENTICATED' });
+      return { ok: false, code: 'NOT_AUTHENTICATED' };
+    }
+    const Backup = App.RecoveryBackup || window.SosRecoveryBackup;
+    if (Backup && typeof Backup.isWorkerIdentity === 'function' && Backup.isWorkerIdentity() && typeof Backup.start === 'function') {
+      const started = Backup.start();
+      if (!started || started.ok !== true) {
+        showPersistentLinkStatus({
+          ok: false,
+          code: started && started.code === 'POPUP_BLOCKED' ? 'SIGNER_POPUP_BLOCKED' : 'TRUSTED_SIGNER_UNAVAILABLE',
+        });
+        return started || { ok: false, code: 'HANDOFF_FAILED' };
+      }
+      showPersistentLinkStatus({ pending: true, setup: true });
+      return started;
+    }
+    const Imp = App.IsolatedSignerTrustedImport || window.SosIsolatedSignerTrustedImport;
+    if (!Imp || typeof Imp.openTrustedImport !== 'function') {
+      showPersistentLinkStatus({ ok: false, code: 'TRUSTED_SIGNER_UNAVAILABLE' });
+      return { ok: false, code: 'IMPORT_LAUNCHER_MISSING' };
+    }
+    let opened;
+    try {
+      opened = Imp.openTrustedImport({ expectedPubkey: pk });
+    } catch (err) {
+      showPersistentLinkStatus({ ok: false, code: (err && err.code) || 'TRUSTED_SIGNER_UNAVAILABLE' });
+      return { ok: false, code: (err && err.code) || 'OPEN_FAILED' };
+    }
+    if (!opened || opened.ok !== true) {
+      showPersistentLinkStatus({
+        ok: false,
+        code: opened && opened.code === 'POPUP_BLOCKED' ? 'SIGNER_POPUP_BLOCKED' : (opened && opened.code) || 'TRUSTED_SIGNER_UNAVAILABLE',
+      });
+      return opened || { ok: false, code: 'OPEN_FAILED' };
+    }
+    showPersistentLinkStatus({ pending: true, setup: true });
+    return opened;
+  }
+
+  function openPasskeyEnrollment() {
+    let opened = null;
+    try {
+      opened = window.open('https://signer.sos010.com/enroll.html', 'sos_signer_enroll', 'width=480,height=720');
+    } catch (_e) {
+      opened = null;
+    }
+    if (!opened) {
+      showPersistentLinkStatus({ ok: false, code: 'SIGNER_POPUP_BLOCKED' });
+    }
+  }
 
   function ldTrace(phase, extra) {
     try {
@@ -598,10 +675,16 @@
     const code = String(result.code || '');
     box.classList.remove('is-ok', 'is-pending');
     box.replaceChildren();
+    if (result.pending && result.setup) {
+      box.hidden = false;
+      box.classList.add('is-pending');
+      box.textContent = 'נפתח אישור חד-פעמי של החשבון.\nהשלימו אותו בחלון שנפתח, ואז סרקו קוד QR חדש מהמחשב.';
+      return;
+    }
     if (result.pending) {
       box.hidden = false;
       box.classList.add('is-pending');
-      box.textContent = 'הקוד זוהה. מתבצע חיבור מאובטח למחשב.\nהקישור יאושר רק אחרי Trusted Signer.';
+      box.textContent = 'הקוד זוהה. מתבצע חיבור מאובטח למחשב.\nהקישור יאושר רק אחרי אישור החשבון.';
       return;
     }
     if (result.ok === true && code === 'LINKED' && result.WEB_MD3_ISSUANCE === true) {
@@ -614,25 +697,29 @@
     let text = '';
     const actions = [];
     if (code === 'VAULT_NOT_READY') {
-      text =
-        VAULT_NOT_READY_HE +
-        '\n\nלאחר השלמת ההגדרה יש לסרוק קוד QR חדש מהמחשב. קוד שפג תוקף אינו מתקבל.';
-      actions.push({ href: 'https://signer.sos010.com/import.html', label: 'פתיחת Trusted Signer' });
+      text = VAULT_NOT_READY_HE + '\n\nאחרי האישור יש לסרוק קוד QR חדש מהמחשב.';
+      actions.push({ action: 'setup', label: 'השלמת אישור החשבון' });
     } else if (code === 'WEBAUTHN_ENROLLMENT_REQUIRED' || code === 'NO_WEBAUTHN_CREDENTIAL') {
       text =
-        'נדרשת הרשמת Passkey ב-Trusted Signer.\nהמחשב זוהה, אך הקישור עדיין לא אושר.\nיש להשלים את ההרשמה עבור חשבון זה, ואז לסרוק קוד QR חדש.';
-      actions.push({ href: 'https://signer.sos010.com/enroll.html', label: 'הרשמת Passkey' });
+        'נדרש אישור חד-פעמי במכשיר.\nהמחשב זוהה, אך הקישור עדיין לא אושר.\nאחרי האישור יש לסרוק קוד QR חדש.';
+      actions.push({ action: 'enroll', label: 'אישור במכשיר' });
     } else if (code === 'ACCOUNT_MISMATCH') {
-      text = 'חשבון הכספת אינו תואם לחשבון SOS הפעיל.\nהקישור לא אושר. יש לפתוח את Trusted Signer עם אותו חשבון, ואז לסרוק קוד QR חדש.';
-      actions.push({ href: 'https://signer.sos010.com/import.html', label: 'פתיחת Trusted Signer' });
+      text = 'האישור בחלון המאובטח אינו תואם לחשבון SOS הפעיל.\nהקישור לא אושר. יש להשלים את האישור עבור החשבון הזה, ואז לסרוק קוד חדש.';
+      actions.push({ action: 'setup', label: 'השלמת אישור החשבון' });
+    } else if (code === 'ACCOUNT_READY_SCAN_FRESH_QR') {
+      text = 'אישור החשבון הושלם.\nסרקו קוד QR חדש מהמחשב.\nאם המכשיר יבקש אישור, זו פעולה חד-פעמית.';
+      box.classList.add('is-ok');
+    } else if (code === 'ACCOUNT_SETUP_FAILED') {
+      text = 'אישור החשבון לא הושלם' + (result.detailCode ? ' (' + String(result.detailCode).slice(0, 64) + ')' : '') + '.\nאפשר לנסות שוב, ואז לסרוק קוד QR חדש.';
+      actions.push({ action: 'setup', label: 'השלמת אישור החשבון' });
     } else if (code === 'NOT_AUTHENTICATED') {
       text = 'הקוד זוהה. יש להתחבר לחשבון SOS כדי להמשיך לאישור הקישור.';
     } else if (code === 'USER_CANCELLED' || code === 'SCAN_CANCELLED' || code === 'STOPPED') {
       box.hidden = true;
       return;
     } else if (code === 'TRUSTED_SIGNER_UNAVAILABLE' || code === 'SIGNER_POPUP_BLOCKED' || code === 'SIGNER_TIMEOUT') {
-      text = 'חלון Trusted Signer לא הושלם.\nהקישור לא אושר. יש לאפשר את החלון ולסרוק קוד QR חדש מהמחשב.';
-      actions.push({ href: 'https://signer.sos010.com/', label: 'פתיחת Trusted Signer' });
+      text = 'חלון האישור לא הושלם.\nהקישור לא אושר. יש לאפשר את החלון ולסרוק קוד QR חדש מהמחשב.';
+      actions.push({ action: 'setup', label: 'השלמת אישור החשבון' });
     } else if (result.ok === true && result.WEB_MD3_ISSUANCE !== true) {
       text = 'המחשב זוהה, אך הסריקה לבדה אינה מאשרת קישור.\nאישור Trusted Signer אינו פעיל בסביבה זו.';
     } else if (result.ok !== true) {
@@ -652,6 +739,18 @@
       const row = document.createElement('div');
       row.className = 'sos-ld-link-actions';
       actions.forEach(function (a) {
+        if (a.action === 'setup' || a.action === 'enroll') {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.textContent = a.label;
+          btn.onclick = function () {
+            if (a.action === 'enroll') openPasskeyEnrollment();
+            else startOneTimeAccountSetup();
+          };
+          row.appendChild(btn);
+          return;
+        }
+        if (!a.href) return;
         const link = document.createElement('a');
         link.href = a.href;
         link.target = '_blank';

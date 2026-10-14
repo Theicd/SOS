@@ -127,22 +127,28 @@
       returnOrigin,
     });
     const url = signerOrigin + '/import.html?' + q.toString();
-    pendingBySession.set(sessionId, {
+    const pending = {
       expectedPubkey,
       requestNonce,
       createdAt: Date.now(),
       completed: false,
-    });
+      win: null,
+    };
+    pendingBySession.set(sessionId, pending);
     let opened = null;
     try {
-      opened = window.open(url, 'sos_signer_import', 'noopener,noreferrer,width=480,height=640');
+      // Keep a live window reference. noopener returns null and severs the return postMessage.
+      opened = window.open(url, 'sos_signer_import', 'width=480,height=720');
     } catch (_e) {
+      pendingBySession.delete(sessionId);
       if (Iso && Iso.recordFailure) Iso.recordFailure('OPEN_FAILED');
       return { ok: false, code: 'OPEN_FAILED', urlHasSecret: false };
     }
-    if (!opened && Iso && Iso.recordFailure) {
-      // Popup blocked is not necessarily host outage — do not trip circuit aggressively
+    if (!opened) {
+      pendingBySession.delete(sessionId);
+      return { ok: false, code: 'POPUP_BLOCKED', urlHasSecret: false };
     }
+    pending.win = opened;
     if (Iso && Iso.recordSuccess) Iso.recordSuccess();
     return {
       ok: true,
@@ -208,6 +214,9 @@
     if (!event || !event.data) return;
     const origin = event.origin;
     if (!ALLOWED_SIGNER_ORIGINS.includes(origin)) return;
+    const sessionId = String(event.data.sessionId || '');
+    const pending = pendingBySession.get(sessionId);
+    if (!pending || !pending.win || event.source !== pending.win) return;
     handleImportSuccess(event.data, origin);
   }
 
