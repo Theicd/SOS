@@ -376,7 +376,7 @@
       try { session.stop(); } catch (_s) {}
       return { ok: false, code: 'RESUME_STORE_FAIL' };
     }
-    const url = String(cer.origin || '').replace(/\/$/, '') + '/authorize-linked-device.html#sosAldReq=' + packed;
+    const url = String(cer.origin || '').replace(/\/$/, '') + '/authorize-linked-device#sosAldReq=' + packed;
     linkTrace('SAME_TAB_CEREMONY', { pairingFp: pairingFp, accountFp: accountFp, sessionFp: String(cer.sessionId).slice(0, 8) });
     try {
       location.assign(url);

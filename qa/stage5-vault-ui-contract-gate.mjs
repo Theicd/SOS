@@ -56,7 +56,7 @@ check('handoff page precached', sw.includes('./handoff.html') && sw.includes('f5
 const importer = read(path.join(root, 'isolated-signer-trusted-import.js'));
 check('import launcher keeps opener', importer.includes("window.open(url, 'sos_signer_import', 'width=480,height=720')") && !/window\.open\([^)]*noopener/.test(importer));
 check('import message bound to popup', importer.includes('event.source !== pending.win'));
-check('web cache bust 899s18', videos.includes('sos-web-linked-devices.js?v=20261014&pkg=899s18') && videos.includes('sos-web-phone-issuer.js?v=20261014&pkg=899s18'));
+check('web cache bust 899s19', videos.includes('sos-web-linked-devices.js?v=20261014&pkg=899s19') && videos.includes('sos-web-phone-issuer.js?v=20261014&pkg=899s19'));
 
 const failed = checks.filter((c) => !c.ok);
 const out = {
