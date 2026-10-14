@@ -16,6 +16,7 @@
   const REG_KEY = 'sos_web_linked_devices_registry_v1';
   const DEVICE_KEY = 'sos_web_device_identity_meta_v1';
   const PAIR_TTL_MS = 120000;
+  const APPROVAL_WAIT_MS = 300000;
   const MAX_LINKED = 4;
   const GUEST_CONTINUE_KEY = 'sos_ld_guest_continued_v1';
   const DEVICE_LIST_SCOPE = 'LOCAL_BROWSER_REGISTRY'; // not account-wide until MD6 sync
@@ -188,6 +189,15 @@
         renderPairingUi();
       } catch (_r) {}
       if (Date.now() > _pairing.expiresAt) {
+        let live = '';
+        try {
+          live = _pairing._session && typeof _pairing._session.state === 'function' ? _pairing._session.state() : '';
+        } catch (_live) {}
+        if (live === 'CHANNEL_READY' || live === 'POP_SENT' || live === 'AUTH_WAIT' || live === 'LINKED') {
+          if (_pairing.state === 'WAITING') _pairing.state = 'APPROVAL_PENDING';
+          renderPairingUi();
+          return;
+        }
         const wasState = _pairing.state;
         _pairing.state = 'EXPIRED';
         try {
@@ -216,7 +226,7 @@
       }
     }, 1000);
     session
-      .waitLinked(PAIR_TTL_MS + 5000)
+      .waitLinked(APPROVAL_WAIT_MS)
       .then(async (auth) => {
         if (!_pairing) return;
         const secrets = typeof session.exportDeviceSecrets === 'function' ? session.exportDeviceSecrets() : null;
@@ -684,49 +694,40 @@
     if (result.pending) {
       box.hidden = false;
       box.classList.add('is-pending');
-      box.textContent = 'הקוד זוהה. מתבצע חיבור מאובטח למחשב.\nהקישור יאושר רק אחרי אישור החשבון.';
+      box.textContent = 'הקוד זוהה. ממשיכים לאישור במכשיר.';
       return;
     }
     if (result.ok === true && code === 'LINKED' && result.WEB_MD3_ISSUANCE === true) {
       box.hidden = false;
       box.classList.add('is-ok');
-      box.textContent = 'המחשב קושר לחשבון.\nאפשר לסגור את חלון האישור ולרענן את המחשב.';
+      box.textContent = 'המחשב מחובר';
       return;
     }
     if (result.nativeStarted) return;
     let text = '';
     const actions = [];
     if (code === 'VAULT_NOT_READY') {
-      text = VAULT_NOT_READY_HE + '\n\nאחרי האישור יש לסרוק קוד QR חדש מהמחשב.';
+      text = VAULT_NOT_READY_HE;
       actions.push({ action: 'setup', label: 'השלמת אישור החשבון' });
     } else if (code === 'WEBAUTHN_ENROLLMENT_REQUIRED' || code === 'NO_WEBAUTHN_CREDENTIAL') {
-      text =
-        'נדרש אישור חד-פעמי במכשיר.\nהמחשב זוהה, אך הקישור עדיין לא אושר.\nאחרי האישור יש לסרוק קוד QR חדש.';
-      actions.push({ action: 'enroll', label: 'אישור במכשיר' });
+      text = 'נדרש אישור חד-פעמי במכשיר.\nהמחשב עדיין לא מחובר.';
     } else if (code === 'ACCOUNT_MISMATCH') {
-      text = 'האישור בחלון המאובטח אינו תואם לחשבון SOS הפעיל.\nהקישור לא אושר. יש להשלים את האישור עבור החשבון הזה, ואז לסרוק קוד חדש.';
-      actions.push({ action: 'setup', label: 'השלמת אישור החשבון' });
+      text = 'האישור אינו תואם לחשבון SOS הפעיל.\nהמחשב לא חובר.';
     } else if (code === 'ACCOUNT_READY_SCAN_FRESH_QR') {
-      text = 'אישור החשבון הושלם.\nסרקו קוד QR חדש מהמחשב.\nאם המכשיר יבקש אישור, זו פעולה חד-פעמית.';
-      box.classList.add('is-ok');
+      text = 'החשבון מוכן לאישור.\nהמחשב עדיין לא מחובר.\nסרקו את הקוד מהמחשב.';
     } else if (code === 'ACCOUNT_SETUP_FAILED') {
-      text = 'אישור החשבון לא הושלם' + (result.detailCode ? ' (' + String(result.detailCode).slice(0, 64) + ')' : '') + '.\nאפשר לנסות שוב, ואז לסרוק קוד QR חדש.';
+      text = 'אישור החשבון לא הושלם.\nאפשר לנסות שוב, ואז לסרוק קוד חדש.';
       actions.push({ action: 'setup', label: 'השלמת אישור החשבון' });
     } else if (code === 'NOT_AUTHENTICATED') {
-      text = 'הקוד זוהה. יש להתחבר לחשבון SOS כדי להמשיך לאישור הקישור.';
-    } else if (code === 'USER_CANCELLED' || code === 'SCAN_CANCELLED' || code === 'STOPPED') {
-      box.hidden = true;
-      return;
+      text = 'הקוד זוהה. יש להתחבר לחשבון SOS כדי להמשיך.';
+    } else if (code === 'USER_CANCELLED' || code === 'USER_REJECTED' || code === 'SCAN_CANCELLED' || code === 'STOPPED' || code === 'UV_CANCELLED') {
+      text = 'האישור במכשיר בוטל.\nהמחשב לא חובר.';
     } else if (code === 'TRUSTED_SIGNER_UNAVAILABLE' || code === 'SIGNER_POPUP_BLOCKED' || code === 'SIGNER_TIMEOUT') {
-      text = 'חלון האישור לא הושלם.\nהקישור לא אושר. יש לאפשר את החלון ולסרוק קוד QR חדש מהמחשב.';
-      actions.push({ action: 'setup', label: 'השלמת אישור החשבון' });
+      text = 'הקישור לא הושלם.\nצרו קוד חדש במחשב וסרקו שוב.';
     } else if (result.ok === true && result.WEB_MD3_ISSUANCE !== true) {
-      text = 'המחשב זוהה, אך הסריקה לבדה אינה מאשרת קישור.\nאישור Trusted Signer אינו פעיל בסביבה זו.';
+      text = 'המחשב זוהה, אך הסריקה לבדה אינה מאשרת קישור.';
     } else if (result.ok !== true) {
-      text =
-        'הקישור לא הושלם (' +
-        (code || 'UNKNOWN') +
-        ').\nסריקת הקוד אינה מאשרת את המחשב. יש ליצור קוד QR חדש במחשב ולנסות שוב.';
+      text = 'הקישור לא הושלם.\nצרו קוד חדש במחשב וסרקו שוב.';
     } else {
       box.hidden = true;
       return;
@@ -1208,7 +1209,7 @@
           WAITING: 'ממתינים לסריקה בטלפון…',
           EXPIRED: 'פג תוקף הקוד — צרו קוד חדש',
           APPROVAL_PENDING: 'ממתינים לאישור בטלפון…',
-          APPROVED: 'המכשיר אושר בהצלחה',
+          APPROVED: 'המחשב מחובר',
           REJECTED: 'הקישור נדחה',
           FAILURE: 'הקישור נכשל — נסו שוב',
         };
@@ -1226,7 +1227,9 @@
         exp.textContent =
           _pairing.state === 'EXPIRED'
             ? 'הקוד אינו תקף עוד'
-            : 'תוקף הקוד: ' + formatPairExpiry(_pairing.expiresAt);
+            : _pairing.state === 'APPROVAL_PENDING'
+              ? 'הקוד נסרק. ממתינים לאישור במכשיר.'
+              : 'תוקף הקוד: ' + formatPairExpiry(_pairing.expiresAt);
       }
       const Md2 = App.Md2PairingQr;
       if (wrap && Md2 && _pairing.qrText && _pairing.state !== 'EXPIRED') {
@@ -1672,6 +1675,13 @@
     disposePairingSession,
     wireUi,
   });
+
+  if (!window.__sosLdStatusBound) {
+    window.__sosLdStatusBound = true;
+    window.addEventListener('sos-ld-link-status', function (ev) {
+      showPersistentLinkStatus((ev && ev.detail) || {});
+    });
+  }
 
   App.WebLinkedDevices = api;
   window.SosWebLinkedDevices = api;

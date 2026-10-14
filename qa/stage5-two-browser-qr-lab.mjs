@@ -420,16 +420,42 @@ async function pollPhases(page) {
 async function waitScanSettled(page, timeoutMs = 90000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
+    try {
+      const url = page.url();
+      if (/authorize-linked-device/.test(url)) {
+        return {
+          ok: true,
+          code: 'SAME_TAB_HANDOFF',
+          path: 'WEB_PHONEISSUER_T2',
+          webMd3: true,
+          w2: true,
+          sameTab: true,
+        };
+      }
+    } catch (_url) {}
     const done = await page.evaluate(async () => {
       const p = window.__sosLabScanPromise;
       if (!p) return { ready: false };
-      // race with a micro wait
       const raced = await Promise.race([
         p.then((r) => ({ ready: true, result: r })),
         new Promise((res) => setTimeout(() => res({ ready: false }), 50)),
       ]);
       return raced;
-    });
+    }).catch((err) => ({ ready: false, navErr: String(err && err.message || err).slice(0, 160) }));
+    if (done && done.navErr) {
+      let url = '';
+      try { url = page.url(); } catch (_u) {}
+      if (/authorize-linked-device/.test(url)) {
+        return {
+          ok: true,
+          code: 'SAME_TAB_HANDOFF',
+          path: 'WEB_PHONEISSUER_T2',
+          webMd3: true,
+          w2: true,
+          sameTab: true,
+        };
+      }
+    }
     if (done && done.ready) {
       const r = done.result || {};
       return {

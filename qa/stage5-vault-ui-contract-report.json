@@ -18,7 +18,17 @@
       "detail": ""
     },
     {
-      "name": "passkey enroll action separate",
+      "name": "linked only after desktop linked",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "import success is not linked",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no popup-enable instruction",
       "ok": true,
       "detail": ""
     },
@@ -58,12 +68,32 @@
       "detail": ""
     },
     {
+      "name": "issuer same-tab after channel",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "issuer does not open signer after md2 by default",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "md2 resume export",
+      "ok": true,
+      "detail": ""
+    },
+    {
       "name": "signer posts vault error once after request",
       "ok": true,
       "detail": ""
     },
     {
-      "name": "signer rejects foreign session",
+      "name": "signer same-tab return",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "signer keeps opener binding for popup",
       "ok": true,
       "detail": ""
     },
@@ -73,7 +103,7 @@
       "detail": ""
     },
     {
-      "name": "ceremony html cache bust",
+      "name": "ceremony html inline uv",
       "ok": true,
       "detail": ""
     },
@@ -98,7 +128,7 @@
       "detail": ""
     },
     {
-      "name": "web cache bust 899s17",
+      "name": "web cache bust 899s18",
       "ok": true,
       "detail": ""
     }

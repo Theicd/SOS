@@ -44,6 +44,30 @@
     } catch (_e) {}
   }
 
+  function b64urlEncodeJson(obj) {
+    const bytes = new TextEncoder().encode(JSON.stringify(obj));
+    let s = '';
+    for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  }
+
+  function b64urlDecodeJson(text) {
+    const pad = String(text || '').replace(/-/g, '+').replace(/_/g, '/');
+    const bin = atob(pad + '==='.slice((pad.length + 3) % 4));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return JSON.parse(new TextDecoder().decode(bytes));
+  }
+
+  function publishLinkStatus(result) {
+    try {
+      window.dispatchEvent(new CustomEvent('sos-ld-link-status', { detail: result }));
+    } catch (_e) {}
+  }
+
+  const RESUME_KEY = 'sos_ld_same_tab_v1';
+  const RESUME_TTL_MS = 240000;
+
   function featureEnabled() {
     const FF = App.SosFeatureFlags || window.SosFeatureFlags;
     if (FF && typeof FF.isMd3wT2SignerApprovalEnabled === 'function') {
@@ -282,28 +306,95 @@
       requestNonce: randomHex(32),
     };
 
-    const approval = await requestTrustedApproval(expectedRequest, o.signerTimeoutMs);
-    if (!approval.ok) {
-      try {
-        session.stop();
-      } catch (_s) {}
-      const vaultState = approval.vaultState || '';
-      if (approval.code === 'NO_WEBAUTHN_CREDENTIAL' || approval.code === 'WEBAUTHN_REQUIRED') {
-        return {
-          ok: false,
-          code: 'WEBAUTHN_ENROLLMENT_REQUIRED',
-          vaultState: vaultState,
-          ACCOUNTS_WITHOUT_WEBAUTHN: true,
-        };
+    // Android Chrome drops user activation during MD2. Do not window.open here.
+    if (o.transport === 'popup') {
+      const approval = await requestTrustedApproval(expectedRequest, o.signerTimeoutMs);
+      if (!approval.ok) {
+        try { session.stop(); } catch (_s) {}
+        const vaultState = approval.vaultState || '';
+        if (approval.code === 'NO_WEBAUTHN_CREDENTIAL' || approval.code === 'WEBAUTHN_REQUIRED') {
+          return { ok: false, code: 'WEBAUTHN_ENROLLMENT_REQUIRED', vaultState: vaultState, ACCOUNTS_WITHOUT_WEBAUTHN: true };
+        }
+        if (approval.code === 'SIGNER_POPUP_BLOCKED' || approval.code === 'SIGNER_TIMEOUT') {
+          return { ok: false, code: 'TRUSTED_SIGNER_UNAVAILABLE', vaultState: vaultState };
+        }
+        return { ok: false, code: approval.code || 'APPROVAL_FAILED', vaultState: vaultState };
       }
-      if (approval.code === 'SIGNER_POPUP_BLOCKED' || approval.code === 'SIGNER_TIMEOUT') {
-        return { ok: false, code: 'TRUSTED_SIGNER_UNAVAILABLE', vaultState: vaultState };
-      }
-      return { ok: false, code: approval.code || 'APPROVAL_FAILED', vaultState: vaultState };
+      return completeAuthorizedSession(session, expectedRequest, approval.artifact, {
+        accountFp: accountFp,
+        pairingFp: pairingFp,
+        me: me,
+        bound: bound,
+        ackTimeoutMs: o.ackTimeoutMs,
+      });
     }
 
+    return handoffSameTabCeremony(session, expectedRequest, pairingFp, accountFp);
+  }
+
+  function handoffSameTabCeremony(session, expectedRequest, pairingFp, accountFp) {
+    const resume = session && typeof session.exportChannelResume === 'function' ? session.exportChannelResume() : null;
+    if (!resume || !resume.skHex || resume.skHex.length !== 64) {
+      try { session.stop(); } catch (_s) {}
+      return { ok: false, code: 'RESUME_EXPORT_FAIL' };
+    }
+    const cer = signerCeremonyUrl();
+    const returnPath = (function () {
+      try {
+        const p = String(location.pathname || '/videos.html');
+        if (!p.startsWith('/') || p.startsWith('//') || p.indexOf('..') !== -1) return '/videos.html';
+        return p;
+      } catch (_e) {
+        return '/videos.html';
+      }
+    })();
+    const record = {
+      v: 1,
+      exp: Date.now() + RESUME_TTL_MS,
+      sessionId: cer.sessionId,
+      accountP: expectedRequest.accountP,
+      expectedRequest: expectedRequest,
+      resume: resume,
+    };
+    try {
+      sessionStorage.setItem(RESUME_KEY, JSON.stringify(record));
+    } catch (_e) {
+      try { session.stop(); } catch (_s) {}
+      return { ok: false, code: 'RESUME_STORE_FAIL' };
+    }
+    let packed = '';
+    try {
+      packed = b64urlEncodeJson({
+        v: 1,
+        returnOrigin: location.origin,
+        returnPath: returnPath,
+        sessionId: cer.sessionId,
+        request: expectedRequest,
+      });
+    } catch (_e) {
+      try { sessionStorage.removeItem(RESUME_KEY); } catch (_r) {}
+      try { session.stop(); } catch (_s) {}
+      return { ok: false, code: 'RESUME_STORE_FAIL' };
+    }
+    const url = String(cer.origin || '').replace(/\/$/, '') + '/authorize-linked-device.html#sosAldReq=' + packed;
+    linkTrace('SAME_TAB_CEREMONY', { pairingFp: pairingFp, accountFp: accountFp, sessionFp: String(cer.sessionId).slice(0, 8) });
+    try {
+      location.assign(url);
+    } catch (_e) {
+      try { sessionStorage.removeItem(RESUME_KEY); } catch (_r) {}
+      try { session.stop(); } catch (_s) {}
+      return { ok: false, code: 'SAME_TAB_NAV_FAIL' };
+    }
+    return { ok: true, code: 'SAME_TAB_HANDOFF', pending: true, WEB_MD3_ISSUANCE: true };
+  }
+
+  async function completeAuthorizedSession(session, expectedRequest, artifact, ctx) {
+    const accountFp = ctx.accountFp;
+    const pairingFp = ctx.pairingFp;
+    const me = ctx.me;
+    const bound = ctx.bound;
     linkTrace('WORKER_ISSUANCE', { pairingFp: pairingFp, accountFp: accountFp });
-    const signed = await workerAuthorize(approval.artifact, expectedRequest);
+    const signed = await workerAuthorize(artifact, expectedRequest);
     if (!signed || signed.ok !== true || !signed.authorization) {
       try {
         session.stop();
@@ -315,6 +406,7 @@
       });
       return { ok: false, code: (signed && signed.code) || 'WORKER_AUTHORIZE_FAILED' };
     }
+    linkTrace('MD3_AUTHORIZED', { pairingFp: pairingFp, accountFp: accountFp });
 
     let delivered;
     try {
@@ -337,7 +429,7 @@
 
     let ack;
     try {
-      ack = await session.waitAuthAck(o.ackTimeoutMs || 60000);
+      ack = await session.waitAuthAck((ctx && ctx.ackTimeoutMs) || 60000);
     } catch (_e) {
       ack = null;
     }
@@ -375,6 +467,94 @@
       T1_FALLBACK_DISABLED: true,
       ROOT_K_RETURNED: false,
     };
+  }
+
+  function takeResumeRecord() {
+    let raw = '';
+    try { raw = sessionStorage.getItem(RESUME_KEY) || ''; } catch (_e) { raw = ''; }
+    try { sessionStorage.removeItem(RESUME_KEY); } catch (_e) {}
+    if (!raw) return null;
+    try {
+      const rec = JSON.parse(raw);
+      if (!rec || rec.v !== 1 || !rec.sessionId || !rec.expectedRequest || !rec.resume) return null;
+      if (!(rec.exp > Date.now())) return null;
+      return rec;
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  async function waitForActiveAccount(expected, timeoutMs) {
+    const want = normHex(expected);
+    const deadline = Date.now() + (timeoutMs || 20000);
+    while (Date.now() < deadline) {
+      const me = normHex(App.publicKey || '');
+      if (me && me === want && !App.guestMode) return me;
+      await new Promise(function (r) { setTimeout(r, 250); });
+    }
+    return '';
+  }
+
+  async function consumeSameTabReturn() {
+    const hash = String(location.hash || '');
+    if (hash.indexOf('#sosAldRes=') !== 0) return;
+    let env = null;
+    try { env = b64urlDecodeJson(hash.slice('#sosAldRes='.length)); } catch (_e) { env = null; }
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (_e) {}
+    const rec = takeResumeRecord();
+    if (!env || !rec || String(env.sessionId || '') !== String(rec.sessionId)) {
+      publishLinkStatus({ ok: false, code: 'APPROVAL_FAILED' });
+      return;
+    }
+    if (env.type !== 'SOS_ALD_APPROVAL_RESULT' || !env.artifact) {
+      publishLinkStatus({ ok: false, code: env.code || 'APPROVAL_FAILED', vaultState: env.vaultState || '' });
+      return;
+    }
+    if (!featureEnabled()) {
+      publishLinkStatus({ ok: false, code: 'WEB_MD3_ISSUANCE_DISABLED', WEB_MD3_ISSUANCE: false, T1_FALLBACK_DISABLED: true });
+      return;
+    }
+    publishLinkStatus({ pending: true });
+    const me = await waitForActiveAccount(rec.accountP, 20000);
+    if (!me) {
+      publishLinkStatus({ ok: false, code: 'NOT_AUTHENTICATED' });
+      return;
+    }
+    const Md2 = App.Md2PairingSession || window.SosMd2PairingSession;
+    if (!Md2 || typeof Md2.resumePhoneChannel !== 'function') {
+      publishLinkStatus({ ok: false, code: 'APPROVAL_FAILED' });
+      return;
+    }
+    const accountFp = me.slice(0, 8);
+    const pairingFp = String(rec.resume.pairingId || '').slice(0, 12);
+    linkTrace('SAME_TAB_RETURN', { pairingFp: pairingFp, accountFp: accountFp, sessionFp: String(rec.sessionId).slice(0, 8) });
+    let session;
+    try {
+      session = await Md2.resumePhoneChannel(rec.resume, { pool: App.pool });
+    } catch (_e) {
+      session = null;
+    }
+    try { rec.resume.skHex = ''; } catch (_z) {}
+    if (!session || session.ok !== true) {
+      publishLinkStatus({ ok: false, code: (session && session.code) || 'RESUME_EXPORT_FAIL' });
+      return;
+    }
+    const done = await completeAuthorizedSession(session, rec.expectedRequest, env.artifact, {
+      accountFp: accountFp,
+      pairingFp: pairingFp,
+      me: me,
+      bound: session.bound,
+      ackTimeoutMs: 90000,
+    });
+    publishLinkStatus(done);
+  }
+
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () { consumeSameTabReturn(); });
+    } else {
+      consumeSameTabReturn();
+    }
   }
 
   App.WebPhoneIssuer = {

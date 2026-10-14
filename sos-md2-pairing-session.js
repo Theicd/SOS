@@ -1040,6 +1040,164 @@
           if (sk) sk.fill(0);
         } catch (_z) {}
       },
+      /**
+       * Pairing AEAD key only (not Root K). Same-origin resume across the signer navigation.
+       * Caller must keep it in sessionStorage with a short TTL and delete it after one use.
+       */
+      exportChannelResume: function () {
+        if (state !== 'CHANNEL_READY' || !sk || sk.length !== 32 || !tr || tr.length !== 32 || !bound) return null;
+        return {
+          v: 1,
+          pairingId: bound.pairingId,
+          deviceId: bound.deviceId,
+          dSignPub: bound.dSignPub,
+          dEncPub: bound.dEncPub,
+          transcriptHex: hexFromBuf(tr),
+          purpose: bound.purpose,
+          storageClass: bound.storageClass,
+          recoveryEligible: !!bound.recoveryEligible,
+          skHex: hexFromBuf(sk),
+          relays: (relays || []).slice(),
+        };
+      },
+      ROOT_K_SENT_TO_DESKTOP: false,
+      NSEC_SENT_TO_DESKTOP: false,
+    };
+  }
+
+  /**
+   * Re-open the phone side of an already-ready MD2 channel after a same-tab signer round trip.
+   * The blob holds the pairing AEAD key, never Root K.
+   */
+  async function resumePhoneChannel(blob, opts) {
+    const o = opts || {};
+    const b = blob && typeof blob === 'object' ? blob : null;
+    if (!b || b.v !== 1) return { ok: false, code: 'BAD_RESUME' };
+    const pairingId = String(b.pairingId || '').toLowerCase();
+    const sk = bufFromHex(b.skHex);
+    const tr = bufFromHex(b.transcriptHex);
+    if (!/^[0-9a-f]{64}$/.test(pairingId) || sk.length !== 32 || tr.length !== 32) {
+      try { sk.fill(0); } catch (_z) {}
+      return { ok: false, code: 'BAD_RESUME' };
+    }
+    const NT = window.NostrTools;
+    if (!NT || typeof NT.finalizeEvent !== 'function') return { ok: false, code: 'NOSTR_TOOLS_MISSING' };
+    const relays = Array.isArray(b.relays) && b.relays.length ? b.relays : DEFAULT_RELAYS;
+    let state = 'CHANNEL_READY';
+    let authAck = null;
+    const ackWaiters = [];
+    const seen = new Set();
+    let transport = null;
+    const bound = {
+      pairingId: pairingId,
+      deviceId: String(b.deviceId || '').toLowerCase(),
+      dSignPub: String(b.dSignPub || '').toLowerCase(),
+      dEncPub: String(b.dEncPub || '').toLowerCase(),
+      transcriptHex: hexFromBuf(tr),
+      purpose: b.purpose || 'LINK',
+      storageClass: b.storageClass || 'SOFTWARE_ONLY',
+      recoveryEligible: !!b.recoveryEligible,
+    };
+    try { b.skHex = ''; } catch (_c) {}
+
+    function phoneDbg(phase) {
+      try {
+        console.info('[SOS-LD] ' + String(phase) + ' pairingFp=' + pairingId.slice(0, 12));
+      } catch (_e) {}
+    }
+
+    async function publish(content, role) {
+      if (typeof o.publishSigned === 'function') {
+        return o.publishSigned(content, role || 'phone', pairingId);
+      }
+      const draft = {
+        kind: KIND,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['t', TAG],
+          ['d', pairingId],
+          ['role', role || 'phone'],
+        ],
+        content: content,
+      };
+      const transportSk = NT.generateSecretKey();
+      const ev = NT.finalizeEvent(draft, transportSk);
+      if (!transport) throw new Error('NO_MD2_TRANSPORT');
+      await transport.publish(ev, function () {
+        phoneDbg('RELAY_ACCEPTED');
+      });
+      return ev.id;
+    }
+
+    async function handleInbound(content) {
+      let msg;
+      try {
+        msg = JSON.parse(content);
+      } catch (_e) {
+        return;
+      }
+      if (msg.type !== 'aead' || state !== 'AUTH_SENT') return;
+      if (String(msg.pairingId || '').toLowerCase() !== pairingId) return;
+      const plain = await open(sk, tr, { ivB64: msg.iv, ctB64: msg.ct });
+      if (!plain) return;
+      let body;
+      try {
+        body = JSON.parse(new TextDecoder().decode(plain));
+      } catch (_e) {
+        return;
+      }
+      if (body.type !== 'device_auth_ack') return;
+      authAck = {
+        ok: true,
+        authorizationId: String(body.authorizationId || '').toLowerCase(),
+        deviceId: String(body.deviceId || '').toLowerCase(),
+        accountP: String(body.accountP || '').toLowerCase(),
+      };
+      state = 'ACKED';
+      ackWaiters.splice(0).forEach(function (w) { w(authAck); });
+    }
+
+    transport = openMd2Transport(relays, pairingId, function (ev) {
+      if (!ev || seen.has(ev.id)) return;
+      const Auth = App.Md4DeviceAuth || window.SosMd4DeviceAuth;
+      if (Auth && typeof Auth.assertMd2MayAcceptEvent === 'function') {
+        const gate = Auth.assertMd2MayAcceptEvent(ev);
+        if (!gate.ok) return;
+      }
+      seen.add(ev.id);
+      const role = (ev.tags || []).find(function (t) { return t[0] === 'role'; });
+      if (role && role[1] === 'phone') return;
+      handleInbound(ev.content).catch(function () {});
+    });
+    await transport.ready;
+    phoneDbg('CHANNEL_RESUMED');
+
+    return {
+      ok: true,
+      state: function () { return state; },
+      bound: bound,
+      deliverDeviceAuthorization: async function (authorization) {
+        if (state !== 'CHANNEL_READY') return { ok: false, code: 'NOT_CHANNEL_READY' };
+        const body = new TextEncoder().encode(JSON.stringify({ type: 'device_authorization', authorization: authorization }));
+        const sealed = await seal(sk, tr, body);
+        await publish(JSON.stringify({ type: 'aead', pairingId, iv: sealed.ivB64, ct: sealed.ctB64 }), 'phone');
+        state = 'AUTH_SENT';
+        return { ok: true };
+      },
+      waitAuthAck: function (timeoutMs) {
+        if (authAck) return Promise.resolve(authAck);
+        return new Promise(function (resolve, reject) {
+          const t = setTimeout(function () { reject(new Error('TIMEOUT')); }, timeoutMs || 60000);
+          ackWaiters.push(function (a) {
+            clearTimeout(t);
+            resolve(a);
+          });
+        });
+      },
+      stop: function () {
+        try { if (transport && typeof transport.close === 'function') transport.close(); } catch (_e) {}
+        try { sk.fill(0); } catch (_z) {}
+      },
       ROOT_K_SENT_TO_DESKTOP: false,
       NSEC_SENT_TO_DESKTOP: false,
     };
@@ -1051,6 +1209,7 @@
     HIST_TAG: 'sos-hist-v1',
     beginDesktopInitiator,
     beginPhoneResponder,
+    resumePhoneChannel,
     signSchnorrRaw,
     verifySchnorrRaw,
     verifySchnorrRawAsync,

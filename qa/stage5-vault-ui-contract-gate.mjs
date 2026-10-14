@@ -33,7 +33,9 @@ const he =
 check('hebrew vault copy', ld.includes(he));
 check('no direct import href', !ld.includes('https://signer.sos010.com/import.html'));
 check('session-bound setup action', ld.includes("action: 'setup'") && ld.includes('startOneTimeAccountSetup'));
-check('passkey enroll action separate', ld.includes('enroll.html') && ld.includes('WEBAUTHN_ENROLLMENT_REQUIRED') && ld.includes('openPasskeyEnrollment'));
+check('linked only after desktop linked', ld.includes("code === 'LINKED'") && ld.includes('המחשב מחובר'));
+check('import success is not linked', !ld.includes('אישור החשבון הושלם') && ld.includes('המחשב עדיין לא מחובר'));
+check('no popup-enable instruction', !ld.includes('יש לאפשר את החלון'));
 check('scan button remains', ld.includes('id="sosLdMobileScan"'));
 check('no alert-only vault path', !/VAULT_NOT_READY[\s\S]{0,200}window\.alert/.test(ld));
 check('issuer binds popup source', issuer.includes('ev.source !== popup'));
@@ -41,16 +43,20 @@ check('issuer binds sessionId', issuer.includes("String(d.sessionId || '') !== S
 check('issuer returns vaultState', issuer.includes('vaultState: vaultState') || issuer.includes('vaultState: approval.vaultState'));
 check('issuer traces channel and linked', issuer.includes("linkTrace('MD2_CHANNEL_READY'") && issuer.includes("linkTrace('DESKTOP_LINKED'"));
 check('md2 console phase', md2.includes("console.info('[SOS-LD] '") && md2.includes("phoneDbg('AEAD_CHANNEL_READY')"));
+check('issuer same-tab after channel', issuer.includes('handoffSameTabCeremony') && issuer.includes("location.assign(url)") && issuer.includes("o.transport === 'popup'"));
+check('issuer does not open signer after md2 by default', issuer.includes('Do not window.open here'));
+check('md2 resume export', md2.includes('exportChannelResume') && md2.includes('resumePhoneChannel'));
 check('signer posts vault error once after request', ui.includes('postErrorOnce') && ui.includes('if (pendingRequest)') && ui.includes('vaultState:'));
-check('signer rejects foreign session', ui.includes('ceremonySessionId') && ui.includes('ev.source !== window.opener'));
+check('signer same-tab return', ui.includes('#sosAldReq=') && ui.includes('#sosAldRes=') && ui.includes('enrollWebAuthnCredential'));
+check('signer keeps opener binding for popup', ui.includes('ev.source !== window.opener'));
 check('dated ui matches canonical', ui === uiDated);
-check('ceremony html cache bust', html.includes('authorize-linked-device-approval-boot-20261014.js'));
-check('signer shell bumped', /signer-shell-v12/.test(sw));
+check('ceremony html inline uv', html.includes('continueUvBtn') && html.includes('אשרו את קישור המחשב') && !html.includes('enroll.html'));
+check('signer shell bumped', /signer-shell-v13/.test(sw));
 check('handoff page precached', sw.includes('./handoff.html') && sw.includes('f5b6w-handoff.js'));
 const importer = read(path.join(root, 'isolated-signer-trusted-import.js'));
 check('import launcher keeps opener', importer.includes("window.open(url, 'sos_signer_import', 'width=480,height=720')") && !/window\.open\([^)]*noopener/.test(importer));
 check('import message bound to popup', importer.includes('event.source !== pending.win'));
-check('web cache bust 899s17', videos.includes('sos-web-linked-devices.js?v=20261014&pkg=899s17') && videos.includes('isolated-signer-trusted-import.js?v=20261014&pkg=899s17'));
+check('web cache bust 899s18', videos.includes('sos-web-linked-devices.js?v=20261014&pkg=899s18') && videos.includes('sos-web-phone-issuer.js?v=20261014&pkg=899s18'));
 
 const failed = checks.filter((c) => !c.ok);
 const out = {
