@@ -56,8 +56,8 @@ check('handoff page precached', sw.includes('./handoff.html') && sw.includes('f5
 const importer = read(path.join(root, 'isolated-signer-trusted-import.js'));
 check('import launcher keeps opener', importer.includes("window.open(url, 'sos_signer_import', 'width=480,height=720')") && !/window\.open\([^)]*noopener/.test(importer));
 check('import message bound to popup', importer.includes('event.source !== pending.win'));
-check('web cache bust 899s20', videos.includes('sos-web-linked-devices.js?v=20261014&pkg=899s20') && videos.includes('sos-web-phone-issuer.js?v=20261014&pkg=899s20'));
-check('return payload stashed before redirect', videos.includes('sos_ld_ald_res_v1') && issuer.includes("sessionStorage.getItem('sos_ld_ald_res_v1')") && issuer.includes("returnPath = '/videos.html'"));
+check('web cache bust 899s21', videos.includes('pkg=899s21') && issuer.includes("/videos.html?v=899s21"));
+check('return payload stashed before redirect', videos.includes('sos_ld_ald_res_v1') && issuer.includes('peekResumeRecord') && issuer.includes('markSameTab'));
 
 const failed = checks.filter((c) => !c.ok);
 const out = {

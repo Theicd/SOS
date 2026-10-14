@@ -339,7 +339,7 @@
       return { ok: false, code: 'RESUME_EXPORT_FAIL' };
     }
     const cer = signerCeremonyUrl();
-    const returnPath = '/videos.html';
+    const returnPath = '/videos.html?v=899s21';
     const record = {
       v: 1,
       exp: Date.now() + RESUME_TTL_MS,
@@ -461,10 +461,9 @@
     };
   }
 
-  function takeResumeRecord() {
+  function peekResumeRecord() {
     let raw = '';
     try { raw = sessionStorage.getItem(RESUME_KEY) || ''; } catch (_e) { raw = ''; }
-    try { sessionStorage.removeItem(RESUME_KEY); } catch (_e) {}
     if (!raw) return null;
     try {
       const rec = JSON.parse(raw);
@@ -474,6 +473,17 @@
     } catch (_e) {
       return null;
     }
+  }
+
+  function clearSameTabStorage() {
+    try { sessionStorage.removeItem(RESUME_KEY); } catch (_e) {}
+    try { sessionStorage.removeItem('sos_ld_ald_res_v1'); } catch (_e) {}
+  }
+
+  function markSameTab(code) {
+    const c = String(code || '').slice(0, 80);
+    try { sessionStorage.setItem('sos_ld_dbg', c); } catch (_e) {}
+    linkTrace('SAME_TAB_RESULT', { code: c });
   }
 
   async function waitForActiveAccount(expected, timeoutMs) {
@@ -490,26 +500,30 @@
   async function consumeSameTabReturn() {
     let packed = '';
     try { packed = sessionStorage.getItem('sos_ld_ald_res_v1') || ''; } catch (_e) { packed = ''; }
-    try { sessionStorage.removeItem('sos_ld_ald_res_v1'); } catch (_e) {}
     const hash = String(location.hash || '');
     if (!packed && hash.indexOf('#sosAldRes=') === 0) packed = hash.slice('#sosAldRes='.length);
     if (!packed) return;
     let env = null;
     try { env = b64urlDecodeJson(packed); } catch (_e) { env = null; }
-    try { history.replaceState(null, '', location.pathname + location.search); } catch (_e) {}
-    const rec = takeResumeRecord();
+    const rec = peekResumeRecord();
     if (!env || !rec || String(env.sessionId || '') !== String(rec.sessionId)) {
+      markSameTab(!env ? 'BAD_RETURN' : !rec ? 'NO_RESUME' : 'SESSION_MISMATCH');
       publishLinkStatus({ ok: false, code: 'APPROVAL_FAILED' });
       return;
     }
+    clearSameTabStorage();
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (_e) {}
     if (env.type !== 'SOS_ALD_APPROVAL_RESULT' || !env.artifact) {
+      markSameTab(env.code || 'APPROVAL_FAILED');
       publishLinkStatus({ ok: false, code: env.code || 'APPROVAL_FAILED', vaultState: env.vaultState || '' });
       return;
     }
     if (!featureEnabled()) {
+      markSameTab('WEB_MD3_ISSUANCE_DISABLED');
       publishLinkStatus({ ok: false, code: 'WEB_MD3_ISSUANCE_DISABLED', WEB_MD3_ISSUANCE: false, T1_FALLBACK_DISABLED: true });
       return;
     }
+    markSameTab('RETURN_ACCEPTED');
     publishLinkStatus({ pending: true });
     const me = await waitForActiveAccount(rec.accountP, 20000);
     if (!me) {
