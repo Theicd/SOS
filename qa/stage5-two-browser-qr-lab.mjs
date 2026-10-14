@@ -700,6 +700,42 @@ async function installCanvasCamera(page, pngPath) {
   }, `data:image/png;base64,${b64}`);
 }
 
+async function linkAnotherDesktop(desktopBrowser, mobile, pubFp) {
+  const ctx = await desktopBrowser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'he-IL' });
+  const page = await ctx.newPage();
+  try {
+    await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 120000 });
+    await waitApp(page);
+    await patchPoolPublishIterable(page);
+    await page.evaluate(() => {
+      try { sessionStorage.removeItem('sos_ld_guest_continued_v1'); } catch (_e) {}
+      const LD = window.SosWebLinkedDevices || window.NostrApp.WebLinkedDevices;
+      if (LD && typeof LD.showGuestQrWelcome === 'function') LD.showGuestQrWelcome();
+    });
+    await page.waitForFunction(() => {
+      const LD = window.SosWebLinkedDevices || window.NostrApp.WebLinkedDevices;
+      const t = LD && LD.getCurrentPairingQrText && LD.getCurrentPairingQrText();
+      return !!(t && String(t).indexOf('SOSPAIR1:') === 0);
+    }, null, { timeout: 60000 });
+    const png = path.join(OUT, 'desktop-qr-second.png');
+    await page.locator('#sosLdGuestWelcome canvas, #sosLinkedPairPanel canvas').first().screenshot({ path: png });
+    const b64 = fs.readFileSync(png).toString('base64');
+    await mobile.evaluate((dataUrl) => { window.__sosLabQrDataUrl = dataUrl; }, 'data:image/png;base64,' + b64);
+    await mobileOpenScanner(mobile);
+    const linked = await waitForProductLink(mobile, page, pubFp);
+    return {
+      ok: linked.linked === true && linked.identityMatch === true && linked.manualClicks === 0 && linked.leftSos !== true && linked.scanOnly === true,
+      code: linked.code || '',
+      clicks: linked.manualClicks || 0,
+      leftSos: linked.leftSos === true,
+    };
+  } catch (e) {
+    return { ok: false, code: String(e && e.message || e).slice(0, 160) };
+  } finally {
+    await ctx.close().catch(() => {});
+  }
+}
+
 async function waitForProductLink(mobile, desktop, pubFp) {
   const want = String(pubFp || '').toLowerCase().slice(0, 8);
   const deadline = Date.now() + 90000;
@@ -817,6 +853,11 @@ function classifyFirstFail(report) {
   if (report.RESTART_PERSISTENCE !== 'PASS') return 'RESTART_PERSISTENCE';
   if (report.SAME_TAB_NAVIGATION) return 'LEFT_SOS_PAGE';
   if (report.MANUAL_CLICKS_AFTER_SCAN) return 'MANUAL_CLICK';
+  if (report.WEBAUTHN_UV_PROVEN === true) return 'WEBAUTHN_UV_CLAIM';
+  if (!report.SECOND_LINK_NO_REIMPORT || report.SECOND_LINK_NO_REIMPORT.ok !== true) return 'SECOND_LINK_NO_REIMPORT';
+  const neg = report.NEGATIVE_SECURITY_TESTS || {};
+  if (neg.invalidQr !== true) return 'INVALID_QR_REJECT';
+  if (neg.wrongAccount !== true) return 'WRONG_ACCOUNT_REJECT';
   return null;
 }
 
@@ -980,7 +1021,6 @@ async function main() {
     report.DIRECT_QR_INTAKE = 'NOT_COUNTED';
     report.timeline.mobile.push({ t: Date.now(), event: 'DIRECT_INTAKE_SKIPPED' });
     const intake = { ok: false, channelReady: false, code: 'NOT_COUNTED' };
-    report.DIRECT_QR_INTAKE = intake.ok ? 'PASS_DIAGNOSTIC' : 'FAIL';
     report.intakeDetail = {
       ok: intake.ok,
       code: intake.code || null,
@@ -1113,6 +1153,13 @@ async function main() {
       report.POP_VERIFIED = linked.phases.includes('POP_SENT') || linked.phases.includes('CHANNEL_READY');
       report.AEAD_CHANNEL_READY = linked.phases.includes('CHANNEL_READY') || linked.phases.includes('AUTH_RECEIVED') || linked.md3 === true;
       report.PHONE_HELLO_SENT = report.AEAD_CHANNEL_READY;
+      report.REAL_MD2_RELAY = report.AEAD_CHANNEL_READY && report.DESKTOP_HELLO_RECEIVED && report.POP_VERIFIED ? 'PASS' : 'FAIL';
+    }
+    report.REAL_WORKER_ISSUANCE = report.MD3_ISSUED ? 'PASS' : 'FAIL';
+    report.REAL_DESKTOP_LINKED = report.DESKTOP_LINKED ? 'PASS' : 'FAIL';
+
+    if (report.DESKTOP_LINKED) {
+      report.SECOND_LINK_NO_REIMPORT = await linkAnotherDesktop(desktopBrowser, mobile, login.pubFp);
     }
 
     // Screenshots (UI only — QR png already saved; no secret text files)
@@ -1121,7 +1168,7 @@ async function main() {
 
     report.FIRST_FAILED_TRANSITION = classifyFirstFail(report);
 
-    if (report.DESKTOP_LINKED) {
+    if (!report.FIRST_FAILED_TRANSITION && report.DESKTOP_LINKED && report.SCAN_ONLY_LINK === true && report.WEBAUTHN_UV_PROVEN !== true && report.MANUAL_CLICKS_AFTER_SCAN === 0) {
       report.STATUS = 'PASS_WEB_LINKED_AUTOMATED';
     } else if (report.REAL_MD2_RELAY === 'PASS' && !report.WEB_PHONEISSUER_ENABLED) {
       report.STATUS = 'AUTOMATED_MD2_PASS_T2_BLOCKED';
@@ -1146,8 +1193,8 @@ async function main() {
     }
 
     report.ATTEMPTS = 1;
-    report.SUCCESSES = report.DESKTOP_LINKED ? 1 : 0;
-    report.FAILURES = report.DESKTOP_LINKED ? 0 : 1;
+    report.SUCCESSES = report.STATUS === 'PASS_WEB_LINKED_AUTOMATED' ? 1 : 0;
+    report.FAILURES = report.STATUS === 'PASS_WEB_LINKED_AUTOMATED' ? 0 : 1;
     report.TEST_RUN_IDS = [RUN_ID];
     report.EVIDENCE_PATHS = {
       outDir: OUT,
@@ -1159,8 +1206,8 @@ async function main() {
     report.FIXES_APPLIED = [];
     report.REMAINING_BLOCKERS = [
       !report.WEB_PHONEISSUER_ENABLED ? 'Web PhoneIssuer / T2 feature flag disabled on production' : null,
-      report.productApproval && report.productApproval.code
-        ? 'Product T2 stopped: ' + report.productApproval.code
+      report.productApproval && report.productApproval.code && report.productApproval.code !== 'LINKED'
+        ? 'Product stopped: ' + report.productApproval.code
         : null,
       report.SIMULATED_CAMERA_SCAN !== 'PASS' ? 'Virtual camera optical decode did not PASS' : null,
       !report.DESKTOP_LINKED ? 'Desktop LINKED not achieved on this run' : null,
@@ -1234,6 +1281,10 @@ async function main() {
     `MD3_ISSUED=${report.MD3_ISSUED}`,
     `DESKTOP_VERIFY_STRICT=${report.DESKTOP_VERIFY_STRICT}`,
     `DESKTOP_LINKED=${report.DESKTOP_LINKED}`,
+    `ACCOUNT_IDENTITY_VISIBLE=${report.ACCOUNT_IDENTITY_VISIBLE}`,
+    `SCAN_ONLY_LINK=${report.SCAN_ONLY_LINK}`,
+    `MANUAL_CLICKS_AFTER_SCAN=${report.MANUAL_CLICKS_AFTER_SCAN}`,
+    `SECOND_LINK_NO_REIMPORT=${!!(report.SECOND_LINK_NO_REIMPORT && report.SECOND_LINK_NO_REIMPORT.ok)}`,
     `RESTART_PERSISTENCE=${report.RESTART_PERSISTENCE}`,
     `ATTEMPTS=${report.ATTEMPTS}`,
     `SUCCESSES=${report.SUCCESSES}`,
