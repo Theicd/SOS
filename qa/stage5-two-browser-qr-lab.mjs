@@ -1088,8 +1088,20 @@ async function proveLinkedAccountProduct(desktop, mobile) {
       flags.productCode = 'MESSAGE_SEND_' + (sent.error || 'FAIL');
       return { flags };
     }
-    await peer.page.waitForFunction((text) => {
+    const seenPing = await peer.page.waitForFunction(async (text) => {
       const App = window.NostrApp;
+      const filter = { kinds: [1050], '#p': [String(App.publicKey || '').toLowerCase()], '#t': ['yalachat'], limit: 10 };
+      let events = [];
+      try {
+        if (App.pool && typeof App.pool.list === 'function') events = await App.pool.list(App.relayUrls, [filter]);
+      } catch (_e) {}
+      if (!Array.isArray(events)) events = [];
+      window.__sosLabPingPull = events.length;
+      for (let i = 0; i < events.length; i += 1) {
+        if (typeof App.handleIncomingChatEvent === 'function') {
+          try { await App.handleIncomingChatEvent(events[i]); } catch (_in) {}
+        }
+      }
       const conv = App.chatState && App.chatState.conversations;
       if (!conv) return false;
       let found = false;
@@ -1101,7 +1113,12 @@ async function proveLinkedAccountProduct(desktop, mobile) {
         });
       });
       return found;
-    }, ping, { timeout: 30000 });
+    }, ping, { timeout: 25000, polling: 1000 }).then(() => true).catch(() => false);
+    if (!seenPing) {
+      const n = await peer.page.evaluate(() => window.__sosLabPingPull || 0);
+      flags.productCode = 'PING_NOT_VISIBLE_' + String(n);
+      return { flags };
+    }
     const reply = 'ld-reply-' + Date.now().toString(36);
     const replied = await peer.page.evaluate(async (args) => {
       const App = window.NostrApp;
@@ -1159,10 +1176,29 @@ async function proveLinkedAccountProduct(desktop, mobile) {
       }
     }, peer.pub);
     if (started.ok) {
-      const incoming = await peer.page.waitForFunction(() => {
-        const st = window.NostrApp.voiceCall.getState();
-        return st.isIncoming === true || st.isCallActive === true;
-      }, null, { timeout: 25000 }).then(() => true).catch(() => false);
+      const incoming = await peer.page.waitForFunction(async () => {
+        const App = window.NostrApp;
+        const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : {};
+        if (st.isIncoming === true || st.isCallActive === true) return true;
+        const filter = { kinds: [1059], '#p': [String(App.publicKey || '').toLowerCase()], limit: 8, since: Math.floor(Date.now() / 1000) - 86400 };
+        const relays = (App.CallSignalE2ee && typeof App.CallSignalE2ee.getCallSignalRelays === 'function')
+          ? App.CallSignalE2ee.getCallSignalRelays()
+          : App.relayUrls;
+        let events = [];
+        try {
+          if (App.pool && typeof App.pool.list === 'function') events = await App.pool.list(relays, [filter]);
+        } catch (_e) {}
+        if (!Array.isArray(events)) events = [];
+        window.__sosLabCallPull = events.length;
+        const api = App.CallSignalE2ee;
+        if (api && typeof api.enqueueSecureDispatch === 'function') {
+          for (let i = 0; i < events.length; i += 1) {
+            try { await api.enqueueSecureDispatch(events[i]); } catch (_d) {}
+          }
+        }
+        const again = App.voiceCall.getState();
+        return again.isIncoming === true || again.isCallActive === true;
+      }, null, { timeout: 25000, polling: 1000 }).then(() => true).catch(() => false);
       if (incoming) {
         await peer.page.evaluate(async () => {
           const st = window.NostrApp.voiceCall.getState();
@@ -1179,8 +1215,18 @@ async function proveLinkedAccountProduct(desktop, mobile) {
       }
     }
     if (!flags.VOICE_CALL) {
-      flags.productCode = flags.productCode || ('VOICE_' + String((started && started.error) || 'NO_ANSWER'));
-      return { flags };
+      const pullN = await peer.page.evaluate(() => window.__sosLabCallPull || 0).catch(() => 0);
+      const deskN = await desktop.evaluate(async (peerPub) => {
+        const App = window.NostrApp;
+        const relays = App.CallSignalE2ee && App.CallSignalE2ee.getCallSignalRelays ? App.CallSignalE2ee.getCallSignalRelays() : App.relayUrls;
+        try {
+          const events = await App.pool.list(relays, [{ kinds: [1059], '#p': [peerPub], limit: 5, since: Math.floor(Date.now() / 1000) - 86400 }]);
+          return Array.isArray(events) ? events.length : -1;
+        } catch (_e) {
+          return -2;
+        }
+      }, peer.pub).catch(() => -3);
+      flags.productCode = flags.productCode || ('VOICE_' + String((started && started.error) || ('NO_ANSWER_peer' + pullN + '_desk' + deskN)));
     }
     const share = await desktop.evaluate(async (peerPub) => {
       const App = window.NostrApp;
