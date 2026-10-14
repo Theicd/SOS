@@ -360,7 +360,11 @@
     if (!event || !event.id) return { ok: false, code: 'SIGN_FAILED' };
     const pool = App.pool;
     if (!pool || typeof pool.publish !== 'function') return { ok: false, code: 'NO_POOL' };
-    await pool.publish(App.relayUrls, event);
+    const published = pool.publish(App.relayUrls, event);
+    const pending = Array.isArray(published) ? published : [published];
+    const settled = await Promise.allSettled(pending.map(function (p) { return Promise.resolve(p); }));
+    const accepted = settled.some(function (r) { return r.status === 'fulfilled'; });
+    if (!accepted) return { ok: false, code: 'RELAY_REJECTED', count: messages.length };
     return { ok: true, count: messages.length, id: String(event.id).slice(0, 12), HISTORY_SYNC_TRANSFERRED: messages.length > 0 };
   }
 
@@ -412,6 +416,29 @@
     return root.__sosLdHistorySync;
   }
 
+  async function pullLinkedHistory() {
+    const session = getAccountSession();
+    if (session.role !== 'LINKED_DEVICE' || !session.verified || !allows('READ_CONVERSATIONS')) {
+      return { ok: false, code: 'NOT_LINKED' };
+    }
+    const pool = App.pool;
+    if (!pool || typeof pool.get !== 'function' || !isHex64(session.deviceSignPub)) return { ok: false, code: 'NO_POOL' };
+    let ev = null;
+    try {
+      ev = await pool.get(App.relayUrls, {
+        kinds: [HIST_KIND],
+        '#p': [session.deviceSignPub],
+        '#t': [HIST_TAG],
+        authors: [session.accountP],
+        limit: 1,
+      });
+    } catch (_e) {
+      return { ok: false, code: 'QUERY_FAILED' };
+    }
+    if (!ev) return { ok: false, code: 'NO_EVENT' };
+    return acceptHistoryEvent(ev);
+  }
+
   async function resubscribeLinkedTransports() {
     try {
       if (typeof App.stopPrivateChatSubscription === 'function') App.stopPrivateChatSubscription('linked-device');
@@ -425,6 +452,9 @@
         calls.ensureSecureCallSubscription({ force: true, reason: 'linked-device' });
       }
     } catch (_e3) {}
+    try {
+      await pullLinkedHistory();
+    } catch (_e4) {}
   }
 
   App.getAccountSession = getAccountSession;
@@ -445,6 +475,7 @@
     delegatedChatEncrypt: delegatedChatEncrypt,
     decryptForLinkedDevice: decryptForLinkedDevice,
     publishLinkedHistoryBundle: publishLinkedHistoryBundle,
+    pullLinkedHistory: pullLinkedHistory,
     acceptHistoryEvent: acceptHistoryEvent,
     resubscribeLinkedTransports: resubscribeLinkedTransports,
     ROOT_K_ON_DESKTOP: false,

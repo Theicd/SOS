@@ -1678,15 +1678,19 @@
       idLabel = event && event.id ? String(event.id).slice(0, 8) : '';
       const self = App.publicKey?.toLowerCase?.() || '';
       const sender = event && typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
+      const linked = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+      const device = linked && linked.role === 'LINKED_DEVICE' && linked.verified ? String(linked.deviceSignPub || '') : '';
+      const selves = [self];
+      if (device && device !== self) selves.push(device);
       if (!self || !sender) {
         console.warn('[SO-CALL SECURITY] rejected event for wrong recipient kind=' + kindLabel + ' id=' + idLabel);
         return false;
       }
-      if (sender === self) {
+      if (selves.indexOf(sender) !== -1) {
         return true;
       }
       const recipient = getIncomingChatRelayRecipient(event);
-      if (!recipient || recipient !== self) {
+      if (!recipient || selves.indexOf(recipient) === -1) {
         console.warn('[SO-CALL SECURITY] rejected event for wrong recipient kind=' + kindLabel + ' id=' + idLabel);
         return false;
       }
@@ -1756,7 +1760,7 @@
       baseFilter([PRESENCE_KIND], { '#p': listenPubs, '#t': [CHAT_TAG] }),
     ];
     if (devicePub) {
-      filters.push(baseFilter([1050], { '#p': [devicePub], authors: [normalizedSelf], '#t': ['sos-hist-v1'] }));
+      filters.push(baseFilter([1050], { '#p': [devicePub], '#t': ['sos-hist-v1'] }));
     }
 
     if (App.NETWORK_TAG) {

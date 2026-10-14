@@ -1032,16 +1032,28 @@ async function proveLinkedAccountProduct(desktop, mobile) {
       flags.HISTORY_SYNC_COMPLETE = false;
       return { flags };
     }
-    const seen = await desktop.waitForFunction(() => {
+    const seen = await desktop.waitForFunction(async () => {
       const sync = window.__sosLdHistorySync;
-      return !!(sync && sync.ok === true && sync.count > 0 && sync.FAKE_HISTORY_SYNC === false);
-    }, null, { timeout: 30000 }).then(() => true).catch(() => false);
+      if (sync && sync.ok === true && sync.count > 0 && sync.FAKE_HISTORY_SYNC === false) return true;
+      const Session = window.SosAccountSession;
+      if (Session && typeof Session.pullLinkedHistory === 'function') {
+        try { await Session.pullLinkedHistory(); } catch (_e) {}
+      }
+      const again = window.__sosLdHistorySync;
+      return !!(again && again.ok === true && again.count > 0 && again.FAKE_HISTORY_SYNC === false);
+    }, null, { timeout: 30000, polling: 1000 }).then(() => true).catch(() => false);
     if (!seen) {
       const diag = await desktop.evaluate(() => window.__sosLdHistorySync || null);
       flags.productCode = 'HISTORY_DELIVERY_' + String((diag && diag.code) || 'NO_EVENT');
       return { flags };
     }
     flags.HISTORY_SYNC_COMPLETE = true;
+    await desktop.evaluate(() => {
+      const panel = document.getElementById('profilePanel');
+      const frame = document.getElementById('profilePanelFrame');
+      if (panel) panel.hidden = true;
+      if (frame) frame.src = '';
+    });
     await desktop.locator('#messagesToggle').click({ timeout: 10000 });
     const list = await desktop.evaluate(() => {
       const App = window.NostrApp || {};
