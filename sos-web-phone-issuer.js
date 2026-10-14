@@ -339,7 +339,7 @@
       return { ok: false, code: 'RESUME_EXPORT_FAIL' };
     }
     const cer = signerCeremonyUrl();
-    const returnPath = '/videos.html?v=899s22';
+    const returnPath = '/videos.html?v=899s23';
     const record = {
       v: 1,
       exp: Date.now() + RESUME_TTL_MS,
@@ -444,6 +444,14 @@
         code: 'FORGED_DESKTOP_ACK',
       });
       return { ok: false, code: 'FORGED_DESKTOP_ACK' };
+    }
+    if (ack.verified !== true) {
+      linkTrace('SIGNER_APPROVAL_ERROR', {
+        pairingFp: pairingFp,
+        accountFp: accountFp,
+        code: 'DESKTOP_ACK_UNVERIFIED',
+      });
+      return { ok: false, code: 'DESKTOP_ACK_UNVERIFIED' };
     }
     linkTrace('DESKTOP_VERIFY_STRICT', { pairingFp: pairingFp, accountFp: accountFp });
     linkTrace('DESKTOP_LINKED', { pairingFp: pairingFp, accountFp: accountFp });

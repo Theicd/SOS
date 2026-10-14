@@ -735,18 +735,10 @@
           return;
         }
         if (body.type === 'device_authorization' && body.authorization) {
+          if (state === 'LINKED' || state === 'AUTH_WAIT') return;
           linkedAuth = body.authorization;
-          const ackBody = new TextEncoder().encode(
-            JSON.stringify({
-              type: 'device_auth_ack',
-              authorizationId: linkedAuth.authorizationId,
-              deviceId: linkedAuth.deviceId,
-              accountP: linkedAuth.accountP,
-            }),
-          );
-          const sealed = await seal(sk, tr, ackBody);
-          await publish(JSON.stringify({ type: 'aead', pairingId, iv: sealed.ivB64, ct: sealed.ctB64 }), 'desktop');
-          state = 'LINKED';
+          state = 'AUTH_WAIT';
+          dbgPhase('AUTH_RECEIVED', { pairingFp: pairingId.slice(0, 12) });
           waiters.splice(0).forEach((w) => w(linkedAuth));
         }
       }
@@ -772,6 +764,22 @@
           dSignSk: new Uint8Array(dSignSk),
           dEncPriv: new Uint8Array(dEnc.priv),
         };
+      },
+      /** Publish the desktop ack only after verifyStrict and durable persist have succeeded. */
+      async acknowledgeLinked(auth) {
+        if (state !== 'AUTH_WAIT' || !sk || !tr || !auth) return { ok: false, code: 'NOT_READY_TO_ACK' };
+        const ackBody = new TextEncoder().encode(JSON.stringify({
+          type: 'device_auth_ack',
+          verified: true,
+          authorizationId: auth.authorizationId,
+          deviceId: auth.deviceId,
+          accountP: auth.accountP,
+        }));
+        const sealedAck = await seal(sk, tr, ackBody);
+        await publish(JSON.stringify({ type: 'aead', pairingId, iv: sealedAck.ivB64, ct: sealedAck.ctB64 }), 'desktop');
+        state = 'LINKED';
+        dbgPhase('DESKTOP_VERIFY_STRICT', { pairingFp: pairingId.slice(0, 12) });
+        return { ok: true };
       },
       stop() {
         try {
@@ -957,6 +965,7 @@
         if (body.type === 'device_auth_ack') {
           authAck = {
             ok: true,
+            verified: body.verified === true,
             authorizationId: String(body.authorizationId || '').toLowerCase(),
             deviceId: String(body.deviceId || '').toLowerCase(),
             accountP: String(body.accountP || '').toLowerCase(),
@@ -1149,6 +1158,7 @@
       if (body.type !== 'device_auth_ack') return;
       authAck = {
         ok: true,
+        verified: body.verified === true,
         authorizationId: String(body.authorizationId || '').toLowerCase(),
         deviceId: String(body.deviceId || '').toLowerCase(),
         accountP: String(body.accountP || '').toLowerCase(),

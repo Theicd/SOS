@@ -229,11 +229,16 @@
       .waitLinked(APPROVAL_WAIT_MS)
       .then(async (auth) => {
         if (!_pairing) return;
-        const secrets = typeof session.exportDeviceSecrets === 'function' ? session.exportDeviceSecrets() : null;
-        const accepted = await acceptAuthorizationObject(auth, {
-          session,
-          secrets,
-        });
+        const accepted = await acceptAuthorizationObject(auth, { session });
+        if (accepted && accepted.ok && typeof session.acknowledgeLinked === 'function') {
+          const acked = await session.acknowledgeLinked(auth);
+          if (!acked || acked.ok !== true) {
+            _pairing.state = 'FAILURE';
+            try { window.__sosMd3AcceptFail = (acked && acked.code) || 'ACK_FAIL'; } catch (_e) {}
+            renderPairingUi();
+            return;
+          }
+        }
         if (accepted && accepted.ok) {
           _pairing.state = 'APPROVED';
           renderPairingUi();
@@ -956,7 +961,11 @@
     const devices = readRegistry().filter((d) => String(d.accountP || '').toLowerCase() === accountP);
     if (devices.length >= MAX_LINKED) return { ok: false, code: 'MAX_LINKED_DEVICES' };
 
-    const secrets = (ctx && ctx.secrets && ctx.secrets.ok && ctx.secrets) || null;
+    let secrets = (ctx && ctx.secrets && ctx.secrets.ok && ctx.secrets) || null;
+    if (!secrets && ctx && ctx.session && typeof ctx.session.exportDeviceSecrets === 'function') {
+      const exported = ctx.session.exportDeviceSecrets();
+      if (exported && exported.ok) secrets = exported;
+    }
     if (!secrets) return { ok: false, code: 'DEVICE_SECRETS_UNAVAILABLE' };
 
     const persisted = await Store.persistLinkedDevice({
@@ -1309,7 +1318,7 @@
       });
     }
     el.hidden = false;
-    startPairingIntoUi(el);
+    presentDesktopSurface(el);
     return { ok: true, path: 'DESKTOP_DISPLAY_QR' };
   }
 
@@ -1345,8 +1354,73 @@
     try {
       window.__sosLdGuestWelcomeActive = true;
     } catch (_f) {}
-    startPairingIntoUi(el);
+    presentDesktopSurface(el);
     return { ok: true, path: 'GUEST_FIRST_ENTRY_QR' };
+  }
+
+  function renderRestoredDesktop(root) {
+    const st = root && root.querySelector ? root.querySelector('.sos-ld-status') : null;
+    const exp = root && root.querySelector ? root.querySelector('.sos-ld-expiry') : null;
+    const wrap = root && root.querySelector ? root.querySelector('.sos-ld-qr-wrap') : null;
+    if (st) st.textContent = 'המחשב מחובר';
+    if (exp) exp.textContent = '';
+    if (wrap) {
+      wrap.classList.remove('is-error');
+      wrap.innerHTML = '';
+    }
+    if (_pairTimer) {
+      clearInterval(_pairTimer);
+      _pairTimer = null;
+    }
+    _pairing = { state: 'APPROVED', expiresAt: Date.now() + 86400000, _session: null };
+  }
+
+  function presentDesktopSurface(root) {
+    const Store = md4Store();
+    if (!Store || typeof Store.loadLatest !== 'function') {
+      startPairingIntoUi(root);
+      return;
+    }
+    Promise.resolve(Store.loadLatest())
+      .then(async function (loaded) {
+        if (!loaded || loaded.ok !== true) {
+          startPairingIntoUi(root);
+          return;
+        }
+        const Auth = md4Auth();
+        const verified = Auth && typeof Auth.verifyForDestination === 'function'
+          ? await Auth.verifyForDestination(loaded.authorization, {
+            accountP: loaded.accountP,
+            deviceId: loaded.deviceId,
+            D_sign_pub: loaded.D_sign_pub,
+            D_enc_pub: loaded.D_enc_pub,
+          }, Date.now(), { requireHistorySync: true })
+          : { ok: false };
+        if (!verified.ok) {
+          startPairingIntoUi(root);
+          return;
+        }
+        _sessionDevice = {
+          scheme: SCHEME,
+          deviceId: loaded.deviceId,
+          D_sign_pub: loaded.D_sign_pub,
+          D_enc_pub: loaded.D_enc_pub,
+          storageClass: loaded.storageClass,
+          recoveryEligible: false,
+          RECOVERY_CAPABLE: false,
+          hardwareBacked: false,
+          deviceType: 'DESKTOP',
+          label: 'דפדפן',
+          accountP: loaded.accountP,
+          dSignSk: loaded.dSignSk,
+          dEncPriv: loaded.dEncPriv,
+        };
+        _durableAuth = loaded.authorization;
+        renderRestoredDesktop(root);
+      })
+      .catch(function () {
+        startPairingIntoUi(root);
+      });
   }
 
   function continueAsGuest() {
