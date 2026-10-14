@@ -339,7 +339,7 @@
       return { ok: false, code: 'RESUME_EXPORT_FAIL' };
     }
     const cer = signerCeremonyUrl();
-    const returnPath = '/videos.html?v=899s21';
+    const returnPath = '/videos.html?v=899s22';
     const record = {
       v: 1,
       exp: Date.now() + RESUME_TTL_MS,
@@ -497,6 +497,17 @@
     return '';
   }
 
+  async function waitForIssuanceFlag() {
+    const FF = App.SosFeatureFlags || window.SosFeatureFlags;
+    if (FF && typeof FF.whenReady === 'function') {
+      await Promise.race([
+        Promise.resolve(FF.whenReady()).catch(function () {}),
+        new Promise(function (resolve) { setTimeout(resolve, 6000); }),
+      ]);
+    }
+    return featureEnabled();
+  }
+
   async function consumeSameTabReturn() {
     let packed = '';
     try { packed = sessionStorage.getItem('sos_ld_ald_res_v1') || ''; } catch (_e) { packed = ''; }
@@ -511,18 +522,23 @@
       publishLinkStatus({ ok: false, code: 'APPROVAL_FAILED' });
       return;
     }
-    clearSameTabStorage();
-    try { history.replaceState(null, '', location.pathname + location.search); } catch (_e) {}
     if (env.type !== 'SOS_ALD_APPROVAL_RESULT' || !env.artifact) {
+      clearSameTabStorage();
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (_e) {}
       markSameTab(env.code || 'APPROVAL_FAILED');
       publishLinkStatus({ ok: false, code: env.code || 'APPROVAL_FAILED', vaultState: env.vaultState || '' });
       return;
     }
-    if (!featureEnabled()) {
+    const issuanceOn = await waitForIssuanceFlag();
+    if (!issuanceOn) {
+      clearSameTabStorage();
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (_e) {}
       markSameTab('WEB_MD3_ISSUANCE_DISABLED');
       publishLinkStatus({ ok: false, code: 'WEB_MD3_ISSUANCE_DISABLED', WEB_MD3_ISSUANCE: false, T1_FALLBACK_DISABLED: true });
       return;
     }
+    clearSameTabStorage();
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (_e) {}
     markSameTab('RETURN_ACCEPTED');
     publishLinkStatus({ pending: true });
     const me = await waitForActiveAccount(rec.accountP, 20000);
