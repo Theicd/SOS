@@ -1027,6 +1027,14 @@
     } catch (_e) {}
 
     if (_pairing) _pairing.state = 'APPROVED';
+    try {
+      window.__sosLdLinkedIdentity = {
+        accountFp: String(accountP || '').toLowerCase().slice(0, 8),
+        caps: Array.isArray(auth.capabilities) ? auth.capabilities.map(String) : [],
+        HISTORY_SYNC_TRANSFERRED: false,
+        ROOT_K_PRESENT: false,
+      };
+    } catch (_id) {}
     return {
       ok: true,
       ROOT_K_SENT_TO_DESKTOP: false,
@@ -1232,6 +1240,9 @@
         } catch (_p) {}
         st.textContent = statusText;
       }
+      if (_pairing.state === 'APPROVED' && _durableAuth) {
+        paintLinkedIdentity(root, _durableAuth.accountP, _durableAuth.capabilities);
+      }
       if (exp) {
         exp.textContent =
           _pairing.state === 'EXPIRED'
@@ -1358,11 +1369,35 @@
     return { ok: true, path: 'GUEST_FIRST_ENTRY_QR' };
   }
 
+  function paintLinkedIdentity(root, accountP, caps) {
+    if (!root || typeof root.querySelector !== 'function') return;
+    const fp = String(accountP || '').toLowerCase().slice(0, 8);
+    if (!/^[0-9a-f]{8}$/.test(fp)) return;
+    let line = root.querySelector('.sos-ld-linked-identity');
+    if (!line) {
+      line = document.createElement('p');
+      line.className = 'sos-ld-linked-identity';
+      const st = root.querySelector('.sos-ld-status');
+      if (st && st.parentNode) st.parentNode.insertBefore(line, st.nextSibling);
+      else root.appendChild(line);
+    }
+    line.textContent = 'חשבון ' + fp;
+    try {
+      window.__sosLdLinkedIdentity = {
+        accountFp: fp,
+        caps: Array.isArray(caps) ? caps.map(String) : (window.__sosLdLinkedIdentity && window.__sosLdLinkedIdentity.caps) || [],
+        HISTORY_SYNC_TRANSFERRED: false,
+        ROOT_K_PRESENT: false,
+      };
+    } catch (_e) {}
+  }
+
   function renderRestoredDesktop(root) {
     const st = root && root.querySelector ? root.querySelector('.sos-ld-status') : null;
     const exp = root && root.querySelector ? root.querySelector('.sos-ld-expiry') : null;
     const wrap = root && root.querySelector ? root.querySelector('.sos-ld-qr-wrap') : null;
     if (st) st.textContent = 'המחשב מחובר';
+    if (_durableAuth) paintLinkedIdentity(root, _durableAuth.accountP, _durableAuth.capabilities);
     if (exp) exp.textContent = '';
     if (wrap) {
       wrap.classList.remove('is-error');

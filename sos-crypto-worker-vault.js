@@ -161,7 +161,7 @@
       const pre = eligibilityPrecheck();
       if (!pre.ok) return pre;
       try {
-        worker = new Worker('./sos-crypto-worker.js?v=20261012&pkg=899s15');
+        worker = new Worker('./sos-crypto-worker.js?v=20261014&pkg=899s24');
         worker.onmessage = onWorkerMessage;
         worker.onerror = onWorkerError;
         lastMeta = await rpc('VAULT_INIT', {});

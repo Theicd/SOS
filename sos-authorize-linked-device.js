@@ -325,6 +325,133 @@
     };
   }
 
+  /**
+   * SCAN_ONLY_LINK_V1 — separate from W1A.
+   * The worker vault's Root K signs one canonical device authorization after a QR scan.
+   * This path never claims WebAuthn UV and never accepts a W1A artifact.
+   * Canonical JSON key order is part of the admission contract.
+   */
+  const SCAN_OP = 'AUTHORIZE_LINKED_DEVICE_SCAN_V1';
+  const SCAN_MAX_TTL_MS = 8 * 24 * 3600 * 1000;
+
+  function scanCanonicalObject(req) {
+    const r = req || {};
+    return {
+      operation: SCAN_OP,
+      protocolVersion: 1,
+      accountP: normHex(r.accountP),
+      deviceId: normHex(r.deviceId),
+      D_sign_pub: normHex(r.D_sign_pub || r.dSignPub),
+      D_enc_pub: normHex(r.D_enc_pub || r.dEncPub),
+      pairingTranscriptHash: normHex(r.pairingTranscriptHash),
+      pairingId: normHex(r.pairingId),
+      authorizationId: normHex(r.authorizationId),
+      authEpoch: Number(r.authEpoch),
+      capabilities: capsList(r.capabilities),
+      expiresAt: Number(r.expiresAt),
+      requestNonce: normHex(r.requestNonce),
+    };
+  }
+
+  function scanCanonicalJson(req) {
+    return JSON.stringify(scanCanonicalObject(req));
+  }
+
+  async function hashScanRequest(req) {
+    const dig = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(scanCanonicalJson(req)));
+    return Array.from(new Uint8Array(dig))
+      .map(function (b) { return b.toString(16).padStart(2, '0'); })
+      .join('');
+  }
+
+  function exactNormalCaps(caps) {
+    const got = capsList(caps);
+    const want = capsList(NORMAL_PROFILE);
+    if (got.length !== want.length) return false;
+    for (let i = 0; i < got.length; i += 1) if (got[i] !== want[i]) return false;
+    return true;
+  }
+
+  async function authorizeScanOnlyLink(args) {
+    const a = args || {};
+    if (a.t1FallbackAttempt === true || a.skipT2 === true || a.webauthnUvProven === true || a.artifact) {
+      return fail('SCAN_ONLY_MIXED_AUTHORITY', { WEBAUTHN_UV_PROVEN: false, SCAN_ONLY_LINK: false });
+    }
+    if (a.featureEnabled !== true) return fail('WEB_MD3_ISSUANCE_DISABLED', { WEBAUTHN_UV_PROVEN: false });
+    if (!a.durableStore || typeof a.durableStore.consume !== 'function') return fail('DURABLE_STORE_UNAVAILABLE');
+    if (!isHex64(a.accountP) || typeof a.signSchnorrHex !== 'function' || !isHex64(a.privHex)) {
+      return fail('VAULT_NOT_READY', { ROOT_K_PRESENT: false, WEBAUTHN_UV_PROVEN: false });
+    }
+    const req = a.expectedRequest || {};
+    if (normHex(req.accountP) !== normHex(a.accountP)) return fail('ACCOUNT_BINDING_MISMATCH');
+    const boundFields = [
+      ['deviceId', req.deviceId],
+      ['D_sign_pub', req.D_sign_pub || req.dSignPub],
+      ['D_enc_pub', req.D_enc_pub || req.dEncPub],
+      ['pairingTranscriptHash', req.pairingTranscriptHash],
+      ['pairingId', req.pairingId],
+      ['authorizationId', req.authorizationId],
+      ['requestNonce', req.requestNonce],
+    ];
+    for (let i = 0; i < boundFields.length; i += 1) {
+      if (!isHex64(boundFields[i][1])) return fail('BAD_SCAN_BINDING', { field: boundFields[i][0] });
+    }
+    if (!(Number(req.authEpoch) >= AUTH_EPOCH_INITIAL)) return fail('BAD_AUTH_EPOCH');
+    const now = Number.isFinite(a.nowMs) ? a.nowMs : Date.now();
+    const exp = Number(req.expiresAt);
+    if (!(exp > now) || exp - now > SCAN_MAX_TTL_MS) return fail('BAD_EXPIRY');
+    if (!exactNormalCaps(req.capabilities)) return fail('PRIVILEGED_CAPABILITY');
+
+    const requestHash = await hashScanRequest(req);
+    const consume = await a.durableStore.consume({
+      requestHash: requestHash,
+      pairingId: normHex(req.pairingId),
+      authorizationId: normHex(req.authorizationId),
+      deviceId: normHex(req.deviceId),
+      accountP: normHex(req.accountP),
+    });
+    if (!consume || consume.ok !== true) {
+      return fail((consume && consume.code) || 'CONSUME_FAILED', {
+        DURABLE_ONE_TIME_CONSUMPTION: false,
+        WEBAUTHN_UV_PROVEN: false,
+        SCAN_ONLY_LINK: false,
+        CONCURRENT_REPLAY_REJECTED: !!(consume && (consume.code === 'PAIRING_REPLAY' || consume.code === 'AUTHORIZATION_REPLAY')),
+      });
+    }
+
+    const draft = buildAuthorizationDraft(req, {
+      nowMs: now,
+      storageSecurityClass: a.storageSecurityClass || STORAGE_CLASS_WEB,
+    });
+    let sigHex;
+    try {
+      sigHex = await a.signSchnorrHex(await messageHash(draft), a.privHex);
+    } catch (_e) {
+      return fail('SIGN_FAILED', { WEBAUTHN_UV_PROVEN: false });
+    }
+    if (!sigHex || !/^[0-9a-f]{128}$/.test(normHex(sigHex))) return fail('BAD_SIGNATURE_OUTPUT');
+    return {
+      ok: true,
+      code: 'OK',
+      authorized: true,
+      operation: SCAN_OP,
+      authorization: Object.assign({}, draft, {
+        rootSignature: normHex(sigHex),
+        rootSignatureHex: normHex(sigHex),
+      }),
+      requestHash: requestHash,
+      approvalId: null,
+      TRUSTED_W1A_PROOF_VERIFIED: false,
+      WEBAUTHN_UV_PROVEN: false,
+      SCAN_ONLY_LINK: true,
+      DURABLE_ONE_TIME_CONSUMPTION: true,
+      T1_FALLBACK_DISABLED: true,
+      ROOT_K_RETURNED: false,
+      NSEC_RETURNED: false,
+      encoding: ENCODING,
+    };
+  }
+
   const api = {
     OP,
     VERSION,
@@ -341,6 +468,10 @@
     buildAuthorizationDraft,
     createDurableApprovalStore,
     authorizeLinkedDevice,
+    authorizeScanOnlyLink,
+    scanCanonicalJson,
+    hashScanRequest,
+    SCAN_OP,
     webMd3IssuanceHostAllowed,
     isProductionHost,
   };

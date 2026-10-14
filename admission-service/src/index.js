@@ -8,6 +8,7 @@ export { InviteLedger, GroupAuthority, AdminPinAuthority, AldApprovalAuthority }
 
 const ALD_ROUTES = {
   '/v1/global/ald/approval/consume': '/ald/approval/consume',
+  '/v1/global/ald/scan-link/consume': '/ald/scan-link/consume',
 };
 
 const PIN_ROUTES = {

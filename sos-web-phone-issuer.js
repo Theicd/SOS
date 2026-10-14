@@ -212,6 +212,25 @@
     });
   }
 
+  async function workerAuthorizeScan(expectedRequest) {
+    const v = App.SosCryptoWorkerVault || window.SosCryptoWorkerVault;
+    if (!v || typeof v.rpc !== 'function') return { ok: false, code: 'WORKER_VAULT_UNAVAILABLE' };
+    const admission =
+      App.FIRST_GROUP_ADMISSION_URL || App.GLOBAL_ADMISSION_URL || window.SOS_ADMISSION_URL || '';
+    try {
+      const out = await v.rpc('AUTHORIZE_LINKED_DEVICE_SCAN', {
+        expectedRequest: expectedRequest,
+        featureEnabled: true,
+        admissionBaseUrl: admission,
+        storageSecurityClass: 'SOFTWARE_ONLY',
+      });
+      if (out && out.WEBAUTHN_UV_PROVEN === true) return { ok: false, code: 'FORGED_UV_CLAIM' };
+      return out;
+    } catch (e) {
+      return { ok: false, code: (e && e.code) || 'AUTHORIZE_RPC_FAILED' };
+    }
+  }
+
   async function workerAuthorize(artifact, expectedRequest) {
     const v = App.SosCryptoWorkerVault || window.SosCryptoWorkerVault;
     if (!v || typeof v.rpc !== 'function') return { ok: false, code: 'WORKER_VAULT_UNAVAILABLE' };
@@ -236,7 +255,8 @@
    */
   async function issueFromPairingQr(qrText, opts) {
     const o = opts || {};
-    if (!featureEnabled()) {
+    const issuanceOn = await waitForIssuanceFlag();
+    if (!issuanceOn) {
       return {
         ok: false,
         code: 'WEB_MD3_ISSUANCE_DISABLED',
@@ -306,7 +326,19 @@
       requestNonce: randomHex(32),
     };
 
-    // Android Chrome drops user activation during MD2. Do not window.open here.
+    // Routine path: the QR scan is the user action. Sign here. Do not leave SOS. Do not window.open here.
+    if (o.transport !== 'popup') {
+      linkTrace('SCAN_ONLY_AUTHORITY', { pairingFp: pairingFp, accountFp: accountFp });
+      return completeScanAuthorizedSession(session, expectedRequest, {
+        accountFp: accountFp,
+        pairingFp: pairingFp,
+        me: me,
+        bound: bound,
+        ackTimeoutMs: o.ackTimeoutMs,
+      });
+    }
+
+    // Explicit popup transport remains the legacy W1A ceremony. Not used for routine scans.
     if (o.transport === 'popup') {
       const approval = await requestTrustedApproval(expectedRequest, o.signerTimeoutMs);
       if (!approval.ok) {
@@ -329,7 +361,29 @@
       });
     }
 
-    return handoffSameTabCeremony(session, expectedRequest, pairingFp, accountFp);
+    return { ok: false, code: 'APPROVAL_FAILED' };
+  }
+
+  async function completeScanAuthorizedSession(session, expectedRequest, ctx) {
+    const accountFp = ctx.accountFp;
+    const pairingFp = ctx.pairingFp;
+    const me = ctx.me;
+    linkTrace('WORKER_ISSUANCE', { pairingFp: pairingFp, accountFp: accountFp, authority: 'SCAN_ONLY_LINK' });
+    const signed = await workerAuthorizeScan(expectedRequest);
+    if (!signed || signed.ok !== true || !signed.authorization || signed.SCAN_ONLY_LINK !== true || signed.WEBAUTHN_UV_PROVEN === true) {
+      try { session.stop(); } catch (_s) {}
+      const code = (signed && signed.code) || 'WORKER_AUTHORIZE_FAILED';
+      linkTrace('SIGNER_APPROVAL_ERROR', { pairingFp: pairingFp, accountFp: accountFp, code: code });
+      return {
+        ok: false,
+        code: code,
+        SCAN_ONLY_LINK: false,
+        WEBAUTHN_UV_PROVEN: false,
+        WEB_MD3_ISSUANCE: false,
+        T1_FALLBACK_DISABLED: true,
+      };
+    }
+    return completeAuthorizedSession(session, expectedRequest, null, ctx, signed);
   }
 
   function handoffSameTabCeremony(session, expectedRequest, pairingFp, accountFp) {
@@ -380,13 +434,13 @@
     return { ok: true, code: 'SAME_TAB_HANDOFF', pending: true, WEB_MD3_ISSUANCE: true };
   }
 
-  async function completeAuthorizedSession(session, expectedRequest, artifact, ctx) {
+  async function completeAuthorizedSession(session, expectedRequest, artifact, ctx, preSigned) {
     const accountFp = ctx.accountFp;
     const pairingFp = ctx.pairingFp;
     const me = ctx.me;
     const bound = ctx.bound;
-    linkTrace('WORKER_ISSUANCE', { pairingFp: pairingFp, accountFp: accountFp });
-    const signed = await workerAuthorize(artifact, expectedRequest);
+    if (!preSigned) linkTrace('WORKER_ISSUANCE', { pairingFp: pairingFp, accountFp: accountFp });
+    const signed = preSigned || await workerAuthorize(artifact, expectedRequest);
     if (!signed || signed.ok !== true || !signed.authorization) {
       try {
         session.stop();
@@ -462,7 +516,9 @@
       authorization: signed.authorization,
       bound: bound,
       WEB_MD3_ISSUANCE: true,
-      MD3_ISSUANCE_PATH: 'WEB_PHONEISSUER_T2',
+      MD3_ISSUANCE_PATH: signed.SCAN_ONLY_LINK === true ? 'SCAN_ONLY_LINK' : 'WEB_PHONEISSUER_T2',
+      SCAN_ONLY_LINK: signed.SCAN_ONLY_LINK === true,
+      WEBAUTHN_UV_PROVEN: signed.WEBAUTHN_UV_PROVEN === true,
       SAME_GLOBAL_P: normHex(signed.authorization.accountP) === me,
       T1_FALLBACK_DISABLED: true,
       ROOT_K_RETURNED: false,

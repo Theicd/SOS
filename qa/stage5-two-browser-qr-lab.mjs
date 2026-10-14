@@ -700,26 +700,123 @@ async function installCanvasCamera(page, pngPath) {
   }, `data:image/png;base64,${b64}`);
 }
 
-function classifyFirstFail(report) {
-  const intakeOk = report.DIRECT_QR_INTAKE === 'PASS_DIAGNOSTIC';
-  const productT2Block =
-    report.productApproval &&
-    (report.productApproval.path === 'REQUIRES_SOS_ANDROID_APP' ||
-      report.productApproval.path === 'WEB_PHONEISSUER_T2' ||
-      report.productApproval.webMd3 === false);
-  if (!report.QR_DECODED && !intakeOk) return 'QR_DECODED';
-  // Product optical path reached approval and stopped without Web T2 — that is the LINKED blocker.
-  if (report.QR_DECODED && productT2Block && !report.WEB_PHONEISSUER_ENABLED) {
-    return 'AUTHORIZATION_STARTED / WEB_T2_UNAVAILABLE (REQUIRES_SOS_ANDROID_APP)';
+async function waitForProductLink(mobile, desktop, pubFp) {
+  const want = String(pubFp || '').toLowerCase().slice(0, 8);
+  const deadline = Date.now() + 90000;
+  let last = {};
+  while (Date.now() < deadline) {
+    const desk = await desktop.evaluate(() => {
+      const statusEl = document.querySelector('#sosLdGuestWelcome .sos-ld-status, #sosLinkedPairPanel .sos-ld-status');
+      const idEl = document.querySelector('.sos-ld-linked-identity');
+      return {
+        status: statusEl ? statusEl.textContent : '',
+        identityText: idEl ? idEl.textContent : '',
+        meta: window.__sosLdLinkedIdentity || null,
+        fail: window.__sosMd3AcceptFail || '',
+        phases: (window.__sosMd3DbgPhases || []).map((p) => p.phase),
+      };
+    }).catch(() => ({}));
+    const mob = await mobile.evaluate(() => ({
+      host: location.host,
+      trace: (window.__sosLdLinkTrace || []).map((r) => ({ phase: r.phase, code: r.code || '' })),
+      status: (document.getElementById('sosLdMobileLinkStatus') || {}).textContent || '',
+      passkey: !!(document.getElementById('continueUvBtn') && !document.getElementById('continueUvBtn').hidden),
+    })).catch(() => ({ trace: [] }));
+    last = Object.assign({}, desk, {
+      trace: mob.trace || [],
+      mobileStatus: mob.status || '',
+      leftSos: mob.host && mob.host !== 'sos010.com',
+      manualClicks: mob.passkey ? 1 : 0,
+    });
+    const fp = last.meta && last.meta.accountFp;
+    const textLinked = String(last.status || '').indexOf('המחשב מחובר') !== -1 && String(last.status || '').indexOf('נכשל') === -1;
+    if (textLinked && fp === want && String(last.identityText || '').indexOf(want) !== -1) {
+      last.linked = true;
+      last.identityMatch = true;
+      last.accountFp = fp;
+      break;
+    }
+    const code = (last.trace.filter((t) => t.code).slice(-1)[0] || {}).code || last.fail || '';
+    if (code && textLinked !== true && /VAULT_NOT_READY|ACCOUNT_|PAIRING_REPLAY|WEB_MD3|WORKER_|BAD_|FORGED|CONSUME|SIGN_/.test(code)) {
+      last.code = code;
+      break;
+    }
+    await desktop.waitForTimeout(1000);
   }
-  if (!intakeOk && !report.PHONE_HELLO_SENT) return 'HELLO_SENT (DIRECT_INTAKE)';
-  if (report.PHONE_HELLO_SENT && !report.DESKTOP_HELLO_RECEIVED) return 'HELLO_RECEIVED';
-  if (report.DESKTOP_HELLO_RECEIVED && !report.POP_VERIFIED) return 'POP_VERIFIED';
-  if (report.POP_VERIFIED && !report.AEAD_CHANNEL_READY) return 'AEAD_CHANNEL_READY';
-  if (report.AEAD_CHANNEL_READY && !report.WEB_PHONEISSUER_ENABLED) return 'T2_APPROVAL_REQUESTED';
-  if (!report.WEB_PHONEISSUER_ENABLED) return 'T2_WEBAUTHN_UV / WEB_PHONEISSUER_UNAVAILABLE';
-  if (!report.WORKER_ONE_TIME_CONSUME) return 'WORKER_ISSUANCE_REQUESTED';
+  const phases = last.trace.map((t) => t.phase).concat(last.phases || []);
+  const out = {
+    linked: last.linked === true,
+    identityMatch: last.identityMatch === true,
+    accountFp: last.accountFp || (last.meta && last.meta.accountFp) || '',
+    status: last.status || '',
+    identityText: last.identityText || '',
+    code: last.code || last.fail || '',
+    leftSos: last.leftSos === true,
+    manualClicks: last.manualClicks || 0,
+    phases,
+    scanOnly: phases.includes('SCAN_ONLY_AUTHORITY'),
+    workerIssued: phases.includes('MD3_AUTHORIZED'),
+    md3: phases.includes('MD3_DELIVERED') || phases.includes('MD3_AUTHORIZED'),
+    verifyStrict: phases.includes('DESKTOP_VERIFY_STRICT'),
+    webauthnClaimed: phases.some((p) => /WEBAUTHN|PASSKEY/.test(p)),
+    restart: false,
+  };
+  if (out.linked) {
+    await desktop.reload({ waitUntil: 'domcontentloaded', timeout: 120000 });
+    await waitApp(desktop);
+    const again = Date.now() + 20000;
+    while (Date.now() < again) {
+      const restored = await desktop.evaluate(() => {
+        const statusEl = document.querySelector('#sosLdGuestWelcome .sos-ld-status, #sosLinkedPairPanel .sos-ld-status');
+        const idEl = document.querySelector('.sos-ld-linked-identity');
+        return {
+          status: statusEl ? statusEl.textContent : '',
+          identityText: idEl ? idEl.textContent : '',
+        };
+      }).catch(() => ({}));
+      if (String(restored.status || '').indexOf('המחשב מחובר') !== -1 && String(restored.identityText || '').indexOf(want) !== -1) {
+        out.restart = true;
+        break;
+      }
+      await desktop.waitForTimeout(500);
+    }
+    out.negatives = await mobile.evaluate(async () => {
+      const Qr = window.SosMd2PairingQr || (window.NostrApp && window.NostrApp.Md2PairingQr);
+      const bad = Qr && Qr.parseQr ? Qr.parseQr('SOSPAIR1:not-a-real-code') : { ok: true };
+      const v = window.NostrApp && window.NostrApp.SosCryptoWorkerVault;
+      let wrong = { ok: true, code: 'NO_VAULT' };
+      if (v && typeof v.rpc === 'function') {
+        try {
+          wrong = await v.rpc('AUTHORIZE_LINKED_DEVICE_SCAN', {
+            expectedRequest: { accountP: 'ab'.repeat(32) },
+            featureEnabled: true,
+            admissionBaseUrl: window.NostrApp.FIRST_GROUP_ADMISSION_URL || window.NostrApp.GLOBAL_ADMISSION_URL || '',
+          });
+        } catch (e) {
+          wrong = { ok: false, code: (e && e.code) || 'REJECTED' };
+        }
+      }
+      return {
+        invalidQr: !!(bad && bad.ok === false),
+        wrongAccount: wrong.ok === false,
+        wrongCode: String(wrong.code || '').slice(0, 80),
+      };
+    }).catch((e) => ({ error: String(e && e.message || e).slice(0, 120) }));
+  }
+  return out;
+}
+
+function classifyFirstFail(report) {
+  if (!report.QR_DECODED) return 'QR_DECODED';
+  if (!report.AEAD_CHANNEL_READY && !report.MD3_ISSUED) return 'AEAD_CHANNEL_READY';
+  if (!report.SCAN_ONLY_LINK) return 'SCAN_ONLY_AUTHORITY';
+  if (!report.MD3_ISSUED) return 'MD3_AUTHORIZED';
+  if (!report.DESKTOP_VERIFY_STRICT) return 'DESKTOP_VERIFY_STRICT';
   if (!report.DESKTOP_LINKED) return 'DESKTOP_LINKED';
+  if (!report.ACCOUNT_IDENTITY_VISIBLE) return 'ACCOUNT_IDENTITY';
+  if (report.RESTART_PERSISTENCE !== 'PASS') return 'RESTART_PERSISTENCE';
+  if (report.SAME_TAB_NAVIGATION) return 'LEFT_SOS_PAGE';
+  if (report.MANUAL_CLICKS_AFTER_SCAN) return 'MANUAL_CLICK';
   return null;
 }
 
@@ -879,9 +976,10 @@ async function main() {
     );
     await mobile.waitForTimeout(1500);
 
-    // DIRECT_INTAKE first while QR is fresh (separate lane from optical)
-    report.timeline.mobile.push({ t: Date.now(), event: 'DIRECT_INTAKE_BEGIN' });
-    const intake = await directIntakeMd2(mobile, qrText);
+    // Product success is the optical scanner only. DIRECT_INTAKE is not a scan and is not counted.
+    report.DIRECT_QR_INTAKE = 'NOT_COUNTED';
+    report.timeline.mobile.push({ t: Date.now(), event: 'DIRECT_INTAKE_SKIPPED' });
+    const intake = { ok: false, channelReady: false, code: 'NOT_COUNTED' };
     report.DIRECT_QR_INTAKE = intake.ok ? 'PASS_DIAGNOSTIC' : 'FAIL';
     report.intakeDetail = {
       ok: intake.ok,
@@ -991,13 +1089,31 @@ async function main() {
           ? 'PARTIAL'
           : 'FAIL';
 
+    const linked = await waitForProductLink(mobile, desktop, login.pubFp);
+    report.productLink = linked;
+    report.PASSKEY_REQUIRED_FOR_ROUTINE_LINK = false;
+    report.SCREEN_LOCK_REQUIRED = false;
+    report.MANUAL_CLICKS_AFTER_SCAN = linked.manualClicks || 0;
+    report.SAME_TAB_NAVIGATION = linked.leftSos === true;
+    report.SCAN_ONLY_LINK = linked.scanOnly === true;
+    report.WEBAUTHN_UV_PROVEN = linked.webauthnClaimed === true;
     report.T2_APPROVAL = false;
-    report.REAL_T2_WEBAUTHN_UV = 'BLOCKED_NOT_DEPLOYED';
-    report.WORKER_ONE_TIME_CONSUME = false;
-    report.MD3_ISSUED = false;
-    report.DESKTOP_VERIFY_STRICT = false;
-    report.DESKTOP_LINKED = false;
-    report.RESTART_PERSISTENCE = 'NOT_RUN';
+    report.REAL_T2_WEBAUTHN_UV = 'NOT_USED';
+    report.WORKER_ONE_TIME_CONSUME = linked.workerIssued === true;
+    report.MD3_ISSUED = linked.md3 === true;
+    report.DESKTOP_VERIFY_STRICT = linked.verifyStrict === true;
+    report.DESKTOP_LINKED = linked.linked === true && linked.identityMatch === true;
+    report.ACCOUNT_IDENTITY_VISIBLE = linked.identityMatch === true;
+    report.ACCOUNT_FP = linked.accountFp || '';
+    report.HISTORY_SYNC_TRANSFERRED = false;
+    report.RESTART_PERSISTENCE = linked.restart === true ? 'PASS' : 'FAIL';
+    report.NEGATIVE_SECURITY_TESTS = linked.negatives || null;
+    if (linked.phases) {
+      report.DESKTOP_HELLO_RECEIVED = linked.phases.some((p) => /HELLO_ACCEPTED|HELLO_RECEIVED/.test(p));
+      report.POP_VERIFIED = linked.phases.includes('POP_SENT') || linked.phases.includes('CHANNEL_READY');
+      report.AEAD_CHANNEL_READY = linked.phases.includes('CHANNEL_READY') || linked.phases.includes('AUTH_RECEIVED') || linked.md3 === true;
+      report.PHONE_HELLO_SENT = report.AEAD_CHANNEL_READY;
+    }
 
     // Screenshots (UI only — QR png already saved; no secret text files)
     await desktop.screenshot({ path: path.join(OUT, 'desktop-ui.png'), fullPage: false });
@@ -1026,7 +1142,7 @@ async function main() {
     } else if (!report.WEB_PHONEISSUER_ENABLED) {
       report.STATUS = 'BLOCKED_QA_INFRA';
     } else {
-      report.STATUS = 'BLOCKED_QA_INFRA';
+      report.STATUS = 'FAIL_TESTS';
     }
 
     report.ATTEMPTS = 1;
@@ -1049,13 +1165,12 @@ async function main() {
       report.SIMULATED_CAMERA_SCAN !== 'PASS' ? 'Virtual camera optical decode did not PASS' : null,
       !report.DESKTOP_LINKED ? 'Desktop LINKED not achieved on this run' : null,
     ].filter(Boolean);
-    report.OWNER_ACTION_REQUIRED = [
-      'Enroll Passkey for the QA account at https://signer.sos010.com/enroll (RP=signer.sos010.com)',
-      'Complete WebAuthn UV on Signer ALD during link',
-      'Physical Xiaomi Chrome optical + UV after automated PASS',
-    ];
-    report.NEXT_SAFE_SLICE =
-      'Enroll production Signer Passkey for QA account → re-run lab → physical Xiaomi acceptance';
+    report.OWNER_ACTION_REQUIRED = report.DESKTOP_LINKED
+      ? ['One physical Chrome QR scan after 10/10 automated passes']
+      : ['Automated link has not passed; do not start a physical scan yet'];
+    report.NEXT_SAFE_SLICE = report.DESKTOP_LINKED
+      ? 'Repeat the optical lab to 10/10, then one physical scan'
+      : 'Fix the first failed transition and rerun the optical lab';
 
     // Correlated summary (sanitized)
     report.correlated = {

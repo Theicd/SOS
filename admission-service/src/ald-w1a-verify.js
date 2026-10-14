@@ -210,3 +210,61 @@ export function validateAldConsumeAuth(authEvent, expectedAccountP) {
   if (String(body.purpose || '') !== 'ALD_APPROVAL_CONSUME') return { ok: false, code: 'BAD_AUTH_PURPOSE' };
   return { ok: true, pubkey: pk };
 }
+
+const SCAN_OP = 'AUTHORIZE_LINKED_DEVICE_SCAN_V1';
+const HEX64 = /^[0-9a-f]{64}$/;
+
+function normHex(v) {
+  return String(v || '').toLowerCase().replace(/^0x/, '').trim();
+}
+
+/** Must match sos-authorize-linked-device.js scanCanonicalJson key order. */
+export function canonicalScanLinkJson(req) {
+  const r = req || {};
+  const caps = Array.isArray(r.capabilities) ? r.capabilities.map(String).sort() : [];
+  return JSON.stringify({
+    operation: SCAN_OP,
+    protocolVersion: 1,
+    accountP: normHex(r.accountP),
+    deviceId: normHex(r.deviceId),
+    D_sign_pub: normHex(r.D_sign_pub || r.dSignPub),
+    D_enc_pub: normHex(r.D_enc_pub || r.dEncPub),
+    pairingTranscriptHash: normHex(r.pairingTranscriptHash),
+    pairingId: normHex(r.pairingId),
+    authorizationId: normHex(r.authorizationId),
+    authEpoch: Number(r.authEpoch),
+    capabilities: caps,
+    expiresAt: Number(r.expiresAt),
+    requestNonce: normHex(r.requestNonce),
+  });
+}
+
+export async function sha256HexUtf8(text) {
+  const dig = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(text || '')));
+  return bytesToHex(new Uint8Array(dig));
+}
+
+/** Account-signed consume for SCAN_ONLY_LINK. Does not accept a WebAuthn artifact. */
+export function validateScanLinkConsumeAuth(authEvent, expectedAccountP) {
+  if (!authEvent || !verifyEvent(authEvent)) return { ok: false, code: 'BAD_AUTH' };
+  const pk = String(authEvent.pubkey || '').toLowerCase();
+  if (pk !== String(expectedAccountP || '').toLowerCase()) return { ok: false, code: 'AUTH_ACCOUNT_MISMATCH' };
+  const age = Math.abs(Math.floor(Date.now() / 1000) - Number(authEvent.created_at || 0));
+  if (age > 300) return { ok: false, code: 'AUTH_STALE' };
+  if (Number(authEvent.kind) !== 22242) return { ok: false, code: 'BAD_AUTH_KIND' };
+  let body;
+  try { body = JSON.parse(authEvent.content || '{}'); } catch (_e) { return { ok: false, code: 'BAD_AUTH_CONTENT' }; }
+  if (String(body.purpose || '') !== 'SCAN_ONLY_LINK_CONSUME') return { ok: false, code: 'BAD_AUTH_PURPOSE' };
+  if (!HEX64.test(normHex(body.requestHash))) return { ok: false, code: 'BAD_REQUEST_HASH' };
+  if (!HEX64.test(normHex(body.pairingId)) || !HEX64.test(normHex(body.authorizationId)) || !HEX64.test(normHex(body.deviceId))) {
+    return { ok: false, code: 'BAD_SCAN_BINDING' };
+  }
+  return {
+    ok: true,
+    pubkey: pk,
+    requestHash: normHex(body.requestHash),
+    pairingId: normHex(body.pairingId),
+    authorizationId: normHex(body.authorizationId),
+    deviceId: normHex(body.deviceId),
+  };
+}

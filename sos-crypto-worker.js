@@ -47,7 +47,7 @@
     importScripts('./sos-ald-w1a-verify.js');
   } catch (_aldV) {}
   try {
-    importScripts('./sos-authorize-linked-device.js');
+    importScripts('./sos-authorize-linked-device.js?v=20261014&pkg=899s24');
   } catch (_aldA) {}
   try {
     importScripts('./vendor/sos-noble-schnorr.js');
@@ -815,6 +815,106 @@
     };
   }
 
+  /**
+   * SCAN_ONLY_LINK_V1. Signs one device authorization with the vault Root K.
+   * Refuses W1A artifacts and never reports WebAuthn UV.
+   */
+  async function authorizeScanOnlyLinkOp(params) {
+    requireReady();
+    const Ald = self.SosAuthorizeLinkedDevice;
+    if (!Ald || typeof Ald.authorizeScanOnlyLink !== 'function') {
+      fail('ALD_MODULE_MISSING', 'scan-only module not loaded');
+    }
+    const p = params || {};
+    if (p.t1Fallback === true || p.skipT2 === true || p.webauthnUvProven === true || p.artifact) {
+      fail('SCAN_ONLY_MIXED_AUTHORITY', 'refusing mixed WebAuthn or T1 input');
+    }
+    if (p.featureEnabled !== true) fail('WEB_MD3_ISSUANCE_DISABLED', 'feature flag off');
+    const host = workerHostname();
+    const base = String(p.admissionBaseUrl || '').replace(/\/$/, '');
+    if (!p._qaDurableStore && (!base || !/^https?:\/\//i.test(base))) {
+      fail('DURABLE_STORE_UNAVAILABLE', 'admissionBaseUrl required');
+    }
+    loadNostrTools();
+    const durableStore = p._qaDurableStore && typeof p._qaDurableStore.consume === 'function'
+      ? p._qaDurableStore
+      : {
+          async consume(rec) {
+            const now = Math.floor(Date.now() / 1000);
+            const authDraft = {
+              kind: 22242,
+              created_at: now,
+              tags: [
+                ['expiration', String(now + 120)],
+                ['p', sessionPubHex],
+              ],
+              content: JSON.stringify({
+                purpose: 'SCAN_ONLY_LINK_CONSUME',
+                requestHash: rec.requestHash,
+                pairingId: rec.pairingId,
+                authorizationId: rec.authorizationId,
+                deviceId: rec.deviceId,
+              }),
+              pubkey: sessionPubHex,
+            };
+            const authEvent = NT.finalizeEvent(authDraft, sessionPrivHex);
+            let res;
+            try {
+              res = await fetch(base + '/v1/global/ald/scan-link/consume', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  expectedRequest: p.expectedRequest,
+                  authEvent: authEvent,
+                }),
+              });
+            } catch (_e) {
+              return { ok: false, code: 'DURABLE_STORE_UNAVAILABLE' };
+            }
+            let body = null;
+            try { body = await res.json(); } catch (_j) { return { ok: false, code: 'DURABLE_STORE_UNAVAILABLE' }; }
+            if (!body || body.ok !== true) {
+              return { ok: false, code: (body && body.code) || 'CONSUME_FAILED' };
+            }
+            if (body.WEBAUTHN_UV_PROVEN === true || body.TRUSTED_W1A_PROOF_VERIFIED === true) {
+              return { ok: false, code: 'FORGED_UV_CLAIM' };
+            }
+            if (String(body.requestHash) !== String(rec.requestHash)) return { ok: false, code: 'RECEIPT_HASH_MISMATCH' };
+            return { ok: true, code: 'CONSUMED' };
+          },
+        };
+    const out = await Ald.authorizeScanOnlyLink({
+      expectedRequest: p.expectedRequest,
+      accountP: sessionPubHex,
+      privHex: sessionPrivHex,
+      signSchnorrHex: signSchnorrMsgHex,
+      durableStore: durableStore,
+      featureEnabled: true,
+      hostname: host,
+      nowMs: p.nowMs,
+      storageSecurityClass: p.storageSecurityClass || 'SOFTWARE_ONLY',
+      t1FallbackAttempt: false,
+      webauthnUvProven: false,
+      artifact: null,
+    });
+    if (!out || out.ok !== true || out.SCAN_ONLY_LINK !== true || out.WEBAUTHN_UV_PROVEN === true) {
+      fail(out && out.code ? out.code : 'AUTHORIZE_FAILED', out && out.code ? out.code : 'scan authorize failed');
+    }
+    return {
+      ok: true,
+      operation: 'AUTHORIZE_LINKED_DEVICE_SCAN',
+      authorization: out.authorization,
+      requestHash: out.requestHash,
+      TRUSTED_W1A_PROOF_VERIFIED: false,
+      WEBAUTHN_UV_PROVEN: false,
+      SCAN_ONLY_LINK: true,
+      DURABLE_ONE_TIME_CONSUMPTION: true,
+      T1_FALLBACK_DISABLED: true,
+      ROOT_K_RETURNED: false,
+      encoding: out.encoding,
+    };
+  }
+
   function rejectBannedOps(op) {
     const banned = [
       'SIGN_RAW',
@@ -935,6 +1035,8 @@
         return handoffStatus();
       case 'AUTHORIZE_LINKED_DEVICE':
         return authorizeLinkedDeviceOp(params || {});
+      case 'AUTHORIZE_LINKED_DEVICE_SCAN':
+        return authorizeScanOnlyLinkOp(params || {});
       case 'SIGN_CHAT_EVENT':
         return signTyped('SIGN_CHAT_EVENT', params && params.draft);
       case 'SIGN_PROFILE_EVENT':

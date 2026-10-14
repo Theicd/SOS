@@ -56,7 +56,8 @@ check('handoff page precached', sw.includes('./handoff.html') && sw.includes('f5
 const importer = read(path.join(root, 'isolated-signer-trusted-import.js'));
 check('import launcher keeps opener', importer.includes("window.open(url, 'sos_signer_import', 'width=480,height=720')") && !/window\.open\([^)]*noopener/.test(importer));
 check('import message bound to popup', importer.includes('event.source !== pending.win'));
-check('web cache bust 899s23', videos.includes('pkg=899s23') && issuer.includes("/videos.html?v=899s23") && videos.includes('sos-md4-desktop-authority.js'));
+check('web cache bust 899s24', videos.includes('pkg=899s24') && videos.includes('sos-md4-desktop-authority.js'));
+check('scan-only routine path', issuer.includes("AUTHORIZE_LINKED_DEVICE_SCAN") && issuer.includes('completeScanAuthorizedSession') && issuer.includes("o.transport !== 'popup'"));
 check('desktop verifies before ack', md2.includes('acknowledgeLinked') && md2.includes('verified: true') && issuer.includes('DESKTOP_ACK_UNVERIFIED'));
 check('return waits for issuance flag', issuer.includes('waitForIssuanceFlag') && issuer.includes('whenReady'));
 check('return payload stashed before redirect', videos.includes('sos_ld_ald_res_v1') && issuer.includes('peekResumeRecord') && issuer.includes('markSameTab'));
