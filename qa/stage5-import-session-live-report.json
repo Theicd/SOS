@@ -1,0 +1,70 @@
+{
+  "gate": "STAGE5_IMPORT_SESSION_LIVE",
+  "status": "PASS",
+  "checks": {
+    "setup button visible": {
+      "ok": true,
+      "detail": "השלמת אישור החשבון"
+    },
+    "no bare import link": {
+      "ok": true,
+      "detail": "0"
+    },
+    "import path": {
+      "ok": true,
+      "detail": "/import"
+    },
+    "protocol": {
+      "ok": true,
+      "detail": "1"
+    },
+    "sessionId": {
+      "ok": true,
+      "detail": "len=32"
+    },
+    "requestNonce": {
+      "ok": true,
+      "detail": "len=16"
+    },
+    "expected pubkey": {
+      "ok": true,
+      "detail": "abababab"
+    },
+    "return origin": {
+      "ok": true,
+      "detail": "https://sos010.com"
+    },
+    "url has no secret": {
+      "ok": true,
+      "detail": ""
+    },
+    "expected identity shown": {
+      "ok": true,
+      "detail": "abababab…abababab"
+    },
+    "not SESSION_REQUIRED": {
+      "ok": true,
+      "detail": "vault=EMPTY · expected abababab…abababab"
+    },
+    "handoff path": {
+      "ok": true,
+      "detail": "/handoff"
+    },
+    "handoff expected pubkey": {
+      "ok": true,
+      "detail": "abababab"
+    },
+    "handoff return origin": {
+      "ok": true,
+      "detail": "https://sos010.com"
+    },
+    "handoff url has no secret": {
+      "ok": true,
+      "detail": ""
+    },
+    "handoff not 404": {
+      "ok": true,
+      "detail": "המפתח האישי שלך\n\nhttps://signer.sos010.com\n\nחשבון (טביעת אצבע)\n\nabababab…abababa"
+    }
+  }
+}

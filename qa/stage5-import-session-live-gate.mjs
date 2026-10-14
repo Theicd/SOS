@@ -71,10 +71,26 @@ try {
   const direct = await page.locator('#sosLdMobileLinkStatus a[href*="import.html"]').count();
   check('no bare import link', direct === 0, String(direct));
 
-  const [popup] = await Promise.all([
-    page.waitForEvent('popup', { timeout: 15000 }),
-    page.locator('#sosLdMobileLinkStatus button').click(),
-  ]);
+  await page.evaluate((pk) => {
+    const App = window.NostrApp;
+    App.publicKey = pk;
+    App.guestMode = false;
+    window.__sosOpened = [];
+    const orig = window.open.bind(window);
+    window.open = function (url, name, features) {
+      window.__sosOpened.push({ url: String(url || ''), name: String(name || ''), features: String(features || '') });
+      return orig(url, name, features);
+    };
+  }, PK);
+  const popupPromise = page.waitForEvent('popup', { timeout: 8000 }).catch(() => null);
+  await page.locator('#sosLdMobileLinkStatus button').click();
+  const popup = await popupPromise;
+  const opened = await page.evaluate(() => window.__sosOpened || []);
+  const statusAfter = await page.locator('#sosLdMobileLinkStatus').innerText();
+  if (!popup) {
+    check('import popup opened', false, JSON.stringify({ opened: opened.map((o) => o.url.split('?')[0]), status: statusAfter.slice(0, 180) }));
+    throw new Error('NO_POPUP');
+  }
   await popup.waitForLoadState('domcontentloaded');
   const q = paramsOf(popup.url());
   check('import path', q.path === '/import' || q.path === '/import.html', q.path);
