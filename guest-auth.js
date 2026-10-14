@@ -11,6 +11,10 @@
 
   function isAuthenticatedTopBarUi() {
     if (App.guestMode !== false) return false;
+    var pubEarly = String(App.publicKey || '').trim();
+    if (App.linkedDeviceSession === true && String(App.identityState || '') === 'LINKED_DEVICE' && /^[0-9a-f]{64}$/i.test(pubEarly)) {
+      return true;
+    }
     var st = String(App.identityState || '');
     if (
       st === (App.IDENTITY_NEW_USER || 'IDENTITY_NEW_USER') ||

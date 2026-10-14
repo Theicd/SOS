@@ -744,12 +744,30 @@ async function waitForProductLink(mobile, desktop, pubFp) {
     const desk = await desktop.evaluate(() => {
       const statusEl = document.querySelector('#sosLdGuestWelcome .sos-ld-status, #sosLinkedPairPanel .sos-ld-status');
       const idEl = document.querySelector('.sos-ld-linked-identity');
+      const welcome = document.getElementById('sosLdGuestWelcome');
+      const panel = document.getElementById('sosLinkedPairPanel');
+      const chip = document.getElementById('sosLdAccountChip');
+      const profile = document.getElementById('topBarProfile');
+      const open = window.__sosLdAccountOpen || null;
+      const cap = window.__sosLdCapability || null;
+      const App = window.NostrApp || {};
       return {
         status: statusEl ? statusEl.textContent : '',
         identityText: idEl ? idEl.textContent : '',
         meta: window.__sosLdLinkedIdentity || null,
         fail: window.__sosMd3AcceptFail || '',
         phases: (window.__sosMd3DbgPhases || []).map((p) => p.phase),
+        welcomeHidden: !welcome || welcome.hidden === true,
+        panelHidden: !panel || panel.hidden === true,
+        chip: chip ? chip.textContent : '',
+        chipVisible: !!(chip && chip.hidden !== true),
+        profileVisible: !!(profile && profile.hidden !== true),
+        openFp: open && open.accountFp ? open.accountFp : '',
+        accountOpen: !!(open && open.guestMode === false && open.linkedDeviceSession === true && open.ROOT_K_PRESENT === false && open.HISTORY_SYNC_TRANSFERRED === false),
+        identityState: String(App.identityState || ''),
+        guest: App.guestMode === true,
+        capOk: !!(cap && cap.ok === true && cap.cap === 'DEVICE_CHAT' && cap.ROOT_K_PRESENT === false),
+        capCode: cap && cap.code ? String(cap.code) : '',
       };
     }).catch(() => ({}));
     const mob = await mobile.evaluate(() => ({
@@ -764,11 +782,13 @@ async function waitForProductLink(mobile, desktop, pubFp) {
       leftSos: mob.host && mob.host !== 'sos010.com',
       manualClicks: mob.passkey ? 1 : 0,
     });
-    const fp = last.meta && last.meta.accountFp;
+    const fp = last.openFp || (last.meta && last.meta.accountFp);
     const textLinked = String(last.status || '').indexOf('המחשב מחובר') !== -1 && String(last.status || '').indexOf('נכשל') === -1;
-    if (textLinked && fp === want && String(last.identityText || '').indexOf(want) !== -1) {
+    const opened = last.welcomeHidden === true && last.panelHidden === true && last.chipVisible === true && last.profileVisible === true && last.accountOpen === true && last.capOk === true && last.identityState === 'LINKED_DEVICE' && last.guest !== true && fp === want && String(last.chip || '').indexOf(want) !== -1;
+    if (textLinked && opened) {
       last.linked = true;
       last.identityMatch = true;
+      last.accountOpened = true;
       last.accountFp = fp;
       break;
     }
@@ -795,6 +815,9 @@ async function waitForProductLink(mobile, desktop, pubFp) {
     md3: phases.includes('MD3_DELIVERED') || phases.includes('MD3_AUTHORIZED'),
     verifyStrict: phases.includes('DESKTOP_VERIFY_STRICT'),
     webauthnClaimed: phases.some((p) => /WEBAUTHN|PASSKEY/.test(p)),
+    accountOpened: last.accountOpened === true,
+    capOk: last.capOk === true,
+    capCode: last.capCode || '',
     restart: false,
   };
   if (out.linked) {
@@ -803,14 +826,27 @@ async function waitForProductLink(mobile, desktop, pubFp) {
     const again = Date.now() + 20000;
     while (Date.now() < again) {
       const restored = await desktop.evaluate(() => {
-        const statusEl = document.querySelector('#sosLdGuestWelcome .sos-ld-status, #sosLinkedPairPanel .sos-ld-status');
-        const idEl = document.querySelector('.sos-ld-linked-identity');
+        const welcome = document.getElementById('sosLdGuestWelcome');
+        const panel = document.getElementById('sosLinkedPairPanel');
+        const chip = document.getElementById('sosLdAccountChip');
+        const profile = document.getElementById('topBarProfile');
+        const open = window.__sosLdAccountOpen || null;
+        const cap = window.__sosLdCapability || null;
+        const App = window.NostrApp || {};
         return {
-          status: statusEl ? statusEl.textContent : '',
-          identityText: idEl ? idEl.textContent : '',
+          welcomeHidden: !welcome || welcome.hidden === true,
+          panelHidden: !panel || panel.hidden === true,
+          chip: chip ? chip.textContent : '',
+          chipVisible: !!(chip && chip.hidden !== true),
+          profileVisible: !!(profile && profile.hidden !== true),
+          openFp: open && open.accountFp ? open.accountFp : '',
+          accountOpen: !!(open && open.guestMode === false && open.linkedDeviceSession === true && open.ROOT_K_PRESENT === false),
+          identityState: String(App.identityState || ''),
+          guest: App.guestMode === true,
+          capOk: !!(cap && cap.ok === true && cap.ROOT_K_PRESENT === false),
         };
       }).catch(() => ({}));
-      if (String(restored.status || '').indexOf('המחשב מחובר') !== -1 && String(restored.identityText || '').indexOf(want) !== -1) {
+      if (restored.welcomeHidden === true && restored.panelHidden === true && restored.chipVisible === true && restored.profileVisible === true && restored.accountOpen === true && restored.capOk === true && restored.identityState === 'LINKED_DEVICE' && restored.guest !== true && restored.openFp === want && String(restored.chip || '').indexOf(want) !== -1) {
         out.restart = true;
         break;
       }
@@ -850,6 +886,8 @@ function classifyFirstFail(report) {
   if (!report.DESKTOP_VERIFY_STRICT) return 'DESKTOP_VERIFY_STRICT';
   if (!report.DESKTOP_LINKED) return 'DESKTOP_LINKED';
   if (!report.ACCOUNT_IDENTITY_VISIBLE) return 'ACCOUNT_IDENTITY';
+  if (report.ACCOUNT_OPENED !== true) return 'ACCOUNT_OPENED';
+  if (report.DEVICE_CAPABILITY !== true) return 'DEVICE_CAPABILITY';
   if (report.RESTART_PERSISTENCE !== 'PASS') return 'RESTART_PERSISTENCE';
   if (report.SAME_TAB_NAVIGATION) return 'LEFT_SOS_PAGE';
   if (report.MANUAL_CLICKS_AFTER_SCAN) return 'MANUAL_CLICK';
@@ -1144,6 +1182,8 @@ async function main() {
     report.DESKTOP_VERIFY_STRICT = linked.verifyStrict === true;
     report.DESKTOP_LINKED = linked.linked === true && linked.identityMatch === true;
     report.ACCOUNT_IDENTITY_VISIBLE = linked.identityMatch === true;
+    report.ACCOUNT_OPENED = linked.accountOpened === true;
+    report.DEVICE_CAPABILITY = linked.capOk === true;
     report.ACCOUNT_FP = linked.accountFp || '';
     report.HISTORY_SYNC_TRANSFERRED = false;
     report.RESTART_PERSISTENCE = linked.restart === true ? 'PASS' : 'FAIL';

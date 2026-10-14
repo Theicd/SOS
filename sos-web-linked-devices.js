@@ -242,6 +242,7 @@
         if (accepted && accepted.ok) {
           _pairing.state = 'APPROVED';
           renderPairingUi();
+          await openLinkedDesktopAccount();
         } else {
           _pairing.state = 'FAILURE';
           try {
@@ -352,6 +353,8 @@
       '.sos-ld-qr-wrap canvas{display:block;width:100%;height:100%;max-width:408px;max-height:408px;background:#fff;image-rendering:pixelated;image-rendering:crisp-edges}' +
       '.sos-ld-qr-wrap.is-error{background:#2a2a2a;color:#f0f0f0;text-align:center;padding:20px;font-size:14px;line-height:1.45}' +
       '.sos-ld-status,.sos-ld-expiry{text-align:center;margin:6px 0;font-size:13px}' +
+      '#sosLdAccountChip{position:fixed;top:12px;left:12px;z-index:12040;background:#141414;color:#f5f5f5;border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:8px 14px;font-size:14px;line-height:1.2}' +
+      '#sosLdAccountChip[hidden]{display:none!important}' +
       '.sos-ld-expiry{opacity:.8}' +
       '.sos-ld-actions{display:flex;flex-direction:column;gap:10px;margin-top:16px}' +
       '.sos-ld-actions .button-primary,.sos-ld-actions .button-secondary{width:100%;min-height:44px}' +
@@ -1349,7 +1352,7 @@
         '<div class="sos-ld-actions">' +
         '<button type="button" class="button-primary" data-ld-continue-guest>המשך כאורח</button>' +
         '</div>' +
-        '<p class="sos-ld-footnote">הקוד מתחדש אוטומטית כשפג תוקפו. אפשר לדפדף כאורח בלי קישור — קישור מאובטח דורש אישור בטלפון ואינו מתבצע מסריקה בלבד.</p>' +
+        '<p class="sos-ld-footnote">הקוד מתחדש אוטומטית כשפג תוקפו. סריקה אחת בטלפון המחובר פותחת את אותו חשבון במחשב.</p>' +
         '</div>';
       document.body.appendChild(el);
       bindDesktopPairingControls(el, {});
@@ -1408,6 +1411,96 @@
       _pairTimer = null;
     }
     _pairing = { state: 'APPROVED', expiresAt: Date.now() + 86400000, _session: null };
+    Promise.resolve(openLinkedDesktopAccount()).catch(function () {});
+  }
+
+  async function proveGrantedCapability(cap) {
+    const dev = _sessionDevice;
+    const auth = _durableAuth;
+    if (!dev || !auth || !dev.dSignSk) return { ok: false, code: 'NO_DEVICE_KEY', ROOT_K_PRESENT: false };
+    const caps = Array.isArray(auth.capabilities) ? auth.capabilities.map(String) : [];
+    if (caps.indexOf(cap) === -1) return { ok: false, code: 'CAPABILITY_MISSING', ROOT_K_PRESENT: false };
+    const Md2 = App.Md2PairingSession || window.SosMd2PairingSession;
+    if (!Md2 || typeof Md2.signSchnorrRaw !== 'function' || typeof Md2.verifySchnorrRawAsync !== 'function') {
+      return { ok: false, code: 'SIGN_UNAVAILABLE', ROOT_K_PRESENT: false };
+    }
+    const text = 'SOS_LINKED_DEVICE_CAP_V1|' + String(auth.accountP || '').toLowerCase() + '|' + String(dev.deviceId || '').toLowerCase() + '|' + cap;
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
+    const sig = await Md2.signSchnorrRaw(digest, dev.dSignSk);
+    const good = await Md2.verifySchnorrRawAsync(sig, digest, dev.D_sign_pub);
+    return {
+      ok: good === true,
+      code: good ? 'CAPABILITY_PROVED' : 'CAPABILITY_PROOF_FAIL',
+      cap: cap,
+      ROOT_K_PRESENT: false,
+    };
+  }
+
+  async function openLinkedDesktopAccount() {
+    const pk = String((_durableAuth && _durableAuth.accountP) || (_sessionDevice && _sessionDevice.accountP) || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(pk)) return { ok: false, code: 'NO_ACCOUNT' };
+    const welcome = document.getElementById('sosLdGuestWelcome');
+    if (welcome) welcome.hidden = true;
+    const panel = document.getElementById('sosLinkedPairPanel');
+    if (panel) panel.hidden = true;
+    try { window.__sosLdGuestWelcomeActive = false; } catch (_f) {}
+    if (_pairTimer) {
+      clearInterval(_pairTimer);
+      _pairTimer = null;
+    }
+    const modal = document.getElementById('guestAuthModal');
+    if (modal) {
+      modal.style.display = 'none';
+      modal.hidden = true;
+    }
+    App.privateKey = null;
+    App.publicKey = pk;
+    App.guestMode = false;
+    App.linkedDeviceSession = true;
+    App.identityState = 'LINKED_DEVICE';
+    const fp = pk.slice(0, 8);
+    let chip = document.getElementById('sosLdAccountChip');
+    if (!chip) {
+      chip = document.createElement('div');
+      chip.id = 'sosLdAccountChip';
+      chip.setAttribute('role', 'status');
+      document.body.appendChild(chip);
+    }
+    chip.hidden = false;
+    chip.textContent = 'חשבון ' + fp;
+    const avatar = document.getElementById('topBarProfileAvatar');
+    if (avatar) avatar.textContent = fp;
+    try {
+      if (typeof App.syncTopBarAuthUi === 'function') App.syncTopBarAuthUi();
+    } catch (_ui) {}
+    let cap = { ok: false, code: 'CAPABILITY_NOT_RUN', ROOT_K_PRESENT: false };
+    try {
+      cap = await proveGrantedCapability('DEVICE_CHAT');
+    } catch (_cap) {
+      cap = { ok: false, code: 'CAPABILITY_PROOF_FAIL', ROOT_K_PRESENT: false };
+    }
+    try {
+      window.__sosLdAccountOpen = {
+        accountFp: fp,
+        guestMode: false,
+        linkedDeviceSession: true,
+        identityState: 'LINKED_DEVICE',
+        ROOT_K_PRESENT: false,
+        HISTORY_SYNC_TRANSFERRED: false,
+      };
+      window.__sosLdCapability = {
+        ok: cap.ok === true,
+        code: String(cap.code || ''),
+        cap: 'DEVICE_CHAT',
+        ROOT_K_PRESENT: false,
+      };
+    } catch (_w) {}
+    try {
+      if (typeof App.loadOwnProfileMetadata === 'function') {
+        Promise.resolve(App.loadOwnProfileMetadata()).catch(function () {});
+      }
+    } catch (_meta) {}
+    return { ok: true, ROOT_K_PRESENT: false };
   }
 
   function presentDesktopSurface(root) {
