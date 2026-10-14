@@ -339,15 +339,7 @@
       return { ok: false, code: 'RESUME_EXPORT_FAIL' };
     }
     const cer = signerCeremonyUrl();
-    const returnPath = (function () {
-      try {
-        const p = String(location.pathname || '/videos.html');
-        if (!p.startsWith('/') || p.startsWith('//') || p.indexOf('..') !== -1) return '/videos.html';
-        return p;
-      } catch (_e) {
-        return '/videos.html';
-      }
-    })();
+    const returnPath = '/videos.html';
     const record = {
       v: 1,
       exp: Date.now() + RESUME_TTL_MS,
@@ -496,10 +488,14 @@
   }
 
   async function consumeSameTabReturn() {
+    let packed = '';
+    try { packed = sessionStorage.getItem('sos_ld_ald_res_v1') || ''; } catch (_e) { packed = ''; }
+    try { sessionStorage.removeItem('sos_ld_ald_res_v1'); } catch (_e) {}
     const hash = String(location.hash || '');
-    if (hash.indexOf('#sosAldRes=') !== 0) return;
+    if (!packed && hash.indexOf('#sosAldRes=') === 0) packed = hash.slice('#sosAldRes='.length);
+    if (!packed) return;
     let env = null;
-    try { env = b64urlDecodeJson(hash.slice('#sosAldRes='.length)); } catch (_e) { env = null; }
+    try { env = b64urlDecodeJson(packed); } catch (_e) { env = null; }
     try { history.replaceState(null, '', location.pathname + location.search); } catch (_e) {}
     const rec = takeResumeRecord();
     if (!env || !rec || String(env.sessionId || '') !== String(rec.sessionId)) {

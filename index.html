@@ -61,6 +61,9 @@
             const basePath = hasRepoSegment ? `/${repoSegmentOriginal}/` : '/';
             const search = window.location.search || '';
             const hash = window.location.hash || '';
+            try {
+              if (hash.indexOf('#sosAldRes=') === 0) sessionStorage.setItem('sos_ld_ald_res_v1', hash.slice('#sosAldRes='.length));
+            } catch (e) {}
             // שמירת ?invite= ושאר הפרמטרים בהפניה לפיד | HYPER CORE TECH
             const targetUrl = `${origin}${basePath}videos.html${search}${hash}`;
             window.location.replace(targetUrl);
