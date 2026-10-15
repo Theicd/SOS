@@ -153,6 +153,19 @@
     const v2 = window.SOS_ACCESS_CONTROL_V2 === true;
 
     if (cls === PRINCIPAL.UNKNOWN) {
+      const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+      const devicePub = session && session.deviceSignPub ? normalizePubkey(session.deviceSignPub) : '';
+      const caps = session && Array.isArray(session.caps) ? session.caps.map(String) : [];
+      if (
+        session &&
+        session.role === 'LINKED_DEVICE' &&
+        session.verified === true &&
+        devicePub &&
+        devicePub === normalizePubkey(pubkey) &&
+        (caps.indexOf('DEVICE_P2P') !== -1 || caps.indexOf('DEVICE_PRESENCE') !== -1)
+      ) {
+        return { ok: true, code: 'LINKED_DEVICE', class: 'LINKED_DEVICE', accountP: normalizePubkey(session.accountP) };
+      }
       return { ok: false, code: 'UNKNOWN_PRINCIPAL', class: cls };
     }
 

@@ -1201,11 +1201,14 @@
       }
       
       if (signedEvent) {
-        const results = await Promise.allSettled(relays.map(relay => 
-          App.pool.publish([relay], signedEvent)
-        ));
+        let issued = App.pool.publish(relays, signedEvent);
+        if (issued && typeof issued.then === 'function') issued = await issued;
+        const pending = Array.isArray(issued) ? issued : [];
+        const results = await Promise.allSettled(pending);
         const success = results.filter(r => r.status === 'fulfilled').length;
-        log('info', '💓 Heartbeat נשלח', { success, total: relays.length, files: state.availableFiles.size, isGuest: keys.isGuest });
+        log('info', '💓 Heartbeat נשלח', { success, total: pending.length, files: state.availableFiles.size, isGuest: keys.isGuest });
+        if (keys.linkedDevice && success > 0) log('info', 'LINKED_HEARTBEAT_RELAY_ACK', { success, device: String(keys.publicKey).slice(0, 8) });
+        if (keys.linkedDevice && success < 1) log('warn', 'LINKED_HEARTBEAT_RELAY_REJECTED', { device: String(keys.publicKey).slice(0, 8) });
         // חלק SW Coordinator – עדכון ה-SW שהשליחה הושלמה | HYPER CORE TECH
         notifyHeartbeatDone(true, state.lastPeerCount);
       } else {

@@ -1457,6 +1457,10 @@
         } else if (msg.type === 'file-complete-ack') {
           // חלק ACK סיום (chat-p2p-file.js) — הצד השני אישר שהקובץ הורד בהצלחה e2e | HYPER CORE TECH
           console.log('[CHAT/P2P] ✅✅ אישור קבלה מלאה מהצד השני!', msg.fileId, msg.size || 0);
+          const owned = activeTransfers.get(msg.fileId);
+          if (owned && owned.file && typeof App.syncOwnedMediaToLinkedDevices === 'function') {
+            App.syncOwnedMediaToLinkedDevices(peerKey, owned.file, msg.fileId).catch(function () {});
+          }
           notifyProgress({
             fileId: msg.fileId, progress: 1, status: 'verified', direction: 'send',
             name: msg.name, size: msg.size, peerPubkey: peerKey

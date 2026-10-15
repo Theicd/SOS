@@ -496,7 +496,7 @@
     return draft;
   }
 
-  async function publishAuthorizedDeviceCopies(accountP, logicalId, text, attachment, createdAt) {
+  async function publishAuthorizedDeviceCopies(accountP, logicalId, text, attachment, createdAt, mirrorPeer) {
     const account = String(accountP || '').trim().toLowerCase();
     if (!/^[0-9a-f]{64}$/.test(account) || !logicalId) return { ok: false, n: 0, code: 'BAD_TARGET' };
     if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.nip44ChatEncrypt !== 'function' || typeof App.SosCryptoSigner.signChatEvent !== 'function' || !App.SosCryptoSigner.hasIdentityKey()) {
@@ -510,6 +510,7 @@
       try { console.log('[MD] no authorized device copies for ' + account.slice(0, 8)); } catch (_log) {}
       return { ok: true, n: 0 };
     }
+    const outgoingMirror = /^[0-9a-f]{64}$/.test(String(mirrorPeer || ''));
     const pool = ensurePoolReady();
     if (!pool) return { ok: false, n: 0, code: 'NO_POOL' };
     let n = 0;
@@ -534,11 +535,19 @@
       if (!envelope || envelope.family !== 'sos-e2ee' || typeof envelope.ct !== 'string') continue;
       const wire = JSON.stringify(envelope);
       if (text && String(text).length >= 8 && wire.indexOf(text) !== -1) continue;
-      const draft = buildChatDraft(devicePub, wire, [['t', 'sos-device-copy'], ['e', String(logicalId).slice(0, 80)]]);
+      const extraTags = [['t', 'sos-device-copy'], ['e', String(logicalId).slice(0, 80)]];
+      if (outgoingMirror) {
+        extraTags.push(['t', 'sos-own-sync']);
+        extraTags.push(['sync-peer', String(mirrorPeer).toLowerCase()]);
+      }
+      const draft = buildChatDraft(devicePub, wire, extraTags);
       let event;
       try { event = await Promise.resolve(App.SosCryptoSigner.signChatEvent(draft)); } catch (_sign) { continue; }
       if (!event || !event.id) continue;
-      try { await Promise.resolve(pool.publish(App.relayUrls, event)); n += 1; } catch (_pub) {}
+      try {
+        const accepted = await awaitRelayAccepted(pool, App.relayUrls, event);
+        if (accepted && accepted.ok) n += 1;
+      } catch (_pub) {}
     }
     try { console.log('[MD] device copies published ' + n + ' account=' + account.slice(0, 8)); } catch (_done) {}
     return { ok: true, n: n };
@@ -546,6 +555,33 @@
 
   function waitMs(ms) {
     return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms || 0)));
+  }
+
+  async function awaitRelayAccepted(pool, relays, event) {
+    const id8 = event && event.id ? String(event.id).slice(0, 8) : '';
+    try { console.log('[CHAT/SEND] SIGNED id=' + id8); } catch (_s) {}
+    let issued = pool.publish(relays, event);
+    if (issued && typeof issued.then === 'function') issued = await issued;
+    const pending = Array.isArray(issued) ? issued : (issued ? [issued] : []);
+    try { console.log('[CHAT/SEND] PUBLISH_STARTED id=' + id8 + ' relays=' + pending.length); } catch (_p) {}
+    if (!pending.length) {
+      try { console.warn('[CHAT/SEND] RELAY_REJECTED id=' + id8 + ' reason=no-promises'); } catch (_r) {}
+      return { ok: false, code: 'RELAY_REJECTED' };
+    }
+    const settled = await Promise.all(pending.map((p) => {
+      const timeout = new Promise((resolve) => setTimeout(() => resolve({ status: 'rejected', reason: 'timeout' }), 8000));
+      return Promise.race([
+        Promise.resolve(p).then(() => ({ status: 'fulfilled' })).catch(() => ({ status: 'rejected' })),
+        timeout,
+      ]);
+    }));
+    const ok = settled.filter((r) => r.status === 'fulfilled').length;
+    if (ok < 1) {
+      try { console.warn('[CHAT/SEND] RELAY_REJECTED id=' + id8); } catch (_r2) {}
+      return { ok: false, code: 'RELAY_REJECTED' };
+    }
+    try { console.log('[CHAT/SEND] RELAY_ACCEPTED id=' + id8 + ' ok=' + ok); } catch (_a) {}
+    return { ok: true, n: ok };
   }
 
   async function publishDelegatedChatMessage(peerPubkey, plainText, options = {}) {
@@ -573,14 +609,29 @@
       transport: 'NOSTR',
       logicalMessageId: messageId,
     };
-    if (typeof App.appendChatMessage === 'function') App.appendChatMessage(outgoingMessage);
-    try {
-      await pool.publish(App.relayUrls, event);
-    } catch (err) {
-      return { ok: false, error: 'publish-failed', id: event.id };
+    const clientTempId = typeof options.clientTempId === 'string' ? options.clientTempId : '';
+    if (clientTempId && typeof App.replaceOutgoingTempMessage === 'function') {
+      App.replaceOutgoingTempMessage(clientTempId, outgoingMessage);
+    } else if (typeof App.appendChatMessage === 'function') {
+      App.appendChatMessage(outgoingMessage);
+    }
+    let accepted = { ok: false, code: 'RELAY_REJECTED' };
+    for (let attempt = 0; attempt < 3 && !accepted.ok; attempt += 1) {
+      accepted = await awaitRelayAccepted(pool, App.relayUrls, event);
+    }
+    if (!accepted.ok) {
+      if (typeof App.updateChatMessageStatus === 'function') App.updateChatMessageStatus(event.id, 'failed');
+      return { ok: false, error: 'RELAY_REJECTED', id: event.id, messageId: event.id, stage: 'RELAY_REJECTED' };
     }
     outgoingMessage.status = 'sent';
-    return { ok: true, id: event.id, delegated: true, ROOT_K_PRESENT: false };
+    if (typeof App.updateChatMessageStatus === 'function') App.updateChatMessageStatus(event.id, 'sent');
+    try {
+      const sibling = await Session.delegatedChatEncrypt(peerNorm, text, messageId, { sibling: true });
+      if (sibling && sibling.ok === true && sibling.event) {
+        await awaitRelayAccepted(pool, App.relayUrls, sibling.event);
+      }
+    } catch (_sib) {}
+    return { ok: true, id: event.id, messageId: event.id, delegated: true, ROOT_K_PRESENT: false, stage: 'RELAY_ACCEPTED' };
   }
 
   async function publishChatMessage(peerPubkey, plainText, options = {}) {
@@ -921,7 +972,8 @@
       if (e2eeSendRequired === true && relayLogicalMessageId) {
         try {
           const fan = await publishAuthorizedDeviceCopies(peerNorm, relayLogicalMessageId, deviceCopyText, deviceCopyAttachment, event.created_at);
-          deviceCopies = fan && fan.n ? fan.n : 0;
+          const own = await publishAuthorizedDeviceCopies(App.publicKey, relayLogicalMessageId, deviceCopyText, deviceCopyAttachment, event.created_at, peerNorm);
+          deviceCopies = (fan && fan.n ? fan.n : 0) + (own && own.n ? own.n : 0);
         } catch (_fan) { deviceCopies = 0; }
       }
       return { ok: true, messageId: event.id, e2ee: e2eeSendRequired === true, p2p: deliveredOnDataChannel, deviceCopies: deviceCopies };
@@ -941,7 +993,8 @@
         if (e2eeSendRequired === true && relayLogicalMessageId) {
           try {
             const fan = await publishAuthorizedDeviceCopies(peerNorm, relayLogicalMessageId, deviceCopyText, deviceCopyAttachment, event.created_at);
-            deviceCopies = fan && fan.n ? fan.n : 0;
+            const own = await publishAuthorizedDeviceCopies(App.publicKey, relayLogicalMessageId, deviceCopyText, deviceCopyAttachment, event.created_at, peerNorm);
+            deviceCopies = (fan && fan.n ? fan.n : 0) + (own && own.n ? own.n : 0);
           } catch (_fan) { deviceCopies = 0; }
         }
         return { ok: true, messageId: event.id, e2ee: e2eeSendRequired === true, p2p: deliveredOnDataChannel, deviceCopies: deviceCopies };
@@ -1300,7 +1353,13 @@
     if (event.kind === CHAT_KIND && Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 'sos-md3')) {
       if (!window.SosAccountSession || typeof window.SosAccountSession.verifyDelegatedEvent !== 'function') return;
       const delegated = await window.SosAccountSession.verifyDelegatedEvent(event, 'DEVICE_CHAT');
-      if (!delegated || delegated.ok !== true) return;
+      if (!delegated || delegated.ok !== true) {
+        try {
+          console.warn('[MD3] rejected code=' + String((delegated && delegated.code) || 'DELEGATION_REJECTED') + ' event=' + String(event.id || '').slice(0, 8));
+        } catch (_md) {}
+        return;
+      }
+      try { console.log('[MD3] MD3_VERIFIED event=' + String(event.id || '').slice(0, 8) + ' account=' + String(delegated.accountP || '').slice(0, 8)); } catch (_okm) {}
       event.__sosDelegatedAccount = delegated.accountP;
     }
     // Retry E2EE events that arrived before local key was ready.
@@ -1383,6 +1442,7 @@
 
     let parsedPayload;
     let logicalMessageId = null;
+    let e2eePayload = null;
 
     if (isE2eeContent) {
       // Recognized sos-e2ee → never legacy-fallback on failure.
@@ -1394,6 +1454,7 @@
         return;
       }
       logicalMessageId = resolved.payload.messageId || null;
+      e2eePayload = resolved.payload;
       parsedPayload = {
         displayText: resolved.payload.text || '',
         attachment: resolved.payload.attachment || null,
@@ -1491,6 +1552,24 @@
       }
     }
 
+    const ownSync = Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 't' && (t[1] === 'sos-sibling-sync' || t[1] === 'sos-own-sync'));
+    const syncTag = Array.isArray(event.tags) ? event.tags.find((t) => Array.isArray(t) && t[0] === 'sync-peer' && typeof t[1] === 'string') : null;
+    const syncPeer = syncTag ? String(syncTag[1]).toLowerCase() : '';
+    const logicalAccount = String(event.__sosDelegatedAccount || '');
+    let bubbleFrom = sender;
+    let bubbleTo = (onDevice && !isSelfMessage) ? accountUser : conversationTarget;
+    let bubbleDirection = isSelfMessage ? 'outgoing' : 'incoming';
+    if (ownSync && /^[0-9a-f]{64}$/.test(syncPeer)) {
+      bubbleFrom = logicalAccount || accountUser;
+      bubbleTo = syncPeer;
+      bubbleDirection = 'outgoing';
+    } else if (logicalAccount && !onDevice && sender !== accountUser) {
+      bubbleFrom = logicalAccount;
+      bubbleTo = accountUser;
+      bubbleDirection = 'incoming';
+    }
+    const bubblePeer = bubbleDirection === 'outgoing' ? bubbleTo : bubbleFrom;
+
     // M4: hydrate encrypted Blossom attachments for local render (does not change transport routing).
     if (
       parsedPayload.attachment &&
@@ -1502,9 +1581,9 @@
         encAtt.name = sanitizeIncomingChatFileName(encAtt.media.filename);
       }
       const aadMessageId = logicalMessageId || encAtt.clientMessageId || encAtt.logicalMessageId || null;
-      const aadSender = isSelfMessage ? currentUser : sender;
-      const aadRecipient = isSelfMessage ? recipient : currentUser;
-      const hydratePeer = peerPubkey;
+      const aadSender = bubbleFrom;
+      const aadRecipient = bubbleTo;
+      const hydratePeer = bubblePeer;
       Promise.resolve()
         .then(() =>
           App.resolveServerMediaAttachment(encAtt, {
@@ -1564,14 +1643,15 @@
 
     const normalizedMessage = {
       id: event.id,
-      from: sender,
-      to: conversationTarget,
+      from: bubbleFrom,
+      to: bubbleTo,
       content: parsedPayload.displayText || (isE2eeContent ? '' : event.content),
       attachment: parsedPayload.attachment || null,
       createdAt: eventTs,
-      direction: isSelfMessage ? 'outgoing' : 'incoming',
+      direction: bubbleDirection,
       source: 'NOSTR',
       transport: 'NOSTR',
+      signer: sender,
     };
     if (logicalMessageId) {
       normalizedMessage.logicalMessageId = logicalMessageId;
@@ -1595,17 +1675,18 @@
       } catch (_logErr) {}
     }
 
+    try { console.log('[CHAT/SEND] RECIPIENT_UI_COMMITTED event=' + String(event.id || '').slice(0, 8) + ' peer=' + String(bubblePeer || '').slice(0, 8)); } catch (_ui) {}
     App.appendChatMessage(normalizedMessage);
 
     // חלק P2P auto-connect (chat-service.js) – כשמגיעה הודעה חדשה דרך relay מ-peer שאין איתו DC,
     // מתחיל חיבור DataChannel ברקע כדי שההודעה הבאה תעבור P2P ישירות | HYPER CORE TECH
-    if (!isSelfMessage && messageAgeSec < 120 && App.dataChannel && typeof App.dataChannel.connect === 'function') {
-      const dcConnected = typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(peerPubkey);
+    if (bubbleDirection === 'incoming' && messageAgeSec < 120 && App.dataChannel && typeof App.dataChannel.connect === 'function') {
+      const dcConnected = typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(bubblePeer);
       if (!dcConnected) {
         try {
           App.dataChannel.init?.();
-          App.dataChannel.connect(peerPubkey);
-          console.log('[CHAT/P2P-AUTO] ⚡ auto-connect DC for', peerPubkey.slice(0, 8), '(relay msg received)');
+          App.dataChannel.connect(bubblePeer);
+          console.log('[CHAT/P2P-AUTO] ⚡ auto-connect DC for', bubblePeer.slice(0, 8), '(relay msg received)');
         } catch (_e) { /* שקט — לא קריטי */ }
       }
     }
@@ -2529,8 +2610,37 @@
     console.log('[CHAT/SERVICE] Full chat history sync initiated');
   }
 
+  async function syncOwnedMediaToLinkedDevices(peer, file, logicalId) {
+    const peerNorm = String(peer || '').toLowerCase();
+    if (!file || typeof App.uploadMediaForServerFallback !== 'function') return { ok: false, code: 'NO_UPLOAD' };
+    if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.hasIdentityKey !== 'function' || !App.SosCryptoSigner.hasIdentityKey()) {
+      return { ok: false, code: 'NOT_PRIMARY' };
+    }
+    const id = logicalId || ('file-' + Date.now());
+    let descriptor;
+    try {
+      descriptor = await App.uploadMediaForServerFallback(file, {
+        messageId: id,
+        sender: App.publicKey,
+        recipient: peerNorm,
+        mimeType: file.type || 'application/octet-stream',
+        fileName: file.name || 'file',
+        requireEncryption: true,
+      });
+    } catch (err) {
+      try { console.warn('[MEDIA/SYNC] upload failed code=' + String((err && err.code) || 'UPLOAD_FAILED')); } catch (_e) {}
+      return { ok: false, code: (err && err.code) || 'UPLOAD_FAILED' };
+    }
+    if (!descriptor || descriptor.type !== 'encrypted-media') return { ok: false, code: 'NO_DESCRIPTOR' };
+    const own = await publishAuthorizedDeviceCopies(App.publicKey, id, '', descriptor, Math.floor(Date.now() / 1000), peerNorm);
+    const sha = descriptor.cipher && descriptor.cipher.sha256 ? String(descriptor.cipher.sha256) : '';
+    try { console.log('[MEDIA/SYNC] own-device copies=' + String(own && own.n) + ' sha256=' + sha.slice(0, 12)); } catch (_l) {}
+    return { ok: !!(own && own.n > 0), n: own && own.n, sha256: sha, logicalMessageId: id };
+  }
+
   Object.assign(App, {
     publishChatMessage,
+    syncOwnedMediaToLinkedDevices,
     deleteChatMessage,
     subscribeToChatEvents,
     stopPrivateChatSubscription,

@@ -6829,7 +6829,8 @@
       content: messageText,
       createdAt: Math.floor(Date.now() / 1000),
       direction: 'outgoing',
-      status: 'sending'
+      status: 'sending',
+      logicalMessageId: tempId,
     };
     if (typeof App.appendChatMessage === 'function') {
       App.appendChatMessage(tempMessage);

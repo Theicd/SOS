@@ -2190,6 +2190,18 @@
       try { console.log('CALL_SEND_POLICY_REQUIRED'); } catch (_e) {}
       try {
         const res = await publishGiftWrappedCallSignal(opts);
+        const fanTypes = { ring: 1, offer: 1, cancel: 1, hangup: 1, end: 1, reject: 1 };
+        if (!opts.__deviceFanout && fanTypes[String(opts.type || '')] && window.SosAccountSession && typeof window.SosAccountSession.listAuthorizedDevices === 'function' && App.SosCryptoSigner && typeof App.SosCryptoSigner.hasIdentityKey === 'function' && App.SosCryptoSigner.hasIdentityKey()) {
+          try {
+            const devices = await window.SosAccountSession.listAuthorizedDevices(opts.peerPubkey);
+            for (let i = 0; i < devices.length; i += 1) {
+              const devicePub = devices[i] && devices[i].deviceSignPub;
+              if (!devicePub || devicePub === String(opts.peerPubkey || '').toLowerCase()) continue;
+              await publishGiftWrappedCallSignal(Object.assign({}, opts, { peerPubkey: devicePub, __deviceFanout: true }));
+              try { console.log('CALL_DEVICE_FANOUT type=' + String(opts.type || '') + ' device=' + String(devicePub).slice(0, 8) + ' session=' + String(opts.sessionId || '').slice(0, 8)); } catch (_log) {}
+            }
+          } catch (_fan) {}
+        }
         try {
           console.log('CALL_SEND_RETURN_OK');
         } catch (_e) {}

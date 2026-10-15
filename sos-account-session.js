@@ -253,35 +253,44 @@
     return LD.withLinkedDeviceSigner(fn);
   }
 
-  async function delegatedChatEncrypt(peer, text, messageId) {
+  async function delegatedChatEncrypt(peer, text, messageId, extra) {
     const session = getAccountSession();
     if (!allows(OPS.SEND_CHAT)) return { ok: false, code: 'CAPABILITY_DENIED' };
+    const opts = extra && typeof extra === 'object' ? extra : {};
+    const sibling = opts.sibling === true;
+    const deliverTo = sibling ? session.accountP : norm(peer);
+    if (!isHex64(deliverTo)) return { ok: false, code: 'BAD_RECIPIENT' };
     return withDevice(async function (dev) {
       const createdAt = Math.floor(Date.now() / 1000);
       const env = App.encryptPrivateChatPayload({
         senderPrivateKeyHex: dev.privHex,
         senderPubkey: dev.pub,
-        recipientPubkey: peer,
+        recipientPubkey: deliverTo,
         payload: {
           messageId: messageId || ('ld-' + createdAt),
           sender: dev.pub,
-          recipient: norm(peer),
+          recipient: deliverTo,
           createdAt: createdAt,
           text: text,
-          attachment: null,
+          attachment: opts.attachment || null,
         },
       });
       const NT = root.NostrTools;
       if (!NT || typeof NT.finalizeEvent !== 'function') return { ok: false, code: 'FINALIZE_UNAVAILABLE' };
+      const tags = [
+        ['p', deliverTo],
+        ['t', 'yalachat'],
+        ['sos-md3', JSON.stringify(dev.authorization)],
+      ];
+      if (sibling) {
+        tags.push(['t', 'sos-sibling-sync']);
+        tags.push(['sync-peer', norm(peer)]);
+      }
       const draft = {
         kind: 1050,
         created_at: createdAt,
         pubkey: dev.pub,
-        tags: [
-          ['p', norm(peer)],
-          ['t', 'yalachat'],
-          ['sos-md3', JSON.stringify(dev.authorization)],
-        ],
+        tags: tags,
         content: JSON.stringify(env),
       };
       const event = NT.finalizeEvent(draft, hexToBytes(dev.privHex));
