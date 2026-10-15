@@ -767,8 +767,12 @@
           const logicalId = dec.logicalMessageId || dec.id;
           const deliver = async () => {
             let from = peer;
+            const owners = window.__sosVerifiedDeviceOwners;
+            if (owners && typeof owners[String(peer || '').toLowerCase()] === 'string') {
+              from = String(owners[String(peer).toLowerCase()]).toLowerCase();
+            }
             const Session = window.SosAccountSession;
-            if (Session && typeof Session.resolveDeviceAccount === 'function') {
+            if (from === peer && Session && typeof Session.resolveDeviceAccount === 'function') {
               try {
                 const resolved = await Session.resolveDeviceAccount(peer);
                 if (resolved && resolved.ok === true && resolved.accountP && resolved.accountP !== peer) {
@@ -881,10 +885,15 @@
       }
       console.log(`[DC] 📩 P2P ← ${peer.slice(0,8)}`);
       notifyIncomingMessage(peer, m);
+      const legacyOwners = window.__sosVerifiedDeviceOwners;
+      const legacyFrom = legacyOwners && typeof legacyOwners[String(peer || '').toLowerCase()] === 'string'
+        ? String(legacyOwners[String(peer).toLowerCase()]).toLowerCase()
+        : peer;
       if(typeof App.appendChatMessage==='function') App.appendChatMessage({
         id: m.id||('p2p-'+Date.now()+'-'+Math.random().toString(36).slice(2,6)),
-        from:peer, to:App.publicKey, content, attachment,
-        createdAt:m.createdAt||Math.floor(Date.now()/1000), direction:'incoming', p2p:true, transport:'DC'
+        from:legacyFrom, to:App.publicKey, content, attachment,
+        createdAt:m.createdAt||Math.floor(Date.now()/1000), direction:'incoming', p2p:true, transport:'DC',
+        logicalMessageId: m.logicalMessageId || m.id || ''
       });
     } catch(e){ console.warn('[DC] parse:',e); }
   }

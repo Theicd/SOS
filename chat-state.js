@@ -871,6 +871,17 @@
   function ensureContact(pubkey, profile = {}) {
     if (!pubkey) return null;
     const normalized = pubkey.toLowerCase();
+    const owners = (typeof window !== 'undefined' && window.__sosVerifiedDeviceOwners) || null;
+    const owner = owners && typeof owners[normalized] === 'string' ? owners[normalized].toLowerCase() : '';
+    if (!ensureContact._redirecting && /^[0-9a-f]{64}$/.test(owner) && owner !== normalized) {
+      ensureContact._redirecting = true;
+      try {
+        mergeDeviceConversationIntoAccount(normalized, owner);
+        return ensureContact(owner, {});
+      } finally {
+        ensureContact._redirecting = false;
+      }
+    }
     const existing = chatState.contacts.get(normalized);
     if (existing) {
       // בדוק אם יש שינוי אמיתי לפני notify

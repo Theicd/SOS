@@ -51,6 +51,7 @@ vm.runInContext(read('sos-account-session.js'), sandbox);
 const Session = sandbox.SosAccountSession;
 const plain = await Session.verifyDelegatedEvent(frozen, 'DEVICE_CHAT');
 check('plain copy accepts the frozen valid event', plain.ok === true && plain.accountP === auth.accountP && plain.deviceSignPub === auth.D_sign_pub);
+check('verified device is bound to the account', sandbox.__sosVerifiedDeviceOwners && sandbox.__sosVerifiedDeviceOwners[auth.D_sign_pub] === auth.accountP);
 
 const mutated = JSON.parse(JSON.stringify(event));
 mutated.content = mutated.content + 'x';
@@ -73,7 +74,7 @@ const state = read('chat-state.js');
 check('device-copy echo is not a contact', chat.includes('DEVICE_COPY_ECHO_IGNORED'));
 check('self conversation label exists', read('chat-ui.js').includes('הודעות לעצמי'));
 check('logical id dedupes transport copies', state.includes('item.id === message.logicalMessageId'));
-check('device thread merge keeps the account', state.includes('function mergeDeviceConversationIntoAccount'));
+check('device thread merge keeps the account', state.includes('function mergeDeviceConversationIntoAccount') && state.includes('__sosVerifiedDeviceOwners'));
 check('desktop answer is bound to the account', calls.includes('NOT_AUTHORIZED_DEVICE') && calls.includes('CALL_ANSWER_REJECT') && calls.includes('CALL_RING_CANCELLED'));
 
 console.log(fail ? 'STATUS=FAIL' : 'STATUS=PASS');

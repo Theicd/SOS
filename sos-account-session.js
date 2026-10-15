@@ -271,7 +271,19 @@
     if (!sig.ok) return { ok: false, code: 'BAD_EVENT_SIG', detail: sig.code || 'BAD_EVENT_SIG' };
     const caps = Array.isArray(auth.capabilities) ? auth.capabilities.map(String) : [];
     if (requiredCap && caps.indexOf(requiredCap) === -1) return { ok: false, code: 'CAPABILITY_MISSING' };
+    noteVerifiedDevice(devicePub, auth.accountP);
     return { ok: true, accountP: norm(auth.accountP), deviceSignPub: devicePub, caps: caps };
+  }
+
+  function noteVerifiedDevice(devicePub, accountP) {
+    const device = norm(devicePub);
+    const account = norm(accountP);
+    if (!isHex64(device) || !isHex64(account) || device === account) return;
+    const map = root.__sosVerifiedDeviceOwners || (root.__sosVerifiedDeviceOwners = {});
+    map[device] = account;
+    if (typeof App.mergeDeviceConversationIntoAccount === 'function') {
+      try { App.mergeDeviceConversationIntoAccount(device, account); } catch (_merge) {}
+    }
   }
 
   function hexToBytes(hex) {
@@ -680,6 +692,7 @@
         deviceSignPub: device,
         caps: caps,
       };
+      noteVerifiedDevice(device, auth.accountP);
       break;
     }
     cache[device] = { exp: Date.now() + (value.ok ? 60000 : 15000), value: value };
