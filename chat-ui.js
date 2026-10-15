@@ -74,7 +74,8 @@
     const peer = String(peerPubkey || state.activeContact || '').toLowerCase();
     if (!peer || peer !== String(state.activeContact || '').toLowerCase()) return;
     const contact = App.chatState?.contacts?.get?.(peer) || null;
-    const rawName = contact?.name || `משתמש ${peer.slice(0, 8)}`;
+    const selfKey = String(App.publicKey || '').toLowerCase();
+    const rawName = peer === selfKey ? 'הודעות לעצמי' : (contact?.name || `משתמש ${peer.slice(0, 8)}`);
     // תצוגה בלבד – שמות ארוכים לא דוחפים את כפתורי השיחה | HYPER CORE TECH
     const name = rawName.length > 15 ? rawName.slice(0, 15) : rawName;
     const initials = contact?.initials || (typeof App.getInitials === 'function' ? App.getInitials(rawName) : 'מש');
@@ -4296,6 +4297,12 @@
           await App.chatStateReady;
         }
       } catch (_restoreErr) { /* continue */ }
+      if (typeof App.ensureSelfConversation === 'function') {
+        try { App.ensureSelfConversation(); } catch (_self) {}
+      }
+      if (typeof App.reconcileDeviceConversations === 'function') {
+        try { App.reconcileDeviceConversations(); } catch (_rec) {}
+      }
       if (typeof App.subscribeToChatEvents === 'function') {
         App.subscribeToChatEvents();
       }
@@ -4884,7 +4891,8 @@
 
   function buildContactHtml(contact) {
     // חלק צ'אט (chat-ui.js) – בונה פריט רשימת אנשי קשר עם אווטרים, שם ותצוגה מקדימה
-    const rawName = contact.name || `משתמש ${contact.pubkey.slice(0, 8)}`;
+    const selfKey = String(App.publicKey || '').toLowerCase();
+    const rawName = String(contact.pubkey || '').toLowerCase() === selfKey ? 'הודעות לעצמי' : (contact.name || `משתמש ${contact.pubkey.slice(0, 8)}`);
     const displayName = rawName.length > 15 ? rawName.slice(0, 15) : rawName;
     const safeName = App.escapeHtml ? App.escapeHtml(displayName) : displayName;
     const initialsValue = contact.initials || (typeof App.getInitials === 'function' ? App.getInitials(rawName) : 'מש');

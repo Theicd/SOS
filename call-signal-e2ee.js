@@ -41,6 +41,7 @@
     candidate: 120,
     candidates: 120,
     disconnect: 120,
+    cancel: 60,
   };
 
   const seenSignalIds = new Map(); // signalId -> tsMs

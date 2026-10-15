@@ -1001,7 +1001,10 @@
       chatState.conversations.set(key, entry);
     }
     if (message.logicalMessageId) {
-      const logicalDup = entry.messages.findIndex((item) => item && item.logicalMessageId && item.logicalMessageId === message.logicalMessageId);
+      const logicalDup = entry.messages.findIndex((item) => item && (
+        (item.logicalMessageId && item.logicalMessageId === message.logicalMessageId) ||
+        item.id === message.logicalMessageId
+      ));
       if (logicalDup !== -1) return;
     }
     const existingIndex = entry.messages.findIndex((item) => item.id === message.id);
@@ -1118,7 +1121,7 @@
     updateContactMeta(entry.peer, {
       lastMessage: messagePreview,
       timestamp: createdAt,
-      incrementUnread: message.direction === 'incoming',
+      incrementUnread: message.direction === 'incoming' && message.mergeQuiet !== true,
     });
     recalculateUnreadTotal();
     persistLog(
@@ -1737,6 +1740,50 @@
     return !!chatState.contacts.get(peer)?.archived;
   }
 
+  function ensureSelfConversation() {
+    const self = String(App.publicKey || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(self)) return null;
+    ensureConversationEntry(self);
+    const contact = ensureContact(self, { name: 'הודעות לעצמי', initials: 'על' });
+    if (contact) {
+      contact.selfChat = true;
+      contact.name = 'הודעות לעצמי';
+    }
+    return contact;
+  }
+
+  function mergeDeviceConversationIntoAccount(devicePub, accountP) {
+    const device = String(devicePub || '').toLowerCase();
+    const account = String(accountP || '').toLowerCase();
+    const self = String(App.publicKey || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(device) || !/^[0-9a-f]{64}$/.test(account) || device === account) {
+      return { ok: false, code: 'BAD_KEY', moved: 0 };
+    }
+    const fromKey = getConversationKey(device, self);
+    const entry = fromKey ? chatState.conversations.get(fromKey) : null;
+    const messages = entry && Array.isArray(entry.messages) ? entry.messages.slice() : [];
+    let moved = 0;
+    messages.forEach((message) => {
+      if (!message) return;
+      const copy = Object.assign({}, message, { mergeQuiet: true });
+      if (String(copy.from || '').toLowerCase() === device) copy.from = account;
+      if (String(copy.to || '').toLowerCase() === device) copy.to = account;
+      appendMessageToConversation(copy);
+      const indexed = message.id ? chatState.messageIndex.get(message.id) : null;
+      if (indexed && indexed.peer === (account === self ? self : (String(copy.from || '').toLowerCase() === self ? account : self))) moved += 1;
+      else if (indexed) moved += 1;
+    });
+    if (fromKey) chatState.conversations.delete(fromKey);
+    chatState.contacts.delete(device);
+    if (chatState.disappearingTimers && chatState.disappearingTimers.has && chatState.disappearingTimers.has(device)) {
+      chatState.disappearingTimers.delete(device);
+    }
+    recalculateUnreadTotal();
+    persistState();
+    notify('contacts', getContactsSnapshot());
+    return { ok: true, moved: moved, accountP: account };
+  }
+
   function removeChatContact(peerPubkey) {
     const peer = typeof peerPubkey === 'string' ? peerPubkey.toLowerCase() : '';
     const self = (App.publicKey || '').toLowerCase();
@@ -1773,6 +1820,8 @@
     persistChatState: persistState,
     flushChatPersist,
     ensureChatContact: ensureContact,
+    ensureSelfConversation: ensureSelfConversation,
+    mergeDeviceConversationIntoAccount: mergeDeviceConversationIntoAccount,
     appendChatMessage: appendMessageToConversation,
     removeChatMessage: removeMessageFromConversation,
     removeChatContact,

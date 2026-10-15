@@ -1003,6 +1003,7 @@ async function proveLinkedAccountProduct(desktop, mobile) {
       const session = App.getAccountSession ? App.getAccountSession() : null;
       return session && session.deviceSignPub ? String(session.deviceSignPub) : '';
     });
+    const accountP = await mobile.evaluate(() => String((window.NostrApp && window.NostrApp.publicKey) || '').toLowerCase());
     if (!/^[0-9a-f]{64}$/.test(devicePub)) {
       flags.productCode = 'NO_DEVICE_PUB';
       return { flags };
@@ -1119,12 +1120,44 @@ async function proveLinkedAccountProduct(desktop, mobile) {
       flags.productCode = 'PING_NOT_VISIBLE_' + String(n);
       return { flags };
     }
+    const bubbleCount = await peer.page.evaluate((text) => {
+      let n = 0;
+      const conv = window.NostrApp.chatState && window.NostrApp.chatState.conversations;
+      if (!conv || typeof conv.forEach !== 'function') return 0;
+      conv.forEach((entry) => {
+        const messages = entry && entry.messages;
+        if (!Array.isArray(messages)) return;
+        messages.forEach((m) => { if (m && m.content === text) n += 1; });
+      });
+      return n;
+    }, ping);
+    flags.PEER_BUBBLES = bubbleCount;
+    if (bubbleCount !== 1) {
+      flags.productCode = 'DUP_OR_MISSING_' + String(bubbleCount);
+      return { flags };
+    }
+    const phoneHasOutgoing = await mobile.waitForFunction((text) => {
+      let n = 0;
+      const conv = window.NostrApp.chatState && window.NostrApp.chatState.conversations;
+      if (!conv || typeof conv.forEach !== 'function') return false;
+      conv.forEach((entry) => {
+        const messages = entry && entry.messages;
+        if (!Array.isArray(messages)) return;
+        messages.forEach((m) => { if (m && m.content === text) n += 1; });
+      });
+      return n === 1;
+    }, ping, { timeout: 20000, polling: 1000 }).then(() => true).catch(() => false);
+    flags.SIBLING_DEVICE_SYNC = phoneHasOutgoing === true;
+    if (!phoneHasOutgoing) {
+      flags.productCode = 'SIBLING_SYNC';
+      return { flags };
+    }
     const reply = 'ld-reply-' + Date.now().toString(36);
     const replied = await peer.page.evaluate(async (args) => {
       const App = window.NostrApp;
-      const out = await App.publishChatMessage(args.device, args.text);
+      const out = await App.publishChatMessage(args.account, args.text);
       return { ok: !!(out && out.ok), error: out && out.error ? String(out.error) : '' };
-    }, { device: devicePub, text: reply });
+    }, { account: accountP, text: reply });
     if (!replied.ok) {
       flags.productCode = 'REPLY_' + (replied.error || 'FAIL');
       return { flags };
@@ -1154,6 +1187,45 @@ async function proveLinkedAccountProduct(desktop, mobile) {
     }
     flags.MESSAGE_RECEIVE = true;
     flags.E2EE_VERIFIED = true;
+    const phantom = await peer.page.evaluate((device) => {
+      const list = window.NostrApp.getChatContacts ? window.NostrApp.getChatContacts() : [];
+      return list.some((c) => String(c && c.pubkey || '').toLowerCase() === device);
+    }, devicePub);
+    flags.PHANTOM_DEVICE_CONTACT = phantom === true;
+    if (phantom) {
+      flags.productCode = 'PHANTOM_DEVICE_CONTACT';
+      return { flags };
+    }
+    const selfText = 'self-' + Date.now().toString(36);
+    const selfSent = await mobile.evaluate(async (text) => {
+      const App = window.NostrApp;
+      const out = await App.publishChatMessage(App.publicKey, text);
+      return { ok: !!(out && out.ok && out.selfChat === true) };
+    }, selfText);
+    if (!selfSent.ok) {
+      flags.productCode = 'SELF_SEND';
+      return { flags };
+    }
+    const selfSeen = await desktop.waitForFunction(async (text) => {
+      const Session = window.SosAccountSession;
+      if (Session && typeof Session.pullLinkedDirectMessages === 'function') {
+        try { await Session.pullLinkedDirectMessages(); } catch (_e) {}
+      }
+      let n = 0;
+      const conv = window.NostrApp.chatState && window.NostrApp.chatState.conversations;
+      if (!conv || typeof conv.forEach !== 'function') return false;
+      conv.forEach((entry) => {
+        const messages = entry && entry.messages;
+        if (!Array.isArray(messages)) return;
+        messages.forEach((m) => { if (m && m.content === text) n += 1; });
+      });
+      return n === 1;
+    }, selfText, { timeout: 25000, polling: 1000 }).then(() => true).catch(() => false);
+    flags.SELF_CHAT = selfSeen === true;
+    if (!selfSeen) {
+      flags.productCode = 'SELF_CHAT';
+      return { flags };
+    }
     await peer.page.evaluate(() => {
       const App = window.NostrApp;
       if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 60 });

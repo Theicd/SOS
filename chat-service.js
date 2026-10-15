@@ -584,6 +584,82 @@
     return { ok: true, n: ok };
   }
 
+  async function publishSelfChatMessage(plainText, options = {}) {
+    const self = String(App.publicKey || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(self)) return { ok: false, error: 'no-account' };
+    const text = typeof plainText === 'string' ? plainText.trim() : '';
+    const messageId = (typeof options.clientTempId === 'string' && options.clientTempId) || ('self-' + Date.now());
+    const createdAt = Math.floor(Date.now() / 1000);
+    const outgoing = {
+      id: messageId,
+      from: self,
+      to: self,
+      content: text,
+      createdAt: createdAt,
+      direction: 'outgoing',
+      status: 'sending',
+      source: 'SELF',
+      transport: 'LOCAL',
+      logicalMessageId: messageId,
+    };
+    const clientTempId = typeof options.clientTempId === 'string' ? options.clientTempId : '';
+    if (clientTempId && typeof App.replaceOutgoingTempMessage === 'function') App.replaceOutgoingTempMessage(clientTempId, outgoing);
+    else if (typeof App.appendChatMessage === 'function') App.appendChatMessage(outgoing);
+    const linked = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    const pool = ensurePoolReady();
+    let delivered = false;
+    if (linked && linked.role === 'LINKED_DEVICE' && linked.verified === true) {
+      const Session = window.SosAccountSession;
+      if (!Session || typeof Session.delegatedChatEncrypt !== 'function' || !pool) {
+        if (typeof App.updateChatMessageStatus === 'function') App.updateChatMessageStatus(messageId, 'failed');
+        return { ok: false, error: 'delegation-missing', messageId: messageId };
+      }
+      const signed = await Session.delegatedChatEncrypt(self, text, messageId, { sibling: true });
+      if (!signed || signed.ok !== true || !signed.event) {
+        if (typeof App.updateChatMessageStatus === 'function') App.updateChatMessageStatus(messageId, 'failed');
+        return { ok: false, error: (signed && signed.code) || 'delegation-sign-failed', messageId: messageId };
+      }
+      const accepted = await awaitRelayAccepted(pool, App.relayUrls, signed.event);
+      delivered = !!(accepted && accepted.ok);
+    } else if (App.SosCryptoSigner && typeof App.SosCryptoSigner.hasIdentityKey === 'function' && App.SosCryptoSigner.hasIdentityKey()) {
+      const att = typeof App.getChatFileAttachment === 'function' ? App.getChatFileAttachment(self) : null;
+      let file = att && (att.file || att.blob);
+      if (!file && att && typeof att.dataUrl === 'string' && att.dataUrl.indexOf('base64,') !== -1) {
+        try {
+          const bin = atob(att.dataUrl.split('base64,')[1] || '');
+          const bytes = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+          file = new File([bytes], att.name || 'self.jpg', { type: att.type || 'image/jpeg' });
+        } catch (_file) { file = null; }
+      }
+      let descriptor = null;
+      if (file && typeof App.uploadMediaForServerFallback === 'function') {
+        try {
+          descriptor = await App.uploadMediaForServerFallback(file, {
+            messageId: messageId,
+            sender: self,
+            recipient: self,
+            mimeType: file.type || 'application/octet-stream',
+            fileName: file.name || 'file',
+            requireEncryption: true,
+          });
+        } catch (_up) { descriptor = null; }
+        if (!descriptor || descriptor.type !== 'encrypted-media') descriptor = null;
+      }
+      if (descriptor) outgoing.attachment = descriptor;
+      const own = await publishAuthorizedDeviceCopies(self, messageId, text, descriptor, createdAt, self);
+      delivered = true;
+      try { console.log('[CHAT/SELF] deviceCopies=' + String(own && own.n)); } catch (_own) {}
+    }
+    if (!delivered) {
+      if (typeof App.updateChatMessageStatus === 'function') App.updateChatMessageStatus(messageId, 'failed');
+      return { ok: false, error: 'SELF_DELIVERY_FAILED', messageId: messageId, stage: 'RELAY_REJECTED' };
+    }
+    if (typeof App.updateChatMessageStatus === 'function') App.updateChatMessageStatus(messageId, 'sent');
+    try { console.log('[CHAT/SELF] SELF_CHAT_COMMITTED id=' + String(messageId).slice(0, 12)); } catch (_s) {}
+    return { ok: true, id: messageId, messageId: messageId, selfChat: true, stage: 'RELAY_ACCEPTED' };
+  }
+
   async function publishDelegatedChatMessage(peerPubkey, plainText, options = {}) {
     const peerNorm = String(peerPubkey || '').toLowerCase();
     const text = typeof plainText === 'string' ? plainText.trim() : '';
@@ -635,6 +711,10 @@
   }
 
   async function publishChatMessage(peerPubkey, plainText, options = {}) {
+    const selfAccount = String(App.publicKey || '').toLowerCase();
+    if (selfAccount && String(peerPubkey || '').toLowerCase() === selfAccount) {
+      return publishSelfChatMessage(plainText, options);
+    }
     // חלק אבטחה (chat-service.js) – שער epoch חוסם שליחה פרטית לפני publish/Push | HYPER CORE TECH
     if (typeof App.ensureSecureChatEpochReady === 'function') {
       const stateNow = typeof App.getSecureChatGateState === 'function' ? App.getSecureChatGateState() : '';
@@ -733,9 +813,9 @@
           await App.P2pSecureV2.waitForPeerCapability(peerPubkey, 1500);
         } catch (_capWait) {}
       }
-      const p2pId = 'p2p-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+      const p2pId = sharedLogicalId;
       const p2pTs = Math.floor(Date.now() / 1000);
-      const p2pMsg = { id: p2pId, content: serialization.displayText || '', attachment: serialization.attachment || null, createdAt: p2pTs };
+      const p2pMsg = { id: p2pId, logicalMessageId: sharedLogicalId, content: serialization.displayText || '', attachment: serialization.attachment || null, createdAt: p2pTs };
       let sent = false;
       if (typeof App.dataChannel.send === 'function') {
         try {
@@ -1355,7 +1435,7 @@
       const delegated = await window.SosAccountSession.verifyDelegatedEvent(event, 'DEVICE_CHAT');
       if (!delegated || delegated.ok !== true) {
         try {
-          console.warn('[MD3] rejected code=' + String((delegated && delegated.code) || 'DELEGATION_REJECTED') + ' event=' + String(event.id || '').slice(0, 8));
+          console.warn('[MD3] rejected code=' + String((delegated && delegated.code) || 'DELEGATION_REJECTED') + ' detail=' + String((delegated && delegated.detail) || '') + ' event=' + String(event.id || '').slice(0, 8));
         } catch (_md) {}
         return;
       }
@@ -1425,6 +1505,17 @@
     if (!peerPubkey) {
       return;
     }
+    const deviceCopyEcho = Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 't' && t[1] === 'sos-device-copy');
+    const ownSyncEarly = Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 't' && (t[1] === 'sos-sibling-sync' || t[1] === 'sos-own-sync'));
+    const syncEarly = Array.isArray(event.tags) ? event.tags.find((t) => Array.isArray(t) && t[0] === 'sync-peer' && typeof t[1] === 'string') : null;
+    const syncPeerEarly = syncEarly ? String(syncEarly[1]).toLowerCase() : '';
+    if (isSelfMessage && deviceCopyEcho && !ownSyncEarly) {
+      try { console.log('[MD] DEVICE_COPY_ECHO_IGNORED event=' + String(event.id || '').slice(0, 8)); } catch (_echo) {}
+      return;
+    }
+    let contactPubkey = peerPubkey;
+    if (ownSyncEarly && /^[0-9a-f]{64}$/.test(syncPeerEarly)) contactPubkey = syncPeerEarly;
+    else if (event.__sosDelegatedAccount && !onDevice && sender !== accountUser) contactPubkey = String(event.__sosDelegatedAccount).toLowerCase();
     // Stage 13 — per-peer ingress throttle after auth/recipient (normal chat stays far below) | HYPER CORE TECH
     if (!allowIngressBucket(chatIngressBuckets, sender, CHAT_INGRESS_WINDOW_MS, CHAT_INGRESS_MAX_PER_PEER)) {
       console.warn('[SECURITY/RATE_DROP] type=1050 peer=' + sender.slice(0, 8) + ' reason=chat_burst');
@@ -1436,9 +1527,9 @@
       return;
     }
 
-    const profile = normalizeProfileData(await resolveProfile(peerPubkey), peerPubkey);
+    const profile = normalizeProfileData(await resolveProfile(contactPubkey), contactPubkey);
     // חלק תיקון cache (chat-service.js) — profileFetchedAt = זמן נוכחי (לא eventTs!) כדי שה-TTL cache יעבוד | HYPER CORE TECH
-    App.ensureChatContact(peerPubkey, { ...profile, profileFetchedAt: Math.floor(Date.now() / 1000) });
+    App.ensureChatContact(contactPubkey, { ...profile, profileFetchedAt: Math.floor(Date.now() / 1000) });
 
     let parsedPayload;
     let logicalMessageId = null;
@@ -1593,6 +1684,10 @@
           }),
         )
         .then(() => {
+          try {
+            const sha = encAtt.cipher && encAtt.cipher.sha256 ? String(encAtt.cipher.sha256) : '';
+            if (sha) console.log('[MEDIA/SYNC] MEDIA_SYNC_COMPLETE sha256=' + sha.slice(0, 16) + ' peer=' + String(hydratePeer || '').slice(0, 8));
+          } catch (_sha) {}
           try {
             if (typeof App.renderMessages === 'function') {
               App.renderMessages(hydratePeer, { force: true });
@@ -2610,6 +2705,30 @@
     console.log('[CHAT/SERVICE] Full chat history sync initiated');
   }
 
+  async function reconcileDeviceConversations() {
+    const Session = window.SosAccountSession;
+    if (!Session || typeof Session.resolveDeviceAccount !== 'function' || typeof App.mergeDeviceConversationIntoAccount !== 'function') {
+      return { ok: false, n: 0 };
+    }
+    const contacts = typeof App.getChatContacts === 'function' ? App.getChatContacts() : [];
+    const self = String(App.publicKey || '').toLowerCase();
+    let n = 0;
+    for (let i = 0; i < contacts.length; i += 1) {
+      const pk = String(contacts[i] && contacts[i].pubkey || '').toLowerCase();
+      if (!/^[0-9a-f]{64}$/.test(pk) || pk === self) continue;
+      let resolved = null;
+      try { resolved = await Session.resolveDeviceAccount(pk); } catch (_e) { resolved = null; }
+      if (!resolved || resolved.ok !== true || !resolved.accountP || resolved.accountP === pk) continue;
+      if (Array.isArray(resolved.caps) && resolved.caps.indexOf('DEVICE_CHAT') === -1 && resolved.caps.indexOf('DEVICE_FILES') === -1) continue;
+      const merged = App.mergeDeviceConversationIntoAccount(pk, resolved.accountP);
+      if (merged && merged.ok && merged.moved > 0) n += 1;
+    }
+    if (n) {
+      try { console.log('[MD] PHANTOM_CONTACT_RECONCILED n=' + n); } catch (_log) {}
+    }
+    return { ok: true, n: n };
+  }
+
   async function syncOwnedMediaToLinkedDevices(peer, file, logicalId) {
     const peerNorm = String(peer || '').toLowerCase();
     if (!file || typeof App.uploadMediaForServerFallback !== 'function') return { ok: false, code: 'NO_UPLOAD' };
@@ -2640,6 +2759,7 @@
 
   Object.assign(App, {
     publishChatMessage,
+    reconcileDeviceConversations,
     syncOwnedMediaToLinkedDevices,
     deleteChatMessage,
     subscribeToChatEvents,

@@ -212,12 +212,51 @@
     return null;
   }
 
+  function plainEvent(event) {
+    if (!event || typeof event !== 'object') return null;
+    try {
+      return {
+        id: event.id,
+        pubkey: event.pubkey,
+        created_at: event.created_at,
+        kind: event.kind,
+        tags: JSON.parse(JSON.stringify(event.tags || [])),
+        content: event.content,
+        sig: event.sig,
+      };
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  function verifyEventPlain(event) {
+    const NT = root.NostrTools;
+    if (!NT || typeof NT.verifyEvent !== 'function') return { ok: false, code: 'VERIFY_UNAVAILABLE' };
+    const copy = plainEvent(event);
+    if (!copy || typeof copy.sig !== 'string' || typeof copy.id !== 'string') return { ok: false, code: 'BAD_EVENT' };
+    try {
+      if (typeof NT.getEventHash === 'function') {
+        const hash = NT.getEventHash(copy);
+        if (typeof hash === 'string' && hash.toLowerCase() !== String(copy.id).toLowerCase()) {
+          return { ok: false, code: 'HASH_MISMATCH' };
+        }
+      }
+    } catch (_hash) {
+      return { ok: false, code: 'HASH_THREW' };
+    }
+    try {
+      if (NT.verifyEvent(copy) === true) return { ok: true, code: 'OK' };
+      return { ok: false, code: 'BAD_EVENT_SIG' };
+    } catch (_verify) {
+      return { ok: false, code: 'VERIFY_THREW' };
+    }
+  }
+
   async function verifyDelegatedEvent(event, requiredCap) {
     if (!event || typeof event !== 'object') return { ok: false, code: 'BAD_EVENT' };
     const auth = readMd3Tag(event);
     if (!auth) return { ok: false, code: 'NO_DELEGATION' };
     const Auth = App.Md4DeviceAuth || root.SosMd4DeviceAuth;
-    const NT = root.NostrTools;
     if (!Auth || typeof Auth.verifyForDestination !== 'function') return { ok: false, code: 'AUTH_MODULE_MISSING' };
     const verified = await Auth.verifyForDestination(auth, {
       accountP: auth.accountP,
@@ -228,13 +267,8 @@
     if (!verified || verified.ok !== true) return { ok: false, code: (verified && verified.code) || 'DELEGATION_REJECTED' };
     const devicePub = norm(auth.D_sign_pub || auth.dSignPub);
     if (norm(event.pubkey) !== devicePub) return { ok: false, code: 'DEVICE_PUB_MISMATCH' };
-    let sigOk = false;
-    try {
-      sigOk = !!(NT && typeof NT.verifyEvent === 'function' && NT.verifyEvent(event));
-    } catch (_e) {
-      sigOk = false;
-    }
-    if (!sigOk) return { ok: false, code: 'BAD_EVENT_SIG' };
+    const sig = verifyEventPlain(event);
+    if (!sig.ok) return { ok: false, code: 'BAD_EVENT_SIG', detail: sig.code || 'BAD_EVENT_SIG' };
     const caps = Array.isArray(auth.capabilities) ? auth.capabilities.map(String) : [];
     if (requiredCap && caps.indexOf(requiredCap) === -1) return { ok: false, code: 'CAPABILITY_MISSING' };
     return { ok: true, accountP: norm(auth.accountP), deviceSignPub: devicePub, caps: caps };
@@ -295,6 +329,8 @@
       };
       const event = NT.finalizeEvent(draft, hexToBytes(dev.privHex));
       if (!event || norm(event.pubkey) !== dev.pub) return { ok: false, code: 'SIGN_FAILED' };
+      const signed = verifyEventPlain(event);
+      if (!signed.ok) return { ok: false, code: 'BAD_EVENT_SIG', detail: signed.code || 'BAD_EVENT_SIG' };
       return { ok: true, event: event, accountP: session.accountP, deviceSignPub: dev.pub };
     });
   }
@@ -434,8 +470,8 @@
     const session = getAccountSession();
     if (session.role !== 'LINKED_DEVICE' || !session.verified) return rememberHistory({ ok: false, code: 'NOT_LINKED', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
     if (!allows('READ_CONVERSATIONS')) return rememberHistory({ ok: false, code: 'CAPABILITY_DENIED', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
-    const NT = root.NostrTools;
-    if (!NT || typeof NT.verifyEvent !== 'function' || NT.verifyEvent(event) !== true) return rememberHistory({ ok: false, code: 'BAD_EVENT_SIG', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
+    const histSig = verifyEventPlain(event);
+    if (!histSig.ok) return rememberHistory({ ok: false, code: 'BAD_EVENT_SIG', detail: histSig.code || 'BAD_EVENT_SIG', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
     if (norm(event.pubkey) !== session.accountP) return rememberHistory({ ok: false, code: 'ACCOUNT_MISMATCH', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
     let env;
     try { env = JSON.parse(event.content); } catch (_e) { return rememberHistory({ ok: false, code: 'BAD_ENVELOPE', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false }); }
@@ -560,8 +596,9 @@
     return out;
   }
 
-  async function listAuthorizedDevices(accountP) {
+  async function listAuthorizedDevices(accountP, requiredCap) {
     const account = norm(accountP);
+    const cap = requiredCap ? String(requiredCap) : 'DEVICE_CHAT';
     if (!isHex64(account)) return [];
     const pool = App.pool;
     const Auth = App.Md4DeviceAuth || root.SosMd4DeviceAuth;
@@ -578,7 +615,7 @@
     const out = [];
     for (let i = 0; i < events.length; i += 1) {
       const event = events[i];
-      if (NT.verifyEvent(event) !== true) continue;
+      if (verifyEventPlain(event).ok !== true) continue;
       let body = null;
       try { body = JSON.parse(event.content); } catch (_p) { continue; }
       const auth = body && body.authorization;
@@ -591,13 +628,62 @@
       }, Date.now(), { requireHistorySync: false });
       if (!verified || verified.ok !== true) continue;
       const caps = Array.isArray(auth.capabilities) ? auth.capabilities.map(String) : [];
-      if (caps.indexOf('DEVICE_CHAT') === -1) continue;
+      if (caps.indexOf(cap) === -1) continue;
       const id = norm(auth.deviceId) || norm(auth.D_sign_pub);
       if (seen[id]) continue;
       seen[id] = true;
-      out.push({ deviceId: id, deviceSignPub: norm(auth.D_sign_pub), deviceEncPub: norm(auth.D_enc_pub), expiresAt: Number(auth.expiresAt) || 0 });
+      out.push({ deviceId: id, deviceSignPub: norm(auth.D_sign_pub), deviceEncPub: norm(auth.D_enc_pub), expiresAt: Number(auth.expiresAt) || 0, caps: caps });
     }
     return out;
+  }
+
+  async function resolveDeviceAccount(devicePub) {
+    const device = norm(devicePub);
+    if (!isHex64(device)) return { ok: false, code: 'BAD_DEVICE' };
+    const cache = root.__sosDeviceAccountCache || (root.__sosDeviceAccountCache = {});
+    const hit = cache[device];
+    if (hit && hit.exp > Date.now()) return hit.value;
+    const pool = App.pool;
+    const Auth = App.Md4DeviceAuth || root.SosMd4DeviceAuth;
+    if (!pool || !Auth || typeof Auth.verifyForDestination !== 'function') {
+      return { ok: false, code: 'NO_DIRECTORY' };
+    }
+    const filter = { kinds: [30078], authors: [device], '#d': ['sos-device-directory'], limit: 5 };
+    let raw = [];
+    try {
+      if (typeof pool.list === 'function') raw = await pool.list(App.relayUrls, [filter]);
+      else if (typeof pool.querySync === 'function') raw = await pool.querySync(App.relayUrls, filter);
+    } catch (_e) {
+      return { ok: false, code: 'QUERY_FAILED' };
+    }
+    const events = flattenRelayEvents(raw);
+    let value = { ok: false, code: 'NO_DIRECTORY' };
+    for (let i = 0; i < events.length; i += 1) {
+      const event = events[i];
+      if (norm(event.pubkey) !== device || verifyEventPlain(event).ok !== true) continue;
+      let body = null;
+      try { body = JSON.parse(event.content); } catch (_p) { continue; }
+      const auth = body && body.authorization;
+      if (!auth || norm(auth.D_sign_pub || auth.dSignPub) !== device || !isHex64(auth.accountP)) continue;
+      const verified = await Auth.verifyForDestination(auth, {
+        accountP: auth.accountP,
+        deviceId: auth.deviceId,
+        D_sign_pub: auth.D_sign_pub || auth.dSignPub,
+        D_enc_pub: auth.D_enc_pub || auth.dEncPub,
+      }, Date.now(), { requireHistorySync: false });
+      if (!verified || verified.ok !== true) continue;
+      const caps = Array.isArray(auth.capabilities) ? auth.capabilities.map(String) : [];
+      value = {
+        ok: true,
+        accountP: norm(auth.accountP),
+        deviceId: norm(auth.deviceId),
+        deviceSignPub: device,
+        caps: caps,
+      };
+      break;
+    }
+    cache[device] = { exp: Date.now() + (value.ok ? 60000 : 15000), value: value };
+    return value;
   }
 
   async function resubscribeLinkedTransports() {
@@ -651,6 +737,8 @@
     pullLinkedDirectMessages: pullLinkedDirectMessages,
     announceLinkedDevice: announceLinkedDevice,
     listAuthorizedDevices: listAuthorizedDevices,
+    resolveDeviceAccount: resolveDeviceAccount,
+    verifyEventPlain: verifyEventPlain,
     acceptHistoryEvent: acceptHistoryEvent,
     resubscribeLinkedTransports: resubscribeLinkedTransports,
     ROOT_K_ON_DESKTOP: false,

@@ -447,6 +447,8 @@
     const sid = String(state.callSessionId || '');
     const role = state.isIncoming ? 'callee' : 'caller';
     try {
+      state.callPhase = 'CONNECTED';
+      console.log('CALL_STATE CONNECTED');
       console.log('CALL_CONNECTED session=' + (sid ? sid.slice(0, 8) : 'none') + ' role=' + role);
     } catch (_) {}
     markCallPerf('CALL_CONNECTED_TS');
@@ -465,7 +467,73 @@
   }
 
   function isSameCallPeer(peerPubkey) {
-    return !!(state.currentPeer && peerPubkeyOrEmpty(state.currentPeer) === peerPubkeyOrEmpty(peerPubkey));
+    const pk = peerPubkeyOrEmpty(peerPubkey);
+    if (!pk) return false;
+    if (state.currentPeer && peerPubkeyOrEmpty(state.currentPeer) === pk) return true;
+    if (state.mediaEndpoint && peerPubkeyOrEmpty(state.mediaEndpoint) === pk) return true;
+    if (state.authorizedCallDevices && state.authorizedCallDevices[pk]) return true;
+    return false;
+  }
+
+  function myCallIdentity() {
+    const linked = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    if (linked && linked.role === 'LINKED_DEVICE' && linked.verified && linked.deviceSignPub) {
+      return String(linked.deviceSignPub).toLowerCase();
+    }
+    return peerPubkeyOrEmpty(App.publicKey);
+  }
+
+  async function bindIncomingCallSender(cryptoSender) {
+    const devicePub = peerPubkeyOrEmpty(cryptoSender);
+    const expected = peerPubkeyOrEmpty(state.currentPeer);
+    const self = peerPubkeyOrEmpty(App.publicKey);
+    if (!devicePub) return { accountP: '', devicePub: '', deviceId: '', authorized: false, reason: 'NO_SENDER' };
+    if (devicePub === expected || devicePub === self) {
+      return { accountP: devicePub === self ? self : (expected || devicePub), devicePub: devicePub, deviceId: '', authorized: true, reason: 'ACCOUNT_MATCH' };
+    }
+    if (!expected || !window.SosAccountSession || typeof window.SosAccountSession.listAuthorizedDevices !== 'function') {
+      return { accountP: expected, devicePub: devicePub, deviceId: '', authorized: false, reason: 'NO_DIRECTORY' };
+    }
+    let devices = [];
+    try { devices = await window.SosAccountSession.listAuthorizedDevices(expected, 'DEVICE_CALLS'); } catch (_e) { devices = []; }
+    const hit = (devices || []).find((d) => d && String(d.deviceSignPub || '').toLowerCase() === devicePub);
+    if (!hit) return { accountP: expected, devicePub: devicePub, deviceId: '', authorized: false, reason: 'NOT_AUTHORIZED_DEVICE' };
+    state.authorizedCallDevices = state.authorizedCallDevices || {};
+    state.authorizedCallDevices[devicePub] = true;
+    state.mediaEndpoint = devicePub;
+    return { accountP: expected, devicePub: devicePub, deviceId: String(hit.deviceId || ''), authorized: true, reason: 'DEVICE_CALLS' };
+  }
+
+  async function cancelRingOnOtherDevices(accountP, exceptDevice, sessionId) {
+    const Session = window.SosAccountSession;
+    const api = App.CallSignalE2ee;
+    if (!Session || typeof Session.listAuthorizedDevices !== 'function' || !api || typeof api.publishCallSignal !== 'function') return;
+    const except = peerPubkeyOrEmpty(exceptDevice);
+    const account = peerPubkeyOrEmpty(accountP);
+    let devices = [];
+    try { devices = await Session.listAuthorizedDevices(account, 'DEVICE_CALLS'); } catch (_e) { devices = []; }
+    const targets = [];
+    if (account && account !== except) targets.push(account);
+    (devices || []).forEach((d) => {
+      const pk = d && String(d.deviceSignPub || '').toLowerCase();
+      if (pk && pk !== except && targets.indexOf(pk) === -1) targets.push(pk);
+    });
+    for (let i = 0; i < targets.length; i += 1) {
+      try {
+        await api.publishCallSignal({
+          media: 'voice',
+          peerPubkey: targets[i],
+          type: 'cancel',
+          data: { claimedDevice: except },
+          sessionId: sessionId,
+          pool: App.pool,
+          relays: (api.getCallSignalRelays && api.getCallSignalRelays()) || App.relayUrls,
+          senderPubkey: App.publicKey,
+          __deviceFanout: true,
+        });
+        try { console.log('CALL_RING_CANCEL_SENT device=' + targets[i].slice(0, 8)); } catch (_l) {}
+      } catch (_send) {}
+    }
   }
 
   function bufferRemoteCandidates(peerPubkey, candidates) {
@@ -910,10 +978,15 @@
         state.isIncoming = false;
         state.isMuted = false;
         state.callAnswered = false;
+        state.callPhase = 'ENDED';
+        state.mediaEndpoint = '';
+        state.callClaim = null;
+        state.authorizedCallDevices = null;
         state.callStartTimestamp = null;
         state.callStartTime = null;
         state.callSessionId = null;
         state.ending = false;
+        try { console.log('CALL_STATE ENDED'); } catch (_end) {}
       } catch (_e) {}
       return;
     }
@@ -995,8 +1068,13 @@
     state.isIncoming = false;
     state.isMuted = false;
     state.callAnswered = false;
+    state.callPhase = 'ENDED';
+    state.mediaEndpoint = '';
+    state.callClaim = null;
+    state.authorizedCallDevices = null;
     state.callStartTimestamp = null;
     state.callStartTime = null;
+    try { console.log('CALL_STATE ENDED'); } catch (_end2) {}
     state.callSessionId = null;
     // חלק שיחות קול (chat-voice-call.js) – שחזור AudioSession לסוג שהיה לפני השיחה | HYPER CORE TECH
     restoreAudioSessionType();
@@ -1183,6 +1261,18 @@
       }
 
       console.log('CALL_SIGNAL_RECV action=' + String(type) + ' encrypted=' + (preParsed ? 'true' : 'legacy'));
+      const binding = await bindIncomingCallSender(peerPubkey);
+      const logicalPeer = binding.authorized ? binding.accountP : peerPubkey;
+      try {
+        console.log(
+          'CALL_BIND account=' + String(binding.accountP || '').slice(0, 8) +
+          ' device=' + String(binding.devicePub || '').slice(0, 8) +
+          ' deviceId=' + String(binding.deviceId || '').slice(0, 12) +
+          ' session=' + String((preParsed && preParsed.sessionId) || state.callSessionId || '').slice(0, 8) +
+          ' expected=' + String(state.currentPeer || '').slice(0, 8) +
+          ' reason=' + binding.reason
+        );
+      } catch (_bindLog) {}
 
       switch (type) {
         case 'ring': {
@@ -1201,6 +1291,8 @@
           armRingOfferDeadline(peerPubkey, preParsed.sessionId);
           markCallPerf('CALL_RING_RX_TS');
           markCallPerf('CALL_REMOTE_RING_SIGNAL_RX');
+          state.callPhase = 'RINGING';
+          try { console.log('CALL_STATE RINGING'); } catch (_ringState) {}
           console.log('CALL_RING_RX');
           if (typeof App.onVoiceCallRinging === 'function') {
             App.onVoiceCallRinging(peerPubkey);
@@ -1309,17 +1401,44 @@
           console.log('CALL_PEER_PRESENCE');
           break;
 
+        case 'cancel':
+          if (blockWrongSession(preParsed, 'cancel')) break;
+          {
+            const claimed = data && (data.claimedDevice || data.device);
+            const mine = myCallIdentity();
+            const selfKey = peerPubkeyOrEmpty(App.publicKey);
+            if (claimed && (String(claimed).toLowerCase() === mine || String(claimed).toLowerCase() === selfKey)) {
+              try { console.log('CALL_RING_CANCEL_IGNORED reason=claimed_here'); } catch (_ig) {}
+              break;
+            }
+            try { console.log('CALL_RING_CANCELLED'); } catch (_can) {}
+            state.callPhase = 'ENDING';
+            endCall({ remoteDisconnect: true, reason: 'remote_disconnect' });
+          }
+          break;
+
         case 'answer':
           if (blockWrongSession(preParsed, 'answer')) break;
           // תשובה לשיחה יוצאת
           try { console.log('CALL_ANSWER_RX'); } catch (_) {}
           markCallPerf('CALL_ANSWER_RX_TS');
           markCallPerf('ANSWER_REMOTE_RX');
-          if (state.peerConnection && state.currentPeer === peerPubkey) {
+          if (!binding.authorized || !isSameCallPeer(logicalPeer)) {
+            try { console.log('CALL_ANSWER_REJECT reason=' + binding.reason); } catch (_rej) {}
+            break;
+          }
+          if (state.callClaim && state.callClaim.devicePub && state.callClaim.devicePub !== binding.devicePub) {
+            try { console.log('CALL_ANSWER_REJECT reason=already_claimed'); } catch (_claimed) {}
+            break;
+          }
+          if (state.peerConnection && isSameCallPeer(logicalPeer)) {
             if (state.callAnswered) {
               try { console.log('CALL_ANSWER_APPLY_SKIP reason=already-applied'); } catch (_) {}
               break;
             }
+            state.callClaim = { devicePub: binding.devicePub, deviceId: binding.deviceId, accountP: binding.accountP, sessionId: state.callSessionId };
+            state.callPhase = 'CLAIMING';
+            try { console.log('CALL_STATE CLAIMING'); } catch (_claim) {}
             try { console.log('CALL_ANSWER_SESSION_OK'); } catch (_) {}
             const answerData = normalizeSessionDescription(data);
             if (!answerData) {
@@ -1331,7 +1450,10 @@
             await state.peerConnection.setRemoteDescription(answerData);
             await flushRemoteCandidates(peerPubkey);
             state.callAnswered = true;
+            state.callPhase = 'ANSWERED';
+            try { console.log('CALL_STATE ANSWERED device=' + String(binding.devicePub || '').slice(0, 8)); } catch (_ans) {}
             try { console.log('CALL_ANSWER_APPLY_OK'); } catch (_) {}
+            cancelRingOnOtherDevices(binding.accountP, binding.devicePub, state.callSessionId);
             try {
               if (typeof App.stopOutgoingAnswerDrainWatchdog === 'function') {
                 App.stopOutgoingAnswerDrainWatchdog('answer-applied');
@@ -1362,8 +1484,12 @@
 
         case 'disconnect':
           if (blockWrongSession(preParsed, 'disconnect')) break;
-          if (state.currentPeer === peerPubkey) {
+          if (binding.authorized && (isSameCallPeer(logicalPeer) || isSameCallPeer(binding.devicePub))) {
+            state.callPhase = 'ENDING';
+            try { console.log('CALL_STATE ENDING'); } catch (_ending) {}
             endCall({ remoteDisconnect: true, reason: 'remote_disconnect' });
+          } else {
+            try { console.log('CALL_DISCONNECT_REJECT reason=' + binding.reason); } catch (_disc) {}
           }
           break;
       }

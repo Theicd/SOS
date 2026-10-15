@@ -764,19 +764,35 @@
           }
           console.log(`[DC] 📩 P2P ← ${peer.slice(0,8)} secure`);
           notifyIncomingMessage(peer, dec);
-          if (typeof App.appendChatMessage === 'function') {
-            App.appendChatMessage({
-              id: dec.id || ('p2p-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)),
-              from: peer,
-              to: App.publicKey,
-              content,
-              attachment,
-              createdAt: dec.createdAt || Math.floor(Date.now() / 1000),
-              direction: 'incoming',
-              p2p: true,
-              transport: 'DC',
-            });
-          }
+          const logicalId = dec.logicalMessageId || dec.id;
+          const deliver = async () => {
+            let from = peer;
+            const Session = window.SosAccountSession;
+            if (Session && typeof Session.resolveDeviceAccount === 'function') {
+              try {
+                const resolved = await Session.resolveDeviceAccount(peer);
+                if (resolved && resolved.ok === true && resolved.accountP && resolved.accountP !== peer) {
+                  const caps = Array.isArray(resolved.caps) ? resolved.caps : [];
+                  if (caps.indexOf('DEVICE_CHAT') !== -1 || caps.indexOf('DEVICE_P2P') !== -1) from = resolved.accountP;
+                }
+              } catch (_dev) {}
+            }
+            if (typeof App.appendChatMessage === 'function') {
+              App.appendChatMessage({
+                id: dec.id || logicalId || ('p2p-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6)),
+                from: from,
+                to: App.publicKey,
+                content,
+                attachment,
+                createdAt: dec.createdAt || Math.floor(Date.now() / 1000),
+                direction: 'incoming',
+                p2p: true,
+                transport: 'DC',
+                logicalMessageId: logicalId,
+              });
+            }
+          };
+          deliver();
         }).catch((e) => {
           console.warn('[SECURITY/PARSE_REJECT] kind=dc type=p2p-secure-text reason=' + (e && e.code ? e.code : 'decrypt_failed'));
         });

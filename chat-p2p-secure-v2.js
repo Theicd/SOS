@@ -205,6 +205,7 @@
       v: VERSION,
       type: INNER_P2P_CHAT,
       messageId,
+      logicalMessageId: String(msg.logicalMessageId || messageId),
       createdAt,
       text,
       attachment,
@@ -226,6 +227,7 @@
     } catch (_e) {}
     return {
       id: inner.messageId,
+      logicalMessageId: inner.logicalMessageId || inner.messageId,
       content: inner.text,
       attachment: inner.attachment == null ? null : inner.attachment,
       createdAt: inner.createdAt,
