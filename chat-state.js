@@ -1000,6 +1000,10 @@
       };
       chatState.conversations.set(key, entry);
     }
+    if (message.logicalMessageId) {
+      const logicalDup = entry.messages.findIndex((item) => item && item.logicalMessageId && item.logicalMessageId === message.logicalMessageId);
+      if (logicalDup !== -1) return;
+    }
     const existingIndex = entry.messages.findIndex((item) => item.id === message.id);
     if (existingIndex !== -1) {
       const existing = entry.messages[existingIndex];

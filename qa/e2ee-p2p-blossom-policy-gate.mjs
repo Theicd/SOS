@@ -333,7 +333,7 @@ async function main() {
   record('P2P chunk 64KiB unchanged', /CHUNK_SIZE\s*=\s*64\s*\*\s*1024/.test(p2p));
   record(
     'text P2P relay skip log present',
-    /Message sent P2P, relay skipped/.test(service),
+    /Message sent P2P, relay copies follow/.test(service),
   );
   record('compose unchanged / no server-fallback', /uploadToBlossom/.test(compose) && !/uploadMediaForServerFallback/.test(compose));
   record('media-mirror unchanged', /uploadToBlossom/.test(mirror) && !/uploadMediaForServerFallback/.test(mirror));
@@ -507,11 +507,12 @@ async function main() {
 
   // --- Text relay skip regression (static structure) ---
   record(
-    'DC connected skips relay publish',
+    'DC connected still publishes relay copies',
     /dataChannel\.isConnected/.test(service) &&
       /dataChannel\.send/.test(service) &&
-      /Message sent P2P, relay skipped/.test(service) &&
-      /return \{ ok: true, messageId: p2pId, p2p: true \}/.test(service),
+      /Message sent P2P, relay copies follow/.test(service) &&
+      !/return \{ ok: true, messageId: p2pId, p2p: true \}/.test(service) &&
+      /publishAuthorizedDeviceCopies/.test(service),
   );
 
   console.log(results.join('\n'));

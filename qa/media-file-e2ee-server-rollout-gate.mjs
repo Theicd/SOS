@@ -329,7 +329,7 @@ function auditSourceClassification() {
   record('voice inline 256KiB then Blossom', /MAX_INLINE_BYTES\s*=\s*256\s*\*\s*1024/.test(voice));
   record('P2P DataChannel CHUNK_SIZE still 64KiB', /CHUNK_SIZE\s*=\s*64\s*\*\s*1024/.test(p2p));
   record('SERVER_BLOB_CHUNK_PLAINTEXT_SIZE=1MiB present', /SERVER_BLOB_CHUNK_PLAINTEXT_SIZE\s*=\s*1\s*\*\s*1024\s*\*\s*1024/.test(m2));
-  record('text P2P-first still in chat-service', /Message sent P2P, relay skipped/.test(chatSvc) && /DC_PREFER_WAIT_MS/.test(chatSvc));
+  record('text P2P-first still publishes relay copies', /Message sent P2P, relay copies follow/.test(chatSvc) && /publishAuthorizedDeviceCopies/.test(chatSvc) && /DC_PREFER_WAIT_MS/.test(chatSvc));
   record('monotonic seen key defined', /sos_media_server_e2ee_required_seen/.test(mediaServer));
   record('resolveMediaServerE2eeDecision exported', /resolveMediaServerE2eeDecision/.test(mediaServer));
   record('app-version.json sets mediaServerE2eeRequired true (ACTIVE)', /"mediaServerE2eeRequired"\s*:\s*true/.test(read('app-version.json')));

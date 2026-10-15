@@ -473,13 +473,18 @@
     isServiceReady = true;
     return App.pool;
   }
-  function buildChatDraft(peerPubkey, content) {
+  function buildChatDraft(peerPubkey, content, extraTags) {
     const now = Math.floor(Date.now() / 1000);
     const normalizedPeer = peerPubkey.toLowerCase();
     const tags = [
       ['p', normalizedPeer],
       ['t', CHAT_TAG],
     ];
+    if (Array.isArray(extraTags)) {
+      extraTags.forEach(function (tag) {
+        if (Array.isArray(tag) && tag.length) tags.push(tag);
+      });
+    }
     // C0: private DM is GLOBAL SO-CALL — do not bind new messages to active Community.
     const draft = {
       kind: CHAT_KIND,
@@ -489,6 +494,54 @@
       content,
     };
     return draft;
+  }
+
+  async function publishAuthorizedDeviceCopies(accountP, logicalId, text, attachment, createdAt) {
+    const account = String(accountP || '').trim().toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(account) || !logicalId) return { ok: false, n: 0, code: 'BAD_TARGET' };
+    if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.nip44ChatEncrypt !== 'function' || typeof App.SosCryptoSigner.signChatEvent !== 'function' || !App.SosCryptoSigner.hasIdentityKey()) {
+      return { ok: false, n: 0, code: 'NOT_PRIMARY' };
+    }
+    const Session = window.SosAccountSession;
+    if (!Session || typeof Session.listAuthorizedDevices !== 'function') return { ok: false, n: 0, code: 'NO_DIRECTORY' };
+    let devices = [];
+    try { devices = await Session.listAuthorizedDevices(account); } catch (_e) { devices = []; }
+    if (!Array.isArray(devices) || !devices.length) {
+      try { console.log('[MD] no authorized device copies for ' + account.slice(0, 8)); } catch (_log) {}
+      return { ok: true, n: 0 };
+    }
+    const pool = ensurePoolReady();
+    if (!pool) return { ok: false, n: 0, code: 'NO_POOL' };
+    let n = 0;
+    for (let i = 0; i < devices.length; i += 1) {
+      const devicePub = String(devices[i] && devices[i].deviceSignPub || '').toLowerCase();
+      if (!/^[0-9a-f]{64}$/.test(devicePub) || devicePub === account || devicePub === String(App.publicKey || '').toLowerCase()) continue;
+      let envelope;
+      try {
+        envelope = await Promise.resolve(App.SosCryptoSigner.nip44ChatEncrypt({
+          senderPubkey: App.publicKey,
+          recipientPubkey: devicePub,
+          payload: {
+            messageId: logicalId,
+            sender: App.publicKey,
+            recipient: devicePub,
+            createdAt: createdAt || Math.floor(Date.now() / 1000),
+            text: typeof text === 'string' ? text : '',
+            attachment: attachment || null,
+          },
+        }));
+      } catch (_enc) { continue; }
+      if (!envelope || envelope.family !== 'sos-e2ee' || typeof envelope.ct !== 'string') continue;
+      const wire = JSON.stringify(envelope);
+      if (text && String(text).length >= 8 && wire.indexOf(text) !== -1) continue;
+      const draft = buildChatDraft(devicePub, wire, [['t', 'sos-device-copy'], ['e', String(logicalId).slice(0, 80)]]);
+      let event;
+      try { event = await Promise.resolve(App.SosCryptoSigner.signChatEvent(draft)); } catch (_sign) { continue; }
+      if (!event || !event.id) continue;
+      try { await Promise.resolve(pool.publish(App.relayUrls, event)); n += 1; } catch (_pub) {}
+    }
+    try { console.log('[MD] device copies published ' + n + ' account=' + account.slice(0, 8)); } catch (_done) {}
+    return { ok: true, n: n };
   }
 
   function waitMs(ms) {
@@ -552,6 +605,10 @@
       return publishDelegatedChatMessage(peerPubkey, plainText, options);
     }
     const clientTempId = typeof options?.clientTempId === 'string' ? options.clientTempId : null;
+    const sharedLogicalId = clientTempId || ('cmsg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));
+    let deliveredOnDataChannel = false;
+    let deviceCopyText = '';
+    let deviceCopyAttachment = null;
     // חלק צ'אט (chat-service.js) – בודק אם מצורף קובץ לפני סינון טקסט ריק כדי לאפשר שליחת קבצים בלבד
     const attachmentReady = typeof App.hasChatFileAttachment === 'function' && App.hasChatFileAttachment(peerPubkey);
     if ((!plainText || !plainText.trim()) && !attachmentReady) {
@@ -637,7 +694,7 @@
         }
       }
       if (sent) {
-        const p2pOutgoing = { id: p2pId, from: App.publicKey, to: peerPubkey, content: p2pMsg.content, attachment: p2pMsg.attachment, createdAt: p2pTs, direction: 'outgoing', status: 'sent', p2p: true, transport: 'DC' };
+        const p2pOutgoing = { id: p2pId, from: App.publicKey, to: peerPubkey, content: p2pMsg.content, attachment: p2pMsg.attachment, createdAt: p2pTs, direction: 'outgoing', status: 'sent', p2p: true, transport: 'DC', logicalMessageId: sharedLogicalId };
         // חלק מניעת כפילות (chat-service.js) – מחליף temp optimistic במקום append נוסף | HYPER CORE TECH
         if (clientTempId && typeof App.replaceOutgoingTempMessage === 'function') {
           App.replaceOutgoingTempMessage(clientTempId, p2pOutgoing);
@@ -652,8 +709,8 @@
             App.triggerOutgoingMessagePush(peerPubkey, { eventId: p2pId, hasAttachment: !!attachmentReady });
           } catch (_pushErr) {}
         }
-        console.log('[DC] ✅ Message sent P2P, relay skipped');
-        return { ok: true, messageId: p2pId, p2p: true };
+        console.log('[DC] ✅ Message sent P2P, relay copies follow');
+        deliveredOnDataChannel = true;
       }
     }
     // fallback: שליחה רגילה דרך relay
@@ -681,6 +738,7 @@
               String((decision && decision.error) || 'e2ee-policy-unavailable'),
           );
         } catch (_e) {}
+        if (deliveredOnDataChannel) return { ok: true, messageId: sharedLogicalId, p2p: true, deviceCopies: 0, relay: false };
         return { ok: false, error: (decision && decision.error) || 'e2ee-policy-unavailable' };
       }
       e2eeSendRequired = decision.encrypt === true;
@@ -697,10 +755,12 @@
     if (e2eeSendRequired) {
       if (!App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey) {
         try { console.warn('[E2EE/SEND] blocked reason=e2ee-key-unavailable'); } catch (_e) {}
+        if (deliveredOnDataChannel) return { ok: true, messageId: sharedLogicalId, p2p: true, deviceCopies: 0, relay: false };
         return { ok: false, error: 'e2ee-key-unavailable' };
       }
       if (typeof App.SosCryptoSigner.nip44ChatEncrypt !== 'function') {
         try { console.warn('[E2EE/SEND] blocked reason=e2ee-unavailable'); } catch (_e) {}
+        if (deliveredOnDataChannel) return { ok: true, messageId: sharedLogicalId, p2p: true, deviceCopies: 0, relay: false };
         return { ok: false, error: 'e2ee-unavailable' };
       }
       let packedText = baseText;
@@ -719,12 +779,10 @@
         typeof App.getChatFileAttachment === 'function'
           ? App.getChatFileAttachment(peerNorm)
           : serialization.attachment;
-      const innerMessageId =
-        (typeof options?.clientTempId === 'string' && options.clientTempId) ||
-        (activeAtt && typeof activeAtt.clientMessageId === 'string' && activeAtt.clientMessageId) ||
-        (activeAtt && typeof activeAtt.logicalMessageId === 'string' && activeAtt.logicalMessageId) ||
-        ('cmsg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));
+      const innerMessageId = sharedLogicalId;
       relayLogicalMessageId = innerMessageId;
+      deviceCopyText = packedText;
+      deviceCopyAttachment = packedAttachment;
       const innerCreatedAt = Math.floor(Date.now() / 1000);
       // M4: encrypted Blossom descriptor must fit NIP-44 before Relay publish.
       if (
@@ -748,6 +806,7 @@
                 String((sizeErr && sizeErr.code) || 'MEDIA_E2EE_DESCRIPTOR_TOO_LARGE'),
             );
           } catch (_e) {}
+          if (deliveredOnDataChannel) return { ok: true, messageId: sharedLogicalId, p2p: true, deviceCopies: 0, relay: false };
           return {
             ok: false,
             error: (sizeErr && sizeErr.code) || 'MEDIA_E2EE_DESCRIPTOR_TOO_LARGE',
@@ -775,16 +834,19 @@
               String((encErr && encErr.code) || 'ENCRYPT_FAILURE'),
           );
         } catch (_e) {}
+        if (deliveredOnDataChannel) return { ok: true, messageId: sharedLogicalId, p2p: true, deviceCopies: 0, relay: false };
         return { ok: false, error: 'e2ee-encrypt-failed' };
       }
       if (!envelope || envelope.family !== 'sos-e2ee' || typeof envelope.ct !== 'string' || !envelope.ct) {
         try { console.warn('[E2EE/SEND] blocked reason=invalid-envelope'); } catch (_e) {}
+        if (deliveredOnDataChannel) return { ok: true, messageId: sharedLogicalId, p2p: true, deviceCopies: 0, relay: false };
         return { ok: false, error: 'e2ee-encrypt-failed' };
       }
       try {
         wireContent = JSON.stringify(envelope);
       } catch (_serErr) {
         try { console.warn('[E2EE/SEND] blocked reason=envelope-serialize-failed'); } catch (_e) {}
+        if (deliveredOnDataChannel) return { ok: true, messageId: sharedLogicalId, p2p: true, deviceCopies: 0, relay: false };
         return { ok: false, error: 'e2ee-encrypt-failed' };
       }
       // Hard guard: never publish if inner plaintext leaked into outer content string.
@@ -796,6 +858,7 @@
           wireContent.indexOf(String(packedAttachment.name)) !== -1)
       ) {
         try { console.warn('[E2EE/SEND] blocked reason=plaintext-leak-guard'); } catch (_e) {}
+        if (deliveredOnDataChannel) return { ok: true, messageId: sharedLogicalId, p2p: true, deviceCopies: 0, relay: false };
         return { ok: false, error: 'e2ee-encrypt-failed' };
       }
     }
@@ -825,11 +888,13 @@
       }
     }
 
-    // חלק סטטוס הודעות (chat-service.js) – מוסיף/מחליף הודעה במצב "שולח" לפני הפרסום | HYPER CORE TECH
-    if (clientTempId && typeof App.replaceOutgoingTempMessage === 'function') {
-      App.replaceOutgoingTempMessage(clientTempId, outgoingMessage);
-    } else {
-      App.appendChatMessage(outgoingMessage);
+    // A DataChannel copy is already on screen. The relay event is an additional device copy, not a second bubble.
+    if (!deliveredOnDataChannel) {
+      if (clientTempId && typeof App.replaceOutgoingTempMessage === 'function') {
+        App.replaceOutgoingTempMessage(clientTempId, outgoingMessage);
+      } else {
+        App.appendChatMessage(outgoingMessage);
+      }
     }
 
     // חלק timeout (chat-service.js) – פרסום עם timeout של 5 שניות למניעת תקיעה | HYPER CORE TECH
@@ -852,7 +917,14 @@
       if (typeof App.afterChatMessagePublished === 'function') {
         App.afterChatMessagePublished(peerNorm, outgoingMessage);
       }
-      return { ok: true, messageId: event.id, e2ee: e2eeSendRequired === true };
+      let deviceCopies = 0;
+      if (e2eeSendRequired === true && relayLogicalMessageId) {
+        try {
+          const fan = await publishAuthorizedDeviceCopies(peerNorm, relayLogicalMessageId, deviceCopyText, deviceCopyAttachment, event.created_at);
+          deviceCopies = fan && fan.n ? fan.n : 0;
+        } catch (_fan) { deviceCopies = 0; }
+      }
+      return { ok: true, messageId: event.id, e2ee: e2eeSendRequired === true, p2p: deliveredOnDataChannel, deviceCopies: deviceCopies };
     } catch (err) {
       // חלק timeout (chat-service.js) – אם נגמר הזמן, נחשיב כהצלחה כי ההודעה כבר נשלחה ברקע | HYPER CORE TECH
       // Timeout still uses the same (possibly encrypted) event — never plaintext retry.
@@ -865,7 +937,14 @@
         if (typeof App.triggerOutgoingMessagePush === 'function') {
           App.triggerOutgoingMessagePush(peerNorm, { eventId: event.id, hasAttachment: !!attachmentReady });
         }
-        return { ok: true, messageId: event.id, e2ee: e2eeSendRequired === true };
+        let deviceCopies = 0;
+        if (e2eeSendRequired === true && relayLogicalMessageId) {
+          try {
+            const fan = await publishAuthorizedDeviceCopies(peerNorm, relayLogicalMessageId, deviceCopyText, deviceCopyAttachment, event.created_at);
+            deviceCopies = fan && fan.n ? fan.n : 0;
+          } catch (_fan) { deviceCopies = 0; }
+        }
+        return { ok: true, messageId: event.id, e2ee: e2eeSendRequired === true, p2p: deliveredOnDataChannel, deviceCopies: deviceCopies };
       }
       console.error('Chat publish failed', err);
       // חלק סטטוס הודעות (chat-service.js) – עדכון סטטוס ל"נכשל" אם השליחה נכשלה | HYPER CORE TECH
@@ -1080,11 +1159,24 @@
    * Self-authored Relay echo/history: crypto peer = validated p-tag recipient (not event.pubkey).
    */
   async function resolveIncomingE2eeChatPayload(event) {
-    if (typeof App.SosCryptoSigner?.nip44ChatDecrypt !== 'function') {
+    const linkedNow = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    const devicePub = linkedNow && linkedNow.role === 'LINKED_DEVICE' && linkedNow.verified ? String(linkedNow.deviceSignPub || '') : '';
+    const authorEarly =
+      typeof App.normalizeHexPubkey === 'function'
+        ? App.normalizeHexPubkey(event && event.pubkey)
+        : String((event && event.pubkey) || '').trim().toLowerCase();
+    const pEarly = extractValidatedChatRecipientPTag(event);
+    const recipientEarly = pEarly && pEarly.ok ? pEarly.recipient : '';
+    const onDevice = !!(devicePub && (authorEarly === devicePub || recipientEarly === devicePub));
+    if (!onDevice && typeof App.SosCryptoSigner?.nip44ChatDecrypt !== 'function') {
       logE2eeReject('E2EE_MODULE_UNAVAILABLE', event);
       return { ok: false, retryable: true, reason: 'E2EE_MODULE_UNAVAILABLE' };
     }
-    if (!App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey) {
+    if (onDevice && !(window.SosAccountSession && typeof window.SosAccountSession.decryptForLinkedDevice === 'function')) {
+      logE2eeReject('E2EE_DECRYPT_UNAVAILABLE', event);
+      return { ok: false, retryable: true, reason: 'E2EE_DECRYPT_UNAVAILABLE' };
+    }
+    if (!onDevice && (!App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey)) {
       logE2eeReject('E2EE_DECRYPT_UNAVAILABLE', event);
       return { ok: false, retryable: true, reason: 'E2EE_DECRYPT_UNAVAILABLE' };
     }
@@ -1123,19 +1215,11 @@
       return { ok: false, retryable: false, reason: 'OVERSIZED_CIPHERTEXT' };
     }
 
-    const author =
-      typeof App.normalizeHexPubkey === 'function'
-        ? App.normalizeHexPubkey(event.pubkey)
-        : String(event.pubkey || '').trim().toLowerCase();
+    const author = authorEarly;
     const accountLocal =
       typeof App.normalizeHexPubkey === 'function'
         ? App.normalizeHexPubkey(App.publicKey)
         : String(App.publicKey || '').trim().toLowerCase();
-    const linkedNow = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
-    const devicePub = linkedNow && linkedNow.role === 'LINKED_DEVICE' && linkedNow.verified ? String(linkedNow.deviceSignPub || '') : '';
-    const pEarly = extractValidatedChatRecipientPTag(event);
-    const recipientEarly = pEarly && pEarly.ok ? pEarly.recipient : '';
-    const onDevice = !!(devicePub && (author === devicePub || recipientEarly === devicePub));
     const local = onDevice ? devicePub : accountLocal;
     if (!author || !local) {
       logE2eeReject('BAD_PUBKEY', event);
@@ -1736,8 +1820,7 @@
     }
     const linkedNow = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
     const devicePub = linkedNow && linkedNow.role === 'LINKED_DEVICE' && linkedNow.verified ? String(linkedNow.deviceSignPub || '') : '';
-    const listenPubs = [normalizedSelf];
-    if (devicePub && devicePub !== normalizedSelf) listenPubs.push(devicePub);
+    const listenPubs = (devicePub && devicePub !== normalizedSelf) ? [devicePub] : [normalizedSelf];
 
     const lastSyncTs = typeof App.getChatLastSyncTs === 'function' ? App.getChatLastSyncTs() : 0;
     const retentionFloor = getChatRetentionFloorTs();
@@ -1763,7 +1846,7 @@
       filters.push(baseFilter([1050], { '#p': [devicePub], '#t': ['sos-hist-v1'] }));
     }
 
-    if (App.NETWORK_TAG) {
+    if (App.NETWORK_TAG && !devicePub) {
       filters.push(
         baseFilter([CHAT_KIND], { '#t': [App.NETWORK_TAG], authors: [normalizedSelf] }),
         baseFilter([CHAT_KIND], { '#t': [App.NETWORK_TAG], '#p': [normalizedSelf] }),

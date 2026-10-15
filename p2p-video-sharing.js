@@ -39,7 +39,17 @@
     return null;
   }
 
+  function linkedP2pKeys() {
+    const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    if (!session || session.role !== 'LINKED_DEVICE' || session.verified !== true || App.privateKey != null) return null;
+    const devicePub = String(session.deviceSignPub || '').trim().toLowerCase();
+    const accountP = String(session.accountP || App.publicKey || '').trim().toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(devicePub) || !/^[0-9a-f]{64}$/.test(accountP)) return null;
+    return { publicKey: devicePub, hasSigner: true, isGuest: false, linkedDevice: true, accountP: accountP };
+  }
+
   function isGuestMode() {
+    if (linkedP2pKeys()) return false;
     return !App.publicKey || !App.SosCryptoSigner?.hasIdentityKey();
   }
 
@@ -83,11 +93,25 @@
   }
 
   function getEffectiveKeys() {
+    const linked = linkedP2pKeys();
+    if (linked) return linked;
     if (App.publicKey && App.SosCryptoSigner?.hasIdentityKey()) {
       return { publicKey: App.publicKey, hasSigner: true, isGuest: false };
     }
     const guest = getOrCreateGuestKeys();
     return guest || { publicKey: null, isGuest: true };
+  }
+
+  async function signLinkedDeviceP2p(event) {
+    const api = window.SosWebLinkedDevices;
+    const NT = window.NostrTools;
+    if (!api || typeof api.withLinkedDeviceSigner !== 'function' || !NT || typeof NT.finalizeEvent !== 'function') return null;
+    return api.withLinkedDeviceSigner(function (dev) {
+      event.pubkey = dev.pub;
+      const bytes = new Uint8Array(dev.privHex.length / 2);
+      for (let i = 0; i < bytes.length; i += 1) bytes[i] = parseInt(dev.privHex.substr(i * 2, 2), 16);
+      return NT.finalizeEvent(event, bytes);
+    });
   }
 
   async function signGuestOrRegisteredP2p(event, keys) {
@@ -1159,15 +1183,18 @@
             ['t', 'p2p-heartbeat'],
             ['app', P2P_APP_TAG],
             ['expires', String(Date.now() + HEARTBEAT_INTERVAL * 3)], // תוקף ל-3 דקות
-            keys.isGuest ? ['guest', 'true'] : null // סימון אורח
+            keys.linkedDevice && keys.accountP ? ['account', keys.accountP] : null,
+            keys.isGuest ? ['guest', 'true'] : null
           ].filter(Boolean)
         ),
-        content: JSON.stringify({ online: true, files: state.availableFiles.size, isGuest: !!keys.isGuest })
+        content: JSON.stringify({ online: true, files: state.availableFiles.size, isGuest: !!keys.isGuest, linkedDevice: !!keys.linkedDevice })
       };
 
-      // AC0: guest signs via GuestP2PKeyVault; registered via typed signer
+      // AC0: guest signs via GuestP2PKeyVault; linked device signs with D_sign; primary uses the account signer
       let signedEvent;
-      if (keys.isGuest) {
+      if (keys.linkedDevice) {
+        signedEvent = await signLinkedDeviceP2p(event);
+      } else if (keys.isGuest) {
         signedEvent = await signGuestOrRegisteredP2p(event, keys);
       } else if (App.SosCryptoSigner && typeof App.SosCryptoSigner.signP2pFile === 'function') {
         signedEvent = await Promise.resolve(App.SosCryptoSigner.signP2pFile(event));
@@ -3233,9 +3260,13 @@
     }
 
     // שלב 3: לא לפתוח מנוי 30078 נוסף אם כבר פעיל | HYPER CORE TECH
-    if (App._p2pSignalsSub) {
+    if (App._p2pSignalsSub && !keys.linkedDevice) {
       log('info', '👂 מנוי סיגנלי P2P כבר פעיל — מדלג על כפילות');
       return;
+    }
+    if (App._p2pSignalsSub && keys.linkedDevice) {
+      try { if (typeof App._p2pSignalsSub.close === 'function') App._p2pSignalsSub.close(); } catch (_close) {}
+      App._p2pSignalsSub = null;
     }
 
     log('info', '👂 מתחיל להאזין לסיגנלי P2P...', { isGuest: keys.isGuest });
@@ -4441,7 +4472,7 @@
         // הפעלת מעקב visibility לעבודה ברקע
         setupVisibilityTracking();
         
-        const displayKey = keys.isGuest ? 'guest_' + keys.publicKey.slice(0, 8) : App.publicKey.slice(0, 16);
+        const displayKey = keys.isGuest ? 'guest_' + keys.publicKey.slice(0, 8) : String(keys.publicKey || '').slice(0, 16);
         log('success', '✅ מערכת P2P מוכנה!', {
           publicKey: displayKey + '...',
           relays: getP2PRelays().length,
@@ -4590,6 +4621,18 @@
     pauseFeedMediaForChat,
     resumeFeedMediaAfterChat,
     printP2PStats,
+    rebindLinkedDeviceP2P: function rebindLinkedDeviceP2P() {
+      const keys = getEffectiveKeys();
+      if (!keys.linkedDevice) return { ok: false, code: 'NOT_LINKED', isGuest: isGuestMode() };
+      state.guestKeys = null;
+      try {
+        if (App._p2pSignalsSub && typeof App._p2pSignalsSub.close === 'function') App._p2pSignalsSub.close();
+      } catch (_e) {}
+      App._p2pSignalsSub = null;
+      listenForP2PSignals();
+      sendHeartbeat();
+      return { ok: true, isGuest: false, device: String(keys.publicKey).slice(0, 8) };
+    },
     verifyIncomingFileSignalRecipient,
     verifyIncomingFileSignalEvent,
     encryptPrivateP2pSignalPayload,
