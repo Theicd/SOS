@@ -50,6 +50,15 @@
       wire.duration = attachment.duration;
     }
     if (attachment.isVoice === true) wire.isVoice = true;
+    if (typeof attachment.clientMessageId === 'string' && attachment.clientMessageId) {
+      wire.clientMessageId = attachment.clientMessageId;
+    }
+    if (typeof attachment.logicalMessageId === 'string' && attachment.logicalMessageId) {
+      wire.logicalMessageId = attachment.logicalMessageId;
+    }
+    if (typeof attachment.aadParties === 'string' && /^[0-9a-f]{64}\|[0-9a-f]{64}$/.test(attachment.aadParties)) {
+      wire.aadParties = attachment.aadParties;
+    }
     if (typeof attachment.magnetURI === 'string' && attachment.magnetURI) {
       wire.magnetURI = attachment.magnetURI;
     }

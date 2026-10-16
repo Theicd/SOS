@@ -421,10 +421,17 @@
       const message = found && found.message;
       let result;
       try {
+        const auth = typeof App.mediaAuthContext === 'function'
+          ? App.mediaAuthContext(attachment, message)
+          : {
+              messageId: attachment.clientMessageId || attachment.logicalMessageId || (message && message.logicalMessageId) || '',
+              sender: message && message.from,
+              recipient: message && message.to,
+            };
         result = await resolveDurableVoicePlayback(attachment, {
-          messageId: (message && message.logicalMessageId) || attachment.clientMessageId || attachment.logicalMessageId || '',
-          sender: message && message.from,
-          recipient: message && message.to,
+          messageId: auth.messageId,
+          sender: auth.sender,
+          recipient: auth.recipient,
           fallbackSrc: container.dataset.voiceEncrypted === 'true' ? '' : fallbackSrc,
           cacheKey,
         });

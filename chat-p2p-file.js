@@ -2272,8 +2272,10 @@
               console.warn('[CHAT/P2P] poster capture (recv) failed:', posterErr);
             }
           }
+          const inboundLogicalId = `p2p-recv-${fileId}`;
           App.appendChatMessage({
-            id: `p2p-recv-${fileId}`,
+            id: inboundLogicalId,
+            logicalMessageId: inboundLogicalId,
             direction: 'incoming',
             from: transfer.peerPubkey,
             to: App.publicKey,
@@ -2298,6 +2300,17 @@
             createdAt,
           });
           console.log('[CHAT/P2P] 💬 הודעת צ\'אט נוצרה למקבל עם cacheKey יציב', { hasPoster: !!posterDataUrl, hasCaption: !!transfer.caption });
+          if (typeof App.mirrorInboundP2pFileToLinkedDevices === 'function') {
+            App.mirrorInboundP2pFileToLinkedDevices({
+              fileId,
+              blob,
+              peerPubkey: transfer.peerPubkey,
+              mimeType: resolvedMime || transfer.mimeType,
+              name: transfer.name,
+              logicalMessageId: inboundLogicalId,
+              createdAt,
+            }).catch(() => {});
+          }
         }
       } catch (msgErr) { console.warn('[CHAT/P2P] appendChatMessage failed:', msgErr); }
 

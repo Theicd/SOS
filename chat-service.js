@@ -496,7 +496,7 @@
     return draft;
   }
 
-  async function publishAuthorizedDeviceCopies(accountP, logicalId, text, attachment, createdAt, mirrorPeer) {
+  async function publishAuthorizedDeviceCopies(accountP, logicalId, text, attachment, createdAt, mirrorPeer, mode) {
     const account = String(accountP || '').trim().toLowerCase();
     if (!/^[0-9a-f]{64}$/.test(account) || !logicalId) return { ok: false, n: 0, code: 'BAD_TARGET' };
     if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.nip44ChatEncrypt !== 'function' || typeof App.SosCryptoSigner.signChatEvent !== 'function' || !App.SosCryptoSigner.hasIdentityKey()) {
@@ -505,12 +505,14 @@
     const Session = window.SosAccountSession;
     if (!Session || typeof Session.listAuthorizedDevices !== 'function') return { ok: false, n: 0, code: 'NO_DIRECTORY' };
     let devices = [];
-    try { devices = await Session.listAuthorizedDevices(account); } catch (_e) { devices = []; }
+    try { devices = await Session.listAuthorizedDevices(account, inbound ? 'DEVICE_FILES' : undefined); } catch (_e) { devices = []; }
     if (!Array.isArray(devices) || !devices.length) {
       try { console.log('[MD] no authorized device copies for ' + account.slice(0, 8)); } catch (_log) {}
       return { ok: true, n: 0 };
     }
-    const outgoingMirror = /^[0-9a-f]{64}$/.test(String(mirrorPeer || ''));
+    const inbound = mode === 'inbound';
+    const outgoingMirror = !inbound && /^[0-9a-f]{64}$/.test(String(mirrorPeer || ''));
+    const inboundPeer = inbound && /^[0-9a-f]{64}$/.test(String(mirrorPeer || ''));
     const pool = ensurePoolReady();
     if (!pool) return { ok: false, n: 0, code: 'NO_POOL' };
     let n = 0;
@@ -538,6 +540,9 @@
       const extraTags = [['t', 'sos-device-copy'], ['e', String(logicalId).slice(0, 80)]];
       if (outgoingMirror) {
         extraTags.push(['t', 'sos-own-sync']);
+        extraTags.push(['sync-peer', String(mirrorPeer).toLowerCase()]);
+      } else if (inboundPeer) {
+        extraTags.push(['t', 'sos-inbound-sync']);
         extraTags.push(['sync-peer', String(mirrorPeer).toLowerCase()]);
       }
       const draft = buildChatDraft(devicePub, wire, extraTags);
@@ -663,13 +668,18 @@
   async function publishDelegatedChatMessage(peerPubkey, plainText, options = {}) {
     const peerNorm = String(peerPubkey || '').toLowerCase();
     const text = typeof plainText === 'string' ? plainText.trim() : '';
-    if (!text) return { ok: false, error: 'empty-message' };
+    const att = typeof App.getChatFileAttachment === 'function' ? App.getChatFileAttachment(peerNorm) : null;
+    if (!text && !att) return { ok: false, error: 'empty-message' };
     const pool = ensurePoolReady();
     if (!pool) return { ok: false, error: 'pool-unavailable' };
     const Session = window.SosAccountSession;
     if (!Session || typeof Session.delegatedChatEncrypt !== 'function') return { ok: false, error: 'delegation-missing' };
-    const messageId = (typeof options?.clientTempId === 'string' && options.clientTempId) || ('ld-' + Date.now());
-    const signed = await Session.delegatedChatEncrypt(peerNorm, text, messageId);
+    const boundId = att && (att.clientMessageId || att.logicalMessageId);
+    const messageId = (typeof options?.clientTempId === 'string' && options.clientTempId) || (typeof boundId === 'string' && boundId) || ('ld-' + Date.now());
+    const wireAtt = att && typeof App.buildEncryptedAttachmentWireDescriptor === 'function'
+      ? App.buildEncryptedAttachmentWireDescriptor(att)
+      : att;
+    const signed = await Session.delegatedChatEncrypt(peerNorm, text, messageId, { attachment: wireAtt || null });
     if (!signed || signed.ok !== true || !signed.event) return { ok: false, error: (signed && signed.code) || 'delegation-sign-failed' };
     const event = signed.event;
     const outgoingMessage = {
@@ -677,6 +687,7 @@
       from: App.publicKey,
       to: peerNorm,
       content: text,
+      attachment: att || null,
       createdAt: event.created_at,
       direction: 'outgoing',
       status: 'sending',
@@ -702,11 +713,14 @@
     outgoingMessage.status = 'sent';
     if (typeof App.updateChatMessageStatus === 'function') App.updateChatMessageStatus(event.id, 'sent');
     try {
-      const sibling = await Session.delegatedChatEncrypt(peerNorm, text, messageId, { sibling: true });
+      const sibling = await Session.delegatedChatEncrypt(peerNorm, text, messageId, { sibling: true, attachment: wireAtt || null });
       if (sibling && sibling.ok === true && sibling.event) {
         await awaitRelayAccepted(pool, App.relayUrls, sibling.event);
       }
     } catch (_sib) {}
+    if (att && typeof App.clearChatFileAttachment === 'function') {
+      try { App.clearChatFileAttachment(peerNorm); } catch (_clr) {}
+    }
     return { ok: true, id: event.id, messageId: event.id, delegated: true, ROOT_K_PRESENT: false, stage: 'RELAY_ACCEPTED' };
   }
 
@@ -736,7 +750,9 @@
       return publishDelegatedChatMessage(peerPubkey, plainText, options);
     }
     const clientTempId = typeof options?.clientTempId === 'string' ? options.clientTempId : null;
-    const sharedLogicalId = clientTempId || ('cmsg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));
+    const pendingAtt = typeof App.getChatFileAttachment === 'function' ? App.getChatFileAttachment(String(peerPubkey || '').toLowerCase()) : null;
+    const pendingBound = pendingAtt && (pendingAtt.clientMessageId || pendingAtt.logicalMessageId);
+    const sharedLogicalId = clientTempId || (typeof pendingBound === 'string' && pendingBound ? pendingBound : ('cmsg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10)));
     let deliveredOnDataChannel = false;
     let deviceCopyText = '';
     let deviceCopyAttachment = null;
@@ -1507,14 +1523,20 @@
     }
     const deviceCopyEcho = Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 't' && t[1] === 'sos-device-copy');
     const ownSyncEarly = Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 't' && (t[1] === 'sos-sibling-sync' || t[1] === 'sos-own-sync'));
+    const inboundSyncEarly = Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 't' && t[1] === 'sos-inbound-sync');
     const syncEarly = Array.isArray(event.tags) ? event.tags.find((t) => Array.isArray(t) && t[0] === 'sync-peer' && typeof t[1] === 'string') : null;
     const syncPeerEarly = syncEarly ? String(syncEarly[1]).toLowerCase() : '';
+    if (inboundSyncEarly && !(onDevice && sender === accountUser && /^[0-9a-f]{64}$/.test(syncPeerEarly))) {
+      try { console.log('[MD] INBOUND_SYNC_REJECT event=' + String(event.id || '').slice(0, 8)); } catch (_inb) {}
+      return;
+    }
     if (isSelfMessage && deviceCopyEcho && !ownSyncEarly) {
       try { console.log('[MD] DEVICE_COPY_ECHO_IGNORED event=' + String(event.id || '').slice(0, 8)); } catch (_echo) {}
       return;
     }
     let contactPubkey = peerPubkey;
-    if (ownSyncEarly && /^[0-9a-f]{64}$/.test(syncPeerEarly)) contactPubkey = syncPeerEarly;
+    if (inboundSyncEarly && /^[0-9a-f]{64}$/.test(syncPeerEarly)) contactPubkey = syncPeerEarly;
+    else if (ownSyncEarly && /^[0-9a-f]{64}$/.test(syncPeerEarly)) contactPubkey = syncPeerEarly;
     else if (event.__sosDelegatedAccount && !onDevice && sender !== accountUser) contactPubkey = String(event.__sosDelegatedAccount).toLowerCase();
     // Stage 13 — per-peer ingress throttle after auth/recipient (normal chat stays far below) | HYPER CORE TECH
     if (!allowIngressBucket(chatIngressBuckets, sender, CHAT_INGRESS_WINDOW_MS, CHAT_INGRESS_MAX_PER_PEER)) {
@@ -1644,13 +1666,18 @@
     }
 
     const ownSync = Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 't' && (t[1] === 'sos-sibling-sync' || t[1] === 'sos-own-sync'));
+    const inboundSync = Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 't' && t[1] === 'sos-inbound-sync');
     const syncTag = Array.isArray(event.tags) ? event.tags.find((t) => Array.isArray(t) && t[0] === 'sync-peer' && typeof t[1] === 'string') : null;
     const syncPeer = syncTag ? String(syncTag[1]).toLowerCase() : '';
     const logicalAccount = String(event.__sosDelegatedAccount || '');
     let bubbleFrom = sender;
     let bubbleTo = (onDevice && !isSelfMessage) ? accountUser : conversationTarget;
     let bubbleDirection = isSelfMessage ? 'outgoing' : 'incoming';
-    if (ownSync && /^[0-9a-f]{64}$/.test(syncPeer)) {
+    if (inboundSync && onDevice && sender === accountUser && /^[0-9a-f]{64}$/.test(syncPeer)) {
+      bubbleFrom = syncPeer;
+      bubbleTo = accountUser;
+      bubbleDirection = 'incoming';
+    } else if (ownSync && /^[0-9a-f]{64}$/.test(syncPeer)) {
       bubbleFrom = logicalAccount || accountUser;
       bubbleTo = syncPeer;
       bubbleDirection = 'outgoing';
@@ -1671,9 +1698,12 @@
       if (encAtt.media && typeof encAtt.media.filename === 'string' && !encAtt.name) {
         encAtt.name = sanitizeIncomingChatFileName(encAtt.media.filename);
       }
-      const aadMessageId = logicalMessageId || encAtt.clientMessageId || encAtt.logicalMessageId || null;
-      const aadSender = bubbleFrom;
-      const aadRecipient = bubbleTo;
+      const authCtx = typeof App.mediaAuthContext === 'function'
+        ? App.mediaAuthContext(encAtt, { logicalMessageId: logicalMessageId, from: bubbleFrom, to: bubbleTo })
+        : null;
+      const aadMessageId = (authCtx && authCtx.messageId) || encAtt.clientMessageId || encAtt.logicalMessageId || logicalMessageId || null;
+      const aadSender = (authCtx && authCtx.sender) || bubbleFrom;
+      const aadRecipient = (authCtx && authCtx.recipient) || bubbleTo;
       const hydratePeer = bubblePeer;
       Promise.resolve()
         .then(() =>
@@ -1683,10 +1713,28 @@
             recipient: aadRecipient,
           }),
         )
-        .then(() => {
+        .then(async (resolved) => {
           try {
             const sha = encAtt.cipher && encAtt.cipher.sha256 ? String(encAtt.cipher.sha256) : '';
             if (sha) console.log('[MEDIA/SYNC] MEDIA_SYNC_COMPLETE sha256=' + sha.slice(0, 16) + ' peer=' + String(hydratePeer || '').slice(0, 8));
+            const plainMime = String((resolved && resolved.blob && resolved.blob.type) || encAtt._plainMime || (encAtt.media && encAtt.media.mime) || '');
+            if (/^image\//i.test(plainMime)) {
+              console.log('IMAGE_EVENT_RECEIVED');
+              console.log('IMAGE_DESCRIPTOR_VERIFIED');
+              console.log('IMAGE_CIPHERTEXT_AVAILABLE');
+              console.log('IMAGE_DECRYPTED');
+              let plainSha = '';
+              if (resolved && resolved.blob && typeof App.hashMediaCiphertext === 'function') {
+                plainSha = await App.hashMediaCiphertext(new Uint8Array(await resolved.blob.arrayBuffer()));
+              }
+              console.log('IMAGE_HASH_VERIFIED sha256=' + String(plainSha || '').slice(0, 16));
+              if (resolved && resolved.blob && typeof App.persistChatP2PMedia === 'function') {
+                const cacheKey = typeof App.encryptedMediaCacheKey === 'function' ? await App.encryptedMediaCacheKey(encAtt) : '';
+                if (cacheKey) await App.persistChatP2PMedia(cacheKey, resolved.blob, { name: encAtt.name || 'image', type: plainMime });
+              }
+              console.log('IMAGE_VISIBLE');
+              console.log('IMAGE_PERSISTED');
+            }
           } catch (_sha) {}
           try {
             if (typeof App.renderMessages === 'function') {
@@ -1772,6 +1820,29 @@
 
     try { console.log('[CHAT/SEND] RECIPIENT_UI_COMMITTED event=' + String(event.id || '').slice(0, 8) + ' peer=' + String(bubblePeer || '').slice(0, 8)); } catch (_ui) {}
     App.appendChatMessage(normalizedMessage);
+    if (
+      bubbleDirection === 'incoming' &&
+      !inboundSync &&
+      !onDevice &&
+      parsedPayload.attachment &&
+      parsedPayload.attachment.type === 'encrypted-media' &&
+      App.SosCryptoSigner &&
+      typeof App.SosCryptoSigner.hasIdentityKey === 'function' &&
+      App.SosCryptoSigner.hasIdentityKey()
+    ) {
+      const inboundWire = typeof App.buildEncryptedAttachmentWireDescriptor === 'function'
+        ? App.buildEncryptedAttachmentWireDescriptor(parsedPayload.attachment)
+        : parsedPayload.attachment;
+      publishAuthorizedDeviceCopies(
+        accountUser,
+        logicalMessageId || normalizedMessage.id,
+        parsedPayload.displayText || '',
+        inboundWire,
+        eventTs,
+        bubbleFrom,
+        'inbound',
+      ).catch(() => {});
+    }
 
     // חלק P2P auto-connect (chat-service.js) – כשמגיעה הודעה חדשה דרך relay מ-peer שאין איתו DC,
     // מתחיל חיבור DataChannel ברקע כדי שההודעה הבאה תעבור P2P ישירות | HYPER CORE TECH
@@ -2757,10 +2828,49 @@
     return { ok: !!(own && own.n > 0), n: own && own.n, sha256: sha, logicalMessageId: id };
   }
 
+  async function mirrorInboundP2pFileToLinkedDevices(opts) {
+    const o = opts && typeof opts === 'object' ? opts : {};
+    if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.hasIdentityKey !== 'function' || !App.SosCryptoSigner.hasIdentityKey()) {
+      return { ok: false, code: 'NOT_PRIMARY' };
+    }
+    const peer = String(o.peerPubkey || '').toLowerCase();
+    const self = String(App.publicKey || '').toLowerCase();
+    const logicalId = String(o.logicalMessageId || '');
+    if (!/^[0-9a-f]{64}$/.test(peer) || !logicalId || !o.blob || typeof App.uploadMediaForServerFallback !== 'function') {
+      return { ok: false, code: 'BAD_INPUT' };
+    }
+    let descriptor;
+    try {
+      descriptor = await App.uploadMediaForServerFallback(o.blob, {
+        messageId: logicalId,
+        sender: peer,
+        recipient: self,
+        mimeType: o.mimeType || (o.blob && o.blob.type) || 'application/octet-stream',
+        fileName: o.name || 'file',
+        requireEncryption: true,
+      });
+    } catch (err) {
+      try { console.warn('[MEDIA/SYNC] inbound mirror failed code=' + String((err && err.code) || 'UPLOAD_FAILED')); } catch (_e) {}
+      return { ok: false, code: (err && err.code) || 'UPLOAD_FAILED' };
+    }
+    if (!descriptor || descriptor.type !== 'encrypted-media') return { ok: false, code: 'NO_DESCRIPTOR' };
+    try { delete descriptor._prepared; } catch (_prep) {}
+    const wire = typeof App.buildEncryptedAttachmentWireDescriptor === 'function'
+      ? App.buildEncryptedAttachmentWireDescriptor(descriptor)
+      : descriptor;
+    const copied = await publishAuthorizedDeviceCopies(self, logicalId, '', wire || descriptor, o.createdAt || Math.floor(Date.now() / 1000), peer, 'inbound');
+    const n = copied && copied.n ? copied.n : 0;
+    if (/^image\//i.test(String(o.mimeType || ''))) {
+      try { console.log('IMAGE_DEVICE_FANOUT n=' + n + ' id=' + logicalId.slice(0, 24)); } catch (_img) {}
+    }
+    return { ok: n > 0, n: n, logicalMessageId: logicalId };
+  }
+
   Object.assign(App, {
     publishChatMessage,
     reconcileDeviceConversations,
     syncOwnedMediaToLinkedDevices,
+    mirrorInboundP2pFileToLinkedDevices,
     deleteChatMessage,
     subscribeToChatEvents,
     stopPrivateChatSubscription,

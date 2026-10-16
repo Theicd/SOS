@@ -145,6 +145,102 @@ async function pollPage(page, fn, arg, timeoutMs) {
   return last || { ok: false };
 }
 
+async function waitDecryptedHash(page, expectedHash, timeoutMs) {
+  return pollPage(page, async (hash) => {
+    const App = window.NostrApp;
+    const Session = window.SosAccountSession;
+    if (Session && typeof Session.pullLinkedDirectMessages === 'function') {
+      try { await Session.pullLinkedDirectMessages(); } catch (_e) {}
+    }
+    if (typeof App.subscribeToChatEvents === 'function') {
+      try { App.subscribeToChatEvents(); } catch (_e) {}
+    }
+    const me = String(App.publicKey || '').toLowerCase();
+    const filter = { kinds: [1050], '#p': [me], '#t': ['yalachat'], limit: 20 };
+    let events = [];
+    try {
+      if (App.pool && typeof App.pool.list === 'function') events = await App.pool.list(App.relayUrls, [filter]);
+    } catch (_e) {}
+    if (!Array.isArray(events)) events = [];
+    for (let i = 0; i < events.length; i += 1) {
+      if (typeof App.handleIncomingChatEvent === 'function') {
+        try { await App.handleIncomingChatEvent(events[i]); } catch (_in) {}
+      }
+    }
+    const conv = App.chatState && App.chatState.conversations;
+    if (!conv || typeof conv.forEach !== 'function' || typeof App.resolveServerMediaAttachment !== 'function') return { ok: false };
+    const jobs = [];
+    conv.forEach((entry) => {
+      const messages = entry && entry.messages;
+      if (!Array.isArray(messages)) return;
+      messages.forEach((m) => {
+        if (m && m.attachment && m.attachment.type === 'encrypted-media') jobs.push(m);
+      });
+    });
+    for (let i = 0; i < jobs.length; i += 1) {
+      try {
+        const m = jobs[i];
+        const ctx = typeof App.mediaAuthContext === 'function' ? App.mediaAuthContext(m.attachment, m) : {};
+        const resolved = await App.resolveServerMediaAttachment(m.attachment, ctx);
+        if (!resolved || !resolved.blob) continue;
+        const got = await App.hashMediaCiphertext(new Uint8Array(await resolved.blob.arrayBuffer()));
+        if (got === hash) return { ok: true, hash: got };
+      } catch (_d) {}
+    }
+    return { ok: false, n: jobs.length };
+  }, expectedHash, timeoutMs);
+}
+
+async function waitCallSignal(page, which, timeoutMs) {
+  return pollPage(page, async (mode) => {
+    const App = window.NostrApp;
+    if (typeof App.initVoiceCall === 'function') {
+      try { App.initVoiceCall({ force: true, lookbackSec: 90 }); } catch (_i) {}
+    }
+    const api = App.CallSignalE2ee;
+    if (api && typeof api.ensureSecureCallSubscription === 'function') {
+      try { api.ensureSecureCallSubscription({ force: true, reason: 'lab' }); } catch (_s) {}
+    }
+    const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    const listen = session && session.role === 'LINKED_DEVICE' && session.deviceSignPub
+      ? String(session.deviceSignPub).toLowerCase()
+      : String(App.publicKey || '').toLowerCase();
+    const relays = api && typeof api.getCallSignalRelays === 'function' ? api.getCallSignalRelays() : App.relayUrls;
+    let events = [];
+    try {
+      if (App.pool && typeof App.pool.list === 'function') {
+        events = await App.pool.list(relays, [{ kinds: [1059], '#p': [listen], limit: 8, since: Math.floor(Date.now() / 1000) - 180 }]);
+      }
+    } catch (_e) {}
+    if (!Array.isArray(events)) events = [];
+    if (api && typeof api.enqueueSecureDispatch === 'function') {
+      for (let i = 0; i < events.length; i += 1) {
+        try { await api.enqueueSecureDispatch(events[i]); } catch (_d) {}
+      }
+    }
+    const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : {};
+    if (mode === 'ring') return { ok: st.callPhase === 'RINGING' || st.isIncoming === true, phase: st.callPhase || '' };
+    if (mode === 'stopped') {
+      const stopped = st.callPhase === 'CANCELLED' || st.callPhase === 'ENDED' || (st.isIncoming !== true && !st.peerConnection && !st.isCallActive);
+      return { ok: stopped === true, phase: st.callPhase || '' };
+    }
+    if (mode === 'rtp') {
+      const pc = st.peerConnection;
+      if (!pc || typeof pc.getStats !== 'function') return { ok: false, phase: st.callPhase || '' };
+      const stats = await pc.getStats();
+      let outPkts = 0;
+      let inPkts = 0;
+      stats.forEach((row) => {
+        if (!row) return;
+        if (row.type === 'outbound-rtp' && (row.kind === 'audio' || row.mediaType === 'audio')) outPkts += Number(row.packetsSent) || 0;
+        if (row.type === 'inbound-rtp' && (row.kind === 'audio' || row.mediaType === 'audio')) inPkts += Number(row.packetsReceived) || 0;
+      });
+      return { ok: outPkts > 0 && inPkts > 0, out: outPkts, inn: inPkts, phase: st.callPhase || '' };
+    }
+    return { ok: false, phase: st.callPhase || '' };
+  }, which, timeoutMs);
+}
+
 async function waitApp(page, timeout = 120000) {
   await page.waitForFunction(() => !!window.NostrApp && !!window.SosWebLinkedDevices, null, { timeout });
 }
@@ -944,6 +1040,18 @@ async function proveLinkedAccountProduct(desktop, mobile) {
     MESSAGE_RECEIVE: false,
     E2EE_VERIFIED: false,
     VOICE_CALL: false,
+    VOICE_SENDER_PLAYBACK: false,
+    VOICE_PHONE_PLAYBACK: false,
+    VOICE_DESKTOP_PLAYBACK: false,
+    IMAGE_HASH_MATCH: false,
+    IMAGE_BLOSSOM_FALLBACK: false,
+    DESKTOP_RTP: false,
+    PHONE_RING_CANCELLED: false,
+    PHONE_RTP: false,
+    DESKTOP_RING_CANCELLED: false,
+    NEGATIVE_AAD: false,
+    IMAGE_DESKTOP_PERSISTED: false,
+    VOICE_DESKTOP_RELOAD: false,
     VIDEO_CALL: false,
     SHARE_ACTION: false,
     PRIMARY_ROOT_K_ISOLATED: false,
@@ -1009,8 +1117,9 @@ async function proveLinkedAccountProduct(desktop, mobile) {
     if (peer.page) {
       peer.page.on('console', (msg) => {
         const t = redact(msg.text());
-        if (!/MD3|CHAT\/E2EE|CHAT\/PERSIST|DEVICE_COPY|BAD_EVENT|PHANTOM/.test(t)) return;
-        if (peer.console.length < 40) peer.console.push(t.slice(0, 220));
+        if (!/MD3|CHAT\/E2EE|CHAT\/PERSIST|DEVICE_COPY|BAD_EVENT|PHANTOM|CALL_/.test(t)) return;
+        if (peer.console.length >= 80) peer.console.shift();
+        peer.console.push(t.slice(0, 220));
       });
     }
     if (!peer.ok) {
@@ -1240,81 +1349,177 @@ async function proveLinkedAccountProduct(desktop, mobile) {
       flags.productCode = 'SELF_CHAT';
       return { flags };
     }
-    await peer.page.evaluate(() => {
+    const negative = await peer.page.evaluate(async () => {
       const App = window.NostrApp;
-      if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 60 });
-      if (App.CallSignalE2ee && typeof App.CallSignalE2ee.ensureSecureCallSubscription === 'function') {
-        App.CallSignalE2ee.ensureSecureCallSubscription({ force: true, reason: 'lab' });
-      }
-    });
-    const started = await desktop.evaluate(async (peerPub) => {
-      const App = window.NostrApp;
-      if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 30 });
-      if (App.CallSignalE2ee && typeof App.CallSignalE2ee.ensureSecureCallSubscription === 'function') {
-        App.CallSignalE2ee.ensureSecureCallSubscription({ force: true, reason: 'lab' });
-      }
+      const sender = String(App.publicKey || '').toLowerCase();
+      const recipient = 'b'.repeat(64);
+      const plain = new TextEncoder().encode('lab-voice');
+      const enc = await App.encryptMediaBlob(plain, {
+        messageId: 'cmsg-lab',
+        sender,
+        recipient,
+        mime: 'audio/webm',
+        filename: 'v.webm',
+        mode: 'single',
+      });
+      let rejected = false;
       try {
-        await App.voiceCall.start(peerPub);
-        const st = App.voiceCall.getState();
-        return { ok: true, active: st.isCallActive === true };
+        await App.decryptMediaBlob(enc.ciphertext, enc.descriptor, {
+          messageId: 'cmsg-other',
+          sender,
+          recipient,
+          attachmentId: enc.descriptor.attachmentId,
+        });
+      } catch (e) {
+        rejected = !!(e && e.code === 'MEDIA_E2EE_AUTH_FAILED');
+      }
+      return { rejected };
+    });
+    flags.NEGATIVE_AAD = negative && negative.rejected === true;
+    if (!flags.NEGATIVE_AAD) {
+      flags.productCode = 'NEGATIVE_AAD';
+      return { flags };
+    }
+    const voice = await peer.page.evaluate(async (account) => {
+      const App = window.NostrApp;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream);
+      const chunks = [];
+      rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+      const stopped = new Promise((resolve) => { rec.onstop = () => resolve(true); });
+      rec.start();
+      await new Promise((r) => setTimeout(r, 700));
+      rec.stop();
+      await stopped;
+      stream.getTracks().forEach((t) => t.stop());
+      const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+      const hash = await App.hashMediaCiphertext(new Uint8Array(await blob.arrayBuffer()));
+      const attachment = await App.sendVoiceBlobToChat(account, { blob, duration: 1, mimeType: blob.type || 'audio/webm' });
+      const bound = attachment && (attachment.clientMessageId || attachment.logicalMessageId);
+      const sent = await App.publishChatMessage(account, '', bound ? { clientTempId: bound } : undefined);
+      const ctx = attachment && App.mediaAuthContext ? App.mediaAuthContext(attachment, { from: App.publicKey, to: account }) : null;
+      const local = attachment && ctx ? await App.resolveServerMediaAttachment(attachment, ctx) : null;
+      const localHash = local && local.blob ? await App.hashMediaCiphertext(new Uint8Array(await local.blob.arrayBuffer())) : '';
+      return { ok: !!(sent && sent.ok), hash, localHash, error: sent && sent.error ? String(sent.error) : '' };
+    }, accountP);
+    flags.VOICE_SENDER_PLAYBACK = !!(voice && voice.ok && voice.hash && voice.hash === voice.localHash);
+    if (!flags.VOICE_SENDER_PLAYBACK) {
+      flags.productCode = 'VOICE_SENDER_' + String((voice && (voice.error || voice.hash || 'FAIL')) || 'FAIL').slice(0, 80);
+      return { flags };
+    }
+    const phoneVoice = await waitDecryptedHash(mobile, voice.hash, 45000);
+    const deskVoice = await waitDecryptedHash(desktop, voice.hash, 45000);
+    flags.VOICE_PHONE_PLAYBACK = phoneVoice && phoneVoice.ok === true;
+    flags.VOICE_DESKTOP_PLAYBACK = deskVoice && deskVoice.ok === true;
+    if (!flags.VOICE_PHONE_PLAYBACK || !flags.VOICE_DESKTOP_PLAYBACK) {
+      flags.productCode = 'VOICE_PLAYBACK_phone' + (flags.VOICE_PHONE_PLAYBACK ? '1' : '0') + '_desk' + (flags.VOICE_DESKTOP_PLAYBACK ? '1' : '0');
+      return { flags };
+    }
+    const image = await peer.page.evaluate(async (account) => {
+      const App = window.NostrApp;
+      const prevTorrent = App.torrentTransfer;
+      App.torrentTransfer = { init() { return null; } };
+      try {
+        const b64 = '/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBxISEhUQEhIVFRUVFRUYFxgYGBcYGBgYGBgYGBgYGBgYGBgYICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIf/AABEIAAEAAQMBIgACEQEDEQH/xAAUAAEAAAAAAAAAAAAAAAAAAAAK/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/EABQBAQAAAAAAAAAAAAAAAAAAAAD/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAGf/9k=';
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+        const blob = new Blob([bytes], { type: 'image/jpeg' });
+        const hash = await App.hashMediaCiphertext(bytes);
+        const descriptor = await App.uploadMediaForServerFallback(blob, {
+          sender: App.publicKey,
+          recipient: account,
+          mimeType: 'image/jpeg',
+          fileName: 'lab.jpg',
+          requireEncryption: true,
+        });
+        if (!descriptor || descriptor.type !== 'encrypted-media') return { ok: false, error: 'NO_DESCRIPTOR' };
+        if (typeof App.setChatFileAttachment === 'function') App.setChatFileAttachment(account, descriptor);
+        const sent = await App.publishChatMessage(account, '', { clientTempId: descriptor.clientMessageId || descriptor.logicalMessageId });
+        return { ok: !!(sent && sent.ok), hash, error: sent && sent.error ? String(sent.error) : '' };
+      } catch (e) {
+        return { ok: false, error: String((e && (e.code || e.message)) || e).slice(0, 80) };
+      } finally {
+        App.torrentTransfer = prevTorrent;
+      }
+    }, accountP);
+    flags.IMAGE_BLOSSOM_FALLBACK = !!(image && image.ok);
+    if (!image || !image.ok || !image.hash) {
+      flags.productCode = 'IMAGE_SEND_' + String((image && image.error) || 'FAIL');
+      return { flags };
+    }
+    const phoneImage = await waitDecryptedHash(mobile, image.hash, 45000);
+    const deskImage = await waitDecryptedHash(desktop, image.hash, 45000);
+    flags.IMAGE_HASH_MATCH = !!(phoneImage && phoneImage.ok && deskImage && deskImage.ok);
+    if (!flags.IMAGE_HASH_MATCH) {
+      flags.productCode = 'IMAGE_HASH_phone' + (phoneImage && phoneImage.ok ? '1' : '0') + '_desk' + (deskImage && deskImage.ok ? '1' : '0');
+      return { flags };
+    }
+    await Promise.all([peer.page, mobile, desktop].map((page) => page.evaluate(() => {
+      const App = window.NostrApp;
+      if (typeof App.initVoiceCall === 'function') App.initVoiceCall({ force: true, lookbackSec: 90 });
+      if (App.CallSignalE2ee && typeof App.CallSignalE2ee.ensureSecureCallSubscription === 'function') {
+        App.CallSignalE2ee.ensureSecureCallSubscription({ force: true, reason: 'lab' });
+      }
+    })));
+    const started = await peer.page.evaluate(async (account) => {
+      try {
+        await window.NostrApp.voiceCall.start(account);
+        return { ok: true };
       } catch (e) {
         return { ok: false, error: String((e && e.message) || e).slice(0, 120) };
       }
-    }, peer.pub);
-    if (started.ok) {
-      const incomingResult = await pollPage(peer.page, async () => {
-        const App = window.NostrApp;
-        const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : {};
-        if (st.isIncoming === true || st.isCallActive === true) return { ok: true };
-        const filter = { kinds: [1059], '#p': [String(App.publicKey || '').toLowerCase()], limit: 8, since: Math.floor(Date.now() / 1000) - 120 };
-        const relays = (App.CallSignalE2ee && typeof App.CallSignalE2ee.getCallSignalRelays === 'function')
-          ? App.CallSignalE2ee.getCallSignalRelays()
-          : App.relayUrls;
-        let events = [];
-        try {
-          if (App.pool && typeof App.pool.list === 'function') events = await App.pool.list(relays, [filter]);
-        } catch (_e) {}
-        if (!Array.isArray(events)) events = [];
-        window.__sosLabCallPull = events.length;
-        const api = App.CallSignalE2ee;
-        if (api && typeof api.enqueueSecureDispatch === 'function') {
-          for (let i = 0; i < events.length; i += 1) {
-            try { await api.enqueueSecureDispatch(events[i]); } catch (_d) {}
-          }
-        }
-        const again = App.voiceCall.getState();
-        return { ok: again.isIncoming === true || again.isCallActive === true };
-      }, null, 25000);
-      const incoming = incomingResult.ok === true;
-      if (incoming) {
-        await peer.page.evaluate(async () => {
-          const st = window.NostrApp.voiceCall.getState();
-          if (typeof window.NostrApp.voiceCall.accept === 'function') {
-            await window.NostrApp.voiceCall.accept(st.currentPeer, st.waitingOffer || null);
-          }
-        }).catch(() => {});
-        const connected = await desktop.waitForFunction(() => {
-          const st = window.NostrApp.voiceCall.getState();
-          const pc = st.peerConnection;
-          return !!(st.callAnswered === true || (pc && (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed')));
-        }, null, { timeout: 25000 }).then(() => true).catch(() => false);
-        flags.VOICE_CALL = connected === true;
+    }, accountP);
+    const deskRing = started.ok ? await waitCallSignal(desktop, 'ring', 30000) : { ok: false };
+    const phoneRing = started.ok ? await waitCallSignal(mobile, 'ring', 30000) : { ok: false };
+    if (!started.ok || !deskRing.ok || !phoneRing.ok) {
+      flags.productCode = 'CALL_RING_' + String((started && started.error) || ('desk' + (deskRing.ok ? 1 : 0) + '_phone' + (phoneRing.ok ? 1 : 0)));
+      return { flags };
+    }
+    await desktop.evaluate(async () => {
+      const st = window.NostrApp.voiceCall.getState();
+      await window.NostrApp.voiceCall.accept(st.currentPeer, st.waitingOffer || null);
+    });
+    const deskRtp = await waitCallSignal(desktop, 'rtp', 20000);
+    const callerRtp = await waitCallSignal(peer.page, 'rtp', 20000);
+    flags.DESKTOP_RTP = !!(deskRtp && deskRtp.ok && callerRtp && callerRtp.ok);
+    const phoneStopped = await waitCallSignal(mobile, 'stopped', 20000);
+    flags.PHONE_RING_CANCELLED = !!(phoneStopped && phoneStopped.ok);
+    if (!flags.DESKTOP_RTP || !flags.PHONE_RING_CANCELLED) {
+      flags.productCode = 'DESKTOP_CALL_rtp' + (flags.DESKTOP_RTP ? 1 : 0) + '_cancel' + (flags.PHONE_RING_CANCELLED ? 1 : 0);
+      return { flags };
+    }
+    await desktop.evaluate(async () => { await window.NostrApp.voiceCall.end(); });
+    await waitCallSignal(peer.page, 'stopped', 15000);
+    const started2 = await peer.page.evaluate(async (account) => {
+      try {
+        await window.NostrApp.voiceCall.start(account);
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: String((e && e.message) || e).slice(0, 80) };
       }
+    }, accountP);
+    const deskRing2 = started2.ok ? await waitCallSignal(desktop, 'ring', 30000) : { ok: false };
+    const phoneRing2 = started2.ok ? await waitCallSignal(mobile, 'ring', 30000) : { ok: false };
+    if (!deskRing2.ok || !phoneRing2.ok) {
+      flags.productCode = 'CALL2_RING_desk' + (deskRing2.ok ? 1 : 0) + '_phone' + (phoneRing2.ok ? 1 : 0);
+      return { flags };
     }
+    await mobile.evaluate(async () => {
+      const st = window.NostrApp.voiceCall.getState();
+      await window.NostrApp.voiceCall.accept(st.currentPeer, st.waitingOffer || null);
+    });
+    const deskStopped2 = await waitCallSignal(desktop, 'stopped', 20000);
+    flags.DESKTOP_RING_CANCELLED = !!(deskStopped2 && deskStopped2.ok);
+    const phoneRtp = await waitCallSignal(mobile, 'rtp', 20000);
+    const callerRtp2 = await waitCallSignal(peer.page, 'rtp', 20000);
+    flags.PHONE_RTP = !!(phoneRtp && phoneRtp.ok && callerRtp2 && callerRtp2.ok);
+    flags.VOICE_CALL = flags.DESKTOP_RTP === true && flags.PHONE_RING_CANCELLED === true && flags.DESKTOP_RING_CANCELLED === true && flags.PHONE_RTP === true;
     if (!flags.VOICE_CALL) {
-      const pullN = await peer.page.evaluate(() => window.__sosLabCallPull || 0).catch(() => 0);
-      const deskN = await desktop.evaluate(async (peerPub) => {
-        const App = window.NostrApp;
-        const relays = App.CallSignalE2ee && App.CallSignalE2ee.getCallSignalRelays ? App.CallSignalE2ee.getCallSignalRelays() : App.relayUrls;
-        try {
-          const events = await App.pool.list(relays, [{ kinds: [1059], '#p': [peerPub], limit: 5, since: Math.floor(Date.now() / 1000) - 86400 }]);
-          return Array.isArray(events) ? events.length : -1;
-        } catch (_e) {
-          return -2;
-        }
-      }, peer.pub).catch(() => -3);
-      flags.productCode = flags.productCode || ('VOICE_' + String((started && started.error) || ('NO_ANSWER_peer' + pullN + '_desk' + deskN)));
+      flags.productCode = 'PHONE_CALL_rtp' + (flags.PHONE_RTP ? 1 : 0) + '_deskCancel' + (flags.DESKTOP_RING_CANCELLED ? 1 : 0);
+      return { flags };
     }
+    await mobile.evaluate(async () => { await window.NostrApp.voiceCall.end(); });
     const share = await desktop.evaluate(async (peerPub) => {
       const App = window.NostrApp;
       const modal = document.getElementById('guestAuthModal');
@@ -1351,7 +1556,11 @@ async function proveLinkedAccountProduct(desktop, mobile) {
       const modalOpen = !!(modal && modal.hidden !== true && window.getComputedStyle(modal).display !== 'none');
       return { openedProfile: openedProfile === true, modalOpen };
     });
-    flags.RELOAD_PERSISTENCE = still.openedProfile === true && still.modalOpen !== true;
+    const imageAfterReload = await waitDecryptedHash(desktop, image.hash, 30000);
+    flags.IMAGE_DESKTOP_PERSISTED = !!(imageAfterReload && imageAfterReload.ok);
+    const voiceAfterReload = await waitDecryptedHash(desktop, voice.hash, 30000);
+    flags.VOICE_DESKTOP_RELOAD = !!(voiceAfterReload && voiceAfterReload.ok);
+    flags.RELOAD_PERSISTENCE = still.openedProfile === true && still.modalOpen !== true && flags.IMAGE_DESKTOP_PERSISTED === true && flags.VOICE_DESKTOP_RELOAD === true;
     if (!flags.RELOAD_PERSISTENCE) flags.productCode = 'RELOAD';
     return { flags };
   } catch (e) {
@@ -1381,7 +1590,7 @@ function classifyFirstFail(report) {
   if (report.MESSAGE_SEND !== true) return 'MESSAGE_SEND';
   if (report.MESSAGE_RECEIVE !== true) return 'MESSAGE_RECEIVE';
   if (report.E2EE_VERIFIED !== true) return 'E2EE';
-  if (report.VOICE_CALL !== true) return 'VOICE_CALL';
+  if (report.VOICE_CALL !== true) return report.productCode || 'VOICE_CALL';
   if (report.SHARE_ACTION !== true) return 'SHARE_ACTION';
   if (report.RELOAD_PERSISTENCE !== true) return 'RELOAD_PRODUCT';
   if (report.PRIMARY_ROOT_K_ISOLATED !== true) return 'ROOT_K_ISOLATION';

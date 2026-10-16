@@ -167,7 +167,8 @@
         
         const result = await App.finalizeVoiceToChat?.(peer);
         if (result && typeof App.publishChatMessage === 'function'){
-          await App.publishChatMessage(peer, '');
+          const boundId = result.clientMessageId || result.logicalMessageId || '';
+          await App.publishChatMessage(peer, '', boundId ? { clientTempId: boundId } : undefined);
         }
         
         // הסרת אינדיקטור הטעינה

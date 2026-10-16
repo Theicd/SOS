@@ -193,7 +193,8 @@
         mediaDebugLog('p2p-restore-from-cache', { cacheKey });
         return restored;
       }
-      return '';
+      if (attachment.type !== 'encrypted-media') return '';
+      src = '';
     }
 
     if (cacheKey && (!src || src.startsWith('blob:'))) {
@@ -205,6 +206,23 @@
     if (cacheKey) {
       const restored = await fromDurable();
       if (restored) return restored;
+    }
+
+    if (attachment.type === 'encrypted-media' && typeof App.resolveServerMediaAttachment === 'function') {
+      try {
+        const auth = typeof App.mediaAuthContext === 'function' ? App.mediaAuthContext(attachment, null) : {};
+        const resolved = await App.resolveServerMediaAttachment(attachment, auth);
+        const objectUrl = resolved && resolved.objectUrl ? String(resolved.objectUrl) : '';
+        if (objectUrl && resolved.blob) {
+          const key = cacheKey || (typeof App.encryptedMediaCacheKey === 'function' ? await App.encryptedMediaCacheKey(attachment) : '');
+          if (key) persistChatP2PMedia(key, resolved.blob, { name: attachment.name, type: resolved.blob.type || attachment._plainMime }).catch(() => {});
+          const mime = String(resolved.blob.type || attachment._plainMime || (attachment.media && attachment.media.mime) || '');
+          if (/^image\//i.test(mime)) {
+            try { console.log('IMAGE_VISIBLE'); } catch (_vis) {}
+          }
+          return objectUrl;
+        }
+      } catch (_enc) {}
     }
 
     if (src.startsWith('data:')) return src;
@@ -644,11 +662,14 @@
           logDocumentSource('DOCUMENT_DURABLE_SOURCE_UNAVAILABLE');
           return false;
         }
-        const result = await App.resolveServerMediaAttachment(att, {
-          messageId: att.clientMessageId || att.logicalMessageId || message.id,
-          sender: message.from,
-          recipient: message.to,
-        });
+        const auth = typeof App.mediaAuthContext === 'function'
+          ? App.mediaAuthContext(att, message)
+          : {
+              messageId: att.clientMessageId || att.logicalMessageId || message.id,
+              sender: message.from,
+              recipient: message.to,
+            };
+        const result = await App.resolveServerMediaAttachment(att, auth);
         const blob = result && result.blob;
         const src = result && result.objectUrl ? String(result.objectUrl) : '';
         if (!blob || !blob.size || src.startsWith('http://') || src.startsWith('https://')) {

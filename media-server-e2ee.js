@@ -426,6 +426,7 @@
       }
       descriptor.clientMessageId = messageId;
       descriptor.logicalMessageId = messageId;
+      descriptor.aadParties = String(sender || '').toLowerCase() + '|' + String(recipient || '').toLowerCase();
       return descriptor;
     }
 
@@ -441,6 +442,7 @@
     }
     descriptor.clientMessageId = messageId;
     descriptor.logicalMessageId = messageId;
+    descriptor.aadParties = String(sender || '').toLowerCase() + '|' + String(recipient || '').toLowerCase();
     if (uploaded.prepared) {
       descriptor._prepared = uploaded.prepared;
     }
@@ -618,10 +620,11 @@
   }
 
   async function downloadEncryptedMediaHybrid(attachment, ctx) {
+    const bound = typeof mediaAuthContext === 'function' ? mediaAuthContext(attachment, { logicalMessageId: ctx.messageId, from: ctx.sender, to: ctx.recipient }) : null;
     const decryptCtx = {
-      messageId: ctx.messageId || attachment.clientMessageId || attachment.logicalMessageId,
-      sender: ctx.sender,
-      recipient: ctx.recipient,
+      messageId: (bound && bound.messageId) || ctx.messageId || attachment.clientMessageId || attachment.logicalMessageId,
+      sender: (bound && bound.sender) || ctx.sender,
+      recipient: (bound && bound.recipient) || ctx.recipient,
     };
     const abort = typeof AbortController === 'function' ? new AbortController() : null;
     const signal = abort ? abort.signal : undefined;
@@ -769,6 +772,24 @@
     };
   }
 
+  function mediaAuthContext(attachment, message) {
+    const att = attachment && typeof attachment === 'object' ? attachment : {};
+    const msg = message && typeof message === 'object' ? message : {};
+    let partySender = '';
+    let partyRecipient = '';
+    if (typeof att.aadParties === 'string' && /^[0-9a-f]{64}\|[0-9a-f]{64}$/.test(att.aadParties)) {
+      const parts = att.aadParties.split('|');
+      partySender = parts[0];
+      partyRecipient = parts[1];
+    }
+    return {
+      messageId: String(att.clientMessageId || att.logicalMessageId || msg.logicalMessageId || msg.id || ''),
+      sender: String(partySender || msg.from || ''),
+      recipient: String(partyRecipient || msg.to || ''),
+    };
+  }
+
+  App.mediaAuthContext = mediaAuthContext;
   App.resolveServerMediaAttachment = resolveServerMediaAttachment;
 
   function assertEncryptedBlossomFitsE3b(candidate) {

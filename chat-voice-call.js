@@ -411,6 +411,71 @@
    * Idempotent bilateral CALL_CONNECTED for voice.
    * Requires answer readiness (callAnswered) AND usable WebRTC (ICE/PC connected).
    */
+  function localAudioTrackLive() {
+    const tracks = state.localStream && typeof state.localStream.getAudioTracks === 'function'
+      ? state.localStream.getAudioTracks()
+      : [];
+    const live = tracks.some((t) => t && t.readyState === 'live' && t.enabled !== false);
+    if (live && !state.loggedLocalAudio) {
+      state.loggedLocalAudio = true;
+      try { console.log('LOCAL_AUDIO_TRACK_LIVE'); } catch (_live) {}
+    }
+    return live;
+  }
+
+  function remoteAudioTrackReceived() {
+    const tracks = state.remoteStream && typeof state.remoteStream.getAudioTracks === 'function'
+      ? state.remoteStream.getAudioTracks()
+      : [];
+    const live = tracks.some((t) => t && t.kind === 'audio');
+    if (live && !state.loggedRemoteAudio) {
+      state.loggedRemoteAudio = true;
+      try { console.log('REMOTE_AUDIO_TRACK_RECEIVED'); } catch (_rt) {}
+    }
+    return live;
+  }
+
+  function scheduleRtpProof(peer) {
+    if (state.rtpProbeTimer || state.rtpBothWays || state.ending) return;
+    let attempts = 0;
+    const tick = async () => {
+      state.rtpProbeTimer = null;
+      if (state.ending || state.isCallActive || !state.peerConnection) return;
+      attempts += 1;
+      const pc = state.peerConnection;
+      let outPkts = 0;
+      let inPkts = 0;
+      try {
+        localAudioTrackLive();
+        remoteAudioTrackReceived();
+        if (typeof pc.getStats === 'function') {
+          const stats = await pc.getStats();
+          stats.forEach((row) => {
+            if (!row) return;
+            if (row.type === 'outbound-rtp' && (row.kind === 'audio' || row.mediaType === 'audio')) {
+              outPkts += Number(row.packetsSent) || 0;
+            }
+            if (row.type === 'inbound-rtp' && (row.kind === 'audio' || row.mediaType === 'audio')) {
+              inPkts += Number(row.packetsReceived) || 0;
+            }
+          });
+        }
+      } catch (_stats) {}
+      if (outPkts > 0 && inPkts > 0 && localAudioTrackLive() && remoteAudioTrackReceived()) {
+        state.rtpBothWays = true;
+        try { console.log('RTP_PACKETS_FLOWING_BOTH_DIRECTIONS out=' + outPkts + ' in=' + inPkts); } catch (_rtp) {}
+        maybeMarkVoiceCallConnected(peer, 'rtp');
+        return;
+      }
+      if (attempts < 12) {
+        state.rtpProbeTimer = setTimeout(tick, 500);
+        return;
+      }
+      try { console.log('CALL_RTP_ABSENT out=' + outPkts + ' in=' + inPkts); } catch (_abs) {}
+    };
+    state.rtpProbeTimer = setTimeout(tick, 400);
+  }
+
   function maybeMarkVoiceCallConnected(peerPubkey, reason) {
     const why = String(reason || 'unknown');
     const peer = peerPubkeyOrEmpty(peerPubkey) || peerPubkeyOrEmpty(state.currentPeer);
@@ -436,6 +501,11 @@
     }
     if (!webrtcReady) {
       try { console.log('CALL_CONNECTED_DEFER reason=await-webrtc'); } catch (_) {}
+      return false;
+    }
+    if (!state.rtpBothWays) {
+      scheduleRtpProof(peer);
+      try { console.log('CALL_CONNECTED_DEFER reason=await-rtp'); } catch (_) {}
       return false;
     }
     clearIceDisconnectTimer();
@@ -481,6 +551,18 @@
       return String(linked.deviceSignPub).toLowerCase();
     }
     return peerPubkeyOrEmpty(App.publicKey);
+  }
+
+  // A linked desktop's App.publicKey is the shared account, not this device.
+  // Ignore a cancel only when the claimed identity is the physical device that won.
+  function cancelClaimedByThisDevice(claimed) {
+    const c = peerPubkeyOrEmpty(claimed);
+    if (!c) return false;
+    const linked = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    if (linked && linked.role === 'LINKED_DEVICE' && linked.verified && linked.deviceSignPub) {
+      return c === String(linked.deviceSignPub).toLowerCase();
+    }
+    return c === peerPubkeyOrEmpty(App.publicKey);
   }
 
   async function bindIncomingCallSender(cryptoSender) {
@@ -601,6 +683,9 @@
     if (state.localStream) {
       state.localStream.getTracks().forEach(track => {
         pc.addTrack(track, state.localStream);
+        if (track && track.kind === 'audio' && track.readyState === 'live' && track.enabled !== false) {
+          try { console.log('LOCAL_AUDIO_TRACK_LIVE'); } catch (_live) {}
+        }
       });
     }
 
@@ -612,6 +697,9 @@
       }
       event.streams[0].getTracks().forEach(track => {
         state.remoteStream.addTrack(track);
+        if (track && track.kind === 'audio') {
+          try { console.log('REMOTE_AUDIO_TRACK_RECEIVED'); } catch (_rt) {}
+        }
         try {
           track.onended = () => {
             console.log('Remote track ended');
@@ -643,6 +731,7 @@
       }
 
       if (ice === 'connected' || ice === 'completed') {
+        try { console.log('ICE_CONNECTED'); } catch (_ice) {}
         markCallPerf('ICE_CONNECTED');
         clearIceDisconnectTimer();
         maybeMarkVoiceCallConnected(peerPubkey, 'ice-' + ice);
@@ -670,6 +759,7 @@
       const cs = pc.connectionState;
       console.log('Peer connection state:', cs);
       if (cs === 'connected') {
+        try { console.log('PEER_CONNECTION_CONNECTED'); } catch (_pc) {}
         markCallPerf('PC_CONNECTED');
         clearIceDisconnectTimer();
         maybeMarkVoiceCallConnected(peerPubkey, 'pc-connected');
@@ -978,7 +1068,7 @@
         state.isIncoming = false;
         state.isMuted = false;
         state.callAnswered = false;
-        state.callPhase = 'ENDED';
+        state.callPhase = options.phase === 'CANCELLED' ? 'CANCELLED' : 'ENDED';
         state.mediaEndpoint = '';
         state.callClaim = null;
         state.authorizedCallDevices = null;
@@ -1055,6 +1145,13 @@
 
     // ניקוי תור candidates
     state.candidateQueue = [];
+    state.rtpBothWays = false;
+    state.loggedLocalAudio = false;
+    state.loggedRemoteAudio = false;
+    if (state.rtpProbeTimer) {
+      clearTimeout(state.rtpProbeTimer);
+      state.rtpProbeTimer = null;
+    }
     if (state.candidateTimer) {
       clearTimeout(state.candidateTimer);
       state.candidateTimer = null;
@@ -1068,13 +1165,13 @@
     state.isIncoming = false;
     state.isMuted = false;
     state.callAnswered = false;
-    state.callPhase = 'ENDED';
+    state.callPhase = options.phase === 'CANCELLED' ? 'CANCELLED' : 'ENDED';
     state.mediaEndpoint = '';
     state.callClaim = null;
     state.authorizedCallDevices = null;
     state.callStartTimestamp = null;
     state.callStartTime = null;
-    try { console.log('CALL_STATE ENDED'); } catch (_end2) {}
+    try { console.log('CALL_STATE ' + state.callPhase); } catch (_end2) {}
     state.callSessionId = null;
     // חלק שיחות קול (chat-voice-call.js) – שחזור AudioSession לסוג שהיה לפני השיחה | HYPER CORE TECH
     restoreAudioSessionType();
@@ -1284,6 +1381,12 @@
             console.log('CALL_SIGNAL_SKIP ring_busy');
             break;
           }
+          if (!state.callClaim || state.callClaim.sessionId !== preParsed.sessionId) {
+            state.callClaim = null;
+            state.mediaEndpoint = '';
+            state.authorizedCallDevices = null;
+            state.rtpBothWays = false;
+          }
           if (window.SosNativeShell) break;
           state.currentPeer = peerPubkey;
           state.isIncoming = true;
@@ -1403,17 +1506,18 @@
 
         case 'cancel':
           if (blockWrongSession(preParsed, 'cancel')) break;
+          if (!binding.authorized || (!isSameCallPeer(logicalPeer) && !isSameCallPeer(binding.devicePub))) {
+            try { console.log('CALL_RING_CANCEL_REJECT reason=' + (binding.reason || 'peer')); } catch (_rej) {}
+            break;
+          }
           {
             const claimed = data && (data.claimedDevice || data.device);
-            const mine = myCallIdentity();
-            const selfKey = peerPubkeyOrEmpty(App.publicKey);
-            if (claimed && (String(claimed).toLowerCase() === mine || String(claimed).toLowerCase() === selfKey)) {
+            if (cancelClaimedByThisDevice(claimed)) {
               try { console.log('CALL_RING_CANCEL_IGNORED reason=claimed_here'); } catch (_ig) {}
               break;
             }
             try { console.log('CALL_RING_CANCELLED'); } catch (_can) {}
-            state.callPhase = 'ENDING';
-            endCall({ remoteDisconnect: true, reason: 'remote_disconnect' });
+            endCall({ remoteDisconnect: true, reason: 'remote_disconnect', phase: 'CANCELLED' });
           }
           break;
 

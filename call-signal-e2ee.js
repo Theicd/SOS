@@ -2191,7 +2191,7 @@
       try { console.log('CALL_SEND_POLICY_REQUIRED'); } catch (_e) {}
       try {
         const res = await publishGiftWrappedCallSignal(opts);
-        const fanTypes = { ring: 1, offer: 1, cancel: 1, hangup: 1, end: 1, reject: 1 };
+        const fanTypes = { ring: 1, offer: 1, cancel: 1, hangup: 1, end: 1, reject: 1, candidate: 1, candidates: 1 };
         if (!opts.__deviceFanout && fanTypes[String(opts.type || '')] && window.SosAccountSession && typeof window.SosAccountSession.listAuthorizedDevices === 'function' && App.SosCryptoSigner && typeof App.SosCryptoSigner.hasIdentityKey === 'function' && App.SosCryptoSigner.hasIdentityKey()) {
           try {
             const devices = await window.SosAccountSession.listAuthorizedDevices(opts.peerPubkey);

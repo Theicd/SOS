@@ -285,13 +285,14 @@
             torrent.on('wire', (wire) => {
               console.log('[VOICE/P2P] 🔗 Peer התחבר לטורנט הקולי');
             });
+            let lastUploadBucket = -1;
             torrent.on('upload', (bytes) => {
-              totalUploaded += bytes;
+              totalUploaded += Number(bytes) || 0;
               const pct = Math.min(100, Math.round((totalUploaded / (torrent.length || 1)) * 100));
-              console.log(`[VOICE/P2P] 📤 מעלה לצד השני: ${pct}% (${totalUploaded}/${torrent.length} bytes)`);
-              if (totalUploaded >= torrent.length) {
-                console.log('[VOICE/P2P] ✅✅ הצד השני קיבל את ההודעה הקולית דרך P2P בהצלחה!');
-              }
+              const bucket = Math.floor(pct / 25);
+              if (bucket === lastUploadBucket) return;
+              lastUploadBucket = bucket;
+              console.log('[VOICE/P2P] upload-progress ' + pct + '% bytes=' + totalUploaded + ' length=' + (torrent.length || 0) + ' receipt=NOT_ACK');
             });
 
             resolve(torrent.magnetURI);

@@ -39,13 +39,59 @@
   }
 
   // חלק העלאות (blossom.js) – יצירת ארוע הרשאה בסיסי (NIP-24242) באמצעות חותם קיים על האפליקציה
+  function hexToSignerBytes(hex) {
+    const clean = String(hex || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(clean)) return null;
+    const out = new Uint8Array(32);
+    for (let i = 0; i < 32; i += 1) out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
+    return out;
+  }
+
+  function linkedFilesSession() {
+    const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    if (!session || session.role !== 'LINKED_DEVICE' || session.verified !== true) return null;
+    const caps = Array.isArray(session.caps) ? session.caps : [];
+    if (caps.indexOf('DEVICE_FILES') === -1) return null;
+    if (!/^[0-9a-f]{64}$/.test(String(session.deviceSignPub || ''))) return null;
+    return session;
+  }
+
+  function blossomSignerReady() {
+    if (linkedFilesSession()) return true;
+    return !!(
+      App.publicKey &&
+      App.SosCryptoSigner &&
+      typeof App.SosCryptoSigner.hasIdentityKey === 'function' &&
+      App.SosCryptoSigner.hasIdentityKey() &&
+      typeof App.SosCryptoSigner.signBlossomAuth === 'function'
+    );
+  }
+
   async function createAuthEvent(verb, content, sha256){
-    if(!App.publicKey || typeof App.finalizeEvent !== 'function'){
-      throw new Error('missing-signer');
-    }
     const now = Math.floor(Date.now()/1000);
     const tags = [['t', verb], ['expiration', String(now + 24*3600)]];
     if(sha256 && (verb === 'upload' || verb === 'delete')) tags.push(['x', sha256]);
+    const linked = linkedFilesSession();
+    if (linked) {
+      const LD = App.WebLinkedDevices || (typeof window !== 'undefined' ? window.SosWebLinkedDevices : null);
+      if (!LD || typeof LD.withLinkedDeviceSigner !== 'function') throw new Error('missing-signer');
+      const signed = await LD.withLinkedDeviceSigner(function (dev) {
+        const NT = typeof window !== 'undefined' ? window.NostrTools : null;
+        const sk = hexToSignerBytes(dev && dev.privHex);
+        const pub = String(dev && dev.pub || '').toLowerCase();
+        if (!NT || typeof NT.finalizeEvent !== 'function' || !sk || pub !== String(linked.deviceSignPub).toLowerCase()) return null;
+        if (pub === String(App.publicKey || '').toLowerCase()) return null;
+        return NT.finalizeEvent({ kind: 24242, content: String(content || ''), tags: tags, created_at: now, pubkey: pub }, sk);
+      });
+      if (!signed || !signed.sig || String(signed.pubkey || '').toLowerCase() !== String(linked.deviceSignPub).toLowerCase()) {
+        throw new Error('missing-signer');
+      }
+      try { console.log('BLOSSOM_DEVICE_AUTH verb=' + verb + ' device=' + String(signed.pubkey).slice(0, 8)); } catch (_d) {}
+      return signed;
+    }
+    if(!App.publicKey || typeof App.finalizeEvent !== 'function' || !App.SosCryptoSigner || typeof App.SosCryptoSigner.signBlossomAuth !== 'function' || !App.SosCryptoSigner.hasIdentityKey()){
+      throw new Error('missing-signer');
+    }
     const draft = { kind: 24242, content, tags, created_at: now, pubkey: App.publicKey };
     return App.SosCryptoSigner.signBlossomAuth(draft);
   }
@@ -82,11 +128,11 @@
       console.error('[BLOSSOM] ❌ חסר publicKey');
       throw new Error('missing-publicKey');
     }
-    if (!App.SosCryptoSigner?.hasIdentityKey()) {
+    if (!blossomSignerReady()) {
       console.error('[BLOSSOM] missing signer');
       throw new Error('missing-privateKey');
     }
-    if (typeof App.finalizeEvent !== 'function') {
+    if (!linkedFilesSession() && typeof App.finalizeEvent !== 'function') {
       console.error('[BLOSSOM] ❌ חסר finalizeEvent');
       throw new Error('missing-finalizeEvent');
     }
@@ -499,7 +545,7 @@
       blossomSecureFail('MEDIA_E2EE_SIZE_MISMATCH', 'prepared blob size mismatch');
     }
 
-    if (!App.publicKey || !App.SosCryptoSigner?.hasIdentityKey() || typeof App.SosCryptoSigner.signBlossomAuth !== 'function') {
+    if (!blossomSignerReady()) {
       blossomSecureFail('BLOSSOM_AUTH_UNAVAILABLE', 'missing signer');
     }
 
@@ -825,7 +871,7 @@
     if (!/^[0-9a-f]{64}$/.test(objectSha256)) {
       return { ok: false, reason: 'missing-hash' };
     }
-    if (!App.publicKey || !App.SosCryptoSigner?.hasIdentityKey() || typeof App.SosCryptoSigner.signBlossomAuth !== 'function') {
+    if (!blossomSignerReady()) {
       return { ok: false, reason: 'missing-signer' };
     }
     const fetchFn = getFetch(options.fetchImpl);
