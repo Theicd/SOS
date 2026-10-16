@@ -174,17 +174,26 @@ async function waitDecryptedHash(page, expectedHash, timeoutMs) {
       const messages = entry && entry.messages;
       if (!Array.isArray(messages)) return;
       messages.forEach((m) => {
-        if (m && m.attachment && m.attachment.type === 'encrypted-media') jobs.push(m);
+        if (m && m.attachment && (m.attachment.type === 'encrypted-media' || typeof m.attachment.dataUrl === 'string')) jobs.push(m);
       });
     });
     for (let i = 0; i < jobs.length; i += 1) {
       try {
         const m = jobs[i];
-        const ctx = typeof App.mediaAuthContext === 'function' ? App.mediaAuthContext(m.attachment, m) : {};
-        const resolved = await App.resolveServerMediaAttachment(m.attachment, ctx);
-        if (!resolved || !resolved.blob) continue;
-        const got = await App.hashMediaCiphertext(new Uint8Array(await resolved.blob.arrayBuffer()));
-        if (got === hash) return { ok: true, hash: got };
+        const att = m.attachment;
+        let got = '';
+        if (att.type === 'encrypted-media') {
+          const ctx = typeof App.mediaAuthContext === 'function' ? App.mediaAuthContext(att, m) : {};
+          const resolved = await App.resolveServerMediaAttachment(att, ctx);
+          if (!resolved || !resolved.blob) continue;
+          got = await App.hashMediaCiphertext(new Uint8Array(await resolved.blob.arrayBuffer()));
+        } else if (typeof att.dataUrl === 'string' && att.dataUrl.indexOf('base64,') !== -1) {
+          const bin = atob(att.dataUrl.split('base64,')[1] || '');
+          const bytes = new Uint8Array(bin.length);
+          for (let b = 0; b < bin.length; b += 1) bytes[b] = bin.charCodeAt(b);
+          got = await App.hashMediaCiphertext(bytes);
+        }
+        if (got && got === hash) return { ok: true, hash: got };
       } catch (_d) {}
     }
     return { ok: false, n: jobs.length };
@@ -219,7 +228,11 @@ async function waitCallSignal(page, which, timeoutMs) {
       }
     }
     const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : {};
-    if (mode === 'ring') return { ok: st.callPhase === 'RINGING' || st.isIncoming === true, phase: st.callPhase || '' };
+    if (mode === 'ring') {
+      const offer = st.waitingOffer;
+      const sdp = offer && (offer.sdp || (offer.offer && offer.offer.sdp));
+      return { ok: !!sdp && (st.callPhase === 'RINGING' || st.isIncoming === true), phase: st.callPhase || '' };
+    }
     if (mode === 'stopped') {
       const stopped = st.callPhase === 'CANCELLED' || st.callPhase === 'ENDED' || (st.isIncoming !== true && !st.peerConnection && !st.isCallActive);
       return { ok: stopped === true, phase: st.callPhase || '' };
@@ -1393,18 +1406,30 @@ async function proveLinkedAccountProduct(desktop, mobile) {
       await stopped;
       stream.getTracks().forEach((t) => t.stop());
       const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
-      const hash = await App.hashMediaCiphertext(new Uint8Array(await blob.arrayBuffer()));
-      const attachment = await App.sendVoiceBlobToChat(account, { blob, duration: 1, mimeType: blob.type || 'audio/webm' });
-      const bound = attachment && (attachment.clientMessageId || attachment.logicalMessageId);
-      const sent = await App.publishChatMessage(account, '', bound ? { clientTempId: bound } : undefined);
-      const ctx = attachment && App.mediaAuthContext ? App.mediaAuthContext(attachment, { from: App.publicKey, to: account }) : null;
-      const local = attachment && ctx ? await App.resolveServerMediaAttachment(attachment, ctx) : null;
+      const raw = new Uint8Array(await blob.arrayBuffer());
+      const hash = await App.hashMediaCiphertext(raw);
+      const descriptor = await App.uploadMediaForServerFallback(blob, {
+        sender: App.publicKey,
+        recipient: account,
+        mimeType: blob.type || 'audio/webm',
+        fileName: 'voice-message.webm',
+        duration: 1,
+        requireEncryption: true,
+      });
+      if (!descriptor || descriptor.type !== 'encrypted-media') return { ok: false, hash, error: 'VOICE_NOT_ENCRYPTED' };
+      if (typeof App.setChatFileAttachment === 'function') App.setChatFileAttachment(account, descriptor);
+      const sent = await App.publishChatMessage(account, '', { clientTempId: descriptor.clientMessageId || descriptor.logicalMessageId });
+      const ctx = App.mediaAuthContext ? App.mediaAuthContext(descriptor, { from: App.publicKey, to: account }) : null;
+      const local = ctx ? await App.resolveServerMediaAttachment(descriptor, ctx) : null;
       const localHash = local && local.blob ? await App.hashMediaCiphertext(new Uint8Array(await local.blob.arrayBuffer())) : '';
-      return { ok: !!(sent && sent.ok), hash, localHash, error: sent && sent.error ? String(sent.error) : '' };
+      const audio = document.createElement('audio');
+      audio.src = URL.createObjectURL(blob);
+      const playable = audio.canPlayType(blob.type || 'audio/webm') !== '';
+      return { ok: !!(sent && sent.ok) && localHash === hash && playable, hash, localHash, playable, error: sent && sent.error ? String(sent.error) : '' };
     }, accountP);
     flags.VOICE_SENDER_PLAYBACK = !!(voice && voice.ok && voice.hash && voice.hash === voice.localHash);
     if (!flags.VOICE_SENDER_PLAYBACK) {
-      flags.productCode = 'VOICE_SENDER_' + String((voice && (voice.error || voice.hash || 'FAIL')) || 'FAIL').slice(0, 80);
+      flags.productCode = 'VOICE_SENDER_' + String((voice && (voice.error || ('local=' + String(voice.localHash || '') + ' play=' + String(voice.playable)))) || 'FAIL').slice(0, 140);
       return { flags };
     }
     const phoneVoice = await waitDecryptedHash(mobile, voice.hash, 45000);

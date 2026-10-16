@@ -1071,6 +1071,7 @@
         state.callPhase = options.phase === 'CANCELLED' ? 'CANCELLED' : 'ENDED';
         state.mediaEndpoint = '';
         state.callClaim = null;
+        state.waitingOffer = null;
         state.authorizedCallDevices = null;
         state.callStartTimestamp = null;
         state.callStartTime = null;
@@ -1168,6 +1169,7 @@
     state.callPhase = options.phase === 'CANCELLED' ? 'CANCELLED' : 'ENDED';
     state.mediaEndpoint = '';
     state.callClaim = null;
+    state.waitingOffer = null;
     state.authorizedCallDevices = null;
     state.callStartTimestamp = null;
     state.callStartTime = null;
@@ -1476,6 +1478,10 @@
             if (state.currentPeer && String(state.currentPeer).toLowerCase() === String(peerPubkey).toLowerCase() && state.isIncoming) {
               // עדיין מאמצים sessionId מה-offer כדי ש-answer לא יישלח עם sid ישן | HYPER CORE TECH
               if (preParsed && preParsed.sessionId) state.callSessionId = preParsed.sessionId;
+              if (offerData && typeof offerData === 'object') {
+                if (preParsed && preParsed.sessionId && !offerData.sessionId) offerData.sessionId = preParsed.sessionId;
+                state.waitingOffer = offerData;
+              }
               if (state.ringOfferTimer) {
                 clearRingOfferDeadline();
                 if (typeof App.onVoiceCallOfferReady === 'function') App.onVoiceCallOfferReady(peerPubkey, offerData);
@@ -1486,6 +1492,10 @@
             state.currentPeer = peerPubkey;
             state.isIncoming = true;
             if (preParsed && preParsed.sessionId) state.callSessionId = preParsed.sessionId;
+            if (offerData && typeof offerData === 'object') {
+              if (preParsed && preParsed.sessionId && !offerData.sessionId) offerData.sessionId = preParsed.sessionId;
+              state.waitingOffer = offerData;
+            }
             // חלק Push (chat-voice-call.js) – שליחת התראת Push על שיחה נכנסת | HYPER CORE TECH
             if (typeof App.triggerIncomingCallPush === 'function') {
               App.triggerIncomingCallPush(peerPubkey, 'voice');

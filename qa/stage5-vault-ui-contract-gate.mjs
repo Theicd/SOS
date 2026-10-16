@@ -61,7 +61,7 @@ check('desktop opens linked account', ld.includes('async function openLinkedDesk
 const guest = read(path.join(root, 'guest-auth.js'));
 check('linked device top bar', guest.includes("App.linkedDeviceSession === true") && guest.includes("'LINKED_DEVICE'"));
 check('web cache bust 899s33 account session', videos.includes('sos-account-session.js?v=20261015&pkg=899s33') && videos.includes('chat-state.js?v=20261015&pkg=899s33'));
-check('web cache bust 899s35 media call', videos.includes('chat-voice-call.js?v=20261016&pkg=899s34') && videos.includes('chat-service.js?v=20261016&pkg=899s35') && videos.includes('blossom.js?v=20261016&pkg=899s34'));
+check('web cache bust 899s35 media call', videos.includes('chat-voice-call.js?v=20261016&pkg=899s35') && videos.includes('chat-service.js?v=20261016&pkg=899s35') && videos.includes('blossom.js?v=20261016&pkg=899s34'));
 check('linked account is not a fingerprint chip', !ld.includes("textContent = 'חשבון '") && ld.includes("getElementById('sosLdAccountChip')") && ld.includes('App.privateKey = null'));
 check('requireAuth accepts linked device', read(path.join(root, 'app.js')).includes("session.role === 'LINKED_DEVICE'") && read(path.join(root, 'app.js')).includes('accountSessionAllows'));
 check('delegated chat and history op', read(path.join(root, 'sos-account-session.js')).includes('delegatedChatEncrypt') && read(path.join(root, 'sos-crypto-worker.js')).includes('SIGN_LINKED_HISTORY'));
