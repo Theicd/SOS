@@ -504,14 +504,14 @@
     }
     const Session = window.SosAccountSession;
     if (!Session || typeof Session.listAuthorizedDevices !== 'function') return { ok: false, n: 0, code: 'NO_DIRECTORY' };
+    const inbound = mode === 'inbound';
+    const outgoingMirror = !inbound && /^[0-9a-f]{64}$/.test(String(mirrorPeer || ''));
     let devices = [];
     try { devices = await Session.listAuthorizedDevices(account, inbound ? 'DEVICE_FILES' : undefined); } catch (_e) { devices = []; }
     if (!Array.isArray(devices) || !devices.length) {
       try { console.log('[MD] no authorized device copies for ' + account.slice(0, 8)); } catch (_log) {}
       return { ok: true, n: 0 };
     }
-    const inbound = mode === 'inbound';
-    const outgoingMirror = !inbound && /^[0-9a-f]{64}$/.test(String(mirrorPeer || ''));
     const inboundPeer = inbound && /^[0-9a-f]{64}$/.test(String(mirrorPeer || ''));
     const pool = ensurePoolReady();
     if (!pool) return { ok: false, n: 0, code: 'NO_POOL' };

@@ -34,6 +34,8 @@ check('voice publish keeps the aead message id', read('chat-voice-ui.js').includ
 check('playback prefers the encrypted attachment id', audio.includes('App.mediaAuthContext') && media.includes('att.clientMessageId || att.logicalMessageId'));
 check('wire carries the aead parties', wire.includes('wire.aadParties') && wire.includes('wire.clientMessageId'));
 check('inbound file mirror is a device copy', chat.includes("mode === 'inbound'") && chat.includes("'sos-inbound-sync'") && p2p.includes('mirrorInboundP2pFileToLinkedDevices'));
+const copyFn = chat.slice(chat.indexOf('async function publishAuthorizedDeviceCopies'), chat.indexOf('function waitMs'));
+check('device directory is read after the inbound flag exists', copyFn.indexOf("const inbound = mode === 'inbound'") >= 0 && copyFn.indexOf('await Session.listAuthorizedDevices') > copyFn.indexOf("const inbound = mode === 'inbound'"));
 check('inbound sync is filed from the external peer', chat.includes('INBOUND_SYNC_REJECT') && chat.includes("bubbleDirection = 'incoming'"));
 check('torrent upload is not a receipt', voiceSvc.includes('receipt=NOT_ACK') && !voiceSvc.includes('הצד השני קיבל'));
 check('linked blossom auth is device-signed and capability gated', blossom.includes('BLOSSOM_DEVICE_AUTH') && blossom.includes("caps.indexOf('DEVICE_FILES')") && blossom.includes('pub === String(App.publicKey || \'\').toLowerCase()) return null'));
