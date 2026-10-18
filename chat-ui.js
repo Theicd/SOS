@@ -3966,9 +3966,27 @@
   }
 
   // חלק צ'אט (chat-ui.js) – התראת מערכת על הודעה נכנסת כאשר החלון ברקע/לא בשיחה הפעילה | HYPER CORE TECH
+  function canonicalNotifyPeer(pubkey) {
+    const pk = String(pubkey || '').toLowerCase();
+    const owners = (typeof window !== 'undefined' && window.__sosVerifiedDeviceOwners) || null;
+    const owner = owners && typeof owners[pk] === 'string' ? String(owners[pk]).toLowerCase() : '';
+    if (/^[0-9a-f]{64}$/.test(owner) && owner !== pk) return owner;
+    return pk;
+  }
+
+  function notificationPreviewMode() {
+    try {
+      const mode = String(window.localStorage.getItem('sos-notification-preview') || 'rich').toLowerCase();
+      return mode === 'generic' ? 'generic' : 'rich';
+    } catch (_e) {
+      return 'rich';
+    }
+  }
+
   function showIncomingChatNotification(peerPubkey, message, messageId) {
     try {
       if (!peerPubkey || !message) return;
+      peerPubkey = canonicalNotifyPeer(peerPubkey);
       
       // חלק דה-דופליקציה (chat-ui.js) – מניעת התראה כפולה על אותה הודעה | HYPER CORE TECH
       if (messageId && wasMessageNotified(messageId)) {
@@ -3983,10 +4001,11 @@
       if (messageId) markMessageNotified(messageId);
 
       const contact = App.chatState?.contacts?.get(normalizedPeer);
-      const name = contact?.name || `משתמש ${peerPubkey.slice(0, 8)}`;
-      const picture = contact?.picture || '';
+      const rich = notificationPreviewMode() === 'rich';
+      const name = rich ? (contact?.name || 'SOS') : 'SOS';
+      const picture = rich ? (contact?.picture || '') : '';
       // חלק התראות מדיה (chat-ui.js) – שימוש בפורמט מדיה בעברית להתראות | HYPER CORE TECH
-      const safeSnippet = formatMessageForNotification(message).slice(0, 120);
+      const safeSnippet = rich ? formatMessageForNotification(message).slice(0, 120) : 'הודעה חדשה';
 
       // חלק קיבוץ התראות (chat-ui.js) – צבירת ספירה ואיחוד להתראה אחת | HYPER CORE TECH
       aggregateNotificationState.totalMessages += 1;
@@ -7192,7 +7211,7 @@
     App.subscribeChat?.('message', (payload = {}) => {
       const { peer, message, statusUpdate, replacedTempId, removedMessageId } = payload;
       if (!peer) return;
-      const normalizedPeer = peer.toLowerCase();
+      const normalizedPeer = canonicalNotifyPeer(peer);
       if (payload.disappearingTimerUpdated || payload.disappearingPruned || payload.disappearingSystemNotice) {
         if (normalizedPeer === (state.activeContact || '').toLowerCase()) {
           if (payload.disappearingSystemNotice && message && !payload.disappearingPruned) {
@@ -7210,7 +7229,7 @@
         || (message?.from && typeof App.publicKey === 'string' && message.from.toLowerCase() !== App.publicKey.toLowerCase());
       const isActivePeer = normalizedPeer === (state.activeContact || '').toLowerCase();
       const isActivelyViewing = isConversationActivelyViewed(normalizedPeer);
-      const messageId = message?.id || null;
+      const messageId = message?.logicalMessageId || message?.id || null;
 
       // חלק מניעת כפילות (chat-ui.js) – עדכון/החלפת temp בלי append נוסף | HYPER CORE TECH
       if (removedMessageId && elements.messagesContainer) {

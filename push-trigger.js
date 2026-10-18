@@ -283,14 +283,15 @@
 
     const from = String(message.from || '').toLowerCase();
     const openUrl = `https://sos010.com/videos.html?chat=${from}`;
-    const tag = `chat-${from}`;
-    const eventId = message.id || message.eventId || '';
+    const eventId = message.logicalMessageId || message.id || message.eventId || '';
+    const tag = `chat-${eventId || from}`;
     const title = GENERIC_CHAT_TITLE;
     const body = GENERIC_CHAT_BODY;
 
     // באפליקציית APK: chat-ui + SosRelayWatcher כבר מתריעים – בלי כפילות מקומית | HYPER CORE TECH
     const isNative = typeof App.isNativeShell === 'function' && App.isNativeShell();
-    if (!isNative) {
+    const pageVisible = typeof document !== 'undefined' && document.visibilityState === 'visible' && (typeof document.hasFocus !== 'function' || document.hasFocus());
+    if (!isNative && !pageVisible) {
       try {
         if (typeof App.showLocalNotification === 'function') {
           await App.showLocalNotification(title, {

@@ -570,20 +570,46 @@
     const expected = peerPubkeyOrEmpty(state.currentPeer);
     const self = peerPubkeyOrEmpty(App.publicKey);
     if (!devicePub) return { accountP: '', devicePub: '', deviceId: '', authorized: false, reason: 'NO_SENDER' };
-    if (devicePub === expected || devicePub === self) {
-      return { accountP: devicePub === self ? self : (expected || devicePub), devicePub: devicePub, deviceId: '', authorized: true, reason: 'ACCOUNT_MATCH' };
+    const Session = window.SosAccountSession;
+    const cachedOwner = Session && typeof Session.verifiedAccountOf === 'function' ? peerPubkeyOrEmpty(Session.verifiedAccountOf(devicePub)) : '';
+    if (devicePub === self || (expected && (devicePub === expected || cachedOwner === expected)) || (cachedOwner && cachedOwner === self)) {
+      const accountP = cachedOwner || (devicePub === self ? self : (expected || devicePub));
+      if (cachedOwner && cachedOwner !== devicePub) state.mediaEndpoint = devicePub;
+      return { accountP: accountP, devicePub: devicePub, deviceId: '', authorized: true, reason: cachedOwner ? 'DEVICE_CALLS' : 'ACCOUNT_MATCH' };
     }
-    if (!expected || !window.SosAccountSession || typeof window.SosAccountSession.listAuthorizedDevices !== 'function') {
-      return { accountP: expected, devicePub: devicePub, deviceId: '', authorized: false, reason: 'NO_DIRECTORY' };
+    if (Session && typeof Session.resolveDeviceAccount === 'function') {
+      let resolved = null;
+      try { resolved = await Session.resolveDeviceAccount(devicePub); } catch (_e) { resolved = null; }
+      if (resolved && resolved.ok === true && resolved.accountP && String(resolved.accountP).toLowerCase() !== devicePub) {
+        const accountP = String(resolved.accountP).toLowerCase();
+        const caps = Array.isArray(resolved.caps) ? resolved.caps : [];
+        if (caps.indexOf('DEVICE_CALLS') === -1) {
+          return { accountP: accountP, devicePub: devicePub, deviceId: String(resolved.deviceId || ''), authorized: false, reason: 'CAPABILITY_MISSING' };
+        }
+        if (expected && accountP !== expected && expected !== devicePub) {
+          return { accountP: accountP, devicePub: devicePub, deviceId: String(resolved.deviceId || ''), authorized: false, reason: 'ACCOUNT_MISMATCH' };
+        }
+        state.authorizedCallDevices = state.authorizedCallDevices || {};
+        state.authorizedCallDevices[devicePub] = true;
+        state.mediaEndpoint = devicePub;
+        return { accountP: accountP, devicePub: devicePub, deviceId: String(resolved.deviceId || ''), authorized: true, reason: 'DEVICE_CALLS' };
+      }
     }
-    let devices = [];
-    try { devices = await window.SosAccountSession.listAuthorizedDevices(expected, 'DEVICE_CALLS'); } catch (_e) { devices = []; }
-    const hit = (devices || []).find((d) => d && String(d.deviceSignPub || '').toLowerCase() === devicePub);
-    if (!hit) return { accountP: expected, devicePub: devicePub, deviceId: '', authorized: false, reason: 'NOT_AUTHORIZED_DEVICE' };
-    state.authorizedCallDevices = state.authorizedCallDevices || {};
-    state.authorizedCallDevices[devicePub] = true;
-    state.mediaEndpoint = devicePub;
-    return { accountP: expected, devicePub: devicePub, deviceId: String(hit.deviceId || ''), authorized: true, reason: 'DEVICE_CALLS' };
+    if (!expected || expected === devicePub) {
+      return { accountP: devicePub, devicePub: devicePub, deviceId: '', authorized: true, reason: 'ACCOUNT_MATCH' };
+    }
+    if (Session && typeof Session.listAuthorizedDevices === 'function') {
+      let devices = [];
+      try { devices = await Session.listAuthorizedDevices(expected, 'DEVICE_CALLS'); } catch (_e) { devices = []; }
+      const hit = (devices || []).find((d) => d && String(d.deviceSignPub || '').toLowerCase() === devicePub);
+      if (hit) {
+        state.authorizedCallDevices = state.authorizedCallDevices || {};
+        state.authorizedCallDevices[devicePub] = true;
+        state.mediaEndpoint = devicePub;
+        return { accountP: expected, devicePub: devicePub, deviceId: String(hit.deviceId || ''), authorized: true, reason: 'DEVICE_CALLS' };
+      }
+    }
+    return { accountP: expected, devicePub: devicePub, deviceId: '', authorized: false, reason: 'NOT_AUTHORIZED_DEVICE' };
   }
 
   async function cancelRingOnOtherDevices(accountP, exceptDevice, sessionId) {
@@ -1274,6 +1300,24 @@
     }, OUTGOING_NO_ANSWER_MS);
   }
 
+  const terminalSessions = new Map();
+  function tombstoneSession(sessionId) {
+    const sid = String(sessionId || '');
+    if (!sid) return;
+    terminalSessions.set(sid, Date.now() + 180000);
+  }
+  function sessionTombstoned(sessionId) {
+    const sid = String(sessionId || '');
+    if (!sid) return false;
+    const exp = terminalSessions.get(sid);
+    if (!exp) return false;
+    if (Date.now() > exp) {
+      terminalSessions.delete(sid);
+      return false;
+    }
+    return true;
+  }
+
   function blockWrongSession(preParsed, action) {
     if (!preParsed || !preParsed.sessionId || !state.callSessionId) return false;
     if (String(preParsed.sessionId) === String(state.callSessionId)) return false;
@@ -1377,6 +1421,10 @@
         case 'ring': {
           // Only the authenticated 1059 path may ring early; legacy 25050 has no ring.
           if (!preParsed || !preParsed.sessionId) break;
+          if (sessionTombstoned(preParsed.sessionId)) {
+            try { console.log('CALL_SIGNAL_REJECT terminal_session'); } catch (_tomb) {}
+            break;
+          }
           if (dedupeId) markCallEventProcessed(dedupeId);
           if (isOfferReplayAfterHangup(peerPubkey, preParsed.sentAt, preParsed.sessionId)) break;
           if (state.currentPeer || state.isCallActive || state.peerConnection || window.__sosAcceptInFlight) {
@@ -1390,17 +1438,17 @@
             state.rtpBothWays = false;
           }
           if (window.SosNativeShell) break;
-          state.currentPeer = peerPubkey;
+          state.currentPeer = logicalPeer || peerPubkey;
           state.isIncoming = true;
           state.callSessionId = preParsed.sessionId;
-          armRingOfferDeadline(peerPubkey, preParsed.sessionId);
+          armRingOfferDeadline(logicalPeer || peerPubkey, preParsed.sessionId);
           markCallPerf('CALL_RING_RX_TS');
           markCallPerf('CALL_REMOTE_RING_SIGNAL_RX');
           state.callPhase = 'RINGING';
           try { console.log('CALL_STATE RINGING'); } catch (_ringState) {}
           console.log('CALL_RING_RX');
           if (typeof App.onVoiceCallRinging === 'function') {
-            App.onVoiceCallRinging(peerPubkey);
+            App.onVoiceCallRinging(logicalPeer || peerPubkey);
             markCallPerf('CALL_REMOTE_RING_UI_SHOWN');
           }
           break;
@@ -1409,6 +1457,11 @@
         case 'offer':
           // שיחה נכנסת – ולידציה והמרה במקרה הצורך
           try {
+            if (preParsed && preParsed.sessionId && sessionTombstoned(preParsed.sessionId)) {
+              console.log('CALL_SIGNAL_REJECT terminal_session');
+              if (dedupeId) markCallEventProcessed(dedupeId);
+              break;
+            }
             const createdAt = preParsed && preParsed.sentAt ? preParsed.sentAt : event.created_at;
             if (!preParsed && isOfferEventTooOld(event)) {
               console.log('CALL_SIGNAL_REJECT stale_offer');
@@ -1457,25 +1510,30 @@
             markCallPerf('CALL_OFFER_RX_TS');
             markCallPerf('OFFER_REMOTE_RX');
             // חלק שיחות קול (chat-voice-call.js) – שיחה ממתינה: אם יש שיחה פעילה מפיר אחר, לא מצלצלים אלא מתריעים בלבד | HYPER CORE TECH
-            if (state.isCallActive && state.currentPeer && state.currentPeer !== peerPubkey) {
+            const displayPeer = logicalPeer || peerPubkey;
+            const sameCallPeer = state.currentPeer && (
+              String(state.currentPeer).toLowerCase() === String(displayPeer).toLowerCase() ||
+              String(state.currentPeer).toLowerCase() === String(peerPubkey).toLowerCase()
+            );
+            if (state.isCallActive && state.currentPeer && !sameCallPeer) {
               state.waitingOffer = {
-                peer: peerPubkey,
+                peer: displayPeer,
                 offer: offerData,
                 ts: now,
                 sessionId: preParsed && preParsed.sessionId ? preParsed.sessionId : null,
               };
               if (typeof App.onVoiceCallWaiting === 'function') {
-                App.onVoiceCallWaiting(peerPubkey, offerData);
+                App.onVoiceCallWaiting(displayPeer, offerData);
               }
               return;
             }
             // קיבוע peer עבור שיחה נכנסת כדי שאירוע disconnect/ביטול יסגור UI גם לפני קבלה | HYPER CORE TECH
-            if (state.currentPeer && state.currentPeer !== peerPubkey) {
+            if (state.currentPeer && !sameCallPeer) {
               console.log('CALL_SIGNAL_SKIP other_context');
               return;
             }
             // אותו peer כבר ב־context (מסך ענה פתוח) – לא לפתוח שוב | HYPER CORE TECH
-            if (state.currentPeer && String(state.currentPeer).toLowerCase() === String(peerPubkey).toLowerCase() && state.isIncoming) {
+            if (sameCallPeer && state.isIncoming) {
               // עדיין מאמצים sessionId מה-offer כדי ש-answer לא יישלח עם sid ישן | HYPER CORE TECH
               if (preParsed && preParsed.sessionId) state.callSessionId = preParsed.sessionId;
               if (offerData && typeof offerData === 'object') {
@@ -1489,7 +1547,7 @@
               console.log('CALL_SIGNAL_SKIP already_incoming');
               return;
             }
-            state.currentPeer = peerPubkey;
+            state.currentPeer = logicalPeer || peerPubkey;
             state.isIncoming = true;
             if (preParsed && preParsed.sessionId) state.callSessionId = preParsed.sessionId;
             if (offerData && typeof offerData === 'object') {
@@ -1501,7 +1559,7 @@
               App.triggerIncomingCallPush(peerPubkey, 'voice');
             }
             if (typeof App.onVoiceCallIncoming === 'function') {
-              App.onVoiceCallIncoming(peerPubkey, offerData);
+              App.onVoiceCallIncoming(logicalPeer || peerPubkey, offerData);
               markCallPerf('CALL_REMOTE_RING_UI_SHOWN');
             }
           } catch (e) {
@@ -1526,6 +1584,7 @@
               try { console.log('CALL_RING_CANCEL_IGNORED reason=claimed_here'); } catch (_ig) {}
               break;
             }
+            if (preParsed && preParsed.sessionId) tombstoneSession(preParsed.sessionId);
             try { console.log('CALL_RING_CANCELLED'); } catch (_can) {}
             endCall({ remoteDisconnect: true, reason: 'remote_disconnect', phase: 'CANCELLED' });
           }

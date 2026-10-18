@@ -2192,7 +2192,9 @@
       try {
         const res = await publishGiftWrappedCallSignal(opts);
         const fanTypes = { ring: 1, offer: 1, cancel: 1, hangup: 1, end: 1, reject: 1, candidate: 1, candidates: 1 };
-        if (!opts.__deviceFanout && fanTypes[String(opts.type || '')] && window.SosAccountSession && typeof window.SosAccountSession.listAuthorizedDevices === 'function' && App.SosCryptoSigner && typeof App.SosCryptoSigner.hasIdentityKey === 'function' && App.SosCryptoSigner.hasIdentityKey()) {
+        const fanSession = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+        const linkedFan = !!(fanSession && fanSession.role === 'LINKED_DEVICE' && fanSession.verified === true && typeof App.accountSessionAllows === 'function' && (App.accountSessionAllows('START_CALL') || App.accountSessionAllows('RECEIVE_CALL')));
+        if (!opts.__deviceFanout && fanTypes[String(opts.type || '')] && window.SosAccountSession && typeof window.SosAccountSession.listAuthorizedDevices === 'function' && ((App.SosCryptoSigner && typeof App.SosCryptoSigner.hasIdentityKey === 'function' && App.SosCryptoSigner.hasIdentityKey()) || linkedFan)) {
           try {
             const devices = await window.SosAccountSession.listAuthorizedDevices(opts.peerPubkey);
             for (let i = 0; i < devices.length; i += 1) {

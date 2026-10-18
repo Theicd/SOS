@@ -15,6 +15,48 @@
   // חלק שיחות קול (chat-voice-call-ui.js) – אובייקטי אודיו לצלילים + priming ל-autoplay | HYPER CORE TECH
   let dialtoneAudio = null;
   let ringtoneAudio = null;
+  let audioStoppedSession = '';
+
+  function callSessionId() {
+    try {
+      const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : null;
+      return st && st.callSessionId ? String(st.callSessionId) : '';
+    } catch (_e) {
+      return '';
+    }
+  }
+
+  function callIsConnected() {
+    try {
+      const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : null;
+      return !!(st && (st.callPhase === 'CONNECTED' || st.rtpBothWays === true));
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  function displayAccountPeer(peerPubkey) {
+    const pk = String(peerPubkey || '').toLowerCase();
+    const Session = window.SosAccountSession;
+    if (Session && typeof Session.verifiedAccountOf === 'function') {
+      const owner = String(Session.verifiedAccountOf(pk) || '').toLowerCase();
+      if (/^[0-9a-f]{64}$/.test(owner)) return owner;
+    }
+    return pk;
+  }
+
+  function callDisplayName(contact) {
+    const name = contact && contact.name ? String(contact.name).trim() : '';
+    if (!name || name === 'משתמש' || /^משתמש\s+[0-9a-f]{6,}$/i.test(name)) return 'SOS';
+    return name;
+  }
+
+  function displayCallContact(peerPubkey) {
+    const account = displayAccountPeer(peerPubkey);
+    const contacts = App.chatState && App.chatState.contacts;
+    if (!contacts || typeof contacts.get !== 'function') return null;
+    return contacts.get(account) || contacts.get(String(peerPubkey || '').toLowerCase()) || null;
+  }
   let tonePrimerAudio = null;
   let toneAudioPrimed = false;
   let waitingToneAudio = null;
@@ -377,8 +419,8 @@
     markCallUiActive(true);
     if (autoAnswering) hideChatBehindCall();
 
-    const contact = App.chatState?.contacts?.get(String(peerPubkey || '').toLowerCase());
-    const name = contact?.name || `משתמש ${String(peerPubkey || '').slice(0, 8)}`;
+    const contact = displayCallContact(peerPubkey);
+    const name = callDisplayName(contact);
     const initials = contact?.initials || 'מש';
     const picture = contact?.picture || '';
     const showAccept = isIncoming && !autoAnswering;
@@ -854,8 +896,8 @@
       closeIncomingCallNotification();
       registerVoiceCallServiceWorkerIfSupported();
 
-      const contact = App.chatState?.contacts?.get(peerPubkey.toLowerCase());
-      const name = contact?.name || `משתמש ${peerPubkey.slice(0, 8)}`;
+      const contact = displayCallContact(peerPubkey);
+      const name = callDisplayName(contact);
       const picture = contact?.picture || '';
 
       const baseOptions = {
@@ -1872,8 +1914,8 @@
   // חלק שיחה ממתינה (chat-voice-call-ui.js) – התראה קצרה ללא צלצול מלא בזמן שיחה פעילה | HYPER CORE TECH
   App.onVoiceCallWaiting = function(peerPubkey, offer) {
     console.log('Call waiting from', peerPubkey.slice(0, 8));
-    const contact = App.chatState?.contacts?.get(peerPubkey.toLowerCase());
-    const name = contact?.name || `משתמש ${peerPubkey.slice(0, 8)}`;
+    const contact = displayCallContact(peerPubkey);
+    const name = callDisplayName(contact);
     const initials = contact?.initials || 'מש';
     const picture = contact?.picture || '';
 
@@ -1928,6 +1970,7 @@
   App.onVoiceCallAnswerReceived = function onVoiceCallAnswerReceived(peerPubkey) {
     console.log('Call answer received', String(peerPubkey || '').slice(0, 8));
     updateCallStatus('מתחבר...');
+    sealCallAudio();
     stopDialtone();
     stopRingtone();
   };
@@ -1945,6 +1988,7 @@
     showMuteButton();
     showSpeakerButton();
     startCallTimer();
+    sealCallAudio();
     stopRingtone();
     stopDialtone();
     closeIncomingCallNotification();
@@ -1968,6 +2012,7 @@
 
   // חלק שיחות קול (chat-voice-call-ui.js) – סגירת UI בעת ניתוק/ביטול מהצד השני | HYPER CORE TECH
   App.onVoiceCallEnded = function(peerPubkey) {
+    sealCallAudio();
     const peer = peerPubkey || activePeerPubkey;
     if (peer && activePeerPubkey && peer !== activePeerPubkey) {
       return;
@@ -2109,25 +2154,52 @@
     doc.addEventListener('touchstart', handler, true);
   }
 
+  function sealCallAudio() {
+    const sid = callSessionId();
+    if (sid) audioStoppedSession = sid;
+  }
+
   function stopRingtone() {
+    const sid = callSessionId();
+    try { console.log('CALL_AUDIO_STOP kind=ringtone session=' + sid.slice(0, 8)); } catch (_log) {}
     try {
       if (typeof App.nativeStopCallRingtone === 'function') App.nativeStopCallRingtone();
     } catch {}
-    if (!ringtoneAudio) return;
+    if (!ringtoneAudio) {
+      try { console.log('CALL_AUDIO_STOP_VERIFIED kind=ringtone'); } catch (_v) {}
+      return;
+    }
     try { ringtoneAudio.pause(); } catch {}
     try { ringtoneAudio.currentTime = 0; } catch {}
+    if (ringtoneAudio.paused) {
+      try { console.log('CALL_AUDIO_STOP_VERIFIED kind=ringtone'); } catch (_v2) {}
+    }
   }
 
   function stopDialtone() {
+    const sid = callSessionId();
+    try { console.log('CALL_AUDIO_STOP kind=dialtone session=' + sid.slice(0, 8)); } catch (_log) {}
     try {
       if (typeof App.nativeStopCallDialtone === 'function') App.nativeStopCallDialtone();
     } catch {}
-    if (!dialtoneAudio) return;
+    if (!dialtoneAudio) {
+      try { console.log('CALL_AUDIO_STOP_VERIFIED kind=dialtone'); } catch (_v) {}
+      return;
+    }
     try { dialtoneAudio.pause(); } catch {}
     try { dialtoneAudio.currentTime = 0; } catch {}
+    if (dialtoneAudio.paused) {
+      try { console.log('CALL_AUDIO_STOP_VERIFIED kind=dialtone'); } catch (_v2) {}
+    }
   }
 
   function playRingtone() {
+    const sid = callSessionId();
+    if (callIsConnected() || (sid && audioStoppedSession === sid)) {
+      stopRingtone();
+      return;
+    }
+    try { console.log('CALL_AUDIO_START kind=ringtone session=' + sid.slice(0, 8)); } catch (_log) {}
     stopDialtone();
     // באפליקציה המקורית – צלצול מה-APK (לא תלוי ברשת)
     if (typeof App.isNativeShell === 'function' && App.isNativeShell() && typeof App.nativeStartCallRingtone === 'function') {
@@ -2143,6 +2215,12 @@
   }
 
   function playDialtone() {
+    const sid = callSessionId();
+    if (callIsConnected() || (sid && audioStoppedSession === sid)) {
+      stopDialtone();
+      return;
+    }
+    try { console.log('CALL_AUDIO_START kind=dialtone session=' + sid.slice(0, 8)); } catch (_log) {}
     stopRingtone();
     if (typeof App.isNativeShell === 'function' && App.isNativeShell() && typeof App.nativeStartCallDialtone === 'function') {
       if (App.nativeStartCallDialtone()) return;

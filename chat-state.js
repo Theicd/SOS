@@ -981,11 +981,21 @@
   function appendMessageToConversation(message) {
     if (!message || typeof message !== 'object') return;
     stampMessageTransport(message);
-    const { from, to, content, createdAt } = message;
+    let { from, to, content, createdAt } = message;
     // מדיה בלי כיתוב (תמונה/וידאו) מגיעה עם content ריק + attachment — חייבים לאפשר | HYPER CORE TECH
     const hasAttachment = !!(message && message.attachment);
     const hasText = typeof content === 'string' ? content.trim().length > 0 : !!content;
     if (!from || !to || (!hasText && !hasAttachment)) return;
+    const accountForStoredParty = (pk) => {
+      const n = String(pk || '').toLowerCase();
+      const owners = (typeof window !== 'undefined' && window.__sosVerifiedDeviceOwners) || null;
+      const owner = owners && typeof owners[n] === 'string' ? String(owners[n]).toLowerCase() : '';
+      return /^[0-9a-f]{64}$/.test(owner) && owner !== n ? owner : n;
+    };
+    from = accountForStoredParty(from);
+    to = accountForStoredParty(to);
+    message.from = from;
+    message.to = to;
     const key = getConversationKey(from, to);
     if (!key) return;
     const self = (App.publicKey || '').toLowerCase();
@@ -1016,7 +1026,19 @@
         (item.logicalMessageId && item.logicalMessageId === message.logicalMessageId) ||
         item.id === message.logicalMessageId
       ));
-      if (logicalDup !== -1) return;
+      if (logicalDup !== -1) {
+        const existing = entry.messages[logicalDup];
+        if (existing && message.attachment && typeof message.attachment === 'object') {
+          if (!existing.attachment) existing.attachment = message.attachment;
+          else {
+            ['v', 'type', 'attachmentId', 'logicalMessageId', 'clientMessageId', 'enc', 'cipher', 'media', 'resource', 'chunks', 'context'].forEach((field) => {
+              if (existing.attachment[field] == null && message.attachment[field] != null) existing.attachment[field] = message.attachment[field];
+            });
+          }
+          persistState();
+        }
+        return;
+      }
     }
     const existingIndex = entry.messages.findIndex((item) => item.id === message.id);
     if (existingIndex !== -1) {
@@ -1770,21 +1792,26 @@
     if (!/^[0-9a-f]{64}$/.test(device) || !/^[0-9a-f]{64}$/.test(account) || device === account) {
       return { ok: false, code: 'BAD_KEY', moved: 0 };
     }
-    const fromKey = getConversationKey(device, self);
-    const entry = fromKey ? chatState.conversations.get(fromKey) : null;
-    const messages = entry && Array.isArray(entry.messages) ? entry.messages.slice() : [];
-    let moved = 0;
-    messages.forEach((message) => {
-      if (!message) return;
-      const copy = Object.assign({}, message, { mergeQuiet: true });
-      if (String(copy.from || '').toLowerCase() === device) copy.from = account;
-      if (String(copy.to || '').toLowerCase() === device) copy.to = account;
-      appendMessageToConversation(copy);
-      const indexed = message.id ? chatState.messageIndex.get(message.id) : null;
-      if (indexed && indexed.peer === (account === self ? self : (String(copy.from || '').toLowerCase() === self ? account : self))) moved += 1;
-      else if (indexed) moved += 1;
+    const keys = [];
+    const direct = getConversationKey(device, self);
+    if (direct) keys.push(direct);
+    chatState.conversations.forEach((row, key) => {
+      if (row && String(row.peer || '').toLowerCase() === device && keys.indexOf(key) === -1) keys.push(key);
     });
-    if (fromKey) chatState.conversations.delete(fromKey);
+    let moved = 0;
+    keys.forEach((fromKey) => {
+      const entry = chatState.conversations.get(fromKey);
+      const messages = entry && Array.isArray(entry.messages) ? entry.messages.slice() : [];
+      messages.forEach((message) => {
+        if (!message) return;
+        const copy = Object.assign({}, message, { mergeQuiet: true });
+        if (String(copy.from || '').toLowerCase() === device) copy.from = account;
+        if (String(copy.to || '').toLowerCase() === device) copy.to = account;
+        appendMessageToConversation(copy);
+        moved += 1;
+      });
+      chatState.conversations.delete(fromKey);
+    });
     chatState.contacts.delete(device);
     if (chatState.disappearingTimers && chatState.disappearingTimers.has && chatState.disappearingTimers.has(device)) {
       chatState.disappearingTimers.delete(device);

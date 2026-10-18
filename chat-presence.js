@@ -258,9 +258,91 @@
     return false;
   }
 
+  function presenceHexToBytes(hex) {
+    const clean = String(hex || '').trim().toLowerCase();
+    if (!/^[0-9a-f]+$/.test(clean) || clean.length % 2 !== 0) return null;
+    const out = new Uint8Array(clean.length / 2);
+    for (let i = 0; i < clean.length; i += 2) out[i / 2] = parseInt(clean.slice(i, i + 2), 16);
+    return out;
+  }
+
+  async function publishPresenceCopy(recipient, bodyText, authorization, secretHex) {
+    const to = String(recipient || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(to) || !App.pool) return false;
+    const NT = window.NostrTools;
+    if (!NT || typeof NT.finalizeEvent !== 'function') return false;
+    const secret = presenceHexToBytes(secretHex);
+    if (!secret) return false;
+    const tags = [['p', to], ['t', 'yalachat']];
+    if (authorization) tags.push(['sos-md3', JSON.stringify(authorization)]);
+    const signed = NT.finalizeEvent({
+      kind: PRESENCE_KIND,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: tags,
+      content: bodyText,
+    }, secret);
+    const results = App.pool.publish(App.relayUrls, signed);
+    await Promise.allSettled(results || []);
+    return !!(signed && signed.id);
+  }
+
+  async function sendLinkedDevicePresence(payload) {
+    const LD = window.SosWebLinkedDevices;
+    const Session = window.SosAccountSession;
+    if (!LD || typeof LD.withLinkedDeviceSigner !== 'function' || !App.encryptPrivateChatPayload) return false;
+    const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    const caps = session && Array.isArray(session.caps) ? session.caps : [];
+    if (caps.indexOf('DEVICE_PRESENCE') === -1 && caps.indexOf('DEVICE_CHAT') === -1) return false;
+    const dev = await LD.withLinkedDeviceSigner(function (material) { return material; });
+    if (!dev || !dev.privHex || !dev.pub || !dev.authorization) return false;
+    const body = {
+      type: PRESENCE_TYPE,
+      online: payload.online === true,
+      viewing: payload.viewing === true,
+      lastSeenAt: Number(payload.lastSeenAt) || nowSec(),
+      sentAt: Number(payload.sentAt) || nowSec(),
+    };
+    const targets = [String(payload.to || '').toLowerCase()];
+    if (Session && typeof Session.listAuthorizedDevices === 'function') {
+      try {
+        const devices = await Session.listAuthorizedDevices(payload.to, 'DEVICE_CHAT');
+        (devices || []).forEach((row) => {
+          const pk = row && String(row.deviceSignPub || '').toLowerCase();
+          if (/^[0-9a-f]{64}$/.test(pk) && targets.indexOf(pk) === -1 && pk !== String(dev.pub).toLowerCase()) targets.push(pk);
+        });
+      } catch (_list) {}
+    }
+    let sent = 0;
+    for (let i = 0; i < targets.length; i += 1) {
+      try {
+        const env = App.encryptPrivateChatPayload({
+          senderPrivateKeyHex: dev.privHex,
+          senderPubkey: dev.pub,
+          recipientPubkey: targets[i],
+          payload: {
+            messageId: 'presence-' + body.sentAt + '-' + i,
+            sender: dev.pub,
+            recipient: targets[i],
+            createdAt: body.sentAt,
+            text: JSON.stringify(body),
+            attachment: null,
+          },
+        });
+        if (!env) continue;
+        const ok = await publishPresenceCopy(targets[i], JSON.stringify(env), dev.authorization, dev.privHex);
+        if (ok) sent += 1;
+      } catch (_one) {}
+    }
+    return sent > 0;
+  }
+
   async function sendPresenceOverNostr(payload) {
     try {
       if (!payload || App.guestMode) return false;
+      const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+      if (session && session.role === 'LINKED_DEVICE' && session.verified === true) {
+        return sendLinkedDevicePresence(payload);
+      }
       if (!App.pool || !App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey || typeof App.SosCryptoSigner.signPresence !== 'function') return false;
       const mustEncrypt = typeof App.isE2eeSendRequired !== 'function' || App.isE2eeSendRequired() === true;
       if (mustEncrypt && typeof App.SosCryptoSigner?.nip44ChatEncrypt !== 'function') return false;
@@ -298,6 +380,37 @@
       }));
       const results = App.pool.publish(App.relayUrls, signed);
       await Promise.allSettled(results || []);
+      const Session = window.SosAccountSession;
+      if (Session && typeof Session.listAuthorizedDevices === 'function' && App.SosCryptoSigner && typeof App.SosCryptoSigner.nip44ChatEncrypt === 'function') {
+        try {
+          const devices = await Session.listAuthorizedDevices(payload.to, 'DEVICE_CHAT');
+          for (let i = 0; i < (devices || []).length; i += 1) {
+            const devicePub = devices[i] && String(devices[i].deviceSignPub || '').toLowerCase();
+            if (!/^[0-9a-f]{64}$/.test(devicePub) || devicePub === String(payload.to || '').toLowerCase()) continue;
+            const copy = await Promise.resolve(App.SosCryptoSigner.nip44ChatEncrypt({
+              senderPubkey: App.publicKey,
+              recipientPubkey: devicePub,
+              payload: {
+                messageId: 'presence-' + body.sentAt + '-d' + i,
+                sender: App.publicKey,
+                recipient: devicePub,
+                createdAt: body.sentAt,
+                text: JSON.stringify(body),
+                attachment: null,
+              },
+            }));
+            const copyTags = [['p', devicePub], ['t', 'yalachat']];
+            const copySigned = await Promise.resolve(App.SosCryptoSigner.signPresence({
+              kind: PRESENCE_KIND,
+              pubkey: App.publicKey,
+              created_at: Math.floor(Date.now() / 1000),
+              tags: copyTags,
+              content: JSON.stringify(copy),
+            }));
+            await Promise.allSettled(App.pool.publish(App.relayUrls, copySigned) || []);
+          }
+        } catch (_fan) {}
+      }
       return true;
     } catch (_) {
       return false;
@@ -408,27 +521,43 @@
     let body = null;
     const encrypted = typeof App.looksLikeSosE2eeEnvelope === 'function' && App.looksLikeSosE2eeEnvelope(raw);
     if (encrypted) {
-      if (typeof App.SosCryptoSigner?.nip44ChatDecrypt !== 'function' || !App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey) return null;
       try {
-        const dec = await Promise.resolve(App.SosCryptoSigner.nip44ChatDecrypt({
-          localPubkey: App.publicKey,
-          eventAuthorPubkey: event.pubkey,
-          encryptedEnvelope: raw,
-        }));
-        const text = dec && dec.text;
-        body = typeof text === 'string' ? JSON.parse(text) : null;
+        let text = '';
+        if (typeof App.SosCryptoSigner?.nip44ChatDecrypt === 'function' && App.SosCryptoSigner?.hasIdentityKey?.() && App.publicKey) {
+          const dec = await Promise.resolve(App.SosCryptoSigner.nip44ChatDecrypt({
+            localPubkey: App.publicKey,
+            eventAuthorPubkey: event.pubkey,
+            encryptedEnvelope: raw,
+          }));
+          text = dec && dec.text;
+        } else if (window.SosAccountSession && typeof window.SosAccountSession.decryptForLinkedDevice === 'function') {
+          const envelope = JSON.parse(raw);
+          const opened = await window.SosAccountSession.decryptForLinkedDevice(event, envelope, false, null);
+          text = opened && opened.ok === true && opened.payload ? opened.payload.text : '';
+        }
+        body = typeof text === 'string' && text ? JSON.parse(text) : null;
       } catch (_) {
         return null;
       }
+      if (!body) return null;
     } else if (typeof App.isE2eeSendRequired === 'function' && App.isE2eeSendRequired() === true) {
       return null;
     } else {
       try { body = JSON.parse(raw); } catch (_) { return null; }
     }
     if (!body || body.type !== PRESENCE_TYPE) return null;
+    let fromAccount = String(event.pubkey || '').toLowerCase();
+    if (Array.isArray(event.tags) && event.tags.some((tag) => Array.isArray(tag) && tag[0] === 'sos-md3')) {
+      const Session = window.SosAccountSession;
+      if (!Session || typeof Session.verifyDelegatedEvent !== 'function') return null;
+      let verified = await Session.verifyDelegatedEvent(event, 'DEVICE_PRESENCE');
+      if (!verified || verified.ok !== true) verified = await Session.verifyDelegatedEvent(event, 'DEVICE_CHAT');
+      if (!verified || verified.ok !== true || !verified.accountP) return null;
+      fromAccount = String(verified.accountP).toLowerCase();
+    }
     return {
       type: PRESENCE_TYPE,
-      from: String(event.pubkey || '').toLowerCase(),
+      from: fromAccount,
       to: '',
       online: body.online === true,
       viewing: body.viewing === true,

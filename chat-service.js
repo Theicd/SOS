@@ -1534,10 +1534,26 @@
       try { console.log('[MD] DEVICE_COPY_ECHO_IGNORED event=' + String(event.id || '').slice(0, 8)); } catch (_echo) {}
       return;
     }
-    let contactPubkey = peerPubkey;
-    if (inboundSyncEarly && /^[0-9a-f]{64}$/.test(syncPeerEarly)) contactPubkey = syncPeerEarly;
-    else if (ownSyncEarly && /^[0-9a-f]{64}$/.test(syncPeerEarly)) contactPubkey = syncPeerEarly;
-    else if (event.__sosDelegatedAccount && !onDevice && sender !== accountUser) contactPubkey = String(event.__sosDelegatedAccount).toLowerCase();
+    const Session = window.SosAccountSession;
+    const mapAccount = async (pk) => {
+      const raw = String(pk || '').toLowerCase();
+      if (!/^[0-9a-f]{64}$/.test(raw) || !Session || typeof Session.canonicalPeer !== 'function') return raw;
+      try {
+        const mapped = await Session.canonicalPeer(raw);
+        return /^[0-9a-f]{64}$/.test(String(mapped || '')) ? String(mapped).toLowerCase() : raw;
+      } catch (_map) {
+        return raw;
+      }
+    };
+    let senderAccount = sender;
+    if (event.__sosDelegatedAccount && /^[0-9a-f]{64}$/.test(String(event.__sosDelegatedAccount))) {
+      senderAccount = String(event.__sosDelegatedAccount).toLowerCase();
+    } else {
+      senderAccount = await mapAccount(sender);
+    }
+    let contactPubkey = isSelfMessage ? await mapAccount(recipient) : senderAccount;
+    if (inboundSyncEarly && /^[0-9a-f]{64}$/.test(syncPeerEarly)) contactPubkey = await mapAccount(syncPeerEarly);
+    else if (ownSyncEarly && /^[0-9a-f]{64}$/.test(syncPeerEarly)) contactPubkey = await mapAccount(syncPeerEarly);
     // Stage 13 — per-peer ingress throttle after auth/recipient (normal chat stays far below) | HYPER CORE TECH
     if (!allowIngressBucket(chatIngressBuckets, sender, CHAT_INGRESS_WINDOW_MS, CHAT_INGRESS_MAX_PER_PEER)) {
       console.warn('[SECURITY/RATE_DROP] type=1050 peer=' + sender.slice(0, 8) + ' reason=chat_burst');
@@ -1669,20 +1685,21 @@
     const inboundSync = Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 't' && t[1] === 'sos-inbound-sync');
     const syncTag = Array.isArray(event.tags) ? event.tags.find((t) => Array.isArray(t) && t[0] === 'sync-peer' && typeof t[1] === 'string') : null;
     const syncPeer = syncTag ? String(syncTag[1]).toLowerCase() : '';
-    const logicalAccount = String(event.__sosDelegatedAccount || '');
-    let bubbleFrom = sender;
+    const logicalAccount = String(event.__sosDelegatedAccount || senderAccount || '');
+    let bubbleFrom = senderAccount || sender;
     let bubbleTo = (onDevice && !isSelfMessage) ? accountUser : conversationTarget;
+    if (isSelfMessage) bubbleTo = await mapAccount(recipient);
     let bubbleDirection = isSelfMessage ? 'outgoing' : 'incoming';
     if (inboundSync && onDevice && sender === accountUser && /^[0-9a-f]{64}$/.test(syncPeer)) {
-      bubbleFrom = syncPeer;
+      bubbleFrom = await mapAccount(syncPeer);
       bubbleTo = accountUser;
       bubbleDirection = 'incoming';
     } else if (ownSync && /^[0-9a-f]{64}$/.test(syncPeer)) {
       bubbleFrom = logicalAccount || accountUser;
-      bubbleTo = syncPeer;
+      bubbleTo = await mapAccount(syncPeer);
       bubbleDirection = 'outgoing';
-    } else if (logicalAccount && !onDevice && sender !== accountUser) {
-      bubbleFrom = logicalAccount;
+    } else if (senderAccount && senderAccount !== sender && sender !== accountUser) {
+      bubbleFrom = senderAccount;
       bubbleTo = accountUser;
       bubbleDirection = 'incoming';
     }
@@ -1847,12 +1864,19 @@
     // חלק P2P auto-connect (chat-service.js) – כשמגיעה הודעה חדשה דרך relay מ-peer שאין איתו DC,
     // מתחיל חיבור DataChannel ברקע כדי שההודעה הבאה תעבור P2P ישירות | HYPER CORE TECH
     if (bubbleDirection === 'incoming' && messageAgeSec < 120 && App.dataChannel && typeof App.dataChannel.connect === 'function') {
-      const dcConnected = typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(bubblePeer);
-      if (!dcConnected) {
+      const owners = (typeof window !== 'undefined' && window.__sosVerifiedDeviceOwners) || {};
+      const p2pPeer = owners && typeof owners[String(bubblePeer || '').toLowerCase()] === 'string'
+        ? String(owners[String(bubblePeer).toLowerCase()]).toLowerCase()
+        : bubblePeer;
+      if (p2pPeer && p2pPeer !== String(bubblePeer || '').toLowerCase()) {
+        try { console.log('[CHAT/P2P-AUTO] skip device endpoint ' + String(bubblePeer).slice(0, 8)); } catch (_skip) {}
+      }
+      const dcConnected = typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(p2pPeer);
+      if (!dcConnected && p2pPeer) {
         try {
           App.dataChannel.init?.();
-          App.dataChannel.connect(bubblePeer);
-          console.log('[CHAT/P2P-AUTO] ⚡ auto-connect DC for', bubblePeer.slice(0, 8), '(relay msg received)');
+          App.dataChannel.connect(p2pPeer);
+          console.log('[CHAT/P2P-AUTO] ⚡ auto-connect DC for', p2pPeer.slice(0, 8), '(relay msg received)');
         } catch (_e) { /* שקט — לא קריטי */ }
       }
     }

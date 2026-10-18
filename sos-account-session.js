@@ -728,6 +728,57 @@
     } catch (_e4) {}
   }
 
+  function verifiedAccountOf(pubkey) {
+    const pk = norm(pubkey);
+    if (!isHex64(pk)) return '';
+    const map = root.__sosVerifiedDeviceOwners;
+    const owner = map && typeof map[pk] === 'string' ? norm(map[pk]) : '';
+    return isHex64(owner) && owner !== pk ? owner : '';
+  }
+
+  // Verified MD3 only. A directory miss stays the pubkey; unknown keys are not merged.
+  async function canonicalPeer(pubkey, requiredCap) {
+    const pk = norm(pubkey);
+    if (!isHex64(pk)) return '';
+    const cached = verifiedAccountOf(pk);
+    if (cached) return cached;
+    const resolved = await resolveDeviceAccount(pk);
+    if (!resolved || resolved.ok !== true || !isHex64(resolved.accountP) || resolved.accountP === pk) return pk;
+    const caps = Array.isArray(resolved.caps) ? resolved.caps : [];
+    const need = requiredCap || 'DEVICE_CHAT';
+    if (caps.indexOf(need) === -1 && caps.indexOf('DEVICE_CHAT') === -1 && caps.indexOf('DEVICE_FILES') === -1 && caps.indexOf('DEVICE_CALLS') === -1) {
+      return pk;
+    }
+    return resolved.accountP;
+  }
+
+  async function resolveVerifiedActor(event) {
+    const devicePub = norm(event && event.pubkey);
+    const empty = { ok: false, accountP: '', devicePub: '', deviceId: '', authorization: '', capabilities: [] };
+    if (!isHex64(devicePub)) return Object.assign({}, empty, { code: 'BAD_PUBKEY' });
+    const tagged = event && event.__sosDelegatedAccount ? norm(event.__sosDelegatedAccount) : '';
+    if (isHex64(tagged) && tagged !== devicePub) {
+      return { ok: true, accountP: tagged, devicePub: devicePub, deviceId: '', authorization: 'md3-event', capabilities: [] };
+    }
+    const cached = verifiedAccountOf(devicePub);
+    if (cached) {
+      return { ok: true, accountP: cached, devicePub: devicePub, deviceId: '', authorization: 'md3-cache', capabilities: [] };
+    }
+    const resolved = await resolveDeviceAccount(devicePub);
+    if (resolved && resolved.ok === true && isHex64(resolved.accountP) && resolved.accountP !== devicePub) {
+      const caps = Array.isArray(resolved.caps) ? resolved.caps : [];
+      return {
+        ok: true,
+        accountP: resolved.accountP,
+        devicePub: devicePub,
+        deviceId: resolved.deviceId || '',
+        authorization: 'md3-directory',
+        capabilities: caps,
+      };
+    }
+    return { ok: true, accountP: devicePub, devicePub: '', deviceId: '', authorization: 'direct-account', capabilities: [] };
+  }
+
   App.getAccountSession = getAccountSession;
   App.accountSessionAllows = allows;
   App.accountSessionOpForPrompt = opForPrompt;
@@ -751,6 +802,9 @@
     announceLinkedDevice: announceLinkedDevice,
     listAuthorizedDevices: listAuthorizedDevices,
     resolveDeviceAccount: resolveDeviceAccount,
+    verifiedAccountOf: verifiedAccountOf,
+    canonicalPeer: canonicalPeer,
+    resolveVerifiedActor: resolveVerifiedActor,
     verifyEventPlain: verifyEventPlain,
     acceptHistoryEvent: acceptHistoryEvent,
     resubscribeLinkedTransports: resubscribeLinkedTransports,
