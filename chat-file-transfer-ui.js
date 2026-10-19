@@ -273,8 +273,10 @@
     
     // חלק ניתוב קבצים (chat-file-transfer-ui.js) – מעל 90KB מעדיפים P2P, ואם נכשל עוברים ל-inline עד 256KB
     // אם DC כבר מחובר — גם קבצים קטנים עוברים P2P כדי לא לעמיס על relay | HYPER CORE TECH
+    const accountKey = String(App.publicKey || '').toLowerCase();
+    const selfChat = String(peer || '').toLowerCase() === accountKey;
     const dcConnectedNow = App.dataChannel && typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(peer);
-    const shouldPreferP2P = file.size > P2P_PREFERRED_FROM_BYTES || dcConnectedNow;
+    const shouldPreferP2P = selfChat || file.size > P2P_PREFERRED_FROM_BYTES || dcConnectedNow;
     if (shouldPreferP2P && typeof App.sendP2PFile === 'function') {
       try {
         const previewUrl = localPreviewUrl || (isVisualMedia ? URL.createObjectURL(file) : '');
@@ -325,6 +327,10 @@
         return;
       } catch (err) {
         const reason = err?.message || 'unknown-error';
+        if (selfChat) {
+          App.handleP2PProgressUpdate?.({ fileId: optimisticFileId || '', progress: 0, status: 'pending', direction: 'send', name: file.name, size: file.size, peerPubkey: peer, transport: 'LOCAL_QUEUED', stage: 'LOCAL_QUEUED' });
+          return;
+        }
         console.warn('[CHAT/FILE-UI] P2P send failed, trying fallback', reason);
         App.notifyChatFileTransferError?.({
           peer,

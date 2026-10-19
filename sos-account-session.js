@@ -426,18 +426,32 @@
       });
     });
     let omitted = 0;
-    let packed = out;
-    let body = JSON.stringify(packed);
-    while (body.length > 48000 && packed.length > 1) {
-      packed = packed.slice(1);
-      omitted += 1;
-      body = JSON.stringify(packed);
-    }
-    if (body.length > 48000 && packed.length === 1) {
-      packed = [{ id: packed[0].id, peer: packed[0].peer, text: '', direction: packed[0].direction, createdAt: packed[0].createdAt, deleted: packed[0].deleted, reason: 'MESSAGE_TOO_LARGE' }];
-      omitted += 1;
-    }
+    const packed = [];
+    out.forEach(function (row) {
+      if (JSON.stringify(row).length > 40000) {
+        omitted += 1;
+        unavailable.push({ id: row.id, reason: 'MESSAGE_TOO_LARGE' });
+        return;
+      }
+      packed.push(row);
+    });
     return { messages: packed, unavailable: unavailable, omitted: omitted, complete: omitted === 0 && unavailable.length === 0 };
+  }
+
+  function splitHistoryPages(messages) {
+    const pages = [];
+    let batch = [];
+    (Array.isArray(messages) ? messages : []).forEach(function (row) {
+      const trial = batch.concat([row]);
+      if (JSON.stringify(trial).length > 40000 && batch.length) {
+        pages.push(batch);
+        batch = [row];
+      } else {
+        batch = trial;
+      }
+    });
+    if (batch.length || !pages.length) pages.push(batch);
+    return pages;
   }
 
   async function publishLinkedHistoryBundle(devicePub) {
@@ -450,49 +464,61 @@
     }
     const snapshot = collectHistoryMessages();
     const messages = snapshot.messages || [];
-    const createdAt = Math.floor(Date.now() / 1000);
-    const body = JSON.stringify({
-      v: 2,
-      type: HIST_TAG,
-      accountP: norm(App.publicKey),
-      messages: messages,
-      unavailable: snapshot.unavailable || [],
-      omitted: snapshot.omitted || 0,
-      complete: snapshot.complete === true,
-    });
-    const env = await Promise.resolve(signer.nip44ChatEncrypt({
-      senderPubkey: norm(App.publicKey),
-      recipientPubkey: peer,
-      payload: {
-        messageId: 'hist-' + createdAt,
-        sender: norm(App.publicKey),
-        recipient: peer,
-        createdAt: createdAt,
-        text: body,
-        attachment: null,
-      },
-    }));
-    if (!env || typeof env.ct !== 'string') return { ok: false, code: 'ENCRYPT_FAILED' };
-    const event = await Promise.resolve(signer.signLinkedHistory({
-      kind: HIST_KIND,
-      created_at: createdAt,
-      tags: [['p', peer], ['t', HIST_TAG]],
-      content: JSON.stringify(env),
-    }));
-    if (!event || !event.id) return { ok: false, code: 'SIGN_FAILED' };
+    const pages = splitHistoryPages(messages);
     const pool = App.pool;
     if (!pool || typeof pool.publish !== 'function') return { ok: false, code: 'NO_POOL' };
-    const published = pool.publish(App.relayUrls, event);
-    const pending = Array.isArray(published) ? published : [published];
-    const settled = await Promise.allSettled(pending.map(function (p) { return Promise.resolve(p); }));
-    const accepted = settled.some(function (r) { return r.status === 'fulfilled'; });
-    if (!accepted) return { ok: false, code: 'RELAY_REJECTED', count: messages.length };
+    const createdAt = Math.floor(Date.now() / 1000);
+    let published = 0;
+    let lastId = '';
+    for (let page = 0; page < pages.length; page += 1) {
+      const last = page === pages.length - 1;
+      const body = JSON.stringify({
+        v: 3,
+        type: HIST_TAG,
+        accountP: norm(App.publicKey),
+        page: page,
+        pageCount: pages.length,
+        messages: pages[page],
+        unavailable: last ? (snapshot.unavailable || []) : [],
+        omitted: last ? (snapshot.omitted || 0) : 0,
+        complete: snapshot.complete === true,
+      });
+      const env = await Promise.resolve(signer.nip44ChatEncrypt({
+        senderPubkey: norm(App.publicKey),
+        recipientPubkey: peer,
+        payload: {
+          messageId: 'hist-' + createdAt + '-' + page,
+          sender: norm(App.publicKey),
+          recipient: peer,
+          createdAt: createdAt,
+          text: body,
+          attachment: null,
+        },
+      }));
+      if (!env || typeof env.ct !== 'string') return { ok: false, code: 'ENCRYPT_FAILED', pages: published };
+      const event = await Promise.resolve(signer.signLinkedHistory({
+        kind: HIST_KIND,
+        created_at: createdAt,
+        tags: [['p', peer], ['t', HIST_TAG], ['page', String(page)]],
+        content: JSON.stringify(env),
+      }));
+      if (!event || !event.id) return { ok: false, code: 'SIGN_FAILED', pages: published };
+      const pending = pool.publish(App.relayUrls, event);
+      const jobs = Array.isArray(pending) ? pending : [pending];
+      const settled = await Promise.allSettled(jobs.map(function (p) { return Promise.resolve(p); }));
+      if (!settled.some(function (r) { return r.status === 'fulfilled'; })) {
+        return { ok: false, code: 'RELAY_REJECTED', count: messages.length, pages: published };
+      }
+      published += 1;
+      lastId = String(event.id).slice(0, 12);
+    }
     return {
-      ok: true,
+      ok: published === pages.length,
       count: messages.length,
-      id: String(event.id).slice(0, 12),
+      pages: pages.length,
+      id: lastId,
       HISTORY_SYNC_TRANSFERRED: messages.length > 0,
-      HISTORY_SYNC_COMPLETE: snapshot.complete === true,
+      HISTORY_SYNC_COMPLETE: snapshot.complete === true && published === pages.length,
       omitted: snapshot.omitted || 0,
       unavailable: (snapshot.unavailable || []).length,
     };
@@ -525,8 +551,13 @@
     try { bundle = JSON.parse(opened.payload.text); } catch (_e2) { return rememberHistory({ ok: false, code: 'BAD_BUNDLE', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false }); }
     if (!bundle || bundle.type !== HIST_TAG || norm(bundle.accountP) !== session.accountP) return rememberHistory({ ok: false, code: 'BAD_BUNDLE', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
     const list = Array.isArray(bundle.messages) ? bundle.messages : [];
+    const page = Number.isInteger(bundle.page) ? bundle.page : 0;
+    const pageCount = Number(bundle.pageCount) > 0 ? Number(bundle.pageCount) : 1;
+    if (!root.__sosLdHistoryPages) root.__sosLdHistoryPages = { seen: {}, count: 0, unavailable: 0, omitted: 0, pageCount: 1 };
+    const book = root.__sosLdHistoryPages;
+    const already = book.seen[page] === true;
     let n = 0;
-    list.forEach(function (m) {
+    if (!already) list.forEach(function (m) {
       if (!m || typeof m.text !== 'string' || !isHex64(m.peer) || typeof App.appendChatMessage !== 'function') return;
       const outgoing = m.direction === 'outgoing';
       const histAttachment = m.attachment && m.attachment.type === 'encrypted-media' ? m.attachment : null;
@@ -549,8 +580,16 @@
     });
     const unavailable = Array.isArray(bundle.unavailable) ? bundle.unavailable : [];
     const omitted = Number(bundle.omitted) || 0;
-    const complete = bundle.complete === true && unavailable.length === 0 && omitted === 0;
-    root.__sosLdHistorySync = { ok: true, count: n, HISTORY_SYNC_COMPLETE: complete, omitted: omitted, unavailable: unavailable.length, FAKE_HISTORY_SYNC: false };
+    book.pageCount = Math.max(book.pageCount || 1, pageCount);
+    if (!already) {
+      book.seen[page] = true;
+      book.count += n;
+      book.unavailable += unavailable.length;
+      book.omitted += omitted;
+    }
+    const got = Object.keys(book.seen).length;
+    const complete = bundle.complete === true && got >= book.pageCount && book.unavailable === 0 && book.omitted === 0;
+    root.__sosLdHistorySync = { ok: true, count: book.count, pages: got, pageCount: book.pageCount, HISTORY_SYNC_COMPLETE: complete, omitted: book.omitted, unavailable: book.unavailable, FAKE_HISTORY_SYNC: false };
     return root.__sosLdHistorySync;
   }
 
@@ -568,7 +607,7 @@
         '#p': [session.deviceSignPub],
         '#t': [HIST_TAG],
         authors: [session.accountP],
-        limit: 8,
+        limit: 40,
       };
       if (typeof pool.list === 'function') events = await pool.list(App.relayUrls, [filter]);
       else if (typeof pool.querySync === 'function') {

@@ -313,6 +313,15 @@
   async function sendVoiceBlobToChat(peerPubkey, result){
     if(!peerPubkey) throw new Error('missing-peer');
     if(!result || !result.blob) return null;
+    const selfAccount = String(App.publicKey || '').toLowerCase();
+    if (String(peerPubkey).toLowerCase() === selfAccount && typeof App.sendP2PFile === 'function') {
+      const voiceFile = new File([result.blob], 'voice-message.webm', { type: result.mimeType || result.blob.type || 'audio/webm' });
+      const fileId = await App.sendP2PFile(selfAccount, voiceFile, function (evt) {
+        if (typeof App.handleP2PProgressUpdate === 'function') App.handleP2PProgressUpdate(evt);
+      });
+      console.log('[CHAT/SELF] voice transport=' + (fileId === 'LOCAL_QUEUED' ? 'LOCAL_QUEUED' : 'P2P_DIRECT'));
+      return { selfP2P: true, fileId: fileId || '', pending: fileId === 'LOCAL_QUEUED', ok: !!fileId && fileId !== 'LOCAL_QUEUED' };
+    }
 
     console.log('[VOICE] Building encrypted attachment', {
       size: result.blob.size,

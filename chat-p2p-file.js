@@ -115,7 +115,22 @@
     return false;
   }
 
+  function annotateTransferStage(payload) {
+    if (!payload || payload.stage) return payload;
+    const st = payload.status;
+    if (st === 'encrypting') payload.stage = 'ENCRYPTING';
+    else if (st === 'waiting-peer' || st === 'starting' || st === 'waiting') payload.stage = 'P2P_CONNECTING';
+    else if (st === 'sending' || st === 'receiving' || st === 'resending') payload.stage = 'BYTES_SENT';
+    else if (st === 'verified') payload.stage = 'HASH_VERIFIED';
+    else if (st === 'pending') payload.stage = 'LOCAL_QUEUED';
+    else if (st === 'complete') payload.stage = 'COMPLETE';
+    else if (st === 'failed' || st === 'cancelled') payload.stage = 'FAILED';
+    else payload.stage = 'SELECTED';
+    return payload;
+  }
+
   function notifyProgress(payload) {
+    annotateTransferStage(payload);
     try {
       const st = payload && payload.status;
       if (typeof App.setP2pTransferActiveNative === 'function') {
@@ -423,6 +438,7 @@
       };
       if (onProgress) onProgress(queued);
       notifyProgress(queued);
+      armSelfRetry();
       try { console.log('[CHAT/SELF] transport=LOCAL_QUEUED id=' + String(transfer.fileId || '').slice(0, 24)); } catch (_q) {}
       return;
     }
@@ -835,9 +851,26 @@
   }
   
   // חלק שליחה (chat-p2p-file.js) – שליחת קובץ בצ'אנקים מוצפנים | HYPER CORE TECH
-  async function pickLinkedDeviceForSelfP2P() {
+  async function authorizedSelfSender(senderKey) {
+    const account = String(App.publicKey || '').toLowerCase();
+    const sender = String(senderKey || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(sender)) return '';
+    if (sender === account) return account;
+    const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    if (session && session.verified === true && String(session.deviceSignPub || '').toLowerCase() === sender) return account;
+    const Session = window.SosAccountSession;
+    if (!Session || typeof Session.listAuthorizedDevices !== 'function') return '';
+    try {
+      const rows = await Session.listAuthorizedDevices(account, 'DEVICE_CHAT');
+      if ((Array.isArray(rows) ? rows : []).some(function (row) { return String(row && row.deviceSignPub || '').toLowerCase() === sender; })) return account;
+    } catch (_auth) {}
+    return '';
+  }
+
+  async function pickLinkedDeviceForSelfP2P(skipSign) {
     const Session = window.SosAccountSession;
     const account = String(App.publicKey || '').toLowerCase();
+    const skip = String(skipSign || '').toLowerCase();
     if (!Session || typeof Session.listAuthorizedDevices !== 'function' || !/^[0-9a-f]{64}$/.test(account)) return '';
     let rows = [];
     try { rows = await Session.listAuthorizedDevices(account, 'DEVICE_CHAT'); } catch (_e) { rows = []; }
@@ -846,11 +879,85 @@
     for (let i = 0; i < list.length; i += 1) {
       const sign = String(list[i] && list[i].deviceSignPub || '').toLowerCase();
       const enc = String(list[i] && list[i].deviceEncPub || '').toLowerCase();
-      if (!/^[0-9a-f]{64}$/.test(sign) || (enc && enc === sign) || sign === account) continue;
+      if (!/^[0-9a-f]{64}$/.test(sign) || (enc && enc === sign) || sign === account || sign === skip) continue;
       if (!fallback) fallback = sign;
       if (App.dataChannel && typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(sign)) return sign;
     }
     return fallback;
+  }
+
+  async function resolveSelfChatDataPeer() {
+    const account = String(App.publicKey || '').toLowerCase();
+    const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    if (session && session.role === 'LINKED_DEVICE') return account;
+    const localDevice = session && session.deviceSignPub ? String(session.deviceSignPub).toLowerCase() : '';
+    return await pickLinkedDeviceForSelfP2P(localDevice);
+  }
+
+  const queuedSelfBlobs = [];
+  let selfRetryTimer = null;
+
+  function armSelfRetry() {
+    if (selfRetryTimer) return;
+    selfRetryTimer = setInterval(function () { retryQueuedSelfFiles(); }, 12000);
+  }
+
+  async function retryQueuedSelfFiles() {
+    const pending = queuedSelfBlobs.splice(0, queuedSelfBlobs.length);
+    for (let i = 0; i < pending.length; i += 1) {
+      const item = pending[i];
+      item.attempts = (item.attempts || 0) + 1;
+      if (item.attempts > 8) {
+        notifyProgress({ fileId: item.fileId || '', progress: 0, status: 'failed', direction: 'send', name: item.file && item.file.name, size: item.file && item.file.size, peerPubkey: App.publicKey, transport: 'LOCAL_QUEUED', stage: 'FAILED' });
+        continue;
+      }
+      if (item.file) item.file.__sosSelfAttempts = item.attempts;
+      const id = await sendFile(App.publicKey, item.file, item.onProgress);
+      if (id === 'LOCAL_QUEUED') {
+        const last = queuedSelfBlobs[queuedSelfBlobs.length - 1];
+        if (last && last.file === item.file) last.attempts = item.attempts;
+      }
+    }
+    for (const transfer of activeTransfers.values()) {
+      if (!transfer || transfer.selfChat !== true || !transfer.paused || transfer.completed) continue;
+      transfer.selfRetries = (transfer.selfRetries || 0) + 1;
+      if (transfer.selfRetries > 8) {
+        transfer.paused = true;
+        notifyProgress({ fileId: transfer.fileId, progress: 0, status: 'failed', direction: 'send', peerPubkey: transfer.conversationPeer || App.publicKey, transport: 'LOCAL_QUEUED', stage: 'FAILED' });
+        continue;
+      }
+      const target = await resolveSelfChatDataPeer();
+      if (!target) continue;
+      transfer.peerPubkey = target;
+      try {
+        if (App.dataChannel && typeof App.dataChannel.forceConnect === 'function') await App.dataChannel.forceConnect(target);
+        if (!(App.dataChannel && App.dataChannel.isConnected && App.dataChannel.isConnected(target))) continue;
+        transfer.paused = false;
+        notifyProgress({ fileId: transfer.fileId, progress: 0, status: 'waiting-peer', direction: 'send', peerPubkey: transfer.conversationPeer || target, transport: 'P2P_DIRECT', stage: 'P2P_CONNECTING' });
+        if (!transfer.offerSent && typeof App.sendP2PSignal === 'function') {
+          await App.sendP2PSignal(target, {
+            type: 'file-offer',
+            fileId: transfer.fileId,
+            name: transfer.file && transfer.file.name,
+            size: transfer.file && transfer.file.size,
+            mimeType: transfer.file && transfer.file.type,
+            keyStr: transfer.keyStr,
+            totalChunks: transfer.totalChunks,
+            createdAt: Math.floor((transfer.startTime || Date.now()) / 1000),
+            sha256: transfer.sha256,
+            selfConversation: true,
+          });
+          transfer.offerSent = true;
+        }
+        await sendNextChunk(transfer.fileId, transfer._onProgress);
+      } catch (_retry) {
+        transfer.paused = true;
+      }
+    }
+    if (!queuedSelfBlobs.length && ![...activeTransfers.values()].some(function (t) { return t && t.selfChat && t.paused; }) && selfRetryTimer) {
+      clearInterval(selfRetryTimer);
+      selfRetryTimer = null;
+    }
   }
 
   async function sendFile(peerPubkey, file, onProgress) {
@@ -859,12 +966,16 @@
     const selfChat = peerKey === accountKey;
     let conversationPeer = peerKey;
     if (selfChat) {
-      const device = await pickLinkedDeviceForSelfP2P();
+      const device = await resolveSelfChatDataPeer();
       if (!device) {
-        notifyProgress({ fileId: '', progress: 0, status: 'pending', direction: 'send', peerPubkey: accountKey, transport: 'LOCAL_QUEUED', name: file && file.name, size: file && file.size });
+        queuedSelfBlobs.push({ file: file, onProgress: onProgress, attempts: (file && file.__sosSelfAttempts) || 0 });
+        if (file) file.__sosSelfHold = true;
+        armSelfRetry();
+        notifyProgress({ fileId: '', progress: 0, status: 'pending', direction: 'send', peerPubkey: accountKey, transport: 'LOCAL_QUEUED', stage: 'LOCAL_QUEUED', name: file && file.name, size: file && file.size });
         try { console.log('[CHAT/SELF] transport=LOCAL_QUEUED'); } catch (_q) {}
         return 'LOCAL_QUEUED';
       }
+      if (file) file.__sosSelfHold = false;
       peerKey = device;
       try { console.log('[CHAT/SELF] transport=P2P_DIRECT device=' + device.slice(0, 8)); } catch (_d) {}
     }
@@ -958,6 +1069,7 @@
       createdAt: Math.floor(Date.now() / 1000),
       caption: pendingCaption || undefined,
       sha256: fileSha256,
+      selfConversation: selfChat === true,
     };
     
     // שליחת metadata דרך signaling — רק אם P2P זמין; כשל מוכרע עובר ישר ל-fallback מוצפן
@@ -983,6 +1095,7 @@
       peerPubkey: peerKey,
       conversationPeer: conversationPeer,
       selfChat: selfChat,
+      offerSent: preflight.ok === true,
       direction: 'send',
       currentChunk: 0,
       totalChunks: metadata.totalChunks,
@@ -1030,6 +1143,7 @@
     if (!preflight.ok) {
       transfer.p2pPreflightFailure = preflight.failure || 'UNKNOWN_P2P_FAILURE';
       await failTransferToFallback(transfer, transfer.p2pPreflightFailure, onProgress);
+      if (selfChat) return 'LOCAL_QUEUED';
       return fileId;
     }
     
@@ -1889,7 +2003,7 @@
   async function handleP2PFileOffer(senderPubkey, offerData) {
     const senderKey = toPeerKey(senderPubkey);
     try {
-      const { fileId, name, size, mimeType, keyStr, totalChunks, createdAt: offerCreatedAt, caption: offerCaption, sha256: offerSha256 } = offerData || {};
+      const { fileId, name, size, mimeType, keyStr, totalChunks, createdAt: offerCreatedAt, caption: offerCaption, sha256: offerSha256, selfConversation: offerSelf } = offerData || {};
       
       console.log('[CHAT/P2P] 📥 handleP2PFileOffer', {
         from: senderKey?.slice?.(0, 8),
@@ -1965,6 +2079,7 @@
         _initPending: true,
         completed: false,
         expectedSha256: typeof offerSha256 === 'string' && /^[0-9a-f]{64}$/.test(offerSha256) ? offerSha256 : null,
+        selfConversation: offerSelf === true,
       };
       activeTransfers.set(fileId, transfer);
       qaNote('offer-reserved', { fileId });
@@ -2332,12 +2447,14 @@
             }
           }
           const inboundLogicalId = `p2p-recv-${fileId}`;
+          const selfPeer = transfer.selfConversation === true ? await authorizedSelfSender(transfer.peerPubkey) : '';
+          const logicalId = selfPeer ? fileId : inboundLogicalId;
           App.appendChatMessage({
             id: inboundLogicalId,
-            logicalMessageId: inboundLogicalId,
+            logicalMessageId: logicalId,
             direction: 'incoming',
-            from: transfer.peerPubkey,
-            to: App.publicKey,
+            from: selfPeer || transfer.peerPubkey,
+            to: selfPeer || App.publicKey,
             content: (() => {
               const captionText = String(transfer.caption || '').trim();
               const isVisualMedia = /^image\//i.test(resolvedMime || transfer.mimeType || '') || !!isVideoFlag;
@@ -2355,11 +2472,12 @@
               caption: String(transfer.caption || '').trim() || undefined,
             },
             p2p: true,
-            transport: 'DC',
+            transport: selfPeer ? 'P2P_DIRECT' : 'DC',
             createdAt,
           });
-          console.log('[CHAT/P2P] 💬 הודעת צ\'אט נוצרה למקבל עם cacheKey יציב', { hasPoster: !!posterDataUrl, hasCaption: !!transfer.caption });
-          if (typeof App.mirrorInboundP2pFileToLinkedDevices === 'function') {
+          transfer.selfPeer = selfPeer;
+          console.log('[CHAT/P2P] 💬 הודעת צ\'אט נוצרה למקבל עם cacheKey יציב', { hasPoster: !!posterDataUrl, hasCaption: !!transfer.caption, self: !!selfPeer });
+          if (!selfPeer && typeof App.mirrorInboundP2pFileToLinkedDevices === 'function') {
             App.mirrorInboundP2pFileToLinkedDevices({
               fileId,
               blob,

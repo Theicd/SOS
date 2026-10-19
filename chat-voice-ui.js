@@ -166,6 +166,15 @@
         }
         
         const result = await App.finalizeVoiceToChat?.(peer);
+        if (result && result.selfP2P === true) {
+          if (result.pending === true || result.ok === false) {
+            if (typeof App.hideVoiceSendingIndicator === 'function') App.hideVoiceSendingIndicator(loadingId);
+            if (result.pending === true) return;
+            throw new Error('voice-p2p-failed');
+          }
+          if (typeof App.hideVoiceSendingIndicator === 'function') App.hideVoiceSendingIndicator(loadingId);
+          return;
+        }
         if (result && typeof App.publishChatMessage === 'function'){
           const boundId = result.clientMessageId || result.logicalMessageId || '';
           const sent = await App.publishChatMessage(peer, '', boundId ? { clientTempId: boundId } : undefined);

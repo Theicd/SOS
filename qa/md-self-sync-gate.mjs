@@ -31,6 +31,8 @@ check('account pull skips events it already applied', chat.includes('accountPull
 check('file ui does not freeze at 85 percent', !ui.includes('progress: 0.85') && ui.includes("status: 'failed'"));
 check('history does not call a truncated bundle complete', session.includes('complete: omitted === 0 && unavailable.length === 0'));
 check('history keeps an encrypted attachment descriptor', session.includes("type: 'encrypted-media'") && session.includes('cipher: { sha256:'));
+check('self data peer is resolved before dialing', p2p.includes('async function resolveSelfChatDataPeer') && p2p.includes("session.role === 'LINKED_DEVICE'"));
+check('history publishes pages', session.includes('pageCount: pages.length') && session.includes('function splitHistoryPages'));
 
 if (failed) {
   console.log('STATUS=FAIL failed=' + failed);

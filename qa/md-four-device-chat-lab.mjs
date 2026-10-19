@@ -230,6 +230,43 @@ async function sendVoice(page, peer) {
   }, peer);
 }
 
+async function waitPlainHash(page, expectedHash, timeoutMs) {
+  return pollPage(page, async (hash) => {
+    const App = window.NostrApp;
+    const Session = window.SosAccountSession;
+    if (Session && typeof Session.pullLinkedDirectMessages === 'function') {
+      try { await Session.pullLinkedDirectMessages(); } catch (_e) {}
+    }
+    if (typeof App.pullRecentAccountChat === 'function') {
+      try { await App.pullRecentAccountChat(); } catch (_e) {}
+    }
+    const conv = App.chatState && App.chatState.conversations;
+    if (!conv || typeof conv.forEach !== 'function') return { ok: false, n: 0 };
+    const jobs = [];
+    conv.forEach((entry) => {
+      (entry.messages || []).forEach((m) => { if (m && m.attachment) jobs.push(m); });
+    });
+    for (let i = 0; i < jobs.length; i += 1) {
+      const att = jobs[i].attachment;
+      try {
+        let bytes = null;
+        if (att.type === 'encrypted-media' && typeof App.resolveServerMediaAttachment === 'function') {
+          const ctx = typeof App.mediaAuthContext === 'function' ? App.mediaAuthContext(att, jobs[i]) : {};
+          const resolved = await App.resolveServerMediaAttachment(att, ctx);
+          if (resolved && resolved.blob) bytes = new Uint8Array(await resolved.blob.arrayBuffer());
+        } else if (typeof att.url === 'string' && att.url.indexOf('blob:') === 0) {
+          const res = await fetch(att.url);
+          bytes = new Uint8Array(await res.arrayBuffer());
+        }
+        if (!bytes || typeof App.hashMediaCiphertext !== 'function') continue;
+        const got = await App.hashMediaCiphertext(bytes);
+        if (got === hash) return { ok: true, transport: String(jobs[i].transport || ''), logical: String(jobs[i].logicalMessageId || '') };
+      } catch (_e) {}
+    }
+    return { ok: false, n: jobs.length };
+  }, expectedHash, timeoutMs);
+}
+
 async function main() {
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await chromium.launch({
@@ -255,7 +292,7 @@ async function main() {
         session: (src.find((s) => s.indexOf('sos-account-session.js') !== -1) || ''),
       };
     });
-    if (pkg.chat.indexOf('pkg=899s42') === -1 || pkg.session.indexOf('pkg=899s42') === -1) {
+    if (pkg.chat.indexOf('pkg=899s43') === -1 || pkg.session.indexOf('pkg=899s43') === -1) {
       fail('CDN_STALE', pkg.chat + ' ' + pkg.session);
     }
     report.LIVE_VERSION = pkg.chat;
@@ -525,6 +562,47 @@ async function main() {
     if (!report.SECURITY.selfAuthoredStaysOutgoing || !report.SECURITY.forgedMd3 || !report.SECURITY.mutatedSync) {
       fail('SECURITY', JSON.stringify(report.SECURITY));
     }
+
+    const selfBack = 'fd4-self-desk-' + crypto.randomBytes(4).toString('hex');
+    const selfBackSent = await sendText(a2.page, a1.pub, selfBack);
+    const selfBackA1 = await pollPage(a1.page, async (text) => {
+      const App = window.NostrApp;
+      if (typeof App.pullRecentAccountChat === 'function') {
+        try { await App.pullRecentAccountChat(); } catch (_e) {}
+      }
+      const self = String(App.publicKey || '').toLowerCase();
+      let n = 0;
+      const conv = App.chatState && App.chatState.conversations;
+      if (conv) conv.forEach((entry) => {
+        if (String(entry.peer || '').toLowerCase() !== self) return;
+        (entry.messages || []).forEach((m) => { if (m && m.content === text) n += 1; });
+      });
+      return { ok: n === 1, n };
+    }, selfBack, 40000);
+    report.SELF_TEXT_DESKTOP_TO_PHONE = selfBackSent.ok && selfBackA1.ok ? 'PASS' : 'FAIL';
+    if (report.SELF_TEXT_DESKTOP_TO_PHONE !== 'PASS') fail('SELF_DESKTOP', JSON.stringify({ sent: selfBackSent, a1: selfBackA1 }));
+
+    console.log('STEP jpeg A1');
+    const jpeg = await a1.page.evaluate(async (account) => {
+      const App = window.NostrApp;
+      const canvas = document.createElement('canvas');
+      canvas.width = 48;
+      canvas.height = 48;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#19c37d';
+      ctx.fillRect(0, 0, 48, 48);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+      const raw = new Uint8Array(await blob.arrayBuffer());
+      const hash = await App.hashMediaCiphertext(raw);
+      const file = new File([blob], 'fd4-photo.jpg', { type: 'image/jpeg' });
+      const id = await App.sendP2PFile(account, file, () => {});
+      return { id: String(id || ''), hash, queued: id === 'LOCAL_QUEUED' };
+    }, b1.pub);
+    const jpegHits = {};
+    for (const row of [['B1', b1.page], ['B2', b2.page], ['A2', a2.page]]) {
+      jpegHits[row[0]] = await waitPlainHash(row[1], jpeg.hash, 70000);
+    }
+    report.PHONE_JPEG = { id: jpeg.id, queued: jpeg.queued, hash: jpeg.hash, hits: jpegHits };
     report.STATUS = 'PASS_FOUR_DEVICE_CHAT';
     report.FIRST_FAILED_TRANSITION = '';
   } catch (err) {

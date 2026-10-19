@@ -647,6 +647,10 @@
     return { ok: true, n: n };
   }
 
+  function selfEncryptedFallbackOptIn() {
+    try { return window.localStorage && window.localStorage.getItem('sos-self-encrypted-fallback') === '1'; } catch (_opt) { return false; }
+  }
+
   async function selfWireAttachment(self, messageId) {
     const att = typeof App.getChatFileAttachment === 'function' ? App.getChatFileAttachment(self) : null;
     if (!att) return { ok: true, wire: null, local: null };
@@ -665,6 +669,7 @@
         file = new File([bytes], att.name || 'self.bin', { type: att.type || 'application/octet-stream' });
       } catch (_file) { file = null; }
     }
+    if (!selfEncryptedFallbackOptIn()) return { ok: false, code: 'LOCAL_QUEUED', wire: null, local: att };
     if (!file || typeof App.uploadMediaForServerFallback !== 'function') return { ok: false, code: 'ATTACHMENT_NOT_READY', wire: null, local: att };
     let descriptor = null;
     try {
@@ -708,6 +713,11 @@
     const linked = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
     const pool = ensurePoolReady();
     const packed = await selfWireAttachment(self, messageId);
+    if (packed && packed.code === 'LOCAL_QUEUED') {
+      if (typeof App.updateChatMessageStatus === 'function') App.updateChatMessageStatus(messageId, 'pending');
+      try { console.log('[CHAT/SELF] transport=LOCAL_QUEUED id=' + String(messageId).slice(0, 12)); } catch (_q) {}
+      return { ok: false, error: 'LOCAL_QUEUED', messageId: messageId, selfChat: true, SELF_SYNC_COMPLETE: false, deviceCopies: 0, stage: 'LOCAL_QUEUED', transport: 'LOCAL_QUEUED' };
+    }
     if (!text && (!packed || !packed.wire)) {
       if (typeof App.updateChatMessageStatus === 'function') App.updateChatMessageStatus(messageId, 'failed');
       return { ok: false, error: (packed && packed.code) || 'EMPTY_PAYLOAD', messageId: messageId, SELF_SYNC_COMPLETE: false, deviceCopies: 0 };
