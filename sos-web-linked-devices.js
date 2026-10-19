@@ -19,7 +19,7 @@
   const APPROVAL_WAIT_MS = 300000;
   const MAX_LINKED = 4;
   const GUEST_CONTINUE_KEY = 'sos_ld_guest_continued_v1';
-  const DEVICE_LIST_SCOPE = 'LOCAL_BROWSER_REGISTRY'; // not account-wide until MD6 sync
+  const DEVICE_LIST_SCOPE = 'VERIFIED_ACCOUNT_DIRECTORY';
 
   function hexRand(bytes) {
     const a = new Uint8Array(bytes);
@@ -359,9 +359,19 @@
       '.sos-ld-mobile-page{position:relative;width:100%;max-width:560px;height:100%;max-height:100%;border-radius:0;display:flex;flex-direction:column;padding:0}' +
       '.sos-ld-mobile-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08)}' +
       '.sos-ld-mobile-head button{background:transparent;border:0;color:inherit;font-size:22px;line-height:1;padding:4px 8px}' +
-      '.sos-ld-mobile-body{padding:16px;overflow:auto;flex:1}' +
-      '.sos-ld-device-list{list-style:none;margin:16px 0 0;padding:0}' +
-      '.sos-ld-device-list li{display:flex;gap:12px;align-items:flex-start;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.08)}' +
+      '.sos-ld-mobile-body{padding:8px 16px 24px;overflow:auto;flex:1}' +
+      '.sos-ld-hero{display:flex;justify-content:center;padding:28px 0 8px}' +
+      '.sos-ld-hero svg{width:min(240px,70vw);height:auto;overflow:visible}' +
+      '.sos-ld-phone{animation:sosLdFloat 3.2s ease-in-out infinite}' +
+      '.sos-ld-laptop{animation:sosLdFloat 3.2s ease-in-out .4s infinite}' +
+      '.sos-ld-dot{transform-origin:center;animation:sosLdPop 1.6s ease-in-out infinite}' +
+      '.sos-ld-dot-2{animation-delay:.2s}' +
+      '.sos-ld-dot-3{animation-delay:.4s}' +
+      '@keyframes sosLdFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}' +
+      '@keyframes sosLdPop{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}' +
+      '.sos-ld-explain{margin:8px 0 0;text-align:center;font-size:14px;line-height:1.55}' +
+      '.sos-ld-device-list{list-style:none;margin:8px 0 0;padding:0}' +
+      '.sos-ld-device-list li{display:flex;gap:12px;align-items:center;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.08)}' +
       '.sos-ld-device-ico{width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center}' +
       '.sos-ld-device-meta{flex:1;min-width:0}' +
       '.sos-ld-device-meta strong{display:block;font-size:15px}' +
@@ -704,6 +714,9 @@
       return;
     }
     if (result.ok === true && code === 'LINKED' && result.WEB_MD3_ISSUANCE === true) {
+      rememberAuthorizedDevice(result.authorization);
+      paintMobileDeviceList(localAccountDevices(), localAccountDevices().length ? 'ready' : 'loading');
+      refreshMobileDeviceList();
       box.hidden = false;
       box.classList.add('is-ok');
       box.textContent = 'המחשב מחובר';
@@ -1609,12 +1622,151 @@
     return { ok: true, path: 'CONTINUE_AS_GUEST', LINKED: false };
   }
 
+  function accountHex() {
+    return String(App.publicKey || '')
+      .toLowerCase()
+      .replace(/^0x/, '');
+  }
+
+  function rememberAuthorizedDevice(auth) {
+    if (!auth || typeof auth !== 'object') return;
+    const accountP = String(auth.accountP || accountHex()).toLowerCase();
+    const deviceId = String(auth.deviceId || auth.D_sign_pub || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(accountP) || !/^[0-9a-f]{8,}$/.test(deviceId)) return;
+    const reg = readRegistry().filter((d) => String(d.deviceId || '').toLowerCase() !== deviceId);
+    reg.push({
+      deviceId: deviceId,
+      deviceLabel: String(auth.deviceLabel || 'מחשב').slice(0, 32),
+      accountP: accountP,
+      createdAt: Number(auth.createdAt) || Date.now(),
+      lastSeenAt: Date.now(),
+      status: 'ACTIVE',
+      source: 'PHONE_LINK',
+    });
+    writeRegistry(reg);
+  }
+
+  function localAccountDevices() {
+    const me = accountHex();
+    if (!/^[0-9a-f]{64}$/.test(me)) return [];
+    return readRegistry()
+      .filter((d) => String(d.accountP || '').toLowerCase() === me && String(d.status || 'ACTIVE') === 'ACTIVE')
+      .map((d) => ({
+        deviceId: String(d.deviceId || '').toLowerCase(),
+        deviceLabel: d.deviceLabel || d.label || '',
+        linkedAt: Number(d.createdAt || d.linkedAt) || 0,
+        lastSeenAt: Number(d.lastSeenAt) || 0,
+        source: d.source || '',
+      }));
+  }
+
+  function deviceDisplayName(d) {
+    const label = String((d && (d.deviceLabel || d.deviceName)) || '').trim();
+    if (!label || label === 'דפדפן' || label === 'מכשיר') return 'מחשב';
+    return label;
+  }
+
+  function formatLastActivity(ms) {
+    const n = Number(ms);
+    if (!n || !isFinite(n)) return '';
+    const d = new Date(n < 1e12 ? n * 1000 : n);
+    if (isNaN(d.getTime())) return '';
+    const time = d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+    const now = new Date();
+    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startThat = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const dayDiff = Math.round((startToday - startThat) / 86400000);
+    if (dayDiff === 0) return 'פעילות אחרונה היום בשעה ' + time;
+    if (dayDiff === 1) return 'פעילות אחרונה אתמול בשעה ' + time;
+    const date = d.toLocaleDateString('he-IL', { day: 'numeric', month: 'long' });
+    return 'פעילות אחרונה ' + date + ', ' + time;
+  }
+
+  let _mobileListGen = 0;
+
+  function paintMobileDeviceList(devices, state) {
+    const list = document.getElementById('sosLdMobileDeviceList');
+    const note = document.getElementById('sosLdMobileListNote');
+    if (!list) return;
+    const rows = Array.isArray(devices) ? devices : [];
+    if (!rows.length && state === 'loading') {
+      list.innerHTML = '<li class="sos-ld-empty">בודקים אילו מכשירים מחוברים…</li>';
+    } else if (!rows.length && state === 'error') {
+      list.innerHTML = '<li class="sos-ld-empty">לא הצלחנו לטעון את המכשירים המחוברים.</li>';
+    } else if (!rows.length) {
+      list.innerHTML = '<li class="sos-ld-empty">אין עדיין מכשירים מקושרים</li>';
+    } else {
+      list.innerHTML = rows
+        .map((d) => {
+          const activity = formatLastActivity(d.lastSeenAt || d.linkedAt);
+          const name = deviceDisplayName(d);
+          return (
+            '<li>' +
+            '<div class="sos-ld-device-meta">' +
+            '<strong>' + escapeHtml(name) + '</strong>' +
+            (activity ? '<span>' + escapeHtml(activity) + '</span>' : '') +
+            '</div>' +
+            '<div class="sos-ld-device-ico"><i class="fa-solid fa-laptop"></i></div>' +
+            '</li>'
+          );
+        })
+        .join('');
+    }
+    if (note) {
+      note.textContent = rows.length ? 'ההודעות האישיות מוצפנות בכל המכשירים המקושרים.' : '';
+    }
+  }
+
+  function mergeAccountDevices(localRows, remoteRows) {
+    const byId = {};
+    (remoteRows || []).forEach((d) => {
+      if (d && d.deviceId) byId[d.deviceId] = d;
+    });
+    const freshAfter = Date.now() - 3 * 60 * 1000;
+    (localRows || []).forEach((d) => {
+      if (!d || !d.deviceId || byId[d.deviceId]) return;
+      if (d.source === 'PHONE_LINK' && Number(d.linkedAt) > freshAfter) byId[d.deviceId] = d;
+    });
+    return Object.keys(byId).map((id) => byId[id]);
+  }
+
+  async function refreshMobileDeviceList() {
+    const gen = ++_mobileListGen;
+    const Session = App.SosAccountSession || window.SosAccountSession;
+    const me = accountHex();
+    if (!Session || typeof Session.listAccountLinkedDevices !== 'function' || !/^[0-9a-f]{64}$/.test(me)) {
+      if (gen === _mobileListGen) {
+        const local = localAccountDevices();
+        paintMobileDeviceList(local, local.length ? 'ready' : 'error');
+      }
+      return;
+    }
+    let listed = null;
+    try {
+      listed = await Session.listAccountLinkedDevices(me);
+    } catch (_e) {
+      listed = null;
+    }
+    if (gen !== _mobileListGen) return;
+    const local = localAccountDevices();
+    if (!listed || listed.ok !== true) {
+      paintMobileDeviceList(local, local.length ? 'ready' : 'error');
+      return;
+    }
+    paintMobileDeviceList(mergeAccountDevices(local, listed.devices), 'ready');
+  }
+
   function openMobileLinkedDevicesPage() {
     ensureLinkedDevicesStyles();
     let el = document.getElementById('sosLdMobilePage');
+    if (el && el.getAttribute('data-sos-ld-account-list') !== '1' && typeof el.remove === 'function') {
+      el.remove();
+      el = null;
+    }
     if (!el) {
       el = document.createElement('div');
       el.id = 'sosLdMobilePage';
+      el.setAttribute('data-sos-ld-account-list', '1');
       el.innerHTML =
         '<div class="sos-ld-shell sos-ld-mobile-page" role="dialog" aria-modal="true" dir="rtl">' +
         '<div class="sos-ld-mobile-head">' +
@@ -1622,12 +1774,28 @@
         '<h2>מכשירים מקושרים</h2>' +
         '</div>' +
         '<div class="sos-ld-mobile-body">' +
-        '<p class="sos-ld-sub">חברו את המחשב לחשבון SOS שלכם באמצעות סריקת קוד QR.</p>' +
+        '<div class="sos-ld-hero" aria-hidden="true">' +
+        '<svg viewBox="0 0 240 120">' +
+        '<g class="sos-ld-phone">' +
+        '<rect x="18" y="18" width="58" height="92" rx="10" fill="#d9f5df" stroke="#1f8f4e" stroke-width="3"/>' +
+        '<rect x="28" y="32" width="38" height="52" rx="4" fill="#fff"/>' +
+        '<circle cx="47" cy="96" r="4" fill="#1f8f4e"/>' +
+        '</g>' +
+        '<g class="sos-ld-dot" fill="#25d366"><circle cx="98" cy="58" r="5"/></g>' +
+        '<g class="sos-ld-dot sos-ld-dot-2" fill="#25d366"><circle cx="114" cy="58" r="5"/></g>' +
+        '<g class="sos-ld-dot sos-ld-dot-3" fill="#25d366"><circle cx="130" cy="58" r="5"/></g>' +
+        '<g class="sos-ld-laptop">' +
+        '<rect x="146" y="28" width="78" height="54" rx="6" fill="#25d366"/>' +
+        '<rect x="154" y="36" width="62" height="36" rx="3" fill="#163d28"/>' +
+        '<rect x="138" y="84" width="94" height="8" rx="3" fill="#1f8f4e"/>' +
+        '</g>' +
+        '</svg></div>' +
+        '<p class="sos-ld-explain">אפשר לקשר מחשב לחשבון SOS הזה. סרקו את הקוד שמופיע במחשב.</p>' +
         '<div id="sosLdMobileLinkStatus" class="sos-ld-link-status" role="status" hidden></div>' +
         '<button type="button" class="button-primary" id="sosLdMobileScan" style="width:100%;min-height:48px;margin-top:14px;">קישור מכשיר</button>' +
         '<h3 style="margin:22px 0 0;font-size:1rem;">מכשירים מקושרים</h3>' +
         '<ul class="sos-ld-device-list" id="sosLdMobileDeviceList"></ul>' +
-        '<p class="sos-ld-footnote">הרשימה מציגה רשומות מקומיות במכשיר זה בלבד. הסרה מרחוק של מכשיר חשבון עדיין אינה זמינה.</p>' +
+        '<p class="sos-ld-footnote" id="sosLdMobileListNote"></p>' +
         '</div></div>';
       document.body.appendChild(el);
       el.querySelector('[data-ld-mobile-back]').onclick = () => {
@@ -1637,32 +1805,9 @@
         openMobilePrimaryLinkAction();
       };
     }
-    const list = el.querySelector('#sosLdMobileDeviceList');
-    const devices = listLinkedDevices();
-    if (list) {
-      list.innerHTML = devices.length
-        ? devices
-            .map((d) => {
-              const when = d.linkedAt ? new Date(d.linkedAt).toLocaleString('he-IL') : '';
-              return (
-                '<li>' +
-                '<div class="sos-ld-device-ico"><i class="fa-solid fa-laptop"></i></div>' +
-                '<div class="sos-ld-device-meta">' +
-                '<strong>' +
-                escapeHtml(d.deviceName) +
-                (d.isCurrent ? ' · מכשיר נוכחי' : '') +
-                '</strong>' +
-                '<span>מצב: ' +
-                escapeHtml(d.authorizationState || 'ACTIVE') +
-                '</span>' +
-                (when ? '<span>קושר: ' + escapeHtml(when) + '</span>' : '') +
-                '<span>מקור: רשומה מקומית במכשיר זה</span>' +
-                '</div></li>'
-              );
-            })
-            .join('')
-        : '<li class="sos-ld-empty">אין עדיין מכשירים מקושרים</li>';
-    }
+    const local = localAccountDevices();
+    paintMobileDeviceList(local, local.length ? 'ready' : 'loading');
+    refreshMobileDeviceList();
     el.hidden = false;
     return { ok: true, path: 'MOBILE_LINKED_DEVICES_PAGE', DEVICE_LIST_SOURCE: DEVICE_LIST_SCOPE };
   }

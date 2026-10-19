@@ -47,7 +47,7 @@ check('CONTINUE_AS_GUEST_FN', /function continueAsGuest/.test(ld));
 check('GUEST_SESSION_KEY', /sos_ld_guest_continued_v1/.test(ld));
 check('MOBILE_PAGE', /sosLdMobilePage/.test(ld) && /קישור מכשיר/.test(ld));
 check('EMPTY_DEVICES', /אין עדיין מכשירים מקושרים/.test(ld));
-check('LOCAL_REGISTRY_SCOPE', /LOCAL_BROWSER_REGISTRY/.test(ld));
+check('ACCOUNT_DIRECTORY_LIST', /listAccountLinkedDevices/.test(ld) && /VERIFIED_ACCOUNT_DIRECTORY/.test(ld));
 check('NO_REVOKE_PRODUCT', /DEVICE_REVOKE_PRODUCT_READY:\s*false/.test(ld));
 check('QR_ERROR_STATE', /לא ניתן ליצור קוד כרגע/.test(ld) && /נסה שוב/.test(ld));
 check('DESKTOP_REOPEN_LABEL', /קישור מחשב לטלפון/.test(ld));
@@ -350,7 +350,7 @@ sandbox.navigator.maxTouchPoints = 5;
 sandbox.navigator.userAgentData = { mobile: true, platform: 'Android' };
 const page = API.openMobileLinkedDevicesPage();
 check('MOBILE_PAGE_PATH', page && page.path === 'MOBILE_LINKED_DEVICES_PAGE');
-check('DEVICE_LIST_LOCAL', page && page.DEVICE_LIST_SOURCE === 'LOCAL_BROWSER_REGISTRY');
+check('DEVICE_LIST_DIRECTORY', page && page.DEVICE_LIST_SOURCE === 'VERIFIED_ACCOUNT_DIRECTORY');
 const primary = API.openLinkedDevicesPrimaryAction();
 check(
   'MOBILE_PRIMARY_OPENS_PAGE',

@@ -586,7 +586,11 @@
           ['p', session.accountP],
           ['t', 'sos-devdir-v1'],
         ],
-        content: JSON.stringify({ v: 1, authorization: loaded.authorization }),
+        content: JSON.stringify({
+          v: 1,
+          authorization: loaded.authorization,
+          deviceLabel: directoryDeviceLabel(),
+        }),
       }, hexToBytes(dev.privHex));
       const published = pool.publish(App.relayUrls, event);
       const pending = Array.isArray(published) ? published : [published];
@@ -608,23 +612,46 @@
     return out;
   }
 
-  async function listAuthorizedDevices(accountP, requiredCap) {
+  function directoryDeviceLabel() {
+    try {
+      const nav = root.navigator;
+      const raw = String((nav && nav.userAgentData && nav.userAgentData.platform) || (nav && nav.userAgent) || '');
+      if (/Windows/i.test(raw)) return 'Windows';
+      if (/Android/i.test(raw)) return 'Android';
+      if (/iPhone|iPad/i.test(raw)) return 'iPhone';
+      if (/Mac/i.test(raw)) return 'Mac';
+      if (/CrOS/i.test(raw)) return 'ChromeOS';
+      if (/Linux/i.test(raw)) return 'Linux';
+    } catch (_e) {}
+    return 'מחשב';
+  }
+
+  function safeDirectoryLabel(value) {
+    const text = String(value || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 32);
+    if (!text || /nsec|private|secret/i.test(text)) return '';
+    return text;
+  }
+
+  async function collectVerifiedDirectory(accountP, requiredCap) {
     const account = norm(accountP);
-    const cap = requiredCap ? String(requiredCap) : 'DEVICE_CHAT';
-    if (!isHex64(account)) return [];
+    const cap = requiredCap ? String(requiredCap) : '';
+    if (!isHex64(account)) return { ok: false, code: 'BAD_ACCOUNT', devices: [] };
     const pool = App.pool;
     const Auth = App.Md4DeviceAuth || root.SosMd4DeviceAuth;
     const NT = root.NostrTools;
-    if (!pool || !Auth || typeof Auth.verifyForDestination !== 'function' || !NT || typeof NT.verifyEvent !== 'function') return [];
+    if (!pool || !Auth || typeof Auth.verifyForDestination !== 'function' || !NT || typeof NT.verifyEvent !== 'function') {
+      return { ok: false, code: 'NO_DIRECTORY', devices: [] };
+    }
     const filter = { kinds: [30078], '#p': [account], '#d': ['sos-device-directory'], limit: 20 };
     let raw = [];
     try {
       if (typeof pool.list === 'function') raw = await pool.list(App.relayUrls, [filter]);
       else if (typeof pool.querySync === 'function') raw = await pool.querySync(App.relayUrls, filter);
-    } catch (_e) { return []; }
+    } catch (_e) {
+      return { ok: false, code: 'QUERY_FAILED', devices: [] };
+    }
     const events = flattenRelayEvents(raw);
-    const seen = {};
-    const out = [];
+    const best = {};
     for (let i = 0; i < events.length; i += 1) {
       const event = events[i];
       if (verifyEventPlain(event).ok !== true) continue;
@@ -640,13 +667,31 @@
       }, Date.now(), { requireHistorySync: false });
       if (!verified || verified.ok !== true) continue;
       const caps = Array.isArray(auth.capabilities) ? auth.capabilities.map(String) : [];
-      if (caps.indexOf(cap) === -1) continue;
+      if (cap && caps.indexOf(cap) === -1) continue;
       const id = norm(auth.deviceId) || norm(auth.D_sign_pub);
-      if (seen[id]) continue;
-      seen[id] = true;
-      out.push({ deviceId: id, deviceSignPub: norm(auth.D_sign_pub), deviceEncPub: norm(auth.D_enc_pub), expiresAt: Number(auth.expiresAt) || 0, caps: caps });
+      const row = {
+        deviceId: id,
+        deviceSignPub: norm(auth.D_sign_pub),
+        deviceEncPub: norm(auth.D_enc_pub),
+        expiresAt: Number(auth.expiresAt) || 0,
+        caps: caps,
+        deviceLabel: safeDirectoryLabel(body.deviceLabel) || safeDirectoryLabel(auth.deviceLabel) || 'מחשב',
+        linkedAt: Number(auth.createdAt) || 0,
+        lastSeenAt: (Number(event.created_at) || 0) * 1000,
+      };
+      const prev = best[id];
+      if (!prev || row.lastSeenAt >= prev.lastSeenAt) best[id] = row;
     }
-    return out;
+    return { ok: true, devices: Object.keys(best).map(function (id) { return best[id]; }) };
+  }
+
+  async function listAuthorizedDevices(accountP, requiredCap) {
+    const listed = await collectVerifiedDirectory(accountP, requiredCap ? String(requiredCap) : 'DEVICE_CHAT');
+    return listed.devices;
+  }
+
+  async function listAccountLinkedDevices(accountP) {
+    return collectVerifiedDirectory(accountP, '');
   }
 
   async function resolveDeviceAccount(devicePub) {
@@ -801,6 +846,7 @@
     pullLinkedDirectMessages: pullLinkedDirectMessages,
     announceLinkedDevice: announceLinkedDevice,
     listAuthorizedDevices: listAuthorizedDevices,
+    listAccountLinkedDevices: listAccountLinkedDevices,
     resolveDeviceAccount: resolveDeviceAccount,
     verifiedAccountOf: verifiedAccountOf,
     canonicalPeer: canonicalPeer,

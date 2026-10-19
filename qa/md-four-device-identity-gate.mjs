@@ -34,8 +34,9 @@ check('presence can be signed by a linked device', presence.includes('function s
 check('presence copy is addressed to linked devices', presence.includes('listAuthorizedDevices(payload.to, \'DEVICE_CHAT\')'));
 check('foreground notification uses the account and one logical id', ui.includes('function canonicalNotifyPeer') && ui.includes('message?.logicalMessageId || message?.id'));
 check('linked caller can fan out a cancel', signal.includes('linkedFan') && signal.includes('cancel: 1'));
+check('phone lists verified linked devices', session.includes('function listAccountLinkedDevices') && session.includes('listAccountLinkedDevices: listAccountLinkedDevices'));
 
-const sandbox = { window: {}, console };
+const sandbox = { window: {}, console, Promise, Date, JSON, Object, Array, String, Number, Math };
 sandbox.window = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(session, sandbox);
@@ -49,5 +50,38 @@ const unknown = sandbox.window.SosAccountSession.verifiedAccountOf('c'.repeat(64
 check('cached md3 owner resolves', mapped === account);
 check('unknown key is not rewritten', unknown === '');
 
-console.log(failed ? 'STATUS=FAIL' : 'STATUS=PASS');
-process.exit(failed ? 1 : 0);
+const other = 'c'.repeat(64);
+const foreign = 'f'.repeat(64);
+function dirEvent(body, pub, created) {
+  return { kind: 30078, pubkey: pub, id: 'd'.repeat(64), sig: 'e'.repeat(128), created_at: created, content: JSON.stringify(body) };
+}
+sandbox.NostrTools = {
+  verifyEvent(copy) { return String(copy.content).includes('"keep":1'); },
+  getEventHash(copy) { return copy.id; },
+};
+sandbox.NostrApp.relayUrls = ['wss://example.invalid'];
+sandbox.NostrApp.pool = {
+  list() {
+    return [
+      dirEvent({ keep: 1, deviceLabel: 'Old', authorization: { accountP: account, deviceId: device, D_sign_pub: device, D_enc_pub: device, capabilities: ['DEVICE_CHAT'], createdAt: 1000 } }, device, 100),
+      dirEvent({ keep: 1, deviceLabel: 'Windows', authorization: { accountP: account, deviceId: device, D_sign_pub: device, D_enc_pub: device, capabilities: ['DEVICE_CHAT'], createdAt: 2000 } }, device, 200),
+      dirEvent({ keep: 1, authorization: { accountP: other, deviceId: foreign, D_sign_pub: foreign, D_enc_pub: foreign, capabilities: ['DEVICE_CHAT'] } }, foreign, 300),
+      dirEvent({ keep: 0, authorization: { accountP: account, deviceId: foreign, D_sign_pub: foreign, D_enc_pub: foreign, capabilities: ['DEVICE_CHAT'] } }, foreign, 400),
+    ];
+  },
+};
+sandbox.NostrApp.Md4DeviceAuth = {
+  verifyForDestination(auth) { return Promise.resolve({ ok: String(auth.accountP) === account }); },
+};
+
+sandbox.SosAccountSession.listAccountLinkedDevices(account).then(async (listed) => {
+  const row = listed && listed.devices && listed.devices[0];
+  check('verified directory device is listed once', !!(listed && listed.ok === true && listed.devices.length === 1 && row.deviceLabel === 'Windows' && row.lastSeenAt === 200000));
+  const calls = await sandbox.SosAccountSession.listAuthorizedDevices(account, 'DEVICE_CALLS');
+  check('call capability filter still applies', Array.isArray(calls) && calls.length === 0);
+  console.log(failed ? 'STATUS=FAIL' : 'STATUS=PASS');
+  process.exit(failed ? 1 : 0);
+}).catch((err) => {
+  console.log('FAIL directory list threw ' + (err && err.stack ? err.stack : err));
+  process.exit(1);
+});
