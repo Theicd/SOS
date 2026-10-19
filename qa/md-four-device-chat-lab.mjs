@@ -40,10 +40,14 @@ const report = {
   VOICE_BYTES_VERIFIED: 'NOT_RUN',
   TEXT_B2_TO_A1: 'NOT_RUN',
   TEXT_B2_TO_A2: 'NOT_RUN',
+  TEXT_B2_OUTGOING_B1: 'NOT_RUN',
+  TEXT_B2_OUTGOING_B2: 'NOT_RUN',
   VOICE_B2_TO_A1: 'NOT_RUN',
   VOICE_B2_TO_A2: 'NOT_RUN',
+  VOICE_B2_OUTGOING_B1: 'NOT_RUN',
   TEXT_A1_TO_B1: 'NOT_RUN',
   TEXT_A1_TO_B2: 'NOT_RUN',
+  TEXT_A1_OUTGOING_A2: 'NOT_RUN',
   RECIPIENT_PHONE_OFFLINE_DESKTOP_DELIVERY: 'NOT_RUN',
   SENDER_PHONE_OFFLINE_DESKTOP_SEND: 'NOT_RUN',
   TRUE_SELF_CHAT: 'NOT_RUN',
@@ -238,7 +242,10 @@ async function main() {
   let b2;
   try {
     console.log('STEP login A1');
-    a1 = await loginPrimary(browser, 'A1');
+    try { a1 = await loginPrimary(browser, 'A1'); } catch (err) {
+      console.log('RETRY login A1');
+      a1 = await loginPrimary(browser, 'A1b');
+    }
     const build = await collectBuildMeta(a1.page);
     report.LIVE_VERSION = JSON.stringify(build).slice(0, 300);
     const pkg = await a1.page.evaluate(() => {
@@ -266,7 +273,10 @@ async function main() {
     report.MD3_VERIFIED = 'PASS';
 
     console.log('STEP login B1');
-    b1 = await loginPrimary(browser, 'B1');
+    try { b1 = await loginPrimary(browser, 'B1'); } catch (err) {
+      console.log('RETRY login B1');
+      b1 = await loginPrimary(browser, 'B1b');
+    }
     let bLink = await linkAnotherDesktop(browser, b1.page, prefix(b1.pub), { keep: true });
     if (!bLink.ok || !bLink.page) bLink = await linkAnotherDesktop(browser, b1.page, prefix(b1.pub), { keep: true });
     if (!bLink.ok || !bLink.page) fail('B2_LINK', bLink.code || 'LINK_FAILED');
@@ -361,26 +371,34 @@ async function main() {
     if (!backSent.ok) fail('B2_TEXT_SEND', backSent.error || '');
     const backA1 = await expectChat(a1.page, back, 'incoming', b1.pub);
     const backA2 = await expectChat(a2.page, back, 'incoming', b1.pub);
+    const backB1 = await expectChat(b1.page, back, 'outgoing', a1.pub);
+    const backB2 = await expectChat(b2.page, back, 'outgoing', a1.pub);
     report.TEXT_B2_TO_A1 = backA1.ok ? 'PASS' : 'FAIL';
     report.TEXT_B2_TO_A2 = backA2.ok ? 'PASS' : 'FAIL';
-    if (!backA1.ok || !backA2.ok) fail('B2_TEXT', JSON.stringify({ a1: backA1, a2: backA2 }));
+    report.TEXT_B2_OUTGOING_B1 = backB1.ok ? 'PASS' : 'FAIL';
+    report.TEXT_B2_OUTGOING_B2 = backB2.ok ? 'PASS' : 'FAIL';
+    if (!backA1.ok || !backA2.ok || !backB1.ok || !backB2.ok) fail('B2_TEXT', JSON.stringify({ a1: backA1, a2: backA2, b1: backB1, b2: backB2 }));
 
     const backVoice = await sendVoice(b2.page, a1.pub);
     if (!backVoice.ok || !backVoice.hash) fail('B2_VOICE_SEND', backVoice.error || '');
     const backVoiceA1 = await waitDecryptedHash(a1.page, backVoice.hash, 50000);
     const backVoiceA2 = await waitDecryptedHash(a2.page, backVoice.hash, 50000);
+    const backVoiceB1 = await waitDecryptedHash(b1.page, backVoice.hash, 50000);
     report.VOICE_B2_TO_A1 = backVoiceA1.ok ? 'PASS' : 'FAIL';
     report.VOICE_B2_TO_A2 = backVoiceA2.ok ? 'PASS' : 'FAIL';
-    if (!backVoiceA1.ok || !backVoiceA2.ok) fail('B2_VOICE');
+    report.VOICE_B2_OUTGOING_B1 = backVoiceB1.ok ? 'PASS' : 'FAIL';
+    if (!backVoiceA1.ok || !backVoiceA2.ok || !backVoiceB1.ok) fail('B2_VOICE', JSON.stringify({ a1: backVoiceA1, a2: backVoiceA2, b1: backVoiceB1 }));
 
     const phoneText = 'fd4-phone-' + crypto.randomBytes(4).toString('hex');
     const phoneSent = await sendText(a1.page, b1.pub, phoneText);
     if (!phoneSent.ok) fail('A1_TEXT_SEND', phoneSent.error || '');
     const phoneB1 = await expectChat(b1.page, phoneText, 'incoming', a1.pub);
     const phoneB2 = await expectChat(b2.page, phoneText, 'incoming', a1.pub);
+    const phoneA2 = await expectChat(a2.page, phoneText, 'outgoing', b1.pub);
     report.TEXT_A1_TO_B1 = phoneB1.ok ? 'PASS' : 'FAIL';
     report.TEXT_A1_TO_B2 = phoneB2.ok ? 'PASS' : 'FAIL';
-    if (!phoneB1.ok || !phoneB2.ok) fail('A1_TEXT', JSON.stringify({ b1: phoneB1, b2: phoneB2 }));
+    report.TEXT_A1_OUTGOING_A2 = phoneA2.ok ? 'PASS' : 'FAIL';
+    if (!phoneB1.ok || !phoneB2.ok || !phoneA2.ok) fail('A1_TEXT', JSON.stringify({ b1: phoneB1, b2: phoneB2, a2: phoneA2 }));
 
     await b1.ctx.setOffline(true);
     const offlineText = 'fd4-b1off-' + crypto.randomBytes(4).toString('hex');
@@ -397,9 +415,10 @@ async function main() {
     const senderOff = 'fd4-a1off-' + crypto.randomBytes(4).toString('hex');
     const senderSent = await sendText(a2.page, b1.pub, senderOff);
     if (!senderSent.ok || senderSent.rootPresent === true) fail('A1_OFFLINE_SEND', senderSent.error || '');
+    const senderB1 = await expectChat(b1.page, senderOff, 'incoming', a1.pub);
     const senderB2 = await expectChat(b2.page, senderOff, 'incoming', a1.pub);
-    report.SENDER_PHONE_OFFLINE_DESKTOP_SEND = senderSent.ok && senderB2.ok ? 'PASS' : 'FAIL';
-    if (!senderB2.ok) fail('A1_OFFLINE_B2', JSON.stringify(senderB2));
+    report.SENDER_PHONE_OFFLINE_DESKTOP_SEND = senderSent.ok && senderB1.ok && senderB2.ok ? 'PASS' : 'FAIL';
+    if (!senderB1.ok || !senderB2.ok) fail('A1_OFFLINE_B', JSON.stringify({ b1: senderB1, b2: senderB2 }));
     await a1.ctx.setOffline(false);
     const senderCatch = await expectChat(a1.page, senderOff, 'outgoing', b1.pub);
     if (!senderCatch.ok || senderCatch.n !== 1) fail('A1_CATCHUP', JSON.stringify(senderCatch));
