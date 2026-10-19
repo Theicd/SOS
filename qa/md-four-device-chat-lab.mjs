@@ -292,7 +292,7 @@ async function main() {
         session: (src.find((s) => s.indexOf('sos-account-session.js') !== -1) || ''),
       };
     });
-    if (pkg.chat.indexOf('pkg=899s43') === -1 || pkg.session.indexOf('pkg=899s43') === -1) {
+    if (pkg.chat.indexOf('pkg=899s44') === -1 || pkg.session.indexOf('pkg=899s43') === -1) {
       fail('CDN_STALE', pkg.chat + ' ' + pkg.session);
     }
     report.LIVE_VERSION = pkg.chat;
@@ -603,6 +603,51 @@ async function main() {
       jpegHits[row[0]] = await waitPlainHash(row[1], jpeg.hash, 70000);
     }
     report.PHONE_JPEG = { id: jpeg.id, queued: jpeg.queued, hash: jpeg.hash, hits: jpegHits };
+
+    console.log('STEP jpeg A2');
+    const desk = await a2.page.evaluate(async (account) => {
+      const App = window.NostrApp;
+      const canvas = document.createElement('canvas');
+      canvas.width = 36;
+      canvas.height = 36;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#2d88ff';
+      ctx.fillRect(0, 0, 36, 36);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+      const raw = new Uint8Array(await blob.arrayBuffer());
+      const hash = await App.hashMediaCiphertext(raw);
+      const file = new File([blob], 'fd4-desk.jpg', { type: 'image/jpeg' });
+      const id = await App.sendP2PFile(account, file, () => {});
+      return { id: String(id || ''), hash, queued: id === 'LOCAL_QUEUED', root: App.privateKey != null };
+    }, b1.pub);
+    const deskHits = {};
+    for (const row of [['A1', a1.page], ['B1', b1.page], ['B2', b2.page]]) {
+      deskHits[row[0]] = await waitPlainHash(row[1], desk.hash, 70000);
+    }
+    report.DESKTOP_JPEG = { id: desk.id, queued: desk.queued, root: desk.root, hits: deskHits };
+
+    console.log('STEP self jpeg');
+    const selfJpeg = await a1.page.evaluate(async () => {
+      const App = window.NostrApp;
+      const canvas = document.createElement('canvas');
+      canvas.width = 32;
+      canvas.height = 32;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ff8800';
+      ctx.fillRect(0, 0, 32, 32);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+      const raw = new Uint8Array(await blob.arrayBuffer());
+      const hash = await App.hashMediaCiphertext(raw);
+      const file = new File([blob], 'self-photo.jpg', { type: 'image/jpeg' });
+      const id = await App.sendP2PFile(App.publicKey, file, () => {});
+      return { id: String(id || ''), hash, queued: id === 'LOCAL_QUEUED' };
+    });
+    report.SELF_JPEG = {
+      id: selfJpeg.id,
+      queued: selfJpeg.queued,
+      hash: selfJpeg.hash,
+      A2: await waitPlainHash(a2.page, selfJpeg.hash, 45000),
+    };
     report.STATUS = 'PASS_FOUR_DEVICE_CHAT';
     report.FIRST_FAILED_TRANSITION = '';
   } catch (err) {

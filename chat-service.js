@@ -3071,9 +3071,10 @@
   async function syncOwnedMediaToLinkedDevices(peer, file, logicalId) {
     const peerNorm = String(peer || '').toLowerCase();
     if (!file || typeof App.uploadMediaForServerFallback !== 'function') return { ok: false, code: 'NO_UPLOAD' };
-    if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.hasIdentityKey !== 'function' || !App.SosCryptoSigner.hasIdentityKey()) {
-      return { ok: false, code: 'NOT_PRIMARY' };
-    }
+    const linked = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    const onDevice = !!(linked && linked.role === 'LINKED_DEVICE' && linked.verified === true);
+    const primary = !!(App.SosCryptoSigner && typeof App.SosCryptoSigner.hasIdentityKey === 'function' && App.SosCryptoSigner.hasIdentityKey());
+    if (!primary && !onDevice) return { ok: false, code: 'NOT_PRIMARY' };
     const id = logicalId || ('file-' + Date.now());
     let descriptor;
     try {
@@ -3090,7 +3091,27 @@
       return { ok: false, code: (err && err.code) || 'UPLOAD_FAILED' };
     }
     if (!descriptor || descriptor.type !== 'encrypted-media') return { ok: false, code: 'NO_DESCRIPTOR' };
-    const own = await publishAuthorizedDeviceCopies(App.publicKey, id, '', descriptor, Math.floor(Date.now() / 1000), peerNorm);
+    const wire = typeof App.buildEncryptedAttachmentWireDescriptor === 'function'
+      ? App.buildEncryptedAttachmentWireDescriptor(descriptor)
+      : descriptor;
+    if (onDevice && !primary) {
+      const Session = window.SosAccountSession;
+      let siblingOk = false;
+      if (Session && typeof Session.delegatedChatEncrypt === 'function') {
+        try {
+          const sibling = await Session.delegatedChatEncrypt(peerNorm, '', id, { sibling: true, attachment: wire });
+          if (sibling && sibling.ok === true && sibling.event) {
+            const accepted = await awaitRelayAccepted(ensurePoolReady(), App.relayUrls, sibling.event);
+            siblingOk = !!(accepted && accepted.ok);
+          }
+        } catch (_sib) { siblingOk = false; }
+      }
+      const fan = await publishDelegatedDeviceCopies(peerNorm, '', id, wire);
+      const n = fan && fan.n ? fan.n : 0;
+      try { console.log('[MEDIA/SYNC] delegated own-device copies=' + n + ' sibling=' + siblingOk); } catch (_l) {}
+      return { ok: siblingOk || n > 0, n: n, logicalMessageId: id };
+    }
+    const own = await publishAuthorizedDeviceCopies(App.publicKey, id, '', wire || descriptor, Math.floor(Date.now() / 1000), peerNorm);
     const sha = descriptor.cipher && descriptor.cipher.sha256 ? String(descriptor.cipher.sha256) : '';
     try { console.log('[MEDIA/SYNC] own-device copies=' + String(own && own.n) + ' sha256=' + sha.slice(0, 12)); } catch (_l) {}
     return { ok: !!(own && own.n > 0), n: own && own.n, sha256: sha, logicalMessageId: id };
