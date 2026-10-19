@@ -626,6 +626,14 @@
         else if (typeof window.NostrApp?.openTriviaGame === 'function') window.NostrApp.openTriviaGame();
       });
     }
+    const kartLauncher = document.getElementById('videosKartLauncher');
+    if (kartLauncher) {
+      kartLauncher.addEventListener('click', () => {
+        closeMenu();
+        if (typeof App.openKartGame === 'function') App.openKartGame();
+        else if (typeof window.openKartGame === 'function') window.openKartGame();
+      });
+    }
 
     // חלק תת-תפריט שונות (app.js) – מאזינים לכפתורים בתת-תפריט | HYPER CORE TECH
     const newsButton = document.getElementById('newsToggleTop');

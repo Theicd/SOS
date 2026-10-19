@@ -1,7 +1,7 @@
 {
   "callSignalGiftWrapRequired": true,
-  "version": "2026.10.19-web-899s.47",
-  "buildTime": "2026-10-19T13:10:00.000Z",
+  "version": "2026.10.19-kart1",
+  "buildTime": "2026-10-19T18:20:00+03:00",
   "e2eeSendRequired": true,
   "minSecureChatEpoch": 2,
   "mediaServerE2eeRequired": true,
