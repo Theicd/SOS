@@ -290,9 +290,11 @@ async function main() {
       return {
         chat: (src.find((s) => s.indexOf('chat-service.js') !== -1) || ''),
         session: (src.find((s) => s.indexOf('sos-account-session.js') !== -1) || ''),
+        dc: (src.find((s) => s.indexOf('chat-p2p-datachannel.js') !== -1) || ''),
+        file: (src.find((s) => s.indexOf('chat-p2p-file.js') !== -1) || ''),
       };
     });
-    if (pkg.chat.indexOf('pkg=899s44') === -1 || pkg.session.indexOf('pkg=899s43') === -1) {
+    if (pkg.chat.indexOf('pkg=899s44') === -1 || pkg.session.indexOf('pkg=899s45') === -1 || pkg.dc.indexOf('pkg=899s45') === -1 || pkg.file.indexOf('pkg=899s45') === -1) {
       fail('CDN_STALE', pkg.chat + ' ' + pkg.session);
     }
     report.LIVE_VERSION = pkg.chat;

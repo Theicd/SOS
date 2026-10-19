@@ -759,6 +759,40 @@
     return !!(pub && rev.pubs[pub]) || !!(id && rev.ids[id]);
   }
 
+  async function classifyP2pSignalAuthor(authorPub) {
+    const author = norm(authorPub);
+    const session = getAccountSession();
+    const account = session.role === 'LINKED_DEVICE' ? norm(session.accountP) : norm(App.publicKey);
+    if (!isHex64(author) || !isHex64(account)) return { ok: false, code: 'BAD_ENDPOINT', SIGNAL_MD3_AUTHORIZED: false };
+    const localDevice = session.role === 'LINKED_DEVICE' && session.verified === true ? norm(session.deviceSignPub) : '';
+    if (localDevice && author === localDevice) return { ok: false, code: 'SELF_ENDPOINT', SIGNAL_MD3_AUTHORIZED: false };
+    if (author === account) {
+      if (!(session.role === 'LINKED_DEVICE' && session.verified === true && localDevice && localDevice !== account)) {
+        return { ok: false, code: 'SELF_ACCOUNT', SIGNAL_MD3_AUTHORIZED: false };
+      }
+      const ownRev = await loadRevocations(account);
+      if (isRevokedDevice(ownRev, { deviceSignPub: localDevice })) return { ok: false, code: 'REVOKED', SIGNAL_MD3_AUTHORIZED: false };
+      if (!allows('SEND_CHAT') && !allows('READ_CONVERSATIONS')) return { ok: false, code: 'CAPABILITY_DENIED', SIGNAL_MD3_AUTHORIZED: false };
+      return { ok: true, code: 'PRIMARY_TO_DEVICE', binding: 'PRIMARY_TO_DEVICE', accountP: account, SIGNAL_MD3_AUTHORIZED: true };
+    }
+    const resolved = await resolveDeviceAccount(author);
+    if (resolved && resolved.ok !== true && resolved.code !== 'NO_DIRECTORY' && resolved.code !== 'QUERY_FAILED' && resolved.code !== 'BAD_DEVICE') {
+      return { ok: false, code: resolved.code || 'UNAUTHORIZED', accountP: resolved.accountP || '', SIGNAL_MD3_AUTHORIZED: false };
+    }
+    if (resolved && resolved.ok === true && isHex64(resolved.accountP)) {
+      const caps = Array.isArray(resolved.caps) ? resolved.caps : [];
+      const signalCap = caps.indexOf('DEVICE_P2P') !== -1 || caps.indexOf('DEVICE_CHAT') !== -1;
+      if (!signalCap) return { ok: false, code: 'CAPABILITY_DENIED', accountP: resolved.accountP, SIGNAL_MD3_AUTHORIZED: false };
+      if (resolved.accountP === account) {
+        return { ok: true, code: 'SAME_ACCOUNT_DEVICE', binding: 'SAME_ACCOUNT_DEVICE', accountP: account, SIGNAL_MD3_AUTHORIZED: true };
+      }
+      return { ok: true, code: 'EXTERNAL_DEVICE', binding: 'EXTERNAL_DEVICE', accountP: resolved.accountP, SIGNAL_MD3_AUTHORIZED: true };
+    }
+    const rev = await loadRevocations(account);
+    if (isRevokedDevice(rev, { deviceSignPub: author })) return { ok: false, code: 'REVOKED', SIGNAL_MD3_AUTHORIZED: false };
+    return { ok: true, code: 'EXTERNAL_ACCOUNT', binding: 'EXTERNAL_ACCOUNT', accountP: author, SIGNAL_MD3_AUTHORIZED: false };
+  }
+
   function releaseLinkedDevice(reason) {
     if (snapshot.role !== 'LINKED_DEVICE') return { ok: false, code: 'NOT_LINKED' };
     App.linkedDeviceSession = false;
@@ -945,9 +979,16 @@
     let value = { ok: false, code: 'NO_DIRECTORY' };
     for (let i = 0; i < events.length; i += 1) {
       const event = events[i];
-      if (norm(event.pubkey) !== device || verifyEventPlain(event).ok !== true) continue;
+      if (norm(event.pubkey) !== device) continue;
+      if (verifyEventPlain(event).ok !== true) {
+        if (!value.ok) value = { ok: false, code: 'BAD_EVENT_SIG', accountP: '' };
+        continue;
+      }
       let body = null;
-      try { body = JSON.parse(event.content); } catch (_p) { continue; }
+      try { body = JSON.parse(event.content); } catch (_p) {
+        if (!value.ok) value = { ok: false, code: 'INVALID_DIRECTORY', accountP: '' };
+        continue;
+      }
       const auth = body && body.authorization;
       if (!auth || norm(auth.D_sign_pub || auth.dSignPub) !== device || !isHex64(auth.accountP)) continue;
       const verified = await Auth.verifyForDestination(auth, {
@@ -956,10 +997,23 @@
         D_sign_pub: auth.D_sign_pub || auth.dSignPub,
         D_enc_pub: auth.D_enc_pub || auth.dEncPub,
       }, Date.now(), { requireHistorySync: false });
-      if (!verified || verified.ok !== true) continue;
+      if (!verified || verified.ok !== true) {
+        if (!value.ok && verified && (verified.code === 'EXPIRED' || verified.code === 'BAD_SIGNATURE')) {
+          value = { ok: false, code: verified.code, accountP: norm(auth.accountP) };
+        }
+        continue;
+      }
+      const encPub = norm(auth.D_enc_pub || auth.dEncPub);
+      if (encPub && encPub === device) {
+        value = { ok: false, code: 'D_ENC_NOT_SIGNAL', accountP: norm(auth.accountP) };
+        continue;
+      }
       const caps = Array.isArray(auth.capabilities) ? auth.capabilities.map(String) : [];
       const signPub = device;
-      if (isRevokedDevice(await loadRevocations(norm(auth.accountP)), { deviceSignPub: signPub, authorizationId: norm(auth.authorizationId) })) continue;
+      if (isRevokedDevice(await loadRevocations(norm(auth.accountP)), { deviceSignPub: signPub, authorizationId: norm(auth.authorizationId) })) {
+        value = { ok: false, code: 'REVOKED', accountP: norm(auth.accountP) };
+        continue;
+      }
       value = {
         ok: true,
         accountP: norm(auth.accountP),
@@ -992,6 +1046,9 @@
     try {
       if (typeof App.rebindLinkedDeviceP2P === 'function') App.rebindLinkedDeviceP2P();
     } catch (_p2p) {}
+    try {
+      if (App.dataChannel && typeof App.dataChannel.ensureSignalSubscription === 'function') App.dataChannel.ensureSignalSubscription();
+    } catch (_dcSub) {}
     try { await announceLinkedDevice(); } catch (_ann) {}
     if (!directoryHeartbeat) {
       directoryHeartbeat = setInterval(function () {
@@ -1088,6 +1145,7 @@
     revokeLinkedDevice: revokeLinkedDevice,
     releaseLinkedDevice: releaseLinkedDevice,
     resolveDeviceAccount: resolveDeviceAccount,
+    classifyP2pSignalAuthor: classifyP2pSignalAuthor,
     verifiedAccountOf: verifiedAccountOf,
     canonicalPeer: canonicalPeer,
     resolveVerifiedActor: resolveVerifiedActor,

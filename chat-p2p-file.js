@@ -906,6 +906,11 @@
     const pending = queuedSelfBlobs.splice(0, queuedSelfBlobs.length);
     for (let i = 0; i < pending.length; i += 1) {
       const item = pending[i];
+      if (!item.file || !(item.file.size > 0)) {
+        notifyProgress({ fileId: item.fileId || '', progress: 0, status: 'failed', direction: 'send', name: item.file && item.file.name, size: 0, peerPubkey: App.publicKey, transport: 'LOCAL_QUEUED', stage: 'FILE_BYTES_UNAVAILABLE', error: 'FILE_BYTES_UNAVAILABLE' });
+        try { console.log('[CHAT/SELF] FILE_BYTES_UNAVAILABLE'); } catch (_missing) {}
+        continue;
+      }
       item.attempts = (item.attempts || 0) + 1;
       if (item.attempts > 8) {
         notifyProgress({ fileId: item.fileId || '', progress: 0, status: 'failed', direction: 'send', name: item.file && item.file.name, size: item.file && item.file.size, peerPubkey: App.publicKey, transport: 'LOCAL_QUEUED', stage: 'FAILED' });
@@ -920,6 +925,12 @@
     }
     for (const transfer of activeTransfers.values()) {
       if (!transfer || transfer.selfChat !== true || !transfer.paused || transfer.completed) continue;
+      if (!transfer.file || !(transfer.file.size > 0)) {
+        transfer.paused = false;
+        notifyProgress({ fileId: transfer.fileId, progress: 0, status: 'failed', direction: 'send', peerPubkey: transfer.conversationPeer || App.publicKey, transport: 'LOCAL_QUEUED', stage: 'FILE_BYTES_UNAVAILABLE', error: 'FILE_BYTES_UNAVAILABLE' });
+        try { console.log('[CHAT/SELF] FILE_BYTES_UNAVAILABLE id=' + String(transfer.fileId || '').slice(0, 24)); } catch (_missing) {}
+        continue;
+      }
       transfer.selfRetries = (transfer.selfRetries || 0) + 1;
       if (transfer.selfRetries > 8) {
         transfer.paused = true;
@@ -1631,7 +1642,7 @@
           // חלק ACK סיום (chat-p2p-file.js) — הצד השני אישר שהקובץ הורד בהצלחה e2e | HYPER CORE TECH
           console.log('[CHAT/P2P] ✅✅ אישור קבלה מלאה מהצד השני!', msg.fileId, msg.size || 0);
           const owned = activeTransfers.get(msg.fileId);
-          if (owned && owned.file && typeof App.syncOwnedMediaToLinkedDevices === 'function') {
+          if (owned && owned.file && owned.selfChat !== true && typeof App.syncOwnedMediaToLinkedDevices === 'function') {
             App.syncOwnedMediaToLinkedDevices(peerKey, owned.file, msg.fileId).catch(function () {});
           }
           notifyProgress({

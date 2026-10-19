@@ -150,7 +150,7 @@
       let ok = false;
       await Promise.all(list.map((p) => withTimeout(p).then(() => { ok = true; }).catch((e) => { reasons.push(e && e.message ? e.message : String(e)); })));
       const e = ev(k);
-      if (ok) { e.publishOk = true; if (type === 'dc-offer' && (trk(k) || {}).state === 'OFFER_SENT') goState(k, 'ANSWER_WAIT'); return; }
+      if (ok) { e.publishOk = true; sigTrace('SIG_RELAY_ACCEPTED', 'type=' + type + ' peer=' + String(k).slice(0, 8)); if (type === 'dc-offer' && (trk(k) || {}).state === 'OFFER_SENT') goState(k, 'ANSWER_WAIT'); return; }
       if (e.publishOk === true || e.negotiationStarted) return;
       e.publishOk = false;
       e.publishReasons = reasons.slice(0, 8);
@@ -160,9 +160,38 @@
   function getPS(k) { return peers.get(k.toLowerCase())||null; }
   function ensPS(k) { k=k.toLowerCase(); if(!peers.has(k)) peers.set(k,newPS()); return peers.get(k); }
   function isValidPeerKey(key) { return typeof key === 'string' && /^[0-9a-f]{64}$/i.test(key.trim()); }
+  function hex64(value) {
+    const key = String(value || '').toLowerCase().trim();
+    return /^[0-9a-f]{64}$/.test(key) ? key : '';
+  }
+  function accountSession() {
+    return typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+  }
+  function accountPub() {
+    const session = accountSession();
+    const fromSession = hex64(session && session.accountP);
+    if (fromSession) return fromSession;
+    return hex64(App.publicKey);
+  }
+  function localEndpointPub() {
+    const session = accountSession();
+    if (session && session.role === 'LINKED_DEVICE' && session.verified === true) {
+      const device = hex64(session.deviceSignPub);
+      const account = accountPub();
+      if (device && device !== account) return device;
+    }
+    return accountPub();
+  }
+  function sigTrace(step, extra) {
+    try { console.log('[P2P-SIG] ' + step + (extra ? ' ' + extra : '')); } catch (_trace) {}
+  }
 
-  // חלק תפקידים (chat-p2p-datachannel.js) – pubkey נמוך = initiator (שולח offers), גבוה = responder (רק עונה) | HYPER CORE TECH
-  function amInitiator(peer) { return (App.publicKey||'').toLowerCase() < String(peer||'').toLowerCase(); }
+  // חלק תפקידים (chat-p2p-datachannel.js) – endpoint נמוך = initiator. חשבון מקושר משתמש ב-D_sign, לא ב-Root. | HYPER CORE TECH
+  function amInitiator(peer) {
+    const local = localEndpointPub();
+    const remote = hex64(peer);
+    return !!local && !!remote && local < remote;
+  }
 
   function canUseMesh(p) {
     try {
@@ -174,7 +203,11 @@
   }
 
   function canSignal(p) {
-    return canUseMesh(p) || !!(App.pool && App.publicKey && App.SosCryptoSigner?.hasIdentityKey());
+    if (canUseMesh(p)) return true;
+    if (!App.pool || !isValidPeerKey(p) || !localEndpointPub()) return false;
+    if (App.SosCryptoSigner && typeof App.SosCryptoSigner.hasIdentityKey === 'function' && App.SosCryptoSigner.hasIdentityKey()) return true;
+    const session = accountSession();
+    return !!(session && session.role === 'LINKED_DEVICE' && session.verified === true && window.SosWebLinkedDevices && typeof window.SosWebLinkedDevices.withLinkedDeviceSigner === 'function');
   }
 
   function notifyWebViewP2pReady() {
@@ -202,7 +235,12 @@
   }
 
   // חלק signaling (chat-p2p-datachannel.js) – שליחת אותות דרך ריליי | HYPER CORE TECH
-  function roomId(p) { const a=(App.publicKey||'').toLowerCase(),b=(p||'').toLowerCase(); return a<b?`dc:${a}:${b}`:`dc:${b}:${a}`; }
+  function roomId(p) {
+    const a = localEndpointPub();
+    const b = hex64(p);
+    if (!a || !b) return '';
+    return a < b ? `dc:${a}:${b}` : `dc:${b}:${a}`;
+  }
 
   async function sendMeshSig(p, type, data) {
     try {
@@ -228,21 +266,54 @@
     return false;
   }
 
+  async function signLinkedSignal(remote, type, raw) {
+    const LD = window.SosWebLinkedDevices;
+    const NT = window.NostrTools;
+    const local = localEndpointPub();
+    if (!LD || typeof LD.withLinkedDeviceSigner !== 'function' || !NT || !NT.nip04 || typeof NT.finalizeEvent !== 'function') return null;
+    return LD.withLinkedDeviceSigner(async function (dev) {
+      if (hex64(dev.pub) !== local || hex64(dev.accountP) !== accountPub()) return null;
+      const enc = raw ? await NT.nip04.encrypt(dev.privHex, remote, raw) : '';
+      const draft = {
+        kind: SIG_KIND,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [['type', type], ['p', remote], ['r', roomId(remote)]],
+        content: enc,
+      };
+      const bytes = new Uint8Array(32);
+      for (let i = 0; i < 32; i += 1) bytes[i] = parseInt(dev.privHex.substr(i * 2, 2), 16);
+      return NT.finalizeEvent(draft, bytes);
+    });
+  }
+
   async function sendSig(p, type, data) {
     if(!isValidPeerKey(p)) return;
     if (await sendMeshSig(p, type, data)) return;
-    if(!App.pool||!App.publicKey||!App.SosCryptoSigner?.hasIdentityKey()) { observePublish(p, type, []); return; }
+    const remote = hex64(p);
+    const local = localEndpointPub();
+    if(!App.pool || !local || !remote) { observePublish(p, type, []); return; }
     try {
       const raw=data?JSON.stringify(data):'';
-      const enc=raw?await Promise.resolve(App.SosCryptoSigner.nip04Encrypt(p,raw)):'';
-      const sigEv={kind:SIG_KIND,pubkey:App.publicKey,created_at:Math.floor(Date.now()/1000),tags:[['type',type],['p',p.toLowerCase()],['r',roomId(p)]],content:enc};
-      if (typeof App.SosCryptoSigner.signP2pSignal !== 'function') return;
-      const signed=await Promise.resolve(App.SosCryptoSigner.signP2pSignal(sigEv));
+      const linked = accountSession();
+      const onDevice = !!(linked && linked.role === 'LINKED_DEVICE' && linked.verified === true);
+      const primary = !!(App.SosCryptoSigner && typeof App.SosCryptoSigner.hasIdentityKey === 'function' && App.SosCryptoSigner.hasIdentityKey());
+      let signed = null;
+      if (onDevice) signed = await signLinkedSignal(remote, type, raw);
+      else if (primary && typeof App.SosCryptoSigner.signP2pSignal === 'function') {
+        const enc=raw?await Promise.resolve(App.SosCryptoSigner.nip04Encrypt(remote, raw)):'';
+        signed=await Promise.resolve(App.SosCryptoSigner.signP2pSignal({kind:SIG_KIND,pubkey:local,created_at:Math.floor(Date.now()/1000),tags:[['type',type],['p',remote],['r',roomId(remote)]],content:enc}));
+      }
+      if (!signed || hex64(signed.pubkey) !== local) {
+        sigTrace('SIG_DROPPED', 'reason=NO_SIGNAL_AUTHORITY type=' + type);
+        observePublish(p, type, []);
+        return;
+      }
       await new Promise(r=>setTimeout(r,80));
       const pub=App.pool.publish(App.relayUrls,signed);
       if(Array.isArray(pub)) Promise.allSettled(pub).catch(()=>{});
       observePublish(p, type, pub);
-      console.log(`[P2P-SIG] SEND type=${type} peer=${p.slice(0,8)} transport=NOSTR`);
+      sigTrace('SIG_PUBLISHED', 'type=' + type + ' local=' + local.slice(0, 8) + ' remote=' + remote.slice(0, 8));
+      console.log(`[P2P-SIG] SEND type=${type} peer=${remote.slice(0,8)} transport=NOSTR`);
     } catch(e){ console.warn('[DC] sendSig:',e); observePublish(p, type, [Promise.reject(e)]); }
   }
 
@@ -260,6 +331,7 @@
       clearPhaseTimer(s);
       { const e=ev(k); e.dcState='open'; e.dcEverOpen=true; e.dcError=false; e.lastPeerRxAt=Date.now(); }
       goState(k,'DC_OPEN');
+      sigTrace('DATA_CHANNEL_OPEN', 'peer=' + k.slice(0, 8));
       console.log(`[P2P-DC] peer=${k.slice(0,8)} OPEN`);
       if(s.closedAt){
         const durationMs = Date.now() - s.closedAt;
@@ -315,6 +387,7 @@
         clearGraceTimer(s);
         if(label==='ICE'){
           ev(k).iceEverConnected=true;
+          sigTrace('ICE_CONNECTED', 'peer=' + k.slice(0, 8));
           if(!(s.dc&&s.dc.readyState==='open')){
             goState(k,'DC_CONNECTING');
             armPhaseDeadline(k,'DC_OPEN',()=>{ if(s.pc!==pc||(s.dc&&s.dc.readyState==='open')) return; failPeer(k,null,'dc_open_deadline'); cleanup(k); maybeReconn(k); });
@@ -518,6 +591,7 @@
     await pc.setLocalDescription(offer);
     s.offerId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     // חלק offerId (chat-p2p-datachannel.js) – מזהה ייחודי לשיוך answer/offer | HYPER CORE TECH
+    sigTrace('DC_OFFER_SENT', 'peer=' + k.slice(0, 8) + ' local=' + localEndpointPub().slice(0, 8));
     await sendSig(k, 'dc-offer', { type: offer.type, sdp: offer.sdp, oid: s.offerId });
     console.log(`[DC] 🔄 connecting ${k.slice(0, 8)} (attempt ${s.offerRetryN + 1})...`);
     // כמו גיבוי: מרווח קבוע; אחרי MAX retries — עצירה (חיבור מחדש בפתיחת שיחה/שליחה) | HYPER CORE TECH
@@ -561,6 +635,7 @@
     { const e=ev(k); e.negotiationStarted=true; e.peerSignalSeen=true; }
     await flushRemoteCands(k);
     const ans=await pc.createAnswer(); await pc.setLocalDescription(ans);
+    sigTrace('DC_ANSWER_SENT', 'peer=' + k.slice(0, 8) + ' local=' + localEndpointPub().slice(0, 8));
     await sendSig(k,'dc-answer',{type:ans.type,sdp:ans.sdp,oid:oid});
     goState(k,'ICE_CONNECTING');
     armIceDeadline(k,pc);
@@ -627,16 +702,40 @@
   }
 
   // חלק signal handler (chat-p2p-datachannel.js) – טיפול באירועי signaling | HYPER CORE TECH
+  async function decryptSignalContent(author, content) {
+    const session = accountSession();
+    if (session && session.role === 'LINKED_DEVICE' && session.verified === true) {
+      const LD = window.SosWebLinkedDevices;
+      const NT = window.NostrTools;
+      if (!LD || typeof LD.withLinkedDeviceSigner !== 'function' || !NT || !NT.nip04) return null;
+      const opened = await LD.withLinkedDeviceSigner(function (dev) {
+        return NT.nip04.decrypt(dev.privHex, author, content);
+      });
+      return typeof opened === 'string' ? opened : null;
+    }
+    if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.nip04Decrypt !== 'function' || !App.SosCryptoSigner.hasIdentityKey || !App.SosCryptoSigner.hasIdentityKey()) return null;
+    return Promise.resolve(App.SosCryptoSigner.nip04Decrypt(author, content));
+  }
+
   async function handleSig(event) {
-    // סינון זול לפני verify/decrypt — מפחית CPU על firehose גלובלי של 25055 | HYPER CORE TECH
-    if (!event || typeof event !== 'object' || !event.pubkey) return;
-    if (event.pubkey === App.publicKey) return;
-    const selfKey = (App.publicKey || '').toLowerCase();
-    if (!selfKey) return;
+    const eventId = event && event.id ? String(event.id).slice(0, 8) : '';
+    sigTrace('SIG_EVENT_OBSERVED', 'id=' + eventId);
+    if (!event || typeof event !== 'object' || !event.pubkey) { sigTrace('SIG_DROPPED', 'reason=MALFORMED id=' + eventId); return; }
+    if (!verifyIncomingP2pRelayEvent(event)) { sigTrace('SIG_DROPPED', 'reason=BAD_EVENT_SIG id=' + eventId); return; }
+    const local = localEndpointPub();
+    if (!local) { sigTrace('SIG_DROPPED', 'reason=NO_LOCAL_ENDPOINT id=' + eventId); return; }
     const tags = Array.isArray(event.tags) ? event.tags : null;
-    if (!tags) return;
+    if (!tags) { sigTrace('SIG_DROPPED', 'reason=MALFORMED id=' + eventId); return; }
     const pTag = tags.find((t) => Array.isArray(t) && t[0] === 'p' && t[1]);
-    if (!pTag || String(pTag[1]).toLowerCase() !== selfKey) return;
+    if (!pTag || hex64(pTag[1]) !== local) { sigTrace('SIG_DROPPED', 'reason=TARGET_MISMATCH id=' + eventId); return; }
+    sigTrace('SIG_TARGET_MATCH', 'local=' + local.slice(0, 8) + ' id=' + eventId);
+    const author = hex64(event.pubkey);
+    if (!author || author === local) { sigTrace('SIG_DROPPED', 'reason=SELF_ENDPOINT id=' + eventId); return; }
+    const Session = window.SosAccountSession;
+    if (!Session || typeof Session.classifyP2pSignalAuthor !== 'function') { sigTrace('SIG_DROPPED', 'reason=NO_CLASSIFIER id=' + eventId); return; }
+    const binding = await Session.classifyP2pSignalAuthor(author);
+    if (!binding || binding.ok !== true) { sigTrace('SIG_DROPPED', 'reason=' + ((binding && binding.code) || 'UNAUTHORIZED') + ' id=' + eventId); return; }
+    sigTrace('SIG_AUTHOR_AUTHORIZED', 'binding=' + (binding.binding || binding.code) + ' md3=' + (binding.SIGNAL_MD3_AUTHORIZED === true));
     const tag = tags.find((t) => Array.isArray(t) && t[0] === 'type');
     if (!tag) return;
     const type = tag[1];
@@ -653,6 +752,7 @@
     if (!isValidPeerKey(peer)) return;
     const evAge = Math.floor(Date.now() / 1000) - (Number(event.created_at) || 0);
     if (evAge > SIG_MAX_AGE_SEC) {
+      sigTrace('SIG_DROPPED', 'reason=STALE id=' + (event && event.id ? String(event.id).slice(0, 8) : ''));
       console.warn(
         '[SO-CALL SECURITY] rejected stale or replayed live signal kind=25055 id=' +
           (event && event.id ? String(event.id).slice(0, 8) : ''),
@@ -668,10 +768,12 @@
     if (event.content) {
       if (typeof event.content === 'string' && event.content.length > 524288) return;
       try {
-        if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.nip04Decrypt !== 'function') return;
-        const d = await Promise.resolve(App.SosCryptoSigner.nip04Decrypt(peer, event.content));
+        const d = await decryptSignalContent(peer, event.content);
+        if (typeof d !== 'string') { sigTrace('SIG_DROPPED', 'reason=DECRYPT_FAILED id=' + (event && event.id ? String(event.id).slice(0, 8) : '')); return; }
+        sigTrace('SIG_DECRYPTED', 'peer=' + peer.slice(0, 8));
         data = d ? JSON.parse(d) : null;
       } catch (e) {
+        sigTrace('SIG_DROPPED', 'reason=INVALID_ENVELOPE id=' + (event && event.id ? String(event.id).slice(0, 8) : ''));
         return;
       }
     }
@@ -686,6 +788,7 @@
           data.sdp.length <= 65536
         )
       ) {
+        sigTrace('SIG_DROPPED', 'reason=MALFORMED_SDP peer=' + peer.slice(0, 8));
         return;
       }
     } else if (type === 'dc-candidates') {
@@ -706,10 +809,14 @@
     lastSigAt = Date.now();
     { const e = ev(peer); e.lastPeerRxAt = Date.now(); e.peerSignalSeen = true; }
     console.log(`[P2P-SIG] RX type=${type} peer=${peer.slice(0, 8)} transport=NOSTR`);
+    sigTrace('SIG_DISPATCHED', 'type=' + type + ' peer=' + peer.slice(0, 8));
     if (type === 'dc-need-offer') {
+      sigTrace('DC_NEED_OFFER_RX', 'peer=' + peer.slice(0, 8));
       nudgeInitiator(peer);
       return;
     }
+    if (type === 'dc-offer') sigTrace('DC_OFFER_RX', 'peer=' + peer.slice(0, 8));
+    if (type === 'dc-answer') sigTrace('DC_ANSWER_RX', 'peer=' + peer.slice(0, 8));
     if (type === 'dc-offer' && data?.type && data?.sdp) await onOffer(peer, data);
     else if (type === 'dc-answer' && data?.type && data?.sdp) await onAnswer(peer, data);
     else if (type === 'dc-candidates' && Array.isArray(data)) await onCands(peer, data);
@@ -964,7 +1071,7 @@
     try {
       // חלק subscribe (chat-p2p-datachannel.js) – מאזין לכל kind 25055 ומסנן ידנית לפי תג p כדי למנוע פספוס בריליי | HYPER CORE TECH
       sigSub=App.pool.subscribeMany(App.relayUrls,[{kinds:[SIG_KIND],since:Math.floor(Date.now()/1000)-SIG_SINCE_SEC}],{
-        onevent:handleSig, oneose:()=>{lastSigAt=Date.now();subReady=true;console.log('[DC] ✅ sub ready');}
+        onevent:handleSig, oneose:()=>{lastSigAt=Date.now();subReady=true;sigTrace('SIG_SUBSCRIPTION_ACTIVE', 'local=' + localEndpointPub().slice(0, 8));console.log('[DC] ✅ sub ready');}
       }); lastSigAt=Date.now();
     } catch(e){ console.warn('[DC] sub fail:',e); }
   }
@@ -1213,7 +1320,13 @@
     window.SOSBridge.onWebRTCSignal = next;
   }
 
-  App.dataChannel={ connect, forceConnect, send, sendJson, isConnected:isConn, isHealthy, getDiagnostics, waitForOpen, getStatus:status, init:lazyInit, resumeStandby, getChatPC, getChatDC, subscribeIncomingMessages, ingestSignal: ingestLocalSignal, amInitiator, _peers:peers, verifyIncomingRelayEvent: verifyIncomingP2pRelayEvent };
+  function ensureSignalSubscription() {
+    if (App.guestMode || !App.pool || !App.publicKey) return { active: false, local: '' };
+    if (!sigSub) subscribe();
+    return { active: !!sigSub, local: String(localEndpointPub() || '').slice(0, 8) };
+  }
+
+  App.dataChannel={ connect, forceConnect, send, sendJson, isConnected:isConn, isHealthy, getDiagnostics, waitForOpen, getStatus:status, init:lazyInit, resumeStandby, getChatPC, getChatDC, subscribeIncomingMessages, ingestSignal: ingestLocalSignal, amInitiator, ensureSignalSubscription, _peers:peers, verifyIncomingRelayEvent: verifyIncomingP2pRelayEvent };
   hookMeshReceiver();
 
   // חלק lazy trigger (chat-p2p-datachannel.js) – אתחול כשפותחים צ'אט / headless | HYPER CORE TECH
