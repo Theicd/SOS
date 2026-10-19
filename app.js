@@ -634,6 +634,14 @@
         else if (typeof window.openKartGame === 'function') window.openKartGame();
       });
     }
+    const chessLauncher = document.getElementById('videosChessLauncher');
+    if (chessLauncher) {
+      chessLauncher.addEventListener('click', () => {
+        closeMenu();
+        if (typeof App.openChessGame === 'function') App.openChessGame();
+        else if (typeof window.openChessGame === 'function') window.openChessGame();
+      });
+    }
 
     // חלק תת-תפריט שונות (app.js) – מאזינים לכפתורים בתת-תפריט | HYPER CORE TECH
     const newsButton = document.getElementById('newsToggleTop');

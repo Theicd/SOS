@@ -317,14 +317,14 @@
     return iframe;
   }
 
-  function withSosKartName(url) {
+  function withSosGameName(url) {
     try {
       const parsed = new URL(url, window.location.href);
       if (!/theicd\.github\.io$/i.test(parsed.hostname)) return url;
-      if (!/kart-royale/i.test(parsed.pathname)) return url;
-      if (parsed.searchParams.get('name')) return parsed.toString();
+      const max = /kart-royale/i.test(parsed.pathname) ? 12 : /medieval-3d-chess/i.test(parsed.pathname) ? 20 : 0;
+      if (!max || parsed.searchParams.get('name')) return parsed.toString();
       const profile = (window.NostrApp && window.NostrApp.profile) || {};
-      const name = String(profile.name || profile.display_name || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 12);
+      const name = String(profile.name || profile.display_name || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max);
       if (!name) return parsed.toString();
       parsed.searchParams.set('name', name);
       return parsed.toString();
@@ -371,7 +371,7 @@
         setGamePlaceholder(mediaDiv, options.loadingLabel || 'טוען משחק...');
         mediaDiv.dataset.gamePrepared = '0';
         iframe.dataset.loadedUrl = url;
-        iframe.src = withSosKartName(url);
+        iframe.src = withSosGameName(url);
         clearTimeout(mediaDiv._gamePlaceholderTimer);
         mediaDiv._gamePlaceholderTimer = setTimeout(() => {
           if (!mediaDiv.isConnected || !iframe.isConnected) return;

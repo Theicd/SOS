@@ -395,7 +395,8 @@
       doom: 'openDoomGame',
       trivia: 'openTriviaGame',
       nzp: 'openNzpGame',
-      kart: 'openKartGame'
+      kart: 'openKartGame',
+      chess: 'openChessGame'
     }[kind];
     if (isInIframe && messageType) {
       window.parent.postMessage({ type: messageType }, '*');
@@ -421,6 +422,14 @@
       window.location.replace('./videos.html#kart');
       return;
     }
+    if (kind === 'chess') {
+      if (typeof window.openChessGame === 'function') {
+        window.openChessGame();
+        return;
+      }
+      window.location.replace('./videos.html#chess');
+      return;
+    }
     window.location.href = './videos.html#trivia';
   }
 
@@ -430,6 +439,7 @@
     if (hash === 'nzp') launchNetworkGame('nzp');
     if (hash === 'trivia') launchNetworkGame('trivia');
     if (hash === 'kart') launchNetworkGame('kart');
+    if (hash === 'chess') launchNetworkGame('chess');
   }
 
   function init() {

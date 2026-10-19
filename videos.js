@@ -9894,6 +9894,7 @@ function createSidebarFollowersSection() {
   gamesList.appendChild(makeGameItem('משחק רשת זומבים', 'fa-solid fa-skull', 'games.html#nzp'));
   gamesList.appendChild(makeGameItem('משחק רשת טריוויה', 'fa-solid fa-dice', 'games.html#trivia'));
   gamesList.appendChild(makeGameItem('משחק רשת קארטינג', 'fa-solid fa-flag-checkered', 'games.html#kart'));
+  gamesList.appendChild(makeGameItem('משחק רשת שחמט', 'fa-solid fa-chess', 'games.html#chess'));
 
   // קו הפרדה אחרי מקטע משחקים
   const gamesSeparatorAfter = document.createElement('div');
@@ -10102,6 +10103,7 @@ async function init() {
   const bootHash = String(window.location.hash || '').replace('#', '').toLowerCase();
   if (bootHash === 'nzp') openNzpGame();
   if (bootHash === 'kart') openKartGame();
+  if (bootHash === 'chess') openChessGame();
   const app = window.NostrApp || {};
   if (typeof app.buildCoreFeedFilters !== 'function') {
     app.buildCoreFeedFilters = buildVideoFeedFilters;
@@ -11014,6 +11016,71 @@ function openKartGame() {
   return true;
 }
 
+const CHESS_GAME_URL = 'https://theicd.github.io/SOS-rork-medieval-3d-chess/';
+const CHESS_OPEN_LINES = [
+  (name) => `${name} פתח משחק שחמט. הלוח מחכה ליריב.`,
+  (name) => `${name} כבר על הלוח. נכנסים למשחק, או למחשב עד שמישהו מגיע.`,
+  (name) => `המשחק של ${name} עלה. חמש דקות להיכנס במקום המחשב.`,
+  (name) => `${name} הדליק שחמט רשת. המהלך הראשון עליך.`,
+];
+
+function chessPlayerName() {
+  const App = window.NostrApp || {};
+  const raw = App.profile?.name || App.profile?.display_name || '';
+  return String(raw).replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 20);
+}
+
+function chessGameUrl() {
+  const url = new URL(CHESS_GAME_URL);
+  const name = chessPlayerName();
+  if (name) url.searchParams.set('name', name);
+  return url.toString();
+}
+
+function openChessGame() {
+  const panel = ensureNzpPanel();
+  const frame = document.getElementById('nzpPanelFrame');
+  if (!panel || !frame) return false;
+  closeGamesPanelKeepNzp();
+  panel.classList.remove('is-playing', 'is-fs');
+  panel.hidden = false;
+  panel.removeAttribute('hidden');
+  document.body.classList.add('nzp-open');
+  document.documentElement.classList.add('nzp-open');
+  freezeFeedForNzp();
+  const title = panel.querySelector('.nzp-panel__title');
+  if (title) title.textContent = 'Chess';
+  frame.src = chessGameUrl();
+  return true;
+}
+
+async function announceChessMatch() {
+  const App = window.NostrApp || {};
+  const relays = Array.isArray(App.relayUrls) ? App.relayUrls.filter(Boolean) : [];
+  if (!App.pool || !App.publicKey || !App.privateKey || typeof App.finalizeEvent !== 'function' || !relays.length) return;
+  try {
+    if (sessionStorage.getItem('sos_chess_announced') === '1') return;
+  } catch (_) {}
+  const name = chessPlayerName() || 'שחקן';
+  const line = CHESS_OPEN_LINES[Math.floor(Math.random() * CHESS_OPEN_LINES.length)](name);
+  const tags = [['t', 'game-embed'], ['media', 'text/html', CHESS_GAME_URL]];
+  if (App.NETWORK_TAG) tags.push(['t', App.NETWORK_TAG]);
+  try {
+    const signed = App.finalizeEvent({
+      kind: 1,
+      pubkey: App.publicKey,
+      created_at: Math.floor(Date.now() / 1000),
+      tags,
+      content: `${line}\n${CHESS_GAME_URL}`,
+    }, App.privateKey);
+    await App.pool.publish(relays, signed);
+    try { sessionStorage.setItem('sos_chess_announced', '1'); } catch (_) {}
+    if (typeof App.onVideoPostPublished === 'function') App.onVideoPostPublished(signed);
+  } catch (err) {
+    console.warn('[CHESS] announce failed', err);
+  }
+}
+
 async function announceKartRace() {
   const App = window.NostrApp || {};
   const relays = Array.isArray(App.relayUrls) ? App.relayUrls.filter(Boolean) : [];
@@ -11209,6 +11276,10 @@ function openGamesPanel(href = './games.html') {
   }
   if (hash === 'kart') {
     openKartGame();
+    return true;
+  }
+  if (hash === 'chess') {
+    openChessGame();
     return true;
   }
   if (hash === 'trivia') {
@@ -11414,6 +11485,7 @@ window.closeGamesPanel = closeGamesPanel;
 window.openGamesPanel = openGamesPanel;
 window.openNzpGame = openNzpGame;
 window.openKartGame = openKartGame;
+window.openChessGame = openChessGame;
 window.closeNzpGame = closeNzpGame;
 window.requestCloseNzpGame = requestCloseNzpGame;
 window.exitGamesFeedMode = exitGamesFeedMode;
@@ -11438,6 +11510,7 @@ window.isOnVideosFeedPage = isOnVideosFeedPage;
   AppRef.openGamesPanel = openGamesPanel;
   AppRef.openNzpGame = openNzpGame;
   AppRef.openKartGame = openKartGame;
+  AppRef.openChessGame = openChessGame;
   AppRef.closeNzpGame = closeNzpGame;
   AppRef.requestCloseNzpGame = requestCloseNzpGame;
   AppRef.exitGamesFeedMode = exitGamesFeedMode;
@@ -11549,9 +11622,19 @@ window.addEventListener('message', function handleOverlayMessage(event) {
     markNzpPlaying();
     return;
   }
+  if (data.type === 'openChessGame') {
+    closeGamesPanelKeepNzp();
+    openChessGame();
+    return;
+  }
   if (data.type === 'kart-playing') {
     markNzpPlaying();
     announceKartRace();
+    return;
+  }
+  if (data.type === 'chess-playing') {
+    markNzpPlaying();
+    announceChessMatch();
     return;
   }
   if (data.type === 'nzp-fullscreen') {

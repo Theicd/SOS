@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v899s48'; // Kart Royale in the network games panel
+  const CACHE_NAME = 'sos-cache-v899s49'; // King's Gambit chess in the network games panel
   const PRECACHE_URLS = [
     './',
     './videos.html',
