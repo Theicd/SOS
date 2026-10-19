@@ -63,7 +63,7 @@ function note(step) {
 function watch(page, bucket) {
   page.on('console', (msg) => {
     const text = msg.text();
-    if (!/\[P2P-SIG\]|\[DC\]|\[BLOSSOM\]|\[CHAT\/SELF\]|\[CHAT\/P2P\]|ICE_CONNECTED|DATA_CHANNEL/.test(text)) return;
+    if (!/\[P2P-SIG\]|\[P2P-FILE\]|\[DC\]|\[BLOSSOM\]|\[CHAT\/SELF\]|\[CHAT\/P2P\]|ICE_CONNECTED|DATA_CHANNEL|SO-CALL SECURITY/.test(text)) return;
     if (/sdp|priv|nsec|BEGIN /i.test(text)) return;
     bucket.push(text.slice(0, 220));
     if (bucket.length > 400) bucket.shift();
@@ -120,6 +120,7 @@ async function arm(page) {
     }
     if (App.dataChannel && typeof App.dataChannel.init === 'function') App.dataChannel.init();
     if (App.dataChannel && typeof App.dataChannel.ensureSignalSubscription === 'function') App.dataChannel.ensureSignalSubscription();
+    if (typeof App.rebindLinkedDeviceP2P === 'function') App.rebindLinkedDeviceP2P();
   });
 }
 
@@ -231,10 +232,11 @@ async function main() {
         session: src.find((s) => s.indexOf('sos-account-session.js') !== -1) || '',
         dc: src.find((s) => s.indexOf('chat-p2p-datachannel.js') !== -1) || '',
         file: src.find((s) => s.indexOf('chat-p2p-file.js') !== -1) || '',
+        p2p: src.find((s) => s.indexOf('p2p-video-sharing.js') !== -1) || '',
       };
     });
     report.LIVE_BUILD = pkg;
-    if (pkg.session.indexOf('pkg=899s45') === -1 || pkg.dc.indexOf('pkg=899s45') === -1 || pkg.file.indexOf('pkg=899s45') === -1) {
+    if (pkg.session.indexOf('pkg=899s45') === -1 || pkg.dc.indexOf('pkg=899s45') === -1 || pkg.file.indexOf('pkg=899s45') === -1 || pkg.p2p.indexOf('pkg=899s46') === -1) {
       note('CDN_STALE');
       throw new Error('CDN_STALE');
     }

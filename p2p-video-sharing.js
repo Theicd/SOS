@@ -754,6 +754,21 @@
     };
   }
 
+  async function linkedDeviceNip44(peerPub, mode, payload) {
+    const linked = linkedP2pKeys();
+    const LD = window.SosWebLinkedDevices;
+    if (!linked || !LD || typeof LD.withLinkedDeviceSigner !== 'function') return null;
+    const api = getP2pNip44();
+    const peer = requireP2pHexPubkey(peerPub, mode === 'encrypt' ? 'P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED' : 'P2P_PRIVATE_SIGNAL_DECRYPT_FAILED');
+    return LD.withLinkedDeviceSigner(function (dev) {
+      if (String(dev.pub || '').toLowerCase() !== linked.publicKey) return null;
+      const priv = new Uint8Array(32);
+      for (let i = 0; i < 32; i += 1) priv[i] = parseInt(String(dev.privHex || '').substr(i * 2, 2), 16);
+      const conversation = api.getConversationKey(priv, peer);
+      return mode === 'encrypt' ? api.encrypt(payload, conversation) : api.decrypt(payload, conversation);
+    });
+  }
+
   function looksLikePrivateP2pSignalEnvelope(raw) {
     let obj = raw;
     if (typeof raw === 'string') {
@@ -802,10 +817,14 @@
     const recipient = requireP2pHexPubkey(recipientPubkey, 'P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED');
     let ct;
     try {
-      if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.nip44P2pEncrypt !== 'function') {
-        p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'signer unavailable');
+      if (linkedP2pKeys()) {
+        ct = await linkedDeviceNip44(recipient, 'encrypt', plaintext);
+      } else {
+        if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.nip44P2pEncrypt !== 'function') {
+          p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'signer unavailable');
+        }
+        ct = await Promise.resolve(App.SosCryptoSigner.nip44P2pEncrypt(plaintext, recipient));
       }
-      ct = await Promise.resolve(App.SosCryptoSigner.nip44P2pEncrypt(plaintext, recipient));
     } catch (err) {
       if (err && err.code === 'P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED') throw err;
       p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', err && err.message ? err.message : 'encrypt failed');
@@ -835,10 +854,15 @@
     }
     const sender = requireP2pHexPubkey(senderPubkey, 'P2P_PRIVATE_SIGNAL_DECRYPT_FAILED');
     try {
-      if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.nip44P2pDecrypt !== 'function') {
-        p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_DECRYPT_FAILED', 'signer unavailable');
+      let plain;
+      if (linkedP2pKeys()) {
+        plain = await linkedDeviceNip44(sender, 'decrypt', env.ct);
+      } else {
+        if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.nip44P2pDecrypt !== 'function') {
+          p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_DECRYPT_FAILED', 'signer unavailable');
+        }
+        plain = await Promise.resolve(App.SosCryptoSigner.nip44P2pDecrypt(env.ct, sender));
       }
-      const plain = await Promise.resolve(App.SosCryptoSigner.nip44P2pDecrypt(env.ct, sender));
       if (typeof plain !== 'string' || !plain) {
         p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_DECRYPT_FAILED', 'empty plaintext');
       }
@@ -3127,9 +3151,13 @@
         content: wireContent,
       };
 
-      let signed;
-      if (App.SosCryptoSigner && typeof App.SosCryptoSigner.signP2pFile === 'function') {
+      let signed = null;
+      if (linkedP2pKeys()) signed = await signLinkedDeviceP2p(event);
+      else if (App.SosCryptoSigner && typeof App.SosCryptoSigner.signP2pFile === 'function') {
         signed = await Promise.resolve(App.SosCryptoSigner.signP2pFile(event));
+      }
+      if (!signed || String(signed.pubkey || '').toLowerCase() !== String(keys.publicKey || '').toLowerCase()) {
+        p2pPrivateSignalFail('P2P_PRIVATE_SIGNAL_ENCRYPT_FAILED', 'NO_SIGNAL_AUTHORITY');
       }
       
       const relays = getP2PRelays();
@@ -3318,6 +3346,17 @@
           });
 
           try {
+            const signalSender = String(event.pubkey || '').toLowerCase();
+            const signalSelf = String((getEffectiveKeys() && getEffectiveKeys().publicKey) || '').toLowerCase();
+            if (signalSender && signalSender !== signalSelf) {
+              const Session = window.SosAccountSession;
+              if (!Session || typeof Session.classifyP2pSignalAuthor !== 'function') return;
+              const binding = await Session.classifyP2pSignalAuthor(signalSender);
+              if (!binding || binding.ok !== true) {
+                try { console.warn('[P2P-FILE] SIG_DROPPED reason=' + String((binding && binding.code) || 'UNAUTHORIZED') + ' peer=' + signalSender.slice(0, 8)); } catch (_drop) {}
+                return;
+              }
+            }
             const extracted = await extractSignalContent(event.content, event.pubkey);
             if (!extracted || typeof extracted.plaintext !== 'string') return;
             const message = JSON.parse(extracted.plaintext);

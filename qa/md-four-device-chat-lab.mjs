@@ -292,9 +292,10 @@ async function main() {
         session: (src.find((s) => s.indexOf('sos-account-session.js') !== -1) || ''),
         dc: (src.find((s) => s.indexOf('chat-p2p-datachannel.js') !== -1) || ''),
         file: (src.find((s) => s.indexOf('chat-p2p-file.js') !== -1) || ''),
+        p2p: (src.find((s) => s.indexOf('p2p-video-sharing.js') !== -1) || ''),
       };
     });
-    if (pkg.chat.indexOf('pkg=899s44') === -1 || pkg.session.indexOf('pkg=899s45') === -1 || pkg.dc.indexOf('pkg=899s45') === -1 || pkg.file.indexOf('pkg=899s45') === -1) {
+    if (pkg.chat.indexOf('pkg=899s44') === -1 || pkg.session.indexOf('pkg=899s45') === -1 || pkg.dc.indexOf('pkg=899s45') === -1 || pkg.file.indexOf('pkg=899s45') === -1 || pkg.p2p.indexOf('pkg=899s46') === -1) {
       fail('CDN_STALE', pkg.chat + ' ' + pkg.session);
     }
     report.LIVE_VERSION = pkg.chat;
