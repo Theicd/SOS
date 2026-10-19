@@ -1577,6 +1577,7 @@
       }
       return;
     }
+    let delegatedAccountP = '';
     if (event.kind === CHAT_KIND && Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 'sos-md3')) {
       if (!window.SosAccountSession || typeof window.SosAccountSession.verifyDelegatedEvent !== 'function') return;
       const delegated = await window.SosAccountSession.verifyDelegatedEvent(event, 'DEVICE_CHAT');
@@ -1586,8 +1587,9 @@
         } catch (_md) {}
         return;
       }
-      try { console.log('[MD3] MD3_VERIFIED event=' + String(event.id || '').slice(0, 8) + ' account=' + String(delegated.accountP || '').slice(0, 8)); } catch (_okm) {}
-      event.__sosDelegatedAccount = delegated.accountP;
+      delegatedAccountP = String(delegated.accountP || '').toLowerCase();
+      try { console.log('[MD3] MD3_VERIFIED event=' + String(event.id || '').slice(0, 8) + ' account=' + String(delegatedAccountP || '').slice(0, 8)); } catch (_okm) {}
+      try { event.__sosDelegatedAccount = delegatedAccountP; } catch (_frozen) {}
     }
     // Retry E2EE events that arrived before local key was ready.
     if (App.SosCryptoSigner?.hasIdentityKey() && App.publicKey && pendingE2eeEvents.size) {
@@ -1677,7 +1679,9 @@
       }
     };
     let senderAccount = sender;
-    if (event.__sosDelegatedAccount && /^[0-9a-f]{64}$/.test(String(event.__sosDelegatedAccount))) {
+    if (/^[0-9a-f]{64}$/.test(delegatedAccountP)) {
+      senderAccount = delegatedAccountP;
+    } else if (event.__sosDelegatedAccount && /^[0-9a-f]{64}$/.test(String(event.__sosDelegatedAccount))) {
       senderAccount = String(event.__sosDelegatedAccount).toLowerCase();
     } else {
       senderAccount = await mapAccount(sender);
@@ -1817,7 +1821,7 @@
     const syncPeer = syncPeerEarly;
     const recipientAccount = await mapAccount(recipient);
     const syncPeerAccount = /^[0-9a-f]{64}$/.test(syncPeer) ? await mapAccount(syncPeer) : '';
-    const syncVerified = !!(event.__sosDelegatedAccount || sender === accountUser);
+    const syncVerified = !!(/^[0-9a-f]{64}$/.test(delegatedAccountP) || event.__sosDelegatedAccount || sender === accountUser);
     if ((ownSync || inboundSync) && !syncVerified) {
       try { console.log('[MD] SYNC_TAG_UNVERIFIED event=' + String(event.id || '').slice(0, 8)); } catch (_sync) {}
       return;

@@ -227,6 +227,20 @@ other.context.SosAccountSession.decryptForLinkedDevice = async () => ({
 await other.App.handleIncomingChatEvent(envelopeEvent('mutated1' + '33'.repeat(28), ATTACKER_DEVICE, DB, [['t', 'sos-own-sync'], ['sync-peer', VICTIM]]));
 check('mutated sync-peer stays on the attacker account', other.appended.length === 1 && other.appended[0].peer !== VICTIM && other.appended[0].from === ATTACKER && other.appended[0].to === B);
 
+const phoneIn = loadChat();
+phoneIn.App.getAccountSession = () => ({ role: 'PRIMARY_ACCOUNT', verified: true, accountP: A });
+phoneIn.App.SosCryptoSigner = {
+  hasIdentityKey() { return true; },
+  nip44ChatDecrypt() {
+    return { messageId: 'logical-sibling-phone', text: 'מהטלפון', sender: DA, recipient: A, createdAt: Math.floor(Date.now() / 1000), attachment: null };
+  },
+};
+const frozenSibling = envelopeEvent('44'.repeat(32), DA, A, [['t', 'sos-sibling-sync'], ['sync-peer', B]]);
+Object.freeze(frozenSibling);
+await phoneIn.App.handleIncomingChatEvent(frozenSibling);
+check('frozen sibling still files on the phone', phoneIn.appended.length === 1 && phoneIn.appended[0].direction === 'outgoing' && phoneIn.appended[0].to === B && phoneIn.appended[0].from === A && phoneIn.appended[0].routeKind === 'OUTGOING_SIBLING_SYNC');
+check('frozen sibling is not dropped as unverified', !phoneIn.logs.some((line) => line.includes('SYNC_TAG_UNVERIFIED')));
+
 const fan = loadChat({
   listAuthorizedDevices: async (account) => {
     if (account === B) {
