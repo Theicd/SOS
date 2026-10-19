@@ -38,6 +38,7 @@
     SIGN_GAME: { kinds: [33051, 33052, 33201, 33202, 33203, 33211] },
     SIGN_LIVE: { kinds: [25051, 25056] },
     SIGN_LIVE_TV: { kinds: [30078] },
+    SIGN_DEVICE_REVOKE: { kinds: [30078] },
     SIGN_LOGIN_METRIC: { kinds: [1050] },
     SIGN_MEDIA_RECHECK: { kinds: [1] },
   };
@@ -241,7 +242,31 @@
       const p = findPTag(draft.tags);
       if (!p || !/^[0-9a-f]{64}$/i.test(p)) fail('MISSING_RECIPIENT', 'p tag required');
     }
+    if (op === 'SIGN_DEVICE_REVOKE') assertDeviceRevokeDraft(draft);
     return spec;
+  }
+
+  function assertDeviceRevokeDraft(draft) {
+    let marker = '';
+    for (let i = 0; i < draft.tags.length; i += 1) {
+      const tag = draft.tags[i];
+      if (tag && tag[0] === 'd') marker = String(tag[1] || '');
+    }
+    if (marker !== 'sos-device-revocation') fail('BAD_REVOKE_TAG', 'revocation tag required');
+    let body = null;
+    try { body = JSON.parse(draft.content); } catch (_e) { body = null; }
+    const keys = body && typeof body === 'object' ? Object.keys(body).sort() : [];
+    if (!body || body.v !== 1 || keys.join(',') !== 'revoked,v' || !Array.isArray(body.revoked) || body.revoked.length < 1 || body.revoked.length > 32) {
+      fail('BAD_REVOKE_BODY', 'revocation list');
+    }
+    for (let i = 0; i < body.revoked.length; i += 1) {
+      const row = body.revoked[i];
+      const rowKeys = row && typeof row === 'object' ? Object.keys(row).sort() : [];
+      if (rowKeys.join(',') !== 'at,authorizationId,deviceSignPub') fail('BAD_REVOKE_DEVICE', 'revocation row');
+      if (!/^[0-9a-f]{64}$/.test(String(row.deviceSignPub || ''))) fail('BAD_REVOKE_DEVICE', 'device');
+      if (!/^[0-9a-f]{64}$/.test(String(row.authorizationId || ''))) fail('BAD_REVOKE_DEVICE', 'authorization');
+      if (typeof row.at !== 'number' || !Number.isInteger(row.at) || row.at < 1) fail('BAD_REVOKE_DEVICE', 'time');
+    }
   }
 
   function finalizeWithSession(draft) {
@@ -686,6 +711,7 @@
     signGameEvent: (d) => signTyped('SIGN_GAME', d),
     signLiveEvent: (d) => signTyped('SIGN_LIVE', d),
     signLiveTvEvent: (d) => signTyped('SIGN_LIVE_TV', d),
+    signDeviceRevoke: (d) => signTyped('SIGN_DEVICE_REVOKE', d),
     signLoginMetric: (d) => signTyped('SIGN_LOGIN_METRIC', d),
     signMediaRecheck: (d) => signTyped('SIGN_MEDIA_RECHECK', d),
     /** @deprecated AC9 — removed broad group-control sign */

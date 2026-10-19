@@ -35,6 +35,7 @@ check('presence copy is addressed to linked devices', presence.includes('listAut
 check('foreground notification uses the account and one logical id', ui.includes('function canonicalNotifyPeer') && ui.includes('message?.logicalMessageId || message?.id'));
 check('linked caller can fan out a cancel', signal.includes('linkedFan') && signal.includes('cancel: 1'));
 check('phone lists verified linked devices', session.includes('function listAccountLinkedDevices') && session.includes('listAccountLinkedDevices: listAccountLinkedDevices'));
+check('revoked device is refused', session.includes("code: 'DEVICE_REVOKED'") && session.includes('function revokeLinkedDevice'));
 
 const sandbox = { window: {}, console, Promise, Date, JSON, Object, Array, String, Number, Math };
 sandbox.window = sandbox;
@@ -79,6 +80,26 @@ sandbox.SosAccountSession.listAccountLinkedDevices(account).then(async (listed) 
   check('verified directory device is listed once', !!(listed && listed.ok === true && listed.devices.length === 1 && row.deviceLabel === 'Windows' && row.lastSeenAt === 200000));
   const calls = await sandbox.SosAccountSession.listAuthorizedDevices(account, 'DEVICE_CALLS');
   check('call capability filter still applies', Array.isArray(calls) && calls.length === 0);
+  sandbox.NostrTools.verifyEvent = function (copy) {
+    const content = String(copy.content || '');
+    return content.includes('"keep":1') || content.includes('"revoked"');
+  };
+  sandbox.NostrApp.pool.list = function () {
+    return [
+      dirEvent({ keep: 1, deviceLabel: 'Windows', authorization: { accountP: account, deviceId: device, D_sign_pub: device, D_enc_pub: device, capabilities: ['DEVICE_CHAT'], createdAt: 2000 } }, device, 200),
+      {
+        kind: 30078,
+        pubkey: account,
+        id: 'd'.repeat(64),
+        sig: 'e'.repeat(128),
+        created_at: 500,
+        tags: [['d', 'sos-device-revocation']],
+        content: JSON.stringify({ v: 1, revoked: [{ deviceSignPub: device, authorizationId: 'e'.repeat(64), at: 5 }] }),
+      },
+    ];
+  };
+  const after = await sandbox.SosAccountSession.listAccountLinkedDevices(account);
+  check('revoked device leaves the phone list', !!(after && after.ok === true && after.devices.length === 0));
   console.log(failed ? 'STATUS=FAIL' : 'STATUS=PASS');
   process.exit(failed ? 1 : 0);
 }).catch((err) => {

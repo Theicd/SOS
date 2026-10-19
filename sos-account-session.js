@@ -269,6 +269,10 @@
     if (norm(event.pubkey) !== devicePub) return { ok: false, code: 'DEVICE_PUB_MISMATCH' };
     const sig = verifyEventPlain(event);
     if (!sig.ok) return { ok: false, code: 'BAD_EVENT_SIG', detail: sig.code || 'BAD_EVENT_SIG' };
+    const rev = await loadRevocations(norm(auth.accountP));
+    if (isRevokedDevice(rev, { deviceSignPub: devicePub, authorizationId: norm(auth.authorizationId) })) {
+      return { ok: false, code: 'DEVICE_REVOKED' };
+    }
     const caps = Array.isArray(auth.capabilities) ? auth.capabilities.map(String) : [];
     if (requiredCap && caps.indexOf(requiredCap) === -1) return { ok: false, code: 'CAPABILITY_MISSING' };
     noteVerifiedDevice(devicePub, auth.accountP);
@@ -612,6 +616,144 @@
     return out;
   }
 
+  const REVOKE_TAG = 'sos-device-revocation';
+  const revokeCache = {};
+  let directoryHeartbeat = 0;
+
+  async function loadRevocations(accountP, opts) {
+    const account = norm(accountP);
+    const fresh = !!(opts && opts.fresh);
+    if (!isHex64(account)) return { ok: false, code: 'BAD_ACCOUNT', pubs: {}, ids: {}, list: [] };
+    const hit = revokeCache[account];
+    if (!fresh && hit && hit.exp > Date.now()) return hit.value;
+    const pool = App.pool;
+    const NT = root.NostrTools;
+    if (!pool || !NT || typeof NT.verifyEvent !== 'function') {
+      return { ok: false, code: 'NO_DIRECTORY', pubs: {}, ids: {}, list: [] };
+    }
+    const filter = { kinds: [30078], authors: [account], '#d': [REVOKE_TAG], limit: 3 };
+    let raw = [];
+    try {
+      if (typeof pool.list === 'function') raw = await pool.list(App.relayUrls, [filter]);
+      else if (typeof pool.querySync === 'function') raw = await pool.querySync(App.relayUrls, filter);
+    } catch (_e) {
+      return { ok: false, code: 'QUERY_FAILED', pubs: {}, ids: {}, list: [] };
+    }
+    const events = flattenRelayEvents(raw);
+    let newest = null;
+    for (let i = 0; i < events.length; i += 1) {
+      const event = events[i];
+      if (norm(event.pubkey) !== account || verifyEventPlain(event).ok !== true) continue;
+      const marked = (event.tags || []).some(function (tag) { return tag && tag[0] === 'd' && tag[1] === REVOKE_TAG; });
+      if (!marked) continue;
+      if (!newest || Number(event.created_at) >= Number(newest.created_at)) newest = event;
+    }
+    const pubs = {};
+    const ids = {};
+    const list = [];
+    if (newest) {
+      let body = null;
+      try { body = JSON.parse(newest.content); } catch (_p) { body = null; }
+      const rows = body && Array.isArray(body.revoked) ? body.revoked : [];
+      for (let i = 0; i < rows.length && list.length < 32; i += 1) {
+        const row = rows[i];
+        const pub = norm(row && row.deviceSignPub);
+        const id = norm(row && row.authorizationId);
+        if (!isHex64(pub) || !isHex64(id) || pubs[pub]) continue;
+        pubs[pub] = true;
+        ids[id] = true;
+        list.push({ deviceSignPub: pub, authorizationId: id, at: Math.max(1, Math.floor(Number(row.at) || Date.now())) });
+      }
+    }
+    const value = { ok: true, code: newest ? 'REVOKED' : 'EMPTY', pubs: pubs, ids: ids, list: list };
+    revokeCache[account] = { exp: Date.now() + 20000, value: value };
+    return value;
+  }
+
+  function isRevokedDevice(rev, row) {
+    if (!rev || rev.ok !== true || !row) return false;
+    const pub = norm(row.deviceSignPub || row.D_sign_pub);
+    const id = norm(row.authorizationId);
+    return !!(pub && rev.pubs[pub]) || !!(id && rev.ids[id]);
+  }
+
+  function releaseLinkedDevice(reason) {
+    if (snapshot.role !== 'LINKED_DEVICE') return { ok: false, code: 'NOT_LINKED' };
+    App.linkedDeviceSession = false;
+    App.publicKey = '';
+    App.privateKey = null;
+    App.guestMode = true;
+    App.identityState = 'GUEST';
+    setGuest();
+    if (directoryHeartbeat) {
+      clearInterval(directoryHeartbeat);
+      directoryHeartbeat = 0;
+    }
+    return { ok: true, code: reason || 'DEVICE_REVOKED' };
+  }
+
+  async function watchOwnRevocation() {
+    const session = getAccountSession();
+    if (session.role !== 'LINKED_DEVICE' || !session.verified || !isHex64(session.deviceSignPub)) return { ok: true };
+    const rev = await loadRevocations(session.accountP, { fresh: true });
+    if (!rev || rev.ok !== true || !isRevokedDevice(rev, session)) return { ok: true };
+    releaseLinkedDevice('DEVICE_REVOKED');
+    try {
+      root.dispatchEvent(new CustomEvent('sos-ld-device-revoked'));
+    } catch (_e) {}
+    return { ok: false, code: 'DEVICE_REVOKED' };
+  }
+
+  async function revokeLinkedDevice(device) {
+    const session = getAccountSession();
+    if (session.role !== 'PRIMARY_ACCOUNT' || !primaryReady()) return { ok: false, code: 'NOT_PRIMARY' };
+    const signer = App.SosCryptoSigner;
+    const pool = App.pool;
+    const NT = root.NostrTools;
+    if (!signer || typeof signer.signDeviceRevoke !== 'function' || typeof signer.hasIdentityKey !== 'function' || signer.hasIdentityKey() !== true || !pool || !NT) {
+      return { ok: false, code: 'NO_SIGNER' };
+    }
+    const pub = norm(device && device.deviceSignPub);
+    const authorizationId = norm(device && device.authorizationId);
+    if (!isHex64(pub) || !isHex64(authorizationId)) return { ok: false, code: 'BAD_DEVICE' };
+    const current = await loadRevocations(session.accountP, { fresh: true });
+    if (!current || current.ok !== true) return { ok: false, code: (current && current.code) || 'QUERY_FAILED' };
+    const list = current.list.filter(function (row) { return row.deviceSignPub !== pub; });
+    list.push({ deviceSignPub: pub, authorizationId: authorizationId, at: Date.now() });
+    const body = { v: 1, revoked: list.slice(-32) };
+    let signed;
+    try {
+      signed = await Promise.resolve(signer.signDeviceRevoke({
+        kind: 30078,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [['d', REVOKE_TAG]],
+        content: JSON.stringify(body),
+        pubkey: session.accountP,
+      }));
+    } catch (err) {
+      return { ok: false, code: (err && err.code) || 'SIGN_FAILED' };
+    }
+    if (!signed || verifyEventPlain(signed).ok !== true || norm(signed.pubkey) !== session.accountP) {
+      return { ok: false, code: 'BAD_SIGNATURE' };
+    }
+    const published = pool.publish(App.relayUrls, signed);
+    const pending = Array.isArray(published) ? published : [published];
+    const settled = await Promise.allSettled(pending.map(function (p) { return Promise.resolve(p); }));
+    const accepted = settled.some(function (r) { return r.status === 'fulfilled'; });
+    if (!accepted) return { ok: false, code: 'RELAY_REJECTED' };
+    const pubs = {};
+    const ids = {};
+    body.revoked.forEach(function (row) {
+      pubs[row.deviceSignPub] = true;
+      ids[row.authorizationId] = true;
+    });
+    const value = { ok: true, code: 'REVOKED', pubs: pubs, ids: ids, list: body.revoked };
+    revokeCache[session.accountP] = { exp: Date.now() + 20000, value: value };
+    const cache = root.__sosDeviceAccountCache;
+    if (cache) delete cache[pub];
+    return { ok: true, code: 'REVOKED' };
+  }
+
   function directoryDeviceLabel() {
     try {
       const nav = root.navigator;
@@ -632,7 +774,7 @@
     return text;
   }
 
-  async function collectVerifiedDirectory(accountP, requiredCap) {
+  async function collectVerifiedDirectory(accountP, requiredCap, opts) {
     const account = norm(accountP);
     const cap = requiredCap ? String(requiredCap) : '';
     if (!isHex64(account)) return { ok: false, code: 'BAD_ACCOUNT', devices: [] };
@@ -651,6 +793,7 @@
       return { ok: false, code: 'QUERY_FAILED', devices: [] };
     }
     const events = flattenRelayEvents(raw);
+    const rev = await loadRevocations(account, opts);
     const best = {};
     for (let i = 0; i < events.length; i += 1) {
       const event = events[i];
@@ -668,19 +811,22 @@
       if (!verified || verified.ok !== true) continue;
       const caps = Array.isArray(auth.capabilities) ? auth.capabilities.map(String) : [];
       if (cap && caps.indexOf(cap) === -1) continue;
-      const id = norm(auth.deviceId) || norm(auth.D_sign_pub);
+      const signPub = norm(auth.D_sign_pub);
+      const authorizationId = norm(auth.authorizationId);
+      if (!isHex64(signPub) || isRevokedDevice(rev, { deviceSignPub: signPub, authorizationId: authorizationId })) continue;
       const row = {
-        deviceId: id,
-        deviceSignPub: norm(auth.D_sign_pub),
+        deviceId: norm(auth.deviceId) || signPub,
+        deviceSignPub: signPub,
         deviceEncPub: norm(auth.D_enc_pub),
+        authorizationId: authorizationId,
         expiresAt: Number(auth.expiresAt) || 0,
         caps: caps,
         deviceLabel: safeDirectoryLabel(body.deviceLabel) || safeDirectoryLabel(auth.deviceLabel) || 'מחשב',
         linkedAt: Number(auth.createdAt) || 0,
         lastSeenAt: (Number(event.created_at) || 0) * 1000,
       };
-      const prev = best[id];
-      if (!prev || row.lastSeenAt >= prev.lastSeenAt) best[id] = row;
+      const prev = best[signPub];
+      if (!prev || row.lastSeenAt >= prev.lastSeenAt) best[signPub] = row;
     }
     return { ok: true, devices: Object.keys(best).map(function (id) { return best[id]; }) };
   }
@@ -691,7 +837,7 @@
   }
 
   async function listAccountLinkedDevices(accountP) {
-    return collectVerifiedDirectory(accountP, '');
+    return collectVerifiedDirectory(accountP, '', { fresh: true });
   }
 
   async function resolveDeviceAccount(devicePub) {
@@ -730,6 +876,8 @@
       }, Date.now(), { requireHistorySync: false });
       if (!verified || verified.ok !== true) continue;
       const caps = Array.isArray(auth.capabilities) ? auth.capabilities.map(String) : [];
+      const signPub = device;
+      if (isRevokedDevice(await loadRevocations(norm(auth.accountP)), { deviceSignPub: signPub, authorizationId: norm(auth.authorizationId) })) continue;
       value = {
         ok: true,
         accountP: norm(auth.accountP),
@@ -745,6 +893,8 @@
   }
 
   async function resubscribeLinkedTransports() {
+    try { await watchOwnRevocation(); } catch (_rev) {}
+    if (getAccountSession().role !== 'LINKED_DEVICE') return;
     if (typeof App.ensureSecureChatEpochReady === 'function') {
       try { await App.ensureSecureChatEpochReady(); } catch (_epoch) {}
     }
@@ -761,6 +911,12 @@
       if (typeof App.rebindLinkedDeviceP2P === 'function') App.rebindLinkedDeviceP2P();
     } catch (_p2p) {}
     try { await announceLinkedDevice(); } catch (_ann) {}
+    if (!directoryHeartbeat) {
+      directoryHeartbeat = setInterval(function () {
+        announceLinkedDevice().catch(function () {});
+        watchOwnRevocation().catch(function () {});
+      }, 120000);
+    }
     try {
       const calls = App.CallSignalE2ee;
       if (calls && typeof calls.ensureSecureCallSubscription === 'function') {
@@ -847,6 +1003,8 @@
     announceLinkedDevice: announceLinkedDevice,
     listAuthorizedDevices: listAuthorizedDevices,
     listAccountLinkedDevices: listAccountLinkedDevices,
+    revokeLinkedDevice: revokeLinkedDevice,
+    releaseLinkedDevice: releaseLinkedDevice,
     resolveDeviceAccount: resolveDeviceAccount,
     verifiedAccountOf: verifiedAccountOf,
     canonicalPeer: canonicalPeer,

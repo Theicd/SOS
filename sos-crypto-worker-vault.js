@@ -161,7 +161,7 @@
       const pre = eligibilityPrecheck();
       if (!pre.ok) return pre;
       try {
-        worker = new Worker('./sos-crypto-worker.js?v=20261014&pkg=899s27');
+        worker = new Worker('./sos-crypto-worker.js?v=20261019&pkg=899s38');
         worker.onmessage = onWorkerMessage;
         worker.onerror = onWorkerError;
         lastMeta = await rpc('VAULT_INIT', {});
@@ -363,7 +363,7 @@
       err.code = pre.code || 'WORKER_VAULT_UNAVAILABLE';
       throw err;
     }
-    worker = new Worker('./sos-crypto-worker.js?v=20261014&pkg=899s27');
+    worker = new Worker('./sos-crypto-worker.js?v=20261019&pkg=899s38');
     worker.onmessage = onWorkerMessage;
     worker.onerror = onWorkerError;
     return true;
