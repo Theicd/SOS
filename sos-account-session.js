@@ -307,8 +307,15 @@
     const session = getAccountSession();
     if (!allows(OPS.SEND_CHAT)) return { ok: false, code: 'CAPABILITY_DENIED' };
     const opts = extra && typeof extra === 'object' ? extra : {};
-    const sibling = opts.sibling === true;
-    const deliverTo = sibling ? session.accountP : norm(peer);
+    const deviceCopy = opts.deviceCopy === true;
+    const devicePub = norm(opts.devicePub || '');
+    const deviceEncPub = norm(opts.deviceEncPub || '');
+    if (deviceCopy) {
+      if (!isHex64(devicePub)) return { ok: false, code: 'BAD_DEVICE' };
+      if (deviceEncPub && deviceEncPub === devicePub) return { ok: false, code: 'D_ENC_NOT_CHAT_RECIPIENT' };
+    }
+    const sibling = opts.sibling === true && !deviceCopy;
+    const deliverTo = deviceCopy ? devicePub : (sibling ? session.accountP : norm(peer));
     if (!isHex64(deliverTo)) return { ok: false, code: 'BAD_RECIPIENT' };
     return withDevice(async function (dev) {
       const createdAt = Math.floor(Date.now() / 1000);
@@ -332,7 +339,14 @@
         ['t', 'yalachat'],
         ['sos-md3', JSON.stringify(dev.authorization)],
       ];
-      if (sibling) {
+      if (deviceCopy) {
+        tags.push(['t', 'sos-device-copy']);
+        if (messageId) tags.push(['e', String(messageId).slice(0, 80)]);
+        if (opts.mirror === 'outgoing' && isHex64(norm(peer))) {
+          tags.push(['t', 'sos-sibling-sync']);
+          tags.push(['sync-peer', norm(peer)]);
+        }
+      } else if (sibling) {
         tags.push(['t', 'sos-sibling-sync']);
         tags.push(['sync-peer', norm(peer)]);
       }

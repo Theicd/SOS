@@ -20,7 +20,7 @@ function check(name, ok) {
 check('actor resolver is exported', session.includes('resolveVerifiedActor: resolveVerifiedActor') && session.includes('canonicalPeer: canonicalPeer'));
 check('unknown device is not merged', session.includes("authorization: 'direct-account'"));
 check('chat maps sender before the contact', chat.includes('senderAccount = await mapAccount(sender)') && chat.includes('contactPubkey = await mapAccount(syncPeerEarly)'));
-check('device author is filed on the account even on a linked device', chat.includes('senderAccount && senderAccount !== sender && sender !== accountUser'));
+check('device author is filed on the account even on a linked device', chat.includes("kind: 'INCOMING_FROM_EXTERNAL_ACCOUNT'") && chat.includes("kind: 'OUTGOING_TO_EXTERNAL_ACCOUNT'") && !chat.includes('senderAccount && senderAccount !== sender && sender !== accountUser'));
 check('p2p does not dial a verified device key', chat.includes('skip device endpoint'));
 check('stored parties rewrite a verified device', state.includes('accountForStoredParty'));
 check('logical duplicate keeps the attachment', state.includes('existing.attachment = message.attachment'));

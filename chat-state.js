@@ -816,6 +816,7 @@
     }
     recomputeUnreadCounts();
     recalculateUnreadTotal();
+    try { reconcileStoredFalseSelfCopies(); } catch (_falseSelf) {}
     try { replayPendingInboundReceipts(); } catch (_) {}
     notify('contacts', getContactsSnapshot());
     notify('unread', chatState.unreadTotal);
@@ -978,6 +979,55 @@
     notify('unread', chatState.unreadTotal);
   }
 
+  function reconcileStoredFalseSelfCopies() {
+    const self = (App.publicKey || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(self)) return 0;
+    const selfKey = getConversationKey(self, self);
+    const entry = selfKey && chatState.conversations.get(selfKey);
+    if (!entry || !Array.isArray(entry.messages) || !entry.messages.length) return 0;
+    const externalLogical = new Set();
+    chatState.conversations.forEach((other, otherKey) => {
+      if (!other || otherKey === selfKey || String(other.peer || '').toLowerCase() === self) return;
+      (other.messages || []).forEach((item) => {
+        if (item && item.logicalMessageId) externalLogical.add(item.logicalMessageId);
+      });
+    });
+    if (!externalLogical.size) return 0;
+    const kept = [];
+    let dropped = 0;
+    entry.messages.forEach((item) => {
+      const bothSelf = item && String(item.from || '').toLowerCase() === self && String(item.to || '').toLowerCase() === self;
+      if (bothSelf && item.logicalMessageId && externalLogical.has(item.logicalMessageId)) {
+        dropped += 1;
+        if (item.id) chatState.messageIndex.delete(item.id);
+        return;
+      }
+      if (item) kept.push(item);
+    });
+    if (!dropped) return 0;
+    entry.messages = kept;
+    try {
+      if (chatState.contacts.has(self)) {
+        const last = kept[kept.length - 1];
+        updateContactMeta(self, {
+          lastMessage: last && typeof last.content === 'string' ? last.content : '',
+          timestamp: last && typeof last.createdAt === 'number' ? last.createdAt : 0,
+          forceTimestamp: true,
+        });
+        notify('message', { peer: self });
+      }
+    } catch (_preview) {}
+    chatState.conversations.forEach((other, otherKey) => {
+      if (!other || otherKey === selfKey) return;
+      (other.messages || []).forEach((item) => {
+        if (item && item.id) chatState.messageIndex.set(item.id, { peer: other.peer, key: otherKey });
+      });
+    });
+    persistLog('RECONCILE_FALSE_SELF', 'dropped=' + dropped);
+    persistState();
+    return dropped;
+  }
+
   function appendMessageToConversation(message) {
     if (!message || typeof message !== 'object') return;
     stampMessageTransport(message);
@@ -999,6 +1049,18 @@
     const key = getConversationKey(from, to);
     if (!key) return;
     const self = (App.publicKey || '').toLowerCase();
+    if (from.toLowerCase() === self && to.toLowerCase() === self && message.logicalMessageId) {
+      let provenExternal = false;
+      chatState.conversations.forEach((other, otherKey) => {
+        if (provenExternal || !other || otherKey === key) return;
+        if (String(other.peer || '').toLowerCase() === self) return;
+        provenExternal = (other.messages || []).some((item) => item && item.logicalMessageId === message.logicalMessageId);
+      });
+      if (provenExternal) {
+        persistLog('SKIP_FALSE_SELF', 'logical=' + String(message.logicalMessageId));
+        return;
+      }
+    }
     const peerPrefix = (from.toLowerCase() === self ? String(to) : String(from)).toLowerCase().slice(0, 8);
     const messagesBefore = chatState.conversations.get(key)?.messages?.length || 0;
     persistLog(
@@ -1101,6 +1163,9 @@
         peer: entry.peer,
         key,
       });
+    }
+    if (message.logicalMessageId && !(from.toLowerCase() === self && to.toLowerCase() === self)) {
+      try { reconcileStoredFalseSelfCopies(); } catch (_falseSelf) {}
     }
     // חלק תיקון מדיה (chat-state.js) – preview בסגנון וואטסאפ: תמונה/וידאו/מסמך במקום שם קובץ | HYPER CORE TECH
     let attachmentPreview = '';

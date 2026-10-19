@@ -19,7 +19,7 @@ check('delegated send waits for relay promises', delegated.includes('awaitRelayA
 check('delegated send replaces optimistic temp', delegated.includes('replaceOutgoingTempMessage'));
 check('delegated send syncs to the phone', delegated.includes('sibling: true'));
 check('own-device mirror is separate from the recipient copy', chat.includes("publishAuthorizedDeviceCopies(App.publicKey") && chat.includes('sos-own-sync'));
-check('incoming device thread uses the account', chat.includes('onDevice && !isSelfMessage') && chat.includes('bubbleTo'));
+check('incoming device thread uses the account', chat.includes("kind: 'INCOMING_DEVICE_COPY'") && chat.includes("kind: 'INCOMING_FROM_EXTERNAL_ACCOUNT'") && chat.includes('to: account'));
 check('md3 reject is logged', chat.includes('[MD3] rejected'));
 check('linked device is not an unknown p2p principal', guest.includes("code: 'LINKED_DEVICE'") && guest.includes('DEVICE_P2P'));
 check('call ring fans out to devices', calls.includes('CALL_DEVICE_FANOUT') && calls.includes('listAuthorizedDevices'));

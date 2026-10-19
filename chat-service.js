@@ -507,7 +507,7 @@
     const inbound = mode === 'inbound';
     const outgoingMirror = !inbound && /^[0-9a-f]{64}$/.test(String(mirrorPeer || ''));
     let devices = [];
-    try { devices = await Session.listAuthorizedDevices(account, inbound ? 'DEVICE_FILES' : undefined); } catch (_e) { devices = []; }
+    try { devices = await Session.listAuthorizedDevices(account, 'DEVICE_CHAT'); } catch (_e) { devices = []; }
     if (!Array.isArray(devices) || !devices.length) {
       try { console.log('[MD] no authorized device copies for ' + account.slice(0, 8)); } catch (_log) {}
       return { ok: true, n: 0 };
@@ -517,8 +517,14 @@
     if (!pool) return { ok: false, n: 0, code: 'NO_POOL' };
     let n = 0;
     for (let i = 0; i < devices.length; i += 1) {
-      const devicePub = String(devices[i] && devices[i].deviceSignPub || '').toLowerCase();
-      if (!/^[0-9a-f]{64}$/.test(devicePub) || devicePub === account || devicePub === String(App.publicKey || '').toLowerCase()) continue;
+      const signPub = String(devices[i] && devices[i].deviceSignPub || '').toLowerCase();
+      const encPub = String(devices[i] && devices[i].deviceEncPub || '').toLowerCase();
+      if (!/^[0-9a-f]{64}$/.test(signPub) || signPub === account || signPub === String(App.publicKey || '').toLowerCase()) continue;
+      if (encPub && encPub === signPub) {
+        try { console.warn('[MD] D_ENC_NOT_CHAT_RECIPIENT'); } catch (_enc) {}
+        continue;
+      }
+      const devicePub = signPub;
       let envelope;
       try {
         envelope = await Promise.resolve(App.SosCryptoSigner.nip44ChatEncrypt({
@@ -589,6 +595,58 @@
     return { ok: true, n: ok };
   }
 
+  function chatDeviceSignPub(device) {
+    const signPub = String(device && device.deviceSignPub || '').toLowerCase();
+    const encPub = String(device && device.deviceEncPub || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(signPub)) return '';
+    if (encPub && encPub === signPub) return '';
+    return signPub;
+  }
+
+  async function publishDelegatedDeviceCopies(peerAccount, text, logicalId, attachment) {
+    const Session = window.SosAccountSession;
+    const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    if (!session || session.role !== 'LINKED_DEVICE' || session.verified !== true) return { ok: false, n: 0, code: 'NOT_LINKED' };
+    if (!Session || typeof Session.listAuthorizedDevices !== 'function' || typeof Session.delegatedChatEncrypt !== 'function') {
+      return { ok: false, n: 0, code: 'NO_DIRECTORY' };
+    }
+    const selfDevice = String(session.deviceSignPub || '').toLowerCase();
+    const account = String(session.accountP || App.publicKey || '').toLowerCase();
+    const peer = String(peerAccount || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(account) || !/^[0-9a-f]{64}$/.test(peer) || !logicalId) return { ok: false, n: 0, code: 'BAD_TARGET' };
+    let recipients = [];
+    let mine = [];
+    try { recipients = await Session.listAuthorizedDevices(peer, 'DEVICE_CHAT'); } catch (_list) { recipients = []; }
+    try { mine = await Session.listAuthorizedDevices(account, 'DEVICE_CHAT'); } catch (_mine) { mine = []; }
+    const pool = ensurePoolReady();
+    if (!pool) return { ok: false, n: 0, code: 'NO_POOL' };
+    const sent = new Set();
+    let n = 0;
+    async function sendOne(device, mirror) {
+      const devicePub = chatDeviceSignPub(device);
+      if (!devicePub || devicePub === selfDevice || devicePub === account || sent.has(devicePub)) return;
+      sent.add(devicePub);
+      const signed = await Session.delegatedChatEncrypt(peer, typeof text === 'string' ? text : '', logicalId, {
+        deviceCopy: true,
+        devicePub: devicePub,
+        deviceEncPub: device && device.deviceEncPub,
+        mirror: mirror,
+        attachment: attachment || null,
+      });
+      if (!signed || signed.ok !== true || !signed.event) return;
+      const accepted = await awaitRelayAccepted(pool, App.relayUrls, signed.event);
+      if (accepted && accepted.ok) n += 1;
+    }
+    if (peer !== account) {
+      const list = Array.isArray(recipients) ? recipients : [];
+      for (let i = 0; i < list.length; i += 1) await sendOne(list[i], '');
+    }
+    const own = Array.isArray(mine) ? mine : [];
+    for (let i = 0; i < own.length; i += 1) await sendOne(own[i], 'outgoing');
+    try { console.log('[MD] delegated device copies ' + n + ' peer=' + peer.slice(0, 8)); } catch (_done) {}
+    return { ok: true, n: n };
+  }
+
   async function publishSelfChatMessage(plainText, options = {}) {
     const self = String(App.publicKey || '').toLowerCase();
     if (!/^[0-9a-f]{64}$/.test(self)) return { ok: false, error: 'no-account' };
@@ -626,6 +684,9 @@
       }
       const accepted = await awaitRelayAccepted(pool, App.relayUrls, signed.event);
       delivered = !!(accepted && accepted.ok);
+      if (delivered) {
+        try { await publishDelegatedDeviceCopies(self, text, messageId, null); } catch (_selfFan) {}
+      }
     } else if (App.SosCryptoSigner && typeof App.SosCryptoSigner.hasIdentityKey === 'function' && App.SosCryptoSigner.hasIdentityKey()) {
       const att = typeof App.getChatFileAttachment === 'function' ? App.getChatFileAttachment(self) : null;
       let file = att && (att.file || att.blob);
@@ -712,16 +773,21 @@
     }
     outgoingMessage.status = 'sent';
     if (typeof App.updateChatMessageStatus === 'function') App.updateChatMessageStatus(event.id, 'sent');
+    let deviceCopies = 0;
     try {
       const sibling = await Session.delegatedChatEncrypt(peerNorm, text, messageId, { sibling: true, attachment: wireAtt || null });
       if (sibling && sibling.ok === true && sibling.event) {
         await awaitRelayAccepted(pool, App.relayUrls, sibling.event);
       }
     } catch (_sib) {}
+    try {
+      const fan = await publishDelegatedDeviceCopies(peerNorm, text, messageId, wireAtt || null);
+      deviceCopies = fan && fan.n ? fan.n : 0;
+    } catch (_fan) { deviceCopies = 0; }
     if (att && typeof App.clearChatFileAttachment === 'function') {
       try { App.clearChatFileAttachment(peerNorm); } catch (_clr) {}
     }
-    return { ok: true, id: event.id, messageId: event.id, delegated: true, ROOT_K_PRESENT: false, stage: 'RELAY_ACCEPTED' };
+    return { ok: true, id: event.id, messageId: event.id, delegated: true, ROOT_K_PRESENT: false, deviceCopies: deviceCopies, stage: 'RELAY_ACCEPTED' };
   }
 
   async function publishChatMessage(peerPubkey, plainText, options = {}) {
@@ -1436,6 +1502,71 @@
     }
   }
 
+  function classifyChatDelivery(input) {
+    const hex = (value) => /^[0-9a-f]{64}$/.test(String(value || ''));
+    const account = String(input.accountUser || '').toLowerCase();
+    const sender = String(input.sender || '').toLowerCase();
+    const senderAccount = String(input.senderAccount || sender || '').toLowerCase();
+    const recipientAccount = String(input.recipientAccount || input.recipient || '').toLowerCase();
+    const syncPeerAccount = String(input.syncPeerAccount || '').toLowerCase();
+    const logicalSender = hex(senderAccount) ? senderAccount : '';
+    const selfAuthored = input.selfAuthored === true;
+    const syncTrusted = input.syncVerified === true && hex(syncPeerAccount);
+    if (!hex(account) || !logicalSender) return null;
+    if (input.inboundSync === true && syncTrusted && input.onDevice === true && sender === account) {
+      return {
+        kind: 'INCOMING_ACCOUNT_DEVICE_SYNC',
+        direction: 'incoming',
+        from: syncPeerAccount,
+        to: account,
+        peer: syncPeerAccount,
+      };
+    }
+    if (input.ownSync === true && syncTrusted && logicalSender === account) {
+      if (syncPeerAccount === account) {
+        return { kind: 'SELF_CONVERSATION', direction: 'outgoing', from: account, to: account, peer: account };
+      }
+      return {
+        kind: 'OUTGOING_SIBLING_SYNC',
+        direction: 'outgoing',
+        from: account,
+        to: syncPeerAccount,
+        peer: syncPeerAccount,
+      };
+    }
+    if (selfAuthored && logicalSender === account && recipientAccount === account) {
+      return { kind: 'SELF_CONVERSATION', direction: 'outgoing', from: account, to: account, peer: account };
+    }
+    if (selfAuthored && hex(recipientAccount) && recipientAccount !== account) {
+      return {
+        kind: 'OUTGOING_TO_EXTERNAL_ACCOUNT',
+        direction: 'outgoing',
+        from: account,
+        to: recipientAccount,
+        peer: recipientAccount,
+      };
+    }
+    if (input.deviceCopy === true && logicalSender !== account) {
+      return {
+        kind: 'INCOMING_DEVICE_COPY',
+        direction: 'incoming',
+        from: logicalSender,
+        to: account,
+        peer: logicalSender,
+      };
+    }
+    if (logicalSender !== account) {
+      return {
+        kind: 'INCOMING_FROM_EXTERNAL_ACCOUNT',
+        direction: 'incoming',
+        from: logicalSender,
+        to: account,
+        peer: logicalSender,
+      };
+    }
+    return null;
+  }
+
   async function handleIncomingChatEvent(event) {
     if (!event || !event.pubkey) {
       return;
@@ -1681,29 +1812,45 @@
       }
     }
 
-    const ownSync = Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 't' && (t[1] === 'sos-sibling-sync' || t[1] === 'sos-own-sync'));
-    const inboundSync = Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 't' && t[1] === 'sos-inbound-sync');
-    const syncTag = Array.isArray(event.tags) ? event.tags.find((t) => Array.isArray(t) && t[0] === 'sync-peer' && typeof t[1] === 'string') : null;
-    const syncPeer = syncTag ? String(syncTag[1]).toLowerCase() : '';
-    const logicalAccount = String(event.__sosDelegatedAccount || senderAccount || '');
-    let bubbleFrom = senderAccount || sender;
-    let bubbleTo = (onDevice && !isSelfMessage) ? accountUser : conversationTarget;
-    if (isSelfMessage) bubbleTo = await mapAccount(recipient);
-    let bubbleDirection = isSelfMessage ? 'outgoing' : 'incoming';
-    if (inboundSync && onDevice && sender === accountUser && /^[0-9a-f]{64}$/.test(syncPeer)) {
-      bubbleFrom = await mapAccount(syncPeer);
-      bubbleTo = accountUser;
-      bubbleDirection = 'incoming';
-    } else if (ownSync && /^[0-9a-f]{64}$/.test(syncPeer)) {
-      bubbleFrom = logicalAccount || accountUser;
-      bubbleTo = await mapAccount(syncPeer);
-      bubbleDirection = 'outgoing';
-    } else if (senderAccount && senderAccount !== sender && sender !== accountUser) {
-      bubbleFrom = senderAccount;
-      bubbleTo = accountUser;
-      bubbleDirection = 'incoming';
+    const ownSync = ownSyncEarly;
+    const inboundSync = inboundSyncEarly;
+    const syncPeer = syncPeerEarly;
+    const recipientAccount = await mapAccount(recipient);
+    const syncPeerAccount = /^[0-9a-f]{64}$/.test(syncPeer) ? await mapAccount(syncPeer) : '';
+    const syncVerified = !!(event.__sosDelegatedAccount || sender === accountUser);
+    if ((ownSync || inboundSync) && !syncVerified) {
+      try { console.log('[MD] SYNC_TAG_UNVERIFIED event=' + String(event.id || '').slice(0, 8)); } catch (_sync) {}
+      return;
     }
-    const bubblePeer = bubbleDirection === 'outgoing' ? bubbleTo : bubbleFrom;
+    const route = classifyChatDelivery({
+      accountUser: accountUser,
+      devicePub: devicePub,
+      onDevice: onDevice,
+      sender: sender,
+      senderAccount: senderAccount,
+      recipient: recipient,
+      recipientAccount: recipientAccount,
+      syncPeerAccount: syncPeerAccount,
+      ownSync: ownSync,
+      inboundSync: inboundSync,
+      deviceCopy: deviceCopyEcho,
+      selfAuthored: isSelfMessage,
+      syncVerified: syncVerified,
+    });
+    if (!route || !route.peer || !route.from || !route.to) {
+      try { console.log('[CHAT/ROUTE] DROPPED event=' + String(event.id || '').slice(0, 8)); } catch (_drop) {}
+      return;
+    }
+    const bubbleFrom = route.from;
+    const bubbleTo = route.to;
+    const bubbleDirection = route.direction;
+    const bubblePeer = route.peer;
+    if (bubblePeer !== contactPubkey && typeof App.ensureChatContact === 'function') {
+      try {
+        const lateProfile = normalizeProfileData(await resolveProfile(bubblePeer), bubblePeer);
+        App.ensureChatContact(bubblePeer, { ...lateProfile, profileFetchedAt: Math.floor(Date.now() / 1000) });
+      } catch (_late) {}
+    }
 
     // M4: hydrate encrypted Blossom attachments for local render (does not change transport routing).
     if (
@@ -1816,40 +1963,47 @@
     if (logicalMessageId) {
       normalizedMessage.logicalMessageId = logicalMessageId;
     }
+    normalizedMessage.routeKind = route.kind;
 
     let selfEchoDeduped = false;
-    if (isSelfMessage && isE2eeContent && event.id && typeof App.getChatMessages === 'function') {
+    if (event.id && typeof App.getChatMessages === 'function') {
       try {
-        const existing = App.getChatMessages(peerPubkey) || [];
-        selfEchoDeduped = existing.some((m) => m && m.id === event.id);
+        const existing = App.getChatMessages(bubblePeer) || [];
+        selfEchoDeduped = existing.some((m) => m && (
+          m.id === event.id ||
+          (logicalMessageId && (m.logicalMessageId === logicalMessageId || m.id === logicalMessageId))
+        ));
       } catch (_e) { /* ignore */ }
     }
     if (selfEchoDeduped) {
       try {
         console.log(
           '[CHAT/E2EE] self-echo deduped peer=' +
-            String(peerPubkey || '').slice(0, 8) +
+            String(bubblePeer || '').slice(0, 8) +
             ' event=' +
             String(event.id || '').slice(0, 8),
         );
       } catch (_logErr) {}
+      return;
     }
 
+    try { console.log('[CHAT/ROUTE] kind=' + route.kind + ' peer=' + String(bubblePeer || '').slice(0, 8) + ' event=' + String(event.id || '').slice(0, 8)); } catch (_route) {}
     try { console.log('[CHAT/SEND] RECIPIENT_UI_COMMITTED event=' + String(event.id || '').slice(0, 8) + ' peer=' + String(bubblePeer || '').slice(0, 8)); } catch (_ui) {}
     App.appendChatMessage(normalizedMessage);
     if (
       bubbleDirection === 'incoming' &&
       !inboundSync &&
       !onDevice &&
-      parsedPayload.attachment &&
-      parsedPayload.attachment.type === 'encrypted-media' &&
+      route.kind !== 'SELF_CONVERSATION' &&
+      ((parsedPayload.displayText && String(parsedPayload.displayText).length) || parsedPayload.attachment) &&
       App.SosCryptoSigner &&
       typeof App.SosCryptoSigner.hasIdentityKey === 'function' &&
       App.SosCryptoSigner.hasIdentityKey()
     ) {
-      const inboundWire = typeof App.buildEncryptedAttachmentWireDescriptor === 'function'
+      // FANOUT_ALL_LOGICAL — text, voice, images and documents share one device copy.
+      const inboundWire = parsedPayload.attachment && typeof App.buildEncryptedAttachmentWireDescriptor === 'function'
         ? App.buildEncryptedAttachmentWireDescriptor(parsedPayload.attachment)
-        : parsedPayload.attachment;
+        : (parsedPayload.attachment || null);
       publishAuthorizedDeviceCopies(
         accountUser,
         logicalMessageId || normalizedMessage.id,
@@ -1885,7 +2039,7 @@
     // בדיקה: הודעה נחשבת "חדשה" אם נוצרה בדקה האחרונה מעכשיו
     const isRecentMessage = messageAgeSec < 60; // הודעה מהדקה האחרונה
     
-    if (!isSelfMessage && isRecentMessage && typeof App.triggerChatMessagePush === 'function') {
+    if (bubbleDirection === 'incoming' && route.kind !== 'SELF_CONVERSATION' && isRecentMessage && typeof App.triggerChatMessagePush === 'function') {
       App.triggerChatMessagePush(normalizedMessage);
     }
     
@@ -2917,6 +3071,7 @@
     isValidIncomingEncryptedP2pMarker,
     flushPendingE2eeEvents,
     handleIncomingChatEvent,
+    classifyChatDelivery,
     extractValidatedChatRecipientPTag,
     resolveIncomingE2eeChatPayload,
   });
