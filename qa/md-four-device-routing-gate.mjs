@@ -39,6 +39,7 @@ check('text fanout is not media-only', chat.includes('FANOUT_ALL_LOGICAL') && !/
 check('linked sender fans out without Root K', chat.includes('async function publishDelegatedDeviceCopies') && chat.includes('deviceCopy: true'));
 check('D_sign is the chat recipient', session.includes("code: 'D_ENC_NOT_CHAT_RECIPIENT'") && session.includes('deliverTo = deviceCopy ? devicePub'));
 check('false self row is removed only when the external copy exists', state.includes('SKIP_FALSE_SELF') && state.includes('RECONCILE_FALSE_SELF') && !state.includes('conversations.delete(selfKey)'));
+check('phone pulls account-addressed copies', chat.includes('async function pullRecentAccountChat') && chat.includes('ACCOUNT_CHAT_PULL') && /function subscribeToChatEvents\(\) \{[\s\S]{0,1200}pullRecentAccountChat\(/.test(chat));
 
 function loadChat(sessionExtra) {
   const appended = [];
@@ -299,6 +300,25 @@ check('unproven self row is retained', stateApp.getChatMessages(A).some((m) => m
 stateApp.appendChatMessage({ id: 'voice-ext', from: A, to: B, content: 'voice', createdAt: now, direction: 'outgoing', logicalMessageId: 'L-voice', attachment: { type: 'encrypted-media', name: 'voice.webm' } });
 check('proven false self row is removed without deleting the voice', !stateApp.getChatMessages(A).some((m) => m.logicalMessageId === 'L-voice') && stateApp.getChatMessages(B).some((m) => m.id === 'voice-ext' && m.attachment && m.attachment.name === 'voice.webm'));
 check('self conversation still has the real self message', stateApp.getChatMessages(A).some((m) => m.logicalMessageId === 'L-self'));
+
+const phone = loadChat();
+phone.App.getAccountSession = () => ({ role: 'PRIMARY_ACCOUNT', verified: true, accountP: A });
+let phoneFilter = null;
+phone.App.pool.querySync = async (_relays, filter) => {
+  phoneFilter = filter;
+  return [];
+};
+await phone.App.pullRecentAccountChat();
+check('primary pull asks for the account', !!(phoneFilter && Array.isArray(phoneFilter['#p']) && phoneFilter['#p'][0] === A && phoneFilter['#t'][0] === 'yalachat'));
+
+const desktop = loadChat();
+let desktopFilter = null;
+desktop.App.pool.querySync = async (_relays, filter) => {
+  desktopFilter = filter;
+  return [];
+};
+await desktop.App.pullRecentAccountChat();
+check('desktop pull asks for the device key', !!(desktopFilter && Array.isArray(desktopFilter['#p']) && desktopFilter['#p'][0] === DA));
 
 if (failed) {
   console.log('STATUS=FAIL failed=' + failed);

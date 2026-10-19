@@ -2151,20 +2151,19 @@
       } catch (_) {}
       return;
     }
-    handleIncomingChatEvent(event);
+    return handleIncomingChatEvent(event);
   }
 
   function ingestIncomingChatRelayEvent(event) {
     const Integrity = window.NostrEventIntegrity;
     if (Integrity && typeof Integrity.enqueueStrictVerify === 'function') {
-      Integrity.enqueueStrictVerify(event, { priority: 'high' }).then((result) => {
-        if (!result || result.ok !== true || !result.snapshot) return;
-        applyVerifiedIncomingChatRelayEvent(result.snapshot);
-      }).catch(() => {});
-      return;
+      return Integrity.enqueueStrictVerify(event, { priority: 'high' }).then((result) => {
+        if (!result || result.ok !== true || !result.snapshot) return null;
+        return applyVerifiedIncomingChatRelayEvent(result.snapshot);
+      }).catch(() => null);
     }
-    if (!verifyIncomingChatRelayEvent(event)) return;
-    applyVerifiedIncomingChatRelayEvent(event);
+    if (!verifyIncomingChatRelayEvent(event)) return null;
+    return applyVerifiedIncomingChatRelayEvent(event);
   }
 
   // חלק אבטחה (chat-service.js) – אימות נמען מקומי לאירועי ריליי שאינם של המשתמש הנוכחי | HYPER CORE TECH
@@ -2228,6 +2227,41 @@
     subscribeToChatEvents();
   }
 
+  let lastAccountChatPullAt = 0;
+  async function pullRecentAccountChat() {
+    const now = Date.now();
+    if (now - lastAccountChatPullAt < 4000) return { ok: false, code: 'DEBOUNCED' };
+    if (typeof App.isSecureChatReady === 'function' && !App.isSecureChatReady()) return { ok: false, code: 'EPOCH' };
+    const pool = App.pool;
+    const relays = Array.isArray(App.relayUrls) ? App.relayUrls : [];
+    if (!pool || !relays.length || typeof pool.querySync !== 'function') return { ok: false, code: 'NO_POOL' };
+    const self = String(App.publicKey || '').toLowerCase();
+    if (!/^[0-9a-f]{64}$/.test(self)) return { ok: false, code: 'NO_ACCOUNT' };
+    const linked = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    const device = linked && linked.role === 'LINKED_DEVICE' && linked.verified ? String(linked.deviceSignPub || '').toLowerCase() : '';
+    const pubs = device && device !== self ? [device] : [self];
+    lastAccountChatPullAt = now;
+    let events = [];
+    try {
+      const result = await pool.querySync(relays, {
+        kinds: [CHAT_KIND],
+        '#p': pubs,
+        '#t': [CHAT_TAG],
+        limit: 40,
+        since: getChatRetentionFloorTs(),
+      });
+      events = Array.isArray(result && result.events) ? result.events : (Array.isArray(result) ? result : []);
+    } catch (_e) {
+      lastAccountChatPullAt = 0;
+      return { ok: false, code: 'QUERY_FAILED' };
+    }
+    for (let i = 0; i < events.length; i += 1) {
+      try { await ingestIncomingChatRelayEvent(events[i]); } catch (_in) {}
+    }
+    try { console.log('[CHAT/SYNC] ACCOUNT_CHAT_PULL n=' + events.length); } catch (_log) {}
+    return { ok: true, n: events.length };
+  }
+
   function subscribeToChatEvents() {
     // חלק אבטחה (chat-service.js) – לא נרשמים לצ'אט פרטי לפני שער epoch מוכן | HYPER CORE TECH
     if (typeof App.isSecureChatReady === 'function' && !App.isSecureChatReady()) {
@@ -2236,6 +2270,7 @@
       } catch (_err) { /* ignore */ }
       return;
     }
+    try { pullRecentAccountChat(); } catch (_pull) {}
     if (activeSubscription || !ensurePoolReady()) {
       return;
     }
@@ -2335,6 +2370,7 @@
           subscribeToChatEvents();
           return;
         }
+        try { pullRecentAccountChat(); } catch (_pull) {}
         if (last && (now - last) > 90000) {
           forceResubscribeChat('keepalive');
         }
@@ -3072,6 +3108,7 @@
     flushPendingE2eeEvents,
     handleIncomingChatEvent,
     classifyChatDelivery,
+    pullRecentAccountChat,
     extractValidatedChatRecipientPTag,
     resolveIncomingE2eeChatPayload,
   });

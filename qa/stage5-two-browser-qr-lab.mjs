@@ -149,23 +149,29 @@ async function waitDecryptedHash(page, expectedHash, timeoutMs) {
   return pollPage(page, async (hash) => {
     const App = window.NostrApp;
     const Session = window.SosAccountSession;
+    const before = App.chatState && App.chatState.conversations;
+    let preN = 0;
+    if (before && typeof before.forEach === 'function') {
+      before.forEach((entry) => {
+        const messages = entry && entry.messages;
+        if (Array.isArray(messages)) preN += messages.filter((m) => m && m.attachment).length;
+      });
+    }
     if (Session && typeof Session.pullLinkedDirectMessages === 'function') {
       try { await Session.pullLinkedDirectMessages(); } catch (_e) {}
     }
     if (typeof App.subscribeToChatEvents === 'function') {
       try { App.subscribeToChatEvents(); } catch (_e) {}
     }
-    const me = String(App.publicKey || '').toLowerCase();
-    const filter = { kinds: [1050], '#p': [me], '#t': ['yalachat'], limit: 20 };
-    let events = [];
-    try {
-      if (App.pool && typeof App.pool.list === 'function') events = await App.pool.list(App.relayUrls, [filter]);
-    } catch (_e) {}
-    if (!Array.isArray(events)) events = [];
-    for (let i = 0; i < events.length; i += 1) {
-      if (typeof App.handleIncomingChatEvent === 'function') {
-        try { await App.handleIncomingChatEvent(events[i]); } catch (_in) {}
-      }
+    if (typeof App.ensureSecureChatEpochReady === 'function') {
+      try { await App.ensureSecureChatEpochReady({ skipAutoReload: true }); } catch (_e) {}
+    }
+    let pulled = 0;
+    if (typeof App.pullRecentAccountChat === 'function') {
+      try {
+        const pulledResult = await App.pullRecentAccountChat();
+        pulled = pulledResult && pulledResult.n ? pulledResult.n : 0;
+      } catch (_e) {}
     }
     const conv = App.chatState && App.chatState.conversations;
     if (!conv || typeof conv.forEach !== 'function' || typeof App.resolveServerMediaAttachment !== 'function') return { ok: false };
@@ -193,10 +199,10 @@ async function waitDecryptedHash(page, expectedHash, timeoutMs) {
           for (let b = 0; b < bin.length; b += 1) bytes[b] = bin.charCodeAt(b);
           got = await App.hashMediaCiphertext(bytes);
         }
-        if (got && got === hash) return { ok: true, hash: got };
+        if (got && got === hash) return { ok: true, hash: got, preN: preN, pulled: pulled };
       } catch (_d) {}
     }
-    return { ok: false, n: jobs.length };
+    return { ok: false, n: jobs.length, pulled: pulled, preN: preN };
   }, expectedHash, timeoutMs);
 }
 
@@ -820,9 +826,10 @@ async function installCanvasCamera(page, pngPath) {
   }, `data:image/png;base64,${b64}`);
 }
 
-async function linkAnotherDesktop(desktopBrowser, mobile, pubFp) {
-  const ctx = await desktopBrowser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'he-IL' });
+async function linkAnotherDesktop(desktopBrowser, mobile, pubFp, options = {}) {
+  const ctx = await desktopBrowser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'he-IL', serviceWorkers: 'block' });
   const page = await ctx.newPage();
+  let keep = false;
   try {
     await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 120000 });
     await waitApp(page);
@@ -843,16 +850,20 @@ async function linkAnotherDesktop(desktopBrowser, mobile, pubFp) {
     await mobile.evaluate((dataUrl) => { window.__sosLabQrDataUrl = dataUrl; }, 'data:image/png;base64,' + b64);
     await mobileOpenScanner(mobile);
     const linked = await waitForProductLink(mobile, page, pubFp);
+    const ok = linked.linked === true && linked.identityMatch === true && linked.manualClicks === 0 && linked.leftSos !== true && linked.scanOnly === true;
+    keep = options.keep === true && ok;
     return {
-      ok: linked.linked === true && linked.identityMatch === true && linked.manualClicks === 0 && linked.leftSos !== true && linked.scanOnly === true,
+      ok,
       code: linked.code || '',
       clicks: linked.manualClicks || 0,
       leftSos: linked.leftSos === true,
+      page: keep ? page : null,
+      ctx: keep ? ctx : null,
     };
   } catch (e) {
     return { ok: false, code: String(e && e.message || e).slice(0, 160) };
   } finally {
-    await ctx.close().catch(() => {});
+    if (!keep) await ctx.close().catch(() => {});
   }
 }
 
@@ -2084,7 +2095,28 @@ async function main() {
   console.log(lines.join('\n'));
 }
 
-main().catch((e) => {
-  console.error('LAB_FATAL', redact(e && e.message));
-  process.exit(1);
-});
+function isDirectRun() {
+  const arg = process.argv[1];
+  if (!arg) return false;
+  return path.resolve(arg).toLowerCase() === fileURLToPath(import.meta.url).toLowerCase();
+}
+
+if (isDirectRun()) {
+  main().catch((e) => {
+    console.error('LAB_FATAL', redact(e && e.message));
+    process.exit(1);
+  });
+}
+
+export {
+  installCanvasCamera,
+  mobileOpenScanner,
+  waitForProductLink,
+  waitApp,
+  patchPoolPublishIterable,
+  pollPage,
+  waitDecryptedHash,
+  collectBuildMeta,
+  linkAnotherDesktop,
+  loginFreshPeer,
+};
