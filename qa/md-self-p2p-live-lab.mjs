@@ -146,15 +146,17 @@ async function sendJpeg(page) {
   return page.evaluate(async () => {
     const App = window.NostrApp;
     const canvas = document.createElement('canvas');
-    canvas.width = 1400;
-    canvas.height = 900;
+    canvas.width = 960;
+    canvas.height = 640;
     const g = canvas.getContext('2d');
-    g.fillStyle = '#123';
-    g.fillRect(0, 0, 1400, 900);
-    for (let i = 0; i < 120; i += 1) {
-      g.fillStyle = 'rgb(' + ((i * 17) % 255) + ',' + ((i * 29) % 255) + ',' + ((i * 13) % 255) + ')';
-      g.fillRect((i * 11) % 1300, (i * 7) % 800, 36, 28);
+    const pixels = g.createImageData(960, 640);
+    for (let i = 0; i < pixels.data.length; i += 4) {
+      pixels.data[i] = (i * 17) % 255;
+      pixels.data[i + 1] = (i * 29) % 255;
+      pixels.data[i + 2] = (i * 13) % 255;
+      pixels.data[i + 3] = 255;
     }
+    g.putImageData(pixels, 0, 0);
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
     const raw = new Uint8Array(await blob.arrayBuffer());
     const hash = typeof App.hashMediaCiphertext === 'function' ? await App.hashMediaCiphertext(raw) : '';
@@ -174,26 +176,64 @@ async function waitHash(page, hash, timeoutMs) {
         (entry.messages || []).forEach((m) => { if (m && m.attachment) jobs.push(m); });
       });
     }
+    const sample = [];
     for (let i = 0; i < jobs.length; i += 1) {
       const att = jobs[i].attachment;
+      const url = typeof att.url === 'string' ? att.url : '';
+      const row = {
+        url: url.indexOf('blob:') === 0 ? 'blob' : (url.indexOf('data:') === 0 ? 'data' : (url ? 'other' : 'none')),
+        cache: att.cacheKey ? 'yes' : 'no',
+        fileId: att.fileId ? 'yes' : 'no',
+        via: '',
+        size: 0,
+      };
       try {
         let bytes = null;
-        if (typeof att.url === 'string' && att.url.indexOf('blob:') === 0) {
-          const res = await fetch(att.url);
-          bytes = new Uint8Array(await res.arrayBuffer());
-        } else if (att.cacheKey && typeof App.getChatMediaFromCache === 'function') {
+        if (att.cacheKey && typeof App.getChatMediaFromCache === 'function') {
           const blob = await App.getChatMediaFromCache(att.cacheKey);
-          if (blob) bytes = new Uint8Array(await blob.arrayBuffer());
-        } else if (att.fileId && typeof App.getChatMediaFromCache === 'function' && typeof App.chatP2PCacheKey === 'function') {
-          const blob = await App.getChatMediaFromCache(App.chatP2PCacheKey(att.fileId));
-          if (blob) bytes = new Uint8Array(await blob.arrayBuffer());
+          if (blob && blob.size > 0) {
+            bytes = new Uint8Array(await blob.arrayBuffer());
+            row.via = 'cacheKey';
+          }
         }
-        if (!bytes || typeof App.hashMediaCiphertext !== 'function') continue;
+        if ((!bytes || bytes.length < 1) && att.fileId && typeof App.getChatMediaFromCache === 'function' && typeof App.chatP2PCacheKey === 'function') {
+          const blob = await App.getChatMediaFromCache(App.chatP2PCacheKey(att.fileId));
+          if (blob && blob.size > 0) {
+            bytes = new Uint8Array(await blob.arrayBuffer());
+            row.via = 'fileId';
+          }
+        }
+        if ((!bytes || bytes.length < 1) && typeof App.resolveChatMediaSrc === 'function') {
+          const src = await App.resolveChatMediaSrc(att);
+          if (typeof src === 'string' && src.indexOf('blob:') === 0) {
+            const res = await fetch(src);
+            if (res.ok) {
+              bytes = new Uint8Array(await res.arrayBuffer());
+              row.via = 'resolve';
+            }
+          }
+        }
+        if ((!bytes || bytes.length < 1) && url.indexOf('blob:') === 0) {
+          const res = await fetch(url);
+          if (res.ok) {
+            bytes = new Uint8Array(await res.arrayBuffer());
+            row.via = 'live-blob';
+          }
+        }
+        row.size = bytes ? bytes.length : 0;
+        if (!bytes || typeof App.hashMediaCiphertext !== 'function') {
+          sample.push(row);
+          continue;
+        }
         const got = await App.hashMediaCiphertext(bytes);
-        if (got === expected) return { ok: true, size: bytes.length, logical: String(jobs[i].logicalMessageId || '') };
-      } catch (_e) {}
+        if (got === expected) return { ok: true, size: bytes.length, via: row.via, logical: String(jobs[i].logicalMessageId || '') };
+        row.hash = 'mismatch';
+      } catch (_e) {
+        row.via = row.via || 'error';
+      }
+      sample.push(row);
     }
-    return { ok: false, n: jobs.length };
+    return { ok: false, n: jobs.length, sample: sample.slice(0, 4) };
   }, hash, timeoutMs);
 }
 
@@ -309,10 +349,20 @@ async function main() {
     else if (!report.SHA256_MATCH) note('JPEG_HASH');
 
     if (got.ok) {
+      await desk.page.evaluate(async () => {
+        const App = window.NostrApp;
+        if (typeof App.flushChatPersist === 'function') await App.flushChatPersist();
+      }).catch(() => {});
       await desk.page.reload({ waitUntil: 'domcontentloaded', timeout: 120000 });
       await waitApp(desk.page);
-      const reloaded = await waitHash(desk.page, sent.hash, 20000);
+      await desk.page.waitForFunction(() => {
+        const App = window.NostrApp;
+        const session = App && typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+        return !!(session && session.role === 'LINKED_DEVICE' && session.verified === true && App.privateKey == null);
+      }, null, { timeout: 60000 }).catch(() => {});
+      const reloaded = await waitHash(desk.page, sent.hash, 60000);
       report.RELOAD_PERSISTENCE = reloaded.ok === true;
+      report.RELOAD_DETAIL = reloaded;
       if (!reloaded.ok) note('RELOAD_PERSISTENCE');
     }
 
