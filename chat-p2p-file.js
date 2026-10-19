@@ -429,12 +429,13 @@
       const queued = {
         fileId: transfer.fileId,
         progress: 0,
-        status: 'pending',
+        status: 'waiting-peer',
         direction: 'send',
         name: transfer.file && transfer.file.name,
         size: transfer.file && transfer.file.size,
         peerPubkey: transfer.conversationPeer || transfer.peerPubkey,
         transport: 'LOCAL_QUEUED',
+        stage: 'WAITING_PEER',
       };
       if (onProgress) onProgress(queued);
       notifyProgress(queued);
@@ -944,6 +945,10 @@
         if (App.dataChannel && typeof App.dataChannel.forceConnect === 'function') await App.dataChannel.forceConnect(target);
         if (!(App.dataChannel && App.dataChannel.isConnected && App.dataChannel.isConnected(target))) continue;
         transfer.paused = false;
+        if (!transfer.ackedChunks || transfer.ackedChunks.size === 0) {
+          transfer._dcOfferSent = false;
+          transfer.nextChunkToSend = 0;
+        }
         notifyProgress({ fileId: transfer.fileId, progress: 0, status: 'waiting-peer', direction: 'send', peerPubkey: transfer.conversationPeer || target, transport: 'P2P_DIRECT', stage: 'P2P_CONNECTING' });
         if (!transfer.offerSent && typeof App.sendP2PSignal === 'function') {
           await App.sendP2PSignal(target, {
@@ -1093,7 +1098,12 @@
         size: file?.size,
         totalChunks: metadata.totalChunks
       });
-      await App.sendP2PSignal(peerKey, metadata);
+      try {
+        await App.sendP2PSignal(peerKey, metadata);
+      } catch (sigErr) {
+        console.warn('[P2P-FILE] SIGNAL_RELAY_REJECTED type=file-offer');
+        if (!preflight.ok) throw sigErr;
+      }
     } else {
       console.warn('[CHAT/P2P] ⚠️ App.sendP2PSignal לא זמין!');
     }
@@ -1492,32 +1502,33 @@
             createdAt: Math.floor((transfer.startTime || Date.now()) / 1000),
             caption: transfer.caption || undefined,
             sha256: transfer.sha256 || undefined,
+            selfConversation: transfer.selfChat === true,
           };
-          if (
-            App.P2pSecureV2 &&
-            App.P2pSecureV2.isLocalSecureP2pV2() &&
-            App.P2pSecureV2.isPeerSecureP2pV2(peerKey) &&
-            typeof App.P2pSecureV2.encryptFileOfferForDc === 'function'
-          ) {
-            App.P2pSecureV2.encryptFileOfferForDc(peerKey, offerPlain).then((wire) => {
-              try {
-                if (transfer.completed) return;
-                const ch = transfer.channel || channel;
-                if (!ch || ch.readyState !== 'open') return;
-                ch.send(JSON.stringify(wire));
-                transfer._dcOfferSent = true;
-                console.log('[CHAT/P2P] secure file-offer sent via DC (fast path)');
-              } catch (e) {
-                console.warn('[CHAT/P2P] secure file-offer via DC failed:', e.message);
-              }
-            }).catch((e) => {
-              console.warn('[CHAT/P2P] secure file-offer encrypt failed:', e && e.message ? e.message : e);
-            });
-          } else if (!App.P2pSecureV2 || !App.P2pSecureV2.isPeerSecureP2pV2(peerKey)) {
+          const secure = App.P2pSecureV2;
+          const localSecure = !!(secure && typeof secure.isLocalSecureP2pV2 === 'function' && secure.isLocalSecureP2pV2());
+          if (localSecure && typeof secure.waitForPeerCapability === 'function' && typeof secure.isPeerSecureP2pV2 === 'function' && !secure.isPeerSecureP2pV2(peerKey)) {
+            await secure.waitForPeerCapability(peerKey, 1200);
+          }
+          const sameAccount = !!(secure && typeof secure.sameAccountPrimary === 'function' && secure.sameAccountPrimary(peerKey));
+          const peerSecure = !!(secure && ((typeof secure.isPeerSecureP2pV2 === 'function' && secure.isPeerSecureP2pV2(peerKey)) || sameAccount));
+          if (localSecure && peerSecure && typeof secure.encryptFileOfferForDc === 'function') {
+            const wire = await secure.encryptFileOfferForDc(peerKey, offerPlain);
+            const ch = transfer.channel || channel;
+            if (!transfer.completed && ch && ch.readyState === 'open' && wire) {
+              ch.send(JSON.stringify(wire));
+              transfer._dcOfferSent = true;
+              console.log('[CHAT/P2P] secure file-offer sent via DC (fast path)');
+              try { console.log('[P2P-FILE] FILE_OFFER_SENT via=dc fileId=' + String(fileId).slice(0, 16)); } catch (_sent) {}
+            }
+          } else if (!secure || !peerSecure) {
             // Key delivery: encrypted Nostr 30078 only (no LEGACY_DTLS_KEY_EXCHANGE).
             transfer._dcOfferSent = true;
           }
-        } catch (e) { console.warn('[CHAT/P2P] file-offer via DC failed:', e.message); }
+        } catch (e) {
+          transfer._dcOfferAttempts = (transfer._dcOfferAttempts || 0) + 1;
+          console.warn('[CHAT/P2P] secure file-offer via DC failed:', e && e.message ? e.message : e);
+          if (transfer._dcOfferAttempts >= 2) transfer._dcOfferSent = true;
+        }
       }
 
       while (
@@ -1617,8 +1628,17 @@
             console.warn('[SECURITY/PARSE_REJECT] kind=dc type=p2p-secure-file-offer reason=no_module');
             return;
           }
-          App.P2pSecureV2.decryptFileOfferFromDc(peerKey, msg).then((offer) => {
+          App.P2pSecureV2.decryptFileOfferFromDc(peerKey, msg).then(async (offer) => {
+            const Session = window.SosAccountSession;
+            if (Session && typeof Session.classifyP2pSignalAuthor === 'function') {
+              const binding = await Session.classifyP2pSignalAuthor(peerKey);
+              if (!binding || binding.ok !== true) {
+                console.warn('[P2P-FILE] SIG_DROPPED reason=' + String((binding && binding.code) || 'UNAUTHORIZED') + ' peer=' + peerKey.slice(0, 8));
+                return;
+              }
+            }
             console.log('[CHAT/P2P] secure file-offer received via DC', offer.fileId, offer.mimeType || 'unknown', offer.size || 0);
+            try { console.log('[P2P-FILE] FILE_OFFER_RECEIVED via=dc fileId=' + String(offer.fileId || '').slice(0, 16)); } catch (_rx) {}
             handleP2PFileOffer(peerKey, offer);
           }).catch((e) => {
             console.warn('[SECURITY/PARSE_REJECT] kind=dc type=p2p-secure-file-offer reason=' + (e && e.code ? e.code : 'decrypt_failed'));
@@ -1717,6 +1737,7 @@
         } else if (msg.type === 'file-ready') {
           // חלק file-ready (chat-p2p-file.js) — המקבל מוכן לקבל chunks, בודקים אם צריך resend | HYPER CORE TECH
           console.log('[CHAT/P2P] 📥 file-ready התקבל:', msg.fileId);
+          try { console.log('[P2P-FILE] FILE_READY_RECEIVED fileId=' + String(msg.fileId || '').slice(0, 16)); } catch (_ready) {}
           handleFileResendRequest(peerKey, msg);
         }
       } else if (data instanceof ArrayBuffer) {
@@ -2023,6 +2044,7 @@
         size,
         totalChunks
       });
+      try { console.log('[P2P-FILE] FILE_OFFER_RECEIVED fileId=' + String(fileId || '').slice(0, 16)); } catch (_offer) {}
       recentIncomingFileOffers.set(senderKey, Date.now());
       try {
         if (typeof App.setFeedWarmupPaused === 'function') App.setFeedWarmupPaused(true);

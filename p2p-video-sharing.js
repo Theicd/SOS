@@ -41,7 +41,8 @@
 
   function linkedP2pKeys() {
     const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
-    if (!session || session.role !== 'LINKED_DEVICE' || session.verified !== true || App.privateKey != null) return null;
+    if (!session || session.role !== 'LINKED_DEVICE' || session.verified !== true) return null;
+    if (App.SosCryptoSigner && typeof App.SosCryptoSigner.hasIdentityKey === 'function' && App.SosCryptoSigner.hasIdentityKey()) return null;
     const devicePub = String(session.deviceSignPub || '').trim().toLowerCase();
     const accountP = String(session.accountP || App.publicKey || '').trim().toLowerCase();
     if (!/^[0-9a-f]{64}$/.test(devicePub) || !/^[0-9a-f]{64}$/.test(accountP)) return null;
@@ -3173,18 +3174,37 @@
       });
       
       try {
-        await App.pool.publish(relays, signed);
+        console.log('[P2P-FILE] SIGNAL_PUBLISH_STARTED type=' + String(type) + ' id=' + String(signed.id || '').slice(0, 12));
+      } catch (_start) {}
+      let accepted = 0;
+      let rejected = 0;
+      try {
+        let issued = App.pool.publish(relays, signed);
+        if (issued && typeof issued.then === 'function') issued = await issued;
+        const pending = Array.isArray(issued) ? issued : (issued ? [issued] : []);
+        const bounded = pending.map((item) => Promise.race([
+          Promise.resolve(item),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('RELAY_ACK_TIMEOUT')), 4000)),
+        ]));
+        const settled = await Promise.allSettled(bounded);
+        accepted = settled.filter((row) => row.status === 'fulfilled').length;
+        rejected = settled.filter((row) => row.status === 'rejected').length;
+        if (accepted < 1) {
+          try { console.warn('[P2P-FILE] SIGNAL_RELAY_REJECTED type=' + String(type) + ' rejected=' + rejected); } catch (_no) {}
+          throw new Error('SIGNAL_RELAY_REJECTED');
+        }
       } catch (publishErr) {
-        if (await tryRelay()) return;
+        if (await tryRelay()) return { accepted: 0, rejected: rejected || relays.length, mesh: true };
         throw publishErr;
       }
-
+      try { console.log('[P2P-FILE] SIGNAL_RELAY_ACCEPTED type=' + String(type) + ' accepted=' + accepted + ' rejected=' + rejected); } catch (_ok) {}
       log('peer', `📡 signal נשלח`, {
         type,
         to: peerPubkey.slice(0, 16) + '...',
         kind,
         relays: relays
       });
+      return { accepted, rejected };
 
     } catch (err) {
       log('error', `❌ כשלון בשליחת signal: ${err.message}`);

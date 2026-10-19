@@ -29,12 +29,39 @@
     return /^[0-9a-f]{64}$/.test(h) ? h : '';
   }
 
+  function linkedSignEndpoint() {
+    try {
+      if (App.guestMode) return null;
+      if (App.SosCryptoSigner && typeof App.SosCryptoSigner.hasIdentityKey === 'function' && App.SosCryptoSigner.hasIdentityKey()) return null;
+      const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+      if (!session || session.role !== 'LINKED_DEVICE' || session.verified !== true) return null;
+      const devicePub = normPeer(session.deviceSignPub);
+      const accountP = normPeer(session.accountP || '');
+      if (!devicePub || !accountP || devicePub === accountP) return null;
+      const api = root.SosWebLinkedDevices;
+      if (!api || typeof api.withLinkedDeviceSigner !== 'function') return null;
+      return { publicKey: devicePub, accountP: accountP };
+    } catch (_) {
+      return null;
+    }
+  }
+
   function localPub() {
+    const linked = linkedSignEndpoint();
+    if (linked) return linked.publicKey;
     return normPeer(App.publicKey);
   }
 
   function isLocalSecureP2pV2() {
-    return !!(localPub() && App.SosCryptoSigner?.hasIdentityKey() && !App.guestMode);
+    if (App.guestMode) return false;
+    if (linkedSignEndpoint()) return true;
+    return !!(normPeer(App.publicKey) && App.SosCryptoSigner?.hasIdentityKey());
+  }
+
+  function sameAccountPrimary(peerPubkey) {
+    const linked = linkedSignEndpoint();
+    const peer = normPeer(peerPubkey);
+    return !!(linked && peer && peer === linked.accountP);
   }
 
   function isPeerSecureP2pV2(peerPubkey) {
@@ -139,14 +166,38 @@
     }
   }
 
+  async function nip44WithEndpoint(peer, mode, payload) {
+    const linked = linkedSignEndpoint();
+    if (linked) {
+      const api = getNip44();
+      const LD = root.SosWebLinkedDevices;
+      const out = await Promise.resolve(LD.withLinkedDeviceSigner(function (dev) {
+        if (normPeer(dev && dev.pub) !== linked.publicKey) return null;
+        if (normPeer(dev && dev.accountP) !== linked.accountP) return null;
+        const hex = String(dev && dev.privHex || '');
+        if (!/^[0-9a-f]{64}$/i.test(hex)) return null;
+        const priv = new Uint8Array(32);
+        for (let i = 0; i < 32; i += 1) priv[i] = parseInt(hex.substr(i * 2, 2), 16);
+        const conversation = api.getConversationKey(priv, peer);
+        return mode === 'encrypt' ? api.encrypt(payload, conversation) : api.decrypt(payload, conversation);
+      }));
+      if (!out) secureFail(mode === 'encrypt' ? 'ENCRYPT_FAILURE' : 'DECRYPT_FAILURE', 'device nip44 failed');
+      return out;
+    }
+    if (!App.SosCryptoSigner || typeof App.SosCryptoSigner.nip44P2pEncrypt !== 'function') {
+      secureFail('NO_PRIVATE_KEY', 'missing private key');
+    }
+    if (mode === 'encrypt') return Promise.resolve(App.SosCryptoSigner.nip44P2pEncrypt(payload, peer));
+    return Promise.resolve(App.SosCryptoSigner.nip44P2pDecrypt(payload, peer));
+  }
+
   async function encryptInner(inner, recipientPubkey) {
     const recipient = normPeer(recipientPubkey);
     const sender = localPub();
     if (!recipient || !sender) secureFail('BAD_PEER', 'bad peer keys');
     const body = { ...inner, sender, recipient };
     const plaintext = JSON.stringify(body);
-    const nip44 = getNip44();
-    const ct = await Promise.resolve(App.SosCryptoSigner.nip44P2pEncrypt(plaintext, recipient));
+    const ct = await nip44WithEndpoint(recipient, 'encrypt', plaintext);
     if (!ct) secureFail('ENCRYPT_FAILURE', 'empty ciphertext');
     return buildEnvelope(ct);
   }
@@ -156,11 +207,11 @@
     const local = localPub();
     if (!expectedSender || !local) secureFail('BAD_PEER', 'bad peer keys');
     const env = parseEnvelope(envelope);
-    const nip44 = getNip44();
     let plain;
     try {
-      plain = await Promise.resolve(App.SosCryptoSigner.nip44P2pDecrypt(env.ct, expectedSender));
-    } catch (_e) {
+      plain = await nip44WithEndpoint(expectedSender, 'decrypt', env.ct);
+    } catch (err) {
+      if (err && err.name === 'P2pSecureV2Error') throw err;
       secureFail('DECRYPT_FAILURE', 'decrypt failed');
     }
     let inner;
@@ -253,6 +304,7 @@
       keyStr,
       totalChunks: offerPlain.totalChunks,
       caption: offerPlain.caption,
+      selfConversation: offerPlain.selfConversation === true,
     };
     if (typeof offerPlain.sha256 === 'string' && /^[0-9a-f]{64}$/.test(offerPlain.sha256)) inner.sha256 = offerPlain.sha256;
     const envelope = await encryptInner(inner, recipient);
@@ -279,6 +331,7 @@
       createdAt: inner.createdAt,
       caption: inner.caption,
       sha256: typeof inner.sha256 === 'string' && /^[0-9a-f]{64}$/.test(inner.sha256) ? inner.sha256 : undefined,
+      selfConversation: inner.selfConversation === true,
     };
   }
 
@@ -355,6 +408,7 @@
     VERSION,
     isLocalSecureP2pV2,
     isPeerSecureP2pV2,
+    sameAccountPrimary,
     isPeerCapabilityKnown,
     setPeerCapability,
     announceCapability,

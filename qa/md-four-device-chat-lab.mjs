@@ -295,7 +295,7 @@ async function main() {
         p2p: (src.find((s) => s.indexOf('p2p-video-sharing.js') !== -1) || ''),
       };
     });
-    if (pkg.chat.indexOf('pkg=899s44') === -1 || pkg.session.indexOf('pkg=899s45') === -1 || pkg.dc.indexOf('pkg=899s45') === -1 || pkg.file.indexOf('pkg=899s45') === -1 || pkg.p2p.indexOf('pkg=899s46') === -1) {
+    if (pkg.chat.indexOf('pkg=899s44') === -1 || pkg.session.indexOf('pkg=899s45') === -1 || pkg.dc.indexOf('pkg=899s45') === -1 || pkg.file.indexOf('pkg=899s47') === -1 || pkg.p2p.indexOf('pkg=899s47') === -1) {
       fail('CDN_STALE', pkg.chat + ' ' + pkg.session);
     }
     report.LIVE_VERSION = pkg.chat;

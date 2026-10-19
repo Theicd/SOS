@@ -142,6 +142,24 @@ async function identity(page) {
   });
 }
 
+async function sendBytes(page, spec) {
+  return page.evaluate(async (row) => {
+    const App = window.NostrApp;
+    const raw = new Uint8Array(row.size);
+    const seed = row.seed || 1;
+    for (let i = 0; i < raw.length; i += 64) raw[i] = (i + seed) & 255;
+    if (String(row.mime || '').indexOf('text/') === 0) {
+      const head = row.mime === 'text/html' ? '<!doctype html><meta charset="utf-8"><p>sos</p>' : 'sos-self-file\n';
+      const prefix = new TextEncoder().encode(head);
+      raw.set(prefix.subarray(0, Math.min(prefix.length, raw.length)));
+    }
+    const hash = typeof App.hashMediaCiphertext === 'function' ? await App.hashMediaCiphertext(raw) : '';
+    const file = new File([raw], row.name, { type: row.mime });
+    const id = await App.sendP2PFile(App.publicKey, file, () => {});
+    return { id: String(id || ''), hash, size: raw.length };
+  }, spec);
+}
+
 async function sendJpeg(page) {
   return page.evaluate(async () => {
     const App = window.NostrApp;
@@ -273,10 +291,11 @@ async function main() {
         dc: src.find((s) => s.indexOf('chat-p2p-datachannel.js') !== -1) || '',
         file: src.find((s) => s.indexOf('chat-p2p-file.js') !== -1) || '',
         p2p: src.find((s) => s.indexOf('p2p-video-sharing.js') !== -1) || '',
+        secure: src.find((s) => s.indexOf('chat-p2p-secure-v2.js') !== -1) || '',
       };
     });
     report.LIVE_BUILD = pkg;
-    if (pkg.session.indexOf('pkg=899s45') === -1 || pkg.dc.indexOf('pkg=899s45') === -1 || pkg.file.indexOf('pkg=899s45') === -1 || pkg.p2p.indexOf('pkg=899s46') === -1) {
+    if (pkg.session.indexOf('pkg=899s45') === -1 || pkg.dc.indexOf('pkg=899s45') === -1 || pkg.file.indexOf('pkg=899s47') === -1 || pkg.p2p.indexOf('pkg=899s47') === -1 || pkg.secure.indexOf('pkg=899s47') === -1) {
       note('CDN_STALE');
       throw new Error('CDN_STALE');
     }
@@ -370,7 +389,31 @@ async function main() {
     const backGot = await waitHash(phone.page, back.hash, 70000);
     report.REVERSE_SHA256_MATCH = backGot.ok === true;
     report.REVERSE_BYTES = back.size;
+    report.DESKTOP_FILE_READY = report.logs.desktop.some((line) => line.indexOf('FILE_READY_RECEIVED') !== -1) || report.logs.phone.some((line) => line.indexOf('FILE_OFFER_RECEIVED') !== -1);
     if (got.ok && !backGot.ok) note('REVERSE_JPEG');
+
+    const kinds = [
+      { name: 'note.txt', mime: 'text/plain', size: 600000, seed: 3, key: 'TEXT' },
+      { name: 'small.jpg', mime: 'image/jpeg', size: 240000, seed: 5, key: 'IMAGE' },
+      { name: 'large.jpg', mime: 'image/jpeg', size: 1048576, seed: 9, key: 'IMAGE_LARGE' },
+      { name: 'voice.webm', mime: 'audio/webm', size: 85304, seed: 11, key: 'VOICE' },
+      { name: 'clip.mp4', mime: 'video/mp4', size: 180000, seed: 13, key: 'VIDEO' },
+      { name: 'page.html', mime: 'text/html', size: 4096, seed: 17, key: 'HTML' },
+    ];
+    report.MATRIX = {};
+    for (let i = 0; i < kinds.length; i += 1) {
+      const spec = kinds[i];
+      const fromPhone = await sendBytes(phone.page, spec);
+      const onDesk = await waitHash(desk.page, fromPhone.hash, 90000);
+      const fromDesk = await sendBytes(desk.page, spec);
+      const onPhone = await waitHash(phone.page, fromDesk.hash, 90000);
+      report.MATRIX[spec.key] = {
+        phoneToDesktop: onDesk.ok === true,
+        desktopToPhone: onPhone.ok === true,
+        bytes: fromDesk.size,
+      };
+      if (!onDesk.ok || !onPhone.ok) note('MATRIX_' + spec.key);
+    }
 
     const counts = await Promise.all([phone.page, desk.page].map((page) => page.evaluate(() => ({
       blossom: window.NostrApp.__qaBlossom || 0,
@@ -389,9 +432,11 @@ async function main() {
       report.BLOSSOM_FILE_UPLOAD_COUNT === 0 &&
       report.RELAY_FILE_BYTES_UPLOAD_COUNT === 0 &&
       report.PHONE_ROLE !== report.DESKTOP_ROLE &&
-      report.ROOT_ON_DESKTOP !== true
+      report.ROOT_ON_DESKTOP !== true &&
+      report.MATRIX &&
+      Object.keys(report.MATRIX).every((key) => report.MATRIX[key].phoneToDesktop && report.MATRIX[key].desktopToPhone)
     ) {
-      report.STATUS = 'PASS_DIRECT_SELF_P2P';
+      report.STATUS = 'PASS_BIDIRECTIONAL_SELF_P2P';
       report.FIRST_FAILED_TRANSITION = '';
     } else if (report.STATUS === 'RUNNING') {
       report.STATUS = 'PARTIAL';
@@ -419,7 +464,7 @@ async function main() {
     }, null, 2));
     await browser.close().catch(() => {});
   }
-  if (report.STATUS !== 'PASS_DIRECT_SELF_P2P') process.exit(1);
+  if (report.STATUS !== 'PASS_BIDIRECTIONAL_SELF_P2P') process.exit(1);
 }
 
 main();
