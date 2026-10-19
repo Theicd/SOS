@@ -160,7 +160,7 @@
         updateSendIcon();
         
         // חלק טעינה (chat-voice-ui.js) – הצגת אינדיקטור טעינה בזמן עיבוד הודעה קולית | HYPER CORE TECH
-        const loadingId = 'voice-sending-' + Date.now();
+        var loadingId = 'voice-sending-' + Date.now();
         if (typeof App.showVoiceSendingIndicator === 'function') {
           App.showVoiceSendingIndicator(peer, loadingId);
         }
@@ -168,7 +168,8 @@
         const result = await App.finalizeVoiceToChat?.(peer);
         if (result && typeof App.publishChatMessage === 'function'){
           const boundId = result.clientMessageId || result.logicalMessageId || '';
-          await App.publishChatMessage(peer, '', boundId ? { clientTempId: boundId } : undefined);
+          const sent = await App.publishChatMessage(peer, '', boundId ? { clientTempId: boundId } : undefined);
+          if (sent && sent.ok === false) throw new Error(sent.error || 'voice-delivery-failed');
         }
         
         // הסרת אינדיקטור הטעינה
@@ -179,6 +180,7 @@
         console.warn('voice finalize failed', err);
         hideRecordingUI();
         updateSendIcon();
+        if (typeof App.hideVoiceSendingIndicator === 'function') App.hideVoiceSendingIndicator(loadingId);
       }
     }
 

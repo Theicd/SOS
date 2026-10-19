@@ -255,7 +255,7 @@ async function main() {
         session: (src.find((s) => s.indexOf('sos-account-session.js') !== -1) || ''),
       };
     });
-    if (pkg.chat.indexOf('pkg=899s41') === -1 || pkg.session.indexOf('pkg=899s39') === -1) {
+    if (pkg.chat.indexOf('pkg=899s42') === -1 || pkg.session.indexOf('pkg=899s42') === -1) {
       fail('CDN_STALE', pkg.chat + ' ' + pkg.session);
     }
     report.LIVE_VERSION = pkg.chat;

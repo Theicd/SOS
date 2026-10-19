@@ -409,6 +409,23 @@
     if (transfer._ackTimeout) { clearTimeout(transfer._ackTimeout); transfer._ackTimeout = null; }
     console.warn('[CHAT/P2P] P2P_FALLBACK_DECISION', JSON.stringify({ attemptId: transfer.attemptId || '', code: transfer.p2pFailure }));
     qaNote('p2p-failed', { fileId: transfer.fileId, code: transfer.p2pFailure });
+    if (transfer.selfChat === true) {
+      transfer.paused = true;
+      const queued = {
+        fileId: transfer.fileId,
+        progress: 0,
+        status: 'pending',
+        direction: 'send',
+        name: transfer.file && transfer.file.name,
+        size: transfer.file && transfer.file.size,
+        peerPubkey: transfer.conversationPeer || transfer.peerPubkey,
+        transport: 'LOCAL_QUEUED',
+      };
+      if (onProgress) onProgress(queued);
+      notifyProgress(queued);
+      try { console.log('[CHAT/SELF] transport=LOCAL_QUEUED id=' + String(transfer.fileId || '').slice(0, 24)); } catch (_q) {}
+      return;
+    }
     await fallbackToBlossom(transfer, onProgress || transfer._onProgress);
   }
 
@@ -818,8 +835,39 @@
   }
   
   // חלק שליחה (chat-p2p-file.js) – שליחת קובץ בצ'אנקים מוצפנים | HYPER CORE TECH
+  async function pickLinkedDeviceForSelfP2P() {
+    const Session = window.SosAccountSession;
+    const account = String(App.publicKey || '').toLowerCase();
+    if (!Session || typeof Session.listAuthorizedDevices !== 'function' || !/^[0-9a-f]{64}$/.test(account)) return '';
+    let rows = [];
+    try { rows = await Session.listAuthorizedDevices(account, 'DEVICE_CHAT'); } catch (_e) { rows = []; }
+    const list = Array.isArray(rows) ? rows : [];
+    let fallback = '';
+    for (let i = 0; i < list.length; i += 1) {
+      const sign = String(list[i] && list[i].deviceSignPub || '').toLowerCase();
+      const enc = String(list[i] && list[i].deviceEncPub || '').toLowerCase();
+      if (!/^[0-9a-f]{64}$/.test(sign) || (enc && enc === sign) || sign === account) continue;
+      if (!fallback) fallback = sign;
+      if (App.dataChannel && typeof App.dataChannel.isConnected === 'function' && App.dataChannel.isConnected(sign)) return sign;
+    }
+    return fallback;
+  }
+
   async function sendFile(peerPubkey, file, onProgress) {
-    const peerKey = toPeerKey(peerPubkey);
+    let peerKey = toPeerKey(peerPubkey);
+    const accountKey = String(App.publicKey || '').toLowerCase();
+    const selfChat = peerKey === accountKey;
+    let conversationPeer = peerKey;
+    if (selfChat) {
+      const device = await pickLinkedDeviceForSelfP2P();
+      if (!device) {
+        notifyProgress({ fileId: '', progress: 0, status: 'pending', direction: 'send', peerPubkey: accountKey, transport: 'LOCAL_QUEUED', name: file && file.name, size: file && file.size });
+        try { console.log('[CHAT/SELF] transport=LOCAL_QUEUED'); } catch (_q) {}
+        return 'LOCAL_QUEUED';
+      }
+      peerKey = device;
+      try { console.log('[CHAT/SELF] transport=P2P_DIRECT device=' + device.slice(0, 8)); } catch (_d) {}
+    }
     console.log('[CHAT/P2P] 📤 sendFile start', {
       peer: peerPubkey?.slice?.(0, 8),
       attachmentType: file?.type || 'unknown',
@@ -933,6 +981,8 @@
       key,
       keyStr,
       peerPubkey: peerKey,
+      conversationPeer: conversationPeer,
+      selfChat: selfChat,
       direction: 'send',
       currentChunk: 0,
       totalChunks: metadata.totalChunks,
@@ -1023,7 +1073,7 @@
     logTransferAttempt(transfer, 'complete');
 
     const file = transfer.file;
-    const peerKey = toPeerKey(transfer.peerPubkey);
+    const peerKey = toPeerKey(transfer.conversationPeer || transfer.peerPubkey);
     qaNote('complete', { fileId });
     console.log('[CHAT/P2P] ✅ שליחת קובץ הושלמה', fileId);
 
@@ -1109,7 +1159,8 @@
           direction: 'outgoing',
           status: 'sent',
           p2p: true,
-          transport: 'DC',
+          transport: transfer.selfChat ? 'P2P_DIRECT' : 'DC',
+          logicalMessageId: fileId,
         });
         qaNote('chat-append', { fileId });
         if (typeof App.markChatConversationRead === 'function') {
@@ -1118,6 +1169,14 @@
         console.log('[CHAT/P2P] 💬 הודעת קובץ מקומית נוספה בצד השולח (עם cacheKey)', { hasPoster: !!posterDataUrl, hasCaption: !!captionText });
       }
     } catch (msgErr) { console.warn('[CHAT/P2P] append local p2p message failed:', msgErr); }
+    if (!transfer.selfChat && file && typeof App.syncOwnedMediaToLinkedDevices === 'function') {
+      try {
+        const own = await App.syncOwnedMediaToLinkedDevices(peerKey, file, fileId);
+        try { console.log('[CHAT/P2P] OWN_DEVICE_SYNC n=' + String(own && own.n || 0) + ' id=' + String(fileId).slice(0, 24)); } catch (_own) {}
+      } catch (syncErr) {
+        console.warn('[CHAT/P2P] own-device sync failed', syncErr && syncErr.message ? syncErr.message : syncErr);
+      }
+    }
     if (typeof App.clearChatFileAttachment === 'function') {
       App.clearChatFileAttachment(peerKey);
     }

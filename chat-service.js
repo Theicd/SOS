@@ -510,7 +510,7 @@
     try { devices = await Session.listAuthorizedDevices(account, 'DEVICE_CHAT'); } catch (_e) { devices = []; }
     if (!Array.isArray(devices) || !devices.length) {
       try { console.log('[MD] no authorized device copies for ' + account.slice(0, 8)); } catch (_log) {}
-      return { ok: true, n: 0 };
+      return { ok: true, n: 0, code: 'NO_DEVICES' };
     }
     const inboundPeer = inbound && /^[0-9a-f]{64}$/.test(String(mirrorPeer || ''));
     const pool = ensurePoolReady();
@@ -647,6 +647,43 @@
     return { ok: true, n: n };
   }
 
+  async function selfWireAttachment(self, messageId) {
+    const att = typeof App.getChatFileAttachment === 'function' ? App.getChatFileAttachment(self) : null;
+    if (!att) return { ok: true, wire: null, local: null };
+    if (att.type === 'encrypted-media') {
+      const wire = typeof App.buildEncryptedAttachmentWireDescriptor === 'function'
+        ? App.buildEncryptedAttachmentWireDescriptor(att)
+        : att;
+      return { ok: !!(wire && wire.type === 'encrypted-media'), wire: wire || null, local: att, code: wire ? '' : 'BAD_DESCRIPTOR' };
+    }
+    let file = att.file || att.blob || null;
+    if (!file && typeof att.dataUrl === 'string' && att.dataUrl.indexOf('base64,') !== -1) {
+      try {
+        const bin = atob(att.dataUrl.split('base64,')[1] || '');
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+        file = new File([bytes], att.name || 'self.bin', { type: att.type || 'application/octet-stream' });
+      } catch (_file) { file = null; }
+    }
+    if (!file || typeof App.uploadMediaForServerFallback !== 'function') return { ok: false, code: 'ATTACHMENT_NOT_READY', wire: null, local: att };
+    let descriptor = null;
+    try {
+      descriptor = await App.uploadMediaForServerFallback(file, {
+        messageId: messageId,
+        sender: self,
+        recipient: self,
+        mimeType: file.type || att.type || 'application/octet-stream',
+        fileName: file.name || att.name || 'file',
+        requireEncryption: true,
+      });
+    } catch (_up) { descriptor = null; }
+    if (!descriptor || descriptor.type !== 'encrypted-media') return { ok: false, code: 'ATTACHMENT_NOT_READY', wire: null, local: att };
+    const wire = typeof App.buildEncryptedAttachmentWireDescriptor === 'function'
+      ? App.buildEncryptedAttachmentWireDescriptor(descriptor)
+      : descriptor;
+    return { ok: true, wire: wire, local: descriptor };
+  }
+
   async function publishSelfChatMessage(plainText, options = {}) {
     const self = String(App.publicKey || '').toLowerCase();
     if (!/^[0-9a-f]{64}$/.test(self)) return { ok: false, error: 'no-account' };
@@ -670,60 +707,47 @@
     else if (typeof App.appendChatMessage === 'function') App.appendChatMessage(outgoing);
     const linked = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
     const pool = ensurePoolReady();
+    const packed = await selfWireAttachment(self, messageId);
+    if (!text && (!packed || !packed.wire)) {
+      if (typeof App.updateChatMessageStatus === 'function') App.updateChatMessageStatus(messageId, 'failed');
+      return { ok: false, error: (packed && packed.code) || 'EMPTY_PAYLOAD', messageId: messageId, SELF_SYNC_COMPLETE: false, deviceCopies: 0 };
+    }
+    if (packed && packed.local) outgoing.attachment = packed.local;
+    let deviceCopies = 0;
     let delivered = false;
     if (linked && linked.role === 'LINKED_DEVICE' && linked.verified === true) {
       const Session = window.SosAccountSession;
       if (!Session || typeof Session.delegatedChatEncrypt !== 'function' || !pool) {
         if (typeof App.updateChatMessageStatus === 'function') App.updateChatMessageStatus(messageId, 'failed');
-        return { ok: false, error: 'delegation-missing', messageId: messageId };
+        return { ok: false, error: 'delegation-missing', messageId: messageId, SELF_SYNC_COMPLETE: false, deviceCopies: 0 };
       }
-      const signed = await Session.delegatedChatEncrypt(self, text, messageId, { sibling: true });
+      const signed = await Session.delegatedChatEncrypt(self, text, messageId, { sibling: true, attachment: packed && packed.wire });
       if (!signed || signed.ok !== true || !signed.event) {
         if (typeof App.updateChatMessageStatus === 'function') App.updateChatMessageStatus(messageId, 'failed');
-        return { ok: false, error: (signed && signed.code) || 'delegation-sign-failed', messageId: messageId };
+        return { ok: false, error: (signed && signed.code) || 'delegation-sign-failed', messageId: messageId, SELF_SYNC_COMPLETE: false, deviceCopies: 0 };
       }
       const accepted = await awaitRelayAccepted(pool, App.relayUrls, signed.event);
       delivered = !!(accepted && accepted.ok);
       if (delivered) {
-        try { await publishDelegatedDeviceCopies(self, text, messageId, null); } catch (_selfFan) {}
+        try {
+          const fan = await publishDelegatedDeviceCopies(self, text, messageId, packed && packed.wire);
+          deviceCopies = fan && fan.n ? fan.n : 0;
+        } catch (_selfFan) { deviceCopies = 0; }
       }
     } else if (App.SosCryptoSigner && typeof App.SosCryptoSigner.hasIdentityKey === 'function' && App.SosCryptoSigner.hasIdentityKey()) {
-      const att = typeof App.getChatFileAttachment === 'function' ? App.getChatFileAttachment(self) : null;
-      let file = att && (att.file || att.blob);
-      if (!file && att && typeof att.dataUrl === 'string' && att.dataUrl.indexOf('base64,') !== -1) {
-        try {
-          const bin = atob(att.dataUrl.split('base64,')[1] || '');
-          const bytes = new Uint8Array(bin.length);
-          for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
-          file = new File([bytes], att.name || 'self.jpg', { type: att.type || 'image/jpeg' });
-        } catch (_file) { file = null; }
-      }
-      let descriptor = null;
-      if (file && typeof App.uploadMediaForServerFallback === 'function') {
-        try {
-          descriptor = await App.uploadMediaForServerFallback(file, {
-            messageId: messageId,
-            sender: self,
-            recipient: self,
-            mimeType: file.type || 'application/octet-stream',
-            fileName: file.name || 'file',
-            requireEncryption: true,
-          });
-        } catch (_up) { descriptor = null; }
-        if (!descriptor || descriptor.type !== 'encrypted-media') descriptor = null;
-      }
-      if (descriptor) outgoing.attachment = descriptor;
-      const own = await publishAuthorizedDeviceCopies(self, messageId, text, descriptor, createdAt, self);
-      delivered = true;
-      try { console.log('[CHAT/SELF] deviceCopies=' + String(own && own.n)); } catch (_own) {}
+      const own = await publishAuthorizedDeviceCopies(self, messageId, text, packed && packed.wire, createdAt, self);
+      deviceCopies = own && own.n ? own.n : 0;
+      delivered = deviceCopies > 0 || (own && own.code === 'NO_DEVICES');
+      try { console.log('[CHAT/SELF] deviceCopies=' + String(deviceCopies)); } catch (_own) {}
     }
     if (!delivered) {
-      if (typeof App.updateChatMessageStatus === 'function') App.updateChatMessageStatus(messageId, 'failed');
-      return { ok: false, error: 'SELF_DELIVERY_FAILED', messageId: messageId, stage: 'RELAY_REJECTED' };
+      if (typeof App.updateChatMessageStatus === 'function') App.updateChatMessageStatus(messageId, 'pending');
+      try { console.log('[CHAT/SELF] SELF_SYNC_COMPLETE=false id=' + String(messageId).slice(0, 12) + ' deviceCopies=' + deviceCopies); } catch (_p) {}
+      return { ok: false, error: 'NO_DEVICE_ACK', messageId: messageId, selfChat: true, SELF_SYNC_COMPLETE: false, deviceCopies: deviceCopies, stage: 'PENDING' };
     }
     if (typeof App.updateChatMessageStatus === 'function') App.updateChatMessageStatus(messageId, 'sent');
-    try { console.log('[CHAT/SELF] SELF_CHAT_COMMITTED id=' + String(messageId).slice(0, 12)); } catch (_s) {}
-    return { ok: true, id: messageId, messageId: messageId, selfChat: true, stage: 'RELAY_ACCEPTED' };
+    try { console.log('[CHAT/SELF] SELF_CHAT_COMMITTED id=' + String(messageId).slice(0, 12) + ' deviceCopies=' + deviceCopies); } catch (_s) {}
+    return { ok: true, id: messageId, messageId: messageId, selfChat: true, SELF_SYNC_COMPLETE: true, deviceCopies: deviceCopies, stage: 'RELAY_ACCEPTED', transport: 'ENCRYPTED_DEVICE_COPY' };
   }
 
   async function publishDelegatedChatMessage(peerPubkey, plainText, options = {}) {
@@ -2232,6 +2256,8 @@
   }
 
   let lastAccountChatPullAt = 0;
+  let accountPullCursor = 0;
+  const accountPullSeen = new Set();
   async function pullRecentAccountChat() {
     const now = Date.now();
     if (now - lastAccountChatPullAt < 4000) return { ok: false, code: 'DEBOUNCED' };
@@ -2247,23 +2273,37 @@
     lastAccountChatPullAt = now;
     let events = [];
     try {
+      const since = Math.max(getChatRetentionFloorTs(), accountPullCursor > 0 ? accountPullCursor - 5 : 0);
       const result = await pool.querySync(relays, {
         kinds: [CHAT_KIND],
         '#p': pubs,
         '#t': [CHAT_TAG],
         limit: 40,
-        since: getChatRetentionFloorTs(),
+        since: since,
       });
       events = Array.isArray(result && result.events) ? result.events : (Array.isArray(result) ? result : []);
     } catch (_e) {
       lastAccountChatPullAt = 0;
       return { ok: false, code: 'QUERY_FAILED' };
     }
+    let fresh = 0;
     for (let i = 0; i < events.length; i += 1) {
-      try { await ingestIncomingChatRelayEvent(events[i]); } catch (_in) {}
+      const ev = events[i];
+      const id = ev && ev.id ? String(ev.id) : '';
+      if (id && accountPullSeen.has(id)) continue;
+      if (id) accountPullSeen.add(id);
+      const created = Number(ev && ev.created_at) || 0;
+      if (created > accountPullCursor) accountPullCursor = created;
+      fresh += 1;
+      try { await ingestIncomingChatRelayEvent(ev); } catch (_in) {}
     }
-    try { console.log('[CHAT/SYNC] ACCOUNT_CHAT_PULL n=' + events.length); } catch (_log) {}
-    return { ok: true, n: events.length };
+    if (accountPullSeen.size > 500) {
+      const keep = Array.from(accountPullSeen).slice(-300);
+      accountPullSeen.clear();
+      keep.forEach((id) => accountPullSeen.add(id));
+    }
+    try { console.log('[CHAT/SYNC] ACCOUNT_CHAT_PULL n=' + fresh); } catch (_log) {}
+    return { ok: true, n: fresh };
   }
 
   function subscribeToChatEvents() {

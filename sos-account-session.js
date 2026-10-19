@@ -391,14 +391,27 @@
         const text = typeof m.content === 'string' ? m.content : '';
         const peer = norm(entry.peer || (norm(m.from) === norm(App.publicKey) ? m.to : m.from));
         if (!isHex64(peer)) return;
+        let attachment = null;
         if (m.attachment) {
           const att = m.attachment;
-          unavailable.push({
-            id: String(m.logicalMessageId || m.id || ''),
-            name: att && typeof att.name === 'string' ? att.name.slice(0, 180) : '',
-            hash: att && typeof (att.sha256 || att.hash) === 'string' ? String(att.sha256 || att.hash) : '',
-            reason: 'ATTACHMENT_BYTES_UNAVAILABLE',
-          });
+          const logical = String(m.logicalMessageId || m.id || '');
+          if (att.type === 'encrypted-media' && att.cipher && typeof att.cipher.sha256 === 'string') {
+            attachment = {
+              type: 'encrypted-media',
+              name: typeof att.name === 'string' ? att.name.slice(0, 180) : '',
+              mime: typeof att.mime === 'string' ? att.mime.slice(0, 80) : '',
+              sha256: String(att.cipher.sha256),
+              url: typeof att.url === 'string' ? att.url.slice(0, 300) : '',
+              cipher: { sha256: String(att.cipher.sha256) },
+            };
+          } else {
+            unavailable.push({
+              id: logical,
+              name: att && typeof att.name === 'string' ? att.name.slice(0, 180) : '',
+              hash: att && typeof (att.sha256 || att.hash || (att.cipher && att.cipher.sha256)) === 'string' ? String(att.sha256 || att.hash || att.cipher.sha256) : '',
+              reason: 'ATTACHMENT_BYTES_UNAVAILABLE',
+            });
+          }
         }
         if (!text.trim() && !m.attachment) return;
         out.push({
@@ -408,6 +421,7 @@
           direction: m.direction === 'outgoing' ? 'outgoing' : 'incoming',
           createdAt: Number(m.createdAt) || Math.floor(Date.now() / 1000),
           deleted: m.deleted === true || m.tombstone === true,
+          attachment: attachment,
         });
       });
     });
@@ -515,16 +529,21 @@
     list.forEach(function (m) {
       if (!m || typeof m.text !== 'string' || !isHex64(m.peer) || typeof App.appendChatMessage !== 'function') return;
       const outgoing = m.direction === 'outgoing';
+      const histAttachment = m.attachment && m.attachment.type === 'encrypted-media' ? m.attachment : null;
       App.appendChatMessage({
         id: 'hist-' + String(m.id || n),
         from: outgoing ? session.accountP : m.peer,
         to: outgoing ? m.peer : session.accountP,
         content: m.text,
+        attachment: histAttachment,
         createdAt: Number(m.createdAt) || Math.floor(Date.now() / 1000),
         direction: outgoing ? 'outgoing' : 'incoming',
-        status: 'delivered',
+        status: m.deleted === true ? 'deleted' : 'delivered',
+        deleted: m.deleted === true,
+        tombstone: m.deleted === true,
         source: 'HISTORY_SYNC',
         historySync: true,
+        logicalMessageId: String(m.id || ''),
       });
       n += 1;
     });
@@ -542,20 +561,30 @@
     }
     const pool = App.pool;
     if (!pool || typeof pool.get !== 'function' || !isHex64(session.deviceSignPub)) return { ok: false, code: 'NO_POOL' };
-    let ev = null;
+    let events = [];
     try {
-      ev = await pool.get(App.relayUrls, {
+      const filter = {
         kinds: [HIST_KIND],
         '#p': [session.deviceSignPub],
         '#t': [HIST_TAG],
         authors: [session.accountP],
-        limit: 1,
-      });
+        limit: 8,
+      };
+      if (typeof pool.list === 'function') events = await pool.list(App.relayUrls, [filter]);
+      else if (typeof pool.querySync === 'function') {
+        const result = await pool.querySync(App.relayUrls, filter);
+        events = Array.isArray(result && result.events) ? result.events : (Array.isArray(result) ? result : []);
+      } else if (typeof pool.get === 'function') {
+        const ev = await pool.get(App.relayUrls, filter);
+        events = ev ? [ev] : [];
+      }
     } catch (_e) {
       return { ok: false, code: 'QUERY_FAILED' };
     }
-    if (!ev) return { ok: false, code: 'NO_EVENT' };
-    return acceptHistoryEvent(ev);
+    if (!Array.isArray(events) || !events.length) return { ok: false, code: 'NO_EVENT' };
+    let last = { ok: false, code: 'NO_EVENT', HISTORY_SYNC_COMPLETE: false };
+    for (let i = 0; i < events.length; i += 1) last = await acceptHistoryEvent(events[i]);
+    return last;
   }
 
   async function pullLinkedDirectMessages() {

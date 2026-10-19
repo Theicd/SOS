@@ -310,6 +310,10 @@
         };
         // מאמצים בועת דחיסה לפני progress ראשון של השליחה (subscribe עלול לרוץ לפני onProgress) | HYPER CORE TECH
         const fileId = await App.sendP2PFile(peer, file, onProgress);
+        if (fileId === 'LOCAL_QUEUED') {
+          App.handleP2PProgressUpdate?.({ fileId: optimisticFileId || '', progress: 0, status: 'pending', direction: 'send', name: file.name, size: file.size, peerPubkey: peer, transport: 'LOCAL_QUEUED' });
+          return;
+        }
         if (!fileId) {
           throw new Error('p2p-send-returned-empty-id');
         }
@@ -382,8 +386,8 @@
       if (pipelineImageId || pipelineVideoId || /^image\//i.test(file.type || '') || looksLikeVideoFile(file)) {
         App.handleP2PProgressUpdate?.({
           fileId: attachmentId,
-          progress: 0.85,
-          status: 'sending',
+          progress: 0.4,
+          status: 'encrypting',
           direction: 'send',
           name: file.name || 'image',
           size: file.size || 0,
@@ -504,9 +508,11 @@
             }
           } else {
             log('⚠️ שליחה אוטומטית נכשלה:', result?.error);
+            App.handleP2PProgressUpdate?.({ fileId: attachmentId, progress: 0, status: 'failed', direction: 'send', name: file.name, size: file.size, peerPubkey: peer, transport: 'LOCAL_QUEUED' });
           }
         } catch (err) {
           log('❌ שגיאה בשליחה אוטומטית:', err);
+          App.handleP2PProgressUpdate?.({ fileId: attachmentId, progress: 0, status: 'failed', direction: 'send', name: file.name, size: file.size, peerPubkey: peer });
         }
         if (typeof App.clearChatFileAttachment === 'function') {
           App.clearChatFileAttachment(peer);
