@@ -1611,6 +1611,16 @@
       }
       return;
     }
+    if (Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 't' && t[1] === 'sos-hist-req')) {
+      if (window.SosAccountSession && typeof window.SosAccountSession.acceptHistoryRequest === 'function') {
+        try { await window.SosAccountSession.acceptHistoryRequest(event); } catch (_req) {}
+      }
+      return;
+    }
+    if (Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 't' && t[1] === 'sos-hist-ack')) {
+      try { console.log('PHONE_HISTORY_ACK event=' + String(event.id || '').slice(0, 8)); } catch (_ack) {}
+      return;
+    }
     let delegatedAccountP = '';
     if (event.kind === CHAT_KIND && Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 'sos-md3')) {
       if (!window.SosAccountSession || typeof window.SosAccountSession.verifyDelegatedEvent !== 'function') return;
@@ -2358,6 +2368,9 @@
     ];
     if (devicePub) {
       filters.push(baseFilter([1050], { '#p': [devicePub], '#t': ['sos-hist-v1'] }));
+    } else {
+      filters.push(baseFilter([1050], { '#p': [normalizedSelf], '#t': ['sos-hist-req'] }));
+      filters.push(baseFilter([1050], { '#p': [normalizedSelf], '#t': ['sos-hist-ack'] }));
     }
 
     if (App.NETWORK_TAG && !devicePub) {

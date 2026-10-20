@@ -3451,6 +3451,7 @@
     fetchAndCacheChatMedia: fetchAndCacheMedia,
     getChatMediaFromCache,
     persistChatP2PMedia,
+    loadChatP2PMediaBlob,
     persistChatP2PPoster,
     capturePosterFromBlob,
     loadChatP2PPosterDataUrl,

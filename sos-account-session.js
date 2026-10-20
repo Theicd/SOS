@@ -9,6 +9,10 @@
   const App = root.NostrApp || (root.NostrApp = {});
   const HIST_KIND = 1050;
   const HIST_TAG = 'sos-hist-v1';
+  const HIST_REQ_TAG = 'sos-hist-req';
+  const HIST_ACK_TAG = 'sos-hist-ack';
+  const HIST_MEDIA_CHUNK = 12000;
+  const HIST_MEDIA_MAX = 4 * 1024 * 1024;
 
   const OPS = {
     VIEW_PRIVATE_UI: 'VIEW_PRIVATE_UI',
@@ -339,6 +343,11 @@
         ['t', 'yalachat'],
         ['sos-md3', JSON.stringify(dev.authorization)],
       ];
+      if (Array.isArray(opts.extraTags)) {
+        opts.extraTags.forEach(function (tag) {
+          if (Array.isArray(tag) && tag.length >= 2) tags.push(tag);
+        });
+      }
       if (deviceCopy) {
         tags.push(['t', 'sos-device-copy']);
         if (messageId) tags.push(['e', String(messageId).slice(0, 80)]);
@@ -379,6 +388,79 @@
     });
   }
 
+  function bytesToB64(bytes) {
+    let out = '';
+    const block = 0x8000;
+    for (let i = 0; i < bytes.length; i += block) {
+      out += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(bytes.length, i + block)));
+    }
+    return btoa(out);
+  }
+
+  function b64ToBytes(b64) {
+    const bin = atob(String(b64 || ''));
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  async function sha256Hex(bytes) {
+    const digest = await crypto.subtle.digest('SHA-256', bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes));
+    return Array.from(new Uint8Array(digest)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  }
+
+  function historyProgress(book) {
+    const boxId = 'sosHistorySyncProgress';
+    let box = document.getElementById(boxId);
+    if (!book) {
+      if (box && box.parentNode) box.parentNode.removeChild(box);
+      return;
+    }
+    if (!box) {
+      box = document.createElement('div');
+      box.id = boxId;
+      box.setAttribute('role', 'status');
+      box.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:12040;background:#141414;color:#f5f5f5;border-radius:12px;padding:12px 16px;max-width:min(420px,92vw);text-align:center;font-size:14px;';
+      document.body.appendChild(box);
+    }
+    const messages = Number(book.messageCount) || 0;
+    const gotMessages = Number(book.count) || 0;
+    const files = Number(book.attachmentCount) || 0;
+    const gotFiles = Number(book.filesDone) || 0;
+    box.textContent = 'מסנכרן שיחות...\n' + gotMessages + ' מתוך ' + messages + ' הודעות\n' + gotFiles + ' מתוך ' + files + ' קבצים';
+    box.style.whiteSpace = 'pre-line';
+  }
+
+  async function readHistoryAttachment(att, logicalId) {
+    const fileId = String((att && (att.fileId || att.attachmentId)) || logicalId || '');
+    const cacheKey = att && att.cacheKey ? String(att.cacheKey) : (fileId ? ('p2p-file-' + fileId) : '');
+    let blob = null;
+    if (cacheKey && typeof App.loadChatP2PMediaBlob === 'function') {
+      try { blob = await App.loadChatP2PMediaBlob(cacheKey); } catch (_e) { blob = null; }
+    }
+    if (!blob && att && typeof att.url === 'string' && att.url.indexOf('blob:') === 0) {
+      try {
+        const resp = await fetch(att.url);
+        if (resp && resp.ok) blob = await resp.blob();
+      } catch (_fetch) { blob = null; }
+    }
+    if (!blob) return { ok: false, fileId: fileId, logicalMessageId: logicalId, reason: 'NO_LOCAL_BYTES' };
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    if (!bytes.length) return { ok: false, fileId: fileId, logicalMessageId: logicalId, reason: 'EMPTY_BYTES' };
+    if (bytes.length > HIST_MEDIA_MAX) return { ok: false, fileId: fileId, logicalMessageId: logicalId, reason: 'FILE_TOO_LARGE', size: bytes.length };
+    const sha = await sha256Hex(bytes);
+    return {
+      ok: true,
+      fileId: fileId,
+      logicalMessageId: logicalId,
+      name: att && typeof att.name === 'string' ? att.name.slice(0, 180) : 'file',
+      mime: String((att && (att.type || att.mime)) || blob.type || 'application/octet-stream').slice(0, 80),
+      size: bytes.length,
+      sha256: sha,
+      bytes: bytes,
+    };
+  }
+
   function collectHistoryMessages() {
     const out = [];
     const unavailable = [];
@@ -392,28 +474,23 @@
         const peer = norm(entry.peer || (norm(m.from) === norm(App.publicKey) ? m.to : m.from));
         if (!isHex64(peer)) return;
         let attachment = null;
-        if (m.attachment) {
+        if (m.attachment && m.deleted !== true && m.tombstone !== true) {
           const att = m.attachment;
           const logical = String(m.logicalMessageId || m.id || '');
+          attachment = {
+            name: typeof att.name === 'string' ? att.name.slice(0, 180) : '',
+            mime: typeof (att.type || att.mime) === 'string' ? String(att.type || att.mime).slice(0, 80) : '',
+            fileId: String(att.fileId || att.attachmentId || logical || ''),
+            cacheKey: typeof att.cacheKey === 'string' ? att.cacheKey.slice(0, 180) : '',
+            sha256: typeof (att.sha256 || (att.cipher && att.cipher.sha256)) === 'string' ? String(att.sha256 || att.cipher.sha256) : '',
+            size: Number(att.size) || 0,
+          };
           if (att.type === 'encrypted-media' && att.cipher && typeof att.cipher.sha256 === 'string') {
-            attachment = {
-              type: 'encrypted-media',
-              name: typeof att.name === 'string' ? att.name.slice(0, 180) : '',
-              mime: typeof att.mime === 'string' ? att.mime.slice(0, 80) : '',
-              sha256: String(att.cipher.sha256),
-              url: typeof att.url === 'string' ? att.url.slice(0, 300) : '',
-              cipher: { sha256: String(att.cipher.sha256) },
-            };
-          } else {
-            unavailable.push({
-              id: logical,
-              name: att && typeof att.name === 'string' ? att.name.slice(0, 180) : '',
-              hash: att && typeof (att.sha256 || att.hash || (att.cipher && att.cipher.sha256)) === 'string' ? String(att.sha256 || att.hash || att.cipher.sha256) : '',
-              reason: 'ATTACHMENT_BYTES_UNAVAILABLE',
-            });
+            attachment.encrypted = true;
+            attachment.sha256 = String(att.cipher.sha256);
           }
         }
-        if (!text.trim() && !m.attachment) return;
+        if (!text.trim() && !m.attachment && m.deleted !== true && m.tombstone !== true) return;
         out.push({
           id: String(m.logicalMessageId || m.id || ''),
           peer: peer,
@@ -454,7 +531,36 @@
     return pages;
   }
 
-  async function publishLinkedHistoryBundle(devicePub) {
+  async function publishHistoryPage(peer, createdAt, page, pageCount, body) {
+    const signer = App.SosCryptoSigner;
+    const env = await Promise.resolve(signer.nip44ChatEncrypt({
+      senderPubkey: norm(App.publicKey),
+      recipientPubkey: peer,
+      payload: {
+        messageId: 'hist-' + createdAt + '-' + page,
+        sender: norm(App.publicKey),
+        recipient: peer,
+        createdAt: createdAt,
+        text: body,
+        attachment: null,
+      },
+    }));
+    if (!env || typeof env.ct !== 'string') return { ok: false, code: 'ENCRYPT_FAILED' };
+    const event = await Promise.resolve(signer.signLinkedHistory({
+      kind: HIST_KIND,
+      created_at: createdAt,
+      tags: [['p', peer], ['t', HIST_TAG], ['page', String(page)], ['snapshot', String(createdAt)]],
+      content: JSON.stringify(env),
+    }));
+    if (!event || !event.id) return { ok: false, code: 'SIGN_FAILED' };
+    const pending = App.pool.publish(App.relayUrls, event);
+    const jobs = Array.isArray(pending) ? pending : [pending];
+    const settled = await Promise.allSettled(jobs.map(function (p) { return Promise.resolve(p); }));
+    if (!settled.some(function (r) { return r.status === 'fulfilled'; })) return { ok: false, code: 'RELAY_REJECTED' };
+    return { ok: true, id: String(event.id).slice(0, 12) };
+  }
+
+  async function publishLinkedHistoryBundle(devicePub, opts) {
     if (!primaryReady()) return { ok: false, code: 'NOT_PRIMARY' };
     const peer = norm(devicePub);
     if (!isHex64(peer)) return { ok: false, code: 'BAD_DEVICE' };
@@ -462,66 +568,135 @@
     if (!signer || typeof signer.nip44ChatEncrypt !== 'function' || typeof signer.signLinkedHistory !== 'function') {
       return { ok: false, code: 'SIGNER_MISSING' };
     }
-    const snapshot = collectHistoryMessages();
-    const messages = snapshot.messages || [];
-    const pages = splitHistoryPages(messages);
+    if (typeof App.restoreChatState === 'function') {
+      try { await App.restoreChatState(); } catch (_restore) {}
+    }
     const pool = App.pool;
     if (!pool || typeof pool.publish !== 'function') return { ok: false, code: 'NO_POOL' };
-    const createdAt = Math.floor(Date.now() / 1000);
+    root.__sosHistInflight = root.__sosHistInflight || {};
+    if (root.__sosHistInflight[peer]) return root.__sosHistInflight[peer];
+    const options = opts && typeof opts === 'object' ? opts : {};
+    const prior = root.__sosHistOutbound && root.__sosHistOutbound[peer];
+    const want = options.checkpoint && options.checkpoint.snapshotId && prior && prior.snapshotId === options.checkpoint.snapshotId
+      ? prior
+      : null;
+    let packed = want;
+    if (!packed) {
+      const snapshot = collectHistoryMessages();
+      const messages = snapshot.messages || [];
+      const peers = {};
+      messages.forEach(function (row) { if (row && row.peer) peers[row.peer] = true; });
+      const media = [];
+      const unavailable = (snapshot.unavailable || []).slice();
+      for (let i = 0; i < messages.length; i += 1) {
+        const row = messages[i];
+        if (!row || !row.attachment || !row.attachment.fileId || row.deleted === true) continue;
+        const loaded = await readHistoryAttachment(row.attachment, row.id);
+        if (!loaded.ok) {
+          unavailable.push({ id: row.id, fileId: loaded.fileId, reason: loaded.reason || 'NO_LOCAL_BYTES' });
+          row.attachment.unavailable = loaded.reason || 'NO_LOCAL_BYTES';
+          continue;
+        }
+        row.attachment.sha256 = loaded.sha256;
+        row.attachment.size = loaded.size;
+        row.attachment.mime = loaded.mime;
+        const chunks = Math.ceil(loaded.bytes.length / HIST_MEDIA_CHUNK);
+        for (let c = 0; c < chunks; c += 1) {
+          const slice = loaded.bytes.subarray(c * HIST_MEDIA_CHUNK, Math.min(loaded.bytes.length, (c + 1) * HIST_MEDIA_CHUNK));
+          media.push({
+            fileId: loaded.fileId,
+            logicalMessageId: row.id,
+            name: loaded.name,
+            mime: loaded.mime,
+            size: loaded.size,
+            sha256: loaded.sha256,
+            chunkIndex: c,
+            chunkCount: chunks,
+            b64: bytesToB64(slice),
+          });
+        }
+      }
+      const textPages = splitHistoryPages(messages);
+      const pages = textPages.map(function (batch) { return { kind: 'messages', messages: batch }; });
+      media.forEach(function (chunk) { pages.push({ kind: 'media', media: chunk }); });
+      if (!pages.length) pages.push({ kind: 'messages', messages: [] });
+      const snapshotId = await sha256Hex(new TextEncoder().encode(norm(App.publicKey) + ':' + peer + ':' + String(Date.now()) + ':' + messages.length));
+      packed = {
+        snapshotId: snapshotId,
+        createdAt: Math.floor(Date.now() / 1000),
+        messages: messages,
+        pages: pages,
+        conversationCount: Object.keys(peers).length,
+        attachmentCount: media.length ? new Set(media.map(function (m) { return m.fileId; })).size : 0,
+        unavailable: unavailable,
+        omitted: snapshot.omitted || 0,
+        sourceComplete: (snapshot.omitted || 0) === 0,
+      };
+      root.__sosHistOutbound = root.__sosHistOutbound || {};
+      root.__sosHistOutbound[peer] = packed;
+    }
+    const have = {};
+    const listed = options.checkpoint && Array.isArray(options.checkpoint.havePages) ? options.checkpoint.havePages : [];
+    listed.forEach(function (n) { have[Number(n)] = true; });
     let published = 0;
     let lastId = '';
-    for (let page = 0; page < pages.length; page += 1) {
-      const last = page === pages.length - 1;
-      const body = JSON.stringify({
-        v: 3,
+    const pageCount = packed.pages.length;
+    for (let page = 0; page < pageCount; page += 1) {
+      if (have[page]) continue;
+      const item = packed.pages[page];
+      const payload = item.kind === 'media' ? item.media : item.messages;
+      const pageHash = await sha256Hex(new TextEncoder().encode(JSON.stringify(payload)));
+      const bodyObj = {
+        v: 4,
         type: HIST_TAG,
+        kind: item.kind,
         accountP: norm(App.publicKey),
+        snapshotId: packed.snapshotId,
+        snapshotVersion: 1,
+        sourceDeviceId: 'primary',
+        destinationDeviceId: peer,
+        createdAt: packed.createdAt,
         page: page,
-        pageCount: pages.length,
-        messages: pages[page],
-        unavailable: last ? (snapshot.unavailable || []) : [],
-        omitted: last ? (snapshot.omitted || 0) : 0,
-        complete: snapshot.complete === true,
-      });
-      const env = await Promise.resolve(signer.nip44ChatEncrypt({
-        senderPubkey: norm(App.publicKey),
-        recipientPubkey: peer,
-        payload: {
-          messageId: 'hist-' + createdAt + '-' + page,
-          sender: norm(App.publicKey),
-          recipient: peer,
-          createdAt: createdAt,
-          text: body,
-          attachment: null,
-        },
-      }));
-      if (!env || typeof env.ct !== 'string') return { ok: false, code: 'ENCRYPT_FAILED', pages: published };
-      const event = await Promise.resolve(signer.signLinkedHistory({
-        kind: HIST_KIND,
-        created_at: createdAt,
-        tags: [['p', peer], ['t', HIST_TAG], ['page', String(page)]],
-        content: JSON.stringify(env),
-      }));
-      if (!event || !event.id) return { ok: false, code: 'SIGN_FAILED', pages: published };
-      const pending = pool.publish(App.relayUrls, event);
-      const jobs = Array.isArray(pending) ? pending : [pending];
-      const settled = await Promise.allSettled(jobs.map(function (p) { return Promise.resolve(p); }));
-      if (!settled.some(function (r) { return r.status === 'fulfilled'; })) {
-        return { ok: false, code: 'RELAY_REJECTED', count: messages.length, pages: published };
-      }
+        pageCount: pageCount,
+        pageHash: pageHash,
+        conversationCount: packed.conversationCount,
+        messageCount: packed.messages.length,
+        attachmentCount: packed.attachmentCount,
+        sourceComplete: packed.sourceComplete === true,
+        messages: item.kind === 'messages' ? item.messages : [],
+        media: item.kind === 'media' ? item.media : null,
+        unavailable: page === pageCount - 1 ? packed.unavailable : [],
+        omitted: page === pageCount - 1 ? packed.omitted : 0,
+        complete: false,
+      };
+      bodyObj.manifestHash = await sha256Hex(new TextEncoder().encode(packed.snapshotId + '|' + packed.messages.length + '|' + pageCount));
+      const sent = await publishHistoryPage(peer, packed.createdAt, page, pageCount, JSON.stringify(bodyObj));
+      if (!sent.ok) return { ok: false, code: sent.code, count: packed.messages.length, pages: published, snapshotId: packed.snapshotId };
       published += 1;
-      lastId = String(event.id).slice(0, 12);
+      lastId = sent.id;
     }
-    return {
-      ok: published === pages.length,
-      count: messages.length,
-      pages: pages.length,
+    try {
+      console.log('PHONE_HISTORY_READY snapshot=' + packed.snapshotId.slice(0, 8) + ' messages=' + packed.messages.length + ' pages=' + pageCount + ' files=' + packed.attachmentCount);
+    } catch (_log) {}
+    const result = {
+      ok: true,
+      count: packed.messages.length,
+      pages: pageCount,
+      published: published,
       id: lastId,
-      HISTORY_SYNC_TRANSFERRED: messages.length > 0,
-      HISTORY_SYNC_COMPLETE: snapshot.complete === true && published === pages.length,
-      omitted: snapshot.omitted || 0,
-      unavailable: (snapshot.unavailable || []).length,
+      snapshotId: packed.snapshotId,
+      conversationCount: packed.conversationCount,
+      attachmentCount: packed.attachmentCount,
+      HISTORY_SYNC_TRANSFERRED: published > 0 || listed.length > 0,
+      HISTORY_SYNC_COMPLETE: false,
+      HISTORY_TEXT_SYNC_COMPLETE: false,
+      HISTORY_FULL_SYNC_COMPLETE: false,
+      omitted: packed.omitted,
+      unavailable: packed.unavailable.length,
     };
+    root.__sosHistInflight[peer] = Promise.resolve(result);
+    setTimeout(function () { delete root.__sosHistInflight[peer]; }, 15000);
+    return result;
   }
 
   function hasHistTag(event) {
@@ -550,37 +725,103 @@
     let bundle;
     try { bundle = JSON.parse(opened.payload.text); } catch (_e2) { return rememberHistory({ ok: false, code: 'BAD_BUNDLE', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false }); }
     if (!bundle || bundle.type !== HIST_TAG || norm(bundle.accountP) !== session.accountP) return rememberHistory({ ok: false, code: 'BAD_BUNDLE', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
-    const list = Array.isArray(bundle.messages) ? bundle.messages : [];
+    if (bundle.destinationDeviceId && norm(bundle.destinationDeviceId) !== norm(session.deviceSignPub)) {
+      return rememberHistory({ ok: false, code: 'DESTINATION_MISMATCH', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
+    }
     const page = Number.isInteger(bundle.page) ? bundle.page : 0;
     const pageCount = Number(bundle.pageCount) > 0 ? Number(bundle.pageCount) : 1;
-    if (!root.__sosLdHistoryPages) root.__sosLdHistoryPages = { seen: {}, count: 0, unavailable: 0, omitted: 0, pageCount: 1 };
+    const snapshotId = typeof bundle.snapshotId === 'string' ? bundle.snapshotId : 'legacy';
+    if (!root.__sosLdHistoryPages || (snapshotId !== 'legacy' && root.__sosLdHistoryPages.snapshotId && root.__sosLdHistoryPages.snapshotId !== snapshotId && Number(bundle.createdAt) >= Number(root.__sosLdHistoryPages.createdAt || 0))) {
+      root.__sosLdHistoryPages = { seen: {}, count: 0, unavailable: 0, omitted: 0, pageCount: pageCount, snapshotId: snapshotId, createdAt: Number(bundle.createdAt) || 0, files: {}, filesDone: 0, messageCount: 0, attachmentCount: 0 };
+    }
     const book = root.__sosLdHistoryPages;
+    if (bundle.v >= 4 && bundle.pageHash) {
+      const payload = bundle.kind === 'media' ? bundle.media : bundle.messages;
+      const expect = await sha256Hex(new TextEncoder().encode(JSON.stringify(payload)));
+      if (expect !== bundle.pageHash) return rememberHistory({ ok: false, code: 'PAGE_HASH_MISMATCH', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
+    }
     const already = book.seen[page] === true;
     let n = 0;
-    if (!already) list.forEach(function (m) {
-      if (!m || typeof m.text !== 'string' || !isHex64(m.peer) || typeof App.appendChatMessage !== 'function') return;
-      const outgoing = m.direction === 'outgoing';
-      const histAttachment = m.attachment && m.attachment.type === 'encrypted-media' ? m.attachment : null;
-      App.appendChatMessage({
-        id: 'hist-' + String(m.id || n),
-        from: outgoing ? session.accountP : m.peer,
-        to: outgoing ? m.peer : session.accountP,
-        content: m.text,
-        attachment: histAttachment,
-        createdAt: Number(m.createdAt) || Math.floor(Date.now() / 1000),
-        direction: outgoing ? 'outgoing' : 'incoming',
-        status: m.deleted === true ? 'deleted' : 'delivered',
-        deleted: m.deleted === true,
-        tombstone: m.deleted === true,
-        source: 'HISTORY_SYNC',
-        historySync: true,
-        logicalMessageId: String(m.id || ''),
+    if (!already && bundle.kind !== 'media') {
+      const list = Array.isArray(bundle.messages) ? bundle.messages : [];
+      list.forEach(function (m) {
+        if (!m || typeof m.text !== 'string' || !isHex64(m.peer) || typeof App.appendChatMessage !== 'function') return;
+        const outgoing = m.direction === 'outgoing';
+        const att = m.attachment && typeof m.attachment === 'object' ? {
+          name: m.attachment.name || '',
+          type: m.attachment.mime || m.attachment.type || '',
+          fileId: m.attachment.fileId || '',
+          sha256: m.attachment.sha256 || '',
+          size: Number(m.attachment.size) || 0,
+          cacheKey: m.attachment.fileId ? ('p2p-file-' + m.attachment.fileId) : '',
+          unavailable: m.attachment.unavailable || '',
+        } : null;
+        App.appendChatMessage({
+          id: 'hist-' + String(m.id || n),
+          from: outgoing ? session.accountP : m.peer,
+          to: outgoing ? m.peer : session.accountP,
+          content: m.deleted === true ? '' : m.text,
+          attachment: att && att.fileId ? att : (m.attachment && m.attachment.type === 'encrypted-media' ? m.attachment : null),
+          createdAt: Number(m.createdAt) || Math.floor(Date.now() / 1000),
+          direction: outgoing ? 'outgoing' : 'incoming',
+          status: m.deleted === true ? 'deleted' : 'delivered',
+          deleted: m.deleted === true,
+          tombstone: m.deleted === true,
+          source: 'HISTORY_SYNC',
+          historySync: true,
+          logicalMessageId: String(m.id || ''),
+        });
+        n += 1;
       });
-      n += 1;
-    });
+    }
+    if (!already && bundle.kind === 'media' && bundle.media && bundle.media.fileId) {
+      const media = bundle.media;
+      const slot = book.files[media.fileId] || (book.files[media.fileId] = { parts: {}, count: Number(media.chunkCount) || 1, sha256: media.sha256 || '', mime: media.mime || '', name: media.name || '', logicalMessageId: media.logicalMessageId || '' });
+      if (slot.parts[media.chunkIndex] !== media.b64) slot.parts[media.chunkIndex] = media.b64;
+      const gotParts = Object.keys(slot.parts).length;
+      if (gotParts >= slot.count && !slot.done) {
+        const pieces = [];
+        for (let c = 0; c < slot.count; c += 1) {
+          if (typeof slot.parts[c] !== 'string') return rememberHistory({ ok: false, code: 'MEDIA_GAP', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
+          pieces.push(b64ToBytes(slot.parts[c]));
+        }
+        const total = pieces.reduce(function (sum, part) { return sum + part.length; }, 0);
+        const bytes = new Uint8Array(total);
+        let offset = 0;
+        pieces.forEach(function (part) { bytes.set(part, offset); offset += part.length; });
+        const sha = await sha256Hex(bytes);
+        if (slot.sha256 && sha !== slot.sha256) return rememberHistory({ ok: false, code: 'MEDIA_HASH_MISMATCH', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
+        const blob = new Blob([bytes], { type: slot.mime || 'application/octet-stream' });
+        if (typeof App.persistChatP2PMedia === 'function') {
+          try { await App.persistChatP2PMedia(media.fileId, blob, { name: slot.name, type: slot.mime }); } catch (_store) {}
+        }
+        slot.done = true;
+        slot.parts = {};
+        book.filesDone = (book.filesDone || 0) + 1;
+        try {
+          const url = URL.createObjectURL(blob);
+          const conv = App.chatState && App.chatState.conversations;
+          if (conv && typeof conv.forEach === 'function') {
+            conv.forEach(function (entry) {
+              (entry.messages || []).forEach(function (msg) {
+                if (!msg || String(msg.logicalMessageId || '') !== String(slot.logicalMessageId)) return;
+                if (!msg.attachment) msg.attachment = {};
+                msg.attachment.url = url;
+                msg.attachment.cacheKey = 'p2p-file-' + media.fileId;
+                msg.attachment.sha256 = sha;
+              });
+            });
+          }
+          if (typeof App.persistChatState === 'function') App.persistChatState();
+        } catch (_url) {}
+      }
+    }
     const unavailable = Array.isArray(bundle.unavailable) ? bundle.unavailable : [];
     const omitted = Number(bundle.omitted) || 0;
     book.pageCount = Math.max(book.pageCount || 1, pageCount);
+    book.messageCount = Math.max(book.messageCount || 0, Number(bundle.messageCount) || 0);
+    book.attachmentCount = Math.max(book.attachmentCount || 0, Number(bundle.attachmentCount) || 0);
+    book.snapshotId = snapshotId;
     if (!already) {
       book.seen[page] = true;
       book.count += n;
@@ -588,8 +829,31 @@
       book.omitted += omitted;
     }
     const got = Object.keys(book.seen).length;
-    const complete = bundle.complete === true && got >= book.pageCount && book.unavailable === 0 && book.omitted === 0;
-    root.__sosLdHistorySync = { ok: true, count: book.count, pages: got, pageCount: book.pageCount, HISTORY_SYNC_COMPLETE: complete, omitted: book.omitted, unavailable: book.unavailable, FAKE_HISTORY_SYNC: false };
+    const textDone = got >= book.pageCount && book.omitted === 0;
+    const filesDone = (book.attachmentCount || 0) === 0 || (book.filesDone || 0) >= book.attachmentCount;
+    const full = textDone && filesDone && bundle.sourceComplete !== false;
+    historyProgress(full ? null : book);
+    root.__sosLdHistorySync = {
+      ok: true,
+      count: book.count,
+      pages: got,
+      pageCount: book.pageCount,
+      snapshotId: book.snapshotId,
+      HISTORY_TEXT_SYNC_COMPLETE: textDone,
+      HISTORY_ATTACHMENTS_SYNC_COMPLETE: filesDone,
+      HISTORY_FULL_SYNC_COMPLETE: full,
+      HISTORY_SYNC_COMPLETE: full,
+      omitted: book.omitted,
+      unavailable: book.unavailable,
+      filesDone: book.filesDone || 0,
+      FAKE_HISTORY_SYNC: false,
+    };
+    try {
+      localStorage.setItem('sos-hist-book-' + session.accountP, JSON.stringify({ snapshotId: book.snapshotId, seen: book.seen, pageCount: book.pageCount, count: book.count }));
+    } catch (_mem) {}
+    if (textDone) {
+      try { acknowledgeHistorySnapshot(book); } catch (_ack) {}
+    }
     return root.__sosLdHistorySync;
   }
 
@@ -607,7 +871,7 @@
         '#p': [session.deviceSignPub],
         '#t': [HIST_TAG],
         authors: [session.accountP],
-        limit: 40,
+        limit: 200,
       };
       if (typeof pool.list === 'function') events = await pool.list(App.relayUrls, [filter]);
       else if (typeof pool.querySync === 'function') {
@@ -621,9 +885,113 @@
       return { ok: false, code: 'QUERY_FAILED' };
     }
     if (!Array.isArray(events) || !events.length) return { ok: false, code: 'NO_EVENT' };
+    events.sort(function (a, b) { return (Number(a && a.created_at) || 0) - (Number(b && b.created_at) || 0); });
     let last = { ok: false, code: 'NO_EVENT', HISTORY_SYNC_COMPLETE: false };
     for (let i = 0; i < events.length; i += 1) last = await acceptHistoryEvent(events[i]);
     return last;
+  }
+
+  async function acknowledgeHistorySnapshot(book) {
+    const session = getAccountSession();
+    if (!book || session.role !== 'LINKED_DEVICE') return { ok: false };
+    const body = JSON.stringify({
+      v: 1,
+      type: HIST_ACK_TAG,
+      accountP: session.accountP,
+      deviceId: session.deviceId,
+      devicePub: session.deviceSignPub,
+      snapshotId: book.snapshotId || '',
+      pages: Object.keys(book.seen || {}).length,
+      pageCount: book.pageCount || 0,
+      messages: book.count || 0,
+      files: book.filesDone || 0,
+      HISTORY_TEXT_SYNC_COMPLETE: root.__sosLdHistorySync && root.__sosLdHistorySync.HISTORY_TEXT_SYNC_COMPLETE === true,
+      HISTORY_FULL_SYNC_COMPLETE: root.__sosLdHistorySync && root.__sosLdHistorySync.HISTORY_FULL_SYNC_COMPLETE === true,
+    });
+    const built = await delegatedChatEncrypt(session.accountP, body, 'hist-ack-' + String(book.snapshotId || '').slice(0, 16), { sibling: true, extraTags: [['t', HIST_ACK_TAG]] });
+    if (!built || built.ok !== true || !built.event) return { ok: false, code: built && built.code };
+    const pool = App.pool;
+    if (!pool || typeof pool.publish !== 'function') return { ok: false, code: 'NO_POOL' };
+    const pending = pool.publish(App.relayUrls, built.event);
+    await Promise.allSettled((Array.isArray(pending) ? pending : [pending]).map(function (p) { return Promise.resolve(p); }));
+    try { console.log('HISTORY_DESTINATION_ACK snapshot=' + String(book.snapshotId || '').slice(0, 8)); } catch (_a) {}
+    return { ok: true };
+  }
+
+  async function requestLinkedHistory() {
+    const session = getAccountSession();
+    if (session.role !== 'LINKED_DEVICE' || session.verified !== true) return { ok: false, code: 'NOT_LINKED' };
+    if (!allows('READ_CONVERSATIONS') && session.caps.indexOf('DEVICE_HISTORY_SYNC') === -1 && session.caps.indexOf('DEVICE_CHAT') === -1) {
+      return { ok: false, code: 'CAPABILITY_DENIED' };
+    }
+    const book = root.__sosLdHistoryPages || {};
+    const syncRequestId = 'hsr-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+    const payload = {
+      v: 1,
+      type: HIST_REQ_TAG,
+      accountP: session.accountP,
+      deviceId: session.deviceId,
+      devicePub: session.deviceSignPub,
+      sessionId: session.deviceId,
+      syncRequestId: syncRequestId,
+      protocol: 1,
+      checkpoint: {
+        snapshotId: book.snapshotId || '',
+        havePages: Object.keys(book.seen || {}).map(function (n) { return Number(n); }),
+      },
+      scope: 'full',
+    };
+    const built = await delegatedChatEncrypt(session.accountP, JSON.stringify(payload), syncRequestId, { sibling: true, extraTags: [['t', HIST_REQ_TAG]] });
+    if (!built || built.ok !== true || !built.event) return { ok: false, code: (built && built.code) || 'REQUEST_FAILED' };
+    const pool = App.pool;
+    if (!pool || typeof pool.publish !== 'function') return { ok: false, code: 'NO_POOL' };
+    const pending = pool.publish(App.relayUrls, built.event);
+    const settled = await Promise.allSettled((Array.isArray(pending) ? pending : [pending]).map(function (p) { return Promise.resolve(p); }));
+    const accepted = settled.some(function (r) { return r.status === 'fulfilled'; });
+    try { console.log('DESKTOP_HISTORY_SYNC_REQUEST id=' + syncRequestId + ' ok=' + (accepted ? '1' : '0')); } catch (_r) {}
+    if (!root.__sosHistReqTimer) {
+      let tries = 0;
+      root.__sosHistReqTimer = setInterval(function () {
+        tries += 1;
+        const done = root.__sosLdHistorySync && root.__sosLdHistorySync.HISTORY_TEXT_SYNC_COMPLETE === true;
+        if (done || tries > 8) {
+          clearInterval(root.__sosHistReqTimer);
+          root.__sosHistReqTimer = null;
+          return;
+        }
+        requestLinkedHistory().catch(function () {});
+      }, 20000);
+    }
+    return { ok: accepted, syncRequestId: syncRequestId };
+  }
+
+  async function acceptHistoryRequest(event) {
+    if (!primaryReady()) return { ok: false, code: 'NOT_PRIMARY' };
+    const delegated = await verifyDelegatedEvent(event, '');
+    if (!delegated || delegated.ok !== true) return { ok: false, code: (delegated && delegated.code) || 'DELEGATION_REJECTED' };
+    if (norm(delegated.accountP) !== norm(App.publicKey)) return { ok: false, code: 'ACCOUNT_MISMATCH' };
+    const caps = Array.isArray(delegated.caps) ? delegated.caps : [];
+    if (caps.indexOf('DEVICE_HISTORY_SYNC') === -1 && caps.indexOf('DEVICE_CHAT') === -1) return { ok: false, code: 'CAPABILITY_MISSING' };
+    let env;
+    try { env = JSON.parse(event.content); } catch (_e) { return { ok: false, code: 'BAD_ENVELOPE' }; }
+    let payload;
+    try {
+      payload = await Promise.resolve(App.SosCryptoSigner.nip44ChatDecrypt({
+        localPubkey: App.publicKey,
+        eventAuthorPubkey: event.pubkey,
+        encryptedEnvelope: env,
+        selfAuthored: false,
+        intendedRecipientPubkey: App.publicKey,
+      }));
+    } catch (_dec) {
+      return { ok: false, code: 'DECRYPT_FAILED' };
+    }
+    let body;
+    try { body = JSON.parse(payload && payload.text ? payload.text : ''); } catch (_p) { return { ok: false, code: 'BAD_REQUEST' }; }
+    if (!body || body.type !== HIST_REQ_TAG || norm(body.accountP) !== norm(App.publicKey)) return { ok: false, code: 'BAD_REQUEST' };
+    if (norm(body.devicePub) !== delegated.deviceSignPub) return { ok: false, code: 'DEVICE_MISMATCH' };
+    try { console.log('PHONE_HISTORY_REQUEST_RECEIVED device=' + delegated.deviceSignPub.slice(0, 8) + ' id=' + String(body.syncRequestId || '').slice(0, 16)); } catch (_log) {}
+    return publishLinkedHistoryBundle(delegated.deviceSignPub, { checkpoint: body.checkpoint || null, syncRequestId: body.syncRequestId || '' });
   }
 
   async function pullLinkedDirectMessages() {
@@ -1065,6 +1433,8 @@
     try {
       await pullLinkedHistory();
       await pullLinkedDirectMessages();
+      const synced = root.__sosLdHistorySync && root.__sosLdHistorySync.HISTORY_TEXT_SYNC_COMPLETE === true;
+      if (!synced) await requestLinkedHistory();
     } catch (_e4) {}
   }
 
@@ -1138,6 +1508,8 @@
     decryptForLinkedDevice: decryptForLinkedDevice,
     publishLinkedHistoryBundle: publishLinkedHistoryBundle,
     pullLinkedHistory: pullLinkedHistory,
+    requestLinkedHistory: requestLinkedHistory,
+    acceptHistoryRequest: acceptHistoryRequest,
     pullLinkedDirectMessages: pullLinkedDirectMessages,
     announceLinkedDevice: announceLinkedDevice,
     listAuthorizedDevices: listAuthorizedDevices,
