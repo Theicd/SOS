@@ -220,7 +220,45 @@ async function main() {
     report.MEDIA_HASH = detail.hash;
     report.ROOT_K_ON_DESKTOP = detail.root === true;
     report.TEXT_SYNC_COMPLETE = !!(detail.sync && detail.sync.HISTORY_TEXT_SYNC_COMPLETE === true && detail.stored >= 100);
-    report.STATUS = report.TEXT_SYNC_COMPLETE && detail.hash && detail.root !== true ? 'PASS_INITIAL_HISTORY_LAB' : 'FAIL';
+    await desktopPage.reload({ waitUntil: 'domcontentloaded', timeout: 120000 });
+    await waitApp(desktopPage);
+    const reloaded = await pollPage(desktopPage, async (imageId) => {
+      const App = window.NostrApp;
+      if (typeof App.restoreChatState === 'function') {
+        try { await App.restoreChatState(); } catch (_e) {}
+      }
+      let stored = 0;
+      let deleted = 0;
+      let image = null;
+      if (App && App.chatState && App.chatState.conversations) {
+        App.chatState.conversations.forEach((entry) => {
+          (entry.messages || []).forEach((m) => {
+            stored += 1;
+            if (m && (m.deleted === true || m.tombstone === true)) deleted += 1;
+            if (m && m.logicalMessageId === imageId) image = m.attachment || null;
+          });
+        });
+      }
+      let hash = '';
+      if (image && image.fileId && typeof App.loadChatP2PMediaBlob === 'function') {
+        const blob = await App.loadChatP2PMediaBlob('p2p-file-' + image.fileId);
+        if (blob) {
+          const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+          hash = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+        }
+      }
+      const session = window.SosAccountSession && window.SosAccountSession.getAccountSession ? window.SosAccountSession.getAccountSession() : null;
+      return {
+        ok: stored >= 100 && deleted >= 1 && hash.length === 64 && !(session && session.ROOT_K_PRESENT),
+        stored: stored,
+        deleted: deleted,
+        hash: hash,
+        root: !!(session && session.ROOT_K_PRESENT),
+      };
+    }, seeded.imageId, 45000);
+    report.RELOAD = reloaded;
+    report.RELOAD_PERSISTENCE = reloaded && reloaded.ok === true;
+    report.STATUS = report.TEXT_SYNC_COMPLETE && detail.hash && detail.root !== true && report.RELOAD_PERSISTENCE ? 'PASS_INITIAL_HISTORY_LAB' : 'FAIL';
   } catch (err) {
     report.STATUS = 'FAIL';
     report.ERROR = String(err && err.message || err).slice(0, 300);
