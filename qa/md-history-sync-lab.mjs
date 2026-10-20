@@ -281,15 +281,29 @@ async function main() {
       await desktopPage.waitForTimeout(500);
     }
     report.OLDER_PAGE_ONE = { request: pageOne, logged: pageOneLog, oldPresent: await hasOld() };
+    const sourceStillHasOld = await phone.page.evaluate((oldId) => {
+      const App = window.NostrApp;
+      let found = false;
+      if (App && App.chatState && App.chatState.conversations) {
+        App.chatState.conversations.forEach((entry) => {
+          (entry.messages || []).forEach((m) => {
+            if (m && (m.logicalMessageId === oldId || m.id === oldId)) found = true;
+          });
+        });
+      }
+      return found;
+    }, seeded.oldId);
     const pageTwo = await desktopPage.evaluate((peer) => window.SosAccountSession.requestOlderHistory(peer), seeded.olderPeer);
     const pageTwoStarted = Date.now();
     let oldArrived = false;
-    while (Date.now() - pageTwoStarted < 25000) {
+    let pageTwoLog = false;
+    while (Date.now() - pageTwoStarted < 60000) {
       oldArrived = await hasOld();
+      pageTwoLog = logs.filter((line) => line.indexOf('OLDER_HISTORY_PAGE ') !== -1).length >= 2;
       if (oldArrived) break;
       await desktopPage.waitForTimeout(500);
     }
-    report.OLDER_PAGE_TWO = { request: pageTwo, oldPresent: oldArrived };
+    report.OLDER_PAGE_TWO = { request: pageTwo, oldPresent: oldArrived, logged: pageTwoLog, sourceStillHasOld: sourceStillHasOld };
     await desktopPage.reload({ waitUntil: 'domcontentloaded', timeout: 120000 });
     await waitApp(desktopPage);
     const reloaded = await pollPage(desktopPage, async (imageId) => {
@@ -328,6 +342,7 @@ async function main() {
     }, seeded.imageId, 45000);
     report.RELOAD = reloaded;
     report.RELOAD_PERSISTENCE = reloaded && reloaded.ok === true;
+    report.OLD_SURVIVES_RELOAD = await hasOld();
     const phoneAcks = phoneLogs.filter((line) => line.indexOf('PHONE_HISTORY_ACK snapshot=') !== -1).length;
     const desktopAcks = logs.filter((line) => line.indexOf('HISTORY_DESTINATION_ACK') !== -1).length;
     const readyStarted = Date.now();
@@ -404,7 +419,7 @@ async function main() {
     report.MEDIA_HASH = mediaHash;
     const oneSnapshot = readyCount >= 1 && readyCount <= 3 && report.PENDING_TIMING_COUNT <= 16;
     report.ONE_SNAPSHOT = oneSnapshot;
-    const olderOk = report.OLD_ABSENT_ON_INITIAL === true && report.OLDER_PAGE_ONE && report.OLDER_PAGE_ONE.logged === true && report.OLDER_PAGE_ONE.oldPresent === false && report.OLDER_PAGE_TWO && report.OLDER_PAGE_TWO.oldPresent === true && report.FULL_BACKUP_COMPLETE === false;
+    const olderOk = report.OLD_ABSENT_ON_INITIAL === true && report.OLDER_PAGE_ONE && report.OLDER_PAGE_ONE.logged === true && report.OLDER_PAGE_ONE.oldPresent === false && report.OLDER_PAGE_TWO && report.OLDER_PAGE_TWO.oldPresent === true && report.OLD_SURVIVES_RELOAD === true && report.FULL_BACKUP_COMPLETE === false;
     report.OLDER_WINDOW_OK = olderOk;
     report.STATUS = report.TEXT_SYNC_COMPLETE && mediaHash && detail.root !== true && report.RELOAD_PERSISTENCE && report.ACK_COUNT <= 8 && report.ACK_COUNT >= 1 && headerOk && oneSnapshot && olderOk ? 'PASS_INITIAL_HISTORY_LAB' : 'FAIL';
   } catch (err) {

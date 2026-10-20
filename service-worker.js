@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v899s55'; // Keep requested older history past the 7-day disappearing default
+  const CACHE_NAME = 'sos-cache-v899s56'; // Requested older history stays through refresh
   const PRECACHE_URLS = [
     './',
     './videos.html',

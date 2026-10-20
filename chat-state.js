@@ -595,7 +595,8 @@
       if (!message.id || typeof message.id !== 'string') return;
       if (isChatMessageMarkedDeleted(message)) return;
       const ts = getMessageCreatedAt(message);
-      if (ts && ts < cutoffTs) return;
+      const limit = message && (message.historySync === true || message.source === 'HISTORY_SYNC') ? getChatRetentionCutoffTs() : cutoffTs;
+      if (ts && ts < limit) return;
       const existing = byId.get(message.id);
       if (!existing) {
         byId.set(message.id, message);
