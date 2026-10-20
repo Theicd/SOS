@@ -111,12 +111,34 @@ async function main() {
       });
       logicals.push(imageId);
       n += 1;
+      const p2pFileIds = [];
+      for (let f = 0; f < 14; f += 1) {
+        const id = 'hist-bin-' + f;
+        const raw = new Uint8Array(8192);
+        for (let b = 0; b < raw.length; b += 1) raw[b] = (f * 17 + b) % 256;
+        const fileBlob = new Blob([raw], { type: 'application/octet-stream' });
+        if (typeof App.persistChatP2PMedia === 'function') await App.persistChatP2PMedia(id, fileBlob, { name: 'file-' + f + '.bin', type: 'application/octet-stream' });
+        App.appendChatMessage({
+          id: id,
+          logicalMessageId: id,
+          from: self,
+          to: peers[0],
+          content: '',
+          direction: 'outgoing',
+          createdAt: Math.floor(Date.now() / 1000) - 30 - f,
+          attachment: { name: 'file-' + f + '.bin', type: 'application/octet-stream', fileId: id, cacheKey: 'p2p-file-' + id, size: raw.length },
+        });
+        p2pFileIds.push(id);
+        logicals.push(id);
+        n += 1;
+      }
       let stored = 0;
       App.chatState.conversations.forEach((entry) => { stored += (entry.messages || []).length; });
-      return { n: n, stored: stored, fileId: fileId, imageId: imageId, logicals: logicals };
+      return { n: n, stored: stored, fileId: fileId, imageId: imageId, logicals: logicals, p2pFileIds: p2pFileIds };
     }, { peers: peers, jpegB64: JPEG.toString('base64'), self: phone.pub });
     report.SOURCE_MESSAGE_COUNT = seeded.stored;
-    report.SOURCE_ATTACHMENT_COUNT = 1;
+    report.SOURCE_ATTACHMENT_COUNT = 15;
+    report.SOURCE_P2P_FILES = 14;
     report.SOURCE_CONVERSATION_COUNT = 5;
     if (seeded.stored < 100) throw new Error('SEED_SHORT ' + seeded.stored);
     const phoneLogs = [];
@@ -262,6 +284,52 @@ async function main() {
     report.RELOAD_PERSISTENCE = reloaded && reloaded.ok === true;
     const phoneAcks = phoneLogs.filter((line) => line.indexOf('PHONE_HISTORY_ACK snapshot=') !== -1).length;
     const desktopAcks = logs.filter((line) => line.indexOf('HISTORY_DESTINATION_ACK') !== -1).length;
+    const readyCount = phoneLogs.filter((line) => line.indexOf('PHONE_HISTORY_READY ') !== -1).length;
+    const joinCount = phoneLogs.filter((line) => line.indexOf('PHONE_HISTORY_JOIN ') !== -1).length;
+    const pendingTiming = phoneLogs.filter((line) => line.indexOf('HISTORY_MEDIA_TIMING ') !== -1 && line.indexOf('transport=pending') !== -1).length;
+    const waitLines = phoneLogs.filter((line) => line.indexOf('HISTORY_MEDIA_WAIT ') !== -1).length;
+    report.READY_COUNT = readyCount;
+    report.JOIN_COUNT = joinCount;
+    report.PENDING_TIMING_COUNT = pendingTiming;
+    report.MEDIA_WAIT_COUNT = waitLines;
+    const freezeAt = phoneLogs.length;
+    let frozen = false;
+    try {
+      const cdp = await phone.page.context().newCDPSession(phone.page);
+      await cdp.send('Page.setWebLifecycleState', { state: 'frozen' });
+      frozen = true;
+      await phone.page.waitForTimeout(3000);
+      await cdp.send('Page.setWebLifecycleState', { state: 'active' });
+    } catch (freezeErr) {
+      report.FREEZE_ERROR = String(freezeErr && freezeErr.message || freezeErr).slice(0, 180);
+    }
+    try {
+      await phone.page.evaluate(() => {
+        const hide = function (state) {
+          Object.defineProperty(document, 'visibilityState', { configurable: true, get: function () { return state; } });
+          Object.defineProperty(document, 'hidden', { configurable: true, get: function () { return state !== 'visible'; } });
+          document.dispatchEvent(new Event('visibilitychange'));
+        };
+        hide('hidden');
+        document.dispatchEvent(new Event('freeze'));
+        window.__sosHistFreezeMark = Date.now();
+      });
+      await phone.page.waitForTimeout(2000);
+      await phone.page.evaluate(() => {
+        Object.defineProperty(document, 'visibilityState', { configurable: true, get: function () { return 'visible'; } });
+        Object.defineProperty(document, 'hidden', { configurable: true, get: function () { return false; } });
+        document.dispatchEvent(new Event('visibilitychange'));
+        document.dispatchEvent(new Event('resume'));
+      });
+      await phone.page.waitForTimeout(1500);
+    } catch (visErr) {
+      report.VISIBILITY_ERROR = String(visErr && visErr.message || visErr).slice(0, 180);
+    }
+    const gapLogs = phoneLogs.slice(freezeAt);
+    report.SCREEN_OFF_FROZEN_CDP = frozen;
+    report.SCREEN_OFF_SUSPEND = gapLogs.some((line) => line.indexOf('HISTORY_SUSPEND') !== -1);
+    report.SCREEN_OFF_RESUME = gapLogs.some((line) => line.indexOf('HISTORY_RESUME') !== -1);
+    report.SCREEN_OFF_NEW_FILE_PROBES = gapLogs.filter((line) => line.indexOf('HISTORY_MEDIA_TIMING ') !== -1).length;
     report.ACK_COUNT = Math.max(phoneAcks, desktopAcks);
     report.ACK_PHONE = phoneAcks;
     report.ACK_DESKTOP = desktopAcks;
@@ -275,7 +343,9 @@ async function main() {
     report.HEADER_PROGRESS_UI = headerOk;
     const mediaHash = detail.hash || (reloaded && reloaded.hash) || '';
     report.MEDIA_HASH = mediaHash;
-    report.STATUS = report.TEXT_SYNC_COMPLETE && mediaHash && detail.root !== true && report.RELOAD_PERSISTENCE && report.ACK_COUNT <= 8 && report.ACK_COUNT >= 1 && headerOk ? 'PASS_INITIAL_HISTORY_LAB' : 'FAIL';
+    const oneSnapshot = readyCount >= 1 && readyCount <= 3 && pendingTiming <= 16;
+    report.ONE_SNAPSHOT = oneSnapshot;
+    report.STATUS = report.TEXT_SYNC_COMPLETE && mediaHash && detail.root !== true && report.RELOAD_PERSISTENCE && report.ACK_COUNT <= 8 && report.ACK_COUNT >= 1 && headerOk && oneSnapshot ? 'PASS_INITIAL_HISTORY_LAB' : 'FAIL';
   } catch (err) {
     report.STATUS = 'FAIL';
     report.ERROR = String(err && err.message || err).slice(0, 300);

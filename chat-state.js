@@ -523,8 +523,13 @@
   
   // חלק debounce (chat-state.js) – מונע שמירות רבות מדי בזמן קצר | HYPER CORE TECH
   let persistTimeout = null;
+  let persistScheduleLoggedAt = 0;
   function persistState() {
-    persistLog('SCHEDULE', 'conversationCount=' + chatState.conversations.size + ' totalMessageCount=' + countStoredMessages());
+    const now = Date.now();
+    if (now - persistScheduleLoggedAt > 5000) {
+      persistScheduleLoggedAt = now;
+      persistLog('SCHEDULE', 'conversationCount=' + chatState.conversations.size);
+    }
     if (persistTimeout) return;
     persistTimeout = setTimeout(() => {
       persistTimeout = null;
@@ -539,6 +544,12 @@
     }
     return persistStateToIndexedDB();
   }
+  try {
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') flushChatPersist();
+    });
+    document.addEventListener('freeze', function () { flushChatPersist(); });
+  } catch (_persistLife) {}
 
   // חלק שחזור IndexedDB (chat-state.js) – שחזור מ-IndexedDB עם fallback ל-localStorage | HYPER CORE TECH
   let restoreInFlight = null;

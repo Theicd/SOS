@@ -274,6 +274,7 @@
   }
 
   function shouldDeferFeedMedia(peerKey) {
+    if (window.__sosHistSyncActive === true) return true;
     if (feedServePaused) return true;
     try {
       if (typeof App.isFeedHeavyWorkPaused === 'function' && App.isFeedHeavyWorkPaused()) return true;
@@ -1286,14 +1287,17 @@
         }
       ];
 
+      let sub = null;
       const timeout = setTimeout(() => {
         if (!finished) {
           finished = true;
+          try { if (sub && typeof sub.close === 'function') sub.close(); } catch (_close) {}
           finalize();
         }
       }, 2500); // timeout קצר יותר
 
       const finalize = () => {
+        try { if (sub && typeof sub.close === 'function') sub.close(); } catch (_close) {}
         let count = uniquePeers.size;
         
         // חלק Peer Estimation – אם קיבלנו הרבה אירועים, נעריך שיש יותר peers | HYPER CORE TECH
@@ -1315,7 +1319,7 @@
         const keys = getEffectiveKeys();
         const myPubkey = keys.publicKey;
         
-        const sub = App.pool.subscribeMany(relays, filters, {
+        sub = App.pool.subscribeMany(relays, filters, {
           onevent: (event) => {
             totalEventsReceived++;
             if (event.pubkey && event.pubkey !== myPubkey) {
@@ -1326,13 +1330,13 @@
             if (!finished) {
               finished = true;
               clearTimeout(timeout);
-              sub?.close?.();
               finalize();
             }
           }
         });
       } catch (err) {
         log('error', '❌ שגיאה בספירת peers', { error: err.message });
+        try { if (sub && typeof sub.close === 'function') sub.close(); } catch (_close) {}
         if (!finished) {
           finished = true;
           clearTimeout(timeout);
@@ -1396,6 +1400,8 @@
     }, 3000);
     
     setInterval(async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      if (window.__sosPageSuspended === true || window.__sosHistSyncActive === true) return;
       const cacheAge = Date.now() - (state.lastPeerCountTime || 0);
       if (cacheAge > 25000) {
         state.lastPeerCountTime = 0;
@@ -3311,13 +3317,9 @@
     }
 
     // שלב 3: לא לפתוח מנוי 30078 נוסף אם כבר פעיל | HYPER CORE TECH
-    if (App._p2pSignalsSub && !keys.linkedDevice) {
+    if (App._p2pSignalsSub) {
       log('info', '👂 מנוי סיגנלי P2P כבר פעיל — מדלג על כפילות');
       return;
-    }
-    if (App._p2pSignalsSub && keys.linkedDevice) {
-      try { if (typeof App._p2pSignalsSub.close === 'function') App._p2pSignalsSub.close(); } catch (_close) {}
-      App._p2pSignalsSub = null;
     }
 
     log('info', '👂 מתחיל להאזין לסיגנלי P2P...', { isGuest: keys.isGuest });
@@ -4190,9 +4192,11 @@
       log('info', `🔬 פילטר דיבוג (בלי hash):`, { filters: JSON.stringify(filters) });
       
       let finished = false;
+      let sub = null;
       const timeout = setTimeout(() => {
         if (!finished) {
           finished = true;
+          try { if (sub && typeof sub.close === 'function') sub.close(); } catch (_close) {}
           log('info', `🔬 timeout דיבוג - נמצאו ${allEvents.length} events`, { 
             events: allEvents.map(e => ({
               id: e.id?.slice(0, 16),
@@ -4206,7 +4210,7 @@
       }, 10000);
       
       try {
-        const sub = App.pool.subscribeMany(relays, filters, {
+        sub = App.pool.subscribeMany(relays, filters, {
           onevent: (event) => {
             allEvents.push(event);
             const hashTag = event.tags?.find(t => t[0] === 'x');
@@ -4237,6 +4241,7 @@
         });
       } catch (err) {
         log('error', `🔬 שגיאת דיבוג: ${err.message}`);
+        try { if (sub && typeof sub.close === 'function') sub.close(); } catch (_close) {}
         resolve([]);
       }
     });

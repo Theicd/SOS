@@ -40,6 +40,7 @@
   function load() {
     try { const d = JSON.parse(localStorage.getItem(STORAGE_KEY)); if (d) { entries = d.entries||[]; Object.assign(counters, d.counters||{}); } } catch { entries=[]; }
   }
+  let saveTimer = null;
   function save() {
     try {
       if (entries.length > MAX_ENTRIES) entries = entries.slice(-MAX_ENTRIES);
@@ -48,6 +49,13 @@
         waste: getWasteSummary()
       }));
     } catch {}
+  }
+  function scheduleSave() {
+    if (saveTimer) return;
+    saveTimer = setTimeout(function () {
+      saveTimer = null;
+      save();
+    }, 2000);
   }
   load();
 
@@ -65,14 +73,61 @@
     'waste-heartbeat-excess':'#f44336','waste-double-like-fetch':'#f44336',
     'avatar-fetch':'#ce93d8','deletion-recv':'#e91e63'
   };
+  const lastConsoleLog = {};
+  function diagnosticLogs() {
+    try { return localStorage.getItem('sos-debug-verbose') === '1' || window.__sosDiagnosticLog === true; } catch (_e) { return false; }
+  }
   function logReq(cat, details) {
     entries.push({ ts:Date.now(), cat, d:details||{} });
+    if (entries.length > MAX_ENTRIES + 40) entries = entries.slice(-MAX_ENTRIES);
     counters[cat] = (counters[cat]||0) + 1;
-    const isWaste = cat.startsWith('waste-');
-    const prefix = isWaste ? '⚠️ [WASTE]' : '[REQ-LOG]';
-    console.log('%c'+prefix+' '+cat, 'color:'+(COLORS[cat]||'#fff')+';font-weight:bold', details||'');
-    save();
+    const noisy = cat === 'p2p-signal-sub' || cat === 'relay-sub' || cat === 'relay-pub' || cat === 'p2p-heartbeat' || cat === 'relay-resub';
+    const now = Date.now();
+    const first = !lastConsoleLog[cat];
+    if (diagnosticLogs() || !noisy || first || (now - lastConsoleLog[cat]) > 8000) {
+      lastConsoleLog[cat] = now;
+      const isWaste = cat.startsWith('waste-');
+      const prefix = isWaste ? '⚠️ [WASTE]' : '[REQ-LOG]';
+      console.log('%c'+prefix+' '+cat, 'color:'+(COLORS[cat]||'#fff')+';font-weight:bold', details||'');
+    }
+    scheduleSave();
   }
+
+  function noteRelaySubscription(sub) {
+    const reg = window.__sosRelaySubs || (window.__sosRelaySubs = { active: 0, created: 0, closed: 0 });
+    const list = Array.isArray(sub) ? sub : (sub ? [sub] : []);
+    list.forEach(function (one) {
+      if (!one || one.__sosCounted) return;
+      const endName = typeof one.close === 'function' ? 'close' : (typeof one.unsub === 'function' ? 'unsub' : '');
+      if (!endName) return;
+      one.__sosCounted = true;
+      reg.active += 1;
+      reg.created += 1;
+      const origEnd = one[endName];
+      one[endName] = function () {
+        if (!one.__sosClosed) {
+          one.__sosClosed = true;
+          reg.active = Math.max(0, reg.active - 1);
+          reg.closed += 1;
+          if (reg.active === 0 || reg.active >= 12 || (reg.closed % 25) === 0) {
+            try { console.log('SUBSCRIPTION_CLOSED active=' + reg.active + ' created=' + reg.created + ' closed=' + reg.closed); } catch (_c) {}
+          }
+        }
+        return origEnd.apply(one, arguments);
+      };
+    });
+    if (reg.created === 1 || reg.active >= 12 || (reg.created % 25) === 0) {
+      try { console.log('SUBSCRIPTION_CREATED active=' + reg.active + ' created=' + reg.created + ' closed=' + reg.closed); } catch (_a) {}
+      try { console.log('SUBSCRIPTION_ACTIVE n=' + reg.active); } catch (_b) {}
+    }
+  }
+  try {
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState !== 'hidden') return;
+      if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+      save();
+    });
+  } catch (_logLife) {}
 
   // חלק סיכום בזבוזים (chat-request-logger.js) — חישוב מטריקות בזבוז לדשבורד | HYPER CORE TECH
   function getWasteSummary() {
@@ -210,7 +265,9 @@
           } catch (_logErr) {
             /* telemetry must never break subscriptions */
           }
-          return orig.apply(this, arguments);
+          const sub = orig.apply(this, arguments);
+          try { noteRelaySubscription(sub); } catch (_count) {}
+          return sub;
         };
       }
     }, 500);

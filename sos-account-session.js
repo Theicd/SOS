@@ -686,6 +686,59 @@
     return { ok: true, id: String(event.id).slice(0, 12) };
   }
 
+  function historyInventoryKey(messages) {
+    return (messages || []).map(function (row) {
+      if (!row) return '';
+      const att = row.attachment && typeof row.attachment === 'object' ? row.attachment : {};
+      return [row.id || '', row.createdAt || 0, row.deleted ? 1 : 0, att.fileId || ''].join(':');
+    }).join('\n');
+  }
+
+  function histCheckpointKey(peer) {
+    return 'sos-hist-cp-' + String(norm(App.publicKey) || '').slice(0, 12) + '-' + String(peer || '').slice(0, 12);
+  }
+
+  function readHistCheckpoint(peer) {
+    try { return JSON.parse(localStorage.getItem(histCheckpointKey(peer)) || 'null'); } catch (_e) { return null; }
+  }
+
+  function writeHistCheckpoint(peer, packed) {
+    if (!packed) return;
+    try {
+      const sent = [];
+      (packed.p2pFiles || []).forEach(function (file) {
+        if (file && file.sent && file.fileId) sent.push(file.fileId);
+      });
+      localStorage.setItem(histCheckpointKey(peer), JSON.stringify({
+        snapshotId: packed.snapshotId || '',
+        inventoryKey: packed.inventoryKey || '',
+        sent: sent,
+        at: Date.now(),
+      }));
+    } catch (_e) {}
+  }
+
+  function historyPageSuspended() {
+    return root.__sosPageSuspended === true || (typeof document !== 'undefined' && document.visibilityState === 'hidden');
+  }
+
+  function historyPeerState(peer) {
+    root.__sosHistPeer = root.__sosHistPeer || {};
+    if (!root.__sosHistPeer[peer]) {
+      root.__sosHistPeer[peer] = { fails: 0, next: 0, probing: null, sending: null, timer: null, state: 'AUTHORIZED' };
+    }
+    return root.__sosHistPeer[peer];
+  }
+
+  function noteHistoryDevice(peer, state) {
+    const row = historyPeerState(peer);
+    if (row.state !== state) {
+      row.state = state;
+      try { console.log('HISTORY_DEVICE_STATE device=' + String(peer || '').slice(0, 8) + ' state=' + state); } catch (_e) {}
+    }
+    return state;
+  }
+
   async function publishLinkedHistoryBundle(devicePub, opts) {
     if (!primaryReady()) return { ok: false, code: 'NOT_PRIMARY' };
     const peer = norm(devicePub);
@@ -706,12 +759,16 @@
     try {
     const options = opts && typeof opts === 'object' ? opts : {};
     const prior = root.__sosHistOutbound && root.__sosHistOutbound[peer];
-    const want = options.checkpoint && options.checkpoint.snapshotId && prior && prior.snapshotId === options.checkpoint.snapshotId
-      ? prior
-      : null;
-    let packed = want;
+    const preflight = collectHistoryMessages();
+    const inventoryKey = historyInventoryKey(preflight.messages || []);
+    let packed = null;
+    let reused = false;
+    if (prior && prior.pages && prior.inventoryKey === inventoryKey) {
+      packed = prior;
+      reused = true;
+    }
     if (!packed) {
-      const snapshot = collectHistoryMessages();
+      const snapshot = preflight;
       const messages = snapshot.messages || [];
       const peers = {};
       messages.forEach(function (row) { if (row && row.peer) peers[row.peer] = true; });
@@ -771,9 +828,16 @@
       const pages = textPages.map(function (batch) { return { kind: 'messages', messages: batch }; });
       media.forEach(function (chunk) { pages.push({ kind: 'media', media: chunk }); });
       if (!pages.length) pages.push({ kind: 'messages', messages: [] });
-      const snapshotId = await sha256Hex(new TextEncoder().encode(norm(App.publicKey) + ':' + peer + ':' + String(Date.now()) + ':' + messages.length));
+      const snapshotId = await sha256Hex(new TextEncoder().encode(norm(App.publicKey) + ':' + peer + ':' + inventoryKey));
+      const saved = readHistCheckpoint(peer);
+      if (saved && saved.inventoryKey === inventoryKey && Array.isArray(saved.sent)) {
+        const done = {};
+        saved.sent.forEach(function (id) { done[id] = true; });
+        p2pFiles.forEach(function (file) { if (file && done[file.fileId]) file.sent = true; });
+      }
       packed = {
         snapshotId: snapshotId,
+        inventoryKey: inventoryKey,
         createdAt: Math.floor(Date.now() / 1000),
         messages: messages,
         pages: pages,
@@ -839,10 +903,22 @@
       lastId = sent.id;
     }
     try {
-      console.log('PHONE_HISTORY_READY snapshot=' + packed.snapshotId.slice(0, 8) + ' messages=' + packed.messages.length + ' pages=' + pageCount + ' files=' + packed.attachmentCount + ' p2p=' + ((packed.p2pFiles && packed.p2pFiles.length) || 0));
+      if (reused && published === 0) {
+        console.log('PHONE_HISTORY_JOIN snapshot=' + packed.snapshotId.slice(0, 8) + ' messages=' + packed.messages.length + ' pages=' + pageCount);
+      } else {
+        console.log('PHONE_HISTORY_READY snapshot=' + packed.snapshotId.slice(0, 8) + ' messages=' + packed.messages.length + ' pages=' + pageCount + ' files=' + packed.attachmentCount + ' p2p=' + ((packed.p2pFiles && packed.p2pFiles.length) || 0));
+      }
     } catch (_log) {}
+    writeHistCheckpoint(peer, packed);
     if (packed.p2pFiles && packed.p2pFiles.length) {
-      pushHistoryMediaP2P(peer, packed.p2pFiles).catch(function () {});
+      if (historyPageSuspended()) {
+        noteHistoryDevice(peer, 'SUSPENDED');
+      } else {
+        const row = historyPeerState(peer);
+        const cooling = row.fails > 0 && Date.now() < row.next;
+        if (!cooling && row.state !== 'DATA_CHANNEL_OPEN') row.state = 'RECONNECTING';
+        pushHistoryMediaP2P(peer, packed.p2pFiles).catch(function () {});
+      }
     }
     const result = {
       ok: true,
@@ -1239,48 +1315,140 @@
     const list = Array.isArray(files) ? files : [];
     if (!list.length) return { ok: true, transport: 'none' };
     root.__sosHistP2P = root.__sosHistP2P || {};
-    root.__sosHistP2P[peer] = list;
+    const current = root.__sosHistP2P[peer];
+    if (!current || !current.length || !list[0] || current[0].snapshotId !== list[0].snapshotId) {
+      root.__sosHistP2P[peer] = list;
+    }
     return sendPendingHistoryMedia(peer);
+  }
+
+  function armHistoryMediaRetry(peer) {
+    const row = historyPeerState(peer);
+    if (row.timer) return;
+    const wait = Math.max(1000, (row.next || (Date.now() + 15000)) - Date.now());
+    row.timer = setTimeout(function () {
+      row.timer = null;
+      if (historyPageSuspended()) {
+        noteHistoryDevice(peer, 'SUSPENDED');
+        return;
+      }
+      sendPendingHistoryMedia(peer).catch(function () {});
+    }, wait);
+  }
+
+  async function probeHistoryPeer(peer) {
+    const row = historyPeerState(peer);
+    if (historyPageSuspended()) return noteHistoryDevice(peer, 'SUSPENDED');
+    const dc = App.dataChannel;
+    if (dc && typeof dc.isConnected === 'function' && dc.isConnected(peer)) {
+      row.fails = 0;
+      row.next = 0;
+      return noteHistoryDevice(peer, 'DATA_CHANNEL_OPEN');
+    }
+    if (Date.now() < row.next) return row.state || 'OFFLINE';
+    if (row.probing) return row.probing;
+    noteHistoryDevice(peer, 'P2P_CONNECTING');
+    row.probing = (async function () {
+      let open = false;
+      try {
+        if (dc && typeof dc.forceConnect === 'function') {
+          await Promise.race([
+            Promise.resolve(dc.forceConnect(peer)),
+            new Promise(function (resolve) { setTimeout(resolve, 8000); }),
+          ]);
+        }
+      } catch (_e) {}
+      open = !!(dc && typeof dc.isConnected === 'function' && dc.isConnected(peer));
+      row.probing = null;
+      if (open) {
+        row.fails = 0;
+        row.next = 0;
+        return noteHistoryDevice(peer, 'DATA_CHANNEL_OPEN');
+      }
+      row.fails += 1;
+      const base = Math.min(120000, 15000 * Math.pow(2, Math.min(row.fails - 1, 3)));
+      row.next = Date.now() + base + Math.floor(Math.random() * 4000);
+      return noteHistoryDevice(peer, 'WAITING_FOR_DEVICE');
+    })();
+    return row.probing;
   }
 
   async function sendPendingHistoryMedia(peer) {
     const files = (root.__sosHistP2P && root.__sosHistP2P[peer]) || [];
     const pending = files.filter(function (file) { return file && !file.sent; });
+    const row = historyPeerState(peer);
     if (!pending.length) {
-      if (root.__sosHistP2PTimer) { clearInterval(root.__sosHistP2PTimer); root.__sosHistP2PTimer = null; }
+      if (row.timer) { clearTimeout(row.timer); row.timer = null; }
+      root.__sosHistSyncActive = false;
       return { ok: true };
     }
-    if (typeof App.sendHistoryMedia !== 'function') {
-      pending.forEach(function (file) { file.pending = 'P2P_UNAVAILABLE'; });
-      return { ok: false, code: 'P2P_UNAVAILABLE' };
-    }
-    for (let i = 0; i < pending.length; i += 1) {
-      const file = pending[i];
-      const started = Date.now();
-      let result = null;
-      try { result = await App.sendHistoryMedia(peer, file.blob, file); } catch (err) {
-        result = { ok: false, code: String((err && err.message) || 'P2P_FAILED') };
+    if (row.sending) return row.sending;
+    row.sending = (async function () {
+      if (historyPageSuspended()) {
+        noteHistoryDevice(peer, 'SUSPENDED');
+        try { console.log('HISTORY_MEDIA_WAIT device=' + peer.slice(0, 8) + ' state=SUSPENDED files=' + pending.length); } catch (_w) {}
+        return { ok: false, code: 'SUSPENDED', transport: 'pending' };
       }
-      const ms = Date.now() - started;
+      if (typeof App.sendHistoryMedia !== 'function') {
+        pending.forEach(function (file) { file.pending = 'P2P_UNAVAILABLE'; });
+        return { ok: false, code: 'P2P_UNAVAILABLE', transport: 'pending' };
+      }
+      const reach = await probeHistoryPeer(peer);
+      if (reach !== 'DATA_CHANNEL_OPEN') {
+        pending.forEach(function (file) { file.pending = reach === 'SUSPENDED' ? 'SUSPENDED' : 'WAITING_FOR_DEVICE'; });
+        try {
+          console.log('HISTORY_MEDIA_WAIT device=' + peer.slice(0, 8) + ' state=' + reach + ' files=' + pending.length + ' nextMs=' + Math.max(0, (row.next || 0) - Date.now()));
+        } catch (_wait) {}
+        if (reach !== 'SUSPENDED') armHistoryMediaRetry(peer);
+        return { ok: false, code: 'WAITING_FOR_DEVICE', transport: 'pending' };
+      }
+      root.__sosHistFileFlight = root.__sosHistFileFlight || {};
+      root.__sosHistSyncActive = true;
       try {
-        console.log('HISTORY_MEDIA_TIMING snapshot=' + String(file.snapshotId || '').slice(0, 8) + ' file=' + String(file.fileId || '').slice(0, 16) + ' logical=' + String(file.logicalMessageId || '').slice(0, 24) + ' bytes=' + (file.size || 0) + ' transport=' + ((result && result.transport) || 'pending') + ' ms=' + ms + ' code=' + String((result && result.code) || ''));
-      } catch (_log) {}
-      if (result && result.ok === true) file.sent = true;
-      else file.pending = (result && result.code) || 'P2P_UNAVAILABLE';
-    }
-    if (files.some(function (file) { return file && !file.sent; }) && !root.__sosHistP2PTimer) {
-      let tries = 0;
-      root.__sosHistP2PTimer = setInterval(function () {
-        tries += 1;
-        if (tries > 6 || !files.some(function (file) { return file && !file.sent; })) {
-          clearInterval(root.__sosHistP2PTimer);
-          root.__sosHistP2PTimer = null;
-          return;
+        for (let i = 0; i < pending.length; i += 1) {
+          const file = pending[i];
+          if (!file || file.sent) continue;
+          if (historyPageSuspended()) {
+            noteHistoryDevice(peer, 'SUSPENDED');
+            break;
+          }
+          const flightKey = peer + ':' + String(file.snapshotId || '') + ':' + String(file.fileId || '');
+          if (root.__sosHistFileFlight[flightKey]) continue;
+          root.__sosHistFileFlight[flightKey] = true;
+          const started = Date.now();
+          let result = null;
+          try { result = await App.sendHistoryMedia(peer, file.blob, file); } catch (err) {
+            result = { ok: false, code: String((err && err.message) || 'P2P_FAILED') };
+          } finally {
+            delete root.__sosHistFileFlight[flightKey];
+          }
+          const ms = Date.now() - started;
+          try {
+            console.log('HISTORY_MEDIA_TIMING snapshot=' + String(file.snapshotId || '').slice(0, 8) + ' file=' + String(file.fileId || '').slice(0, 16) + ' logical=' + String(file.logicalMessageId || '').slice(0, 24) + ' bytes=' + (file.size || 0) + ' transport=' + ((result && result.transport) || 'pending') + ' ms=' + ms + ' code=' + String((result && result.code) || ''));
+          } catch (_log) {}
+          if (result && result.ok === true) {
+            file.sent = true;
+            writeHistCheckpoint(peer, { snapshotId: file.snapshotId, inventoryKey: (root.__sosHistOutbound && root.__sosHistOutbound[peer] && root.__sosHistOutbound[peer].inventoryKey) || '', p2pFiles: files });
+          } else {
+            const code = String((result && result.code) || 'P2P_UNAVAILABLE');
+            file.pending = code;
+            const deviceDown = /SIGNAL|TIMEOUT|WAITING|CLOSED|UNAVAILABLE|OFFLINE|SUSPENDED|CONNECT/i.test(code);
+            if (deviceDown) {
+              row.fails += 1;
+              const base = Math.min(120000, 15000 * Math.pow(2, Math.min(row.fails - 1, 3)));
+              row.next = Date.now() + base + Math.floor(Math.random() * 4000);
+              noteHistoryDevice(peer, 'WAITING_FOR_DEVICE');
+              armHistoryMediaRetry(peer);
+              break;
+            }
+          }
         }
-        sendPendingHistoryMedia(peer).catch(function () {});
-      }, 15000);
-    }
-    return { ok: pending.every(function (file) { return file.sent; }), transport: 'p2p' };
+      } finally {
+        root.__sosHistSyncActive = false;
+      }
+      return { ok: pending.every(function (file) { return file.sent; }), transport: 'p2p' };
+    })();
+    try { return await row.sending; } finally { row.sending = null; }
   }
 
   async function noteHistoryMediaReceived(info) {
@@ -1382,14 +1550,40 @@
     return sent && sent.ok ? { ok: true } : { ok: false, code: sent && sent.code };
   }
 
+  function scheduleHistoryRequestRetry() {
+    if (root.__sosHistReqTimer) return;
+    const sync = root.__sosLdHistorySync;
+    if (sync && sync.HISTORY_TEXT_SYNC_COMPLETE === true) return;
+    let tries = Number(root.__sosHistReqTries) || 0;
+    const wait = Math.min(120000, 30000 * Math.pow(2, Math.min(tries, 3))) + Math.floor(Math.random() * 4000);
+    root.__sosHistReqTimer = setTimeout(function () {
+      root.__sosHistReqTimer = null;
+      const done = root.__sosLdHistorySync && root.__sosLdHistorySync.HISTORY_TEXT_SYNC_COMPLETE === true;
+      if (done || tries >= 4) return;
+      root.__sosHistReqTries = tries + 1;
+      if (historyPageSuspended()) {
+        root.__sosHistReqDeferred = true;
+        return;
+      }
+      pullLinkedHistory().catch(function () {});
+      requestLinkedHistory().catch(function () {});
+    }, wait);
+  }
+
   async function requestLinkedHistory() {
     const session = getAccountSession();
     if (session.role !== 'LINKED_DEVICE' || session.verified !== true) return { ok: false, code: 'NOT_LINKED' };
+    if (historyPageSuspended()) {
+      root.__sosHistReqDeferred = true;
+      return { ok: false, code: 'SUSPENDED' };
+    }
+    if (root.__sosHistReqFlight) return root.__sosHistReqFlight;
     if (!allows('READ_CONVERSATIONS') && session.caps.indexOf('DEVICE_HISTORY_SYNC') === -1 && session.caps.indexOf('DEVICE_CHAT') === -1) {
       return { ok: false, code: 'CAPABILITY_DENIED' };
     }
     const book = root.__sosLdHistoryPages || {};
     const syncRequestId = 'hsr-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+    root.__sosHistReqFlight = (async function () {
     const payload = {
       v: 1,
       type: HIST_REQ_TAG,
@@ -1414,25 +1608,24 @@
     const accepted = settled.some(function (r) { return r.status === 'fulfilled'; });
     try { console.log('DESKTOP_HISTORY_SYNC_REQUEST id=' + syncRequestId + ' ok=' + (accepted ? '1' : '0')); } catch (_r) {}
     setTimeout(function () { pullLinkedHistory().catch(function () {}); }, 3000);
-    if (!root.__sosHistReqTimer) {
-      let tries = 0;
-      root.__sosHistReqTimer = setInterval(function () {
-        tries += 1;
-        const done = root.__sosLdHistorySync && root.__sosLdHistorySync.HISTORY_TEXT_SYNC_COMPLETE === true;
-        if (done || tries > 8) {
-          clearInterval(root.__sosHistReqTimer);
-          root.__sosHistReqTimer = null;
-          return;
-        }
-        pullLinkedHistory().catch(function () {});
-        requestLinkedHistory().catch(function () {});
-      }, 20000);
-    }
+    scheduleHistoryRequestRetry();
     return { ok: accepted, syncRequestId: syncRequestId };
+    })();
+    try { return await root.__sosHistReqFlight; } finally { root.__sosHistReqFlight = null; }
   }
 
   async function acceptHistoryRequest(event) {
     if (!primaryReady()) return { ok: false, code: 'NOT_PRIMARY' };
+    root.__sosHistReqSeen = root.__sosHistReqSeen || {};
+    if (root.__sosHistReqSeen && Object.keys(root.__sosHistReqSeen).length > 240) root.__sosHistReqSeen = {};
+    const eid = String(event && event.id || '');
+    if (eid && root.__sosHistReqSeen[eid]) return { ok: true, duplicate: true };
+    if (eid) root.__sosHistReqSeen[eid] = true;
+    const created = Number(event && event.created_at) || 0;
+    if (created && (Math.floor(Date.now() / 1000) - created) > 600) {
+      if (eid) root.__sosHistReqSeen[eid] = true;
+      return { ok: false, code: 'STALE_REQUEST' };
+    }
     const delegated = await verifyDelegatedEvent(event, '');
     if (!delegated || delegated.ok !== true) return { ok: false, code: (delegated && delegated.code) || 'DELEGATION_REJECTED' };
     if (norm(delegated.accountP) !== norm(App.publicKey)) return { ok: false, code: 'ACCOUNT_MISMATCH' };
@@ -1456,8 +1649,17 @@
     try { body = JSON.parse(payload && payload.text ? payload.text : ''); } catch (_p) { return { ok: false, code: 'BAD_REQUEST' }; }
     if (!body || body.type !== HIST_REQ_TAG || norm(body.accountP) !== norm(App.publicKey)) return { ok: false, code: 'BAD_REQUEST' };
     if (norm(body.devicePub) !== delegated.deviceSignPub) return { ok: false, code: 'DEVICE_MISMATCH' };
+    const rid = String(body.syncRequestId || '');
+    if (rid && root.__sosHistReqSeen['r:' + rid]) return { ok: true, duplicate: true };
+    if (rid) root.__sosHistReqSeen['r:' + rid] = true;
+    root.__sosHistReqLatest = root.__sosHistReqLatest || {};
+    const latest = root.__sosHistReqLatest[delegated.deviceSignPub];
+    if (latest && created && latest.created > created) return { ok: true, duplicate: true };
+    if (latest && latest.promise && latest.at && (Date.now() - latest.at) < 25000) return latest.promise;
     try { console.log('PHONE_HISTORY_REQUEST_RECEIVED device=' + delegated.deviceSignPub.slice(0, 8) + ' id=' + String(body.syncRequestId || '').slice(0, 16)); } catch (_log) {}
-    return publishLinkedHistoryBundle(delegated.deviceSignPub, { checkpoint: body.checkpoint || null, syncRequestId: body.syncRequestId || '' });
+    const promise = publishLinkedHistoryBundle(delegated.deviceSignPub, { checkpoint: body.checkpoint || null, syncRequestId: body.syncRequestId || '' });
+    root.__sosHistReqLatest[delegated.deviceSignPub] = { created: created, at: Date.now(), promise: promise };
+    return promise;
   }
 
   async function pullLinkedDirectMessages() {
@@ -1995,5 +2197,49 @@
     resubscribeLinkedTransports: resubscribeLinkedTransports,
     ROOT_K_ON_DESKTOP: false,
   };
+  function resumeHistoryAfterVisible() {
+    const deferred = root.__sosHistReqDeferred === true || root.__sosPageSuspended === true;
+    root.__sosPageSuspended = false;
+    root.__sosHistReqDeferred = false;
+    if (!deferred) return;
+    try { console.log('HISTORY_RESUME'); } catch (_e) {}
+    const session = getAccountSession();
+    if (session.role === 'LINKED_DEVICE') {
+      const sync = root.__sosLdHistorySync;
+      if (!sync || sync.HISTORY_TEXT_SYNC_COMPLETE !== true) requestLinkedHistory().catch(function () {});
+      else pullLinkedHistory().catch(function () {});
+    }
+    const map = root.__sosHistP2P || {};
+    Object.keys(map).forEach(function (peer) {
+      const row = historyPeerState(peer);
+      row.next = 0;
+      row.fails = 0;
+      if (row.timer) { clearTimeout(row.timer); row.timer = null; }
+      row.state = 'RECONNECTING';
+      sendPendingHistoryMedia(peer).catch(function () {});
+    });
+  }
+  function bindHistoryLifecycle() {
+    if (root.__sosHistLife || typeof document === 'undefined') return;
+    root.__sosHistLife = true;
+    const onHide = function (why) {
+      root.__sosPageSuspended = true;
+      const peers = root.__sosHistPeer || {};
+      Object.keys(peers).forEach(function (peer) {
+        if (peers[peer] && peers[peer].state !== 'OFFLINE') peers[peer].state = 'SUSPENDED';
+      });
+      try {
+        if (typeof App.flushChatPersist === 'function') App.flushChatPersist();
+      } catch (_flush) {}
+      try { console.log('HISTORY_SUSPEND reason=' + why); } catch (_e) {}
+    };
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) onHide('hidden');
+      else resumeHistoryAfterVisible();
+    });
+    document.addEventListener('freeze', function () { onHide('freeze'); });
+    document.addEventListener('resume', resumeHistoryAfterVisible);
+  }
+  bindHistoryLifecycle();
   root.SosAccountSession = App.SosAccountSession;
 })(window);

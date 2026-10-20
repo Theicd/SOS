@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v899s52'; // History publish no longer waits on a silent relay
+  const CACHE_NAME = 'sos-cache-v899s53'; // History sync joins one snapshot and does not probe every file
   const PRECACHE_URLS = [
     './',
     './videos.html',
