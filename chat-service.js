@@ -545,8 +545,17 @@
       if (text && String(text).length >= 8 && wire.indexOf(text) !== -1) continue;
       const extraTags = [['t', 'sos-device-copy'], ['e', String(logicalId).slice(0, 80)]];
       if (outgoingMirror) {
+        let mirror = String(mirrorPeer).toLowerCase();
+        if (Session && typeof Session.noteOwnedDevices === 'function') {
+          try { await Session.noteOwnedDevices(account); } catch (_note) {}
+        }
+        if (Session && typeof Session.verifiedAccountOf === 'function') {
+          const owner = Session.verifiedAccountOf(mirror);
+          if (owner) mirror = owner;
+        }
+        if (mirror === devicePub) mirror = account;
         extraTags.push(['t', 'sos-own-sync']);
-        extraTags.push(['sync-peer', String(mirrorPeer).toLowerCase()]);
+        extraTags.push(['sync-peer', mirror]);
       } else if (inboundPeer) {
         extraTags.push(['t', 'sos-inbound-sync']);
         extraTags.push(['sync-peer', String(mirrorPeer).toLowerCase()]);
@@ -1261,6 +1270,10 @@
   async function resolveProfile(pubkey) {
     const normalized = pubkey?.toLowerCase?.() || '';
     const nowSec = Math.floor(Date.now() / 1000);
+    const owned = window.SosAccountSession && typeof window.SosAccountSession.verifiedAccountOf === 'function'
+      ? window.SosAccountSession.verifiedAccountOf(normalized)
+      : '';
+    if (owned) return { name: '', picture: '', initials: '', profileFetchedAt: nowSec };
     const ttl = Math.min(PROFILE_TTL_SECONDS, 3600);
 
     // חלק קאש פרופילים (chat-service.js) – מנסה להשתמש בפרופיל שמור עם TTL לפני פנייה לריליי | HYPER CORE TECH
@@ -1735,6 +1748,7 @@
     let contactPubkey = isSelfMessage ? await mapAccount(recipient) : senderAccount;
     if (inboundSyncEarly && /^[0-9a-f]{64}$/.test(syncPeerEarly)) contactPubkey = await mapAccount(syncPeerEarly);
     else if (ownSyncEarly && /^[0-9a-f]{64}$/.test(syncPeerEarly)) contactPubkey = await mapAccount(syncPeerEarly);
+    contactPubkey = await accountForOwnedDevice(contactPubkey);
     // Stage 13 — per-peer ingress throttle after auth/recipient (normal chat stays far below) | HYPER CORE TECH
     if (!allowIngressBucket(chatIngressBuckets, sender, CHAT_INGRESS_WINDOW_MS, CHAT_INGRESS_MAX_PER_PEER)) {
       console.warn('[SECURITY/RATE_DROP] type=1050 peer=' + sender.slice(0, 8) + ' reason=chat_burst');
@@ -1866,7 +1880,8 @@
     const inboundSync = inboundSyncEarly;
     const syncPeer = syncPeerEarly;
     const recipientAccount = await mapAccount(recipient);
-    const syncPeerAccount = /^[0-9a-f]{64}$/.test(syncPeer) ? await mapAccount(syncPeer) : '';
+    let syncPeerAccount = /^[0-9a-f]{64}$/.test(syncPeer) ? await mapAccount(syncPeer) : '';
+    if (syncPeerAccount) syncPeerAccount = await accountForOwnedDevice(syncPeerAccount);
     const syncVerified = !!(/^[0-9a-f]{64}$/.test(delegatedAccountP) || event.__sosDelegatedAccount || sender === accountUser);
     if ((ownSync || inboundSync) && !syncVerified) {
       try { console.log('[MD] SYNC_TAG_UNVERIFIED event=' + String(event.id || '').slice(0, 8)); } catch (_sync) {}
@@ -2394,6 +2409,18 @@
         chatLastSignalAt = Date.now();
       },
     });
+    setTimeout(() => { reconcileDeviceConversations().catch(() => {}); }, 1500);
+  }
+
+  async function accountForOwnedDevice(pk) {
+    const raw = String(pk || '').toLowerCase();
+    const Session = window.SosAccountSession;
+    if (!/^[0-9a-f]{64}$/.test(raw) || !Session || typeof Session.noteOwnedDevices !== 'function' || typeof Session.verifiedAccountOf !== 'function') return raw;
+    try { await Session.noteOwnedDevices(); } catch (_e) { return raw; }
+    const owner = Session.verifiedAccountOf(raw);
+    if (!owner || owner === raw) return raw;
+    try { console.log('[MD] PHANTOM_DEVICE_ROUTED peer=' + raw.slice(0, 8) + ' account=' + String(owner).slice(0, 8)); } catch (_log) {}
+    return owner;
   }
 
   // חלק צ'אט (chat-service.js) – רענון חיבור לאחר חזרה מפוקוס/רשת או idle | HYPER CORE TECH
@@ -3061,24 +3088,23 @@
 
   async function reconcileDeviceConversations() {
     const Session = window.SosAccountSession;
-    if (!Session || typeof Session.resolveDeviceAccount !== 'function' || typeof App.mergeDeviceConversationIntoAccount !== 'function') {
+    if (!Session || typeof Session.noteOwnedDevices !== 'function' || typeof App.mergeDeviceConversationIntoAccount !== 'function') {
       return { ok: false, n: 0 };
     }
+    try { await Session.noteOwnedDevices(); } catch (_e) { return { ok: false, n: 0 }; }
     const contacts = typeof App.getChatContacts === 'function' ? App.getChatContacts() : [];
     const self = String(App.publicKey || '').toLowerCase();
     let n = 0;
     for (let i = 0; i < contacts.length; i += 1) {
       const pk = String(contacts[i] && contacts[i].pubkey || '').toLowerCase();
       if (!/^[0-9a-f]{64}$/.test(pk) || pk === self) continue;
-      let resolved = null;
-      try { resolved = await Session.resolveDeviceAccount(pk); } catch (_e) { resolved = null; }
-      if (!resolved || resolved.ok !== true || !resolved.accountP || resolved.accountP === pk) continue;
-      if (Array.isArray(resolved.caps) && resolved.caps.indexOf('DEVICE_CHAT') === -1 && resolved.caps.indexOf('DEVICE_FILES') === -1) continue;
-      const merged = App.mergeDeviceConversationIntoAccount(pk, resolved.accountP);
-      if (merged && merged.ok && merged.moved > 0) n += 1;
-    }
-    if (n) {
-      try { console.log('[MD] PHANTOM_CONTACT_RECONCILED n=' + n); } catch (_log) {}
+      const owner = typeof Session.verifiedAccountOf === 'function' ? Session.verifiedAccountOf(pk) : '';
+      if (!owner || owner === pk) continue;
+      const merged = App.mergeDeviceConversationIntoAccount(pk, owner);
+      if (merged && merged.ok) {
+        n += 1;
+        try { console.log('[MD] PHANTOM_CONTACT_MERGED peer=' + pk.slice(0, 8) + ' account=' + owner.slice(0, 8) + ' moved=' + merged.moved); } catch (_log) {}
+      }
     }
     return { ok: true, n: n };
   }

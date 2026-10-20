@@ -5253,7 +5253,77 @@
     return true;
   }
 
+  function olderHistoryButton(peerPubkey) {
+    const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    if (!session || session.role !== 'LINKED_DEVICE' || session.verified !== true) return null;
+    const peer = String(peerPubkey || '').toLowerCase();
+    const btn = doc.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chat-load-older';
+    btn.setAttribute('data-older-history', '1');
+    const cursor = (window.__sosOlderCursor && window.__sosOlderCursor[peer]) || null;
+    const wait = (window.__sosOlderWait && window.__sosOlderWait[peer]) || '';
+    if (cursor && cursor.hasMore === false) {
+      btn.textContent = 'אין היסטוריה ישנה יותר';
+      btn.disabled = true;
+      return btn;
+    }
+    btn.textContent = wait === 'offline' ? 'ממתין לחיבור הטלפון' : 'טען הודעות ישנות יותר';
+    btn.addEventListener('click', () => { requestOlderFromUi(peer, btn); });
+    return btn;
+  }
+
+  async function requestOlderFromUi(peer, btn) {
+    const Session = window.SosAccountSession;
+    if (!Session || typeof Session.requestOlderHistory !== 'function') return;
+    const box = elements.messagesContainer;
+    if (box) window.__sosOlderScroll = { peer, height: box.scrollHeight, top: box.scrollTop };
+    btn.disabled = true;
+    btn.textContent = 'טוען...';
+    let result = null;
+    try { result = await Session.requestOlderHistory(peer); } catch (_e) { result = null; }
+    if (result && result.code === 'END') {
+      btn.textContent = 'אין היסטוריה ישנה יותר';
+      btn.disabled = true;
+      return;
+    }
+    if (!result || result.ok !== true) {
+      window.__sosOlderWait = window.__sosOlderWait || {};
+      window.__sosOlderWait[peer] = 'offline';
+      btn.disabled = false;
+      btn.textContent = 'ממתין לחיבור הטלפון';
+    }
+  }
+
+  function bindOlderHistoryUi() {
+    if (window.__sosOlderUiBound) return;
+    window.__sosOlderUiBound = true;
+    window.addEventListener('sos-older-history', (ev) => {
+      const detail = ev && ev.detail ? ev.detail : {};
+      const peer = String(detail.peer || '').toLowerCase();
+      if (!peer || String(state.activeContact || '').toLowerCase() !== peer) return;
+      const box = elements.messagesContainer;
+      const prevHeight = box ? box.scrollHeight : 0;
+      const prevTop = box ? box.scrollTop : 0;
+      renderMessages(peer, { force: true, revealOlder: detail.added || 20 });
+      requestAnimationFrame(() => {
+        if (!elements.messagesContainer) return;
+        elements.messagesContainer.scrollTop = Math.max(0, elements.messagesContainer.scrollHeight - prevHeight + prevTop);
+      });
+    });
+    window.addEventListener('sos-older-waiting', (ev) => {
+      const detail = ev && ev.detail ? ev.detail : {};
+      const peer = String(detail.peer || '').toLowerCase();
+      if (!peer || String(state.activeContact || '').toLowerCase() !== peer) return;
+      const btn = elements.messagesContainer && elements.messagesContainer.querySelector('[data-older-history="1"]');
+      if (!btn) return;
+      btn.disabled = false;
+      btn.textContent = 'ממתין לחיבור הטלפון';
+    });
+  }
+
   function renderMessages(peerPubkey, options = {}) {
+    bindOlderHistoryUi();
     // מניעת רינדור מקונן שמוחק כרטיסים באמצע בנייה | HYPER CORE TECH
     if (_renderMessagesDepth > 0) {
       if (_pendingRenderMsg) clearTimeout(_pendingRenderMsg);
@@ -5271,6 +5341,9 @@
     }
     if (options.loadOlder) {
       _visibleMessageLimit += INITIAL_VISIBLE_MESSAGES;
+    }
+    if (options.revealOlder) {
+      _visibleMessageLimit += Math.max(INITIAL_VISIBLE_MESSAGES, Number(options.revealOlder) || 0);
     }
     if (options.resetLimit) {
       _visibleMessageLimit = INITIAL_VISIBLE_MESSAGES;
@@ -5362,6 +5435,8 @@
         elements.messagesContainer.appendChild(fragment);
         return;
       }
+      const olderEmpty = olderHistoryButton(peerPubkey);
+      if (olderEmpty) fragment.appendChild(olderEmpty);
       const empty = doc.createElement('p');
       empty.className = 'chat-conversation__empty';
       empty.textContent = 'אין הודעות עדיין. כתוב משהו!';
@@ -5394,6 +5469,9 @@
         });
       });
       fragment.appendChild(loadOlder);
+    } else {
+      const older = olderHistoryButton(peerPubkey);
+      if (older) fragment.appendChild(older);
     }
     // חלק צ'אט (chat-ui.js) – קיבוץ הודעות לפי יום והוספת כותרות תאריך דביקות בסגנון וואטסאפ
     let lastDayKey = '';

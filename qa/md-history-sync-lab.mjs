@@ -132,9 +132,20 @@ async function main() {
         logicals.push(id);
         n += 1;
       }
+      const oldId = 'old-12d';
+      App.appendChatMessage({
+        id: oldId,
+        logicalMessageId: oldId,
+        from: self,
+        to: peers[0],
+        content: 'old-12d',
+        direction: 'outgoing',
+        createdAt: Math.floor(Date.now() / 1000) - (12 * 86400),
+      });
+      n += 1;
       let stored = 0;
       App.chatState.conversations.forEach((entry) => { stored += (entry.messages || []).length; });
-      return { n: n, stored: stored, fileId: fileId, imageId: imageId, logicals: logicals, p2pFileIds: p2pFileIds };
+      return { n: n, stored: stored, fileId: fileId, imageId: imageId, logicals: logicals, p2pFileIds: p2pFileIds, oldId: oldId, olderPeer: peers[0] };
     }, { peers: peers, jpegB64: JPEG.toString('base64'), self: phone.pub });
     report.SOURCE_MESSAGE_COUNT = seeded.stored;
     report.SOURCE_ATTACHMENT_COUNT = 15;
@@ -244,6 +255,38 @@ async function main() {
     report.MEDIA_HASH = detail.hash;
     report.ROOT_K_ON_DESKTOP = detail.root === true;
     report.TEXT_SYNC_COMPLETE = !!(detail.sync && detail.sync.HISTORY_TEXT_SYNC_COMPLETE === true && detail.stored >= 100);
+    report.FULL_BACKUP_COMPLETE = !!(detail.sync && detail.sync.FULL_BACKUP_COMPLETE === true);
+    const hasOld = async () => desktopPage.evaluate((oldId) => {
+      const App = window.NostrApp;
+      let found = false;
+      if (App && App.chatState && App.chatState.conversations) {
+        App.chatState.conversations.forEach((entry) => {
+          (entry.messages || []).forEach((m) => {
+            if (m && (m.logicalMessageId === oldId || m.id === oldId || String(m.id || '').indexOf(oldId) !== -1)) found = true;
+          });
+        });
+      }
+      return found;
+    }, seeded.oldId);
+    report.OLD_ABSENT_ON_INITIAL = (await hasOld()) === false;
+    const pageOne = await desktopPage.evaluate((peer) => window.SosAccountSession.requestOlderHistory(peer), seeded.olderPeer);
+    const pageOneStarted = Date.now();
+    let pageOneLog = false;
+    while (Date.now() - pageOneStarted < 25000) {
+      pageOneLog = logs.some((line) => line.indexOf('OLDER_HISTORY_PAGE ') !== -1);
+      if (pageOneLog) break;
+      await desktopPage.waitForTimeout(500);
+    }
+    report.OLDER_PAGE_ONE = { request: pageOne, logged: pageOneLog, oldPresent: await hasOld() };
+    const pageTwo = await desktopPage.evaluate((peer) => window.SosAccountSession.requestOlderHistory(peer), seeded.olderPeer);
+    const pageTwoStarted = Date.now();
+    let oldArrived = false;
+    while (Date.now() - pageTwoStarted < 25000) {
+      oldArrived = await hasOld();
+      if (oldArrived) break;
+      await desktopPage.waitForTimeout(500);
+    }
+    report.OLDER_PAGE_TWO = { request: pageTwo, oldPresent: oldArrived };
     await desktopPage.reload({ waitUntil: 'domcontentloaded', timeout: 120000 });
     await waitApp(desktopPage);
     const reloaded = await pollPage(desktopPage, async (imageId) => {
@@ -358,7 +401,9 @@ async function main() {
     report.MEDIA_HASH = mediaHash;
     const oneSnapshot = readyCount >= 1 && readyCount <= 3 && report.PENDING_TIMING_COUNT <= 16;
     report.ONE_SNAPSHOT = oneSnapshot;
-    report.STATUS = report.TEXT_SYNC_COMPLETE && mediaHash && detail.root !== true && report.RELOAD_PERSISTENCE && report.ACK_COUNT <= 8 && report.ACK_COUNT >= 1 && headerOk && oneSnapshot ? 'PASS_INITIAL_HISTORY_LAB' : 'FAIL';
+    const olderOk = report.OLD_ABSENT_ON_INITIAL === true && report.OLDER_PAGE_ONE && report.OLDER_PAGE_ONE.logged === true && report.OLDER_PAGE_ONE.oldPresent === false && report.OLDER_PAGE_TWO && report.OLDER_PAGE_TWO.oldPresent === true && report.FULL_BACKUP_COMPLETE === false;
+    report.OLDER_WINDOW_OK = olderOk;
+    report.STATUS = report.TEXT_SYNC_COMPLETE && mediaHash && detail.root !== true && report.RELOAD_PERSISTENCE && report.ACK_COUNT <= 8 && report.ACK_COUNT >= 1 && headerOk && oneSnapshot && olderOk ? 'PASS_INITIAL_HISTORY_LAB' : 'FAIL';
   } catch (err) {
     report.STATUS = 'FAIL';
     report.ERROR = String(err && err.message || err).slice(0, 300);

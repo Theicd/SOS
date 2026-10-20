@@ -1444,6 +1444,8 @@
     // פתרון עבור מי שלא נמצא – החזר fallback
     authors.forEach((author) => {
       if (found.has(author)) return;
+      if (!(App.profileMissAt instanceof Map)) App.profileMissAt = new Map();
+      App.profileMissAt.set(author, Date.now());
       const resolvers = App._profileBatchResolvers.get(author) || [];
       resolvers.forEach(({ resolve, fallback }) => resolve(fallback));
       App._profileBatchResolvers.delete(author);
@@ -1582,6 +1584,13 @@
       picture: cachedProfile?.picture || '',
       initials: cachedProfile?.initials || (typeof App.getInitials === 'function' ? App.getInitials(pubkey) : 'AN'),
     });
+    const ownedDevice = window.SosAccountSession && typeof window.SosAccountSession.verifiedAccountOf === 'function'
+      ? window.SosAccountSession.verifiedAccountOf(normalized)
+      : '';
+    if (ownedDevice) return fallback;
+    if (!(App.profileMissAt instanceof Map)) App.profileMissAt = new Map();
+    const missAt = App.profileMissAt.get(normalized) || 0;
+    if (missAt && (Date.now() - missAt) < PROFILE_FRESH_MS) return fallback;
 
     // אין Pool זמין – מחזירים fallback
     if (!App.pool || !Array.isArray(App.relayUrls) || App.relayUrls.length === 0) {

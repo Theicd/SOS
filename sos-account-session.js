@@ -16,6 +16,8 @@
   const HIST_RELAY_MEDIA_MAX = 7000;
   const HIST_PAGE_BUDGET = 10000;
   const HIST_PAGE_MAX = 15000;
+  const HIST_RECENT_SEC = 72 * 3600;
+  const HIST_OLDER_SEC = 7 * 86400;
 
   const OPS = {
     VIEW_PRIVATE_UI: 'VIEW_PRIVATE_UI',
@@ -461,7 +463,7 @@
       SYNCING_MEDIA: 'מסנכרן קבצים',
       WAITING_FOR_DEVICE: 'ממתין לחיבור המכשיר',
       RETRYING: 'מחדש העברה',
-      COMPLETED: 'הסנכרון הושלם',
+      COMPLETED: '72 השעות האחרונות סונכרנו',
       PARTIAL: 'חלק מהקבצים עדיין לא זמינים',
       FAILED: 'לא ניתן להשלים את הסנכרון',
     };
@@ -574,18 +576,40 @@
     };
   }
 
-  function collectHistoryMessages() {
+  function historySeconds(ts) {
+    const n = Number(ts) || 0;
+    if (!n) return 0;
+    return n > 1e12 ? Math.floor(n / 1000) : Math.floor(n);
+  }
+
+  function collectHistoryMessages(opts) {
+    const options = opts && typeof opts === 'object' ? opts : {};
+    const since = Math.max(0, Number(options.since) || 0);
+    const until = Math.max(0, Number(options.until) || 0);
+    const onlyPeer = norm(options.peer || '');
+    const self = norm(App.publicKey);
     const out = [];
     const unavailable = [];
     const conv = App.chatState && App.chatState.conversations;
-    if (!conv || typeof conv.forEach !== 'function') return { messages: out, unavailable: unavailable, omitted: 0, complete: true };
+    if (!conv || typeof conv.forEach !== 'function') return { messages: out, unavailable: unavailable, omitted: 0, complete: true, hasOlder: false };
+    let hasOlder = false;
     conv.forEach(function (entry) {
       const messages = entry && Array.isArray(entry.messages) ? entry.messages : [];
       messages.forEach(function (m) {
         if (!m || m.historySync === true) return;
         const text = typeof m.content === 'string' ? m.content : '';
-        const peer = norm(entry.peer || (norm(m.from) === norm(App.publicKey) ? m.to : m.from));
+        let peer = norm(entry.peer || (norm(m.from) === self ? m.to : m.from));
+        const owner = verifiedAccountOf(peer);
+        if (owner) peer = owner;
         if (!isHex64(peer)) return;
+        if (onlyPeer && peer !== onlyPeer) return;
+        const ts = historySeconds(m.createdAt);
+        if (since && ts && ts < since) {
+          hasOlder = true;
+          return;
+        }
+        if (until && ts && ts >= until) return;
+        if (since && !ts) return;
         let attachment = null;
         if (m.attachment && m.deleted !== true && m.tombstone !== true) {
           const att = m.attachment;
@@ -609,15 +633,28 @@
           peer: peer,
           text: text,
           direction: m.direction === 'outgoing' ? 'outgoing' : 'incoming',
-          createdAt: Number(m.createdAt) || Math.floor(Date.now() / 1000),
+          createdAt: ts || Math.floor(Date.now() / 1000),
           deleted: m.deleted === true || m.tombstone === true,
           attachment: attachment,
         });
       });
     });
+    const byId = {};
+    out.forEach(function (row) {
+      if (!row || !row.id) return;
+      const prev = byId[row.id];
+      if (!prev) {
+        byId[row.id] = row;
+        return;
+      }
+      if (prev.peer === self && row.peer !== self) byId[row.id] = row;
+    });
+    const unique = out.filter(function (row) {
+      return row && (!row.id || byId[row.id] === row);
+    });
     let omitted = 0;
     const packed = [];
-    out.forEach(function (row) {
+    unique.forEach(function (row) {
       if (JSON.stringify(row).length > HIST_PAGE_MAX) {
         omitted += 1;
         unavailable.push({ id: row.id, reason: 'MESSAGE_TOO_LARGE' });
@@ -625,7 +662,7 @@
       }
       packed.push(row);
     });
-    return { messages: packed, unavailable: unavailable, omitted: omitted, complete: omitted === 0 && unavailable.length === 0 };
+    return { messages: packed, unavailable: unavailable, omitted: omitted, complete: omitted === 0 && unavailable.length === 0, hasOlder: hasOlder };
   }
 
   function splitHistoryPages(messages) {
@@ -750,6 +787,7 @@
     if (typeof App.restoreChatState === 'function') {
       try { await App.restoreChatState(); } catch (_restore) {}
     }
+    if (opts && opts.scope === 'older') return publishOlderHistoryBundle(devicePub, opts);
     const pool = App.pool;
     if (!pool || typeof pool.publish !== 'function') return { ok: false, code: 'NO_POOL' };
     root.__sosHistInflight = root.__sosHistInflight || {};
@@ -759,7 +797,18 @@
     try {
     const options = opts && typeof opts === 'object' ? opts : {};
     const prior = root.__sosHistOutbound && root.__sosHistOutbound[peer];
-    const preflight = collectHistoryMessages();
+    try { await noteOwnedDevices(); } catch (_own) {}
+    if (typeof App.reconcileDeviceConversations === 'function') {
+      try { await App.reconcileDeviceConversations(); } catch (_rec) {}
+    }
+    const anchor = Math.floor(Date.now() / 1000);
+    const windowFrom = anchor - HIST_RECENT_SEC;
+    const readStarted = Date.now();
+    const preflight = collectHistoryMessages({ since: windowFrom });
+    try {
+      console.log('HISTORY_TIMING phase=SOURCE_HISTORY_READ_MS ms=' + (Date.now() - readStarted) + ' messages=' + preflight.messages.length);
+      console.log('HISTORY_WINDOW_V2 from=' + windowFrom + ' to=' + anchor + ' messages=' + preflight.messages.length + ' olderAvailable=' + (preflight.hasOlder ? '1' : '0'));
+    } catch (_win) {}
     const inventoryKey = historyInventoryKey(preflight.messages || []);
     let packed = null;
     let reused = false;
@@ -849,6 +898,11 @@
         sourceComplete: (snapshot.omitted || 0) === 0 && unavailable.length === 0,
         messagePageCount: messagePageCount,
         p2pFiles: p2pFiles,
+        scope: 'recent',
+        protocol: 2,
+        windowFrom: windowFrom,
+        windowTo: anchor,
+        hasOlder: preflight.hasOlder === true,
       };
       p2pFiles.forEach(function (file) { file.snapshotId = snapshotId; });
       root.__sosHistOutbound = root.__sosHistOutbound || {};
@@ -884,6 +938,16 @@
         attachmentCount: packed.attachmentCount,
         totalBytes: packed.totalBytes || 0,
         sourceComplete: packed.sourceComplete === true,
+        protocol: 2,
+        scope: packed.scope || 'recent',
+        recentHistory: (packed.scope || 'recent') !== 'older',
+        fullBackup: false,
+        windowFrom: packed.windowFrom || 0,
+        windowTo: packed.windowTo || 0,
+        conversationId: packed.conversationId || '',
+        nextBefore: packed.nextBefore || 0,
+        hasMore: packed.hasMore === true,
+        requestId: packed.requestId || '',
         messages: item.kind === 'messages' ? item.messages : [],
         media: item.kind === 'media' ? item.media : null,
         unavailable: page === pageCount - 1 ? packed.unavailable : [],
@@ -948,6 +1012,157 @@
     }
   }
 
+  async function publishOlderHistoryBundle(devicePub, opts) {
+    if (!primaryReady()) return { ok: false, code: 'NOT_PRIMARY' };
+    const peer = norm(devicePub);
+    const conversation = norm(opts && opts.conversationId);
+    const before = Math.max(0, Number(opts && opts.before) || 0);
+    const requestId = String((opts && (opts.requestId || opts.syncRequestId)) || '');
+    if (!isHex64(peer) || !isHex64(conversation) || !before) return { ok: false, code: 'BAD_WINDOW' };
+    const key = peer + ':' + conversation + ':' + before;
+    root.__sosHistOlderInflight = root.__sosHistOlderInflight || {};
+    if (root.__sosHistOlderInflight[key]) return root.__sosHistOlderInflight[key];
+    const job = publishOlderHistoryNow(peer, conversation, before, requestId);
+    root.__sosHistOlderInflight[key] = job;
+    try { return await job; } finally {
+      setTimeout(function () { delete root.__sosHistOlderInflight[key]; }, 5000);
+    }
+  }
+
+  async function publishOlderHistoryNow(peer, conversation, before, requestId) {
+    const signer = App.SosCryptoSigner;
+    if (!signer || typeof signer.nip44ChatEncrypt !== 'function' || typeof signer.signLinkedHistory !== 'function') {
+      return { ok: false, code: 'SIGNER_MISSING' };
+    }
+    if (typeof App.restoreChatState === 'function') {
+      try { await App.restoreChatState(); } catch (_restore) {}
+    }
+    try { await noteOwnedDevices(); } catch (_own) {}
+    if (typeof App.reconcileDeviceConversations === 'function') {
+      try { await App.reconcileDeviceConversations(); } catch (_rec) {}
+    }
+    const since = before - HIST_OLDER_SEC;
+    const readStarted = Date.now();
+    const snapshot = collectHistoryMessages({ since: since, until: before, peer: conversation });
+    try {
+      console.log('HISTORY_TIMING phase=SOURCE_HISTORY_READ_MS ms=' + (Date.now() - readStarted) + ' scope=older messages=' + snapshot.messages.length);
+    } catch (_t) {}
+    const messages = snapshot.messages || [];
+    const media = [];
+    const p2pFiles = [];
+    const unavailable = (snapshot.unavailable || []).slice();
+    let totalBytes = 0;
+    for (let i = 0; i < messages.length; i += 1) {
+      const row = messages[i];
+      if (!row || !row.attachment || !row.attachment.fileId || row.deleted === true) continue;
+      const loaded = await readHistoryAttachment(row.attachment, row.id);
+      if (!loaded.ok) {
+        unavailable.push({ id: row.id, fileId: loaded.fileId, reason: loaded.reason || 'NO_LOCAL_BYTES', source: 'LOCAL' });
+        row.attachment.unavailable = loaded.reason || 'NO_LOCAL_BYTES';
+        continue;
+      }
+      row.attachment.sha256 = loaded.sha256;
+      row.attachment.size = loaded.size;
+      row.attachment.mime = loaded.mime;
+      totalBytes += loaded.size;
+      if (loaded.bytes.length <= HIST_RELAY_MEDIA_MAX) {
+        row.attachment.transport = 'relay';
+        media.push({
+          fileId: loaded.fileId,
+          logicalMessageId: row.id,
+          name: loaded.name,
+          mime: loaded.mime,
+          size: loaded.size,
+          sha256: loaded.sha256,
+          chunkIndex: 0,
+          chunkCount: 1,
+          transport: 'relay',
+          b64: bytesToB64(loaded.bytes),
+        });
+      } else {
+        row.attachment.transport = 'p2p';
+        p2pFiles.push({
+          fileId: loaded.fileId,
+          logicalMessageId: row.id,
+          name: loaded.name,
+          mime: loaded.mime,
+          size: loaded.size,
+          sha256: loaded.sha256,
+          transport: 'p2p',
+          blob: new Blob([loaded.bytes], { type: loaded.mime || 'application/octet-stream' }),
+        });
+      }
+    }
+    const textPages = splitHistoryPages(messages);
+    const pages = textPages.map(function (batch) { return { kind: 'messages', messages: batch }; });
+    media.forEach(function (chunk) { pages.push({ kind: 'media', media: chunk }); });
+    if (!pages.length) pages.push({ kind: 'messages', messages: [] });
+    const createdAt = Math.floor(Date.now() / 1000);
+    const inventoryKey = historyInventoryKey(messages);
+    const snapshotId = await sha256Hex(new TextEncoder().encode(norm(App.publicKey) + ':' + peer + ':older:' + conversation + ':' + before + ':' + inventoryKey));
+    p2pFiles.forEach(function (file) { file.snapshotId = snapshotId; });
+    const hasMore = snapshot.hasOlder === true;
+    let published = 0;
+    for (let page = 0; page < pages.length; page += 1) {
+      const item = pages[page];
+      const payload = item.kind === 'media' ? item.media : item.messages;
+      const pageHash = await sha256Hex(new TextEncoder().encode(JSON.stringify(payload)));
+      const bodyObj = {
+        v: 4,
+        type: HIST_TAG,
+        kind: item.kind,
+        accountP: norm(App.publicKey),
+        snapshotId: snapshotId,
+        protocol: 2,
+        scope: 'older',
+        recentHistory: false,
+        fullBackup: false,
+        sourceDeviceId: 'primary',
+        destinationDeviceId: peer,
+        createdAt: createdAt,
+        page: page,
+        pageCount: pages.length,
+        pageHash: pageHash,
+        messagePageCount: textPages.length,
+        messageCount: messages.length,
+        attachmentCount: media.length + p2pFiles.length,
+        totalBytes: totalBytes,
+        sourceComplete: unavailable.length === 0,
+        windowFrom: since,
+        windowTo: before,
+        conversationId: conversation,
+        nextBefore: since,
+        hasMore: hasMore,
+        requestId: requestId,
+        messages: item.kind === 'messages' ? item.messages : [],
+        media: item.kind === 'media' ? item.media : null,
+        unavailable: page === pages.length - 1 ? unavailable : [],
+        omitted: page === pages.length - 1 ? (snapshot.omitted || 0) : 0,
+        complete: false,
+      };
+      const sent = await publishHistoryPage(peer, createdAt, page, pages.length, JSON.stringify(bodyObj));
+      if (!sent.ok) {
+        try { console.log('PHONE_OLDER_HISTORY_FAIL code=' + String(sent.code || '')); } catch (_f) {}
+        return { ok: false, code: sent.code || 'PUBLISH_FAILED', FULL_BACKUP_COMPLETE: false };
+      }
+      published += 1;
+    }
+    if (p2pFiles.length && !historyPageSuspended()) {
+      pushHistoryMediaP2P(peer, p2pFiles).catch(function () {});
+    }
+    try {
+      console.log('PHONE_OLDER_HISTORY_READY peer=' + conversation.slice(0, 8) + ' messages=' + messages.length + ' from=' + since + ' to=' + before + ' hasMore=' + (hasMore ? '1' : '0') + ' pages=' + published);
+    } catch (_log) {}
+    return {
+      ok: true,
+      scope: 'older',
+      count: messages.length,
+      hasMore: hasMore,
+      nextBefore: since,
+      FULL_BACKUP_COMPLETE: false,
+    };
+  }
+
   function hasHistTag(event) {
     return Array.isArray(event && event.tags) && event.tags.some(function (t) {
       return Array.isArray(t) && t[0] === 't' && t[1] === HIST_TAG;
@@ -957,6 +1172,106 @@
   function rememberHistory(result) {
     root.__sosLdHistorySync = result;
     return result;
+  }
+
+  function olderCursorStorageKey(account, peer) {
+    return 'sos-hist-older-' + String(account || '').slice(0, 12) + '-' + String(peer || '').slice(0, 12);
+  }
+
+  function readOlderCursor(account, peer) {
+    root.__sosOlderCursor = root.__sosOlderCursor || {};
+    if (root.__sosOlderCursor[peer]) return root.__sosOlderCursor[peer];
+    try {
+      const raw = localStorage.getItem(olderCursorStorageKey(account, peer));
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && typeof parsed === 'object') {
+        root.__sosOlderCursor[peer] = parsed;
+        return parsed;
+      }
+    } catch (_e) {}
+    return null;
+  }
+
+  function writeOlderCursor(cursor) {
+    if (!cursor || !isHex64(cursor.accountP) || !isHex64(cursor.conversationId)) return;
+    root.__sosOlderCursor = root.__sosOlderCursor || {};
+    root.__sosOlderCursor[cursor.conversationId] = cursor;
+    try { localStorage.setItem(olderCursorStorageKey(cursor.accountP, cursor.conversationId), JSON.stringify(cursor)); } catch (_e) {}
+  }
+
+  function oldestLoadedMessage(peer) {
+    const conv = App.chatState && App.chatState.conversations;
+    const self = norm(App.publicKey);
+    const want = norm(peer);
+    let oldest = 0;
+    let logical = '';
+    if (!conv || typeof conv.forEach !== 'function') return { ts: 0, id: '' };
+    conv.forEach(function (entry) {
+      let entryPeer = norm(entry && entry.peer);
+      const owner = verifiedAccountOf(entryPeer);
+      if (owner) entryPeer = owner;
+      if (entryPeer !== want) return;
+      (entry.messages || []).forEach(function (m) {
+        const ts = historySeconds(m && m.createdAt);
+        if (!ts) return;
+        if (!oldest || ts < oldest) {
+          oldest = ts;
+          logical = String((m && (m.logicalMessageId || m.id)) || '');
+        }
+      });
+    });
+    if (!oldest && want === self) return { ts: Math.floor(Date.now() / 1000) - HIST_RECENT_SEC, id: '' };
+    return { ts: oldest, id: logical };
+  }
+
+  function finishOlderHistory(bundle, session, added, unavailableCount) {
+    const peer = norm(bundle.conversationId);
+    const seenKey = bundle.__olderSeenKey;
+    if (seenKey) {
+      root.__sosOlderSeen = root.__sosOlderSeen || {};
+      root.__sosOlderSeen[seenKey] = true;
+    }
+    root.__sosOlderGot = root.__sosOlderGot || {};
+    const group = String(bundle.requestId || bundle.snapshotId || peer);
+    const got = root.__sosOlderGot[group] || (root.__sosOlderGot[group] = {});
+    got[bundle.page] = true;
+    const pageCount = Number(bundle.pageCount) > 0 ? Number(bundle.pageCount) : 1;
+    if (Object.keys(got).length < pageCount) {
+      return { ok: true, scope: 'older', partial: true, FULL_BACKUP_COMPLETE: false };
+    }
+    const oldest = oldestLoadedMessage(peer);
+    const cursor = {
+      accountP: session.accountP,
+      conversationId: peer,
+      oldestLoadedTimestamp: oldest.ts || Number(bundle.nextBefore) || 0,
+      oldestLoadedLogicalMessageId: oldest.id || '',
+      snapshotHighWaterMark: Number(bundle.windowTo) || 0,
+      nextOlderBoundary: Number(bundle.nextBefore) || 0,
+      hasMore: bundle.hasMore === true,
+      requestId: String(bundle.requestId || ''),
+    };
+    writeOlderCursor(cursor);
+    root.__sosOlderHistoryAvailable = true;
+    root.__sosFullBackupComplete = false;
+    if (root.__sosOlderWait) delete root.__sosOlderWait[peer];
+    try {
+      console.log('OLDER_HISTORY_PAGE peer=' + peer.slice(0, 8) + ' added=' + added + ' hasMore=' + (cursor.hasMore ? '1' : '0') + ' next=' + cursor.nextOlderBoundary + ' unavailable=' + unavailableCount);
+    } catch (_log) {}
+    try {
+      const ev = new CustomEvent('sos-older-history', { detail: { peer: peer, added: added, hasMore: cursor.hasMore } });
+      root.dispatchEvent(ev);
+    } catch (_ev) {}
+    return {
+      ok: true,
+      scope: 'older',
+      added: added,
+      hasMore: cursor.hasMore,
+      nextOlderBoundary: cursor.nextOlderBoundary,
+      RECENT_HISTORY_SYNC_COMPLETE: root.__sosRecentHistorySyncComplete === true,
+      OLDER_HISTORY_AVAILABLE_ON_REQUEST: true,
+      FULL_BACKUP_COMPLETE: false,
+      FAKE_HISTORY_SYNC: false,
+    };
   }
 
   async function acceptHistoryEvent(event) {
@@ -981,10 +1296,23 @@
     if (bundle.destinationDeviceId && norm(bundle.destinationDeviceId) !== norm(session.deviceSignPub)) {
       return rememberHistory({ ok: false, code: 'DESTINATION_MISMATCH', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
     }
+    try { await noteOwnedDevices(session.accountP); } catch (_own) {}
     const page = Number.isInteger(bundle.page) ? bundle.page : 0;
     const pageCount = Number(bundle.pageCount) > 0 ? Number(bundle.pageCount) : 1;
     const snapshotId = typeof bundle.snapshotId === 'string' ? bundle.snapshotId : 'legacy';
-    if (!root.__sosLdHistoryPages || (snapshotId !== 'legacy' && root.__sosLdHistoryPages.snapshotId && root.__sosLdHistoryPages.snapshotId !== snapshotId && Number(bundle.createdAt) >= Number(root.__sosLdHistoryPages.createdAt || 0))) {
+    const older = bundle.scope === 'older';
+    if (older) {
+      root.__sosOlderSeen = root.__sosOlderSeen || {};
+      const seenKey = String(bundle.requestId || snapshotId) + ':' + page + ':' + String(bundle.kind || 'messages');
+      if (root.__sosOlderSeen[seenKey]) {
+        return { ok: true, duplicate: true, scope: 'older', FULL_BACKUP_COMPLETE: false, RECENT_HISTORY_SYNC_COMPLETE: root.__sosRecentHistorySyncComplete === true };
+      }
+      bundle.__olderSeenKey = seenKey;
+    }
+    if (!older && (!root.__sosLdHistoryPages || (snapshotId !== 'legacy' && root.__sosLdHistoryPages.snapshotId && root.__sosLdHistoryPages.snapshotId !== snapshotId && Number(bundle.createdAt) >= Number(root.__sosLdHistoryPages.createdAt || 0)))) {
+      root.__sosLdHistoryPages = { seen: {}, count: 0, unavailable: 0, omitted: 0, pageCount: pageCount, snapshotId: snapshotId, createdAt: Number(bundle.createdAt) || 0, files: {}, filesDone: 0, messageCount: 0, attachmentCount: 0 };
+    }
+    if (!root.__sosLdHistoryPages) {
       root.__sosLdHistoryPages = { seen: {}, count: 0, unavailable: 0, omitted: 0, pageCount: pageCount, snapshotId: snapshotId, createdAt: Number(bundle.createdAt) || 0, files: {}, filesDone: 0, messageCount: 0, attachmentCount: 0 };
     }
     const book = root.__sosLdHistoryPages;
@@ -993,7 +1321,7 @@
       const expect = await sha256Hex(new TextEncoder().encode(JSON.stringify(payload)));
       if (expect !== bundle.pageHash) return rememberHistory({ ok: false, code: 'PAGE_HASH_MISMATCH', HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false });
     }
-    if (book.seen[page] === true) {
+    if (!older && book.seen[page] === true) {
       return root.__sosLdHistorySync || { ok: true, duplicate: true, HISTORY_SYNC_COMPLETE: false, FAKE_HISTORY_SYNC: false };
     }
     const already = false;
@@ -1002,6 +1330,8 @@
       const list = Array.isArray(bundle.messages) ? bundle.messages : [];
       list.forEach(function (m) {
         if (!m || typeof m.text !== 'string' || !isHex64(m.peer) || typeof App.appendChatMessage !== 'function') return;
+        const owner = verifiedAccountOf(m.peer);
+        const filedPeer = owner || norm(m.peer);
         const outgoing = m.direction === 'outgoing';
         const att = m.attachment && typeof m.attachment === 'object' ? {
           name: m.attachment.name || '',
@@ -1013,7 +1343,7 @@
           unavailable: m.attachment.unavailable || '',
           transport: m.attachment.transport || '',
         } : null;
-        if (att && att.fileId) {
+        if (att && att.fileId && !older) {
           book.expectedFiles = book.expectedFiles || {};
           if (!book.expectedFiles[att.fileId]) {
             book.expectedFiles[att.fileId] = { logicalMessageId: String(m.id || ''), sha256: att.sha256 || '', size: Number(att.size) || 0 };
@@ -1024,8 +1354,8 @@
         }
         App.appendChatMessage({
           id: 'hist-' + String(m.id || n),
-          from: outgoing ? session.accountP : m.peer,
-          to: outgoing ? m.peer : session.accountP,
+          from: outgoing ? session.accountP : filedPeer,
+          to: outgoing ? filedPeer : session.accountP,
           content: m.deleted === true ? '' : m.text,
           attachment: att && att.fileId ? att : (m.attachment && m.attachment.type === 'encrypted-media' ? m.attachment : null),
           createdAt: Number(m.createdAt) || Math.floor(Date.now() / 1000),
@@ -1073,9 +1403,11 @@
         }
         slot.done = true;
         slot.parts = {};
-        book.filesDone = (book.filesDone || 0) + 1;
-        book.verifiedBytes = (book.verifiedBytes || 0) + bytes.length;
-        book.relayBytes = (book.relayBytes || 0) + bytes.length;
+        if (!older) {
+          book.filesDone = (book.filesDone || 0) + 1;
+          book.verifiedBytes = (book.verifiedBytes || 0) + bytes.length;
+          book.relayBytes = (book.relayBytes || 0) + bytes.length;
+        }
         book.transport = 'relay';
         try {
           const url = URL.createObjectURL(blob);
@@ -1097,6 +1429,7 @@
     }
     const unavailable = Array.isArray(bundle.unavailable) ? bundle.unavailable : [];
     const omitted = Number(bundle.omitted) || 0;
+    if (older) return finishOlderHistory(bundle, session, n, unavailable.length);
     book.pageCount = Math.max(book.pageCount || 1, pageCount);
     book.messageCount = Math.max(book.messageCount || 0, Number(bundle.messageCount) || 0);
     book.attachmentCount = Math.max(book.attachmentCount || 0, Number(bundle.attachmentCount) || 0);
@@ -1115,8 +1448,17 @@
     for (let i = 0; i < messagePages; i += 1) if (book.seen[i] === true) textGot += 1;
     const textDone = messagePages > 0 && textGot >= messagePages && book.omitted === 0;
     const filesDone = (book.attachmentCount || 0) === 0 || (book.filesDone || 0) >= book.attachmentCount;
-    const full = textDone && filesDone && bundle.sourceComplete !== false && (book.unavailable || 0) === 0 && !(book.missingFiles && book.missingFiles.length);
-    book.uiFull = full;
+    const protocol2 = Number(bundle.protocol) >= 2 || bundle.recentHistory === true || bundle.scope === 'recent';
+    const windowDone = textDone && filesDone && bundle.sourceComplete !== false && (book.unavailable || 0) === 0 && !(book.missingFiles && book.missingFiles.length);
+    const full = protocol2 ? false : windowDone;
+    const recentDone = protocol2 && windowDone;
+    if (recentDone) {
+      root.__sosRecentHistorySyncComplete = true;
+      root.__sosOlderHistoryAvailable = true;
+      root.__sosFullBackupComplete = false;
+      try { console.log('RECENT_HISTORY_SYNC_COMPLETE messages=' + book.count + ' files=' + (book.filesDone || 0) + ' FULL_BACKUP_COMPLETE=false'); } catch (_recent) {}
+    }
+    book.uiFull = protocol2 ? recentDone : full;
     historyProgress(book);
     root.__sosLdHistorySync = {
       ok: true,
@@ -1128,6 +1470,9 @@
       HISTORY_ATTACHMENTS_SYNC_COMPLETE: filesDone,
       HISTORY_FULL_SYNC_COMPLETE: full,
       HISTORY_SYNC_COMPLETE: full,
+      RECENT_HISTORY_SYNC_COMPLETE: root.__sosRecentHistorySyncComplete === true,
+      OLDER_HISTORY_AVAILABLE_ON_REQUEST: root.__sosOlderHistoryAvailable === true,
+      FULL_BACKUP_COMPLETE: false,
       omitted: book.omitted,
       unavailable: book.unavailable,
       filesDone: book.filesDone || 0,
@@ -1592,12 +1937,13 @@
       devicePub: session.deviceSignPub,
       sessionId: session.deviceId,
       syncRequestId: syncRequestId,
-      protocol: 1,
+      protocol: 2,
       checkpoint: {
         snapshotId: book.snapshotId || '',
         havePages: Object.keys(book.seen || {}).map(function (n) { return Number(n); }),
       },
-      scope: 'full',
+      scope: 'recent',
+      since: Math.floor(Date.now() / 1000) - HIST_RECENT_SEC,
     };
     const built = await delegatedChatEncrypt(session.accountP, JSON.stringify(payload), syncRequestId, { sibling: true, extraTags: [['t', HIST_REQ_TAG]] });
     if (!built || built.ok !== true || !built.event) return { ok: false, code: (built && built.code) || 'REQUEST_FAILED' };
@@ -1612,6 +1958,70 @@
     return { ok: accepted, syncRequestId: syncRequestId };
     })();
     try { return await root.__sosHistReqFlight; } finally { root.__sosHistReqFlight = null; }
+  }
+
+  async function requestOlderHistory(conversationId) {
+    const session = getAccountSession();
+    if (session.role !== 'LINKED_DEVICE' || session.verified !== true) return { ok: false, code: 'NOT_LINKED', FULL_BACKUP_COMPLETE: false };
+    if (!allows('READ_CONVERSATIONS') && session.caps.indexOf('DEVICE_HISTORY_SYNC') === -1 && session.caps.indexOf('DEVICE_CHAT') === -1) {
+      return { ok: false, code: 'CAPABILITY_DENIED', FULL_BACKUP_COMPLETE: false };
+    }
+    const peer = norm(conversationId);
+    if (!isHex64(peer)) return { ok: false, code: 'BAD_CONVERSATION', FULL_BACKUP_COMPLETE: false };
+    const cursor = readOlderCursor(session.accountP, peer);
+    if (cursor && cursor.hasMore === false) return { ok: true, code: 'END', cursor: cursor, FULL_BACKUP_COMPLETE: false };
+    const loaded = oldestLoadedMessage(peer);
+    const floor = Math.floor(Date.now() / 1000) - HIST_RECENT_SEC;
+    const loadedTs = loaded.ts || floor;
+    const before = cursor && cursor.nextOlderBoundary ? Number(cursor.nextOlderBoundary) : Math.min(loadedTs, floor);
+    if (!before) return { ok: false, code: 'NO_BOUNDARY', FULL_BACKUP_COMPLETE: false };
+    const flightKey = peer + ':' + before;
+    root.__sosOlderReqFlight = root.__sosOlderReqFlight || {};
+    if (root.__sosOlderReqFlight[flightKey]) return root.__sosOlderReqFlight[flightKey];
+    const requestId = 'hor-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+    root.__sosOlderReqFlight[flightKey] = (async function () {
+      const payload = {
+        v: 1,
+        type: HIST_REQ_TAG,
+        accountP: session.accountP,
+        deviceId: session.deviceId,
+        devicePub: session.deviceSignPub,
+        sessionId: session.deviceId,
+        syncRequestId: requestId,
+        protocol: 2,
+        scope: 'older',
+        conversationId: peer,
+        before: before,
+        windowSeconds: HIST_OLDER_SEC,
+        requestId: requestId,
+      };
+      const built = await delegatedChatEncrypt(session.accountP, JSON.stringify(payload), requestId, { sibling: true, extraTags: [['t', HIST_REQ_TAG]] });
+      if (!built || built.ok !== true || !built.event) return { ok: false, code: (built && built.code) || 'REQUEST_FAILED', FULL_BACKUP_COMPLETE: false };
+      const pool = App.pool;
+      if (!pool || typeof pool.publish !== 'function') return { ok: false, code: 'NO_POOL', FULL_BACKUP_COMPLETE: false };
+      const pending = pool.publish(App.relayUrls, built.event);
+      const settled = await Promise.allSettled((Array.isArray(pending) ? pending : [pending]).map(function (p) { return Promise.resolve(p); }));
+      const accepted = settled.some(function (r) { return r.status === 'fulfilled'; });
+      try { console.log('DESKTOP_OLDER_HISTORY_REQUEST peer=' + peer.slice(0, 8) + ' before=' + before + ' ok=' + (accepted ? '1' : '0')); } catch (_r) {}
+      if (!accepted) {
+        root.__sosOlderWait = root.__sosOlderWait || {};
+        root.__sosOlderWait[peer] = 'offline';
+        return { ok: false, code: 'RELAY_REJECTED', FULL_BACKUP_COMPLETE: false };
+      }
+      root.__sosOlderPending = root.__sosOlderPending || {};
+      root.__sosOlderPending[peer] = { before: before, requestId: requestId, at: Date.now() };
+      setTimeout(function () {
+        const pendingRow = root.__sosOlderPending && root.__sosOlderPending[peer];
+        if (!pendingRow || pendingRow.requestId !== requestId) return;
+        const saved = readOlderCursor(session.accountP, peer);
+        if (saved && saved.requestId === requestId) return;
+        root.__sosOlderWait = root.__sosOlderWait || {};
+        root.__sosOlderWait[peer] = 'offline';
+        try { root.dispatchEvent(new CustomEvent('sos-older-waiting', { detail: { peer: peer } })); } catch (_ev) {}
+      }, 20000);
+      return { ok: true, requestId: requestId, before: before, FULL_BACKUP_COMPLETE: false };
+    })();
+    try { return await root.__sosOlderReqFlight[flightKey]; } finally { delete root.__sosOlderReqFlight[flightKey]; }
   }
 
   async function acceptHistoryRequest(event) {
@@ -1649,6 +2059,15 @@
     try { body = JSON.parse(payload && payload.text ? payload.text : ''); } catch (_p) { return { ok: false, code: 'BAD_REQUEST' }; }
     if (!body || body.type !== HIST_REQ_TAG || norm(body.accountP) !== norm(App.publicKey)) return { ok: false, code: 'BAD_REQUEST' };
     if (norm(body.devicePub) !== delegated.deviceSignPub) return { ok: false, code: 'DEVICE_MISMATCH' };
+    if (body.scope === 'older') {
+      try { console.log('PHONE_OLDER_HISTORY_REQUEST device=' + delegated.deviceSignPub.slice(0, 8) + ' peer=' + String(body.conversationId || '').slice(0, 8)); } catch (_old) {}
+      return publishOlderHistoryBundle(delegated.deviceSignPub, {
+        scope: 'older',
+        conversationId: body.conversationId,
+        before: body.before,
+        requestId: body.requestId || body.syncRequestId || '',
+      });
+    }
     const rid = String(body.syncRequestId || '');
     if (rid && root.__sosHistReqSeen['r:' + rid]) return { ok: true, duplicate: true };
     if (rid) root.__sosHistReqSeen['r:' + rid] = true;
@@ -1984,7 +2403,8 @@
   }
 
   async function listAuthorizedDevices(accountP, requiredCap) {
-    const listed = await collectVerifiedDirectory(accountP, requiredCap ? String(requiredCap) : 'DEVICE_CHAT');
+    const cap = requiredCap === 'ANY' ? '' : (requiredCap ? String(requiredCap) : 'DEVICE_CHAT');
+    const listed = await collectVerifiedDirectory(accountP, cap);
     return listed.devices;
   }
 
@@ -2114,6 +2534,29 @@
     return isHex64(owner) && owner !== pk ? owner : '';
   }
 
+  async function noteOwnedDevices(accountP) {
+    const account = norm(accountP || (typeof App.publicKey === 'string' ? App.publicKey : ''));
+    if (!isHex64(account)) return { ok: false, code: 'BAD_ACCOUNT' };
+    if (root.__sosOwnedDevicesAccount === account && root.__sosOwnedDevicesAt && (Date.now() - root.__sosOwnedDevicesAt) < 20000) {
+      return { ok: true, cached: true };
+    }
+    const listed = await listAuthorizedDevices(account, 'ANY');
+    const rows = Array.isArray(listed) ? listed : [];
+    root.__sosVerifiedDeviceOwners = root.__sosVerifiedDeviceOwners || {};
+    let n = 0;
+    rows.forEach(function (row) {
+      const sign = norm(row && row.deviceSignPub);
+      const caps = Array.isArray(row && row.caps) ? row.caps : [];
+      const chat = caps.indexOf('DEVICE_CHAT') !== -1 || caps.indexOf('DEVICE_FILES') !== -1 || caps.indexOf('DEVICE_CALLS') !== -1;
+      if (!isHex64(sign) || sign === account || !chat) return;
+      root.__sosVerifiedDeviceOwners[sign] = account;
+      n += 1;
+    });
+    root.__sosOwnedDevicesAccount = account;
+    root.__sosOwnedDevicesAt = Date.now();
+    return { ok: true, n: n };
+  }
+
   // Verified MD3 only. A directory miss stays the pubkey; unknown keys are not merged.
   async function canonicalPeer(pubkey, requiredCap) {
     const pk = norm(pubkey);
@@ -2188,6 +2631,9 @@
     resolveDeviceAccount: resolveDeviceAccount,
     classifyP2pSignalAuthor: classifyP2pSignalAuthor,
     verifiedAccountOf: verifiedAccountOf,
+    noteOwnedDevices: noteOwnedDevices,
+    requestOlderHistory: requestOlderHistory,
+    readOlderCursor: readOlderCursor,
     canonicalPeer: canonicalPeer,
     resolveVerifiedActor: resolveVerifiedActor,
     verifyEventPlain: verifyEventPlain,
@@ -2208,6 +2654,15 @@
       const sync = root.__sosLdHistorySync;
       if (!sync || sync.HISTORY_TEXT_SYNC_COMPLETE !== true) requestLinkedHistory().catch(function () {});
       else pullLinkedHistory().catch(function () {});
+      const waiting = root.__sosOlderPending || {};
+      Object.keys(waiting).forEach(function (peer) {
+        const row = waiting[peer];
+        const saved = readOlderCursor(session.accountP, peer);
+        if (saved && saved.requestId && row && saved.requestId === row.requestId) return;
+        if (row && row.tries >= 4) return;
+        if (row) row.tries = (row.tries || 0) + 1;
+        requestOlderHistory(peer).catch(function () {});
+      });
     }
     const map = root.__sosHistP2P || {};
     Object.keys(map).forEach(function (peer) {
