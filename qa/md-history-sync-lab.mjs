@@ -260,7 +260,11 @@ async function main() {
     }, seeded.imageId, 45000);
     report.RELOAD = reloaded;
     report.RELOAD_PERSISTENCE = reloaded && reloaded.ok === true;
-    report.ACK_COUNT = logs.filter((line) => line.indexOf('HISTORY_DESTINATION_ACK') !== -1).length;
+    const phoneAcks = phoneLogs.filter((line) => line.indexOf('PHONE_HISTORY_ACK snapshot=') !== -1).length;
+    const desktopAcks = logs.filter((line) => line.indexOf('HISTORY_DESTINATION_ACK') !== -1).length;
+    report.ACK_COUNT = Math.max(phoneAcks, desktopAcks);
+    report.ACK_PHONE = phoneAcks;
+    report.ACK_DESKTOP = desktopAcks;
     report.HEADER_UI = await desktopPage.evaluate(() => {
       const ui = window.__sosHistUi || null;
       const el = document.getElementById('sosHistorySyncProgress');
