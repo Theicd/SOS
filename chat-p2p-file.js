@@ -1023,7 +1023,10 @@
       if (typeof App.setFeedWarmupPaused === 'function') App.setFeedWarmupPaused(true);
       if (typeof App.pauseFeedMediaForChat === 'function') App.pauseFeedMediaForChat('chat-file');
     } catch (_) {}
-    const fileId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const historyMeta = file && file.__sosHistory && typeof file.__sosHistory === 'object' ? file.__sosHistory : null;
+    const fileId = historyMeta && typeof historyMeta.fileId === 'string' && historyMeta.fileId
+      ? String(historyMeta.fileId).slice(0, 180)
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const key = await generateFileKey();
     const keyStr = await exportFileKey(key);
     
@@ -1101,8 +1104,11 @@
       totalChunks: Math.ceil(file.size / CHUNK_SIZE),
       createdAt: Math.floor(Date.now() / 1000),
       caption: pendingCaption || undefined,
-      sha256: fileSha256,
+      sha256: (historyMeta && historyMeta.sha256) || fileSha256,
       selfConversation: selfChat === true,
+      historySync: historyMeta ? true : undefined,
+      logicalMessageId: historyMeta ? String(historyMeta.logicalMessageId || '') : undefined,
+      snapshotId: historyMeta ? String(historyMeta.snapshotId || '') : undefined,
     };
     
     // שליחת metadata דרך signaling — רק אם P2P זמין; כשל מוכרע עובר ישר ל-fallback מוצפן
@@ -1169,7 +1175,10 @@
       fileSelectedAt,
       p2pConnectMs: preflight.waitedMs || 0,
       dcReused: !!preflight.reused,
-      sha256: fileSha256,
+      sha256: (historyMeta && historyMeta.sha256) || fileSha256,
+      historySync: !!(historyMeta),
+      logicalMessageId: historyMeta ? String(historyMeta.logicalMessageId || '') : '',
+      snapshotId: historyMeta ? String(historyMeta.snapshotId || '') : '',
       ackTimeouts: 0,
       retransmits: 0,
       windowDownshifts: 0,
@@ -1180,6 +1189,11 @@
 
     if (!preflight.ok) {
       transfer.p2pPreflightFailure = preflight.failure || 'UNKNOWN_P2P_FAILURE';
+      if (historyMeta) {
+        activeTransfers.delete(fileId);
+        try { console.log('HISTORY_MEDIA_PENDING file=' + fileId.slice(0, 16) + ' code=' + String(transfer.p2pPreflightFailure)); } catch (_h) {}
+        return { ok: false, code: transfer.p2pPreflightFailure, transport: 'pending' };
+      }
       await failTransferToFallback(transfer, transfer.p2pPreflightFailure, onProgress);
       if (selfChat) return 'LOCAL_QUEUED';
       return fileId;
@@ -1236,6 +1250,16 @@
     }, FILE_RETAIN_MS);
     qaNote('resend-cache', { fileId });
     console.log('[CHAT/P2P] 💾 קובץ נשמר ל-resend cache למשך 3 דקות:', fileId);
+
+    if (transfer.historySync === true) {
+      const elapsed = Math.max(1, Date.now() - (transfer.startTime || Date.now()));
+      const bytes = file && file.size ? file.size : 0;
+      try {
+        console.log('HISTORY_MEDIA_DONE file=' + String(fileId).slice(0, 16) + ' bytes=' + bytes + ' mbps=' + ((bytes / 1e6) / (elapsed / 1000)).toFixed(3) + ' ms=' + elapsed + ' transport=p2p');
+      } catch (_hist) {}
+      notifyProgress({ fileId, progress: 1, status: 'complete', direction: 'send', name: file && file.name, size: bytes, peerPubkey: transfer.peerPubkey });
+      return;
+    }
 
     try {
       if (typeof App.appendChatMessage === 'function') {
@@ -2052,7 +2076,7 @@
   async function handleP2PFileOffer(senderPubkey, offerData) {
     const senderKey = toPeerKey(senderPubkey);
     try {
-      const { fileId, name, size, mimeType, keyStr, totalChunks, createdAt: offerCreatedAt, caption: offerCaption, sha256: offerSha256, selfConversation: offerSelf } = offerData || {};
+      const { fileId, name, size, mimeType, keyStr, totalChunks, createdAt: offerCreatedAt, caption: offerCaption, sha256: offerSha256, selfConversation: offerSelf, historySync: offerHistory, logicalMessageId: offerLogical, snapshotId: offerSnapshot } = offerData || {};
       
       console.log('[CHAT/P2P] 📥 handleP2PFileOffer', {
         from: senderKey?.slice?.(0, 8),
@@ -2130,6 +2154,9 @@
         completed: false,
         expectedSha256: typeof offerSha256 === 'string' && /^[0-9a-f]{64}$/.test(offerSha256) ? offerSha256 : null,
         selfConversation: offerSelf === true,
+        historySync: offerHistory === true,
+        logicalMessageId: typeof offerLogical === 'string' ? offerLogical.slice(0, 180) : '',
+        snapshotId: typeof offerSnapshot === 'string' ? offerSnapshot.slice(0, 80) : '',
       };
       activeTransfers.set(fileId, transfer);
       qaNote('offer-reserved', { fileId });
@@ -2438,6 +2465,7 @@
             name: transfer.name,
             type: transfer.mimeType,
           });
+          transfer._persistOk = true;
           console.log('[CHAT/P2P] 💾 קובץ נשמר בקאש צ\'אט יציב', { cacheKey });
         } else if (typeof App.cacheMedia === 'function') {
           await App.cacheMedia(cacheKey, cacheKey, blob, transfer.mimeType || blob.type, { pinned: true });
@@ -2472,6 +2500,34 @@
       activeTransfers.delete(fileId);
       
       console.log('[CHAT/P2P] ✅ קבלת קובץ הושלמה בהצלחה!', { fileId, attachmentType: transfer.mimeType || 'unknown', size: transfer.size });
+
+      if (transfer.historySync === true) {
+        if (transfer._persistOk !== true || transfer.hashVerified !== true) {
+          transfer.completed = false;
+          notifyProgress({ fileId, progress: 0, status: 'failed', direction: 'receive', name: transfer.name, size: transfer.size, peerPubkey: transfer.peerPubkey, error: 'PERSIST_FAILED', failureCode: 'PERSIST_FAILED' });
+          return;
+        }
+        const elapsed = Math.max(1, Date.now() - (transfer.startTime || Date.now()));
+        const noted = typeof App.noteHistoryMediaReceived === 'function'
+          ? await App.noteHistoryMediaReceived({
+            fileId: fileId,
+            blob: blob,
+            sha256: transfer.expectedSha256,
+            size: blob.size,
+            logicalMessageId: transfer.logicalMessageId,
+            name: transfer.name,
+            mime: transfer.mimeType,
+            bytesPerSec: blob.size / (elapsed / 1000),
+          })
+          : { ok: false, code: 'NO_HISTORY' };
+        if (!noted || noted.ok !== true) {
+          transfer.completed = false;
+          notifyProgress({ fileId, progress: 0, status: 'failed', direction: 'receive', error: (noted && noted.code) || 'HISTORY_REJECTED', failureCode: 'HISTORY_REJECTED' });
+          return;
+        }
+        notifyProgress({ fileId, progress: 1, status: 'complete', direction: 'receive', name: transfer.name, size: blob.size, peerPubkey: transfer.peerPubkey, blob: blob });
+        return;
+      }
 
       // חלק הודעת צ'אט למקבל (chat-p2p-file.js) — blob לsession + cacheKey לשחזור אחרי restart | HYPER CORE TECH
       try {
@@ -2903,6 +2959,17 @@
 
   Object.assign(App, {
     sendP2PFile: sendFile,
+    sendHistoryMedia: async function sendHistoryMedia(peer, blob, meta) {
+      const name = (meta && meta.name) || 'file';
+      const mime = (meta && meta.mime) || (blob && blob.type) || 'application/octet-stream';
+      const file = new File([blob], name, { type: mime });
+      file.__sosHistory = meta || {};
+      const connectStarted = Date.now();
+      const out = await sendFile(peer, file);
+      try { console.log('HISTORY_TIMING phase=P2P_CONNECT_MS ms=' + (Date.now() - connectStarted) + ' file=' + String(meta && meta.fileId || '').slice(0, 16)); } catch (_c) {}
+      if (out && out.ok === false) return out;
+      return { ok: true, transport: 'p2p', fileId: typeof out === 'string' ? out : (meta && meta.fileId) };
+    },
     cancelP2PFile,
     P2P_FILE_CHUNK_SIZE: CHUNK_SIZE,
     P2P_FILE_MAX_IN_FLIGHT: MAX_IN_FLIGHT,

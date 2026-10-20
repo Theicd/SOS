@@ -295,7 +295,7 @@ async function main() {
       };
     });
     report.LIVE_BUILD = pkg;
-    if (pkg.session.indexOf('pkg=899s50') === -1 || pkg.dc.indexOf('pkg=899s45') === -1 || pkg.file.indexOf('pkg=899s48') === -1 || pkg.p2p.indexOf('pkg=899s47') === -1 || pkg.secure.indexOf('pkg=899s47') === -1) {
+    if (pkg.session.indexOf('pkg=899s51') === -1 || pkg.dc.indexOf('pkg=899s45') === -1 || pkg.file.indexOf('pkg=899s51') === -1 || pkg.p2p.indexOf('pkg=899s47') === -1 || pkg.secure.indexOf('pkg=899s47') === -1) {
       note('CDN_STALE');
       throw new Error('CDN_STALE');
     }

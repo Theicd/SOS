@@ -258,7 +258,16 @@ async function main() {
     }, seeded.imageId, 45000);
     report.RELOAD = reloaded;
     report.RELOAD_PERSISTENCE = reloaded && reloaded.ok === true;
-    report.STATUS = report.TEXT_SYNC_COMPLETE && detail.hash && detail.root !== true && report.RELOAD_PERSISTENCE ? 'PASS_INITIAL_HISTORY_LAB' : 'FAIL';
+    report.ACK_COUNT = logs.filter((line) => line.indexOf('HISTORY_DESTINATION_ACK') !== -1).length;
+    report.HEADER_UI = await desktopPage.evaluate(() => {
+      const ui = window.__sosHistUi || null;
+      const el = document.getElementById('sosHistorySyncProgress');
+      const host = el && el.parentElement ? el.parentElement.className : '';
+      return { ui: ui, host: host, floating: !!(el && getComputedStyle(el).position === 'fixed') };
+    }).catch(() => null);
+    const headerOk = !!(report.HEADER_UI && report.HEADER_UI.ui && report.HEADER_UI.ui.inHeader === true && report.HEADER_UI.floating !== true);
+    report.HEADER_PROGRESS_UI = headerOk;
+    report.STATUS = report.TEXT_SYNC_COMPLETE && detail.hash && detail.root !== true && report.RELOAD_PERSISTENCE && report.ACK_COUNT <= 8 && report.ACK_COUNT >= 1 && headerOk ? 'PASS_INITIAL_HISTORY_LAB' : 'FAIL';
   } catch (err) {
     report.STATUS = 'FAIL';
     report.ERROR = String(err && err.message || err).slice(0, 300);

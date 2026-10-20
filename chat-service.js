@@ -1618,7 +1618,9 @@
       return;
     }
     if (Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 't' && t[1] === 'sos-hist-ack')) {
-      try { console.log('PHONE_HISTORY_ACK event=' + String(event.id || '').slice(0, 8)); } catch (_ack) {}
+      if (window.SosAccountSession && typeof window.SosAccountSession.confirmHistoryAck === 'function') {
+        try { await window.SosAccountSession.confirmHistoryAck(event); } catch (_ack) {}
+      }
       return;
     }
     let delegatedAccountP = '';

@@ -38,7 +38,7 @@ check('image mirror is not silent', file.includes('IMAGE_MIRROR_FAIL') && !file.
 check('image delivery logs', file.includes('IMAGE_LOGICAL_ID') && file.includes('ATTACHMENT_BYTES_AVAILABLE') && file.includes('HASH_VERIFIED'));
 check('fallback shares p2p logical id', file.includes("const messageId = 'p2p-recv-' + String(transfer.fileId || '');"));
 check('transfer timing log', file.includes('P2P_TRANSFER_TIMING'));
-check('live package 899s48', html.includes('call-signal-e2ee.js?v=20261019&pkg=899s48') && html.includes('chat-p2p-file.js?v=20261019&pkg=899s48'));
+check('live package 899s48', html.includes('call-signal-e2ee.js?v=20261019&pkg=899s48') && html.includes('chat-p2p-file.js?v=20261019&pkg=899s51'));
 
 const failed = checks.filter((c) => !c.ok);
 console.log('STATUS=' + (failed.length ? 'FAIL' : 'PASS_FOUR_DEVICE_CALL_SOURCE'));
