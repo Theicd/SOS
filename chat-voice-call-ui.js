@@ -1090,17 +1090,30 @@
       try { console.log('CALL_ACCEPT_HYDRATE_OK source=' + hydrateSource + ' ms=' + flowMs()); } catch (_) {}
       if ((!incomingOffer || !incomingOffer.sdp) && ringOnlyPeer === peer) {
         if (!window.__sosNativeInCallUi) updateCallStatus('מתחבר...');
+        try {
+          if (App.CallSignalE2ee && typeof App.CallSignalE2ee.runWebSecureCallRecovery === 'function') {
+            await App.CallSignalE2ee.runWebSecureCallRecovery('ring-accept-offer');
+          }
+        } catch (_pull) {}
         const waitUntil = Date.now() + RING_ACCEPT_OFFER_WAIT_MS;
+        let pulledAgain = false;
         while ((!incomingOffer || !incomingOffer.sdp) && ringOnlyPeer === peer && Date.now() < waitUntil) {
           await new Promise((r) => setTimeout(r, 100));
           try {
             const api = App.CallSignalE2ee;
-            const cached = api && typeof api.getCachedSecureOffer === 'function' ? api.getCachedSecureOffer(peer) : null;
             const st = App.voiceCall && App.voiceCall.getState ? App.voiceCall.getState() : null;
+            let cached = api && typeof api.getCachedSecureOffer === 'function' ? api.getCachedSecureOffer(peer) : null;
+            if ((!cached || !cached.offer) && st && st.callSessionId && api && typeof api.getCachedSecureOfferForSession === 'function') {
+              cached = api.getCachedSecureOfferForSession(st.callSessionId);
+            }
             const sidOk = !!(cached && st && st.callSessionId && cached.sessionId === st.callSessionId);
             if (sidOk && cached.media === 'voice' && cached.offer && cached.offer.sdp) {
               incomingOffer = cached.offer;
               incomingOfferPeer = peer;
+              try { console.log('CALL_DEVICE_OFFER_HYDRATED session=' + String(st.callSessionId).slice(0, 8)); } catch (_hyd) {}
+            } else if (!pulledAgain && Date.now() + 8000 > waitUntil && api && typeof api.runWebSecureCallRecovery === 'function') {
+              pulledAgain = true;
+              await api.runWebSecureCallRecovery('ring-accept-offer-retry');
             }
           } catch (_) {}
         }

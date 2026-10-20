@@ -1102,6 +1102,34 @@
         return;
       }
     }
+    const incomingFileId = message.attachment && (message.attachment.fileId || message.attachment.attachmentId);
+    if (incomingFileId) {
+      const fileDup = entry.messages.findIndex((item) => {
+        if (!item || !item.attachment) return false;
+        const otherId = item.attachment.fileId || item.attachment.attachmentId;
+        if (!otherId || String(otherId) !== String(incomingFileId)) return false;
+        return String(item.from || '').toLowerCase() === String(from).toLowerCase();
+      });
+      if (fileDup !== -1) {
+        const existing = entry.messages[fileDup];
+        const preferBytes = message.attachment && (message.attachment.url || message.attachment.dataUrl);
+        if (existing && message.attachment) {
+          if (!existing.attachment) existing.attachment = message.attachment;
+          else {
+            ['url', 'dataUrl', 'posterDataUrl', 'cacheKey', 'caption', 'name', 'size', 'type', 'isVideo', 'fileId', 'attachmentId'].forEach((field) => {
+              const incoming = message.attachment[field];
+              const held = existing.attachment[field];
+              if ((held == null || held === '') && incoming != null && incoming !== '') existing.attachment[field] = incoming;
+              if (preferBytes && (field === 'url' || field === 'dataUrl' || field === 'posterDataUrl' || field === 'cacheKey') && incoming) existing.attachment[field] = incoming;
+            });
+          }
+          if (!existing.logicalMessageId && message.logicalMessageId) existing.logicalMessageId = message.logicalMessageId;
+          persistState();
+        }
+        try { console.log('MEDIA_LOGICAL_MERGE file=' + String(incomingFileId).slice(0, 24)); } catch (_merge) {}
+        return;
+      }
+    }
     const existingIndex = entry.messages.findIndex((item) => item.id === message.id);
     if (existingIndex !== -1) {
       const existing = entry.messages[existingIndex];

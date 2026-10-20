@@ -412,6 +412,23 @@
     };
     if (App.P2pConn && typeof App.P2pConn.logAttempt === 'function') App.P2pConn.logAttempt(fields);
     qaNote('attempt-log', fields);
+    try {
+      const mbps = fields.mbps ? Number(fields.mbps).toFixed(2) : '0';
+      console.log(
+        'P2P_TRANSFER_TIMING result=' + result +
+        ' bytes=' + size +
+        ' durationMs=' + durationMs +
+        ' mbps=' + mbps +
+        ' readMs=' + (transfer.totalReadMs || 0) +
+        ' aesMs=' + (transfer.totalAesMs || 0) +
+        ' connectMs=' + (transfer.p2pConnectMs || 0) +
+        ' ackTimeouts=' + (transfer.ackTimeouts || 0) +
+        ' retransmits=' + (transfer.retransmits || 0) +
+        ' window=' + (transfer.maxInFlightSeen || 0) +
+        ' bufferedPeak=' + (transfer.bufferedPeak || 0) +
+        ' hash=' + (transfer.hashVerified ? 'PASS' : 'NA')
+      );
+    } catch (_timing) {}
   }
 
   // חלק מעבר ל-fallback (chat-p2p-file.js) – עוצר P2P, שומר קוד כשל מדויק, ממשיך ל-Blossom מוצפן בלבד | HYPER CORE TECH
@@ -2510,6 +2527,16 @@
           });
           transfer.selfPeer = selfPeer;
           console.log('[CHAT/P2P] 💬 הודעת צ\'אט נוצרה למקבל עם cacheKey יציב', { hasPoster: !!posterDataUrl, hasCaption: !!transfer.caption, self: !!selfPeer });
+          if (/^image\//i.test(String(resolvedMime || transfer.mimeType || ''))) {
+            try {
+              console.log('IMAGE_LOGICAL_ID id=' + String(logicalId).slice(0, 32));
+              console.log('IMAGE_SHA256 sha=' + String(transfer.sha256 || '').slice(0, 16));
+              console.log('ATTACHMENT_BYTES_AVAILABLE bytes=' + String(blob && blob.size || 0));
+              console.log('HASH_VERIFIED file=' + String(fileId).slice(0, 24) + ' ok=' + (transfer.hashVerified ? '1' : '0'));
+              console.log('PERSISTED file=' + String(fileId).slice(0, 24));
+              console.log('DISPLAYED file=' + String(fileId).slice(0, 24));
+            } catch (_imgLog) {}
+          }
           if (!selfPeer && typeof App.mirrorInboundP2pFileToLinkedDevices === 'function') {
             App.mirrorInboundP2pFileToLinkedDevices({
               fileId,
@@ -2519,7 +2546,10 @@
               name: transfer.name,
               logicalMessageId: inboundLogicalId,
               createdAt,
-            }).catch(() => {});
+            }).catch((mirrorErr) => {
+              const code = String((mirrorErr && (mirrorErr.code || mirrorErr.message)) || 'MIRROR_FAILED').slice(0, 48);
+              try { console.log('IMAGE_MIRROR_FAIL file=' + String(fileId).slice(0, 24) + ' code=' + code); } catch (_img) {}
+            });
           }
         }
       } catch (msgErr) { console.warn('[CHAT/P2P] appendChatMessage failed:', msgErr); }
@@ -2655,10 +2685,7 @@
 
     let uploadResult;
     try {
-      const messageId =
-        typeof App.ensureLogicalMessageIdForMedia === 'function'
-          ? App.ensureLogicalMessageIdForMedia()
-          : ('cmsg-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10));
+      const messageId = 'p2p-recv-' + String(transfer.fileId || '');
       transfer.fallbackEncryptStartAt = Date.now();
       uploadResult = await App.uploadMediaForServerFallback(transfer.file, {
         messageId,
@@ -2715,6 +2742,7 @@
         const resolvedMime = resolveMimeType(mime, fileName);
         const isVideoFlag = shouldForceVideoFlag(mime, fileName);
         const attachment = uploadResult;
+        attachment.attachmentId = String(transfer.fileId || attachment.attachmentId || '');
         attachment.id = attachment.attachmentId || `blossom-${Date.now()}`;
         attachment.name = (attachment.media && attachment.media.filename) || fileName;
         attachment.size =

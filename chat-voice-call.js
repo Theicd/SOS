@@ -612,36 +612,20 @@
     return { accountP: expected, devicePub: devicePub, deviceId: '', authorized: false, reason: 'NOT_AUTHORIZED_DEVICE' };
   }
 
-  async function cancelRingOnOtherDevices(accountP, exceptDevice, sessionId) {
-    const Session = window.SosAccountSession;
-    const api = App.CallSignalE2ee;
-    if (!Session || typeof Session.listAuthorizedDevices !== 'function' || !api || typeof api.publishCallSignal !== 'function') return;
-    const except = peerPubkeyOrEmpty(exceptDevice);
+  async function cancelRingOnOtherDevices(accountP, exceptDevice, sessionId, terminalReason) {
     const account = peerPubkeyOrEmpty(accountP);
-    let devices = [];
-    try { devices = await Session.listAuthorizedDevices(account, 'DEVICE_CALLS'); } catch (_e) { devices = []; }
-    const targets = [];
-    if (account && account !== except) targets.push(account);
-    (devices || []).forEach((d) => {
-      const pk = d && String(d.deviceSignPub || '').toLowerCase();
-      if (pk && pk !== except && targets.indexOf(pk) === -1) targets.push(pk);
-    });
-    for (let i = 0; i < targets.length; i += 1) {
-      try {
-        await api.publishCallSignal({
-          media: 'voice',
-          peerPubkey: targets[i],
-          type: 'cancel',
-          data: { claimedDevice: except },
-          sessionId: sessionId,
-          pool: App.pool,
-          relays: (api.getCallSignalRelays && api.getCallSignalRelays()) || App.relayUrls,
-          senderPubkey: App.publicKey,
-          __deviceFanout: true,
-        });
-        try { console.log('CALL_RING_CANCEL_SENT device=' + targets[i].slice(0, 8)); } catch (_l) {}
-      } catch (_send) {}
-    }
+    const except = peerPubkeyOrEmpty(exceptDevice);
+    const sid = typeof sessionId === 'string' ? sessionId : '';
+    if (!account || sid.length < 32) return;
+    if (state.callSessionId && state.callSessionId !== sid) return;
+    const had = state.callSessionId;
+    if (!had) state.callSessionId = sid;
+    const reason = terminalReason || 'ANSWERED_ON_OTHER_DEVICE';
+    try {
+      await sendSignal(account, 'cancel', { claimedDevice: except, terminalReason: reason, callSessionId: sid });
+      try { console.log('CALL_RING_CANCEL_SENT account=' + account.slice(0, 8) + ' reason=' + reason + ' session=' + sid.slice(0, 8)); } catch (_l) {}
+    } catch (_send) {}
+    if (!had) state.callSessionId = had;
   }
 
   function bufferRemoteCandidates(peerPubkey, candidates) {
@@ -1129,9 +1113,16 @@
         console.log('CALL_DISCONNECT_ONCE');
       } else {
         try {
-          await sendSignal(state.currentPeer, 'disconnect', null);
+          const termReason = options.declined ? 'DECLINED_BY_RECIPIENT' : (state.callAnswered ? 'ENDED_AFTER_CONNECTION' : 'CANCELLED_BY_CALLER');
+          await sendSignal(state.currentPeer, 'disconnect', { terminalReason: termReason, callSessionId: sid });
           if (term) term.disconnectSent = true;
-          console.log('CALL_DISCONNECT_ONCE');
+          console.log('CALL_DISCONNECT_ONCE reason=' + termReason);
+          if (options.declined || !state.callAnswered) {
+            const linked = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+            const localAccount = linked && linked.accountP ? linked.accountP : App.publicKey;
+            const meDevice = linked && linked.deviceSignPub ? linked.deviceSignPub : App.publicKey;
+            await cancelRingOnOtherDevices(localAccount, meDevice, sid, termReason);
+          }
         } catch (err) {
           console.warn('disconnect signal failed', err);
         }
@@ -1574,18 +1565,22 @@
 
         case 'cancel':
           if (blockWrongSession(preParsed, 'cancel')) break;
-          if (!binding.authorized || (!isSameCallPeer(logicalPeer) && !isSameCallPeer(binding.devicePub))) {
-            try { console.log('CALL_RING_CANCEL_REJECT reason=' + (binding.reason || 'peer')); } catch (_rej) {}
-            break;
-          }
           {
+            const linkedNow = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+            const localAccount = peerPubkeyOrEmpty(linkedNow && linkedNow.accountP ? linkedNow.accountP : App.publicKey);
+            const siblingTerminal = !!(binding.authorized && binding.accountP && binding.accountP === localAccount && binding.devicePub && binding.devicePub !== myCallIdentity());
+            if (!binding.authorized || (!isSameCallPeer(logicalPeer) && !isSameCallPeer(binding.devicePub) && !siblingTerminal)) {
+              try { console.log('CALL_RING_CANCEL_REJECT reason=' + (binding.reason || 'peer')); } catch (_rej) {}
+              break;
+            }
             const claimed = data && (data.claimedDevice || data.device);
             if (cancelClaimedByThisDevice(claimed)) {
               try { console.log('CALL_RING_CANCEL_IGNORED reason=claimed_here'); } catch (_ig) {}
               break;
             }
+            const termReason = data && typeof data.terminalReason === 'string' ? data.terminalReason.slice(0, 40) : 'CANCELLED_BY_CALLER';
             if (preParsed && preParsed.sessionId) tombstoneSession(preParsed.sessionId);
-            try { console.log('CALL_RING_CANCELLED'); } catch (_can) {}
+            try { console.log('CALL_RING_CANCELLED reason=' + termReason + ' session=' + String((preParsed && preParsed.sessionId) || '').slice(0, 8)); } catch (_can) {}
             endCall({ remoteDisconnect: true, reason: 'remote_disconnect', phase: 'CANCELLED' });
           }
           break;

@@ -381,6 +381,35 @@
     return { type, sdp };
   }
 
+  const secureOfferBySession = new Map();
+
+  function callSignalingHeld() {
+    try {
+      const voice = App.voiceCall && typeof App.voiceCall.getState === 'function' ? App.voiceCall.getState() : null;
+      if (voice && (voice.isCallActive || voice.isIncoming || voice.peerConnection || voice.callPhase === 'RINGING' || voice.callPhase === 'OFFERED' || voice.callPhase === 'CLAIMING')) return true;
+      const video = App.videoCall && typeof App.videoCall.getState === 'function' ? App.videoCall.getState() : null;
+      if (video && (video.isCallActive || video.isIncoming || video.peerConnection)) return true;
+    } catch (_e) {}
+    return false;
+  }
+
+  function linkedCallReady() {
+    const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    return !!(session && session.role === 'LINKED_DEVICE' && session.verified === true && typeof App.accountSessionAllows === 'function' && (App.accountSessionAllows('RECEIVE_CALL') || App.accountSessionAllows('START_CALL')));
+  }
+
+  function callListenPubkeys() {
+    const pubs = [];
+    const me = currentAccountPubkey();
+    if (me && pubs.indexOf(me) === -1) pubs.push(me);
+    const session = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    const device = session && session.role === 'LINKED_DEVICE' && session.verified && session.deviceSignPub
+      ? String(session.deviceSignPub).toLowerCase()
+      : '';
+    if (device && pubs.indexOf(device) === -1) pubs.push(device);
+    return pubs;
+  }
+
   function cacheSecureOffer(unwrapped, offer) {
     if (!unwrapped || !offer) return;
     const peer = String(unwrapped.sender || '').toLowerCase();
@@ -390,17 +419,30 @@
       try { console.log('CALL_OFFER_CACHE_CLEAR session=' + sid.slice(0, 8)); } catch (_e) {}
       return;
     }
-    secureOfferCache.set(peer, {
+    const entry = {
       offer,
       media: unwrapped.media,
       sessionId: sid,
       wrapId: unwrapped.wrapId,
+      sender: peer,
       at: Date.now(),
-    });
+    };
+    secureOfferCache.set(peer, entry);
+    if (sid) secureOfferBySession.set(sid, entry);
+    try {
+      const Session = window.SosAccountSession;
+      const account = Session && typeof Session.verifiedAccountOf === 'function'
+        ? String(Session.verifiedAccountOf(peer) || '').toLowerCase()
+        : '';
+      if (/^[0-9a-f]{64}$/.test(account) && account !== peer) secureOfferCache.set(account, entry);
+    } catch (_owner) {}
     if (secureOfferCache.size > 32) {
       const first = secureOfferCache.keys().next().value;
       secureOfferCache.delete(first);
     }
+    try {
+      console.log('CALL_DEVICE_OFFER_CACHE_STORED session=' + (sid ? sid.slice(0, 8) : 'none') + ' sender=' + peer.slice(0, 8));
+    } catch (_log) {}
   }
 
   function clearSecureOfferCache(sessionId, peerPubkey) {
@@ -413,6 +455,7 @@
         const hit = entries[i][1];
         if (hit && String(hit.sessionId || '') === sid) {
           secureOfferCache.delete(pk);
+          secureOfferBySession.delete(sid);
           try { console.log('CALL_OFFER_CACHE_CLEAR session=' + sid.slice(0, 8)); } catch (_e) {}
         }
       }
@@ -437,7 +480,20 @@
     const sid = hit.sessionId ? String(hit.sessionId) : '';
     if (sid && isCallSessionTerminal(sid)) {
       secureOfferCache.delete(peer);
+      secureOfferBySession.delete(sid);
       try { console.log('CALL_OFFER_CACHE_CLEAR session=' + sid.slice(0, 8)); } catch (_e) {}
+      return null;
+    }
+    return hit;
+  }
+
+  function getCachedSecureOfferForSession(sessionId) {
+    const sid = typeof sessionId === 'string' ? sessionId.trim() : '';
+    if (!sid) return null;
+    const hit = secureOfferBySession.get(sid);
+    if (!hit) return null;
+    if (Date.now() - (hit.at || 0) > 120000 || isCallSessionTerminal(sid)) {
+      secureOfferBySession.delete(sid);
       return null;
     }
     return hit;
@@ -763,6 +819,12 @@
           return { status: 'invalid_offer', media: unwrapped.media };
         }
         unwrapped.data = offer;
+        try {
+          const offerSid = String(unwrapped.sessionId || '').slice(0, 8);
+          console.log('CALL_DEVICE_OFFER_OBSERVED session=' + offerSid);
+          console.log('CALL_DEVICE_OFFER_VERIFIED session=' + offerSid);
+          console.log('CALL_DEVICE_OFFER_DECRYPTED session=' + offerSid);
+        } catch (_offerLog) {}
         cacheSecureOffer(unwrapped, offer);
         authorizeNativeSecureOfferRing(unwrapped, offer);
         try { console.log('SECURE_VERIFIER_OFFER_AUTH_OK'); } catch (_e) {}
@@ -904,10 +966,15 @@
       return secureSub;
     }
     if (options.force) lastForcedSubscribeAt = Date.now();
+    if (secureSub && callSignalingHeld() && anyCallRelaySocketOpen()) {
+      try { console.log('SUBSCRIPTION_KEEP reason=active-call'); } catch (_hold) {}
+      return secureSub;
+    }
     if (secureSub) {
       closeSecureCallSubscription(reason);
       try {
         console.log('CALL_SECURE_SUBSCRIBE_RECONNECT reason=' + reason);
+        console.log('SUBSCRIPTION_RECONNECT kind=1059 reason=' + reason);
       } catch (_e2) {}
     }
     const callRelays = getCallSignalRelays();
@@ -925,6 +992,8 @@
     ];
     try {
       console.log('CALL_SECURE_SUBSCRIBE kind=1059');
+      console.log('SUBSCRIPTION_OPEN kind=1059');
+      console.log('ACTIVE_SUBSCRIPTION_COUNT n=1 kind=1059');
       console.log('CALL_SECURE_SUBSCRIBE_START relays=' + callRelays.length);
       secureSubToken += 1;
       const token = secureSubToken;
@@ -946,6 +1015,8 @@
           secureSubHealthy = false;
           secureSubPubkey = '';
           try { console.log('CALL_SECURE_SUBSCRIBE_DEAD'); } catch (_e) {}
+          try { console.log('SUBSCRIPTION_CLOSE kind=1059 reason=closed'); } catch (_e3) {}
+          try { console.log('ACTIVE_SUBSCRIPTION_COUNT n=0 kind=1059'); } catch (_e4) {}
           if (currentAccountPubkey() && !App.guestMode) scheduleSecureSubRetry('closed');
         },
         oneose: () => {
@@ -954,6 +1025,7 @@
           secureSubRetryDelayMs = 0;
           clearSecureSubRetry();
           console.log('CALL_SECURE_SUBSCRIBE_EOSE');
+          console.log('EOSE kind=1059');
           console.log('CALL_SECURE_SUBSCRIBE_READY');
           try { console.log('CALL_RECEIVE_READY=true'); } catch (_e0) {}
           try { reconcilePendingSecureCallSignals('subscribe-ready'); } catch (_e) {}
@@ -974,6 +1046,7 @@
         console.log('CALL_SECURE_SUBSCRIBE_ERROR relay=all reason=subscribe-failed');
       } catch (_e) {}
       console.warn('CALL_SECURE_SUBSCRIBE_FAILED');
+      try { console.log('SUBSCRIPTION_ERROR kind=1059 reason=subscribe-failed'); } catch (_subErr) {}
       scheduleSecureSubRetry('subscribe-failed');
       return null;
     }
@@ -1093,7 +1166,7 @@
       return pendingSecureReconcileInFlight;
     }
     const run = (async () => {
-      if (!App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey) {
+      if ((!App.SosCryptoSigner?.hasIdentityKey() && !linkedCallReady()) || !App.publicKey) {
         try { console.log('CALL_NATIVE_PENDING_DRAIN_DEFER reason=not-ready'); } catch (_e) {}
         return { deferred: true, reason: 'not-ready' };
       }
@@ -1219,10 +1292,11 @@
     const pool = App.pool;
     const relays = getCallSignalReadRelays();
     if (!pool || !App.publicKey || !relays.length) return [];
+    const listen = callListenPubkeys();
     const filter = {
       kinds: [GIFT_WRAP_KIND],
-      '#p': [App.publicKey],
-      since: Math.floor(Date.now() / 1000) - TWO_DAYS_SEC - 120,
+      '#p': listen.length ? listen : [App.publicKey],
+      since: Math.floor(Date.now() / 1000) - 120,
       limit: WEB_RECOVERY_QUERY_LIMIT,
     };
     try {
@@ -1321,7 +1395,7 @@
       return webRecoveryInFlight;
     }
     const run = (async () => {
-      if (!App.SosCryptoSigner?.hasIdentityKey() || !App.publicKey || !App.pool) {
+      if ((!App.SosCryptoSigner?.hasIdentityKey() && !linkedCallReady()) || !App.publicKey || !App.pool) {
         try { console.log('CALL_WEB_RECOVERY_ERROR reason=not-ready'); } catch (_e) {}
         return { deferred: true, reason: 'not-ready' };
       }
@@ -2177,6 +2251,49 @@
     callSignalFail('CALL_SIGNAL_LEGACY_SEND_DISABLED', 'outgoing 25050 disabled');
   }
 
+  async function scheduleDeviceFanout(opts) {
+    if (!opts || opts.__deviceFanout) return;
+    const type = String(opts.type || '');
+    const fanTypes = { ring: 1, offer: 1, cancel: 1, hangup: 1, end: 1, reject: 1, candidate: 1, candidates: 1, answer: 1, disconnect: 1 };
+    if (!fanTypes[type]) return;
+    const fanSession = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
+    const linkedFan = !!(fanSession && fanSession.role === 'LINKED_DEVICE' && fanSession.verified === true && typeof App.accountSessionAllows === 'function' && (App.accountSessionAllows('START_CALL') || App.accountSessionAllows('RECEIVE_CALL')));
+    const canSign = (App.SosCryptoSigner && typeof App.SosCryptoSigner.hasIdentityKey === 'function' && App.SosCryptoSigner.hasIdentityKey()) || linkedFan || !!opts.senderPrivateKey;
+    if (!canSign || !window.SosAccountSession || typeof window.SosAccountSession.listAuthorizedDevices !== 'function') return;
+    const sid = String(opts.sessionId || '');
+    let devices = [];
+    try {
+      devices = await window.SosAccountSession.listAuthorizedDevices(opts.peerPubkey, 'DEVICE_CALLS');
+      if (!devices || !devices.length) devices = await window.SosAccountSession.listAuthorizedDevices(opts.peerPubkey);
+    } catch (_list) {
+      devices = [];
+    }
+    if (type === 'offer') {
+      try { console.log('CALL_DEVICE_OFFER_BUILD session=' + sid.slice(0, 8) + ' devices=' + devices.length); } catch (_b) {}
+    }
+    let sent = 0;
+    for (let i = 0; i < devices.length; i += 1) {
+      const devicePub = devices[i] && String(devices[i].deviceSignPub || '').toLowerCase();
+      if (!devicePub || devicePub === String(opts.peerPubkey || '').toLowerCase()) continue;
+      try {
+        await publishGiftWrappedCallSignal(Object.assign({}, opts, { peerPubkey: devicePub, __deviceFanout: true }));
+        sent += 1;
+        try { console.log('CALL_DEVICE_FANOUT type=' + type + ' device=' + devicePub.slice(0, 8) + ' session=' + sid.slice(0, 8)); } catch (_log) {}
+        if (type === 'offer') {
+          try { console.log('CALL_DEVICE_OFFER_RELAY_ACK session=' + sid.slice(0, 8) + ' device=' + devicePub.slice(0, 8)); } catch (_ack) {}
+        }
+      } catch (_one) {
+        try { console.log('CALL_DEVICE_FANOUT_FAIL type=' + type + ' device=' + devicePub.slice(0, 8) + ' session=' + sid.slice(0, 8)); } catch (_f) {}
+      }
+    }
+    const retryable = type === 'offer' || type === 'ring' || type === 'answer' || type === 'disconnect' || type === 'cancel';
+    if (!sent && retryable && !opts.__fanRetry) {
+      setTimeout(() => {
+        scheduleDeviceFanout(Object.assign({}, opts, { __fanRetry: 1 })).catch(() => {});
+      }, 1200);
+    }
+  }
+
   /**
    * ONE transport per signal — never dual-write 1059 + 25050.
    */
@@ -2191,20 +2308,7 @@
       try { console.log('CALL_SEND_POLICY_REQUIRED'); } catch (_e) {}
       try {
         const res = await publishGiftWrappedCallSignal(opts);
-        const fanTypes = { ring: 1, offer: 1, cancel: 1, hangup: 1, end: 1, reject: 1, candidate: 1, candidates: 1 };
-        const fanSession = typeof App.getAccountSession === 'function' ? App.getAccountSession() : null;
-        const linkedFan = !!(fanSession && fanSession.role === 'LINKED_DEVICE' && fanSession.verified === true && typeof App.accountSessionAllows === 'function' && (App.accountSessionAllows('START_CALL') || App.accountSessionAllows('RECEIVE_CALL')));
-        if (!opts.__deviceFanout && fanTypes[String(opts.type || '')] && window.SosAccountSession && typeof window.SosAccountSession.listAuthorizedDevices === 'function' && ((App.SosCryptoSigner && typeof App.SosCryptoSigner.hasIdentityKey === 'function' && App.SosCryptoSigner.hasIdentityKey()) || linkedFan)) {
-          try {
-            const devices = await window.SosAccountSession.listAuthorizedDevices(opts.peerPubkey);
-            for (let i = 0; i < devices.length; i += 1) {
-              const devicePub = devices[i] && devices[i].deviceSignPub;
-              if (!devicePub || devicePub === String(opts.peerPubkey || '').toLowerCase()) continue;
-              await publishGiftWrappedCallSignal(Object.assign({}, opts, { peerPubkey: devicePub, __deviceFanout: true }));
-              try { console.log('CALL_DEVICE_FANOUT type=' + String(opts.type || '') + ' device=' + String(devicePub).slice(0, 8) + ' session=' + String(opts.sessionId || '').slice(0, 8)); } catch (_log) {}
-            }
-          } catch (_fan) {}
-        }
+        await scheduleDeviceFanout(opts);
         try {
           console.log('CALL_SEND_RETURN_OK');
         } catch (_e) {}
@@ -2351,6 +2455,7 @@
       NATIVE_HANDOFF_REV,
       normalizeSessionDescription,
       getCachedSecureOffer,
+      getCachedSecureOfferForSession,
       clearSecureOfferCache,
       markCallSessionTerminal,
       isCallSessionTerminal,
