@@ -284,14 +284,27 @@ async function main() {
     report.RELOAD_PERSISTENCE = reloaded && reloaded.ok === true;
     const phoneAcks = phoneLogs.filter((line) => line.indexOf('PHONE_HISTORY_ACK snapshot=') !== -1).length;
     const desktopAcks = logs.filter((line) => line.indexOf('HISTORY_DESTINATION_ACK') !== -1).length;
+    const readyStarted = Date.now();
+    while (Date.now() - readyStarted < 25000 && !phoneLogs.some((line) => line.indexOf('PHONE_HISTORY_READY ') !== -1 || line.indexOf('PHONE_HISTORY_FAIL ') !== -1 || line.indexOf('PHONE_HISTORY_JOIN ') !== -1)) {
+      await phone.page.waitForTimeout(500);
+    }
     const readyCount = phoneLogs.filter((line) => line.indexOf('PHONE_HISTORY_READY ') !== -1).length;
     const joinCount = phoneLogs.filter((line) => line.indexOf('PHONE_HISTORY_JOIN ') !== -1).length;
     const pendingTiming = phoneLogs.filter((line) => line.indexOf('HISTORY_MEDIA_TIMING ') !== -1 && line.indexOf('transport=pending') !== -1).length;
     const waitLines = phoneLogs.filter((line) => line.indexOf('HISTORY_MEDIA_WAIT ') !== -1).length;
+    report.PHONE_SIGNAL_LOGS = phoneLogs.filter((line) => line.indexOf('PHONE_HISTORY_') !== -1 || line.indexOf('HISTORY_MEDIA_') !== -1 || line.indexOf('HISTORY_DEVICE_') !== -1 || line.indexOf('HISTORY_SUSPEND') !== -1 || line.indexOf('HISTORY_RESUME') !== -1).slice(-30);
     report.READY_COUNT = readyCount;
     report.JOIN_COUNT = joinCount;
     report.PENDING_TIMING_COUNT = pendingTiming;
     report.MEDIA_WAIT_COUNT = waitLines;
+    const transferStarted = Date.now();
+    while (Date.now() - transferStarted < 22000 && !phoneLogs.some((line) => line.indexOf('HISTORY_MEDIA_TIMING ') !== -1 && line.indexOf('transport=p2p') !== -1)) {
+      await phone.page.waitForTimeout(1000);
+    }
+    report.PENDING_TIMING_COUNT = phoneLogs.filter((line) => line.indexOf('HISTORY_MEDIA_TIMING ') !== -1 && line.indexOf('transport=pending') !== -1).length;
+    report.P2P_TIMING_COUNT = phoneLogs.filter((line) => line.indexOf('HISTORY_MEDIA_TIMING ') !== -1 && line.indexOf('transport=p2p') !== -1).length;
+    report.MEDIA_WAIT_COUNT = phoneLogs.filter((line) => line.indexOf('HISTORY_MEDIA_WAIT ') !== -1).length;
+    report.PHONE_SIGNAL_LOGS = phoneLogs.filter((line) => line.indexOf('PHONE_HISTORY_') !== -1 || line.indexOf('HISTORY_MEDIA_') !== -1 || line.indexOf('HISTORY_DEVICE_') !== -1 || line.indexOf('HISTORY_SUSPEND') !== -1 || line.indexOf('HISTORY_RESUME') !== -1).slice(-40);
     const freezeAt = phoneLogs.length;
     let frozen = false;
     try {
@@ -343,7 +356,7 @@ async function main() {
     report.HEADER_PROGRESS_UI = headerOk;
     const mediaHash = detail.hash || (reloaded && reloaded.hash) || '';
     report.MEDIA_HASH = mediaHash;
-    const oneSnapshot = readyCount >= 1 && readyCount <= 3 && pendingTiming <= 16;
+    const oneSnapshot = readyCount >= 1 && readyCount <= 3 && report.PENDING_TIMING_COUNT <= 16;
     report.ONE_SNAPSHOT = oneSnapshot;
     report.STATUS = report.TEXT_SYNC_COMPLETE && mediaHash && detail.root !== true && report.RELOAD_PERSISTENCE && report.ACK_COUNT <= 8 && report.ACK_COUNT >= 1 && headerOk && oneSnapshot ? 'PASS_INITIAL_HISTORY_LAB' : 'FAIL';
   } catch (err) {
