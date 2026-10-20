@@ -317,6 +317,22 @@
     return iframe;
   }
 
+  function withSosGameName(url) {
+    try {
+      const parsed = new URL(url, window.location.href);
+      if (!/theicd\.github\.io$/i.test(parsed.hostname)) return url;
+      const max = /kart-royale/i.test(parsed.pathname) ? 12 : /medieval-3d-chess/i.test(parsed.pathname) ? 20 : 0;
+      if (!max || parsed.searchParams.get('name')) return parsed.toString();
+      const profile = (window.NostrApp && window.NostrApp.profile) || {};
+      const name = String(profile.name || profile.display_name || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, max);
+      if (!name) return parsed.toString();
+      parsed.searchParams.set('name', name);
+      return parsed.toString();
+    } catch (_) {
+      return url;
+    }
+  }
+
   function ensureGameFrame(mediaDiv, url, options = {}) {
     if (!mediaDiv || !url) return null;
     const forced = options.force === true || mediaDiv.dataset.gameForced === '1';
@@ -355,7 +371,7 @@
         setGamePlaceholder(mediaDiv, options.loadingLabel || 'טוען משחק...');
         mediaDiv.dataset.gamePrepared = '0';
         iframe.dataset.loadedUrl = url;
-        iframe.src = url;
+        iframe.src = withSosGameName(url);
         clearTimeout(mediaDiv._gamePlaceholderTimer);
         mediaDiv._gamePlaceholderTimer = setTimeout(() => {
           if (!mediaDiv.isConnected || !iframe.isConnected) return;
