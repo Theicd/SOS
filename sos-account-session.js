@@ -676,8 +676,13 @@
     if (!event || !event.id) return { ok: false, code: 'SIGN_FAILED' };
     const pending = App.pool.publish(App.relayUrls, event);
     const jobs = Array.isArray(pending) ? pending : [pending];
-    const settled = await Promise.allSettled(jobs.map(function (p) { return Promise.resolve(p); }));
-    if (!settled.some(function (r) { return r.status === 'fulfilled'; })) return { ok: false, code: 'RELAY_REJECTED' };
+    const settled = await Promise.all(jobs.map(function (p) {
+      return Promise.race([
+        Promise.resolve(p).then(function () { return 'ok'; }, function () { return 'no'; }),
+        new Promise(function (resolve) { setTimeout(function () { resolve('timeout'); }, 8000); }),
+      ]);
+    }));
+    if (!settled.some(function (r) { return r === 'ok'; })) return { ok: false, code: 'RELAY_REJECTED' };
     return { ok: true, id: String(event.id).slice(0, 12) };
   }
 
@@ -1187,12 +1192,25 @@
     });
     try {
       const built = await delegatedChatEncrypt(session.accountP, body, 'hist-ack-' + fp.slice(0, 24), { sibling: true, extraTags: [['t', HIST_ACK_TAG]] });
-      if (!built || built.ok !== true || !built.event) return { ok: false, code: built && built.code };
+      if (!built || built.ok !== true || !built.event) {
+        try { console.log('HISTORY_ACK_FAIL code=' + String((built && built.code) || 'NO_EVENT')); } catch (_fail) {}
+        return { ok: false, code: built && built.code };
+      }
       const pool = App.pool;
       if (!pool || typeof pool.publish !== 'function') return { ok: false, code: 'NO_POOL' };
       const pending = pool.publish(App.relayUrls, built.event);
       const ackStarted = Date.now();
-      await Promise.allSettled((Array.isArray(pending) ? pending : [pending]).map(function (p) { return Promise.resolve(p); }));
+      const jobs = Array.isArray(pending) ? pending : [pending];
+      const settled = await Promise.all(jobs.map(function (p) {
+        return Promise.race([
+          Promise.resolve(p).then(function () { return 'ok'; }, function () { return 'no'; }),
+          new Promise(function (resolve) { setTimeout(function () { resolve('timeout'); }, 8000); }),
+        ]);
+      }));
+      if (!settled.some(function (r) { return r === 'ok'; })) {
+        try { console.log('HISTORY_ACK_FAIL code=RELAY_REJECTED'); } catch (_fail) {}
+        return { ok: false, code: 'RELAY_REJECTED' };
+      }
       const next = {
         snapshotId: book.snapshotId || '',
         fingerprint: fp,

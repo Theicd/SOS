@@ -829,6 +829,7 @@ async function installCanvasCamera(page, pngPath) {
 async function linkAnotherDesktop(desktopBrowser, mobile, pubFp, options = {}) {
   const ctx = await desktopBrowser.newContext({ viewport: { width: 1280, height: 800 }, locale: 'he-IL', serviceWorkers: 'block' });
   const page = await ctx.newPage();
+  if (typeof options.onConsole === 'function') page.on('console', options.onConsole);
   let keep = false;
   try {
     await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 120000 });

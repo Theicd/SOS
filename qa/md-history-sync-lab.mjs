@@ -147,15 +147,17 @@ async function main() {
       S.__histWrap = true;
     });
     console.log('STEP link desktop seeded=' + seeded.stored);
-    const link = await linkAnotherDesktop(browser, phone.page, phone.fp, { keep: true });
+    const logs = [];
+    const link = await linkAnotherDesktop(browser, phone.page, phone.fp, {
+      keep: true,
+      onConsole: (msg) => {
+        const t = msg.text();
+        if (t.indexOf('DESKTOP_HISTORY') !== -1 || t.indexOf('HISTORY_') !== -1) logs.push(t.slice(0, 240));
+      },
+    });
     report.LINK = { ok: !!(link && link.ok), code: link && link.code ? String(link.code).slice(0, 200) : '' };
     if (!link || link.ok !== true || !link.page) throw new Error('LINK_' + String((link && link.code) || 'NO_PAGE'));
     const desktopPage = link.page;
-    const logs = [];
-    desktopPage.on('console', (msg) => {
-      const t = msg.text();
-      if (t.indexOf('DESKTOP_HISTORY') !== -1 || t.indexOf('HISTORY_') !== -1) logs.push(t.slice(0, 180));
-    });
     const seen = await pollPage(desktopPage, async () => {
       const sync = window.__sosLdHistorySync;
       const App = window.NostrApp;
@@ -267,7 +269,9 @@ async function main() {
     }).catch(() => null);
     const headerOk = !!(report.HEADER_UI && report.HEADER_UI.ui && report.HEADER_UI.ui.inHeader === true && report.HEADER_UI.floating !== true);
     report.HEADER_PROGRESS_UI = headerOk;
-    report.STATUS = report.TEXT_SYNC_COMPLETE && detail.hash && detail.root !== true && report.RELOAD_PERSISTENCE && report.ACK_COUNT <= 8 && report.ACK_COUNT >= 1 && headerOk ? 'PASS_INITIAL_HISTORY_LAB' : 'FAIL';
+    const mediaHash = detail.hash || (reloaded && reloaded.hash) || '';
+    report.MEDIA_HASH = mediaHash;
+    report.STATUS = report.TEXT_SYNC_COMPLETE && mediaHash && detail.root !== true && report.RELOAD_PERSISTENCE && report.ACK_COUNT <= 8 && report.ACK_COUNT >= 1 && headerOk ? 'PASS_INITIAL_HISTORY_LAB' : 'FAIL';
   } catch (err) {
     report.STATUS = 'FAIL';
     report.ERROR = String(err && err.message || err).slice(0, 300);
