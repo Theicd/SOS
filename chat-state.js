@@ -1035,7 +1035,8 @@
     // מדיה בלי כיתוב (תמונה/וידאו) מגיעה עם content ריק + attachment — חייבים לאפשר | HYPER CORE TECH
     const hasAttachment = !!(message && message.attachment);
     const hasText = typeof content === 'string' ? content.trim().length > 0 : !!content;
-    if (!from || !to || (!hasText && !hasAttachment)) return;
+    const isTombstone = message.deleted === true || message.tombstone === true;
+    if (!from || !to || (!hasText && !hasAttachment && !isTombstone)) return;
     const accountForStoredParty = (pk) => {
       const n = String(pk || '').toLowerCase();
       const owners = (typeof window !== 'undefined' && window.__sosVerifiedDeviceOwners) || null;

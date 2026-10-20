@@ -11,8 +11,10 @@
   const HIST_TAG = 'sos-hist-v1';
   const HIST_REQ_TAG = 'sos-hist-req';
   const HIST_ACK_TAG = 'sos-hist-ack';
-  const HIST_MEDIA_CHUNK = 12000;
+  const HIST_MEDIA_CHUNK = 6000;
   const HIST_MEDIA_MAX = 4 * 1024 * 1024;
+  const HIST_PAGE_BUDGET = 10000;
+  const HIST_PAGE_MAX = 15000;
 
   const OPS = {
     VIEW_PRIVATE_UI: 'VIEW_PRIVATE_UI',
@@ -505,7 +507,7 @@
     let omitted = 0;
     const packed = [];
     out.forEach(function (row) {
-      if (JSON.stringify(row).length > 40000) {
+      if (JSON.stringify(row).length > HIST_PAGE_MAX) {
         omitted += 1;
         unavailable.push({ id: row.id, reason: 'MESSAGE_TOO_LARGE' });
         return;
@@ -520,7 +522,7 @@
     let batch = [];
     (Array.isArray(messages) ? messages : []).forEach(function (row) {
       const trial = batch.concat([row]);
-      if (JSON.stringify(trial).length > 40000 && batch.length) {
+      if (JSON.stringify(trial).length > HIST_PAGE_BUDGET && batch.length) {
         pages.push(batch);
         batch = [row];
       } else {
@@ -532,19 +534,27 @@
   }
 
   async function publishHistoryPage(peer, createdAt, page, pageCount, body) {
+    if (typeof body !== 'string' || body.length > HIST_PAGE_MAX) {
+      return { ok: false, code: 'PAGE_TOO_LARGE', bytes: body ? body.length : 0 };
+    }
     const signer = App.SosCryptoSigner;
-    const env = await Promise.resolve(signer.nip44ChatEncrypt({
-      senderPubkey: norm(App.publicKey),
-      recipientPubkey: peer,
-      payload: {
-        messageId: 'hist-' + createdAt + '-' + page,
-        sender: norm(App.publicKey),
-        recipient: peer,
-        createdAt: createdAt,
-        text: body,
-        attachment: null,
-      },
-    }));
+    let env;
+    try {
+      env = await Promise.resolve(signer.nip44ChatEncrypt({
+        senderPubkey: norm(App.publicKey),
+        recipientPubkey: peer,
+        payload: {
+          messageId: 'hist-' + createdAt + '-' + page,
+          sender: norm(App.publicKey),
+          recipient: peer,
+          createdAt: createdAt,
+          text: body,
+          attachment: null,
+        },
+      }));
+    } catch (err) {
+      return { ok: false, code: String((err && (err.code || err.message)) || 'ENCRYPT_FAILED').slice(0, 80) };
+    }
     if (!env || typeof env.ct !== 'string') return { ok: false, code: 'ENCRYPT_FAILED' };
     const event = await Promise.resolve(signer.signLinkedHistory({
       kind: HIST_KIND,
@@ -575,6 +585,9 @@
     if (!pool || typeof pool.publish !== 'function') return { ok: false, code: 'NO_POOL' };
     root.__sosHistInflight = root.__sosHistInflight || {};
     if (root.__sosHistInflight[peer]) return root.__sosHistInflight[peer];
+    let finishInflight = function () {};
+    root.__sosHistInflight[peer] = new Promise(function (resolve) { finishInflight = resolve; });
+    try {
     const options = opts && typeof opts === 'object' ? opts : {};
     const prior = root.__sosHistOutbound && root.__sosHistOutbound[peer];
     const want = options.checkpoint && options.checkpoint.snapshotId && prior && prior.snapshotId === options.checkpoint.snapshotId
@@ -617,6 +630,7 @@
         }
       }
       const textPages = splitHistoryPages(messages);
+      const messagePageCount = textPages.length;
       const pages = textPages.map(function (batch) { return { kind: 'messages', messages: batch }; });
       media.forEach(function (chunk) { pages.push({ kind: 'media', media: chunk }); });
       if (!pages.length) pages.push({ kind: 'messages', messages: [] });
@@ -631,6 +645,7 @@
         unavailable: unavailable,
         omitted: snapshot.omitted || 0,
         sourceComplete: (snapshot.omitted || 0) === 0,
+        messagePageCount: messagePageCount,
       };
       root.__sosHistOutbound = root.__sosHistOutbound || {};
       root.__sosHistOutbound[peer] = packed;
@@ -659,6 +674,7 @@
         page: page,
         pageCount: pageCount,
         pageHash: pageHash,
+        messagePageCount: packed.messagePageCount || pageCount,
         conversationCount: packed.conversationCount,
         messageCount: packed.messages.length,
         attachmentCount: packed.attachmentCount,
@@ -671,7 +687,13 @@
       };
       bodyObj.manifestHash = await sha256Hex(new TextEncoder().encode(packed.snapshotId + '|' + packed.messages.length + '|' + pageCount));
       const sent = await publishHistoryPage(peer, packed.createdAt, page, pageCount, JSON.stringify(bodyObj));
-      if (!sent.ok) return { ok: false, code: sent.code, count: packed.messages.length, pages: published, snapshotId: packed.snapshotId };
+      if (!sent.ok) {
+        const failed = { ok: false, code: sent.code, count: packed.messages.length, pages: published, snapshotId: packed.snapshotId };
+        try { console.log('PHONE_HISTORY_FAIL code=' + String(sent.code || '') + ' page=' + page); } catch (_fail) {}
+        finishInflight(failed);
+        setTimeout(function () { delete root.__sosHistInflight[peer]; }, 15000);
+        return failed;
+      }
       published += 1;
       lastId = sent.id;
     }
@@ -694,9 +716,16 @@
       omitted: packed.omitted,
       unavailable: packed.unavailable.length,
     };
-    root.__sosHistInflight[peer] = Promise.resolve(result);
+    finishInflight(result);
     setTimeout(function () { delete root.__sosHistInflight[peer]; }, 15000);
     return result;
+    } catch (err) {
+      const failed = { ok: false, code: String((err && (err.message || err.code)) || 'HISTORY_FAILED').slice(0, 80) };
+      try { console.log('PHONE_HISTORY_FAIL code=' + failed.code); } catch (_fail) {}
+      finishInflight(failed);
+      setTimeout(function () { delete root.__sosHistInflight[peer]; }, 15000);
+      return failed;
+    }
   }
 
   function hasHistTag(event) {
@@ -829,7 +858,11 @@
       book.omitted += omitted;
     }
     const got = Object.keys(book.seen).length;
-    const textDone = got >= book.pageCount && book.omitted === 0;
+    if (Number(bundle.messagePageCount) > 0) book.messagePageCount = Number(bundle.messagePageCount);
+    const messagePages = book.messagePageCount || book.pageCount;
+    let textGot = 0;
+    for (let i = 0; i < messagePages; i += 1) if (book.seen[i] === true) textGot += 1;
+    const textDone = messagePages > 0 && textGot >= messagePages && book.omitted === 0;
     const filesDone = (book.attachmentCount || 0) === 0 || (book.filesDone || 0) >= book.attachmentCount;
     const full = textDone && filesDone && bundle.sourceComplete !== false;
     historyProgress(full ? null : book);
@@ -949,6 +982,7 @@
     const settled = await Promise.allSettled((Array.isArray(pending) ? pending : [pending]).map(function (p) { return Promise.resolve(p); }));
     const accepted = settled.some(function (r) { return r.status === 'fulfilled'; });
     try { console.log('DESKTOP_HISTORY_SYNC_REQUEST id=' + syncRequestId + ' ok=' + (accepted ? '1' : '0')); } catch (_r) {}
+    setTimeout(function () { pullLinkedHistory().catch(function () {}); }, 3000);
     if (!root.__sosHistReqTimer) {
       let tries = 0;
       root.__sosHistReqTimer = setInterval(function () {
@@ -959,6 +993,7 @@
           root.__sosHistReqTimer = null;
           return;
         }
+        pullLinkedHistory().catch(function () {});
         requestLinkedHistory().catch(function () {});
       }, 20000);
     }

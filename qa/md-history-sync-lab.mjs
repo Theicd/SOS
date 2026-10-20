@@ -4,12 +4,12 @@
  * Seeds the phone through appendChatMessage, then links a desktop
  * without calling publishLinkedHistoryBundle.
  */
-import { chromium } from 'playwright';
+import { chromium, devices } from 'playwright';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { linkAnotherDesktop, loginFreshPeer, pollPage } from './stage5-two-browser-qr-lab.mjs';
+import { installCanvasCamera, linkAnotherDesktop, pollPage, waitApp, patchPoolPublishIterable } from './stage5-two-browser-qr-lab.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(__dirname, '.stage5-lab', 'history-' + Date.now().toString(36));
@@ -27,7 +27,32 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   const report = { STATUS: 'RUNNING', AUTO_SYNC_TRIGGER: false, SOURCE_MESSAGE_COUNT: 0 };
   try {
-    const phone = await loginFreshPeer(browser);
+    const pixel = devices['Pixel 7'];
+    const phoneCtx = await browser.newContext({ ...pixel, locale: 'he-IL', serviceWorkers: 'block' });
+    const phonePage = await phoneCtx.newPage();
+    const blank = path.join(OUT, 'camera.png');
+    fs.writeFileSync(blank, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'));
+    await installCanvasCamera(phonePage, blank);
+    const phoneKey = crypto.randomBytes(32).toString('hex');
+    await phonePage.goto('https://sos010.com/videos.html', { waitUntil: 'domcontentloaded', timeout: 120000 });
+    await waitApp(phonePage);
+    await patchPoolPublishIterable(phonePage);
+    const created = await phonePage.evaluate((k) => {
+      const App = window.NostrApp;
+      const c = App.createNewIdentityExplicit({ privateKeyHex: k });
+      const SA = App.SessionAuthority || window.SosSessionAuthority;
+      if (SA && typeof SA.bindCurrentSession === 'function') SA.bindCurrentSession({ accountPubkey: c.publicKey, bump: true });
+      return { ok: !!(c && c.ok && c.publicKey), pub: String((c && c.publicKey) || '').toLowerCase() };
+    }, phoneKey);
+    await phonePage.waitForTimeout(1500);
+    await phonePage.reload({ waitUntil: 'domcontentloaded', timeout: 120000 });
+    await waitApp(phonePage);
+    await patchPoolPublishIterable(phonePage);
+    await phonePage.waitForFunction((fp) => {
+      const App = window.NostrApp;
+      return String(App && App.publicKey || '').toLowerCase().startsWith(fp) && App.guestMode !== true;
+    }, created.pub.slice(0, 12), { timeout: 120000 });
+    const phone = { page: phonePage, pub: created.pub, fp: created.pub.slice(0, 8) };
     const peers = [0, 1, 2, 3].map(hexPeer);
     const seeded = await phone.page.evaluate(async ({ peers, jpegB64, self }) => {
       const App = window.NostrApp;
@@ -45,7 +70,7 @@ async function main() {
             to: i % 2 === 0 ? peers[p] : self,
             content: deleted ? 'gone-' + id : 'hello-' + id,
             direction: i % 2 === 0 ? 'outgoing' : 'incoming',
-            createdAt: 1700000000 + p * 100 + i,
+            createdAt: Math.floor(Date.now() / 1000) - (p * 20 + i),
             deleted: deleted,
             tombstone: deleted,
           });
@@ -62,7 +87,7 @@ async function main() {
           to: self,
           content: 'self-' + i,
           direction: 'outgoing',
-          createdAt: 1700005000 + i,
+          createdAt: Math.floor(Date.now() / 1000) - 500 - i,
         });
         logicals.push(id);
         n += 1;
@@ -81,7 +106,7 @@ async function main() {
         to: peers[0],
         content: '',
         direction: 'outgoing',
-        createdAt: 1700008000,
+        createdAt: Math.floor(Date.now() / 1000) - 10,
         attachment: { name: 'note.jpg', type: 'image/jpeg', fileId: fileId, cacheKey: 'p2p-file-' + fileId, size: bytes.length },
       });
       logicals.push(imageId);
@@ -97,10 +122,33 @@ async function main() {
     const phoneLogs = [];
     phone.page.on('console', (msg) => {
       const t = msg.text();
-      if (t.indexOf('PHONE_HISTORY') !== -1 || t.indexOf('HISTORY_') !== -1) phoneLogs.push(t.slice(0, 180));
+      if (t.indexOf('PHONE_HISTORY') !== -1 || t.indexOf('HISTORY_') !== -1) phoneLogs.push(t.slice(0, 240));
+    });
+    phone.page.on('pageerror', (err) => phoneLogs.push('PAGEERROR ' + String(err && err.message || err).slice(0, 200)));
+    await phone.page.evaluate(() => {
+      const S = window.SosAccountSession;
+      if (!S || S.__histWrap) return;
+      const orig = S.acceptHistoryRequest;
+      S.acceptHistoryRequest = async function (ev) {
+        try {
+          const r = await Promise.race([
+            Promise.resolve(orig.call(S, ev)),
+            new Promise((resolve) => setTimeout(() => resolve({ ok: false, code: 'HUNG' }), 20000)),
+          ]);
+          const line = 'HISTORY_REQ_RESULT ok=' + !!(r && r.ok) + ' code=' + String((r && r.code) || '') + ' count=' + String(r && r.count) + ' pages=' + String(r && r.pages);
+          console.log(line);
+          window.__histReqResult = r;
+          return r;
+        } catch (err) {
+          console.log('HISTORY_REQ_THROW ' + String(err && (err.message || err.code) || err).slice(0, 180));
+          throw err;
+        }
+      };
+      S.__histWrap = true;
     });
     console.log('STEP link desktop seeded=' + seeded.stored);
     const link = await linkAnotherDesktop(browser, phone.page, phone.fp, { keep: true });
+    report.LINK = { ok: !!(link && link.ok), code: link && link.code ? String(link.code).slice(0, 200) : '' };
     if (!link || link.ok !== true || !link.page) throw new Error('LINK_' + String((link && link.code) || 'NO_PAGE'));
     const desktopPage = link.page;
     const logs = [];
