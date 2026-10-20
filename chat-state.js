@@ -232,7 +232,8 @@
     const before = entry.messages.length;
     entry.messages = entry.messages.filter((message) => {
       const ts = getMessageCreatedAt(message);
-      if (ts && ts < cutoffTs) {
+      const limit = message && message.historySync === true ? getChatRetentionCutoffTs() : cutoffTs;
+      if (ts && ts < limit) {
         if (message?.id) chatState.messageIndex.delete(message.id);
         return false;
       }
@@ -1187,7 +1188,9 @@
     }
     // חלק ניקוי אוטומטי (chat-state.js) – לא מקבלים הודעות שעברו את טיימר השיחה / תקרת 90 יום | HYPER CORE TECH
     const createdAtTs = getMessageCreatedAt(message) || createdAt || 0;
-    if (createdAtTs && createdAtTs < getCutoffForPeer(entry.peer)) {
+    const historyKeep = message.historySync === true || message.source === 'HISTORY_SYNC';
+    const cutoff = historyKeep ? getChatRetentionCutoffTs() : getCutoffForPeer(entry.peer);
+    if (createdAtTs && createdAtTs < cutoff) {
       return;
     }
     entry.messages.push(message);

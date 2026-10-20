@@ -133,6 +133,9 @@ async function main() {
         n += 1;
       }
       const oldId = 'old-12d';
+      if (App.chatState && App.chatState.disappearingTimers && typeof App.chatState.disappearingTimers.set === 'function') {
+        App.chatState.disappearingTimers.set(peers[0], 90 * 24 * 60 * 60);
+      }
       App.appendChatMessage({
         id: oldId,
         logicalMessageId: oldId,
