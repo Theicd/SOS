@@ -409,11 +409,23 @@ async function main() {
     report.ACK_DESKTOP = desktopAcks;
     report.HEADER_UI = await desktopPage.evaluate(() => {
       const ui = window.__sosHistUi || null;
+      const terminal = window.__sosHistTerminal || null;
       const el = document.getElementById('sosHistorySyncProgress');
       const host = el && el.parentElement ? el.parentElement.className : '';
-      return { ui: ui, host: host, floating: !!(el && getComputedStyle(el).position === 'fixed') };
+      const width = el ? el.getBoundingClientRect().width : 0;
+      const input = document.getElementById('chatMessageInput');
+      return {
+        ui: ui,
+        terminal: terminal,
+        host: host,
+        width: width,
+        floating: !!(el && getComputedStyle(el).position === 'fixed'),
+        composerDisabled: !!(input && input.disabled),
+      };
     }).catch(() => null);
-    const headerOk = !!(report.HEADER_UI && report.HEADER_UI.ui && report.HEADER_UI.ui.inHeader === true && report.HEADER_UI.floating !== true);
+    const ring = report.HEADER_UI && report.HEADER_UI.width > 0 && report.HEADER_UI.width <= 40;
+    const collapsed = !!(report.HEADER_UI && report.HEADER_UI.terminal && (report.HEADER_UI.terminal.state === 'COMPLETE' || report.HEADER_UI.terminal.state === 'COMPLETE_WITH_MISSING'));
+    const headerOk = !!(report.HEADER_UI && report.HEADER_UI.floating !== true && ((report.HEADER_UI.ui && report.HEADER_UI.ui.inHeader === true && ring) || collapsed));
     report.HEADER_PROGRESS_UI = headerOk;
     const mediaHash = detail.hash || (reloaded && reloaded.hash) || '';
     report.MEDIA_HASH = mediaHash;

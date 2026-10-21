@@ -6915,6 +6915,10 @@
     if (!value.trim() && !hasAttachment) {
       return;
     }
+    try {
+      console.log('CHAT_COMPOSER_ENABLED=' + (elements.messageInput && elements.messageInput.disabled ? '0' : '1'));
+      console.log('CHAT_SEND_CLICKED');
+    } catch (_chatLog) {}
     
     // 1. נקה input מיד - תגובה מיידית למשתמש
     const messageText = value;
@@ -6942,6 +6946,7 @@
     } else {
       appendSingleMessage(tempMessage);
     }
+    try { console.log('CHAT_SEND_ENQUEUED'); } catch (_enq) {}
     
     // 3. שלח ברקע – מחליף את ה-temp במקום ליצור הודעה שנייה | HYPER CORE TECH
     App.publishChatMessage(state.activeContact, messageText, { clientTempId: tempId })
@@ -6953,6 +6958,7 @@
             App.updateChatMessageStatus(tempId, 'failed');
           }
         } else {
+          try { console.log('CHAT_SEND_SIGNED'); console.log('CHAT_RELAY_ACCEPTED'); } catch (_sent) {}
           // אם ההחלפה כבר עדכנה את ה-DOM ל-ID אמיתי – מעדכנים סטטוס על ה-ID החדש | HYPER CORE TECH
           const statusTargetId = result.messageId || tempId;
           updateMessageStatus(statusTargetId, 'sent', result.messageId);

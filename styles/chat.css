@@ -3949,74 +3949,62 @@ body.chat-media-modal-open {
 }
 
 .sos-hist-indicator {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  max-width: min(280px, 52vw);
-  height: 36px;
-  margin-inline-start: 8px;
-  padding: 0 10px;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  margin-inline-start: 6px;
+  padding: 0;
   border: 0;
-  border-radius: 999px;
-  background: #141820;
-  color: #f4f7fb;
-  cursor: pointer;
-  direction: rtl;
-  flex: 0 1 280px;
-  font: 600 12px/1.2 "Segoe UI", Arial, sans-serif;
-}
-.sos-hist-indicator__icon {
-  width: 14px;
-  height: 14px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.28);
-  border-top-color: #4da3ff;
-  animation: sosHistSpin 0.9s linear infinite;
-  flex: none;
+  background: #141820;
+  color: #4da3ff;
+  cursor: pointer;
+  flex: 0 0 30px;
+  z-index: 2;
+  pointer-events: auto;
+}
+.sos-hist-ring {
+  width: 30px;
+  height: 30px;
+  transform: rotate(-90deg);
+}
+.sos-hist-ring__track,
+.sos-hist-ring__value {
+  fill: none;
+  stroke-width: 3;
+}
+.sos-hist-ring__track { stroke: rgba(77, 163, 255, 0.28); }
+.sos-hist-ring__value { stroke: #4da3ff; stroke-linecap: round; }
+.sos-hist-indicator.is-indeterminate .sos-hist-ring { animation: sosHistSpin 0.9s linear infinite; }
+.sos-hist-indicator.is-complete .sos-hist-ring__value { stroke: #3dd68c; }
+.sos-hist-indicator.is-missing .sos-hist-ring__value { stroke: #e0a15a; }
+.sos-hist-indicator.is-waiting .sos-hist-ring__value { stroke: #8ea0b8; }
+.sos-hist-indicator.is-failed .sos-hist-ring__value { stroke: #e06a6a; }
+.sos-hist-indicator.is-complete .sos-hist-ring,
+.sos-hist-indicator.is-missing .sos-hist-ring,
+.sos-hist-indicator.is-waiting .sos-hist-ring,
+.sos-hist-indicator.is-failed .sos-hist-ring { animation: none; }
+.sos-hist-indicator__icon {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid currentColor;
+  border-top: 0;
+  border-radius: 1px;
 }
 .sos-hist-indicator.is-complete .sos-hist-indicator__icon {
-  animation: none;
-  border-color: #3dd68c;
+  width: 4px;
+  height: 8px;
+  border-radius: 0;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+  color: #3dd68c;
 }
-.sos-hist-indicator.is-partial .sos-hist-indicator__icon {
-  animation: none;
-  border-color: #e0a15a;
-}
-.sos-hist-indicator__copy {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  text-align: right;
-}
-.sos-hist-indicator__label,
-.sos-hist-indicator__meta {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.sos-hist-indicator__meta {
-  font-size: 10px;
-  font-weight: 500;
-  opacity: 0.78;
-}
-.sos-hist-indicator__bar {
-  position: relative;
-  width: 42px;
-  height: 4px;
-  border-radius: 99px;
-  background: #2a3140;
-  overflow: hidden;
-  flex: none;
-}
-.sos-hist-indicator__bar span {
-  display: block;
-  height: 100%;
-  background: #4da3ff;
-}
-.sos-hist-indicator__bar.is-indeterminate span {
-  width: 40% !important;
-  animation: sosHistInd 1.1s ease-in-out infinite;
-}
+.sos-hist-indicator.is-missing .sos-hist-indicator__icon { color: #e0a15a; }
 .sos-hist-details {
   position: fixed;
   z-index: 12050;
@@ -4043,6 +4031,5 @@ body.chat-media-modal-open {
 @keyframes sosHistSpin { to { transform: rotate(360deg); } }
 @keyframes sosHistInd { 50% { transform: translateX(-60%); } }
 @media (max-width: 900px) {
-  .sos-hist-indicator { max-width: min(220px, 58vw); height: 32px; }
-  .sos-hist-indicator__meta { display: none; }
+  .sos-hist-indicator { width: 30px; height: 30px; }
 }

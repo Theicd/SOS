@@ -34,10 +34,26 @@ check('linked sub not recreated', !video.includes('keys.linkedDevice) {\n      t
 check('feed yields during history send', video.includes('window.__sosHistSyncActive === true'));
 check('logger batches', logger.includes('function scheduleSave') && !logger.includes("save();\n  }\n\n  // חלק סיכום"));
 check('active sub counter', logger.includes('SUBSCRIPTION_ACTIVE n='));
-check('package', videos.includes('sos-account-session.js?v=20261020&pkg=899s54') && videos.includes('p2p-video-sharing.js?v=20261020&pkg=899s53'));
+check('package', videos.includes('sos-account-session.js?v=20261021&pkg=899s57') && videos.includes('p2p-video-sharing.js?v=20261020&pkg=899s53'));
 check('72 hour window', session.includes('HIST_RECENT_SEC = 72 * 3600') && session.includes('HISTORY_WINDOW_V2'));
 check('older week', session.includes('HIST_OLDER_SEC = 7 * 86400') && session.includes("scope === 'older'"));
 check('recent is not a full backup', session.includes('FULL_BACKUP_COMPLETE: false') && session.includes('RECENT_HISTORY_SYNC_COMPLETE'));
+check('missing files are terminal', session.includes("missing > 0 ? 'COMPLETE_WITH_MISSING' : 'COMPLETE'"));
+check('settled ack is not gated', session.includes("!settled && reason !== 'text'"));
+check('bounded stream cap', session.includes('HIST_MEDIA_STREAM_MAX = 32 * 1024 * 1024') && session.includes('size > HIST_MEDIA_STREAM_MAX'));
+const confirmFn = session.slice(session.indexOf('async function confirmHistoryAck'), session.indexOf('function scheduleHistoryRequestRetry'));
+check('ack flag after publish', confirmFn.indexOf('const sent = await publishHistoryPage') !== -1 && confirmFn.indexOf('const sent = await publishHistoryPage') < confirmFn.indexOf('root.__sosHistAckOkSent[fp] = true'));
+check('circular ring', session.includes('sos-hist-ring') && !session.includes('sos-hist-indicator__label'));
+check('chat is not locked to history', !session.includes('messageInput.disabled = true') && session.includes('function interactiveTransferBusy'));
+function shouldSendAck(same, full, settled, reason, pageDelta, fileDelta) {
+  if (same && reason !== 'retry') return false;
+  if (!same && !full && !settled && reason !== 'text' && reason !== 'final' && reason !== 'retry') {
+    if (pageDelta < 4 && fileDelta < 4) return false;
+  }
+  return true;
+}
+check('last files ack when settled', shouldSendAck(false, false, true, 'file', 0, 2) === true);
+check('unsettled single file waits', shouldSendAck(false, false, false, 'file', 0, 1) === false);
 
 function backoff(fails) {
   return Math.min(120000, 15000 * Math.pow(2, Math.min(fails - 1, 3)));
