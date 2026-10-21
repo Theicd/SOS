@@ -2894,6 +2894,7 @@
     decryptForLinkedDevice: decryptForLinkedDevice,
     publishLinkedHistoryBundle: publishLinkedHistoryBundle,
     pullLinkedHistory: pullLinkedHistory,
+    historyProgress: historyProgress,
     requestLinkedHistory: requestLinkedHistory,
     acceptHistoryRequest: acceptHistoryRequest,
     pullLinkedDirectMessages: pullLinkedDirectMessages,

@@ -184,13 +184,16 @@ async function main() {
     });
     console.log('STEP link desktop seeded=' + seeded.stored);
     const logs = [];
-    const link = await linkAnotherDesktop(browser, phone.page, phone.fp, {
-      keep: true,
-      onConsole: (msg) => {
-        const t = msg.text();
-        if (t.indexOf('DESKTOP_HISTORY') !== -1 || t.indexOf('HISTORY_') !== -1) logs.push(t.slice(0, 240));
-      },
-    });
+    const link = await Promise.race([
+      linkAnotherDesktop(browser, phone.page, phone.fp, {
+        keep: true,
+        onConsole: (msg) => {
+          const t = msg.text();
+          if (t.indexOf('DESKTOP_HISTORY') !== -1 || t.indexOf('HISTORY_') !== -1) logs.push(t.slice(0, 240));
+        },
+      }),
+      new Promise((resolve) => setTimeout(() => resolve({ ok: false, code: 'LINK_TIMEOUT' }), 180000)),
+    ]);
     report.LINK = { ok: !!(link && link.ok), code: link && link.code ? String(link.code).slice(0, 200) : '' };
     if (!link || link.ok !== true || !link.page) throw new Error('LINK_' + String((link && link.code) || 'NO_PAGE'));
     const desktopPage = link.page;
@@ -258,6 +261,29 @@ async function main() {
     report.MEDIA_HASH = detail.hash;
     report.ROOT_K_ON_DESKTOP = detail.root === true;
     report.TEXT_SYNC_COMPLETE = !!(detail.sync && detail.sync.HISTORY_TEXT_SYNC_COMPLETE === true && detail.stored >= 100);
+    report.CHAT_DURING_SYNC = await desktopPage.evaluate(async () => {
+      const input = document.getElementById('chatMessageInput');
+      const ring = document.getElementById('sosHistorySyncProgress');
+      const book = window.__sosLdHistoryPages || null;
+      let sent = null;
+      try {
+        const App = window.NostrApp;
+        if (App && typeof App.publishChatMessage === 'function' && App.publicKey) {
+          sent = await App.publishChatMessage(App.publicKey, 'hist-sync-chat-' + Date.now());
+        }
+      } catch (err) {
+        sent = { ok: false, error: String(err && err.message || err).slice(0, 160) };
+      }
+      return {
+        composerPresent: !!input,
+        composerDisabled: !!(input && input.disabled),
+        ring: !!ring,
+        ringWidth: ring ? Math.round(ring.getBoundingClientRect().width) : 0,
+        state: book && book.terminal ? book.terminal : (window.__sosHistUi && window.__sosHistUi.state) || '',
+        sentOk: !!(sent && sent.ok),
+        sent: sent && sent.ok === true ? 'ok' : String((sent && (sent.error || sent.code)) || '').slice(0, 120),
+      };
+    }).catch((err) => ({ error: String(err && err.message || err).slice(0, 160) }));
     report.FULL_BACKUP_COMPLETE = !!(detail.sync && detail.sync.FULL_BACKUP_COMPLETE === true);
     const hasOld = async () => desktopPage.evaluate((oldId) => {
       const App = window.NostrApp;
@@ -413,17 +439,19 @@ async function main() {
       const el = document.getElementById('sosHistorySyncProgress');
       const host = el && el.parentElement ? el.parentElement.className : '';
       const width = el ? el.getBoundingClientRect().width : 0;
+      const ring = !!(el && el.querySelector('.sos-hist-ring'));
       const input = document.getElementById('chatMessageInput');
       return {
         ui: ui,
         terminal: terminal,
         host: host,
         width: width,
+        ring: ring,
         floating: !!(el && getComputedStyle(el).position === 'fixed'),
         composerDisabled: !!(input && input.disabled),
       };
     }).catch(() => null);
-    const ring = report.HEADER_UI && report.HEADER_UI.width > 0 && report.HEADER_UI.width <= 40;
+    const ring = !!(report.HEADER_UI && report.HEADER_UI.ring === true && (report.HEADER_UI.width === 0 || report.HEADER_UI.width <= 40));
     const collapsed = !!(report.HEADER_UI && report.HEADER_UI.terminal && (report.HEADER_UI.terminal.state === 'COMPLETE' || report.HEADER_UI.terminal.state === 'COMPLETE_WITH_MISSING'));
     const headerOk = !!(report.HEADER_UI && report.HEADER_UI.floating !== true && ((report.HEADER_UI.ui && report.HEADER_UI.ui.inHeader === true && ring) || collapsed));
     report.HEADER_PROGRESS_UI = headerOk;
