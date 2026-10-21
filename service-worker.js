@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v899s57'; // History sync closes when the available files are stored
+  const CACHE_NAME = 'sos-cache-v899s58'; // Offline encrypted media keeps its cryptographic attachment id
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -1934,6 +1934,9 @@
       const aadSender = (authCtx && authCtx.sender) || bubbleFrom;
       const aadRecipient = (authCtx && authCtx.recipient) || bubbleTo;
       const hydratePeer = bubblePeer;
+      try {
+        console.log('MEDIA_FALLBACK_TRACE stage=RECIPIENT_EVENT_RECEIVED attachmentId=' + String(encAtt.attachmentId || '').replace(/[^0-9a-f]/g, '').slice(0, 8));
+      } catch (_) {}
       Promise.resolve()
         .then(() =>
           App.resolveServerMediaAttachment(encAtt, {
@@ -1946,6 +1949,7 @@
           try {
             const sha = encAtt.cipher && encAtt.cipher.sha256 ? String(encAtt.cipher.sha256) : '';
             if (sha) console.log('[MEDIA/SYNC] MEDIA_SYNC_COMPLETE sha256=' + sha.slice(0, 16) + ' peer=' + String(hydratePeer || '').slice(0, 8));
+            console.log('MEDIA_FALLBACK_TRACE stage=RECIPIENT_MEDIA_VERIFIED attachmentId=' + String(encAtt.attachmentId || '').replace(/[^0-9a-f]/g, '').slice(0, 8) + ' sha=' + sha.slice(0, 8) + ' bytes=' + ((resolved && resolved.blob && resolved.blob.size) || 0));
             const plainMime = String((resolved && resolved.blob && resolved.blob.type) || encAtt._plainMime || (encAtt.media && encAtt.media.mime) || '');
             if (/^image\//i.test(plainMime)) {
               console.log('IMAGE_EVENT_RECEIVED');

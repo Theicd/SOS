@@ -88,10 +88,51 @@
   
   // חלק מצב העברות (chat-p2p-file.js) – מעקב אחר העברות פעילות | HYPER CORE TECH
   const activeTransfers = new Map(); // fileId -> transfer state
+  const pendingBlossomPublish = new Map(); // fileId -> uploaded ciphertext awaiting chat publish
   const progressListeners = new Set(); // UI listeners for progress
   // חלק שמירת קבצים (chat-p2p-file.js) – שומר קובץ 3 דקות אחרי סיום לצורך resend אם המקבל איחר | HYPER CORE TECH
   const recentCompletedFiles = new Map(); // fileId -> { file, keyStr, peerPubkey, completedAt }
   const recentIncomingFileOffers = new Map(); // peerKey -> ts
+
+  function traceMedia(stage, fields) {
+    try {
+      const f = fields || {};
+      const parts = ['MEDIA_FALLBACK_TRACE', 'stage=' + stage];
+      const id = String(f.id || '').slice(0, 24);
+      const att = String(f.attachmentId || '').replace(/[^0-9a-f]/g, '').slice(0, 8);
+      const sha = String(f.sha || '').replace(/[^0-9a-f]/g, '').slice(0, 8);
+      if (id) parts.push('id=' + id);
+      if (typeof f.bytes === 'number') parts.push('bytes=' + f.bytes);
+      if (att) parts.push('attachmentId=' + att);
+      if (sha) parts.push('sha=' + sha);
+      if (f.reason) parts.push('reason=' + String(f.reason).slice(0, 80));
+      if (f.dc) parts.push('dc=' + String(f.dc).slice(0, 16));
+      if (typeof f.presenceAgeMs === 'number') parts.push('presenceAgeMs=' + f.presenceAgeMs);
+      if (f.state) parts.push('state=' + String(f.state).slice(0, 48));
+      if (typeof f.copies === 'number') parts.push('copies=' + f.copies);
+      if (typeof f.latencyMs === 'number') parts.push('latencyMs=' + f.latencyMs);
+      console.log(parts.join(' '));
+    } catch (_) {}
+  }
+
+  function mediaPeerKnownOffline(endpoint, accountPeer) {
+    const dcOpen =
+      (typeof App.dataChannel?.isConnected === 'function' && App.dataChannel.isConnected(endpoint)) ||
+      (typeof App.dataChannel?.isHealthy === 'function' && App.dataChannel.isHealthy(endpoint));
+    if (dcOpen) return false;
+    const presencePeer = accountPeer || endpoint;
+    const row = typeof App.getChatPresence === 'function' ? App.getChatPresence(presencePeer) : null;
+    if (!row || !row.lastPresenceAt) return false;
+    if (row.online === true) return false;
+    const ttl = Number(App.PRESENCE_ONLINE_TTL_MS) || 90000;
+    return (Date.now() - Number(row.lastPresenceAt)) > ttl;
+  }
+
+  function fallbackAccountRecipient(transfer) {
+    const account = String((transfer && transfer.conversationPeer) || '').toLowerCase();
+    if (/^[0-9a-f]{64}$/.test(account)) return account;
+    return String((transfer && transfer.peerPubkey) || '').toLowerCase();
+  }
 
   function isReceivingChatFile(peerPubkey) {
     const peerKey = peerPubkey ? String(peerPubkey).toLowerCase() : '';
@@ -1045,11 +1086,28 @@
 
     const attemptId = App.P2pConn && typeof App.P2pConn.newAttemptId === 'function' ? App.P2pConn.newAttemptId() : `p2p-${fileId}`;
     const fileSelectedAt = Date.now();
+    traceMedia('FILE_SELECTED', { id: attemptId, bytes: file && file.size });
     const chatHealthy = typeof App.dataChannel?.isHealthy === 'function' ? App.dataChannel.isHealthy(peerKey) : chatDCConnected;
     let preflight = { ok: hasConnection || chatHealthy, reused: hasConnection || chatHealthy, waitedMs: 0 };
+    const knownOffline = !preflight.ok && !selfChat && mediaPeerKnownOffline(peerKey, conversationPeer);
+    let presenceAgeMs = -1;
+    try {
+      const presenceRow = typeof App.getChatPresence === 'function' ? App.getChatPresence(conversationPeer || peerKey) : null;
+      if (presenceRow && presenceRow.lastPresenceAt) presenceAgeMs = Date.now() - Number(presenceRow.lastPresenceAt);
+    } catch (_) {}
+    traceMedia('P2P_AVAILABILITY_CHECK', {
+      id: attemptId,
+      bytes: file && file.size,
+      dc: preflight.ok ? 'open' : 'closed',
+      presenceAgeMs,
+      state: knownOffline ? 'offline' : (preflight.ok ? 'p2p' : 'unknown'),
+    });
 
-    // חלק preflight (chat-p2p-file.js) – DC בריא קיים = שימוש חוזר בלי signaling; אחרת המתנה לפי שלב עם קוד כשל מדויק | HYPER CORE TECH
-    if (!preflight.ok && App.dataChannel) {
+    // חלק preflight (chat-p2p-file.js) – DC בריא קיים = שימוש חוזר בלי signaling; נמען offline מוכח מדלג ל-Blossom; אחרת המתנה חסומה | HYPER CORE TECH
+    if (knownOffline) {
+      traceMedia('P2P_OFFLINE_DETECTED', { id: attemptId, bytes: file && file.size, state: 'PEER_OFFLINE', presenceAgeMs });
+      preflight = { ok: false, failure: 'PEER_OFFLINE', waitedMs: 0, reused: false };
+    } else if (!preflight.ok && App.dataChannel) {
       console.log('[CHAT/P2P] ⚡ מנסה לחבר chat DataChannel לפני שליחה (forceConnect)...');
       notifyProgress({ fileId, progress: 0, status: 'waiting-peer', direction: 'send', name: file.name, size: file.size, mimeType: file.type, peerPubkey: peerKey });
       try {
@@ -1073,6 +1131,9 @@
         console.warn('[CHAT/P2P] ⚠️ שגיאה בחיבור chat DC:', e.message);
         preflight = { ok: false, failure: 'UNKNOWN_P2P_FAILURE', waitedMs: Date.now() - fileSelectedAt };
       }
+    }
+    if (!preflight.ok && preflight.failure !== 'PEER_OFFLINE') {
+      traceMedia('P2P_TIMEOUT', { id: attemptId, bytes: file && file.size, reason: preflight.failure || 'P2P_TIMEOUT' });
     }
     
     // Send metadata first via encrypted relay message
@@ -2739,21 +2800,92 @@
       return;
     }
 
-    let uploadResult;
-    try {
-      const messageId = 'p2p-recv-' + String(transfer.fileId || '');
-      transfer.fallbackEncryptStartAt = Date.now();
-      uploadResult = await App.uploadMediaForServerFallback(transfer.file, {
-        messageId,
-        sender: App.publicKey,
-        recipient: transfer.peerPubkey,
-        mimeType: mime,
-        fileName,
-        requireEncryption: true,
-        onProgress: () => {
-          if (!transfer.fallbackUploadStartAt) transfer.fallbackUploadStartAt = Date.now();
-        },
+    const savedPublish = pendingBlossomPublish.get(transfer.fileId);
+    const logicalId = String(
+      (savedPublish && savedPublish.logicalId) ||
+      transfer.fallbackLogicalId ||
+      transfer.logicalMessageId ||
+      ('p2p-recv-' + String(transfer.fileId || ''))
+    );
+    transfer.logicalMessageId = logicalId;
+    transfer.fallbackLogicalId = logicalId;
+    const recipientAccount = fallbackAccountRecipient(transfer);
+    let uploadResult = savedPublish && savedPublish.descriptor ? savedPublish.descriptor : transfer.uploadedDescriptor;
+    let reusedUpload = !!(uploadResult && uploadResult.type === 'encrypted-media' && /^[0-9a-f]{32}$/.test(String(uploadResult.attachmentId || '')));
+    if (!reusedUpload) uploadResult = null;
+    if (reusedUpload) {
+      traceMedia('ORPHAN_UPLOAD_RETRY', {
+        id: transfer.attemptId || transfer.fileId,
+        bytes: fileSize,
+        attachmentId: uploadResult.attachmentId,
+        sha: uploadResult.cipher && uploadResult.cipher.sha256,
+        state: 'UPLOADED_AWAITING_MESSAGE_PUBLISH',
       });
+    }
+    try {
+      if (!reusedUpload) {
+        transfer.fallbackEncryptStartAt = Date.now();
+        if (typeof App.prepareEncryptedMediaForBlossom === 'function') {
+          const prepared = await App.prepareEncryptedMediaForBlossom({
+            blob: transfer.file,
+            messageId: logicalId,
+            sender: App.publicKey,
+            recipient: recipientAccount,
+            filename: fileName,
+            mime,
+          });
+          const draft = prepared && prepared.privateDescriptorDraft;
+          if (!draft || !/^[0-9a-f]{32}$/.test(String(draft.attachmentId || ''))) {
+            failFallback(transfer, 'FALLBACK_UPLOAD_FAILED', onProgress, 'INVALID_ATTACHMENT_ID');
+            return;
+          }
+          if (typeof App.validateEncryptedMediaDescriptor === 'function') {
+            App.validateEncryptedMediaDescriptor(draft);
+          }
+          traceMedia('FALLBACK_ENCRYPTED', {
+            id: transfer.attemptId || transfer.fileId,
+            bytes: fileSize,
+            attachmentId: draft.attachmentId,
+            sha: draft.cipher && draft.cipher.sha256,
+          });
+          traceMedia('ORIGINAL_DESCRIPTOR_VALID', {
+            id: transfer.attemptId || transfer.fileId,
+            bytes: fileSize,
+            attachmentId: draft.attachmentId,
+            sha: draft.cipher && draft.cipher.sha256,
+            state: 'ORIGINAL_ATTACHMENT_ID_PRESERVED',
+          });
+          uploadResult = await App.uploadMediaForServerFallback(transfer.file, {
+            messageId: logicalId,
+            sender: App.publicKey,
+            recipient: recipientAccount,
+            mimeType: mime,
+            fileName,
+            requireEncryption: true,
+            attachmentId: draft.attachmentId,
+            prepared,
+            onProgress: () => {
+              if (!transfer.fallbackUploadStartAt) transfer.fallbackUploadStartAt = Date.now();
+            },
+          });
+          if (String(uploadResult && uploadResult.attachmentId || '') !== String(draft.attachmentId)) {
+            failFallback(transfer, 'FALLBACK_UPLOAD_FAILED', onProgress, 'ATTACHMENT_ID_MUTATED');
+            return;
+          }
+        } else {
+          uploadResult = await App.uploadMediaForServerFallback(transfer.file, {
+            messageId: logicalId,
+            sender: App.publicKey,
+            recipient: recipientAccount,
+            mimeType: mime,
+            fileName,
+            requireEncryption: true,
+            onProgress: () => {
+              if (!transfer.fallbackUploadStartAt) transfer.fallbackUploadStartAt = Date.now();
+            },
+          });
+        }
+      }
     } catch (uploadErr) {
       const code = App.P2pConn ? App.P2pConn.classifyFallbackError(uploadErr) : 'FALLBACK_UPLOAD_FAILED';
       failFallback(transfer, code, onProgress, uploadErr && (uploadErr.code || uploadErr.message));
@@ -2764,6 +2896,10 @@
       uploadResult && typeof uploadResult === 'object' && uploadResult.type === 'encrypted-media';
     if (!isEncryptedDescriptor) {
       failFallback(transfer, 'ENCRYPTION_FAILED', onProgress, 'non_encrypted_result_rejected');
+      return;
+    }
+    if (!/^[0-9a-f]{32}$/.test(String(uploadResult.attachmentId || ''))) {
+      failFallback(transfer, 'FALLBACK_UPLOAD_FAILED', onProgress, 'INVALID_ATTACHMENT_ID');
       return;
     }
     try {
@@ -2785,41 +2921,127 @@
       failFallback(transfer, 'FALLBACK_UPLOAD_FAILED', onProgress, descErr && descErr.message);
       return;
     }
+    uploadResult.clientMessageId = logicalId;
+    uploadResult.logicalMessageId = logicalId;
+    transfer.uploadedDescriptor = uploadResult;
+    transfer.fallbackState = 'UPLOADED_AWAITING_MESSAGE_PUBLISH';
+    pendingBlossomPublish.set(transfer.fileId, { descriptor: uploadResult, logicalId, at: Date.now() });
 
     console.log('[CHAT/P2P] ✅ Blossom upload הצליח', { encrypted: true });
+    traceMedia('BLOSSOM_UPLOAD_OK', {
+      id: transfer.attemptId || transfer.fileId,
+      bytes: fileSize,
+      attachmentId: uploadResult.attachmentId,
+      sha: uploadResult.cipher && uploadResult.cipher.sha256,
+      state: 'BLOSSOM_CIPHERTEXT_UPLOAD_OK',
+    });
     if (!/^(image|audio|video)\//i.test(String(mime || ''))) {
       console.log('DOCUMENT_BLOSSOM_UPLOAD_OK');
     }
     mediaDebugLog('blossom-upload-success', { fileId: transfer.fileId, name: fileName, size: fileSize, mime, encrypted: true });
 
+    let wire = null;
+    try {
+      wire = typeof App.buildEncryptedAttachmentWireDescriptor === 'function'
+        ? App.buildEncryptedAttachmentWireDescriptor(uploadResult)
+        : null;
+      if (!wire || wire.attachmentId !== uploadResult.attachmentId || wire.attachmentId === String(transfer.fileId || '')) {
+        throw new Error('ATTACHMENT_ID_MUTATED');
+      }
+      if (typeof App.validateEncryptedMediaDescriptor === 'function') {
+        App.validateEncryptedMediaDescriptor(wire);
+      }
+      if (typeof App.inspectIncomingChatAttachment !== 'function') {
+        throw new Error('ATTACHMENT_VALIDATOR_UNAVAILABLE');
+      }
+      const inspected = App.inspectIncomingChatAttachment(Object.assign({}, wire), { network: true });
+      if (!inspected || inspected.ok !== true) {
+        throw new Error((inspected && inspected.reasonCode) || 'INVALID_DESCRIPTOR');
+      }
+      traceMedia('WIRE_DESCRIPTOR_VALID', {
+        id: transfer.attemptId || transfer.fileId,
+        bytes: fileSize,
+        attachmentId: wire.attachmentId,
+        sha: wire.cipher && wire.cipher.sha256,
+        state: 'ORIGINAL_ATTACHMENT_ID_PRESERVED',
+      });
+    } catch (wireErr) {
+      failFallback(transfer, 'FALLBACK_PUBLISH_FAILED', onProgress, wireErr && (wireErr.code || wireErr.message));
+      return;
+    }
+
+    const awaitingPayload = {
+      fileId: transfer.fileId,
+      progress: 0.9,
+      status: 'UPLOADED_AWAITING_MESSAGE_PUBLISH',
+      direction: 'send',
+      name: fileName,
+      size: fileSize,
+      mimeType: mime,
+      peerPubkey: transfer.peerPubkey,
+    };
+    if (onProgress) onProgress(awaitingPayload);
+    notifyProgress(awaitingPayload);
+
     let publishOk = false;
+    let publishResult = null;
     try {
       if (typeof App.publishChatMessage === 'function') {
         const resolvedMime = resolveMimeType(mime, fileName);
         const isVideoFlag = shouldForceVideoFlag(mime, fileName);
-        const attachment = uploadResult;
-        attachment.attachmentId = String(transfer.fileId || attachment.attachmentId || '');
-        attachment.id = attachment.attachmentId || `blossom-${Date.now()}`;
-        attachment.name = (attachment.media && attachment.media.filename) || fileName;
-        attachment.size =
-          attachment.media && typeof attachment.media.originalSize === 'number' ? attachment.media.originalSize : fileSize;
-        attachment.fileId = transfer.fileId;
-        attachment.isVideo = isVideoFlag || undefined;
-        attachment.hidePreview = true;
-        attachment.caption =
-          String(
-            transfer.caption ||
-              (typeof App.getChatFileAttachment === 'function' && App.getChatFileAttachment(transfer.peerPubkey)?.caption) ||
-              '',
-          ).trim() || undefined;
-        if (typeof App.setChatFileAttachment === 'function') {
-          App.setChatFileAttachment(transfer.peerPubkey, attachment);
-        }
-        const captionText = String(attachment.caption || '').trim();
+        const captionText = String(
+          transfer.caption ||
+            (typeof App.getChatFileAttachment === 'function' && App.getChatFileAttachment(transfer.peerPubkey)?.caption) ||
+            '',
+        ).trim();
+        const stored = Object.assign({}, uploadResult, {
+          id: uploadResult.attachmentId,
+          name: (uploadResult.media && uploadResult.media.filename) || fileName,
+          size: uploadResult.media && typeof uploadResult.media.originalSize === 'number' ? uploadResult.media.originalSize : fileSize,
+          fileId: transfer.fileId,
+          isVideo: isVideoFlag || undefined,
+          hidePreview: true,
+          caption: captionText || undefined,
+          clientMessageId: logicalId,
+          logicalMessageId: logicalId,
+        });
         const isVisualMedia = /^image\//i.test(resolvedMime || mime || '') || !!isVideoFlag;
         const messageText = captionText || (isVisualMedia ? '' : `📎 ${fileName}`);
-        const publishResult = await App.publishChatMessage(transfer.peerPubkey, messageText);
+        const publishOnce = async () => {
+          if (typeof App.setChatFileAttachment === 'function') {
+            App.setChatFileAttachment(transfer.peerPubkey, stored);
+          }
+          return App.publishChatMessage(transfer.peerPubkey, messageText, { clientTempId: logicalId });
+        };
+        const publishOnceSafe = async () => {
+          try {
+            return await publishOnce();
+          } catch (err) {
+            return { ok: false, error: (err && (err.code || err.message)) || 'publish_throw' };
+          }
+        };
+        publishResult = await publishOnceSafe();
         publishOk = !!(publishResult && publishResult.ok);
+        if (!publishOk) {
+          traceMedia('ORPHAN_UPLOAD_RETRY', {
+            id: transfer.attemptId || transfer.fileId,
+            bytes: fileSize,
+            attachmentId: uploadResult.attachmentId,
+            sha: uploadResult.cipher && uploadResult.cipher.sha256,
+            reason: (publishResult && publishResult.error) || 'publish_failed',
+            state: 'UPLOADED_AWAITING_MESSAGE_PUBLISH',
+          });
+          publishResult = await publishOnceSafe();
+          publishOk = !!(publishResult && publishResult.ok);
+        }
+        if (publishResult && (publishResult.ok || publishResult.id)) {
+          traceMedia('E2EE_CHAT_SIGNED', {
+            id: transfer.attemptId || transfer.fileId,
+            bytes: fileSize,
+            attachmentId: wire.attachmentId,
+            sha: wire.cipher && wire.cipher.sha256,
+          });
+        }
         if (!publishOk) {
           mediaDebugLog('blossom-message-failed', { fileId: transfer.fileId, error: publishResult?.error || 'unknown' });
         }
@@ -2831,9 +3053,30 @@
 
     // complete-blossom ONLY after ciphertext upload + valid descriptor + E2EE publish success.
     if (!publishOk) {
+      transfer.fallbackState = 'UPLOADED_AWAITING_MESSAGE_PUBLISH';
       failFallback(transfer, 'FALLBACK_PUBLISH_FAILED', onProgress);
       return;
     }
+    pendingBlossomPublish.delete(transfer.fileId);
+    traceMedia('RELAY_PUBLISH_ACCEPTED', {
+      id: transfer.attemptId || transfer.fileId,
+      bytes: fileSize,
+      attachmentId: wire.attachmentId,
+      sha: wire.cipher && wire.cipher.sha256,
+      latencyMs: Date.now() - (transfer.fallbackStartedAt || Date.now()),
+      state: 'CHAT_EVENT_RELAY_ACCEPTED',
+    });
+    traceMedia('DEVICE_COPY_PUBLISHED', {
+      id: transfer.attemptId || transfer.fileId,
+      copies: publishResult && typeof publishResult.deviceCopies === 'number' ? publishResult.deviceCopies : 0,
+      state: 'LINKED_DEVICE_COPY_SENT',
+    });
+    traceMedia('DELIVERY_STATUS', {
+      id: transfer.attemptId || transfer.fileId,
+      bytes: fileSize,
+      state: 'SENDER_STATUS_SENT',
+      latencyMs: Date.now() - (transfer.fallbackStartedAt || Date.now()),
+    });
     const completePayload = {
       fileId: transfer.fileId,
       progress: 1,
