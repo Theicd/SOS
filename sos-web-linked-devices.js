@@ -360,22 +360,28 @@
       '.sos-ld-mobile-head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08)}' +
       '.sos-ld-mobile-head button{background:transparent;border:0;color:inherit;font-size:22px;line-height:1;padding:4px 8px}' +
       '.sos-ld-mobile-body{padding:8px 16px 24px;overflow:auto;flex:1}' +
-      '.sos-ld-hero{display:flex;justify-content:center;padding:28px 0 8px}' +
-      '.sos-ld-hero svg{width:min(240px,70vw);height:auto;overflow:visible}' +
-      '.sos-ld-phone{animation:sosLdFloat 3.2s ease-in-out infinite}' +
-      '.sos-ld-laptop{animation:sosLdFloat 3.2s ease-in-out .4s infinite}' +
-      '.sos-ld-dot{transform-origin:center;animation:sosLdPop 1.6s ease-in-out infinite}' +
-      '.sos-ld-dot-2{animation-delay:.2s}' +
-      '.sos-ld-dot-3{animation-delay:.4s}' +
-      '.sos-ld-dot-4{animation-delay:.6s}' +
-      '@keyframes sosLdFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}' +
-      '@keyframes sosLdPop{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}' +
-      '.sos-ld-explain{margin:8px 0 0;text-align:center;font-size:14px;line-height:1.55}' +
+      '.sos-ld-hero{display:flex;justify-content:center;padding:8px 0 0}' +
+      '.sos-ld-hero svg{width:min(280px,78vw);height:auto;overflow:visible}' +
+      '.sos-ld-phone{animation:sosLdFloat 3.4s ease-in-out infinite}' +
+      '.sos-ld-laptop{animation:sosLdFloat 3.4s ease-in-out .35s infinite}' +
+      '.sos-ld-screen{animation:sosLdGlow 2.8s ease-in-out infinite}' +
+      '.sos-ld-link{animation:sosLdDrift 2.2s ease-in-out infinite}' +
+      '.sos-ld-dot{transform-origin:center;transform-box:fill-box;animation:sosLdPop 1.6s ease-in-out infinite}' +
+      '.sos-ld-dot-2{animation-delay:.18s}' +
+      '.sos-ld-dot-3{animation-delay:.36s}' +
+      '.sos-ld-dot-4{animation-delay:.54s}' +
+      '@keyframes sosLdFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}' +
+      '@keyframes sosLdPop{0%,100%{opacity:.28;transform:scale(.72)}50%{opacity:1;transform:scale(1)}}' +
+      '@keyframes sosLdGlow{0%,100%{opacity:1}50%{opacity:.55}}' +
+      '@keyframes sosLdDrift{0%,100%{transform:translateX(0)}50%{transform:translateX(5px)}}' +
+      '.sos-ld-explain{margin:4px 0 0;text-align:center;font-size:14px;line-height:1.55}' +
       '.sos-ld-device-list{list-style:none;margin:8px 0 0;padding:0}' +
       '.sos-ld-device-list li,.sos-ld-device-row{display:flex;gap:12px;align-items:center;padding:14px 0;border:0;border-bottom:1px solid rgba(255,255,255,.08);background:transparent;color:inherit;width:100%;text-align:right;font:inherit;cursor:pointer}' +
-      '.sos-ld-device-ico{width:40px;height:40px;border-radius:50%;background:rgba(45,136,255,.14);color:#2d88ff;display:flex;align-items:center;justify-content:center}' +
+      '.sos-ld-device-ico{width:40px;height:40px;border-radius:50%;background:rgba(45,136,255,.14);color:#2d88ff;display:flex;align-items:center;justify-content:center;flex-shrink:0}' +
+      '.sos-ld-device-row.is-live .sos-ld-device-ico{background:rgba(45,212,191,.16);color:#5eead4;box-shadow:0 0 0 2px rgba(45,212,191,.75)}' +
+      '.sos-ld-live{display:inline-block;margin-inline-start:8px;padding:1px 8px;border-radius:999px;background:rgba(45,212,191,.16);color:#5eead4;font-size:11px;font-weight:700;font-style:normal;vertical-align:1px}' +
       '.sos-ld-detail{text-align:center;padding:12px 8px 24px}' +
-      '.sos-ld-detail-ico{width:88px;height:88px;border-radius:50%;margin:24px auto 14px;display:flex;align-items:center;justify-content:center;font-size:30px;color:#f5f5f5;background:linear-gradient(#161616,#161616) padding-box,conic-gradient(#ff2d55,#ffeb3b,#22c55e,#2d88ff,#ff2d55) border-box;border:3px solid transparent}' +
+      '.sos-ld-detail-ico{width:88px;height:88px;border-radius:50%;margin:24px auto 14px;display:flex;align-items:center;justify-content:center;font-size:30px;color:#f5f5f5;background:linear-gradient(#161616,#161616) padding-box,conic-gradient(#7ec8ff,#3d7dff,#2dd4bf,#7ec8ff) border-box;border:3px solid transparent}' +
       '.sos-ld-detail h3{margin:0;font-size:1.35rem}' +
       '.sos-ld-detail .sos-ld-sub{margin-top:4px}' +
       '.sos-ld-detail-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:22px;font-size:15px}' +
@@ -723,11 +729,11 @@
     }
     if (result.ok === true && code === 'LINKED' && result.WEB_MD3_ISSUANCE === true) {
       rememberAuthorizedDevice(result.authorization);
+      markLiveLinkedDevice(result.authorization);
       paintMobileDeviceList(localAccountDevices(), localAccountDevices().length ? 'ready' : 'loading');
       refreshMobileDeviceList();
-      box.hidden = false;
-      box.classList.add('is-ok');
-      box.textContent = 'המחשב מחובר';
+      box.hidden = true;
+      box.textContent = '';
       return;
     }
     if (result.nativeStarted) return;
@@ -1696,6 +1702,38 @@
 
   let _mobileListGen = 0;
   let _shownDevices = [];
+  let _liveLinkedKey = '';
+  const LIVE_DEVICE_WINDOW_MS = 30 * 60 * 1000;
+
+  function deviceRowKey(d) {
+    return String((d && (d.deviceSignPub || d.deviceId)) || '').toLowerCase();
+  }
+
+  function markLiveLinkedDevice(auth) {
+    _liveLinkedKey = String((auth && (auth.D_sign_pub || auth.dSignPub || auth.deviceId)) || '').toLowerCase();
+  }
+
+  function seenMs(d) {
+    const seen = Number(d && (d.lastSeenAt || d.linkedAt)) || 0;
+    if (!seen || !isFinite(seen)) return 0;
+    return seen < 1e12 ? seen * 1000 : seen;
+  }
+
+  function liveDeviceKey(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    if (_liveLinkedKey && list.some((d) => deviceRowKey(d) === _liveLinkedKey)) return _liveLinkedKey;
+    let best = '';
+    let bestMs = 0;
+    list.forEach((d) => {
+      const ms = seenMs(d);
+      if (ms > bestMs) {
+        bestMs = ms;
+        best = deviceRowKey(d);
+      }
+    });
+    if (!best || Date.now() - bestMs > LIVE_DEVICE_WINDOW_MS) return '';
+    return best;
+  }
 
   function knownPlatform(name) {
     return /^(Windows|Mac|Linux|Android|iPhone|ChromeOS)$/.test(String(name || ''));
@@ -1736,7 +1774,7 @@
       '<div class="sos-ld-detail-row"><span>' + escapeHtml(activity) + '</span><i class="fa-solid fa-clock"></i></div>' +
       (platform ? '<div class="sos-ld-detail-row"><span>החיבור דרך ' + escapeHtml(platform) + '</span><i class="fa-solid fa-desktop"></i></div>' : '') +
       '<button type="button" class="sos-ld-disconnect" id="sosLdDisconnect">התנתקות</button>' +
-      '<p class="sos-ld-footnote">אם המכשיר הזה לא מוכר לך, או שאין לך יותר גישה אליו, התנתקו ממנו. הניתוק מפסיק את הגישה שלו לחשבון.</p>' +
+      '<p class="sos-ld-footnote">הניתוק מפסיק את הגישה של המכשיר המקושר לחשבון.</p>' +
       '<p class="sos-ld-footnote" id="sosLdDisconnectStatus"></p>' +
       '</div>';
     detail.hidden = false;
@@ -1767,6 +1805,7 @@
         return;
       }
       forgetLocalDevice(row);
+      if (deviceRowKey(row) === _liveLinkedKey) _liveLinkedKey = '';
       _shownDevices = _shownDevices.filter((item) => item.deviceSignPub !== row.deviceSignPub);
       showMobileList();
       paintMobileDeviceList(_shownDevices, 'ready');
@@ -1795,15 +1834,17 @@
     _shownDevices = rows.slice().sort(function (a, b) {
       return (Number(b.lastSeenAt) || 0) - (Number(a.lastSeenAt) || 0);
     });
+    const liveKey = liveDeviceKey(_shownDevices);
     if (rows.length) {
       list.innerHTML = _shownDevices
         .map((d, index) => {
           const activity = formatLastActivity(d.lastSeenAt || d.linkedAt);
           const name = deviceDisplayName(d);
+          const live = deviceRowKey(d) === liveKey && !!liveKey;
           return (
-            '<li><button type="button" class="sos-ld-device-row" data-ld-device="' + index + '">' +
+            '<li><button type="button" class="sos-ld-device-row' + (live ? ' is-live' : '') + '" data-ld-device="' + index + '"' + (live ? ' aria-current="true"' : '') + '>' +
             '<div class="sos-ld-device-meta">' +
-            '<strong>' + escapeHtml(name) + '</strong>' +
+            '<strong>' + escapeHtml(name) + (live ? ' <em class="sos-ld-live">מחובר</em>' : '') + '</strong>' +
             (activity ? '<span>' + escapeHtml(activity) + '</span>' : '') +
             '</div>' +
             '<div class="sos-ld-device-ico"><i class="fa-solid fa-laptop"></i></div>' +
@@ -1862,14 +1903,14 @@
   function openMobileLinkedDevicesPage() {
     ensureLinkedDevicesStyles();
     let el = document.getElementById('sosLdMobilePage');
-    if (el && el.getAttribute('data-sos-ld-account-list') !== '2' && typeof el.remove === 'function') {
+    if (el && el.getAttribute('data-sos-ld-account-list') !== '3' && typeof el.remove === 'function') {
       el.remove();
       el = null;
     }
     if (!el) {
       el = document.createElement('div');
       el.id = 'sosLdMobilePage';
-      el.setAttribute('data-sos-ld-account-list', '2');
+      el.setAttribute('data-sos-ld-account-list', '3');
       el.innerHTML =
         '<div class="sos-ld-shell sos-ld-mobile-page" role="dialog" aria-modal="true" dir="rtl">' +
         '<div class="sos-ld-mobile-head">' +
@@ -1879,25 +1920,42 @@
         '<div class="sos-ld-mobile-body">' +
         '<div id="sosLdMobileListWrap">' +
         '<div class="sos-ld-hero" aria-hidden="true">' +
-        '<svg viewBox="0 0 240 120">' +
+        '<svg viewBox="0 0 300 150">' +
+        '<defs>' +
+        '<linearGradient id="sosLdPhoneBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a3d62"/><stop offset="1" stop-color="#0c1c30"/></linearGradient>' +
+        '<linearGradient id="sosLdPhoneGlass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e7f6ff"/><stop offset="1" stop-color="#8ec4ef"/></linearGradient>' +
+        '<linearGradient id="sosLdBezel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#314256"/><stop offset="1" stop-color="#121a24"/></linearGradient>' +
+        '<linearGradient id="sosLdScreen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f7dff"/><stop offset="0.55" stop-color="#123a66"/><stop offset="1" stop-color="#14998f"/></linearGradient>' +
+        '<linearGradient id="sosLdBase" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#46586e"/><stop offset="1" stop-color="#1a2431"/></linearGradient>' +
+        '</defs>' +
         '<g class="sos-ld-phone">' +
-        '<rect x="18" y="18" width="58" height="92" rx="10" fill="#10233f" stroke="#2d88ff" stroke-width="3"/>' +
-        '<rect x="28" y="32" width="38" height="52" rx="4" fill="#d7e8ff"/>' +
-        '<circle cx="47" cy="96" r="4" fill="#ffeb3b"/>' +
+        '<rect x="18" y="16" width="68" height="114" rx="16" fill="url(#sosLdPhoneBody)" stroke="#8fd0ff" stroke-width="2.4"/>' +
+        '<rect x="27" y="28" width="50" height="80" rx="7" fill="url(#sosLdPhoneGlass)"/>' +
+        '<rect x="34" y="38" width="36" height="16" rx="3" fill="#16487a" opacity=".5"/>' +
+        '<rect x="34" y="60" width="36" height="5" rx="2" fill="#16487a" opacity=".32"/>' +
+        '<rect x="34" y="70" width="24" height="5" rx="2" fill="#16487a" opacity=".22"/>' +
+        '<circle cx="52" cy="116" r="3.2" fill="#b7e4ff"/>' +
         '</g>' +
-        '<g class="sos-ld-dot" fill="#2d88ff"><circle cx="92" cy="58" r="5"/></g>' +
-        '<g class="sos-ld-dot sos-ld-dot-2" fill="#ffeb3b"><circle cx="108" cy="58" r="5"/></g>' +
-        '<g class="sos-ld-dot sos-ld-dot-3" fill="#22c55e"><circle cx="124" cy="58" r="5"/></g>' +
-        '<g class="sos-ld-dot sos-ld-dot-4" fill="#ff2d55"><circle cx="140" cy="58" r="5"/></g>' +
+        '<g class="sos-ld-link">' +
+        '<circle class="sos-ld-dot" cx="112" cy="74" r="4.6" fill="#9fd4ff"/>' +
+        '<circle class="sos-ld-dot sos-ld-dot-2" cx="130" cy="74" r="4.6" fill="#5aa8ff"/>' +
+        '<circle class="sos-ld-dot sos-ld-dot-3" cx="148" cy="74" r="4.6" fill="#3d7dff"/>' +
+        '<circle class="sos-ld-dot sos-ld-dot-4" cx="166" cy="74" r="4.6" fill="#2dd4bf"/>' +
+        '</g>' +
         '<g class="sos-ld-laptop">' +
-        '<rect x="156" y="28" width="70" height="52" rx="6" fill="#ff2d55"/>' +
-        '<rect x="164" y="36" width="54" height="32" rx="3" fill="#2a1018"/>' +
-        '<rect x="148" y="82" width="86" height="8" rx="3" fill="#ffeb3b"/>' +
+        '<rect x="186" y="22" width="96" height="68" rx="8" fill="url(#sosLdBezel)" stroke="#b7e4ff" stroke-width="1.6"/>' +
+        '<rect class="sos-ld-screen" x="194" y="30" width="80" height="48" rx="4" fill="url(#sosLdScreen)"/>' +
+        '<rect x="202" y="38" width="28" height="5" rx="2" fill="#f4fbff" opacity=".92"/>' +
+        '<rect x="202" y="48" width="62" height="3.5" rx="1.5" fill="#e7f6ff" opacity=".42"/>' +
+        '<rect x="202" y="56" width="44" height="3.5" rx="1.5" fill="#e7f6ff" opacity=".26"/>' +
+        '<rect x="180" y="90" width="108" height="4" rx="1" fill="#0c141e"/>' +
+        '<path d="M168 94 H292 L280 110 H180 Z" fill="url(#sosLdBase)"/>' +
+        '<rect x="214" y="99" width="24" height="3" rx="1.2" fill="#d5e8f8" opacity=".6"/>' +
         '</g>' +
         '</svg></div>' +
         '<p class="sos-ld-explain">אפשר לקשר מחשב לחשבון SOS הזה. סרקו את הקוד שמופיע במחשב.</p>' +
         '<div id="sosLdMobileLinkStatus" class="sos-ld-link-status" role="status" hidden></div>' +
-        '<button type="button" class="button-primary" id="sosLdMobileScan" style="width:100%;min-height:48px;margin-top:14px;">קישור מכשיר</button>' +
+        '<button type="button" class="button-primary" id="sosLdMobileScan" style="width:100%;min-height:48px;margin-top:10px;">קישור מכשיר</button>' +
         '<h3 style="margin:22px 0 0;font-size:1rem;">מכשירים מקושרים</h3>' +
         '<ul class="sos-ld-device-list" id="sosLdMobileDeviceList"></ul>' +
         '<p class="sos-ld-footnote" id="sosLdMobileListNote"></p>' +
@@ -1927,6 +1985,12 @@
     const local = localAccountDevices();
     paintMobileDeviceList(local, local.length ? 'ready' : 'loading');
     refreshMobileDeviceList();
+    const statusBox = document.getElementById('sosLdMobileLinkStatus');
+    if (statusBox && statusBox.classList.contains('is-ok')) {
+      statusBox.hidden = true;
+      statusBox.textContent = '';
+      statusBox.classList.remove('is-ok');
+    }
     el.hidden = false;
     return { ok: true, path: 'MOBILE_LINKED_DEVICES_PAGE', DEVICE_LIST_SOURCE: DEVICE_LIST_SCOPE };
   }

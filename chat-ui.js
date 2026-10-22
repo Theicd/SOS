@@ -4099,6 +4099,7 @@
       return;
     }
     state.activeContact = normalized;
+    syncSelfChatCallActions(normalized);
     togglePanel(true);
     renderContacts();
     renderMessages(normalized, { resetLimit: true, force: true });
@@ -6611,11 +6612,23 @@
     }
   }
 
+  function isSelfChatPeer(peerPubkey) {
+    const self = String((App && App.publicKey) || '').trim().toLowerCase();
+    const peer = String(peerPubkey || '').trim().toLowerCase();
+    return /^[0-9a-f]{64}$/.test(self) && peer === self;
+  }
+
+  function syncSelfChatCallActions(peerPubkey) {
+    if (!elements.panel) return;
+    elements.panel.classList.toggle('is-self-chat', isSelfChatPeer(peerPubkey));
+  }
+
   function showConversation(peerPubkey, contact) {
     // בחירת שיחה (גם מתוצאת חיפוש) — מנקים חיפוש כדי שבחזרה תופיע הרשימה המלאה | HYPER CORE TECH
     clearChatContactsSearch();
     state.activeContact = peerPubkey;
     elements.panel.classList.add('chat-panel--conversation');
+    syncSelfChatCallActions(peerPubkey);
     try {
       const key = typeof App.getConversationKey === 'function' ? App.getConversationKey(peerPubkey, App.publicKey || '') : '';
       const count = typeof App.getChatMessages === 'function' ? (App.getChatMessages(peerPubkey) || []).length : 0;
@@ -6845,6 +6858,7 @@
     state.activeContact = null;
     try { setConversationHistoryLoading(false); } catch (_) {}
     elements.panel.classList.remove('chat-panel--conversation');
+    syncSelfChatCallActions(null);
     setFooterMode('contacts');
     elements.conversationHeader?.setAttribute('hidden', '');
     elements.composer?.setAttribute('hidden', '');

@@ -1330,6 +1330,8 @@
         e.preventDefault(); e.stopPropagation();
         const peer = typeof App.getActiveChatContact === 'function' ? App.getActiveChatContact() : null;
         if (!peer){ alert('אנא בחר שיחה תחילה'); return; }
+        const selfKey = String((App && App.publicKey) || '').trim().toLowerCase();
+        if (/^[0-9a-f]{64}$/.test(selfKey) && String(peer).trim().toLowerCase() === selfKey) return;
         // חלק שיחות וידאו (chat-video-call-ui.js) – שמירת מצב פאנל הצ'אט לפני פתיחת שיחה יוצאת | HYPER CORE TECH
         saveChatPanelState();
         // חלק שיחות וידאו (chat-video-call-ui.js) – עצירת וידיאו ברקע כדי לא להפריע לשיחה יוצאת | HYPER CORE TECH

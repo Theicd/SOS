@@ -2295,6 +2295,8 @@
           alert('אנא בחר שיחה תחילה');
           return;
         }
+        const selfKey = String((App && App.publicKey) || '').trim().toLowerCase();
+        if (/^[0-9a-f]{64}$/.test(selfKey) && String(activePeer).trim().toLowerCase() === selfKey) return;
 
         // חלק שיחות קול (chat-voice-call-ui.js) – priming לצלילי MP3 + בקשת הרשאת Notification בעקבות המחווה הזו | HYPER CORE TECH
         resumeAudioIfNeeded();

@@ -1,3 +1,8 @@
+.chat-panel.is-self-chat .chat-conversation__icon--voice,
+.chat-panel.is-self-chat .chat-conversation__icon--video {
+  display: none !important;
+}
+
 .chat-conversation__meta span,
 .chat-conversation__name {
   display: block;

@@ -90,11 +90,11 @@
     previewEl.setAttribute('aria-hidden', 'true');
     previewEl.innerHTML =
       '<div class="chat-send-preview__stage" id="chatSendPreviewStage"></div>' +
-      '<div class="chat-send-preview__meta" id="chatSendPreviewMeta"></div>' +
       '<button type="button" class="chat-send-preview__hint" id="chatSendPreviewHint" hidden>' +
         '<i class="fa-solid fa-circle-info" aria-hidden="true"></i>' +
         '<span>אפשר להוסיף טקסט, לשלוח, או לבטל בפח</span>' +
-      '</button>';
+      '</button>' +
+      '<div class="chat-send-preview__meta" id="chatSendPreviewMeta"></div>';
     const messages = $('chatMessages');
     if (messages && messages.parentElement === root) {
       root.insertBefore(previewEl, messages);
@@ -263,10 +263,18 @@
     }
   }
 
+  function placeHintAboveFileMeta() {
+    const hint = $('chatSendPreviewHint');
+    const meta = $('chatSendPreviewMeta');
+    if (!hint || !meta || !meta.parentNode) return;
+    if (hint.nextElementSibling !== meta) meta.parentNode.insertBefore(hint, meta);
+  }
+
   function showHint() {
     const hint = $('chatSendPreviewHint');
     if (!hint) return;
     hideHint();
+    placeHintAboveFileMeta();
     hint.hidden = false;
     hint.classList.add('is-visible');
     hintTimer = window.setTimeout(hideHint, HINT_MS);

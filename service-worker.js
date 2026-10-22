@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v899s58'; // Offline encrypted media keeps its cryptographic attachment id
+  const CACHE_NAME = 'sos-cache-v20261022ui1'; // Self-chat, send preview, and linked-device phone screen
   const PRECACHE_URLS = [
     './',
     './videos.html',
