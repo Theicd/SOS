@@ -6024,6 +6024,43 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   body:has(.videos-feed) #messagesToggle { order: 3; }
   body:has(.videos-feed) .primary-nav .nav-item[data-nav="profile"] { order: 4; }
   body:has(.videos-feed) #navGamesMobile { order: 4; }
+
+  /* הווידאו עד ראש המסך. הלוגו והאווטאר צפים מעליו | HYPER CORE TECH */
+  body:has(.videos-feed) .videos-feed__viewport {
+    padding-top: 0 !important;
+    scroll-padding-top: 0 !important;
+  }
+
+  body:has(.videos-feed) .videos-feed__card,
+  body.videos-feed-mode-live-tv .videos-feed__card {
+    height: calc(100dvh - 56px - var(--safe-bottom, 0px)) !important;
+    min-height: calc(100dvh - 56px - var(--safe-bottom, 0px)) !important;
+    max-height: calc(100dvh - 56px - var(--safe-bottom, 0px)) !important;
+  }
+
+  body:has(.videos-feed) .top-bar {
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.08) 62%, transparent 100%) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    pointer-events: none !important;
+  }
+
+  body:has(.videos-feed) .top-bar .app-logo,
+  body:has(.videos-feed) .top-bar__actions,
+  body:has(.videos-feed) .top-bar__profile,
+  body:has(.videos-feed) .top-bar__dropdown,
+  body:has(.videos-feed) #guestLoginButton,
+  body:has(.videos-feed) .processing-status {
+    pointer-events: auto !important;
+  }
+
+  body:has(.videos-feed) .top-bar__logo-img {
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.75));
+  }
+
+  body:has(.videos-feed) .top-bar__actions .top-bar__avatar {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  }
   
   body:has(.videos-feed) .top-bar__logo,
   body:has(.videos-feed) .top-bar__icon-btn {
