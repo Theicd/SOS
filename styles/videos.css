@@ -6023,6 +6023,7 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   body:has(.videos-feed) #navCompose { order: 2; margin-inline: 6px; }
   body:has(.videos-feed) #messagesToggle { order: 3; }
   body:has(.videos-feed) .primary-nav .nav-item[data-nav="profile"] { order: 4; }
+  body:has(.videos-feed) #navGamesMobile { order: 4; }
   
   body:has(.videos-feed) .top-bar__logo,
   body:has(.videos-feed) .top-bar__icon-btn {

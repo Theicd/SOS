@@ -1,7 +1,7 @@
 {
   "callSignalGiftWrapRequired": true,
-  "version": "2026.10.22-nav1",
-  "buildTime": "2026-10-22T21:15:00+03:00",
+  "version": "2026.10.22-nav2",
+  "buildTime": "2026-10-22T21:25:00+03:00",
   "e2eeSendRequired": true,
   "minSecureChatEpoch": 2,
   "mediaServerE2eeRequired": true,
