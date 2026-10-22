@@ -642,6 +642,22 @@
         else if (typeof window.openChessGame === 'function') window.openChessGame();
       });
     }
+    const menuProfile = document.getElementById('topBarMenuProfile');
+    if (menuProfile) {
+      menuProfile.addEventListener('click', () => {
+        closeMenu();
+        const profileNav = document.querySelector('.primary-nav [data-nav="profile"]');
+        if (profileNav) profileNav.click();
+      });
+    }
+    const menuLiveTv = document.getElementById('topBarMenuLiveTv');
+    if (menuLiveTv) {
+      menuLiveTv.addEventListener('click', () => {
+        closeMenu();
+        if (typeof App.openLiveTvFeed === 'function') App.openLiveTvFeed();
+        else if (typeof window.openLiveTvFeed === 'function') window.openLiveTvFeed();
+      });
+    }
 
     // חלק תת-תפריט שונות (app.js) – מאזינים לכפתורים בתת-תפריט | HYPER CORE TECH
     const newsButton = document.getElementById('newsToggleTop');

@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261022ui2'; // Desktop enter-to-send, clipboard paste, and older-history click
+  const CACHE_NAME = 'sos-cache-v20261022nav1'; // Mobile bar: avatar only, games in the bottom nav
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -119,7 +119,7 @@
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
-    <link rel="stylesheet" href="./styles/videos.css?v=20260831ytfix1">
+    <link rel="stylesheet" href="./styles/videos.css?v=20261022nav1">
     <link rel="stylesheet" href="./styles/nzp-panel.css?v=20260916nzp15">
     <!-- סייבר אחרי videos.css — כדי שינצח בדסקטופ ובמובייל | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/chat-desktop-sos-cyber.css?v=20260920rreadui1">
@@ -2174,7 +2174,7 @@
     <script src="./p2p-peer-exchange.js?v=20260916sec18" defer></script>
     <script src="./p2p-metadata-transfer.js" defer></script>
     <script src="./contract-dashboard-v2.js" defer></script>
-    <script src="./app.js?v=20261014&pkg=899s26" defer></script>
+    <script src="./app.js?v=20261022nav1&pkg=899s26" defer></script>
     <script src="./sos-crypto-signer.js?v=20261019&pkg=899s38" defer></script>
     <script src="./sos-crypto-worker-vault.js?v=20261019&pkg=899s38" defer></script>
     <!-- חלק ניווט (videos.html) — הגדרת לשונית פעילה לוידאו וטעינת מודול הניווט | HYPER CORE TECH -->
@@ -2418,6 +2418,14 @@
             <span id="topBarProfileAvatar">?</span>
           </button>
           <div class="top-bar__dropdown" id="topBarProfileMenu" hidden>
+            <button type="button" class="top-bar__dropdown-item top-bar__dropdown-item--mobile" id="topBarMenuProfile">
+              <i class="fa-regular fa-user"></i>
+              <span>פרופיל אישי</span>
+            </button>
+            <button type="button" class="top-bar__dropdown-item top-bar__dropdown-item--mobile" id="topBarMenuLiveTv">
+              <i class="fa-solid fa-tv"></i>
+              <span>LIVE TV</span>
+            </button>
             <div class="top-bar__dropdown-title">הגדרות</div>
             <button type="button" class="top-bar__dropdown-item" id="topBarLinkedDevices">
               <i class="fa-solid fa-desktop" aria-hidden="true"></i>
@@ -2581,6 +2589,10 @@
         <span class="nav-item__badge" id="messagesBadge" hidden></span>
       </button>
       <!-- חלק פרופיל (videos.html) — כפתור פרופיל עם טקסט בסגנון sos010.html | HYPER CORE TECH -->
+      <button class="nav-item" id="navGamesMobile" type="button" data-nav="games" aria-label="משחקים">
+        <i class="fa-solid fa-gamepad"></i>
+        <span>משחקים</span>
+      </button>
       <button class="nav-item" type="button" aria-label="פרופיל" data-nav="profile">
         <i class="fa-regular fa-user"></i>
         <span>פרופיל</span>

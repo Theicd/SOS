@@ -524,7 +524,7 @@ body:has(.videos-feed) .top-bar__actions {
   flex-direction: row !important;
 }
 
-/* מובייל: אווטאר ראשון משמאל, גיימפד מיד אחריו | HYPER CORE TECH */
+/* מובייל: אווטאר בלבד בפס העליון. משחקים בתחתית, פרופיל ו-IPTV בתפריט | HYPER CORE TECH */
 @media (max-width: 768px) {
   body:has(.videos-feed) .top-bar__actions {
     direction: ltr !important;
@@ -554,6 +554,22 @@ body:has(.videos-feed) .top-bar__actions {
 
   body:has(.videos-feed) #guestLoginButton {
     order: 0;
+  }
+
+  body:has(.videos-feed) #gamesToggleTop,
+  body:has(.videos-feed) #liveTvToggleTop {
+    display: none !important;
+  }
+
+  body:has(.videos-feed) .primary-nav > [data-nav="profile"] {
+    display: none !important;
+  }
+}
+
+@media (min-width: 769px) {
+  body:has(.videos-feed) #navGamesMobile,
+  body:has(.videos-feed) .top-bar__dropdown-item--mobile {
+    display: none !important;
   }
 }
 
