@@ -89,6 +89,67 @@
     }
   }
   
+  function isDesktopChat() {
+    if (!window.matchMedia) return false;
+    return window.matchMedia('(min-width: 769px)').matches && !window.matchMedia('(pointer: coarse)').matches;
+  }
+
+  function pastedFileName(file) {
+    const given = String((file && file.name) || '').trim();
+    if (given) return given;
+    const type = String((file && file.type) || '');
+    const rawExt = type.includes('/') ? type.split('/')[1] : 'bin';
+    const ext = String(rawExt || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin';
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const stamp = pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+    const prefix = type.startsWith('image/') ? 'צילום-מסך-' : 'קובץ-';
+    return prefix + stamp + '.' + (ext === 'jpeg' ? 'jpg' : ext);
+  }
+
+  function asNamedClipboardFile(file) {
+    if (!file) return null;
+    if (file.name) return file;
+    try {
+      return new File([file], pastedFileName(file), { type: file.type || 'application/octet-stream', lastModified: Date.now() });
+    } catch (_) {
+      return file;
+    }
+  }
+
+  function filesFromClipboard(clipboard) {
+    const out = [];
+    if (!clipboard) return out;
+    const listed = clipboard.files;
+    if (listed && listed.length) {
+      for (let i = 0; i < listed.length; i++) {
+        if (listed[i] && listed[i].size) out.push(asNamedClipboardFile(listed[i]));
+      }
+      return out;
+    }
+    const items = clipboard.items;
+    if (!items) return out;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!item || item.kind !== 'file') continue;
+      const file = typeof item.getAsFile === 'function' ? item.getAsFile() : null;
+      if (file && file.size) out.push(asNamedClipboardFile(file));
+    }
+    return out;
+  }
+
+  function deliverPastedFiles(files) {
+    const file = files[0];
+    if (!file) return;
+    if (typeof App.openChatSendPreview === 'function') {
+      App.openChatSendPreview(file);
+      return;
+    }
+    if (typeof App.handleChatFileSelection === 'function') {
+      App.handleChatFileSelection(file);
+    }
+  }
+
   // חלק Input Optimization (chat-ui-optimizations.js) – אופטימיזציה להקלדה | HYPER CORE TECH
   function optimizeMessageInput(inputElement) {
     if (!inputElement) return;
@@ -108,6 +169,25 @@
     }, 300);
     
     inputElement.addEventListener('input', debouncedInput);
+
+    // דסקטופ: Enter שולח, Shift+Enter שורה חדשה. מובייל נשאר עם שורה חדשה וכפתור שליחה | HYPER CORE TECH
+    inputElement.addEventListener('keydown', (event) => {
+      if (!isDesktopChat()) return;
+      if (event.key !== 'Enter' || event.shiftKey || event.altKey || event.isComposing) return;
+      event.preventDefault();
+      const form = inputElement.form || inputElement.closest('form');
+      if (form && typeof form.requestSubmit === 'function') form.requestSubmit();
+      else if (form) form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+
+    // הדבקת צילום מסך או קובץ מהלוח פותחת את התצוגה המקדימה. טקסט נשאר הדבקה רגילה | HYPER CORE TECH
+    inputElement.addEventListener('paste', (event) => {
+      if (!isDesktopChat()) return;
+      const files = filesFromClipboard(event.clipboardData);
+      if (!files.length) return;
+      event.preventDefault();
+      deliverPastedFiles(files);
+    });
     
     // גובה דינמי – בהקלדה גדל; מחיקה ידנית מאפסת (שליחה מאפסת ב-chat-ui.js) | HYPER CORE TECH
     inputElement.addEventListener('input', function() {

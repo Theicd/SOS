@@ -5270,7 +5270,11 @@
       return btn;
     }
     btn.textContent = wait === 'offline' ? 'ממתין לחיבור הטלפון' : 'טען הודעות ישנות יותר';
-    btn.addEventListener('click', () => { requestOlderFromUi(peer, btn); });
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      requestOlderFromUi(peer, btn);
+    });
     return btn;
   }
 
@@ -5455,7 +5459,9 @@
       loadOlder.type = 'button';
       loadOlder.className = 'chat-load-older';
       loadOlder.textContent = `טען הודעות ישנות יותר (${startIndex})`;
-      loadOlder.addEventListener('click', () => {
+      loadOlder.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
         setChatStickToBottom(false);
         const prevHeight = elements.messagesContainer.scrollHeight;
         setConversationHistoryLoading(true, 'טוען...');
@@ -6917,6 +6923,23 @@
     renderContacts(true);
   }
 
+  // מעל האורך הזה הודעת טקסט נשלחת כקובץ, כדי שבועה ארוכה לא תמלא את השיחה | HYPER CORE TECH
+  const CHAT_TEXT_FILE_LIMIT = 4000;
+
+  function longTextFileName() {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return 'הודעה-' + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds()) + '.txt';
+  }
+
+  function clearComposerDraft() {
+    if (!elements.messageInput) return;
+    elements.messageInput.value = '';
+    elements.messageInput.style.height = '';
+    elements.messageInput.disabled = false;
+    elements.messageInput.focus();
+  }
+
   // חלק שליחה אופטימיסטית (chat-ui.js) – שליחה מיידית ללא המתנה לרשת | HYPER CORE TECH
   function handleSendMessage(event) {
     event.preventDefault();
@@ -6926,7 +6949,16 @@
     const value = elements.messageInput?.value || '';
     const hasAttachment =
       typeof App.hasChatFileAttachment === 'function' && App.hasChatFileAttachment(state.activeContact);
-    if (!value.trim() && !hasAttachment) {
+    const trimmed = value.trim();
+    if (!trimmed && !hasAttachment) {
+      return;
+    }
+    if (!hasAttachment && trimmed.length > CHAT_TEXT_FILE_LIMIT && typeof App.sendChatSelectedFile === 'function') {
+      clearComposerDraft();
+      const file = new File([trimmed], longTextFileName(), { type: 'text/plain' });
+      Promise.resolve(App.sendChatSelectedFile(file)).catch((err) => {
+        console.error('Chat long-text file send error', err);
+      });
       return;
     }
     try {
@@ -7070,6 +7102,7 @@
       if (videoCallDialog && videoCallDialog.contains(event.target)) return;
       // lightbox / כפתורי הורדה / לינק הורדה זמני | HYPER CORE TECH
       if (event.target.closest?.('#chatImageLightbox, .chat-lightbox, .chat-media-modal, .chat-message__media-download, .chat-lightbox__download, .chat-file-bubble__download, .chat-pdf-bubble__download, a[download], [data-sos-download-link]')) return;
+      if (event.target?.closest?.('.chat-load-older')) return;
       if (
         elements.panel.contains(event.target) ||
         (elements.navButton && elements.navButton.contains(event.target)) ||
