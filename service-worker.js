@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261022tiktok1'; // Mobile feed under a floating logo and avatar
+  const CACHE_NAME = 'sos-cache-v20261022tiktok2'; // Mobile video fills behind the floating logo
   const PRECACHE_URLS = [
     './',
     './videos.html',

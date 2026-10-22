@@ -6039,10 +6039,34 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   }
 
   body:has(.videos-feed) .top-bar {
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.08) 62%, transparent 100%) !important;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.28) 0%, rgba(0, 0, 0, 0) 72%) !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     pointer-events: none !important;
+  }
+
+  body:has(.videos-feed) .videos-feed__card {
+    position: relative;
+  }
+
+  body:has(.videos-feed) .videos-feed__media {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  body:has(.videos-feed) .videos-feed__media video,
+  body:has(.videos-feed) .videos-feed__media img,
+  body:has(.videos-feed) .videos-feed__media-video {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    object-fit: cover !important;
+    object-position: center center !important;
   }
 
   body:has(.videos-feed) .top-bar .app-logo,
