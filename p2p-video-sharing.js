@@ -4700,6 +4700,17 @@
       sendHeartbeat();
       return { ok: true, isGuest: false, device: String(keys.publicKey).slice(0, 8) };
     },
+    rebindAccountP2P: function rebindAccountP2P() {
+      const keys = getEffectiveKeys();
+      if (!keys || !keys.publicKey || keys.isGuest) return { ok: false, code: 'NO_ACCOUNT' };
+      state.guestKeys = null;
+      try {
+        if (App._p2pSignalsSub && typeof App._p2pSignalsSub.close === 'function') App._p2pSignalsSub.close();
+      } catch (_e) {}
+      App._p2pSignalsSub = null;
+      listenForP2PSignals();
+      return { ok: true, pub: String(keys.publicKey).slice(0, 8) };
+    },
     verifyIncomingFileSignalRecipient,
     verifyIncomingFileSignalEvent,
     encryptPrivateP2pSignalPayload,

@@ -34,7 +34,7 @@ check('linked sub not recreated', !video.includes('keys.linkedDevice) {\n      t
 check('feed yields during history send', video.includes('window.__sosHistSyncActive === true'));
 check('logger batches', logger.includes('function scheduleSave') && !logger.includes("save();\n  }\n\n  // חלק סיכום"));
 check('active sub counter', logger.includes('SUBSCRIPTION_ACTIVE n='));
-check('package', videos.includes('sos-account-session.js?v=20261029rev1&pkg=899s59') && videos.includes('p2p-video-sharing.js?v=20261020&pkg=899s53'));
+check('package', videos.includes('sos-account-session.js?v=20261029rev2&pkg=899s60') && videos.includes('p2p-video-sharing.js?v=20261029rev2&pkg=899s60'));
 check('72 hour window', session.includes('HIST_RECENT_SEC = 72 * 3600') && session.includes('HISTORY_WINDOW_V2'));
 check('older week', session.includes('HIST_OLDER_SEC = 7 * 86400') && session.includes("scope === 'older'"));
 check('recent is not a full backup', session.includes('FULL_BACKUP_COMPLETE: false') && session.includes('RECENT_HISTORY_SYNC_COMPLETE'));

@@ -3383,6 +3383,7 @@
     notifications: [],
     // חלק צ'אט (chat-ui.js) – עוקב אחרי שאילתות פרופיל ממתינות כדי לא לבצע בקשות כפולות
     pendingProfileFetches: new Set(),
+    profileMissUntil: new Map(),
     // חלק צ'אט (chat-ui.js) – ניטור העברות P2P לצורך רינדור בועת התקדמות | HYPER CORE TECH
     transferProgress: new Map(),
     // חלק חיפוש רשת (chat-ui.js) – תוצאות kind:0 מתיבת החיפוש הקיימת | HYPER CORE TECH
@@ -4860,9 +4861,10 @@
     const hasPicture = Boolean(contact?.picture);
     const name = contact?.name || '';
     const isFallbackName = !name || name.startsWith('משתמש ');
-    
+    const missUntil = state.profileMissUntil.get(normalized) || 0;
+
     // תמיד לנסות לטעון פרופיל אם השם הוא fallback
-    if (alreadyFetching) {
+    if (alreadyFetching || missUntil > Date.now()) {
       return;
     }
     // אם יש תמונה ושם אמיתי - לא צריך לטעון
@@ -4874,9 +4876,16 @@
       .then(() => App.fetchProfile(normalized))
       .then((profile) => {
         if (!profile) {
+          state.profileMissUntil.set(normalized, Date.now() + 60000);
           return;
         }
         const fetchedName = String(profile.name || '').trim();
+        const picture = profile.picture || '';
+        const named = fetchedName && !fetchedName.startsWith('משתמש ');
+        if (!named && !picture) {
+          state.profileMissUntil.set(normalized, Date.now() + 60000);
+          return;
+        }
         const normalizedProfile = {
           // בלי שם מהרשת – לא שולחים fallback שדורס שם שמור | HYPER CORE TECH
           name: fetchedName,
@@ -4892,6 +4901,7 @@
         renderContacts(true);
       })
       .catch((err) => {
+        state.profileMissUntil.set(normalized, Date.now() + 60000);
         console.warn('Chat profile fetch failed', err);
       })
       .finally(() => {

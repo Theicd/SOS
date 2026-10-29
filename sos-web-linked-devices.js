@@ -54,6 +54,10 @@
     return App.Md4DeviceStore || window.SosMd4DeviceStore;
   }
 
+  function linkedDeviceReady() {
+    return !!(_sessionDevice && _sessionDevice.dSignSk && _durableAuth);
+  }
+
   async function ensureWebDeviceIdentity() {
     if (_sessionDevice && _sessionDevice.D_sign_pub) return _sessionDevice;
     // Real device keys come from Md2PairingSession.beginDesktopInitiator (X25519 + secp).
@@ -134,6 +138,7 @@
   }
 
   async function startDesktopPairingSession() {
+    if (linkedDeviceReady()) return { ok: true, code: 'ALREADY_LINKED' };
     try {
       const GA = App.GlobalAdmission || window.SosGlobalAdmission;
       const me = String(App.publicKey || '').toLowerCase();
@@ -160,6 +165,7 @@
       pool: App.pool,
     });
     if (!secretScan(session.qrText).ok) throw new Error('MD2_QR_SECRET_REJECTED');
+    if (linkedDeviceReady()) return { ok: true, code: 'ALREADY_LINKED' };
     _sessionDevice = {
       scheme: SCHEME,
       deviceId: session.deviceId,
@@ -1290,6 +1296,10 @@
   }
 
   function startPairingIntoUi(root) {
+    if (linkedDeviceReady()) {
+      renderRestoredDesktop(root);
+      return Promise.resolve({ ok: true, code: 'ALREADY_LINKED' });
+    }
     if (!root || typeof root.querySelector !== 'function') {
       return Promise.resolve({ ok: false, code: 'UI_ROOT_MISSING' });
     }
@@ -1561,6 +1571,10 @@
   }
 
   function presentDesktopSurface(root) {
+    if (linkedDeviceReady()) {
+      renderRestoredDesktop(root);
+      return;
+    }
     const Store = md4Store();
     if (!Store || typeof Store.loadLatest !== 'function') {
       startPairingIntoUi(root);
@@ -1568,6 +1582,10 @@
     }
     Promise.resolve(Store.loadLatest())
       .then(async function (loaded) {
+        if (linkedDeviceReady()) {
+          renderRestoredDesktop(root);
+          return;
+        }
         if (!loaded || loaded.ok !== true) {
           startPairingIntoUi(root);
           return;
@@ -1582,7 +1600,15 @@
           }, Date.now(), { requireHistorySync: true })
           : { ok: false };
         if (!verified.ok) {
+          if (linkedDeviceReady()) {
+            renderRestoredDesktop(root);
+            return;
+          }
           startPairingIntoUi(root);
+          return;
+        }
+        if (linkedDeviceReady()) {
+          renderRestoredDesktop(root);
           return;
         }
         _sessionDevice = {

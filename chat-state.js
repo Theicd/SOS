@@ -508,6 +508,7 @@
         tx.onerror = () => reject(tx.error);
       });
       persistLog('WRITE_OK', 'storageKey=' + storageKey + ' source=indexeddb');
+      return true;
     } catch (err) {
       persistLog('WRITE_FAIL', (err && (err.name || err.message)) ? (String(err.name || '') + ' ' + String(err.message || '')) : 'indexeddb');
       // Fallback to localStorage if IndexedDB fails
@@ -519,6 +520,7 @@
         persistLog('WRITE_FAIL', (lsErr && lsErr.message) ? String(lsErr.message) : 'localStorage');
         console.warn('Failed to persist chat state to both IndexedDB and localStorage', lsErr);
       }
+      return false;
     }
   }
   
