@@ -39,9 +39,13 @@
     try {
       const db = await openChatMediaDB();
       if (!db) return;
-      const tx = db.transaction([CHAT_MEDIA_STORE], 'readwrite');
-      const store = tx.objectStore(CHAT_MEDIA_STORE);
-      store.put({ url, blob, timestamp: Date.now() });
+      await new Promise((resolve) => {
+        const tx = db.transaction([CHAT_MEDIA_STORE], 'readwrite');
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+        tx.onabort = () => resolve();
+        tx.objectStore(CHAT_MEDIA_STORE).put({ url, blob, timestamp: Date.now() });
+      });
     } catch (e) { /* ignore */ }
   }
   

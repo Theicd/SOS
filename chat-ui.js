@@ -5303,6 +5303,13 @@
   function bindOlderHistoryUi() {
     if (window.__sosOlderUiBound) return;
     window.__sosOlderUiBound = true;
+    window.addEventListener('sos-reverse-history', (ev) => {
+      const detail = ev && ev.detail ? ev.detail : {};
+      const peers = Array.isArray(detail.peers) ? detail.peers : [];
+      const active = String(state.activeContact || '').toLowerCase();
+      if (!active || peers.indexOf(active) === -1) return;
+      renderMessages(active, { force: true });
+    });
     window.addEventListener('sos-older-history', (ev) => {
       const detail = ev && ev.detail ? ev.detail : {};
       const peer = String(detail.peer || '').toLowerCase();

@@ -11,6 +11,7 @@
   const HIST_TAG = 'sos-hist-v1';
   const HIST_REQ_TAG = 'sos-hist-req';
   const HIST_ACK_TAG = 'sos-hist-ack';
+  const REV_TAG = 'sos-hist-rev';
   const HIST_MEDIA_CHUNK = 6000;
   const HIST_MEDIA_MAX = 4 * 1024 * 1024;
   const HIST_MEDIA_STREAM_MAX = 32 * 1024 * 1024;
@@ -103,6 +104,10 @@
       caps: [],
       ROOT_K_PRESENT: true,
     };
+    if (!root.__sosRevBoot) {
+      root.__sosRevBoot = true;
+      scheduleReverseReconcile();
+    }
     return snapshot;
   }
 
@@ -126,6 +131,7 @@
     App.guestMode = false;
     App.linkedDeviceSession = true;
     App.identityState = 'LINKED_DEVICE';
+    scheduleReverseReconcile();
     queueMicrotask(function () {
       if (typeof App.loadOwnProfileMetadata !== 'function') return;
       Promise.resolve(App.loadOwnProfileMetadata()).then(function () {
@@ -793,7 +799,7 @@
     conv.forEach(function (entry) {
       const messages = entry && Array.isArray(entry.messages) ? entry.messages : [];
       messages.forEach(function (m) {
-        if (!m || m.historySync === true) return;
+        if (!m || (m.historySync === true && options.includeSynced !== true)) return;
         const text = typeof m.content === 'string' ? m.content : '';
         let peer = norm(entry.peer || (norm(m.from) === self ? m.to : m.from));
         const owner = verifiedAccountOf(peer);
@@ -878,10 +884,11 @@
     return pages;
   }
 
-  async function publishHistoryPage(peer, createdAt, page, pageCount, body) {
+  async function publishHistoryPage(peer, createdAt, page, pageCount, body, topic) {
     if (typeof body !== 'string' || body.length > HIST_PAGE_MAX) {
       return { ok: false, code: 'PAGE_TOO_LARGE', bytes: body ? body.length : 0 };
     }
+    const tag = topic || HIST_TAG;
     const signer = App.SosCryptoSigner;
     let env;
     try {
@@ -904,7 +911,7 @@
     const event = await Promise.resolve(signer.signLinkedHistory({
       kind: HIST_KIND,
       created_at: createdAt,
-      tags: [['p', peer], ['t', HIST_TAG], ['page', String(page)], ['snapshot', String(createdAt)]],
+      tags: [['p', peer], ['t', tag], ['page', String(page)], ['snapshot', String(createdAt)]],
       content: JSON.stringify(env),
     }));
     if (!event || !event.id) return { ok: false, code: 'SIGN_FAILED' };
@@ -917,7 +924,7 @@
       ]);
     }));
     if (!settled.some(function (r) { return r === 'ok'; })) return { ok: false, code: 'RELAY_REJECTED' };
-    return { ok: true, id: String(event.id).slice(0, 12) };
+    return { ok: true, id: String(event.id).slice(0, 12), bytes: String(event.content || '').length };
   }
 
   function historyInventoryKey(messages) {
@@ -1985,6 +1992,7 @@
             break;
           }
           if (interactiveTransferBusy() || (root.__sosChatIntentUntil && Date.now() < root.__sosChatIntentUntil)) {
+            try { console.log('HISTORY_MEDIA_DEFER device=' + peer.slice(0, 8)); } catch (_defer) {}
             row.next = Date.now() + 1200;
             armHistoryMediaRetry(peer);
             break;
@@ -1996,7 +2004,10 @@
           const started = Date.now();
           let result = null;
           root.__sosHistSyncActive = true;
-          try { result = await App.sendHistoryMedia(peer, file.blob, file); } catch (err) {
+          try {
+            try { console.log('HISTORY_MEDIA_SEND file=' + String(file.fileId || '').slice(0, 16) + ' bytes=' + (file.size || 0)); } catch (_sendLog) {}
+            result = await App.sendHistoryMedia(peer, file.blob, file);
+          } catch (err) {
             result = { ok: false, code: String((err && err.message) || 'P2P_FAILED') };
           } finally {
             root.__sosHistSyncActive = false;
@@ -2033,8 +2044,13 @@
   }
 
   async function noteHistoryMediaReceived(info) {
+    const fileIdEarly = String(info && info.fileId || '');
+    const revBook = root.__sosRevBook;
+    if (revBook && revBook.expectedFiles && revBook.expectedFiles[fileIdEarly] && primaryReady()) {
+      return noteReverseMedia(info);
+    }
     const book = root.__sosLdHistoryPages;
-    const fileId = String(info && info.fileId || '');
+    const fileId = fileIdEarly;
     if (!book || !fileId) return { ok: false, code: 'NO_BOOK' };
     const expected = book.expectedFiles && book.expectedFiles[fileId];
     if (!expected) return { ok: false, code: 'UNEXPECTED_FILE' };
@@ -2874,6 +2890,527 @@
     return { ok: true, accountP: devicePub, devicePub: '', deviceId: '', authorization: 'direct-account', capabilities: [] };
   }
 
+  const REV_STALE_SEC = 600;
+
+  function reverseStatus() {
+    const book = root.__sosRevBook || {};
+    const expected = book.expectedFiles || {};
+    const done = book.done || {};
+    let pending = 0;
+    Object.keys(expected).forEach(function (id) { if (!done[id]) pending += 1; });
+    return {
+      FULL_BACKUP_COMPLETE: false,
+      restored: root.__sosRevRestored || 0,
+      relayControl: root.__sosRevRelayControl || 0,
+      relayPayload: root.__sosRevRelayPayload || 0,
+      redundant: root.__sosRevRedundant || 0,
+      p2pBytes: book.p2pBytes || 0,
+      pendingFiles: pending,
+      compare: root.__sosRevCompare || null,
+      requestId: root.__sosRevRequestId || '',
+      acked: root.__sosRevAcked || '',
+    };
+  }
+
+  function noteReverseControl(bytes) {
+    root.__sosRevRelayControl = (root.__sosRevRelayControl || 0) + 1;
+    if (bytes) root.__sosRevRelayControlBytes = (root.__sosRevRelayControlBytes || 0) + bytes;
+  }
+
+  function scheduleReverseReconcile() {
+    if (root.__sosRevTimer) return;
+    root.__sosRevTimer = setTimeout(function () {
+      root.__sosRevTimer = null;
+      const session = getAccountSession();
+      if (session.role === 'LINKED_DEVICE' && session.verified) {
+        pullReverseHistory().catch(function () {});
+        return;
+      }
+      if (session.role !== 'PRIMARY_ACCOUNT') return;
+      requestReverseHistory({ scope: 'recent' }).then(function (res) {
+        const tries = root.__sosRevTries || 0;
+        if (res && res.code === 'NO_DEVICE' && tries < 4) {
+          root.__sosRevTries = tries + 1;
+          root.__sosRevLastAt = 0;
+          scheduleReverseReconcile();
+        }
+      }).catch(function () {});
+    }, 2000);
+  }
+
+  function buildReverseInventory(since) {
+    const packed = collectHistoryMessages({ since: since, includeSynced: true });
+    const have = [];
+    (packed.messages || []).forEach(function (row) {
+      if (!row || !row.id) return;
+      const att = row.attachment && typeof row.attachment === 'object' ? row.attachment : {};
+      have.push({
+        id: row.id,
+        peer: row.peer,
+        createdAt: row.createdAt,
+        deleted: row.deleted === true,
+        fileId: att.fileId || '',
+        sha256: att.sha256 || '',
+      });
+    });
+    return { have: have, hasOlder: packed.hasOlder === true };
+  }
+
+  function phoneHasLogical(id, tombOnly) {
+    const conv = App.chatState && App.chatState.conversations;
+    let found = false;
+    if (!conv || typeof conv.forEach !== 'function' || !id) return false;
+    conv.forEach(function (entry) {
+      (entry && entry.messages || []).forEach(function (m) {
+        if (!m) return;
+        const logical = String(m.logicalMessageId || m.id || '');
+        if (logical !== id && String(m.id || '') !== id) return;
+        const tomb = m.deleted === true || m.tombstone === true;
+        if (tombOnly) {
+          if (tomb) found = true;
+        } else if (!tomb) found = true;
+      });
+    });
+    return found;
+  }
+
+  async function requestReverseHistory(opts) {
+    if (!primaryReady()) return { ok: false, code: 'NOT_PRIMARY', FULL_BACKUP_COMPLETE: false };
+    const options = opts && typeof opts === 'object' ? opts : {};
+    if (options.scope === 'full' && options.fullRestore !== true) {
+      return { ok: false, code: 'FULL_NOT_AUTHORIZED', FULL_BACKUP_COMPLETE: false };
+    }
+    const full = options.scope === 'full' && options.fullRestore === true;
+    if (!options.force && root.__sosRevLastAt && (Date.now() - root.__sosRevLastAt) < 20000) {
+      return { ok: true, code: 'DEBOUNCED', FULL_BACKUP_COMPLETE: false };
+    }
+    const signer = App.SosCryptoSigner;
+    if (!signer || typeof signer.nip44ChatEncrypt !== 'function' || typeof signer.signLinkedHistory !== 'function') {
+      return { ok: false, code: 'SIGNER_MISSING', FULL_BACKUP_COMPLETE: false };
+    }
+    if (typeof App.restoreChatState === 'function') {
+      try {
+        await Promise.race([
+          Promise.resolve(App.restoreChatState()),
+          new Promise(function (resolve) { setTimeout(resolve, 3000); }),
+        ]);
+      } catch (_restore) {}
+    }
+    let devices = [];
+    try { devices = await listAuthorizedDevices(norm(App.publicKey), 'DEVICE_CHAT'); } catch (_list) { devices = []; }
+    devices = (Array.isArray(devices) ? devices : []).filter(function (row) {
+      return row && isHex64(row.deviceSignPub);
+    });
+    if (!devices.length) return { ok: false, code: 'NO_DEVICE', FULL_BACKUP_COMPLETE: false };
+    const now = Math.floor(Date.now() / 1000);
+    const since = full ? 0 : (now - HIST_RECENT_SEC);
+    const inventory = buildReverseInventory(since);
+    const requestId = 'rev-' + now + '-' + Math.floor(Math.random() * 1e6).toString(36);
+    root.__sosRevRequestId = requestId;
+    root.__sosRevLastAt = Date.now();
+    root.__sosRevSeen = {};
+    const body = JSON.stringify({
+      v: 1,
+      type: 'sos-hist-rev-inv',
+      accountP: norm(App.publicKey),
+      source: 'PRIMARY_ACCOUNT',
+      requestId: requestId,
+      scope: full ? 'full' : 'recent',
+      fullRestore: full === true,
+      since: since,
+      hasOlder: inventory.hasOlder === true,
+      have: inventory.have,
+      FULL_BACKUP_COMPLETE: false,
+    });
+    if (body.indexOf('"text"') !== -1) return { ok: false, code: 'INVENTORY_LEAKED_TEXT', FULL_BACKUP_COMPLETE: false };
+    let sent = 0;
+    for (let i = 0; i < devices.length; i += 1) {
+      const peer = devices[i].deviceSignPub;
+      const published = await publishHistoryPage(peer, now, 0, 1, body, REV_TAG);
+      if (published && published.ok === true) {
+        sent += 1;
+        noteReverseControl(published.bytes || 0);
+      }
+    }
+    try {
+      console.log('REVERSE_INVENTORY_SENT devices=' + sent + ' rows=' + inventory.have.length + ' scope=' + (full ? 'full' : 'recent'));
+    } catch (_log) {}
+    return {
+      ok: sent > 0,
+      code: sent ? 'SENT' : 'RELAY_REJECTED',
+      requestId: requestId,
+      rows: inventory.have.length,
+      scope: full ? 'full' : 'recent',
+      FULL_BACKUP_COMPLETE: false,
+    };
+  }
+
+  function requestFullReverseRestore() {
+    return requestReverseHistory({ scope: 'full', fullRestore: true, force: true });
+  }
+
+  async function pullReverseHistory() {
+    const session = getAccountSession();
+    const pool = App.pool;
+    if (!pool) return { ok: false, code: 'NO_POOL', FULL_BACKUP_COMPLETE: false };
+    const filter = { kinds: [HIST_KIND], '#t': [REV_TAG], limit: 80 };
+    if (session.role === 'LINKED_DEVICE' && session.verified) {
+      filter['#p'] = [session.deviceSignPub];
+      filter.authors = [session.accountP];
+    } else if (primaryReady()) {
+      filter['#p'] = [norm(App.publicKey)];
+    } else return { ok: false, code: 'NOT_READY', FULL_BACKUP_COMPLETE: false };
+    let events = [];
+    try {
+      if (typeof pool.list === 'function') events = await pool.list(App.relayUrls, [filter]);
+      else if (typeof pool.querySync === 'function') events = await pool.querySync(App.relayUrls, filter);
+    } catch (_e) {
+      return { ok: false, code: 'QUERY_FAILED', FULL_BACKUP_COMPLETE: false };
+    }
+    events = flattenRelayEvents(events);
+    try { console.log('REVERSE_PULL n=' + events.length); } catch (_pullLog) {}
+    events.sort(function (a, b) { return (Number(a && a.created_at) || 0) - (Number(b && b.created_at) || 0); });
+    let last = { ok: true, code: events.length ? 'EMPTY' : 'NO_EVENT', FULL_BACKUP_COMPLETE: false };
+    for (let i = 0; i < events.length; i += 1) last = await acceptReverseHistoryEvent(events[i]);
+    return last;
+  }
+
+  function reverseEventFresh(event) {
+    const created = Number(event && event.created_at) || 0;
+    if (!created) return false;
+    return (Math.floor(Date.now() / 1000) - created) <= REV_STALE_SEC;
+  }
+
+  async function acceptReverseHistoryEvent(event) {
+    if (!event || !Array.isArray(event.tags) || !event.tags.some(function (t) { return Array.isArray(t) && t[0] === 't' && t[1] === REV_TAG; })) {
+      return { ok: false, code: 'NOT_REVERSE', FULL_BACKUP_COMPLETE: false };
+    }
+    const sig = verifyEventPlain(event);
+    if (!sig.ok) return { ok: false, code: 'BAD_EVENT_SIG', FULL_BACKUP_COMPLETE: false };
+    if (!reverseEventFresh(event)) return { ok: false, code: 'STALE_REPLAY', FULL_BACKUP_COMPLETE: false };
+    const session = getAccountSession();
+    if (session.role === 'LINKED_DEVICE' && session.verified) return acceptReverseOnDesktop(event);
+    if (primaryReady()) return acceptReverseOnPhone(event);
+    return { ok: false, code: 'NOT_READY', FULL_BACKUP_COMPLETE: false };
+  }
+
+  async function acceptReverseOnDesktop(event) {
+    const session = getAccountSession();
+    if (norm(event.pubkey) !== session.accountP) return { ok: false, code: 'ACCOUNT_MISMATCH', FULL_BACKUP_COMPLETE: false };
+    if (!allows('READ_CONVERSATIONS') && session.caps.indexOf('DEVICE_HISTORY_SYNC') === -1 && session.caps.indexOf('DEVICE_CHAT') === -1) {
+      return { ok: false, code: 'CAPABILITY_DENIED', FULL_BACKUP_COMPLETE: false };
+    }
+    let env;
+    try { env = JSON.parse(event.content); } catch (_e) { return { ok: false, code: 'BAD_ENVELOPE', FULL_BACKUP_COMPLETE: false }; }
+    let opened;
+    try { opened = await decryptForLinkedDevice(event, env, false, session.deviceSignPub); } catch (err) {
+      return { ok: false, code: String((err && (err.code || err.message)) || 'DECRYPT_FAILED').slice(0, 80), FULL_BACKUP_COMPLETE: false };
+    }
+    if (!opened || opened.ok !== true || !opened.payload) return { ok: false, code: (opened && opened.code) || 'DECRYPT_FAILED', FULL_BACKUP_COMPLETE: false };
+    let bundle;
+    try { bundle = JSON.parse(opened.payload.text); } catch (_e2) { return { ok: false, code: 'BAD_BUNDLE', FULL_BACKUP_COMPLETE: false }; }
+    if (!bundle || norm(bundle.accountP) !== session.accountP) return { ok: false, code: 'ACCOUNT_MISMATCH', FULL_BACKUP_COMPLETE: false };
+    if (bundle.type === 'sos-hist-rev-ack') {
+      root.__sosRevAcked = bundle.requestId || '';
+      try { console.log('REVERSE_RECONCILIATION_ACK request=' + String(bundle.requestId || '').slice(0, 24) + ' restored=' + (Number(bundle.restored) || 0)); } catch (_ack) {}
+      return { ok: true, code: 'ACK', restored: Number(bundle.restored) || 0, FULL_BACKUP_COMPLETE: false };
+    }
+    if (bundle.type !== 'sos-hist-rev-inv' || !Array.isArray(bundle.have)) return { ok: false, code: 'BAD_BUNDLE', FULL_BACKUP_COMPLETE: false };
+    const full = bundle.scope === 'full' && bundle.fullRestore === true;
+    const since = full ? 0 : (Number(bundle.since) || (Math.floor(Date.now() / 1000) - HIST_RECENT_SEC));
+    if (typeof App.restoreChatState === 'function') {
+      try {
+        await Promise.race([
+          Promise.resolve(App.restoreChatState()),
+          new Promise(function (resolve) { setTimeout(resolve, 3000); }),
+        ]);
+      } catch (_restore) {}
+    }
+    const local = collectHistoryMessages({ since: since, includeSynced: true });
+    const have = {};
+    const tomb = {};
+    bundle.have.forEach(function (row) {
+      if (!row || !row.id) return;
+      have[row.id] = row;
+      if (row.deleted === true) tomb[row.id] = true;
+    });
+    const localById = {};
+    let both = 0;
+    let conflict = 0;
+    let deleted = 0;
+    let desktopOnly = 0;
+    const missing = [];
+    (local.messages || []).forEach(function (row) {
+      if (!row || !row.id) return;
+      localById[row.id] = row;
+      if (row.deleted === true || tomb[row.id]) {
+        deleted += 1;
+        return;
+      }
+      const known = have[row.id];
+      if (!known) {
+        desktopOnly += 1;
+        missing.push(row);
+        return;
+      }
+      const localSha = row.attachment && row.attachment.sha256 ? String(row.attachment.sha256) : '';
+      const phoneSha = known.sha256 ? String(known.sha256) : '';
+      if (localSha && phoneSha && localSha !== phoneSha) conflict += 1;
+      else both += 1;
+    });
+    let phoneOnly = 0;
+    Object.keys(have).forEach(function (id) { if (!localById[id]) phoneOnly += 1; });
+    root.__sosRevCompare = { PHONE_ONLY: phoneOnly, DESKTOP_ONLY: desktopOnly, BOTH_PRESENT: both, CONFLICT: conflict, DELETED: deleted };
+    try {
+      console.log('REVERSE_INVENTORY_COMPARE phoneOnly=' + phoneOnly + ' desktopOnly=' + desktopOnly + ' both=' + both + ' conflict=' + conflict + ' deleted=' + deleted);
+    } catch (_cmp) {}
+    if (!missing.length) {
+      sendPendingHistoryMedia(session.accountP).catch(function () {});
+      return { ok: true, missing: 0, FULL_BACKUP_COMPLETE: false };
+    }
+    const invHash = await sha256Hex(new TextEncoder().encode(bundle.have.map(function (row) {
+      return [row.id, row.deleted ? 1 : 0, row.fileId || '', row.sha256 || ''].join(':');
+    }).join('\n') + '|' + (full ? 'full' : 'recent')));
+    if (root.__sosRevSentHash === invHash) {
+      sendPendingHistoryMedia(session.accountP).catch(function () {});
+      return { ok: true, duplicate: true, missing: 0, FULL_BACKUP_COMPLETE: false };
+    }
+    const p2pFiles = [];
+    for (let i = 0; i < missing.length; i += 1) {
+      const row = missing[i];
+      if (!row.attachment || !row.attachment.fileId) continue;
+      const loaded = await readHistoryAttachment(row.attachment, row.id);
+      if (!loaded || loaded.ok !== true || (!loaded.bytes && !loaded.blob)) {
+        row.attachment.unavailable = (loaded && loaded.reason) || 'NO_LOCAL_BYTES';
+        row.attachment.transport = 'pending';
+        continue;
+      }
+      row.attachment.sha256 = loaded.sha256;
+      row.attachment.size = loaded.size;
+      row.attachment.mime = loaded.mime || row.attachment.mime || '';
+      row.attachment.transport = 'p2p';
+      p2pFiles.push({
+        fileId: loaded.fileId,
+        logicalMessageId: row.id,
+        name: loaded.name,
+        mime: loaded.mime,
+        size: loaded.size,
+        sha256: loaded.sha256,
+        transport: 'p2p',
+        blob: loaded.blob || new Blob([loaded.bytes], { type: loaded.mime || 'application/octet-stream' }),
+        snapshotId: bundle.requestId,
+      });
+    }
+    const pages = splitHistoryPages(missing);
+    let published = 0;
+    for (let p = 0; p < pages.length; p += 1) {
+      const pageRows = pages[p].map(function (row) {
+        const copy = {
+          id: row.id,
+          peer: row.peer,
+          text: row.deleted === true ? '' : String(row.text || ''),
+          direction: row.direction === 'outgoing' ? 'outgoing' : 'incoming',
+          createdAt: row.createdAt,
+          deleted: false,
+          attachment: row.attachment ? {
+            name: row.attachment.name || '',
+            mime: row.attachment.mime || '',
+            fileId: row.attachment.fileId || '',
+            sha256: row.attachment.sha256 || '',
+            size: Number(row.attachment.size) || 0,
+            transport: row.attachment.transport || 'p2p',
+            unavailable: row.attachment.unavailable || '',
+          } : null,
+        };
+        return copy;
+      });
+      const pageHash = await sha256Hex(new TextEncoder().encode(JSON.stringify(pageRows)));
+      const payload = JSON.stringify({
+        v: 1,
+        type: 'sos-hist-rev-page',
+        accountP: session.accountP,
+        sourceDeviceId: session.deviceSignPub,
+        requestId: bundle.requestId,
+        scope: full ? 'full' : 'recent',
+        fullRestore: full === true,
+        page: p,
+        pageCount: pages.length,
+        pageHash: pageHash,
+        messages: pageRows,
+        FULL_BACKUP_COMPLETE: false,
+      });
+      const built = await delegatedChatEncrypt(session.accountP, payload, 'rev-page-' + bundle.requestId + '-' + p, { sibling: true, extraTags: [['t', REV_TAG]] });
+      if (!built || built.ok !== true || !built.event) continue;
+      const pool = App.pool;
+      if (!pool || typeof pool.publish !== 'function') continue;
+      const pending = pool.publish(App.relayUrls, built.event);
+      const jobs = Array.isArray(pending) ? pending : [pending];
+      const settled = await Promise.all(jobs.map(function (job) {
+        return Promise.race([
+          Promise.resolve(job).then(function () { return 'ok'; }, function () { return 'no'; }),
+          new Promise(function (resolve) { setTimeout(function () { resolve('timeout'); }, 8000); }),
+        ]);
+      }));
+      if (!settled.some(function (r) { return r === 'ok'; })) continue;
+      published += 1;
+      root.__sosRevRelayPayload = (root.__sosRevRelayPayload || 0) + String(built.event.content || '').length;
+      try { console.log('DESKTOP_REVERSE_PAGE page=' + p + ' messages=' + pageRows.length); } catch (_pg) {}
+    }
+    if (p2pFiles.length) pushHistoryMediaP2P(session.accountP, p2pFiles).catch(function () {});
+    if (published || !missing.length) root.__sosRevSentHash = invHash;
+    return { ok: true, missing: missing.length, published: published, p2p: p2pFiles.length, FULL_BACKUP_COMPLETE: false };
+  }
+
+  async function acceptReverseOnPhone(event) {
+    try { console.log('REVERSE_PHONE_ACCEPT pub=' + String(event && event.pubkey || '').slice(0, 8)); } catch (_acc) {}
+    if (norm(event.pubkey) === norm(App.publicKey)) return { ok: false, code: 'SELF_EVENT', FULL_BACKUP_COMPLETE: false };
+    const delegated = await verifyDelegatedEvent(event, '');
+    if (!delegated || delegated.ok !== true) return { ok: false, code: (delegated && delegated.code) || 'DELEGATION_REJECTED', FULL_BACKUP_COMPLETE: false };
+    if (norm(delegated.accountP) !== norm(App.publicKey)) return { ok: false, code: 'ACCOUNT_MISMATCH', FULL_BACKUP_COMPLETE: false };
+    const caps = Array.isArray(delegated.caps) ? delegated.caps : [];
+    if (caps.indexOf('DEVICE_HISTORY_SYNC') === -1 && caps.indexOf('DEVICE_CHAT') === -1) {
+      return { ok: false, code: 'CAPABILITY_MISSING', FULL_BACKUP_COMPLETE: false };
+    }
+    let env;
+    try { env = JSON.parse(event.content); } catch (_e) { return { ok: false, code: 'BAD_ENVELOPE', FULL_BACKUP_COMPLETE: false }; }
+    try { console.log('REVERSE_PHONE_DECRYPT'); } catch (_dlog) {}
+    let payload;
+    try {
+      payload = await Promise.resolve(App.SosCryptoSigner.nip44ChatDecrypt({
+        localPubkey: App.publicKey,
+        eventAuthorPubkey: event.pubkey,
+        encryptedEnvelope: env,
+        selfAuthored: false,
+        intendedRecipientPubkey: App.publicKey,
+      }));
+    } catch (err) {
+      return { ok: false, code: String((err && (err.code || err.message)) || 'DECRYPT_FAILED').slice(0, 80), FULL_BACKUP_COMPLETE: false };
+    }
+    let bundle;
+    try { bundle = JSON.parse(payload && payload.text); } catch (_e2) { return { ok: false, code: 'BAD_BUNDLE', FULL_BACKUP_COMPLETE: false }; }
+    if (!bundle || bundle.type !== 'sos-hist-rev-page' || norm(bundle.accountP) !== norm(App.publicKey)) {
+      return { ok: false, code: 'BAD_BUNDLE', FULL_BACKUP_COMPLETE: false };
+    }
+    if (norm(bundle.sourceDeviceId) !== norm(event.pubkey)) return { ok: false, code: 'DEVICE_MISMATCH', FULL_BACKUP_COMPLETE: false };
+    if (!root.__sosRevRequestId || bundle.requestId !== root.__sosRevRequestId) {
+      return { ok: false, code: 'STALE_REQUEST', FULL_BACKUP_COMPLETE: false };
+    }
+    const seenKey = bundle.requestId + ':' + String(bundle.page);
+    root.__sosRevSeen = root.__sosRevSeen || {};
+    if (root.__sosRevSeen[seenKey]) {
+      root.__sosRevRedundant = (root.__sosRevRedundant || 0) + String(event.content || '').length;
+      return { ok: true, duplicate: true, FULL_BACKUP_COMPLETE: false };
+    }
+    const list = Array.isArray(bundle.messages) ? bundle.messages : [];
+    const expect = await sha256Hex(new TextEncoder().encode(JSON.stringify(list)));
+    if (expect !== bundle.pageHash) return { ok: false, code: 'PAGE_HASH_MISMATCH', FULL_BACKUP_COMPLETE: false };
+    root.__sosRevSeen[seenKey] = true;
+    const book = root.__sosRevBook || (root.__sosRevBook = { expectedFiles: {}, done: {}, p2pBytes: 0 });
+    let added = 0;
+    const peers = [];
+    for (let i = 0; i < list.length; i += 1) {
+      const m = list[i];
+      if (!m || typeof m.text !== 'string' || !isHex64(m.peer) || !m.id) continue;
+      if (m.deleted === true || phoneHasLogical(m.id, true)) continue;
+      if (phoneHasLogical(m.id, false)) continue;
+      const owner = verifiedAccountOf(m.peer);
+      const filedPeer = owner || norm(m.peer);
+      if (!isHex64(filedPeer) || filedPeer === norm(event.pubkey)) continue;
+      const outgoing = m.direction === 'outgoing';
+      const att = m.attachment && typeof m.attachment === 'object' && m.attachment.fileId ? {
+        name: m.attachment.name || '',
+        type: m.attachment.mime || '',
+        fileId: m.attachment.fileId,
+        sha256: m.attachment.sha256 || '',
+        size: Number(m.attachment.size) || 0,
+        cacheKey: 'p2p-file-' + m.attachment.fileId,
+        transport: 'p2p',
+      } : null;
+      if (att && att.sha256) {
+        book.expectedFiles[att.fileId] = { logicalMessageId: String(m.id), sha256: att.sha256, size: att.size };
+      }
+      if (typeof App.appendChatMessage !== 'function') continue;
+      App.appendChatMessage({
+        id: 'rev-' + String(m.id),
+        from: outgoing ? norm(App.publicKey) : filedPeer,
+        to: outgoing ? filedPeer : norm(App.publicKey),
+        content: m.text,
+        attachment: att,
+        createdAt: Number(m.createdAt) || Math.floor(Date.now() / 1000),
+        direction: outgoing ? 'outgoing' : 'incoming',
+        status: 'delivered',
+        source: 'HISTORY_SYNC',
+        historySync: true,
+        logicalMessageId: String(m.id),
+      });
+      if (phoneHasLogical(m.id, false)) {
+        added += 1;
+        if (peers.indexOf(filedPeer) === -1) peers.push(filedPeer);
+      }
+    }
+    root.__sosRevRestored = (root.__sosRevRestored || 0) + added;
+    try { console.log('REVERSE_RESTORE_MERGED added=' + added); } catch (_m) {}
+    try { root.dispatchEvent(new CustomEvent('sos-reverse-history', { detail: { peers: peers, added: added } })); } catch (_ev) {}
+    if (typeof App.flushChatPersist === 'function') {
+      try { App.flushChatPersist(); } catch (_flush) {}
+    }
+    const pending = Object.keys(book.expectedFiles).some(function (id) { return !book.done[id]; });
+    if (!pending) await publishReverseAck(delegated.deviceSignPub, bundle.requestId);
+    return { ok: true, added: added, FULL_BACKUP_COMPLETE: false };
+  }
+
+  async function publishReverseAck(devicePub, requestId) {
+    if (!primaryReady() || !isHex64(devicePub) || !requestId) return { ok: false };
+    const body = JSON.stringify({
+      v: 1,
+      type: 'sos-hist-rev-ack',
+      accountP: norm(App.publicKey),
+      requestId: requestId,
+      restored: root.__sosRevRestored || 0,
+      persisted: true,
+      FULL_BACKUP_COMPLETE: false,
+    });
+    const published = await publishHistoryPage(devicePub, Math.floor(Date.now() / 1000), 0, 1, body, REV_TAG);
+    if (published && published.ok === true) {
+      root.__sosRevAcked = requestId;
+      noteReverseControl(published.bytes || 0);
+      try { console.log('REVERSE_RECONCILIATION_ACK request=' + String(requestId).slice(0, 24) + ' persisted=1'); } catch (_a) {}
+    }
+    return published || { ok: false };
+  }
+
+  async function noteReverseMedia(info) {
+    const book = root.__sosRevBook;
+    const fileId = String(info && info.fileId || '');
+    const expected = book && book.expectedFiles && book.expectedFiles[fileId];
+    if (!expected) return { ok: false, code: 'UNEXPECTED_FILE' };
+    book.done = book.done || {};
+    if (book.done[fileId]) return { ok: true, duplicate: true };
+    if (!info || !info.blob || typeof info.blob.arrayBuffer !== 'function') return { ok: false, code: 'NO_BYTES' };
+    const bytes = new Uint8Array(await info.blob.arrayBuffer());
+    const sha = await sha256Hex(bytes);
+    if (!expected.sha256 || sha !== expected.sha256) return { ok: false, code: 'MEDIA_HASH_MISMATCH' };
+    let stored = false;
+    try {
+      if (typeof App.persistChatP2PMedia === 'function') {
+        await App.persistChatP2PMedia(fileId, info.blob, { name: info.name || '', type: info.mime || '' });
+        const saved = typeof App.loadChatP2PMediaBlob === 'function' ? await App.loadChatP2PMediaBlob('p2p-file-' + fileId) : info.blob;
+        stored = !!(saved && saved.size > 0);
+      }
+    } catch (_store) { stored = false; }
+    if (!stored) return { ok: false, code: 'PERSIST_FAILED' };
+    book.done[fileId] = true;
+    book.p2pBytes = (book.p2pBytes || 0) + bytes.length;
+    try { console.log('REVERSE_MEDIA_VERIFIED file=' + fileId.slice(0, 16) + ' bytes=' + bytes.length); } catch (_v) {}
+    const pending = Object.keys(book.expectedFiles).some(function (id) { return !book.done[id]; });
+    if (!pending && root.__sosRevRequestId) {
+      const sessionDevices = root.__sosVerifiedDeviceOwners || {};
+      const devicePub = Object.keys(sessionDevices).filter(function (pub) { return sessionDevices[pub] === norm(App.publicKey); })[0] || '';
+      if (isHex64(devicePub)) await publishReverseAck(devicePub, root.__sosRevRequestId);
+    }
+    return { ok: true, sha256: sha, bytes: bytes.length };
+  }
+
   App.noteHistoryMediaReceived = noteHistoryMediaReceived;
   App.getAccountSession = getAccountSession;
   App.accountSessionAllows = allows;
@@ -2913,6 +3450,11 @@
     resolveVerifiedActor: resolveVerifiedActor,
     verifyEventPlain: verifyEventPlain,
     acceptHistoryEvent: acceptHistoryEvent,
+    acceptReverseHistoryEvent: acceptReverseHistoryEvent,
+    requestReverseHistory: requestReverseHistory,
+    requestFullReverseRestore: requestFullReverseRestore,
+    pullReverseHistory: pullReverseHistory,
+    reverseStatus: reverseStatus,
     confirmHistoryAck: confirmHistoryAck,
     noteHistoryMediaReceived: noteHistoryMediaReceived,
     resubscribeLinkedTransports: resubscribeLinkedTransports,
@@ -2922,6 +3464,7 @@
     const deferred = root.__sosHistReqDeferred === true || root.__sosPageSuspended === true;
     root.__sosPageSuspended = false;
     root.__sosHistReqDeferred = false;
+    scheduleReverseReconcile();
     if (!deferred) return;
     try { console.log('HISTORY_RESUME'); } catch (_e) {}
     const session = getAccountSession();

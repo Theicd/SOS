@@ -1636,6 +1636,12 @@
       }
       return;
     }
+    if (Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 't' && t[1] === 'sos-hist-rev')) {
+      if (window.SosAccountSession && typeof window.SosAccountSession.acceptReverseHistoryEvent === 'function') {
+        try { await window.SosAccountSession.acceptReverseHistoryEvent(event); } catch (_rev) {}
+      }
+      return;
+    }
     let delegatedAccountP = '';
     if (event.kind === CHAT_KIND && Array.isArray(event.tags) && event.tags.some((t) => Array.isArray(t) && t[0] === 'sos-md3')) {
       if (!window.SosAccountSession || typeof window.SosAccountSession.verifyDelegatedEvent !== 'function') return;
