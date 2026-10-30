@@ -548,10 +548,10 @@
     // חלק ניווט משחקים (navigation.js) – פיד משחקים בתוך אותו videos-feed | HYPER CORE TECH
     if (key === 'games') {
       if (typeof App.openGamesPanel === 'function') {
-        App.openGamesPanel('./games.html');
+        App.openGamesPanel('./netplay/index.html');
         return;
       }
-      window.location.href = './games.html';
+      window.location.href = './netplay/index.html';
       return;
     }
 
@@ -589,10 +589,10 @@
       gamesTopBtn.addEventListener('click', () => {
         updateNavSelection('games');
         if (typeof App.openGamesPanel === 'function') {
-          App.openGamesPanel('./games.html');
+          App.openGamesPanel('./netplay/index.html');
           return;
         }
-        window.location.href = './games.html';
+        window.location.href = './netplay/index.html';
       });
     }
   } catch (_) {}

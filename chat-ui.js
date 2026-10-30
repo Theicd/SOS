@@ -3658,8 +3658,8 @@
         break;
       case 'games':
         // חלק משחקים (chat-ui.js) – פתיחת דף המשחקים | HYPER CORE TECH
-        console.log('[CHAT] Games clicked - navigating to games.html');
-        window.location.href = 'games.html';
+        console.log('[CHAT] Games clicked - navigating to netplay');
+        window.location.href = 'netplay/index.html';
         break;
       default:
         break;

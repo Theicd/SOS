@@ -1,7 +1,7 @@
 {
   "callSignalGiftWrapRequired": true,
-  "version": "2026.10.30-netplay1",
-  "buildTime": "2026-10-30T15:10:00+03:00",
+  "version": "2026.10.30-netplay2",
+  "buildTime": "2026-10-30T15:20:00+03:00",
   "e2eeSendRequired": true,
   "minSecureChatEpoch": 2,
   "mediaServerE2eeRequired": true,

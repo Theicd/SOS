@@ -9888,7 +9888,7 @@ function createSidebarFollowersSection() {
     return li;
   };
 
-  gamesList.appendChild(makeGameItem('דף המשחקים', 'fa-solid fa-gamepad', 'games.html'));
+  gamesList.appendChild(makeGameItem('דף המשחקים', 'fa-solid fa-gamepad', './netplay/index.html'));
   gamesList.appendChild(makeGameItem('משחק רשת דום', 'fa-solid fa-gun', 'games.html#doom'));
   gamesList.appendChild(makeGameItem('משחק רשת זומבים', 'fa-solid fa-skull', 'games.html#nzp'));
   gamesList.appendChild(makeGameItem('משחק רשת טריוויה', 'fa-solid fa-dice', 'games.html#trivia'));
@@ -11359,13 +11359,7 @@ function openGamesPanel(href = './games.html') {
   if (state.feedMode === 'own-posts') exitOwnPostsFeedMode();
   if (state.feedMode === 'games') exitGamesFeedMode();
   try { pauseAllFeedVideos({ muteFeed: true }); } catch (_) {}
-  const nextSrc = new URL('./netplay/index.html?embedded=1', window.location.href).href;
-  if (!String(gamesFrame.src || '').includes('netplay/index.html')) {
-    gamesFrame.src = nextSrc;
-  }
-  gamesPanel.hidden = false;
-  gamesPanel.removeAttribute('hidden');
-  syncTopFeedTab('games');
+  window.location.href = './netplay/index.html';
   return true;
 }
 

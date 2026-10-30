@@ -696,14 +696,14 @@
         if (btn) btn.setAttribute('aria-expanded', 'false');
       } catch (_) {}
       if (typeof App.openGamesPanel === 'function') {
-        App.openGamesPanel('./games.html');
+        App.openGamesPanel('./netplay/index.html');
         return;
       }
       if (typeof window.openGamesPanel === 'function') {
-        window.openGamesPanel('./games.html');
+        window.openGamesPanel('./netplay/index.html');
         return;
       }
-      window.location.href = 'games.html';
+      window.location.href = 'netplay/index.html';
     });
   })();
 
