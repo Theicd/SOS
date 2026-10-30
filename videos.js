@@ -5061,23 +5061,22 @@ function renderVideoCard(video) {
     };
     
     const updateProgress = () => {
-      const duration = getMediaDuration();
+      const reported = getMediaDuration();
       const current = isFinite(videoEl.currentTime) ? videoEl.currentTime : 0;
+      // duration שמדווח קצר מהזמן שכבר נוגן (WebM) — לא לנעוץ את המד ואת העיגול בסוף | HYPER CORE TECH
+      const duration = (reported > 0 && current <= reported + 0.35) ? reported : 0;
       if (!duration) {
-        // גם בלי duration – מציגים זמן ומד זמני לפי התקדמות יחסית | HYPER CORE TECH
         if (current > 0) {
           timeDisplay.textContent = formatTime(current);
           progressBar.classList.add('visible');
-          // אומדן רך: גדל לאט עד שיש duration אמיתי
-          const softPct = Math.min(92, current * 2);
-          progressFill.style.width = `${softPct}%`;
-          progressThumb.style.left = `${100 - softPct}%`;
+          progressFill.style.width = '0%';
+          progressThumb.style.left = '100%';
         }
         return;
       }
       const pct = Math.max(0, Math.min(100, (current / duration) * 100));
       progressFill.style.width = `${pct}%`;
-      // העיגול נע מימין לשמאל (פס RTL) | HYPER CORE TECH
+      // העיגול נע מימין לשמאל (פס RTL) ומוצג רק בזמן גרירה | HYPER CORE TECH
       progressThumb.style.left = `${100 - pct}%`;
       timeDisplay.textContent = `${formatTime(current)} / ${formatTime(duration)}`;
       
@@ -5231,7 +5230,7 @@ function renderVideoCard(video) {
 
   actionsDiv.insertAdjacentHTML('beforeend', `
     <button class="videos-feed__action ${isLiked ? 'videos-feed__action--liked' : ''}" data-like-button data-event-id="${video.id}">
-      <i class="fa-solid fa-heart"></i>
+      <i class="fa-solid fa-thumbs-up"></i>
       <span class="videos-feed__action-count feed-post__like-count" style="${likeCount > 0 ? '' : 'display:none'}">${likeCount > 0 ? likeCount : ''}</span>
     </button>
     <button class="videos-feed__action" data-comment-button data-event-id="${video.id}">
@@ -5239,7 +5238,7 @@ function renderVideoCard(video) {
       <span class="videos-feed__action-count feed-post__comment-count" data-comment-count="${video.id}" style="${commentCount > 0 ? '' : 'display:none'}">${commentCount > 0 ? commentCount : ''}</span>
     </button>
     <button class="videos-feed__action" data-share-button data-event-id="${video.id}">
-      <i class="fa-solid fa-share"></i>
+      <i class="fa-solid fa-share-nodes"></i>
       <span class="videos-feed__action-count feed-post__share-count" data-share-count="${video.id}" style="${shareCount > 0 ? '' : 'display:none'}">${shareCount > 0 ? shareCount : ''}</span>
     </button>
   `);
@@ -10730,6 +10729,7 @@ function enterGamesFeedMode() {
   document.body.classList.remove('videos-feed-mode-live-tv', 'videos-feed-mode-own-posts');
   ensureOwnPostsBackButton();
   forceFullFeedRerender();
+  syncTopFeedTab('games');
   console.log('[VIDEOS] Games feed mode ON', { count: getDisplayVideos().length });
   return true;
 }
@@ -10738,6 +10738,7 @@ function exitGamesFeedMode() {
   if (state.feedMode !== 'games') return false;
   state.feedMode = 'all';
   document.body.classList.remove('videos-feed-mode-games');
+  syncTopFeedTab('feed');
   forceFullFeedRerender();
   console.log('[VIDEOS] Games feed mode OFF');
   return true;
@@ -10848,6 +10849,7 @@ async function enterLiveTvFeedMode() {
     state.feedMode = 'live-tv';
     document.body.classList.add('videos-feed-mode-live-tv');
     document.body.classList.remove('videos-feed-mode-own-posts', 'videos-feed-mode-games');
+    syncTopFeedTab('iptv');
     ensureOwnPostsBackButton();
 
     globalAutoplayEnabled = true;
@@ -10873,6 +10875,7 @@ function exitLiveTvFeedMode() {
   if (state.feedMode !== 'live-tv') return false;
   state.feedMode = 'all';
   document.body.classList.remove('videos-feed-mode-live-tv');
+  syncTopFeedTab('feed');
   forceFullFeedRerender();
   console.log('[VIDEOS] LIVE TV feed mode OFF');
   return true;
@@ -10889,6 +10892,49 @@ function openLiveTvFeed() {
 
 function closeLiveTvFeed() {
   return exitLiveTvFeedMode();
+}
+
+function syncTopFeedTab(mode) {
+  document.querySelectorAll('[data-top-tab]').forEach((btn) => {
+    const on = btn.getAttribute('data-top-tab') === mode;
+    btn.classList.toggle('is-active', on);
+  });
+}
+
+function bindTopFeedTabs() {
+  if (document.documentElement.dataset.topTabsBound === '1') return;
+  document.documentElement.dataset.topTabsBound = '1';
+  document.querySelectorAll('[data-top-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = btn.getAttribute('data-top-tab');
+      if (tab === 'games') {
+        openGamesPanel('./games.html');
+        syncTopFeedTab('games');
+        return;
+      }
+      if (tab === 'iptv') {
+        openLiveTvFeed();
+        syncTopFeedTab('iptv');
+        return;
+      }
+      if (state.feedMode === 'games') exitGamesFeedMode();
+      else if (state.feedMode === 'live-tv') exitLiveTvFeedMode();
+      syncTopFeedTab('feed');
+    });
+  });
+  const liveBtn = document.getElementById('topBarLiveWatch');
+  if (liveBtn) {
+    liveBtn.addEventListener('click', () => {
+      const App = window.NostrApp || {};
+      if (typeof App.openLiveWatchHub === 'function') App.openLiveWatchHub();
+    });
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bindTopFeedTabs);
+} else {
+  bindTopFeedTabs();
 }
 
 function ensureNzpPanel() {
