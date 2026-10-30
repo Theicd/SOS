@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261029rev2'; // Reverse history survives reconnect without resending stored media
+  const CACHE_NAME = 'sos-cache-v20261030home1'; // Mobile home: feed tabs, progress line, like and share icons
   const PRECACHE_URLS = [
     './',
     './videos.html',
