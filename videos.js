@@ -10894,6 +10894,16 @@ function closeLiveTvFeed() {
   return exitLiveTvFeedMode();
 }
 
+function hideGamesCatalog() {
+  const gamesPanel = document.getElementById('gamesPanel');
+  const gamesFrame = document.getElementById('gamesPanelFrame');
+  if (!gamesPanel || gamesPanel.hidden) return false;
+  gamesPanel.hidden = true;
+  gamesPanel.setAttribute('hidden', '');
+  if (gamesFrame) gamesFrame.src = '';
+  return true;
+}
+
 function syncTopFeedTab(mode) {
   document.querySelectorAll('[data-top-tab]').forEach((btn) => {
     const on = btn.getAttribute('data-top-tab') === mode;
@@ -10913,10 +10923,13 @@ function bindTopFeedTabs() {
         return;
       }
       if (tab === 'iptv') {
+        hideGamesCatalog();
         openLiveTvFeed();
         syncTopFeedTab('iptv');
         return;
       }
+      hideGamesCatalog();
+      try { resumeCenteredFeedVideo(); } catch (_) {}
       if (state.feedMode === 'games') exitGamesFeedMode();
       else if (state.feedMode === 'live-tv') exitLiveTvFeedMode();
       syncTopFeedTab('feed');
@@ -11338,23 +11351,22 @@ function openGamesPanel(href = './games.html') {
   // סגירת iframe ישן אם נשאר פתוח | HYPER CORE TECH
   const gamesPanel = document.getElementById('gamesPanel');
   const gamesFrame = document.getElementById('gamesPanelFrame');
-  if (gamesPanel && !gamesPanel.hidden) {
-    gamesPanel.hidden = true;
-    if (gamesFrame) gamesFrame.src = '';
-  }
-
-  // פיד משחקים בתוך אותו videos-feed – בדיוק כמו הפיד הכללי | HYPER CORE TECH
-  if (state.feedMode === 'live-tv') {
-    exitLiveTvFeedMode();
-  }
-  if (state.feedMode === 'own-posts') {
-    exitOwnPostsFeedMode();
-  }
-  if (state.feedMode === 'games') {
-    forceFullFeedRerender();
+  if (!gamesPanel || !gamesFrame) {
+    window.location.href = './netplay/index.html';
     return true;
   }
-  return enterGamesFeedMode();
+  if (state.feedMode === 'live-tv') exitLiveTvFeedMode();
+  if (state.feedMode === 'own-posts') exitOwnPostsFeedMode();
+  if (state.feedMode === 'games') exitGamesFeedMode();
+  try { pauseAllFeedVideos({ muteFeed: true }); } catch (_) {}
+  const nextSrc = new URL('./netplay/index.html?embedded=1', window.location.href).href;
+  if (!String(gamesFrame.src || '').includes('netplay/index.html')) {
+    gamesFrame.src = nextSrc;
+  }
+  gamesPanel.hidden = false;
+  gamesPanel.removeAttribute('hidden');
+  syncTopFeedTab('games');
+  return true;
 }
 
 function closeGamesPanel() {

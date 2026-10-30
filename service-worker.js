@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261030games1'; // Drop Doom and Trivia from the mobile avatar menu
+  const CACHE_NAME = 'sos-cache-v20261030netplay1'; // Netflix-style games catalog replaces the games page
   const PRECACHE_URLS = [
     './',
     './videos.html',
