@@ -11360,7 +11360,7 @@ function openGamesPanel(href = './games.html') {
   if (state.feedMode === 'own-posts') exitOwnPostsFeedMode();
   if (state.feedMode === 'games') exitGamesFeedMode();
   try { pauseAllFeedVideos({ muteFeed: true }); } catch (_) {}
-  const nextSrc = new URL('./netplay/index.html?embedded=1', window.location.href).href;
+  const nextSrc = new URL('./netplay/index.html?embedded=1&v=20261031back1', window.location.href).href;
   if (!String(gamesFrame.src || '').includes('netplay/index.html')) {
     gamesFrame.src = nextSrc;
   }
