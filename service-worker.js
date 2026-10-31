@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261031profile1'; // Mobile bottom bar shows personal profile instead of games
+  const CACHE_NAME = 'sos-cache-v20261031tv1'; // LIVE TV stays in the top bar, not the avatar menu
   const PRECACHE_URLS = [
     './',
     './videos.html',
