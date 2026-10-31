@@ -508,6 +508,10 @@
     const openMenu = () => {
       profileMenu.hidden = false;
       profileButton.setAttribute('aria-expanded', 'true');
+      try {
+        if (typeof App.pauseAllFeedVideos === 'function') App.pauseAllFeedVideos();
+        else if (typeof window.pauseAllFeedVideos === 'function') window.pauseAllFeedVideos();
+      } catch (_) {}
     };
 
     const toggleMenu = () => {

@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261031tv1'; // LIVE TV stays in the top bar, not the avatar menu
+  const CACHE_NAME = 'sos-cache-v20261101menu1'; // Opening the avatar menu pauses the feed video
   const PRECACHE_URLS = [
     './',
     './videos.html',
