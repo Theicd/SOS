@@ -4118,6 +4118,10 @@ body.global-stop .videos-feed__play-overlay {
     min-width: 0;
   }
 
+  body:has(.videos-feed) .primary-nav > [data-nav="profile"] .nav-item__mob {
+    display: none !important;
+  }
+
   body:has(.videos-feed) .nav-item.is-active span {
     font-weight: 700;
     color: var(--accent-color, #fe2c55); /* טקסט אדום במצב פעיל | HYPER CORE TECH */
