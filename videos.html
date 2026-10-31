@@ -119,7 +119,7 @@
     <link rel="stylesheet" href="./styles/contract-dashboard-v2.css">
     <link rel="stylesheet" href="./styles/game-trivia.css">
     <link rel="stylesheet" href="./styles/game-doom-arena.css">
-    <link rel="stylesheet" href="./styles/videos.css?v=20261031games1">
+    <link rel="stylesheet" href="./styles/videos.css?v=20261031profile1">
     <link rel="stylesheet" href="./styles/nzp-panel.css?v=20260916nzp15">
     <!-- סייבר אחרי videos.css — כדי שינצח בדסקטופ ובמובייל | HYPER CORE TECH -->
     <link rel="stylesheet" href="./styles/chat-desktop-sos-cyber.css?v=20260920rreadui1">
@@ -2424,10 +2424,6 @@
             <span id="topBarProfileAvatar">?</span>
           </button>
           <div class="top-bar__dropdown" id="topBarProfileMenu" hidden>
-            <button type="button" class="top-bar__dropdown-item top-bar__dropdown-item--mobile" id="topBarMenuProfile">
-              <i class="fa-regular fa-user"></i>
-              <span>פרופיל אישי</span>
-            </button>
             <button type="button" class="top-bar__dropdown-item top-bar__dropdown-item--mobile" id="topBarMenuLiveTv">
               <i class="fa-solid fa-tv"></i>
               <span>LIVE TV</span>
@@ -2589,9 +2585,10 @@
         <i class="fa-solid fa-gamepad"></i>
         <span>משחקים</span>
       </button>
-      <button class="nav-item" type="button" aria-label="פרופיל" data-nav="profile">
+      <button class="nav-item" type="button" aria-label="פרופיל אישי" data-nav="profile">
         <i class="fa-regular fa-user"></i>
-        <span>פרופיל</span>
+        <span class="nav-item__desk">פרופיל</span>
+        <span class="nav-item__mob">פרופיל אישי</span>
       </button>
       <!-- חלק פרסם (videos.html) — כפתור פוסט חדש עם טקסט בסגנון sos010.html | HYPER CORE TECH -->
       <button class="nav-item" id="navCompose" type="button" aria-label="פרסם">

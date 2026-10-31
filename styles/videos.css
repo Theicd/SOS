@@ -524,7 +524,11 @@ body:has(.videos-feed) .top-bar__actions {
   flex-direction: row !important;
 }
 
-/* מובייל: אווטאר בלבד בפס העליון. משחקים בתחתית, פרופיל ו-IPTV בתפריט | HYPER CORE TECH */
+body:has(.videos-feed) .primary-nav > [data-nav="profile"] .nav-item__mob {
+  display: none;
+}
+
+/* מובייל: אווטאר בלבד בפס העליון. משחקים למעלה, פרופיל אישי בתחתית | HYPER CORE TECH */
 @media (max-width: 768px) {
   body:has(.videos-feed) .top-bar__actions {
     direction: ltr !important;
@@ -561,8 +565,16 @@ body:has(.videos-feed) .top-bar__actions {
     display: none !important;
   }
 
-  body:has(.videos-feed) .primary-nav > [data-nav="profile"] {
+  body:has(.videos-feed) #navGamesMobile {
     display: none !important;
+  }
+
+  body:has(.videos-feed) .primary-nav > [data-nav="profile"] .nav-item__desk {
+    display: none !important;
+  }
+
+  body:has(.videos-feed) .primary-nav > [data-nav="profile"] .nav-item__mob {
+    display: inline !important;
   }
 }
 
