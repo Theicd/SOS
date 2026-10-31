@@ -10900,6 +10900,7 @@ function hideGamesCatalog() {
   if (!gamesPanel || gamesPanel.hidden) return false;
   gamesPanel.hidden = true;
   gamesPanel.setAttribute('hidden', '');
+  document.body.classList.remove('games-catalog-open');
   if (gamesFrame) gamesFrame.src = '';
   return true;
 }
@@ -11359,7 +11360,14 @@ function openGamesPanel(href = './games.html') {
   if (state.feedMode === 'own-posts') exitOwnPostsFeedMode();
   if (state.feedMode === 'games') exitGamesFeedMode();
   try { pauseAllFeedVideos({ muteFeed: true }); } catch (_) {}
-  window.location.href = './netplay/index.html';
+  const nextSrc = new URL('./netplay/index.html?embedded=1', window.location.href).href;
+  if (!String(gamesFrame.src || '').includes('netplay/index.html')) {
+    gamesFrame.src = nextSrc;
+  }
+  gamesPanel.hidden = false;
+  gamesPanel.removeAttribute('hidden');
+  document.body.classList.add('games-catalog-open');
+  syncTopFeedTab('games');
   return true;
 }
 

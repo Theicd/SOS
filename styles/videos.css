@@ -4224,6 +4224,18 @@ body.global-stop .videos-feed__play-overlay {
     background: #000 !important;
   }
 
+  /* דף המשחקים נשאר בצד שמאל. התפריט הימני נשאר לחיץ | HYPER CORE TECH */
+  #gamesPanel.profile-panel {
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: var(--videos-desktop-nav-width, 220px) !important;
+    width: auto !important;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    z-index: 1400 !important;
+  }
+
   .profile-panel__content {
     min-height: 100% !important;
     background: #000 !important;
@@ -5344,7 +5356,20 @@ body.policy-modal-open {
   height: 100% !important;
   border: 0 !important;
   display: block !important;
-  background: #000;
+  background: #090a0e;
+}
+
+/* מובייל: דף המשחקים מתחת לתפריט העליון ומעל התפריט התחתון | HYPER CORE TECH */
+@media (max-width: 768px) {
+  #gamesPanel.profile-panel {
+    top: 0 !important;
+    bottom: calc(56px + var(--safe-bottom, 0px)) !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    z-index: 1400 !important;
+  }
 }
 
 /* מצב פיד משחקים – אותו videos-feed, בלי overlay שמסתיר תפריטים | HYPER CORE TECH */

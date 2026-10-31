@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261030netplay2'; // Games button opens the Netflix catalog for guest and desktop
+  const CACHE_NAME = 'sos-cache-v20261031games1'; // Games catalog stays inside the SOS chrome
   const PRECACHE_URLS = [
     './',
     './videos.html',
