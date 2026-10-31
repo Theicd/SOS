@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261031back1'; // Games catalog has no back button over LIVE
+  const CACHE_NAME = 'sos-cache-v20261031trim1'; // Games hero has no pager or benefit cards
   const PRECACHE_URLS = [
     './',
     './videos.html',
