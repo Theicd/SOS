@@ -630,6 +630,13 @@ body.live-studio-open {
   background: #fff;
 }
 
+@media (max-width: 768px) {
+  .videos-p2p-live-badge {
+    top: calc(52px + var(--safe-top, 0px));
+    right: 12px;
+  }
+}
+
 .videos-p2p-live-hint {
   position: absolute;
   inset: 0;
@@ -641,6 +648,10 @@ body.live-studio-open {
   font-weight: 700;
   z-index: 2;
   pointer-events: none;
+}
+
+.videos-p2p-live-hint[hidden] {
+  display: none !important;
 }
 
 /* צ'אט צופים מעל הווידאו — לא משנה גובה/פריסת כרטיס | HYPER CORE TECH */

@@ -6160,6 +6160,16 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
     object-position: center center !important;
   }
 
+  body:has(.videos-feed) .videos-feed__media .videos-p2p-live-chat-av img {
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    object-fit: cover !important;
+  }
+
   body:has(.videos-feed) .top-bar .app-logo,
   body:has(.videos-feed) .top-bar__actions,
   body:has(.videos-feed) .top-bar__profile,
