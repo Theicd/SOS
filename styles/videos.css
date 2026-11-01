@@ -4325,7 +4325,6 @@ body.global-stop .videos-feed__play-overlay {
   body:has(.videos-feed) .nav-users-list,
   body:has(.videos-feed) .nav-footer,
   body:has(.videos-feed) .nav-item[data-nav="explore"],
-  body:has(.videos-feed) .nav-item[data-nav="live-tv"],
   body:has(.videos-feed) .nav-item[data-nav="following"],
   body:has(.videos-feed) .nav-item[data-nav="live"],
   body:has(.videos-feed) #moreOptionsToggle {
@@ -6192,10 +6191,6 @@ body.videos-feed-mode-own-posts .videos-own-posts-back {
   .videos-feed__author::after {
     animation: none;
     background: linear-gradient(90deg, #48dbfb, #1dd1a1);
-  }
-  
-  body:has(.videos-feed) .top-bar .app-logo {
-    display: none !important;
   }
 
   body:has(.videos-feed) .top-bar__live,

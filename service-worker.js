@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261101desk1'; // Desktop side nav shows only the desktop profile label
+  const CACHE_NAME = 'sos-cache-v20261101logo1'; // Mobile logo returns; LIVE replaces IP-TV
   const PRECACHE_URLS = [
     './',
     './videos.html',

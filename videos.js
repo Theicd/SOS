@@ -10923,12 +10923,6 @@ function bindTopFeedTabs() {
         syncTopFeedTab('games');
         return;
       }
-      if (tab === 'iptv') {
-        hideGamesCatalog();
-        openLiveTvFeed();
-        syncTopFeedTab('iptv');
-        return;
-      }
       hideGamesCatalog();
       try { resumeCenteredFeedVideo(); } catch (_) {}
       if (state.feedMode === 'games') exitGamesFeedMode();
@@ -10939,6 +10933,7 @@ function bindTopFeedTabs() {
   const liveBtn = document.getElementById('topBarLiveWatch');
   if (liveBtn) {
     liveBtn.addEventListener('click', () => {
+      hideGamesCatalog();
       const App = window.NostrApp || {};
       if (typeof App.openLiveWatchHub === 'function') App.openLiveWatchHub();
     });
