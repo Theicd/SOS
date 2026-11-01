@@ -3236,6 +3236,30 @@ body.global-stop .videos-feed__play-overlay {
   pointer-events: auto;
 }
 
+/* מובייל: שם חדר השידור מתחת לתפריט, ליד תג LIVE, לא על התגובות | HYPER CORE TECH */
+@media (max-width: 768px) {
+  .videos-feed__card:has(.videos-feed__media[data-media-type="p2p-live"]) .videos-feed__info {
+    top: calc(48px + var(--safe-top, 0px));
+    bottom: auto;
+    left: 16px;
+    right: 110px;
+    min-height: 0;
+    padding: 4px 0;
+    z-index: 8;
+    text-align: right;
+  }
+
+  .videos-feed__card:has(.videos-feed__media[data-media-type="p2p-live"]) .videos-feed__content {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
 .videos-feed__author {
   display: flex;
   align-items: center;

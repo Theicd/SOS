@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261101live1'; // Viewer live badge, connecting hint, and chat avatars
+  const CACHE_NAME = 'sos-cache-v20261101room1'; // Live room name sits under the top bar, clear of chat
   const PRECACHE_URLS = [
     './',
     './videos.html',
