@@ -374,25 +374,50 @@ body.live-studio-open {
 
 .live-studio__collapse {
   align-self: center;
+  width: 36px;
+  height: 36px;
   border: 0;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.16);
   color: #fff;
-  font-weight: 800;
-  font-size: 13px;
-  min-height: 32px;
-  padding: 0 14px;
+  display: grid;
+  place-items: center;
   cursor: pointer;
 }
 
-.live-studio__side--live.is-collapsed .live-studio__live-top {
+.live-studio__side--live.is-collapsed .live-studio__live-top,
+.live-studio__side--live.is-collapsed [data-action="end"] {
   display: none;
 }
 
 .live-studio__side--live.is-collapsed {
   max-height: none;
-  padding: 10px;
+  padding: 0;
   gap: 8px;
+  background: transparent;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+.live-studio__side--live.is-collapsed .live-studio__chat-compose {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.live-studio__side--live.is-collapsed .live-studio__chat-input {
+  height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.live-studio__side--live.is-collapsed .live-studio__chat-input:focus {
+  border-color: rgba(254, 44, 85, 0.7);
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.live-studio__side--live.is-collapsed .live-studio__chat-send {
+  background: rgba(254, 44, 85, 0.82);
 }
 
 .live-studio__chat-head {

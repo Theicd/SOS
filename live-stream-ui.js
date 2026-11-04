@@ -207,6 +207,32 @@
     };
   }
 
+  function confirmEndBroadcast() {
+    if (!studio || confirmOpen) return;
+    confirmOpen = true;
+    const overlay = doc.createElement('div');
+    overlay.className = 'live-studio__confirm';
+    overlay.innerHTML = `
+      <div class="live-studio__confirm-card live-studio__confirm-card--end" role="dialog" aria-modal="true">
+        <h3>לסיים את השידור החי?</h3>
+        <p>הצופים יראו שהשידור נגמר. אי אפשר לבטל את זה אחר כך.</p>
+        <div class="live-studio__confirm-row">
+          <button type="button" class="live-studio__btn live-studio__btn--ghost" data-confirm="no">ביטול</button>
+          <button type="button" class="live-studio__btn live-studio__btn--danger" data-confirm="yes">סיים שידור</button>
+        </div>
+      </div>`;
+    studio.appendChild(overlay);
+    overlay.querySelector('[data-confirm="no"]').onclick = () => {
+      confirmOpen = false;
+      overlay.remove();
+    };
+    overlay.querySelector('[data-confirm="yes"]').onclick = async () => {
+      confirmOpen = false;
+      overlay.remove();
+      try { await endBroadcastAndClose(); } catch (e) { console.warn(e); }
+    };
+  }
+
   function startTimerUi() {
     stopTimer();
     liveStartedAt = Date.now();
@@ -381,7 +407,9 @@
           </div>
 
           <aside class="live-studio__side live-studio__side--live" id="liveStudioLivePanel" hidden style="display:none">
-            <button type="button" class="live-studio__collapse" data-action="collapse-card" aria-expanded="true">כווץ</button>
+            <button type="button" class="live-studio__collapse" data-action="collapse-card" aria-expanded="true" aria-label="כווץ">
+              <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+            </button>
             <div class="live-studio__live-top">
               <div class="live-studio__host" data-live-host>
                 <div class="live-studio__host-av" data-host-av></div>
@@ -415,21 +443,23 @@
     setStudioPhase('setup');
     applyStudioMode();
 
-    studio.querySelector('[data-action="close"]').onclick = async () => {
-      if (studio.dataset.phase === 'live') await endBroadcastAndClose();
+    studio.querySelector('[data-action="close"]').onclick = () => {
+      if (studio.dataset.phase === 'live') confirmEndBroadcast();
       else { stopPreviewTracks(); closeStudio(); }
     };
     studio.querySelector('[data-action="request-start"]').onclick = () => {
       showConfirm(() => beginBroadcastFromSetup());
     };
-    studio.querySelector('[data-action="end"]').onclick = () => endBroadcastAndClose();
+    studio.querySelector('[data-action="end"]').onclick = () => confirmEndBroadcast();
     const collapseBtn = studio.querySelector('[data-action="collapse-card"]');
     if (collapseBtn) {
       collapseBtn.addEventListener('click', () => {
         const panel = studio.querySelector('#liveStudioLivePanel');
         if (!panel) return;
         const collapsed = panel.classList.toggle('is-collapsed');
-        collapseBtn.textContent = collapsed ? 'פתח' : 'כווץ';
+        const icon = collapseBtn.querySelector('i');
+        if (icon) icon.className = collapsed ? 'fa-solid fa-chevron-up' : 'fa-solid fa-chevron-down';
+        collapseBtn.setAttribute('aria-label', collapsed ? 'פתח' : 'כווץ');
         collapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
       });
     }
