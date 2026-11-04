@@ -668,7 +668,7 @@ body.live-studio-open {
 .live-studio__confirm {
   position: absolute;
   inset: 0;
-  z-index: 5;
+  z-index: 20;
   display: grid;
   place-items: center;
   background: rgba(0, 0, 0, 0.7);

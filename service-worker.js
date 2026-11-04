@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261104card1'; // Broadcaster card collapses to a transparent chat row
+  const CACHE_NAME = 'sos-cache-v20261104confirm1'; // End-live confirmation sits above the broadcaster card
   const PRECACHE_URLS = [
     './',
     './videos.html',
