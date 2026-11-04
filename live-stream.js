@@ -863,6 +863,25 @@
       subscribe(state.roomId);
       if(typeof App.onLiveStarted==='function') App.onLiveStarted(state.roomId);
     },
+    async replaceVideoTrack(newTrack){
+      if (!newTrack) return state.localStream;
+      const stream = state.localStream;
+      if (stream) {
+        const old = stream.getVideoTracks()[0];
+        if (old && old !== newTrack) {
+          try { stream.removeTrack(old); } catch (_) {}
+          try { old.stop(); } catch (_) {}
+        }
+        if (!stream.getVideoTracks().includes(newTrack)) stream.addTrack(newTrack);
+      }
+      for (const pc of state.pcMap.values()) {
+        try {
+          const sender = pc.getSenders().find((s) => s.track && s.track.kind === 'video');
+          if (sender) await sender.replaceTrack(newTrack);
+        } catch (_) {}
+      }
+      return state.localStream;
+    },
     // הצטרפות לצפייה: יבקש parent, יתחבר אליו
     async watch(ownerPubkey, slug){
       state.ending = false;

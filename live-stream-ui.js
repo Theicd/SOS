@@ -22,7 +22,9 @@
   let studio = null;
   let previewStream = null;
   let blurSides = false;
+  let facingMode = 'user';
   let cameraPortrait = null;
+  let cameraFacing = 'user';
   let timerInterval = null;
   let liveStartedAt = 0;
   let liveSub = null;
@@ -55,19 +57,12 @@
   }
 
   function cameraConstraints() {
-    const portrait = wantsPortraitCamera();
     return {
       audio: true,
-      video: portrait ? {
-        facingMode: 'user',
-        width: { ideal: 720 },
-        height: { ideal: 1280 },
-        aspectRatio: { ideal: 9 / 16 }
-      } : {
-        facingMode: 'user',
+      video: {
+        facingMode,
         width: { ideal: 1280 },
-        height: { ideal: 720 },
-        aspectRatio: { ideal: 16 / 9 }
+        height: { ideal: 720 }
       }
     };
   }
@@ -131,12 +126,13 @@
     const blurEl = studio && studio.querySelector('#liveStudioCamBlur');
     const portrait = wantsPortraitCamera();
     const live = previewStream && previewStream.getTracks().some((t) => t.readyState === 'live');
-    if (!force && live && cameraPortrait === portrait) {
+    if (!force && live && cameraPortrait === portrait && cameraFacing === facingMode) {
       attachPreview(videoEl, blurEl);
       return previewStream;
     }
     stopPreviewTracks();
     cameraPortrait = portrait;
+    cameraFacing = facingMode;
     previewStream = await navigator.mediaDevices.getUserMedia(cameraConstraints());
     attachPreview(videoEl, blurEl);
     return previewStream;
@@ -156,6 +152,7 @@
     const phone = isPhoneStudio();
     studio.dataset.mode = phone ? 'phone' : 'desktop';
     studio.dataset.aspect = wantsPortraitCamera() ? 'portrait' : 'landscape';
+    studio.dataset.facing = facingMode;
     studio.dataset.blurSides = (!phone && blurSides) ? '1' : '0';
     const blurBtn = studio.querySelector('[data-blur-sides]');
     if (blurBtn) {
@@ -298,6 +295,33 @@
     // צ'אט נפתח ב־onLiveStarted — לא כאן, כדי לא לכפול אירועים | HYPER CORE TECH
   }
 
+  async function switchLiveCamera() {
+    if (!studio) return;
+    facingMode = facingMode === 'user' ? 'environment' : 'user';
+    studio.dataset.facing = facingMode;
+    const next = await navigator.mediaDevices.getUserMedia(cameraConstraints());
+    const liveOwned = studio.dataset.phase === 'live' && !previewStream;
+    if (liveOwned && App.live && typeof App.live.replaceVideoTrack === 'function') {
+      const track = next.getVideoTracks()[0];
+      next.getAudioTracks().forEach((t) => { try { t.stop(); } catch (_) {} });
+      const stream = await App.live.replaceVideoTrack(track);
+      const cam = studio.querySelector('#liveStudioCam');
+      const blur = studio.querySelector('#liveStudioCamBlur');
+      [cam, blur].forEach((el) => {
+        if (!el || !stream) return;
+        el.srcObject = stream;
+        el.muted = true;
+        el.play().catch(() => {});
+      });
+      return;
+    }
+    stopPreviewTracks();
+    previewStream = next;
+    cameraFacing = facingMode;
+    cameraPortrait = wantsPortraitCamera();
+    attachPreview(studio.querySelector('#liveStudioCam'), studio.querySelector('#liveStudioCamBlur'));
+  }
+
   function openSetupStudio() {
     closeStudio();
     stopPreviewTracks();
@@ -320,6 +344,9 @@
             <h1 data-hud-title>הכנת שידור</h1>
             <span class="live-studio__timer" data-live-timer hidden>00:00</span>
           </div>
+          <button type="button" class="live-studio__flip" data-action="flip-camera" aria-label="החלף מצלמה">
+            <i class="fa-solid fa-camera-rotate"></i>
+          </button>
         </header>
 
         <div class="live-studio__body">
@@ -402,6 +429,12 @@
         if (!studio || studio.dataset.phase === 'live' || isPhoneStudio()) return;
         blurSides = !blurSides;
         applyStudioMode();
+      });
+    }
+    const flipBtn = studio.querySelector('[data-action="flip-camera"]');
+    if (flipBtn) {
+      flipBtn.addEventListener('click', () => {
+        switchLiveCamera().catch((err) => console.warn('live camera switch failed', err));
       });
     }
     window.addEventListener('resize', onStudioOrient);
