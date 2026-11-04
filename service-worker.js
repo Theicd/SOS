@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261104cam1'; // Live camera uses the full view and can flip front or back
+  const CACHE_NAME = 'sos-cache-v20261104host1'; // Broadcaster card can collapse; chat sits on the video
   const PRECACHE_URLS = [
     './',
     './videos.html',

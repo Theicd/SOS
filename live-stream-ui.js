@@ -374,7 +374,14 @@
             </button>
           </aside>
 
+          <div class="live-studio__onvideo-chat" aria-label="תגובות על הווידיאו">
+            <div class="live-studio__chat-list" id="liveStudioChatList" role="log" aria-live="polite">
+              <div class="live-studio__chat-empty" data-chat-empty>עדיין אין תגובות</div>
+            </div>
+          </div>
+
           <aside class="live-studio__side live-studio__side--live" id="liveStudioLivePanel" hidden style="display:none">
+            <button type="button" class="live-studio__collapse" data-action="collapse-card" aria-expanded="true">כווץ</button>
             <div class="live-studio__live-top">
               <div class="live-studio__host" data-live-host>
                 <div class="live-studio__host-av" data-host-av></div>
@@ -389,23 +396,16 @@
                 <span data-live-viewers>1 צופה</span>
                 <span class="live-studio__like-count" data-live-likes title="לייקים">❤ 0</span>
               </div>
-              <button type="button" class="live-studio__btn live-studio__btn--danger live-studio__btn--block" data-action="end">
-                סיים שידור
+            </div>
+            <button type="button" class="live-studio__btn live-studio__btn--danger live-studio__btn--block" data-action="end">
+              סיים שידור
+            </button>
+            <form class="live-studio__chat-compose" id="liveStudioChatForm" autocomplete="off">
+              <input id="liveStudioChatInput" class="live-studio__chat-input" type="text" maxlength="280" placeholder="כתוב תגובה לצופים…" aria-label="תגובה">
+              <button type="submit" class="live-studio__chat-send" aria-label="שלח">
+                <i class="fa-solid fa-paper-plane"></i>
               </button>
-            </div>
-
-            <div class="live-studio__chat" aria-label="תגובות השידור">
-              <div class="live-studio__chat-head">צ'אט חי</div>
-              <div class="live-studio__chat-list" id="liveStudioChatList" role="log" aria-live="polite">
-                <div class="live-studio__chat-empty" data-chat-empty>עדיין אין תגובות</div>
-              </div>
-              <form class="live-studio__chat-compose" id="liveStudioChatForm" autocomplete="off">
-                <input id="liveStudioChatInput" class="live-studio__chat-input" type="text" maxlength="280" placeholder="כתוב תגובה לצופים…" aria-label="תגובה">
-                <button type="submit" class="live-studio__chat-send" aria-label="שלח">
-                  <i class="fa-solid fa-paper-plane"></i>
-                </button>
-              </form>
-            </div>
+            </form>
           </aside>
           </div>
       </div>`;
@@ -423,6 +423,16 @@
       showConfirm(() => beginBroadcastFromSetup());
     };
     studio.querySelector('[data-action="end"]').onclick = () => endBroadcastAndClose();
+    const collapseBtn = studio.querySelector('[data-action="collapse-card"]');
+    if (collapseBtn) {
+      collapseBtn.addEventListener('click', () => {
+        const panel = studio.querySelector('#liveStudioLivePanel');
+        if (!panel) return;
+        const collapsed = panel.classList.toggle('is-collapsed');
+        collapseBtn.textContent = collapsed ? 'פתח' : 'כווץ';
+        collapseBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      });
+    }
     const blurBtn = studio.querySelector('[data-blur-sides]');
     if (blurBtn) {
       blurBtn.addEventListener('click', () => {
