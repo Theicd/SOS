@@ -961,3 +961,55 @@ body.live-studio-open {
 }
 
 .live-toast { display: none !important; }
+
+/* שידור חי: המצלמה על כל המסך, כמו מסך הפלוס | HYPER CORE TECH */
+.live-studio {
+  inset: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+}
+
+.live-studio__preview-wrap,
+.live-studio__preview-frame,
+.live-studio[data-aspect="portrait"] .live-studio__preview-frame,
+.live-studio[data-aspect="landscape"] .live-studio__preview-frame {
+  position: fixed !important;
+  inset: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  aspect-ratio: auto !important;
+}
+
+#liveStudioCam,
+#liveStudioCamBlur {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  object-fit: cover !important;
+  background: #000 !important;
+}
+
+.live-studio[data-blur-sides="1"] #liveStudioCam {
+  width: min(56vw, calc(100dvh * 9 / 16)) !important;
+  height: 100dvh !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%) !important;
+}

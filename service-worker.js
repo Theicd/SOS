@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261104studio1'; // Live studio follows the device and can blur desktop sides
+  const CACHE_NAME = 'sos-cache-v20261104full1'; // Live camera covers the whole screen like the share camera
   const PRECACHE_URLS = [
     './',
     './videos.html',
