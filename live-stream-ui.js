@@ -21,7 +21,8 @@
 
   let studio = null;
   let previewStream = null;
-  let aspectMode = '9:16'; // או 16:9
+  let blurSides = false;
+  let cameraPortrait = null;
   let timerInterval = null;
   let liveStartedAt = 0;
   let liveSub = null;
@@ -45,25 +46,43 @@
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
 
+  function isPhoneStudio() {
+    return window.matchMedia('(max-width: 768px)').matches;
+  }
+
+  function wantsPortraitCamera() {
+    return isPhoneStudio() && window.matchMedia('(orientation: portrait)').matches;
+  }
+
   function cameraConstraints() {
-    // יחס התצוגה הוא מסגרת UI בלבד — לא מחליפים facing/constraints כדי לא להפוך מצלמה במובייל | HYPER CORE TECH
+    const portrait = wantsPortraitCamera();
     return {
       audio: true,
-      video: {
+      video: portrait ? {
+        facingMode: 'user',
+        width: { ideal: 720 },
+        height: { ideal: 1280 },
+        aspectRatio: { ideal: 9 / 16 }
+      } : {
         facingMode: 'user',
         width: { ideal: 1280 },
-        height: { ideal: 720 }
+        height: { ideal: 720 },
+        aspectRatio: { ideal: 16 / 9 }
       }
     };
   }
 
   function stopPreviewTracks() {
+    if (composeRaf) cancelAnimationFrame(composeRaf);
+    composeRaf = 0;
+    composeCanvas = null;
     try {
       if (previewStream) {
         previewStream.getTracks().forEach((t) => { try { t.stop(); } catch (_) {} });
       }
     } catch (_) {}
     previewStream = null;
+    cameraPortrait = null;
   }
 
   function stopTimer() {
@@ -72,8 +91,18 @@
     liveStartedAt = 0;
   }
 
+  function onStudioOrient() {
+    if (!studio || studio.dataset.phase === 'live') return;
+    clearTimeout(onStudioOrient._t);
+    onStudioOrient._t = setTimeout(() => {
+      applyStudioMode();
+      ensurePreviewCamera(false).catch(() => {});
+    }, 220);
+  }
+
   function closeStudio() {
     stopTimer();
+    window.removeEventListener('resize', onStudioOrient);
     if (studio) {
       try { studio.remove(); } catch (_) {}
       studio = null;
@@ -97,32 +126,43 @@
     closeStudio();
   }
 
-  async function ensurePreviewCamera() {
+  async function ensurePreviewCamera(force) {
     const videoEl = studio && studio.querySelector('#liveStudioCam');
-    if (previewStream && previewStream.getTracks().some((t) => t.readyState === 'live')) {
-      if (videoEl) {
-        videoEl.srcObject = previewStream;
-        try { await videoEl.play(); } catch (_) {}
-      }
+    const blurEl = studio && studio.querySelector('#liveStudioCamBlur');
+    const portrait = wantsPortraitCamera();
+    const live = previewStream && previewStream.getTracks().some((t) => t.readyState === 'live');
+    if (!force && live && cameraPortrait === portrait) {
+      attachPreview(videoEl, blurEl);
       return previewStream;
     }
     stopPreviewTracks();
+    cameraPortrait = portrait;
     previewStream = await navigator.mediaDevices.getUserMedia(cameraConstraints());
-    if (videoEl) {
-      videoEl.srcObject = previewStream;
-      try { await videoEl.play(); } catch (_) {}
-    }
+    attachPreview(videoEl, blurEl);
     return previewStream;
   }
 
-  function applyAspectUi() {
-    if (!studio) return;
-    studio.dataset.aspect = aspectMode === '16:9' ? 'landscape' : 'portrait';
-    studio.querySelectorAll('[data-aspect-btn]').forEach((btn) => {
-      const on = btn.getAttribute('data-aspect-btn') === aspectMode;
-      btn.classList.toggle('is-active', on);
-      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  function attachPreview(videoEl, blurEl) {
+    [videoEl, blurEl].forEach((el) => {
+      if (!el || !previewStream) return;
+      if (el.srcObject !== previewStream) el.srcObject = previewStream;
+      el.muted = true;
+      el.play().catch(() => {});
     });
+  }
+
+  function applyStudioMode() {
+    if (!studio) return;
+    const phone = isPhoneStudio();
+    studio.dataset.mode = phone ? 'phone' : 'desktop';
+    studio.dataset.aspect = wantsPortraitCamera() ? 'portrait' : 'landscape';
+    studio.dataset.blurSides = (!phone && blurSides) ? '1' : '0';
+    const blurBtn = studio.querySelector('[data-blur-sides]');
+    if (blurBtn) {
+      blurBtn.classList.toggle('is-active', !phone && blurSides);
+      blurBtn.setAttribute('aria-pressed', (!phone && blurSides) ? 'true' : 'false');
+      blurBtn.hidden = phone;
+    }
   }
 
   function setStudioPhase(phase) {
@@ -179,6 +219,46 @@
     timerInterval = setInterval(tick, 1000);
   }
 
+  let composeRaf = 0;
+  let composeCanvas = null;
+
+  function drawCover(ctx, video, dx, dy, dw, dh) {
+    const vw = video.videoWidth || dw;
+    const vh = video.videoHeight || dh;
+    const scale = Math.max(dw / vw, dh / vh);
+    const sw = dw / scale;
+    const sh = dh / scale;
+    ctx.drawImage(video, (vw - sw) / 2, (vh - sh) / 2, sw, sh, dx, dy, dw, dh);
+  }
+
+  function makeOutgoing(camera) {
+    if (!blurSides || isPhoneStudio() || !camera) return camera;
+    const video = studio && studio.querySelector('#liveStudioCam');
+    if (!video) return camera;
+    const canvas = document.createElement('canvas');
+    canvas.width = 1280;
+    canvas.height = 720;
+    const ctx = canvas.getContext('2d');
+    composeCanvas = canvas;
+    const loop = () => {
+      if (!composeCanvas) return;
+      try {
+        ctx.filter = 'blur(26px)';
+        drawCover(ctx, video, 0, 0, 1280, 720);
+        ctx.filter = 'none';
+        const destW = Math.round(720 * 9 / 16);
+        const destX = Math.round((1280 - destW) / 2);
+        drawCover(ctx, video, destX, 0, destW, 720);
+      } catch (_) {}
+      composeRaf = requestAnimationFrame(loop);
+    };
+    loop();
+    const out = canvas.captureStream(30);
+    const audio = camera.getAudioTracks()[0];
+    if (audio) out.addTrack(audio);
+    return out;
+  }
+
   async function beginBroadcastFromSetup() {
     if (!studio) return;
     silenceHomeFeed();
@@ -190,8 +270,9 @@
       return;
     }
     silenceHomeFeed();
-    const streamForLive = previewStream;
-    previewStream = null;
+    const camera = previewStream;
+    const streamForLive = makeOutgoing(camera);
+    if (streamForLive === camera) previewStream = null;
     await App.live.start({
       slug: 'live',
       title,
@@ -199,11 +280,16 @@
       facingMode: 'user'
     });
     silenceHomeFeed();
-    const cam = studio.querySelector('#liveStudioCam');
-    if (cam && streamForLive) {
-      cam.srcObject = streamForLive;
-      cam.muted = true;
-      cam.play().catch(() => {});
+    attachPreview(studio.querySelector('#liveStudioCam'), studio.querySelector('#liveStudioCamBlur'));
+    if (!previewStream && camera) {
+      const cam = studio.querySelector('#liveStudioCam');
+      const blur = studio.querySelector('#liveStudioCamBlur');
+      [cam, blur].forEach((el) => {
+        if (!el) return;
+        el.srcObject = camera;
+        el.muted = true;
+        el.play().catch(() => {});
+      });
     }
     const topic = studio.querySelector('[data-live-topic]');
     if (topic) topic.textContent = title;
@@ -215,7 +301,7 @@
   function openSetupStudio() {
     closeStudio();
     stopPreviewTracks();
-    aspectMode = '9:16';
+    blurSides = false;
     silenceHomeFeed();
 
     studio = doc.createElement('div');
@@ -239,7 +325,8 @@
         <div class="live-studio__body">
           <div class="live-studio__preview-wrap">
             <div class="live-studio__preview-frame">
-              <video id="liveStudioCam" class="live-studio__cam" autoplay muted playsinline></video>
+              <video id="liveStudioCamBlur" class="live-studio__cam live-studio__cam--blur" autoplay muted playsinline aria-hidden="true"></video>
+              <video id="liveStudioCam" class="live-studio__cam live-studio__cam--center" autoplay muted playsinline></video>
               <div class="live-studio__hearts" id="liveStudioHearts" aria-hidden="true"></div>
             </div>
           </div>
@@ -250,13 +337,9 @@
               <input id="liveStudioTitle" class="live-studio__input" type="text" maxlength="80" placeholder="לדוגמה: שיחה חיה מהאולפן" autocomplete="off">
             </div>
 
-            <div class="live-studio__side-block">
-              <span class="live-studio__label">יחס תצוגה לצופים</span>
-              <div class="live-studio__seg" role="group" aria-label="יחס תצוגה">
-                <button type="button" class="live-studio__seg-btn is-active" data-aspect-btn="9:16" aria-pressed="true">9:16 מובייל</button>
-                <button type="button" class="live-studio__seg-btn" data-aspect-btn="16:9" aria-pressed="false">16:9 מסך</button>
-              </div>
-              <p class="live-studio__help">מחליף רק את מסגרת התצוגה — לא הופך את המצלמה.</p>
+            <div class="live-studio__side-block live-studio__blur-block">
+              <button type="button" class="live-studio__seg-btn" data-blur-sides aria-pressed="false">טשטוש צדדים לטלפון</button>
+              <p class="live-studio__help">במחשב השידור רוחבי. הטשטוש משאיר את המרכז חד לצופים בטלפון.</p>
             </div>
 
             <button type="button" class="live-studio__btn live-studio__btn--primary live-studio__btn--block" data-action="request-start">
@@ -303,7 +386,7 @@
     doc.body.appendChild(studio);
     doc.body.classList.add('live-studio-open');
     setStudioPhase('setup');
-    applyAspectUi();
+    applyStudioMode();
 
     studio.querySelector('[data-action="close"]').onclick = async () => {
       if (studio.dataset.phase === 'live') await endBroadcastAndClose();
@@ -313,13 +396,15 @@
       showConfirm(() => beginBroadcastFromSetup());
     };
     studio.querySelector('[data-action="end"]').onclick = () => endBroadcastAndClose();
-    studio.querySelectorAll('[data-aspect-btn]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        if (studio.dataset.phase === 'live') return;
-        aspectMode = btn.getAttribute('data-aspect-btn') || '9:16';
-        applyAspectUi(); // CSS בלבד — בלי getUserMedia מחדש
+    const blurBtn = studio.querySelector('[data-blur-sides]');
+    if (blurBtn) {
+      blurBtn.addEventListener('click', () => {
+        if (!studio || studio.dataset.phase === 'live' || isPhoneStudio()) return;
+        blurSides = !blurSides;
+        applyStudioMode();
       });
-    });
+    }
+    window.addEventListener('resize', onStudioOrient);
     const chatForm = studio.querySelector('#liveStudioChatForm');
     if (chatForm) {
       chatForm.addEventListener('submit', async (e) => {

@@ -20,6 +20,7 @@ body.live-studio-open {
 }
 
 .live-studio__shell {
+  position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -27,13 +28,18 @@ body.live-studio-open {
 }
 
 .live-studio__header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 6;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
   padding-top: calc(12px + var(--safe-top, 0px));
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: #000;
+  border-bottom: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.62), transparent);
   flex-shrink: 0;
 }
 
@@ -84,33 +90,54 @@ body.live-studio-open {
 .live-studio__body {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0;
-}
-
-@media (min-width: 769px) {
-  .live-studio__body {
-    grid-template-columns: minmax(0, 1fr) 320px;
-  }
+  position: relative;
+  display: block;
 }
 
 .live-studio__preview-wrap {
+  position: absolute;
+  inset: 0;
   min-height: 0;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  background: #050505;
+  padding: 0;
+  background: #000;
 }
 
 .live-studio__preview-frame {
-  position: relative;
+  position: absolute;
+  inset: 0;
   overflow: hidden;
-  border-radius: 16px;
-  background: #111;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-  transition: width 0.2s ease, height 0.2s ease, aspect-ratio 0.2s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  border-radius: 0;
+  background: #000;
+  border: 0;
+  box-shadow: none;
+}
+
+.live-studio__cam,
+.live-studio__cam--blur {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+
+.live-studio__cam--blur {
+  display: none;
+}
+
+.live-studio[data-blur-sides="1"] .live-studio__cam--blur {
+  display: block;
+  filter: blur(22px);
+  transform: scale(1.1);
+}
+
+.live-studio[data-blur-sides="1"] .live-studio__cam--center {
+  width: min(56%, calc(100vh * 9 / 16));
+  height: 100%;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
 }
 
 .live-studio[data-phase="live"] .live-studio__preview-frame {
@@ -136,17 +163,13 @@ body.live-studio-open {
   background: radial-gradient(1200px 600px at 50% 0%, rgba(254, 44, 85, 0.12), transparent 55%), #000;
 }
 
-/* מסגרת תצוגה בלבד — הווידאו object-fit:cover בתוך המסגרת */
-.live-studio[data-aspect="portrait"] .live-studio__preview-frame {
-  width: min(100%, 360px);
-  aspect-ratio: 9 / 16;
-  max-height: min(68vh, 720px);
-}
-
+/* מסגרת מלאה — היחס נקבע לפי המכשיר, לא בכפתור | HYPER CORE TECH */
+.live-studio[data-aspect="portrait"] .live-studio__preview-frame,
 .live-studio[data-aspect="landscape"] .live-studio__preview-frame {
-  width: min(100%, 720px);
-  aspect-ratio: 16 / 9;
-  max-height: min(58vh, 480px);
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  aspect-ratio: auto;
 }
 
 .live-studio__hearts {
@@ -182,28 +205,40 @@ body.live-studio-open {
 }
 
 .live-studio__side {
+  position: absolute;
+  z-index: 6;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + var(--safe-bottom, 0px));
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px;
-  padding-bottom: calc(16px + var(--safe-bottom, 0px));
-  background: #0a0a0a;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 12px;
+  max-height: 46%;
+  padding: 14px;
+  overflow: auto;
+  background: rgba(8, 8, 8, 0.72);
+  border: 0;
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
+}
+
+.live-studio__blur-block {
+  display: none;
 }
 
 @media (min-width: 769px) {
-  .live-studio__side {
-    border-top: none;
-    border-inline-start: 1px solid rgba(255, 255, 255, 0.08);
-    justify-content: flex-start;
-    align-self: stretch;
-    min-height: 0;
+  .live-studio__side--live {
+    top: 76px;
+    bottom: 16px;
+    left: auto;
+    right: 16px;
+    width: min(340px, 34vw);
+    max-height: none;
+    border-radius: 16px;
   }
 
-  .live-studio__side--live {
-    justify-content: flex-start;
-    gap: 12px;
-    overflow: hidden;
+  .live-studio__blur-block {
+    display: block;
   }
 }
 
@@ -578,30 +613,17 @@ body.live-studio-open {
   flex: 1;
 }
 
-/* מובייל: תצוגה מקדימה למעלה, פאנל שליטה מסודר מתחת */
+/* מובייל: המצלמה על כל המסך, הכפתורים צפים */
 @media (max-width: 768px) {
   .live-studio__preview-wrap {
-    padding: 10px 12px 0;
-    flex: 1;
+    padding: 0;
   }
 
-  .live-studio[data-aspect="portrait"] .live-studio__preview-frame {
-    width: min(100%, 320px);
-    max-height: 52vh;
-  }
-
+  .live-studio[data-aspect="portrait"] .live-studio__preview-frame,
   .live-studio[data-aspect="landscape"] .live-studio__preview-frame {
     width: 100%;
-    max-height: 36vh;
-  }
-
-  .live-studio__body {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .live-studio__side {
-    flex-shrink: 0;
+    height: 100%;
+    max-height: none;
   }
 }
 
