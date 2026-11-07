@@ -29,6 +29,10 @@ class VideoRecorder {
     this._confirming = false;
     this._swipeHintShown = false;
     this._swipeHintTimer = 0;
+    this._bgNavLock = false;
+    this._bgClosing = false;
+    this._bgNavTimer = 0;
+    this._bgLoadToken = 0;
     this.bgStripScrolled = false;
     this.cameraAvailable = true;
     this._bgLoadTimer = 0;
@@ -239,23 +243,12 @@ class VideoRecorder {
       if (event.target?.closest?.('.vr-bg-dismiss')) return;
       const thumb = event.target?.closest?.('.vr-bg-thumb');
       if (!thumb || !this.bgStrip) return;
-      const targetLeft = thumb.offsetLeft - (this.bgStrip.clientWidth / 2) + (thumb.offsetWidth / 2);
-      this.bgStrip.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
-      const url = thumb.getAttribute('data-bg') || '';
-      if (!url) this.clearBackgroundSelection(true);
-      else this.selectBackground(url, thumb);
-      this.updateBgDismissVisibility();
+      this.focusBackgroundThumb(thumb);
     });
 
-    this.bgStrip?.addEventListener('scroll', () => {
-      if (this._bgScrollRaf) cancelAnimationFrame(this._bgScrollRaf);
-      this._bgScrollRaf = requestAnimationFrame(() => {
-        this.syncBackgroundFromScroll();
-        this.updateBgDismissVisibility();
-      });
-    }, { passive: true });
-
     this.bgStrip?.addEventListener('scrollend', () => {
+      this._bgNavLock = false;
+      if (this._bgClosing) return;
       this.syncBackgroundFromScroll(true);
       this.updateBgDismissVisibility();
     });
@@ -957,6 +950,7 @@ class VideoRecorder {
   }
 
   syncBackgroundFromScroll(force) {
+    if (this._bgNavLock || this._bgClosing) return;
     const thumb = this.getCenterThumb();
     if (!thumb) return;
     const url = thumb.getAttribute('data-bg') || '';
@@ -1132,8 +1126,14 @@ class VideoRecorder {
     let index = thumbs.findIndex((el) => el.classList.contains('is-selected'));
     if (index < 0) index = 0;
     const next = Math.max(0, Math.min(thumbs.length - 1, index + dir));
-    const thumb = thumbs[next];
-    if (!thumb) return;
+    this.focusBackgroundThumb(thumbs[next]);
+  }
+
+  focusBackgroundThumb(thumb) {
+    if (!thumb || !this.bgStrip) return;
+    this._bgNavLock = true;
+    clearTimeout(this._bgNavTimer);
+    this._bgNavTimer = setTimeout(() => { this._bgNavLock = false; }, 700);
     const targetLeft = thumb.offsetLeft - (this.bgStrip.clientWidth / 2) + (thumb.offsetWidth / 2);
     this.bgStrip.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
     const url = thumb.getAttribute('data-bg') || '';
@@ -1142,16 +1142,23 @@ class VideoRecorder {
   }
 
   dismissBackgroundStrip() {
-    const noneThumb = this.bgStrip?.querySelector?.('.vr-bg-thumb--none');
-    if (noneThumb && this.bgStrip) {
-      const targetLeft = noneThumb.offsetLeft - (this.bgStrip.clientWidth / 2) + (noneThumb.offsetWidth / 2);
-      this.bgStrip.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
-    } else if (this.bgStrip) {
-      this.bgStrip.scrollTo({ left: 0, behavior: 'smooth' });
-    }
+    this._bgClosing = true;
+    this._bgNavLock = true;
+    clearTimeout(this._bgNavTimer);
     this.clearBackgroundSelection(true);
-    this.updateBgDismissVisibility();
     this.hideSwipeHint(false);
+    if (this.bgStrip) {
+      const noneThumb = this.bgStrip.querySelector('.vr-bg-thumb--none');
+      const targetLeft = noneThumb
+        ? noneThumb.offsetLeft - (this.bgStrip.clientWidth / 2) + (noneThumb.offsetWidth / 2)
+        : 0;
+      this.bgStrip.scrollLeft = Math.max(0, targetLeft);
+    }
+    this.updateBgDismissVisibility();
+    requestAnimationFrame(() => {
+      this._bgClosing = false;
+      this._bgNavLock = false;
+    });
   }
 
   restoreToolsExpanded() {
@@ -1542,11 +1549,18 @@ class VideoRecorder {
     this.bgStrip?.querySelectorAll('.vr-bg-thumb').forEach((el) => {
       el.classList.toggle('is-selected', el === thumbEl || el.getAttribute('data-bg') === url);
     });
-    if (this.bgFrame) {
-      this.bgFrame.src = url;
+    this._bgLoadToken = (this._bgLoadToken || 0) + 1;
+    const token = this._bgLoadToken;
+    const reveal = () => {
+      if (token !== this._bgLoadToken || this.selectedBgUrl !== url || !this.bgFrame) return;
+      if (this.bgFrame.getAttribute('src') !== url) this.bgFrame.src = url;
       this.bgFrame.hidden = false;
       this.bgFrame.removeAttribute('hidden');
-    }
+    };
+    const pending = new Image();
+    pending.onload = reveal;
+    pending.src = url;
+    if (pending.complete && pending.naturalWidth) reveal();
     this.setShutterSolid(true);
     this.updateContinueVisibility();
     this.updateBgDismissVisibility();

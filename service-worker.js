@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261107cam9'; // Swipe hint stays up, and next or close sit at the top while browsing images
+  const CACHE_NAME = 'sos-cache-v20261107cam10'; // Image changes wait for the chosen photo, and close does not replay the strip
   const PRECACHE_URLS = [
     './',
     './videos.html',
