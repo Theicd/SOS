@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261108cam16'; // Image albums publish every picture and the feed can swipe between them
+  const CACHE_NAME = 'sos-cache-v20261108cam17'; // Album next opens the post description before the camera closes
   const PRECACHE_URLS = [
     './',
     './videos.html',

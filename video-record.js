@@ -788,6 +788,11 @@ class VideoRecorder {
         }
         const seconds = this.slideSeconds || 5;
         this._composeOverlayText = '';
+        if (typeof window.openCompose === 'function') {
+          window.openCompose({ step: 'editor', composeMode: 'camera' });
+        } else if (window.NostrApp?.openCompose) {
+          window.NostrApp.openCompose({ step: 'editor', composeMode: 'camera' });
+        }
         this.clearPendingPreview();
         await window.handleImageAlbum(files, { seconds });
         this.closeModal({ skipResume: true });
