@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261107cam7'; // Image browse hides camera tools and shows a swipe hint
+  const CACHE_NAME = 'sos-cache-v20261107cam8'; // Image browse hides the duration row and keeps the swipe hint readable
   const PRECACHE_URLS = [
     './',
     './videos.html',
