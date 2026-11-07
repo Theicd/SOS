@@ -897,15 +897,18 @@ body.video-record-open .videos-feed iframe {
 .vr-next-btn {
   width: auto;
   min-width: 0;
+  height: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
   border: none;
   border-radius: 999px;
-  padding: 10px 16px;
+  padding: 0 18px;
   background: #fff;
   color: #111;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 800;
   cursor: pointer;
-  line-height: 1.2;
+  line-height: 1;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -920,7 +923,7 @@ body.video-record-open .videos-feed iframe {
 .vr-review-text {
   display: none;
   position: absolute;
-  top: calc(72px + var(--safe-top, 0px));
+  top: calc(84px + var(--safe-top, 0px));
   left: 12px;
   z-index: 7;
   align-items: center;
@@ -930,6 +933,23 @@ body.video-record-open .videos-feed iframe {
   color: #fff;
   padding: 0;
   cursor: pointer;
+}
+
+.vr-review-text .vr-tool__glyph {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 26px;
+}
+
+.vr-review-text .vr-tool-btn__aa {
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.vr-review-text .vr-tool__label {
+  font-size: 15px;
 }
 
 .video-record-stage--review.is-texting .vr-review-text,
