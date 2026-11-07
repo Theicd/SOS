@@ -1281,7 +1281,9 @@
     
     // חלק וידאו (compose.js) – אם יש וידאו מועלה, נשתמש ב-URL במקום dataUrl
     if (state.media) {
-      if (state.media.type === 'video' && state.media.url) {
+      if (state.media.type === 'image' && Array.isArray(state.media.album) && state.media.album.length > 1) {
+        state.media.album.forEach((url) => parts.push(url));
+      } else if (state.media.type === 'video' && state.media.url) {
         parts.push(state.media.url);
       } else if (state.media.dataUrl) {
         parts.push(state.media.dataUrl);
@@ -1310,6 +1312,9 @@
       if (mediaSource) {
         mediaTags.push(['media', state.media.mimeType || 'video/webm', mediaSource, state.media.hash || '']);
       }
+    } else if (state.media && state.media.type === 'image' && Array.isArray(state.media.album) && state.media.album.length > 1) {
+      mediaTags.push(['album', String(state.media.albumSeconds || 5)]);
+      mediaTags.push(['t', 'sos-album']);
     } else if (liveUrl) {
       mediaTags.push(['media', 'application/vnd.apple.mpegurl', liveUrl]);
       mediaTags.push(['t', 'live-hls']);
@@ -1811,6 +1816,61 @@
   // חשיפת פונקציות גלובליות עבור מודולים אחרים
   window.publishPost = publishPostImpl;
   window.handleMediaInput = handleMediaInput;
+
+  async function shrinkAlbumDataUrl(dataUrl, maxEdge, quality) {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = reject;
+      el.src = dataUrl;
+    });
+    const edge = Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height, 1);
+    const scale = Math.min(1, maxEdge / edge);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+    canvas.height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', quality);
+  }
+
+  async function handleImageAlbum(files, options = {}) {
+    const seconds = Math.max(1, Math.min(15, Number(options?.seconds) || 5));
+    const list = (files || []).filter((file) => file && String(file.type || '').startsWith('image/'));
+    if (!list.length) return;
+    setProgressWithIcon('מעבד תמונות...', '🖼️');
+    let dataUrls = [];
+    for (const file of list) {
+      const dataUrl = await resizeImage(file);
+      if (dataUrl) dataUrls.push(dataUrl);
+    }
+    if (!dataUrls.length) {
+      setStatus('נכשלה טעינת התמונות. נסו שוב.', 'error');
+      return;
+    }
+    const budget = 140000;
+    let edge = 960;
+    let quality = 0.72;
+    while (dataUrls.reduce((sum, url) => sum + url.length, 0) > budget && quality >= 0.45) {
+      const next = [];
+      for (const url of dataUrls) {
+        next.push(await shrinkAlbumDataUrl(url, edge, quality));
+      }
+      dataUrls = next;
+      edge = Math.max(480, Math.round(edge * 0.8));
+      quality -= 0.08;
+    }
+    state.media = {
+      type: 'image',
+      dataUrl: dataUrls[0],
+      album: dataUrls,
+      albumSeconds: seconds,
+    };
+    showMediaPreview(state.media);
+    showComposeStep('editor');
+    setStatus(dataUrls.length > 1 ? `${dataUrls.length} תמונות מוכנות לפרסום` : 'המדיה נוספה. לחיצה על התצוגה תסיר אותה.');
+  }
+
+  window.handleImageAlbum = handleImageAlbum;
   window.handleImageInput = handleImageInput;
   window.handleVideoInput = handleVideoInput;
   window.handleComposeMediaFile = handleComposeMediaFile;

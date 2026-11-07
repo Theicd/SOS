@@ -769,6 +769,30 @@ class VideoRecorder {
       if (this._studioOpen) this.closeTextStudio();
       this.stopSlideShow();
       this.saveOverlayToSlide(this.slideIndex);
+      const albumSlides = (this.slides || []).filter((slide) => slide?.file && !String(slide.file.type || '').startsWith('video/'));
+      if (albumSlides.length > 1 && typeof window.handleImageAlbum === 'function') {
+        const files = [];
+        for (const slide of albumSlides) {
+          const overlay = slide.overlay || {};
+          this.overlayText = String(overlay.text || '');
+          this.overlayTextPos = overlay.pos || 'middle';
+          this.overlayStyle = overlay.style || 'classic';
+          this.overlayColor = overlay.color || '#ffffff';
+          this.overlayBg = !!overlay.bg;
+          this.overlayAlign = overlay.align || 'center';
+          this.overlayScale = Number(overlay.scale) || 1;
+          const burned = String(this.overlayText).trim()
+            ? await this.burnTextOntoImage(slide.file)
+            : slide.file;
+          if (burned) files.push(burned);
+        }
+        const seconds = this.slideSeconds || 5;
+        this._composeOverlayText = '';
+        this.clearPendingPreview();
+        await window.handleImageAlbum(files, { seconds });
+        this.closeModal({ skipResume: true });
+        return;
+      }
       let file = this.pendingFile;
       const isVideo = String(file.type || '').startsWith('video/');
       const text = String(this.overlayText || '').trim();

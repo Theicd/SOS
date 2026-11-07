@@ -3311,6 +3311,60 @@ async function applyPendingNewPostsToDom() {
   return added;
 }
 
+function mountFeedAlbum(mediaDiv, urls, seconds) {
+  const stack = document.createElement('div');
+  stack.className = 'videos-feed__album';
+  const frames = urls.map((url, index) => {
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = '';
+    img.className = 'videos-feed__album-img' + (index === 0 ? ' is-on' : '');
+    img.draggable = false;
+    stack.appendChild(img);
+    return img;
+  });
+  const dots = document.createElement('div');
+  dots.className = 'videos-feed__album-dots';
+  urls.forEach((_, index) => {
+    const dot = document.createElement('span');
+    if (index === 0) dot.className = 'is-on';
+    dots.appendChild(dot);
+  });
+  stack.appendChild(dots);
+  mediaDiv.appendChild(stack);
+  let index = 0;
+  const effects = ['fade', 'slide', 'zoom'];
+  const paint = (next, animate) => {
+    index = ((next % urls.length) + urls.length) % urls.length;
+    frames.forEach((img, i) => {
+      img.classList.toggle('is-on', i === index);
+      img.classList.remove('is-fade', 'is-slide', 'is-zoom');
+    });
+    [...dots.children].forEach((dot, i) => dot.classList.toggle('is-on', i === index));
+    if (animate) {
+      const effect = effects[Math.floor(Math.random() * effects.length)];
+      frames[index].classList.add(`is-${effect}`);
+    }
+  };
+  const wait = Math.max(1, Number(seconds) || 5) * 1000;
+  let timer = setInterval(() => paint(index + 1, true), wait);
+  let startX = 0;
+  let startY = 0;
+  stack.addEventListener('pointerdown', (event) => {
+    startX = event.clientX;
+    startY = event.clientY;
+  });
+  stack.addEventListener('pointerup', (event) => {
+    const dx = event.clientX - startX;
+    const dy = event.clientY - startY;
+    if (Math.abs(dx) < 42 || Math.abs(dx) < Math.abs(dy)) return;
+    event.stopPropagation();
+    paint(index + (dx < 0 ? 1 : -1), true);
+    clearInterval(timer);
+    timer = setInterval(() => paint(index + 1, true), wait);
+  });
+}
+
 // חלק עדכון בזמן אמת (videos.js) – המרת אירוע Nostr לפריט פיד וידאו | HYPER CORE TECH
 function parseEventToVideoItem(event, currentApp) {
   if (!event || event.kind !== 1) return null;
@@ -3337,6 +3391,7 @@ function parseEventToVideoItem(event, currentApp) {
   let gameForced = false;
   let videoUrl = mediaLinks.find(isVideoLink) || null;
   let imageUrl = mediaLinks.find(isImageLink) || null;
+  const albumInfo = collectAlbumFromEvent(event, mediaLinks);
   let mediaHash = '';
   const mediaMirrors = [];
 
@@ -3409,6 +3464,8 @@ function parseEventToVideoItem(event, currentApp) {
     gameForced: !!(gameUrl && gameForced),
     videoUrl: (liveUrl || gameUrl) ? null : videoUrl,
     imageUrl,
+    imageUrls: albumInfo.imageUrls,
+    albumSeconds: albumInfo.albumSeconds,
     hash: mediaHash || extractMediaHashFromEvent(event) || '',
     mirrors: mediaMirrors,
     fx: resolveFxValue(event, imageUrl),
@@ -4417,6 +4474,24 @@ function isImageLink(link) {
   return false;
 }
 
+function collectAlbumFromEvent(event, mediaLinks) {
+  const imageUrls = (mediaLinks || []).filter(isImageLink);
+  let seconds = 5;
+  if (Array.isArray(event?.tags)) {
+    event.tags.forEach((tag) => {
+      if (!Array.isArray(tag)) return;
+      if (tag[0] === 'album') {
+        const n = Number(tag[1]);
+        if (n >= 1 && n <= 15) seconds = n;
+      }
+    });
+  }
+  return {
+    imageUrls,
+    albumSeconds: imageUrls.length > 1 ? seconds : 0,
+  };
+}
+
 // חלק אפקטים (videos.js) – חילוץ תגית fx מהאירוע במידת הצורך | HYPER CORE TECH
 function extractFxTag(event) {
   if (!event || !Array.isArray(event.tags)) return null;
@@ -5169,13 +5244,16 @@ function renderVideoCard(video) {
     
   } else if (video.imageUrl) {
     mediaDiv.dataset.mediaType = 'image';
-
-    const imgEl = document.createElement('img');
-    imgEl.src = video.imageUrl;
-    imgEl.alt = video.authorName || 'פוסט תמונה';
-    imgEl.className = 'videos-feed__media-image';
-    imgEl.loading = 'lazy';
-    mediaDiv.appendChild(imgEl);
+    if (Array.isArray(video.imageUrls) && video.imageUrls.length > 1) {
+      mountFeedAlbum(mediaDiv, video.imageUrls, video.albumSeconds || 5);
+    } else {
+      const imgEl = document.createElement('img');
+      imgEl.src = video.imageUrl;
+      imgEl.alt = video.authorName || 'פוסט תמונה';
+      imgEl.className = 'videos-feed__media-image';
+      imgEl.loading = 'lazy';
+      mediaDiv.appendChild(imgEl);
+    }
 
     queueMicrotask(markReady);
   } else {
@@ -9073,6 +9151,7 @@ async function loadVideos() {
     let gameForced = false;
     let videoUrl = mediaLinks.find(isVideoLink);
     const imageUrl = mediaLinks.find(isImageLink);
+    const albumInfo = collectAlbumFromEvent(event, mediaLinks);
 
     // תגיות media / live-hls / game-embed
     let mediaHash = '';
@@ -9128,6 +9207,8 @@ async function loadVideos() {
         gameForced: !!(gameUrl && gameForced),
         videoUrl: (liveUrl || gameUrl) ? null : (videoUrl || null),
         imageUrl: imageUrl || null,
+        imageUrls: albumInfo.imageUrls,
+        albumSeconds: albumInfo.albumSeconds,
         hash: mediaHash || extractMediaHashFromEvent(event) || '',
         mirrors: mediaMirrors,
         fx: resolveFxValue(event, imageUrl),
