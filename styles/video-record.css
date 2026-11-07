@@ -122,7 +122,7 @@ body.video-record-open .videos-feed iframe {
   outline: none;
 }
 
-/* טור כלים שמאלי — בכניסה עם הסבר ליד כל אייקון | HYPER CORE TECH */
+/* אייקונים בשורה, כמו במצלמה של טיקטוק | HYPER CORE TECH */
 .vr-side-tools {
   position: absolute !important;
   top: calc(10px + var(--safe-top, 0px)) !important;
@@ -132,83 +132,24 @@ body.video-record-open .videos-feed iframe {
   inset-inline-end: auto !important;
   z-index: 6;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  max-height: calc(100% - 210px);
-  overflow-x: hidden;
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-
-.vr-side-tools::-webkit-scrollbar {
-  display: none;
-}
-
-.vr-tools-toggle {
-  width: 40px;
-  height: 40px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.5);
-  color: #fff;
-  font-size: 14px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  flex-shrink: 0;
-}
-
-.vr-tool {
-  display: flex;
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  border: none;
-  background: transparent;
-  color: #fff;
-  font: inherit;
-  cursor: pointer;
-  padding: 0;
-  max-width: calc(100vw - 24px);
-}
-
-.vr-tool__icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.45);
-  color: #fff;
-  font-size: 15px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  position: relative;
-}
-
-.vr-tool__label {
-  background: rgba(0, 0, 0, 0.55);
-  border-radius: 999px;
-  padding: 5px 10px;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.2;
-  white-space: nowrap;
-  direction: rtl;
-}
-
-.vr-side-tools.is-collapsed .vr-tool__label {
-  display: none;
 }
 
 .vr-tool-btn {
+  width: 36px;
+  height: 36px;
   border: none;
-  background: transparent;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
   color: #fff;
+  font-size: 15px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 .vr-tool-btn__aa {
@@ -218,14 +159,12 @@ body.video-record-open .videos-feed iframe {
   line-height: 1;
 }
 
-.vr-tool-btn.is-on .vr-tool__icon,
-.vr-tool.is-on .vr-tool__icon {
+.vr-tool-btn.is-on {
   background: rgba(255, 193, 7, 0.85);
   color: #111;
 }
 
-.vr-tool-btn.is-active .vr-tool__icon,
-.vr-tool.is-active .vr-tool__icon {
+.vr-tool-btn.is-active {
   background: rgba(79, 195, 247, 0.9);
   color: #0a0a0a;
 }
@@ -516,9 +455,6 @@ body.video-record-open .videos-feed iframe {
 
 /* שידור חי רגיל + נקודה אדומה | HYPER CORE TECH */
 .vr-live-dot {
-  position: absolute;
-  top: 6px;
-  right: 6px;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -526,20 +462,21 @@ body.video-record-open .videos-feed iframe {
   box-shadow: 0 0 0 2px rgba(254, 44, 85, 0.35), 0 0 8px rgba(254, 44, 85, 0.75);
   flex-shrink: 0;
   animation: vrLivePulse 1.4s ease-in-out infinite;
-  pointer-events: none;
 }
 
 .vr-continue {
   position: absolute;
-  right: 14px;
-  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  right: 12px;
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
   z-index: 6;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   border: none;
   border-radius: 999px;
-  padding: 10px 16px;
+  padding: 10px 14px;
   background: #fff;
   color: #111;
   font-size: 15px;
@@ -551,13 +488,6 @@ body.video-record-open .videos-feed iframe {
 
 .vr-continue[hidden] {
   display: none !important;
-}
-
-.vr-tool__icon .vr-gallery-thumb {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  border-width: 1.5px;
 }
 
 @keyframes vrLivePulse {
