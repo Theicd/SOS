@@ -20,6 +20,13 @@ class VideoRecorder {
     this.bgUrls = [];
     this.overlayText = '';
     this.overlayTextPos = 'middle';
+    this.overlayStyle = 'classic';
+    this.overlayColor = '#ffffff';
+    this.overlayBg = false;
+    this.overlayAlign = 'center';
+    this.overlayScale = 1;
+    this._studioOpen = false;
+    this._confirming = false;
     this.bgStripScrolled = false;
     this.cameraAvailable = true;
     this._bgLoadTimer = 0;
@@ -59,6 +66,17 @@ class VideoRecorder {
     this.gridEl = document.getElementById('videoRecordGrid');
     this.countdownEl = document.getElementById('videoRecordCountdown');
     this.reviewTextLayer = document.getElementById('videoRecordReviewTextLayer');
+    this.reviewTextBtn = document.getElementById('videoRecordReviewTextBtn');
+    this.textStudio = document.getElementById('videoRecordTextStudio');
+    this.textStudioBottom = document.getElementById('videoRecordTextStudioBottom');
+    this.textStudioDone = document.getElementById('videoRecordTextStudioDone');
+    this.textAlignBtn = document.getElementById('videoRecordTextAlign');
+    this.textColorBtn = document.getElementById('videoRecordTextColor');
+    this.textColorDot = document.getElementById('videoRecordTextColorDot');
+    this.textColors = document.getElementById('videoRecordTextColors');
+    this.textBgBtn = document.getElementById('videoRecordTextBg');
+    this.textSize = document.getElementById('videoRecordTextSize');
+    this.studioInput = document.getElementById('videoRecordStudioInput');
     this.floatingTimer = document.getElementById('floatingTimer');
     this.modes = document.getElementById('videoRecordModes');
     this.galleryInput = document.getElementById('videoRecordGalleryInput');
@@ -109,7 +127,48 @@ class VideoRecorder {
     this.flashButton?.addEventListener('click', () => this.toggleFlash());
     this.gridButton?.addEventListener('click', () => this.toggleGrid());
     this.closeBtn?.addEventListener('click', () => this.closeModal());
-    this.reviewBackBtn?.addEventListener('click', () => this.backToCamera());
+    this.reviewBackBtn?.addEventListener('click', () => {
+      if (this._studioOpen) {
+        this.closeTextStudio();
+        return;
+      }
+      this.backToCamera();
+    });
+    this.reviewTextBtn?.addEventListener('click', () => this.openTextStudio());
+    this.textStudioDone?.addEventListener('click', () => this.closeTextStudio());
+    this.textAlignBtn?.addEventListener('click', () => this.cycleTextAlign());
+    this.textColorBtn?.addEventListener('click', () => this.toggleColorPop());
+    this.textBgBtn?.addEventListener('click', () => this.toggleTextBackground());
+    this.textSize?.addEventListener('input', () => {
+      const n = Number(this.textSize.value) || 100;
+      this.overlayScale = Math.max(0.55, Math.min(1.8, n / 100));
+      this.renderTextLayer();
+    });
+    this.studioInput?.addEventListener('input', () => {
+      this.overlayText = String(this.studioInput.value || '').trim();
+      this.renderTextLayer();
+    });
+    this.textColors?.querySelectorAll('[data-color]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.setOverlayColor(btn.getAttribute('data-color') || '#ffffff');
+      });
+    });
+    this.textStudio?.querySelectorAll('[data-font]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.setOverlayStyle(btn.getAttribute('data-font') || 'classic');
+      });
+    });
+    this.textStudio?.querySelectorAll('[data-text-pos]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.setTextPosition(btn.getAttribute('data-text-pos') || 'middle');
+      });
+    });
+    if (window.visualViewport && !VideoRecorder._vvBound) {
+      VideoRecorder._vvBound = true;
+      const place = () => window.videoRecorder?.placeStudioAboveKeyboard();
+      window.visualViewport.addEventListener('resize', place);
+      window.visualViewport.addEventListener('scroll', place);
+    }
     this.nextBtn?.addEventListener('click', () => this.confirmPendingFile());
     this.liveBtn?.addEventListener('click', () => {
       try { this.closeModal(); } catch (_) {}
@@ -463,7 +522,9 @@ class VideoRecorder {
     this.setGalleryThumbFromFile(file);
     this.pendingObjectUrl = URL.createObjectURL(file);
     const isVideo = String(file.type || '').startsWith('video/');
-    this._overlayBurnedInFile = !isVideo;
+    this._overlayBurnedInFile = false;
+    this.stageReview?.classList.toggle('is-image', !isVideo);
+    this.closeTextStudio();
     if (isVideo && this.reviewVideo) {
       this.reviewVideo.hidden = false;
       if (this.reviewImage) this.reviewImage.hidden = true;
@@ -480,20 +541,35 @@ class VideoRecorder {
   }
 
   backToCamera() {
+    this.closeTextStudio();
     this.clearPendingPreview();
     this.showCameraStage();
     this.startCamera();
   }
 
-  confirmPendingFile() {
-    if (!this.pendingFile) return;
-    const file = this.pendingFile;
-    // טקסט שנצרב על התמונה נשאר על הקובץ. תיאור הפוסט נכתב בדף הבא. | HYPER CORE TECH
-    this._composeOverlayText = this._overlayBurnedInFile ? '' : String(this.overlayText || '').trim();
+  async confirmPendingFile() {
+    if (this._confirming || !this.pendingFile) return;
+    this._confirming = true;
+    try {
+      if (this._studioOpen) this.closeTextStudio();
+      let file = this.pendingFile;
+      const isVideo = String(file.type || '').startsWith('video/');
+      const text = String(this.overlayText || '').trim();
+      if (!isVideo && text) {
+        const burned = await this.burnTextOntoImage(file);
+        if (burned) file = burned;
+        this._composeOverlayText = '';
+      } else {
+        this._composeOverlayText = text;
+      }
     this.lastShareFile = file;
-    this.clearPendingPreview();
-    this.transferToCompose(file);
-    this.closeModal({ skipResume: true });
+      this.pendingFile = file;
+      this.clearPendingPreview();
+      this.transferToCompose(file);
+      this.closeModal({ skipResume: true });
+    } finally {
+      this._confirming = false;
+    }
   }
 
   /** חזרה מעורך הפוסט לתצוגה גדולה של אותו קובץ | HYPER CORE TECH */
@@ -1099,7 +1175,7 @@ class VideoRecorder {
   setTextPosition(pos) {
     const next = ['top', 'middle', 'bottom'].includes(pos) ? pos : 'middle';
     this.overlayTextPos = next;
-    this.textEditor?.querySelectorAll('[data-text-pos]').forEach((btn) => {
+    this.modal?.querySelectorAll('[data-text-pos]').forEach((btn) => {
       btn.classList.toggle('is-active', btn.getAttribute('data-text-pos') === next);
     });
     if (this.textLayer) this.textLayer.setAttribute('data-pos', next);
@@ -1110,14 +1186,23 @@ class VideoRecorder {
   applyTextToLayer(layer, forceHide) {
     if (!layer) return;
     const text = String(this.overlayText || '').trim();
+    layer.replaceChildren();
     if (forceHide || !text) {
-      layer.textContent = '';
       layer.hidden = true;
       layer.setAttribute('hidden', '');
       return;
     }
-    layer.textContent = text;
+    const ink = document.createElement('span');
+    ink.className = 'vr-text-ink';
+    ink.textContent = this.overlayStyle === 'retro' ? text.toUpperCase() : text;
+    if (this.overlayBg) ink.style.background = this.plateColor(this.overlayColor);
+    layer.appendChild(ink);
     layer.setAttribute('data-pos', this.overlayTextPos || 'middle');
+    layer.setAttribute('data-style', this.overlayStyle || 'classic');
+    layer.setAttribute('data-align', this.overlayAlign || 'center');
+    layer.setAttribute('data-bg', this.overlayBg ? '1' : '0');
+    layer.style.color = this.overlayColor || '#ffffff';
+    layer.style.fontSize = `${(7 * (Number(this.overlayScale) || 1)).toFixed(2)}vw`;
     layer.hidden = false;
     layer.removeAttribute('hidden');
   }
@@ -1130,52 +1215,256 @@ class VideoRecorder {
   clearOverlayText() {
     this.overlayText = '';
     this.overlayTextPos = 'middle';
+    this.overlayStyle = 'classic';
+    this.overlayColor = '#ffffff';
+    this.overlayBg = false;
+    this.overlayAlign = 'center';
+    this.overlayScale = 1;
     if (this.textInput) this.textInput.value = '';
+    if (this.studioInput) this.studioInput.value = '';
+    if (this.textSize) this.textSize.value = '100';
+    this.syncTextControls();
+    this.closeTextStudio();
     this.renderTextLayer();
     this.hideTextEditor();
   }
 
-  drawOverlayText(ctx, width, height) {
+  openTextStudio() {
+    if (!this.textStudio || !this.stageReview?.classList.contains('is-image')) return;
+    this._studioOpen = true;
+    this.textStudio.hidden = false;
+    this.textStudio.removeAttribute('hidden');
+    this.stageReview.classList.add('is-texting');
+    this.reviewTextBtn?.classList.add('is-active');
+    if (this.studioInput) {
+      this.studioInput.value = this.overlayText || '';
+      try { this.studioInput.focus(); } catch (_) {}
+    }
+    this.syncTextControls();
+    this.renderTextLayer();
+    this.placeStudioAboveKeyboard();
+  }
+
+  closeTextStudio() {
+    const wasOpen = this._studioOpen;
+    this._studioOpen = false;
+    if (wasOpen && this.studioInput) this.overlayText = String(this.studioInput.value || '').trim();
+    if (this.textStudio) {
+      this.textStudio.hidden = true;
+      this.textStudio.setAttribute('hidden', '');
+    }
+    if (this.textColors) {
+      this.textColors.hidden = true;
+      this.textColors.setAttribute('hidden', '');
+    }
+    this.textColorBtn?.setAttribute('aria-expanded', 'false');
+    this.stageReview?.classList.remove('is-texting');
+    this.reviewTextBtn?.classList.remove('is-active');
+    if (this.textStudioBottom) this.textStudioBottom.style.transform = '';
+    this.renderTextLayer();
+  }
+
+  placeStudioAboveKeyboard() {
+    if (!this._studioOpen || !this.textStudioBottom || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    this.textStudioBottom.style.transform = offset ? `translateY(-${Math.round(offset)}px)` : '';
+  }
+
+  syncTextControls() {
+    const style = this.overlayStyle || 'classic';
+    const color = this.overlayColor || '#ffffff';
+    const align = this.overlayAlign || 'center';
+    this.textStudio?.querySelectorAll('[data-font]').forEach((btn) => {
+      btn.classList.toggle('is-on', btn.getAttribute('data-font') === style);
+    });
+    this.textColors?.querySelectorAll('[data-color]').forEach((btn) => {
+      btn.classList.toggle('is-on', (btn.getAttribute('data-color') || '').toLowerCase() === color.toLowerCase());
+    });
+    if (this.textColorDot) this.textColorDot.style.background = color;
+    this.textBgBtn?.classList.toggle('is-on', !!this.overlayBg);
+    this.textBgBtn?.setAttribute('aria-pressed', this.overlayBg ? 'true' : 'false');
+    const icon = this.textAlignBtn?.querySelector('i');
+    if (icon) {
+      icon.className = align === 'right'
+        ? 'fa-solid fa-align-right'
+        : align === 'left'
+          ? 'fa-solid fa-align-left'
+          : 'fa-solid fa-align-center';
+    }
+    this.modal?.querySelectorAll('[data-text-pos]').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.getAttribute('data-text-pos') === (this.overlayTextPos || 'middle'));
+    });
+  }
+
+  setOverlayStyle(style) {
+    const allowed = ['classic', 'retro', 'neon', 'comic', 'elegant'];
+    this.overlayStyle = allowed.includes(style) ? style : 'classic';
+    this.syncTextControls();
+    this.renderTextLayer();
+  }
+
+  setOverlayColor(color) {
+    this.overlayColor = color || '#ffffff';
+    if (this.textColors) {
+      this.textColors.hidden = true;
+      this.textColors.setAttribute('hidden', '');
+    }
+    this.textColorBtn?.setAttribute('aria-expanded', 'false');
+    this.syncTextControls();
+    this.renderTextLayer();
+  }
+
+  toggleColorPop() {
+    if (!this.textColors) return;
+    const open = this.textColors.hasAttribute('hidden');
+    this.textColors.hidden = !open;
+    if (open) this.textColors.removeAttribute('hidden');
+    else this.textColors.setAttribute('hidden', '');
+    this.textColorBtn?.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  toggleTextBackground() {
+    this.overlayBg = !this.overlayBg;
+    this.syncTextControls();
+    this.renderTextLayer();
+  }
+
+  cycleTextAlign() {
+    const order = ['center', 'right', 'left'];
+    const i = order.indexOf(this.overlayAlign || 'center');
+    this.overlayAlign = order[(i + 1) % order.length];
+    this.syncTextControls();
+    this.renderTextLayer();
+  }
+
+  plateColor(hex) {
+    const c = String(hex || '').replace('#', '');
+    if (c.length < 6) return 'rgba(0,0,0,0.78)';
+    const r = parseInt(c.slice(0, 2), 16);
+    const g = parseInt(c.slice(2, 4), 16);
+    const b = parseInt(c.slice(4, 6), 16);
+    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return lum > 0.62 ? 'rgba(0,0,0,0.78)' : 'rgba(255,255,255,0.92)';
+  }
+
+  fillRoundRect(ctx, x, y, w, h, r) {
+    const radius = Math.max(0, Math.min(r, w / 2, h / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + w, y, x + w, y + h, radius);
+    ctx.arcTo(x + w, y + h, x, y + h, radius);
+    ctx.arcTo(x, y + h, x, y, radius);
+    ctx.arcTo(x, y, x + w, y, radius);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  async burnTextOntoImage(file) {
+    if (!file) return null;
     const text = String(this.overlayText || '').trim();
-    if (!text || !ctx) return;
+    if (!text) return file;
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const img = await new Promise((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = reject;
+        el.src = dataUrl;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || img.width || 1080;
+      canvas.height = img.naturalHeight || img.height || 1080;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return file;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      this.drawOverlayText(ctx, canvas.width, canvas.height);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+      if (!blob) return file;
+      return new File([blob], `photo-text-${Date.now()}.jpg`, { type: 'image/jpeg' });
+    } catch (err) {
+      console.error('[VideoRecorder] burn text failed', err);
+      return file;
+    }
+  }
+
+  drawOverlayText(ctx, width, height) {
+    const raw = String(this.overlayText || '').trim();
+    if (!raw || !ctx) return;
     const pos = this.overlayTextPos || 'middle';
-    let fontSize = Math.max(28, Math.round(width * 0.07));
+    const align = this.overlayAlign || 'center';
+    const style = this.overlayStyle || 'classic';
+    const scale = Number(this.overlayScale) || 1;
+    const color = this.overlayColor || '#ffffff';
+    const text = style === 'retro' ? raw.toUpperCase() : raw;
+    let fontSize = Math.max(22, Math.round(width * 0.07 * scale));
+    const family = style === 'retro'
+      ? '"Courier New", monospace'
+      : style === 'comic'
+        ? '"Comic Sans MS", "Comic Sans", cursive'
+        : style === 'elegant'
+          ? 'Georgia, "Times New Roman", serif'
+          : 'sans-serif';
+    const weight = style === 'elegant' ? 600 : 800;
+    const fontStyle = style === 'elegant' ? 'italic' : 'normal';
     ctx.save();
     ctx.direction = 'rtl';
-    ctx.textAlign = 'center';
+    ctx.textAlign = align === 'right' ? 'right' : align === 'left' ? 'left' : 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#fff';
-    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-    ctx.lineWidth = Math.max(3, Math.round(fontSize * 0.08));
-    ctx.font = `800 ${fontSize}px sans-serif`;
+    ctx.font = `${fontStyle} ${weight} ${fontSize}px ${family}`;
     const maxWidth = width * 0.86;
-    const words = text.split(/\s+/);
     const lines = [];
-    let line = '';
-    words.forEach((word) => {
-      const test = line ? `${line} ${word}` : word;
-      if (ctx.measureText(test).width > maxWidth && line) {
-        lines.push(line);
-        line = word;
-      } else {
-        line = test;
-      }
+    text.split(/\n+/).forEach((para) => {
+      const words = para.split(/\s+/).filter(Boolean);
+      let line = '';
+      words.forEach((word) => {
+        const test = line ? `${line} ${word}` : word;
+        if (ctx.measureText(test).width > maxWidth && line) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = test;
+        }
+      });
+      if (line) lines.push(line);
     });
-    if (line) lines.push(line);
     while (lines.length > 4 && fontSize > 22) {
       fontSize -= 2;
-      ctx.font = `800 ${fontSize}px sans-serif`;
+      ctx.font = `${fontStyle} ${weight} ${fontSize}px ${family}`;
     }
     const lineHeight = fontSize * 1.25;
     const blockH = lines.length * lineHeight;
     let y;
     if (pos === 'top') y = height * 0.18;
-    else if (pos === 'bottom') y = height * 0.72 - blockH / 2;
+    else if (pos === 'bottom') y = height * 0.78 - blockH / 2;
     else y = height * 0.5 - blockH / 2 + lineHeight / 2;
-    const x = width / 2;
+    const x = align === 'right' ? width * 0.9 : align === 'left' ? width * 0.1 : width / 2;
+    if (this.overlayBg && lines.length) {
+      const padX = fontSize * 0.34;
+      const padY = fontSize * 0.16;
+      const maxLine = Math.max(...lines.map((ln) => ctx.measureText(ln).width));
+      const boxW = maxLine + padX * 2;
+      const boxH = blockH + padY * 2;
+      const bx = align === 'right' ? x - boxW : align === 'left' ? x : x - boxW / 2;
+      const by = y - lineHeight / 2 - padY;
+      ctx.fillStyle = this.plateColor(color);
+      this.fillRoundRect(ctx, bx, by, boxW, boxH, fontSize * 0.22);
+    }
+    ctx.fillStyle = color;
+    ctx.strokeStyle = style === 'neon' ? color : 'rgba(0,0,0,0.55)';
+    ctx.lineWidth = Math.max(2, Math.round(fontSize * (style === 'neon' ? 0.05 : 0.08)));
+    if (style === 'neon') {
+      ctx.shadowColor = color;
+      ctx.shadowBlur = fontSize * 0.45;
+    }
     lines.forEach((ln, i) => {
       const yy = y + i * lineHeight;
-      ctx.strokeText(ln, x, yy);
+      if (style !== 'neon') ctx.strokeText(ln, x, yy);
       ctx.fillText(ln, x, yy);
     });
     ctx.restore();
@@ -1294,7 +1583,6 @@ class VideoRecorder {
       ctx.drawImage(this.preview, 0, 0, w, h);
       // אחרי שיקוף — איפוס טרנספורם לפני ציור טקסט | HYPER CORE TECH
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      this.drawOverlayText(ctx, w, h);
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
       if (!blob) throw new Error('blob');
       const file = new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' });

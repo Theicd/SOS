@@ -261,7 +261,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css?v=20261107cam3">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20261107cam4">
     <!-- חלק מצב אורח (videos.html) — עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css?v=20260830paste2">
     <!-- חלק PWA (videos.html) — עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -2207,7 +2207,7 @@
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20261019chess1" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) — ממשק הקלטה עם טיימר | HYPER CORE TECH -->
-    <script src="./video-record.js?v=20261107cam3" defer></script>
+    <script src="./video-record.js?v=20261107cam4" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) — מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260911camopt1" defer></script>
     <script defer>
@@ -2925,10 +2925,55 @@
       <div class="video-record-stage video-record-stage--review" id="videoRecordStageReview" hidden>
         <video id="videoRecordReviewVideo" playsinline controls></video>
         <img id="videoRecordReviewImage" alt="תצוגה מקדימה" hidden>
-        <div class="vr-text-layer" id="videoRecordReviewTextLayer" data-pos="middle" hidden></div>
+        <div class="vr-text-layer" id="videoRecordReviewTextLayer" data-pos="middle" data-style="classic" data-align="center" data-bg="0" hidden></div>
         <button type="button" class="vr-close" id="videoRecordReviewBackBtn" aria-label="חזרה" style="right:10px;left:auto;">
           <i class="fa-solid fa-chevron-right"></i>
         </button>
+        <button type="button" class="vr-review-text" id="videoRecordReviewTextBtn" aria-label="טקסט על התמונה">
+          <span class="vr-tool__glyph"><span class="vr-tool-btn__aa" aria-hidden="true">Aa</span></span>
+          <span class="vr-tool__label">טקסט</span>
+        </button>
+        <div class="vr-text-studio" id="videoRecordTextStudio" hidden>
+          <div class="vr-text-studio__top">
+            <button type="button" class="vr-text-studio__done" id="videoRecordTextStudioDone">סיום</button>
+            <button type="button" class="vr-text-studio__tool" id="videoRecordTextAlign" aria-label="יישור שורות">
+              <i class="fa-solid fa-align-center" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="vr-text-studio__tool" id="videoRecordTextColor" aria-label="צבע טקסט" aria-expanded="false">
+              <span class="vr-color-dot" id="videoRecordTextColorDot"></span>
+            </button>
+            <button type="button" class="vr-text-studio__tool" id="videoRecordTextBg" aria-label="רקע לטקסט" aria-pressed="false">
+              <span class="vr-text-bg-mark" aria-hidden="true">A</span>
+            </button>
+          </div>
+          <div class="vr-color-pop" id="videoRecordTextColors" hidden>
+            <button type="button" class="vr-swatch is-on" data-color="#ffffff" style="background:#fff" aria-label="לבן"></button>
+            <button type="button" class="vr-swatch" data-color="#000000" style="background:#000" aria-label="שחור"></button>
+            <button type="button" class="vr-swatch" data-color="#ff2d55" style="background:#ff2d55" aria-label="אדום"></button>
+            <button type="button" class="vr-swatch" data-color="#ffcc00" style="background:#ffcc00" aria-label="צהוב"></button>
+            <button type="button" class="vr-swatch" data-color="#34c759" style="background:#34c759" aria-label="ירוק"></button>
+            <button type="button" class="vr-swatch" data-color="#5ac8fa" style="background:#5ac8fa" aria-label="תכלת"></button>
+            <button type="button" class="vr-swatch" data-color="#bf5af2" style="background:#bf5af2" aria-label="סגול"></button>
+          </div>
+          <label class="vr-size" aria-label="גודל הטקסט">
+            <input type="range" id="videoRecordTextSize" min="55" max="180" value="100">
+          </label>
+          <div class="vr-text-studio__bottom" id="videoRecordTextStudioBottom">
+            <div class="vr-font-row" role="listbox" aria-label="סגנון טקסט">
+              <button type="button" class="vr-font is-on" data-font="classic">קלאסי</button>
+              <button type="button" class="vr-font" data-font="retro">רטרו</button>
+              <button type="button" class="vr-font" data-font="neon">ניאון</button>
+              <button type="button" class="vr-font" data-font="comic">קומיקס</button>
+              <button type="button" class="vr-font" data-font="elegant">אלגנט</button>
+            </div>
+            <div class="vr-text-positions" role="group" aria-label="מיקום הטקסט">
+              <button type="button" class="vr-text-pos" data-text-pos="top">למעלה</button>
+              <button type="button" class="vr-text-pos is-active" data-text-pos="middle">אמצע</button>
+              <button type="button" class="vr-text-pos" data-text-pos="bottom">למטה</button>
+            </div>
+            <textarea id="videoRecordStudioInput" class="vr-text-studio__input" maxlength="120" rows="2" placeholder="הוסיפו טקסט..." enterkeyhint="done"></textarea>
+          </div>
+        </div>
         <div class="vr-review-actions">
           <button type="button" class="vr-next-btn" id="videoRecordNextBtn">
             <span>הבא</span>

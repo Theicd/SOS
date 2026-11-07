@@ -804,6 +804,266 @@ body.video-record-open .videos-feed iframe {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
+.video-record-stage--review.is-image .vr-review-text {
+  display: inline-flex;
+}
+
+.vr-review-text {
+  display: none;
+  position: absolute;
+  top: calc(18px + var(--safe-top, 0px));
+  left: 16px;
+  z-index: 7;
+  align-items: center;
+  gap: 10px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  padding: 0;
+  cursor: pointer;
+}
+
+.video-record-stage--review.is-texting .vr-review-text,
+.video-record-stage--review.is-texting .vr-review-actions,
+.video-record-stage--review.is-texting .vr-close {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.vr-text-studio[hidden] {
+  display: none !important;
+}
+
+.vr-text-studio {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.vr-text-studio__top,
+.vr-color-pop,
+.vr-size,
+.vr-text-studio__bottom {
+  pointer-events: auto;
+}
+
+.vr-text-studio__top {
+  position: absolute;
+  top: calc(12px + var(--safe-top, 0px));
+  left: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: 12px;
+}
+
+.vr-text-studio__done {
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  cursor: pointer;
+  padding: 6px 2px;
+}
+
+.vr-text-studio__tool {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.85));
+}
+
+.vr-text-studio__tool.is-on {
+  color: #8ad8ff;
+}
+
+.vr-color-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
+}
+
+.vr-text-bg-mark {
+  font-weight: 800;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.vr-text-studio__tool.is-on .vr-text-bg-mark {
+  background: #fff;
+  color: #111;
+}
+
+.vr-color-pop {
+  position: absolute;
+  top: calc(58px + var(--safe-top, 0px));
+  left: 16px;
+  right: 16px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  z-index: 9;
+}
+
+.vr-color-pop[hidden] {
+  display: none !important;
+}
+
+.vr-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  padding: 0;
+  cursor: pointer;
+}
+
+.vr-swatch.is-on {
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.vr-size {
+  position: absolute;
+  left: 10px;
+  top: 28%;
+  height: 36%;
+  z-index: 9;
+  display: flex;
+  align-items: center;
+}
+
+.vr-size input[type="range"] {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  appearance: slider-vertical;
+  width: 28px;
+  height: 100%;
+  margin: 0;
+  accent-color: #ff2d87;
+  background: transparent;
+}
+
+.vr-text-studio__bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0.28) 70%, transparent);
+}
+
+.vr-font-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  direction: rtl;
+}
+
+.vr-font-row::-webkit-scrollbar {
+  display: none;
+}
+
+.vr-font {
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.vr-font.is-on {
+  background: #fff;
+  color: #111;
+  border-color: #fff;
+}
+
+.vr-font[data-font="retro"] { font-family: "Courier New", monospace; letter-spacing: 0.04em; }
+.vr-font[data-font="neon"] { text-shadow: 0 0 8px #ff2d87; }
+.vr-font[data-font="comic"] { font-family: "Comic Sans MS", "Comic Sans", cursive; }
+.vr-font[data-font="elegant"] { font-family: Georgia, serif; font-style: italic; }
+
+.vr-text-studio__input {
+  width: 100%;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 12px 14px;
+  resize: none;
+  outline: none;
+  direction: rtl;
+}
+
+.vr-text-studio__input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.vr-text-ink {
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0.08em 0.22em;
+  border-radius: 0.2em;
+  white-space: pre-wrap;
+}
+
+.vr-text-layer[data-style="retro"] .vr-text-ink {
+  font-family: "Courier New", monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.vr-text-layer[data-style="neon"] .vr-text-ink {
+  text-shadow: 0 0 6px currentColor, 0 0 16px currentColor;
+}
+
+.vr-text-layer[data-style="comic"] .vr-text-ink {
+  font-family: "Comic Sans MS", "Comic Sans", cursive;
+}
+
+.vr-text-layer[data-style="elegant"] .vr-text-ink {
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 600;
+}
+
+.vr-text-layer[data-align="right"] { text-align: right; }
+.vr-text-layer[data-align="center"] { text-align: center; }
+.vr-text-layer[data-align="left"] { text-align: left; }
+
+.vr-text-layer[data-bg="1"] .vr-text-ink {
+  background: rgba(0, 0, 0, 0.78);
+}
+
 /* חלק קומפוזר – כפתור האשטאגים + הצעות | HYPER CORE TECH */
 .compose-topic-row {
   display: flex;
