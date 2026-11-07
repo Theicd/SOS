@@ -961,6 +961,65 @@ body.video-record-open .videos-feed iframe {
   pointer-events: none;
 }
 
+.vr-add-sheet[hidden] { display: none !important; }
+
+.vr-add-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.vr-add-sheet__card {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 20px;
+  background: rgba(20, 20, 20, 0.94);
+  color: #fff;
+  direction: rtl;
+}
+
+.vr-add-sheet__title {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.vr-add-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: none;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+
+.vr-add-choice i {
+  width: 22px;
+  text-align: center;
+  font-size: 18px;
+}
+
+.vr-add-choice--quiet {
+  justify-content: center;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+}
+
 .vr-slide-dock {
   display: none;
   position: absolute;

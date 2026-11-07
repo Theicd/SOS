@@ -77,6 +77,7 @@ class VideoRecorder {
     this.slideTime = document.getElementById('videoRecordSlideTime');
     this.slideSecondsEl = document.getElementById('videoRecordSlideSeconds');
     this.slideInput = document.getElementById('videoRecordSlideInput');
+    this.addSheet = document.getElementById('videoRecordAddSheet');
     this.recordButton = document.getElementById('recordButton');
     this.cameraSwitch = document.getElementById('cameraSwitchButton');
     this.flashButton = document.getElementById('cameraFlashButton');
@@ -145,7 +146,13 @@ class VideoRecorder {
     this.cameraSwitch?.addEventListener('click', () => this.switchCamera());
     this.flashButton?.addEventListener('click', () => this.toggleFlash());
     this.gridButton?.addEventListener('click', () => this.toggleGrid());
-    this.closeBtn?.addEventListener('click', () => this.closeModal());
+    this.closeBtn?.addEventListener('click', () => {
+      if (this._appendNext && this.slides.length) {
+        this.returnToReviewFromAdd();
+        return;
+      }
+      this.closeModal();
+    });
     this.reviewBackBtn?.addEventListener('click', () => {
       if (this._studioOpen) {
         this.closeTextStudio();
@@ -249,7 +256,20 @@ class VideoRecorder {
     });
     this.reviewVideo?.addEventListener('loadeddata', () => this.hideShellFilePickLoading());
     this.reviewVideo?.addEventListener('canplay', () => this.hideShellFilePickLoading());
-    this.slideAdd?.addEventListener('click', () => this.slideInput?.click());
+    this.slideAdd?.addEventListener('click', () => this.openAddSheet());
+    this.addSheet?.addEventListener('click', (event) => {
+      const choice = event.target?.closest?.('[data-add]')?.getAttribute('data-add');
+      if (!choice || choice === 'cancel') {
+        this.closeAddSheet();
+        return;
+      }
+      this.closeAddSheet();
+      if (choice === 'gallery') {
+        this.slideInput?.click();
+        return;
+      }
+      this.beginAppendCapture(choice);
+    });
     this.slideInput?.addEventListener('change', (event) => {
       const files = [...(event.target?.files || [])];
       this.addSlideFiles(files);
@@ -447,6 +467,7 @@ class VideoRecorder {
     this.clearOverlayText();
     this.clearBackgroundSelection();
     this.hideSwipeHint(false);
+    this.closeAddSheet();
     this.hideTextEditor();
     this.exitNoCameraMode();
     this.resetState();
@@ -564,6 +585,43 @@ class VideoRecorder {
         try { URL.revokeObjectURL(slide.url); } catch (_) {}
       }
     });
+  }
+
+  openAddSheet() {
+    if (!this.addSheet) {
+      this.slideInput?.click();
+      return;
+    }
+    this.addSheet.hidden = false;
+    this.addSheet.removeAttribute('hidden');
+  }
+
+  closeAddSheet() {
+    if (!this.addSheet) return;
+    this.addSheet.hidden = true;
+    this.addSheet.setAttribute('hidden', '');
+  }
+
+  beginAppendCapture(mode) {
+    this.saveOverlayToSlide(this.slideIndex);
+    this.closeTextStudio();
+    this.stopSlideShow();
+    this._appendNext = true;
+    this.showCameraStage();
+    this.startCamera();
+    this.setCaptureMode('photo');
+    if (mode === 'random') {
+      if (!this.bgStrip?.querySelector('.vr-bg-thumb')) this.loadBackgroundStrip();
+    }
+  }
+
+  returnToReviewFromAdd() {
+    this._appendNext = false;
+    this.clearBackgroundSelection();
+    this.stopCamera();
+    this.showReviewStage();
+    this.showSlide(this.slideIndex, false);
+    if (this.slides.length > 1) this.startSlideShow();
   }
 
   addSlideFiles(files) {
@@ -729,13 +787,42 @@ class VideoRecorder {
 
   showReview(file) {
     if (!file) return;
+    const isVideo = String(file.type || '').startsWith('video/');
+    if (this._appendNext && !isVideo && this.slides.length) {
+      this._appendNext = false;
+      if (this.isRecording) this.stopRecording();
+      this.stopCamera();
+      this.closeTextStudio();
+      this.clearBackgroundSelection();
+      const url = URL.createObjectURL(file);
+      this.slides.push({
+        id: Date.now() + Math.random(),
+        file,
+        url,
+        owned: true,
+        overlay: null,
+      });
+      this.slideIndex = this.slides.length - 1;
+      this.pendingFile = file;
+      this.stageReview?.classList.add('is-image');
+      if (this.reviewVideo) this.reviewVideo.hidden = true;
+      if (this.reviewImage) {
+        this.reviewImage.hidden = false;
+        this.reviewImage.src = url;
+      }
+      this.loadOverlayFromSlide(this.slides[this.slideIndex]);
+      this.renderSlideRow();
+      this.showReviewStage();
+      this.startSlideShow();
+      this.scheduleHideShellFilePickLoading();
+      return;
+    }
     if (this.isRecording) this.stopRecording();
     this.stopCamera();
     this.clearPendingPreview();
     this.pendingFile = file;
     this.setGalleryThumbFromFile(file);
     this.pendingObjectUrl = URL.createObjectURL(file);
-    const isVideo = String(file.type || '').startsWith('video/');
     this._overlayBurnedInFile = false;
     this.stageReview?.classList.toggle('is-image', !isVideo);
     this.closeTextStudio();

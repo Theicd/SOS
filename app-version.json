@@ -1,7 +1,7 @@
 {
   "callSignalGiftWrapRequired": true,
-  "version": "2026.11.08-cam17",
-  "buildTime": "2026-11-08T01:05:00+02:00",
+  "version": "2026.11.08-cam18",
+  "buildTime": "2026-11-08T01:30:00+02:00",
   "e2eeSendRequired": true,
   "minSecureChatEpoch": 2,
   "mediaServerE2eeRequired": true,
