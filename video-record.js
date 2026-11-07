@@ -26,6 +26,9 @@ class VideoRecorder {
     this.countdownTimer = null;
     this._beepCtx = null;
     this.gridOn = false;
+    this.backgroundsOpen = false;
+    this.toolsExpanded = true;
+    this._bgContinuing = false;
     this._overlayBurnedInFile = false;
     this._composeOverlayText = '';
     this.constraints = {
@@ -68,7 +71,11 @@ class VideoRecorder {
     this.bgFrame = document.getElementById('videoRecordBgFrame');
     this.shutterRow = document.getElementById('videoRecordShutterRow');
     this.bgDismiss = document.getElementById('videoRecordBgDismiss');
+    this.sideTools = document.getElementById('videoRecordSideTools');
+    this.toolsToggle = document.getElementById('videoRecordToolsToggle');
     this.liveBtn = document.getElementById('videoRecordLiveBtn');
+    this.bgBtn = document.getElementById('videoRecordBgBtn');
+    this.continueBtn = document.getElementById('videoRecordContinueBtn');
     this.textBtn = document.getElementById('videoRecordTextBtn');
     this.textEditor = document.getElementById('videoRecordTextEditor');
     this.textInput = document.getElementById('videoRecordTextInput');
@@ -96,6 +103,9 @@ class VideoRecorder {
     }
 
     this.recordButton?.addEventListener('click', () => this.onShutter());
+    this.toolsToggle?.addEventListener('click', () => this.toggleToolsExpanded());
+    this.bgBtn?.addEventListener('click', () => this.toggleBackgrounds());
+    this.continueBtn?.addEventListener('click', () => this.continueWithBackground());
     this.cameraSwitch?.addEventListener('click', () => this.switchCamera());
     this.flashButton?.addEventListener('click', () => this.toggleFlash());
     this.gridButton?.addEventListener('click', () => this.toggleGrid());
@@ -138,20 +148,9 @@ class VideoRecorder {
     this.modes?.querySelectorAll('[data-vr-mode]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const mode = btn.getAttribute('data-vr-mode');
-        if (mode === 'text') {
-          if (this.selectedBgUrl) {
-            this.useSelectedBackground();
-            return;
-          }
-          this.closeModal();
-          if (typeof window.openCompose === 'function') {
-            window.openCompose({ step: 'editor', composeMode: 'text' });
-          } else if (window.NostrApp?.openCompose) {
-            window.NostrApp.openCompose({ step: 'editor', composeMode: 'text' });
-          }
-          return;
+        if (mode === 'photo' || mode === '10' || mode === '20' || mode === '30') {
+          this.setCaptureMode(mode);
         }
-        this.setCaptureMode(mode);
       });
     });
 
@@ -159,7 +158,7 @@ class VideoRecorder {
       const file = event.target?.files?.[0];
       if (!file) return;
       this.setGalleryThumbFromFile(file);
-      this.clearBackgroundSelection();
+      this.setBackgroundsOpen(false);
       this.showReview(file);
       try { event.target.value = ''; } catch (_) {}
     });
@@ -179,18 +178,7 @@ class VideoRecorder {
       this.updateBgDismissVisibility();
     });
 
-    this.bgStrip?.addEventListener('scroll', () => {
-      if (this._bgScrollRaf) cancelAnimationFrame(this._bgScrollRaf);
-      this._bgScrollRaf = requestAnimationFrame(() => {
-        this.syncBackgroundFromScroll();
-        this.updateBgDismissVisibility();
-      });
-    }, { passive: true });
-
-    this.bgStrip?.addEventListener('scrollend', () => {
-      this.syncBackgroundFromScroll(true);
-      this.updateBgDismissVisibility();
-    });
+    this.restoreToolsExpanded();
   }
 
   setCaptureMode(mode) {
@@ -206,7 +194,7 @@ class VideoRecorder {
       btn.classList.toggle('is-active', btn.getAttribute('data-vr-mode') === next);
     });
     this.recordButton?.classList.toggle('is-photo', next === 'photo');
-    if (!this.selectedBgUrl) this.setShutterSolid(true);
+    this.setShutterSolid(true);
   }
 
   pauseFeedVideos() {
@@ -334,9 +322,10 @@ class VideoRecorder {
     this.exitNoCameraMode();
     this.showCameraStage();
     this.setCaptureMode(this.captureMode || '10');
+    this.restoreToolsExpanded();
+    this.setBackgroundsOpen(false);
     this.restoreGalleryThumb();
     this.startCamera();
-    this.scheduleBackgroundStrip();
   }
 
   closeModal(options = {}) {
@@ -349,7 +338,7 @@ class VideoRecorder {
     this.stopCamera();
     this.clearPendingPreview();
     this.clearOverlayText();
-    this.clearBackgroundSelection();
+    this.setBackgroundsOpen(false);
     this.hideTextEditor();
     this.exitNoCameraMode();
     this.resetState();
@@ -479,7 +468,8 @@ class VideoRecorder {
   confirmPendingFile() {
     if (!this.pendingFile) return;
     const file = this.pendingFile;
-    this._composeOverlayText = String(this.overlayText || '').trim();
+    // טקסט שנצרב על התמונה נשאר על הקובץ. תיאור הפוסט נכתב בדף הבא. | HYPER CORE TECH
+    this._composeOverlayText = this._overlayBurnedInFile ? '' : String(this.overlayText || '').trim();
     this.lastShareFile = file;
     this.clearPendingPreview();
     this.transferToCompose(file);
@@ -771,10 +761,12 @@ class VideoRecorder {
       this.cancelCountdown();
       return;
     }
+    // רקע שנבחר מאושר רק בחץ «הבא». האדום סוגר את הרקע ומחזיר למצלמה. | HYPER CORE TECH
     if (this.selectedBgUrl) {
-      this.useSelectedBackground();
+      this.setBackgroundsOpen(false);
       return;
     }
+    if (this.backgroundsOpen) this.setBackgroundsOpen(false);
     if (this.captureMode === 'photo') {
       this.capturePhoto();
       return;
@@ -833,18 +825,8 @@ class VideoRecorder {
       return `<button type="button" class="vr-bg-thumb" data-bg="${url}" style="background-image:url('${thumb}')" aria-label="רקע מובנה"></button>`;
     }).join('');
     this.bgStrip.innerHTML = noneBtn + thumbs;
-    // תמונה זעירה לגלריה מתוך סט הבחירה | HYPER CORE TECH
-    if (urls[0] && !this.galleryThumbWrap?.classList.contains('has-image')) {
-      const preview = urls[0].replace('/720/720', '/120/120').replace('/1080/1080', '/120/120');
-      this.setGalleryThumbFromUrl(preview, false);
-    }
-    // התחלה בלי רקע (עיגול ראשון במרכז) | HYPER CORE TECH
-    requestAnimationFrame(() => {
-      try { this.bgStrip.scrollLeft = 0; } catch (_) {}
-      this.clearBackgroundSelection(true);
-      this.syncBackgroundFromScroll(true);
-      this.updateBgDismissVisibility();
-    });
+    this.selectedBgUrl = '';
+    this.updateContinueVisibility();
   }
 
   getCenterThumb() {
@@ -967,8 +949,7 @@ class VideoRecorder {
   }
 
   updateBgDismissVisibility() {
-    const scrolled = (this.bgStrip?.scrollLeft || 0) > 8;
-    const show = scrolled || !!this.selectedBgUrl;
+    const show = !!this.backgroundsOpen;
     this.bgStripScrolled = show;
     if (!this.bgDismiss) return;
     if (show) {
@@ -983,15 +964,65 @@ class VideoRecorder {
   }
 
   dismissBackgroundStrip() {
-    const noneThumb = this.bgStrip?.querySelector?.('.vr-bg-thumb--none');
-    if (noneThumb && this.bgStrip) {
-      const targetLeft = noneThumb.offsetLeft - (this.bgStrip.clientWidth / 2) + (noneThumb.offsetWidth / 2);
-      this.bgStrip.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
-    } else if (this.bgStrip) {
-      this.bgStrip.scrollTo({ left: 0, behavior: 'smooth' });
+    this.setBackgroundsOpen(false);
+  }
+
+  restoreToolsExpanded() {
+    let open = true;
+    try {
+      if (localStorage.getItem('sos_vr_tools_open') === '0') open = false;
+    } catch (_) {}
+    this.applyToolsExpanded(open, false);
+  }
+
+  applyToolsExpanded(expanded, persist) {
+    this.toolsExpanded = !!expanded;
+    this.sideTools?.classList.toggle('is-collapsed', !this.toolsExpanded);
+    this.toolsToggle?.setAttribute('aria-expanded', this.toolsExpanded ? 'true' : 'false');
+    this.toolsToggle?.setAttribute('aria-label', this.toolsExpanded ? 'הסתר הסברים' : 'הצג הסברים');
+    const icon = this.toolsToggle?.querySelector('i');
+    if (icon) icon.className = this.toolsExpanded ? 'fa-solid fa-chevron-left' : 'fa-solid fa-chevron-right';
+    if (persist) {
+      try { localStorage.setItem('sos_vr_tools_open', this.toolsExpanded ? '1' : '0'); } catch (_) {}
     }
-    this.clearBackgroundSelection(true);
+  }
+
+  toggleToolsExpanded() {
+    this.applyToolsExpanded(!this.toolsExpanded, true);
+  }
+
+  async toggleBackgrounds() {
+    if (this.isRecording) return;
+    if (this.backgroundsOpen) {
+      this.setBackgroundsOpen(false);
+      return;
+    }
+    this.setBackgroundsOpen(true);
+    if (!this.bgStrip?.querySelector('.vr-bg-thumb')) {
+      await this.loadBackgroundStrip();
+    }
+  }
+
+  setBackgroundsOpen(open) {
+    this.backgroundsOpen = !!open;
+    this.bgBtn?.classList.toggle('is-active', this.backgroundsOpen);
+    this.bgBtn?.setAttribute('aria-pressed', this.backgroundsOpen ? 'true' : 'false');
+    if (this.bgStrip) {
+      this.bgStrip.hidden = !this.backgroundsOpen;
+      if (this.backgroundsOpen) this.bgStrip.removeAttribute('hidden');
+      else this.bgStrip.setAttribute('hidden', '');
+    }
+    if (!this.backgroundsOpen) this.clearBackgroundSelection();
     this.updateBgDismissVisibility();
+    this.updateContinueVisibility();
+  }
+
+  updateContinueVisibility() {
+    const show = !!this.selectedBgUrl && !this.isRecording;
+    if (!this.continueBtn) return;
+    this.continueBtn.hidden = !show;
+    if (show) this.continueBtn.removeAttribute('hidden');
+    else this.continueBtn.setAttribute('hidden', '');
   }
 
   toggleTextEditor() {
@@ -1125,7 +1156,8 @@ class VideoRecorder {
       this.bgFrame.hidden = false;
       this.bgFrame.removeAttribute('hidden');
     }
-    this.setShutterSolid(false);
+    this.setShutterSolid(true);
+    this.updateContinueVisibility();
     this.updateBgDismissVisibility();
   }
 
@@ -1141,12 +1173,13 @@ class VideoRecorder {
       this.bgFrame.removeAttribute('src');
     }
     this.setShutterSolid(true);
+    this.updateContinueVisibility();
     this.updateBgDismissVisibility();
   }
 
-  async useSelectedBackground() {
+  async buildBackgroundFile() {
     const url = this.selectedBgUrl;
-    if (!url) return;
+    if (!url) return null;
     try {
       const resp = await fetch(url, { mode: 'cors', cache: 'no-store' });
       const blob = await resp.blob();
@@ -1171,12 +1204,39 @@ class VideoRecorder {
       const outBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
       if (!outBlob) throw new Error('blob');
       const file = new File([outBlob], `bg-${Date.now()}.jpg`, { type: 'image/jpeg' });
-      this.clearBackgroundSelection();
-      this.showReview(file);
+      return file;
     } catch (err) {
       console.error('[VideoRecorder] background use failed', err);
       alert('טעינת הרקע נכשלה. נסו תמונה אחרת.');
+      return null;
     }
+  }
+
+  async continueWithBackground() {
+    if (this._bgContinuing || !this.selectedBgUrl) return;
+    this._bgContinuing = true;
+    this.continueBtn?.setAttribute('disabled', '');
+    try {
+      const file = await this.buildBackgroundFile();
+      if (!file) return;
+      this._overlayBurnedInFile = true;
+      this._composeOverlayText = '';
+      this.lastShareFile = file;
+      this.pendingFile = file;
+      this.setBackgroundsOpen(false);
+      this.transferToCompose(file);
+      this.closeModal({ skipResume: true });
+    } finally {
+      this._bgContinuing = false;
+      this.continueBtn?.removeAttribute('disabled');
+    }
+  }
+
+  async useSelectedBackground() {
+    const file = await this.buildBackgroundFile();
+    if (!file) return;
+    this.clearBackgroundSelection();
+    this.showReview(file);
   }
 
   async capturePhoto() {

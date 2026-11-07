@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261104confirm1'; // End-live confirmation sits above the broadcaster card
+  const CACHE_NAME = 'sos-cache-v20261107cam1'; // Camera composer: labeled tools, background only on request, next arrow
   const PRECACHE_URLS = [
     './',
     './videos.html',

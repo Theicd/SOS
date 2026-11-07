@@ -261,7 +261,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css?v=20260915camrec8">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20261107cam1">
     <!-- חלק מצב אורח (videos.html) — עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css?v=20260830paste2">
     <!-- חלק PWA (videos.html) — עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -2207,7 +2207,7 @@
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20261019chess1" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) — ממשק הקלטה עם טיימר | HYPER CORE TECH -->
-    <script src="./video-record.js?v=20260915camrec3" defer></script>
+    <script src="./video-record.js?v=20261107cam1" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) — מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260911camopt1" defer></script>
     <script defer>
@@ -2842,25 +2842,50 @@
           <img class="vr-no-camera__bg" id="videoRecordNoCameraBg" alt="">
           <div class="vr-no-camera__msg" role="status">
             <strong>אין מצלמה פעילה</strong>
-            <span>אפשר לבחור קובץ מהגלריה למטה</span>
+            <span>אפשר לבחור קובץ מהגלריה</span>
           </div>
         </div>
-        <button type="button" class="vr-close" id="videoRecordCloseBtn" aria-label="חזרה" style="right:10px;left:auto;">
+        <button type="button" class="vr-close" id="videoRecordCloseBtn" aria-label="חזרה">
           <i class="fa-solid fa-chevron-right"></i>
         </button>
 
-        <aside class="vr-side-tools" aria-label="כלי מצלמה" style="left:10px;right:auto;">
-          <button type="button" class="vr-tool-btn" id="cameraSwitchButton" aria-label="הפוך מצלמה" title="הפוך מצלמה">
-            <i class="fa-solid fa-camera-rotate"></i>
+        <aside class="vr-side-tools" id="videoRecordSideTools" aria-label="כלי מצלמה">
+          <button type="button" class="vr-tools-toggle" id="videoRecordToolsToggle" aria-expanded="true" aria-label="הסתר הסברים">
+            <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
           </button>
-          <button type="button" class="vr-tool-btn" id="cameraFlashButton" aria-label="פלאש" title="פלאש" aria-pressed="false">
-            <i class="fa-solid fa-bolt"></i>
+          <button type="button" class="vr-tool vr-tool-btn" id="cameraSwitchButton" aria-label="הפוך מצלמה">
+            <span class="vr-tool__icon"><i class="fa-solid fa-camera-rotate" aria-hidden="true"></i></span>
+            <span class="vr-tool__label">הפוך מצלמה</span>
           </button>
-          <button type="button" class="vr-tool-btn" id="videoRecordGridBtn" aria-label="רשת יישור" title="רשת יישור" aria-pressed="false">
-            <i class="fa-solid fa-table-cells"></i>
+          <button type="button" class="vr-tool vr-tool-btn" id="cameraFlashButton" aria-label="פלאש" aria-pressed="false">
+            <span class="vr-tool__icon"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>
+            <span class="vr-tool__label">פלאש</span>
           </button>
-          <button type="button" class="vr-tool-btn" id="videoRecordTextBtn" aria-label="הוסף טקסט" title="טקסט על התמונה">
-            <span class="vr-tool-btn__aa" aria-hidden="true">Aa</span>
+          <button type="button" class="vr-tool vr-tool-btn" id="videoRecordGridBtn" aria-label="רשת יישור" aria-pressed="false">
+            <span class="vr-tool__icon"><i class="fa-solid fa-table-cells" aria-hidden="true"></i></span>
+            <span class="vr-tool__label">רשת יישור</span>
+          </button>
+          <button type="button" class="vr-tool vr-tool-btn" id="videoRecordTextBtn" aria-label="טקסט על התמונה">
+            <span class="vr-tool__icon"><span class="vr-tool-btn__aa" aria-hidden="true">Aa</span></span>
+            <span class="vr-tool__label">טקסט על התמונה</span>
+          </button>
+          <label class="vr-tool vr-tool-btn" id="videoRecordGalleryBtn" title="גלריה">
+            <span class="vr-tool__icon">
+              <span class="vr-gallery-thumb" aria-hidden="true">
+                <img id="videoRecordGalleryThumb" alt="">
+                <i class="fa-solid fa-images vr-gallery-thumb__fallback"></i>
+              </span>
+            </span>
+            <span class="vr-tool__label">גלריה</span>
+            <input type="file" id="videoRecordGalleryInput" accept="image/*,video/*" hidden>
+          </label>
+          <button type="button" class="vr-tool vr-tool-btn" id="videoRecordBgBtn" aria-label="רקע" aria-pressed="false">
+            <span class="vr-tool__icon"><i class="fa-solid fa-image" aria-hidden="true"></i></span>
+            <span class="vr-tool__label">רקע</span>
+          </button>
+          <button type="button" class="vr-tool vr-tool-btn" id="videoRecordLiveBtn" title="התחל שידור חי">
+            <span class="vr-tool__icon"><span class="vr-live-dot" aria-hidden="true"></span><i class="fa-solid fa-broadcast-tower" aria-hidden="true"></i></span>
+            <span class="vr-tool__label">שידור חי</span>
           </button>
         </aside>
 
@@ -2869,7 +2894,7 @@
         <div class="vr-text-editor" id="videoRecordTextEditor" hidden>
           <input type="text" id="videoRecordTextInput" class="vr-text-editor__input" maxlength="80" placeholder="הוסיפו טקסט..." enterkeyhint="done" autocomplete="off">
           <div class="vr-text-positions" role="group" aria-label="גובה הטקסט">
-            <button type="button" class="vr-text-pos" data-text-pos="top">תחתון</button>
+            <button type="button" class="vr-text-pos" data-text-pos="top">עליון</button>
             <button type="button" class="vr-text-pos is-active" data-text-pos="middle">אמצע</button>
             <button type="button" class="vr-text-pos" data-text-pos="bottom">תחתון</button>
           </div>
@@ -2878,7 +2903,6 @@
 
         <div class="vr-bottom">
           <div class="vr-modes" id="videoRecordModes" role="tablist" aria-label="מצב צילום">
-            <button type="button" class="vr-mode" data-vr-mode="text">טקסט</button>
             <button type="button" class="vr-mode" data-vr-mode="photo">תמונה</button>
             <button type="button" class="vr-mode is-active" data-vr-mode="10">10 שנ׳</button>
             <button type="button" class="vr-mode" data-vr-mode="20">20 שנ׳</button>
@@ -2889,29 +2913,17 @@
             <button type="button" class="vr-bg-dismiss" id="videoRecordBgDismiss" hidden aria-label="סגור רקעים">
               <i class="fa-solid fa-xmark"></i>
             </button>
-            <!-- רצועת רקעים LTR שעוברת דרך מרכז הכפתור כמו טיקטוק | HYPER CORE TECH -->
-            <div class="vr-bg-strip" id="videoRecordBgStrip" aria-label="רקעים מובנים"></div>
+            <div class="vr-bg-strip" id="videoRecordBgStrip" aria-label="רקעים מובנים" hidden></div>
             <button type="button" class="record-button is-solid" id="recordButton" aria-label="צלם או הקלט">
               <div class="record-button-inner"></div>
             </button>
             <div class="floating-timer" id="floatingTimer">0:00</div>
           </div>
 
-          <div class="vr-footer-bar">
-            <button type="button" class="vr-footer-btn" id="videoRecordLiveBtn" title="התחל שידור חי">
-              <span class="vr-live-dot" aria-hidden="true"></span>
-              <i class="fa-solid fa-broadcast-tower" aria-hidden="true"></i>
-              <span>שידור חי</span>
-            </button>
-            <label class="vr-footer-btn vr-footer-btn--gallery" id="videoRecordGalleryBtn" title="גלריה">
-              <span class="vr-gallery-thumb" aria-hidden="true">
-                <img id="videoRecordGalleryThumb" alt="">
-                <i class="fa-solid fa-images vr-gallery-thumb__fallback"></i>
-              </span>
-              <span>גלריה</span>
-              <input type="file" id="videoRecordGalleryInput" accept="image/*,video/*" hidden>
-            </label>
-          </div>
+          <button type="button" class="vr-continue" id="videoRecordContinueBtn" hidden>
+            <span>הבא</span>
+            <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+          </button>
         </div>
 
         <img id="videoRecordBgFrame" class="vr-bg-frame" alt="" hidden>
@@ -2925,7 +2937,10 @@
           <i class="fa-solid fa-chevron-right"></i>
         </button>
         <div class="vr-review-actions">
-          <button type="button" class="vr-next-btn" id="videoRecordNextBtn">הבא</button>
+          <button type="button" class="vr-next-btn" id="videoRecordNextBtn">
+            <span>הבא</span>
+            <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+          </button>
         </div>
       </div>
     </div>
