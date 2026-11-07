@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261107cam5'; // Camera tool icons match the back button and open collapsed with a ring hint
+  const CACHE_NAME = 'sos-cache-v20261107cam6'; // Chosen background uses the same photo review and text step as the camera
   const PRECACHE_URLS = [
     './',
     './videos.html',

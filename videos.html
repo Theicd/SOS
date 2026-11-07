@@ -261,7 +261,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css?v=20261107cam5">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20261107cam6">
     <!-- חלק מצב אורח (videos.html) — עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css?v=20260830paste2">
     <!-- חלק PWA (videos.html) — עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -2207,7 +2207,7 @@
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20261019chess1" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) — ממשק הקלטה עם טיימר | HYPER CORE TECH -->
-    <script src="./video-record.js?v=20261107cam5" defer></script>
+    <script src="./video-record.js?v=20261107cam6" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) — מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260911camopt1" defer></script>
     <script defer>
@@ -2888,18 +2888,11 @@
           </div>
 
           <div class="vr-shutter-row" id="videoRecordShutterRow">
-            <button type="button" class="vr-bg-dismiss" id="videoRecordBgDismiss" hidden aria-label="סגור רקעים">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
             <div class="vr-bg-strip" id="videoRecordBgStrip" aria-label="רקעים מובנים"></div>
             <button type="button" class="record-button is-solid" id="recordButton" aria-label="הקלט">
               <div class="record-button-inner"></div>
             </button>
             <div class="floating-timer" id="floatingTimer">0:00</div>
-            <button type="button" class="vr-continue" id="videoRecordContinueBtn" hidden>
-              <span>הבא</span>
-              <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
-            </button>
           </div>
 
           <div class="vr-footer-bar">
@@ -2907,6 +2900,13 @@
               <span class="vr-live-dot" aria-hidden="true"></span>
               <i class="fa-solid fa-broadcast-tower" aria-hidden="true"></i>
               <span>שידור חי</span>
+            </button>
+            <button type="button" class="vr-bg-dismiss" id="videoRecordBgDismiss" hidden aria-label="סגור בחירת תמונה">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+            <button type="button" class="vr-continue" id="videoRecordContinueBtn" hidden>
+              <span>הבא</span>
+              <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
             </button>
             <label class="vr-footer-btn vr-footer-btn--gallery" id="videoRecordGalleryBtn" title="גלריה">
               <span class="vr-gallery-thumb" aria-hidden="true">

@@ -257,6 +257,7 @@ class VideoRecorder {
       this.updateBgDismissVisibility();
     });
 
+    this.bindPreviewSwipe();
     this.restoreToolsExpanded();
   }
 
@@ -857,12 +858,12 @@ class VideoRecorder {
       this.cancelCountdown();
       return;
     }
-    if (this.captureMode === 'photo') {
-      this.capturePhoto();
+    if (this.selectedBgUrl) {
+      this.dismissBackgroundStrip();
       return;
     }
-    if (this.selectedBgUrl) {
-      this.continueWithBackground();
+    if (this.captureMode === 'photo') {
+      this.capturePhoto();
       return;
     }
     if (this.isRecording) this.stopRecording();
@@ -1051,19 +1052,64 @@ class VideoRecorder {
   }
 
   updateBgDismissVisibility() {
-    const scrolled = (this.bgStrip?.scrollLeft || 0) > 8;
-    const show = scrolled || !!this.selectedBgUrl;
-    this.bgStripScrolled = show;
-    if (!this.bgDismiss) return;
-    if (show) {
-      this.bgDismiss.hidden = false;
-      this.bgDismiss.removeAttribute('hidden');
-      this.bgDismiss.classList.add('is-visible');
-    } else {
-      this.bgDismiss.hidden = true;
-      this.bgDismiss.setAttribute('hidden', '');
-      this.bgDismiss.classList.remove('is-visible');
-    }
+    this.syncBgPickChrome();
+  }
+
+  updateContinueVisibility() {
+    this.syncBgPickChrome();
+  }
+
+  syncBgPickChrome() {
+    const picked = !!this.selectedBgUrl && !this.isRecording;
+    this.bgStripScrolled = picked;
+    this.modal?.classList.toggle('is-bg-picked', picked);
+    [this.bgDismiss, this.continueBtn].forEach((el) => {
+      if (!el) return;
+      el.hidden = !picked;
+      if (picked) el.removeAttribute('hidden');
+      else el.setAttribute('hidden', '');
+    });
+    if (picked) this.bgDismiss?.classList.add('is-visible');
+    else this.bgDismiss?.classList.remove('is-visible');
+  }
+
+  bindPreviewSwipe() {
+    const stage = this.stageCamera;
+    if (!stage || stage.dataset.swipeBound) return;
+    stage.dataset.swipeBound = '1';
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+    stage.addEventListener('pointerdown', (event) => {
+      if (event.target?.closest?.('button, a, label, input, textarea, .vr-bottom, .vr-side-tools, .vr-close')) return;
+      tracking = true;
+      startX = event.clientX;
+      startY = event.clientY;
+    });
+    stage.addEventListener('pointerup', (event) => {
+      if (!tracking) return;
+      tracking = false;
+      const dx = event.clientX - startX;
+      const dy = event.clientY - startY;
+      if (Math.abs(dx) < 42 || Math.abs(dx) < Math.abs(dy)) return;
+      this.stepBackground(dx < 0 ? 1 : -1);
+    });
+    stage.addEventListener('pointercancel', () => { tracking = false; });
+  }
+
+  stepBackground(dir) {
+    const thumbs = [...(this.bgStrip?.querySelectorAll('.vr-bg-thumb') || [])];
+    if (thumbs.length < 2 || !this.bgStrip) return;
+    let index = thumbs.findIndex((el) => el.classList.contains('is-selected'));
+    if (index < 0) index = 0;
+    const next = Math.max(0, Math.min(thumbs.length - 1, index + dir));
+    const thumb = thumbs[next];
+    if (!thumb) return;
+    const targetLeft = thumb.offsetLeft - (this.bgStrip.clientWidth / 2) + (thumb.offsetWidth / 2);
+    this.bgStrip.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+    const url = thumb.getAttribute('data-bg') || '';
+    if (!url) this.clearBackgroundSelection(true);
+    else this.selectBackground(url, thumb);
   }
 
   dismissBackgroundStrip() {
@@ -1125,14 +1171,6 @@ class VideoRecorder {
     if (!this.backgroundsOpen) this.clearBackgroundSelection();
     this.updateBgDismissVisibility();
     this.updateContinueVisibility();
-  }
-
-  updateContinueVisibility() {
-    const show = !!this.selectedBgUrl && !this.isRecording;
-    if (!this.continueBtn) return;
-    this.continueBtn.hidden = !show;
-    if (show) this.continueBtn.removeAttribute('hidden');
-    else this.continueBtn.setAttribute('hidden', '');
   }
 
   toggleTextEditor() {
@@ -1523,7 +1561,6 @@ class VideoRecorder {
       canvas.height = img.naturalHeight || 1080;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      this.drawOverlayText(ctx, canvas.width, canvas.height);
       const outBlob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
       if (!outBlob) throw new Error('blob');
       const file = new File([outBlob], `bg-${Date.now()}.jpg`, { type: 'image/jpeg' });
@@ -1542,13 +1579,8 @@ class VideoRecorder {
     try {
       const file = await this.buildBackgroundFile();
       if (!file) return;
-      this._overlayBurnedInFile = true;
-      this._composeOverlayText = '';
-      this.lastShareFile = file;
-      this.pendingFile = file;
       this.clearBackgroundSelection();
-      this.transferToCompose(file);
-      this.closeModal({ skipResume: true });
+      this.showReview(file);
     } finally {
       this._bgContinuing = false;
       this.continueBtn?.removeAttribute('disabled');
@@ -1711,7 +1743,7 @@ class VideoRecorder {
     this.floatingTimer?.classList.remove('visible');
     this.recordButton?.classList.remove('recording');
     this.modal?.classList.remove('is-recording');
-    this.setShutterSolid(!this.selectedBgUrl);
+    this.setShutterSolid(true);
   }
 
   startTimer() {
