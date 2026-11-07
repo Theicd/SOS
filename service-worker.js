@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261107cam2'; // Camera: live and gallery stay put, image scroll returns on the shutter row
+  const CACHE_NAME = 'sos-cache-v20261107cam3'; // Camera tools stack on the left like TikTok, with names that can close
   const PRECACHE_URLS = [
     './',
     './videos.html',

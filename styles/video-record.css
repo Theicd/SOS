@@ -96,7 +96,7 @@ body.video-record-open .videos-feed iframe {
 /* חזרה — תמיד פינה ימנית עליונה | HYPER CORE TECH */
 .vr-close {
   position: absolute !important;
-  top: calc(10px + var(--safe-top, 0px)) !important;
+  top: calc(14px + var(--safe-top, 0px)) !important;
   right: 10px !important;
   left: auto !important;
   inset-inline-start: auto !important;
@@ -122,51 +122,111 @@ body.video-record-open .videos-feed iframe {
   outline: none;
 }
 
-/* אייקונים בשורה, כמו במצלמה של טיקטוק | HYPER CORE TECH */
+/* טור שמאלי כמו בטיקטוק: אייקון 28px, רווח 22px בין אחד לשני | HYPER CORE TECH */
 .vr-side-tools {
   position: absolute !important;
-  top: calc(10px + var(--safe-top, 0px)) !important;
-  left: 10px !important;
+  top: calc(18px + var(--safe-top, 0px)) !important;
+  left: 16px !important;
   right: auto !important;
-  inset-inline-start: 10px !important;
+  inset-inline-start: 16px !important;
   inset-inline-end: auto !important;
   z-index: 6;
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 22px;
+  max-height: calc(100% - 220px);
 }
 
+.vr-tool,
 .vr-tool-btn {
-  width: 36px;
-  height: 36px;
+  width: auto;
+  height: auto;
+  min-height: 28px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+}
+
+.vr-tool__glyph {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.85));
+  flex-shrink: 0;
+}
+
+.vr-tool__label {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  direction: rtl;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 8px rgba(0, 0, 0, 0.45);
+}
+
+.vr-side-tools.is-collapsed .vr-tool__label {
+  display: none;
+}
+
+.vr-tools-toggle {
+  width: 28px;
+  height: 28px;
+  margin-top: -6px;
   border: none;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.28);
   color: #fff;
-  font-size: 15px;
+  font-size: 12px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.85));
 }
 
 .vr-tool-btn__aa {
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1;
 }
 
-.vr-tool-btn.is-on {
-  background: rgba(255, 193, 7, 0.85);
-  color: #111;
+.vr-tool-btn.is-on,
+.vr-tool.is-on {
+  background: transparent;
+  color: #ffe14a;
 }
 
-.vr-tool-btn.is-active {
-  background: rgba(79, 195, 247, 0.9);
-  color: #0a0a0a;
+.vr-tool-btn.is-on .vr-tool__glyph,
+.vr-tool.is-on .vr-tool__glyph {
+  color: #ffe14a;
+}
+
+.vr-tool-btn.is-active,
+.vr-tool.is-active {
+  background: transparent;
+  color: #8ad8ff;
+}
+
+.vr-tool-btn.is-active .vr-tool__glyph,
+.vr-tool.is-active .vr-tool__glyph {
+  color: #8ad8ff;
 }
 
 .vr-bottom {

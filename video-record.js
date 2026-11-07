@@ -103,6 +103,7 @@ class VideoRecorder {
     }
 
     this.recordButton?.addEventListener('click', () => this.onShutter());
+    this.toolsToggle?.addEventListener('click', () => this.toggleToolsExpanded());
     this.continueBtn?.addEventListener('click', () => this.continueWithBackground());
     this.cameraSwitch?.addEventListener('click', () => this.switchCamera());
     this.flashButton?.addEventListener('click', () => this.toggleFlash());
@@ -196,6 +197,8 @@ class VideoRecorder {
       this.syncBackgroundFromScroll(true);
       this.updateBgDismissVisibility();
     });
+
+    this.restoreToolsExpanded();
   }
 
   setCaptureMode(mode) {
@@ -339,6 +342,7 @@ class VideoRecorder {
     this.exitNoCameraMode();
     this.showCameraStage();
     this.setCaptureMode(this.captureMode || '10');
+    this.restoreToolsExpanded();
     this.restoreGalleryThumb();
     this.startCamera();
     this.scheduleBackgroundStrip();
