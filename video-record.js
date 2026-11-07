@@ -1079,11 +1079,8 @@ class VideoRecorder {
   }
 
   restoreToolsExpanded() {
-    let open = true;
-    try {
-      if (localStorage.getItem('sos_vr_tools_open') === '0') open = false;
-    } catch (_) {}
-    this.applyToolsExpanded(open, false);
+    this.applyToolsExpanded(false, false);
+    this.toolsToggle?.classList.add('is-hint');
   }
 
   applyToolsExpanded(expanded, persist) {
@@ -1093,13 +1090,15 @@ class VideoRecorder {
     this.toolsToggle?.setAttribute('aria-label', this.toolsExpanded ? 'הסתר הסברים' : 'הצג הסברים');
     const icon = this.toolsToggle?.querySelector('i');
     if (icon) icon.className = this.toolsExpanded ? 'fa-solid fa-chevron-left' : 'fa-solid fa-chevron-right';
+    if (expanded) this.toolsToggle?.classList.remove('is-hint');
     if (persist) {
       try { localStorage.setItem('sos_vr_tools_open', this.toolsExpanded ? '1' : '0'); } catch (_) {}
     }
   }
 
   toggleToolsExpanded() {
-    this.applyToolsExpanded(!this.toolsExpanded, true);
+    this.toolsToggle?.classList.remove('is-hint');
+    this.applyToolsExpanded(!this.toolsExpanded, false);
   }
 
   async toggleBackgrounds() {
