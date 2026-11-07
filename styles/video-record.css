@@ -875,20 +875,22 @@ body.video-record-open .videos-feed iframe {
   100% { transform: scale(1); }
 }
 
-/* כפתור הבא – למעלה משמאל, גודל לפי הטקסט, לא מכסה כתוביות למטה | HYPER CORE TECH */
+/* כפתור הבא בשורה העליונה משמאל, הטקסט מתחתיו | HYPER CORE TECH */
 .video-record-stage--review .vr-text-layer {
   z-index: 5;
 }
 
 .video-record-stage--review .vr-review-actions {
   position: absolute;
-  top: auto;
-  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
-  left: auto;
-  right: 14px;
-  z-index: 6;
+  top: calc(12px + var(--safe-top, 0px));
+  bottom: auto;
+  left: 12px;
+  right: auto;
+  height: 44px;
+  z-index: 7;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: flex-start;
   padding: 0;
 }
 
@@ -918,8 +920,8 @@ body.video-record-open .videos-feed iframe {
 .vr-review-text {
   display: none;
   position: absolute;
-  top: calc(18px + var(--safe-top, 0px));
-  left: 16px;
+  top: calc(72px + var(--safe-top, 0px));
+  left: 12px;
   z-index: 7;
   align-items: center;
   gap: 10px;
