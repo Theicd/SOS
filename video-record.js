@@ -552,7 +552,7 @@ class VideoRecorder {
   resetSlides(file, url) {
     this.stopSlideShow();
     this.revokeOwnedSlides();
-    this.slides = [{ id: Date.now(), file, url, owned: false }];
+    this.slides = [{ id: Date.now(), file, url, owned: false, overlay: this.captureOverlay() }];
     this.slideIndex = 0;
     this.renderSlideRow();
     this.syncSlideSecondsLabel();
@@ -572,7 +572,13 @@ class VideoRecorder {
       if (!file || !String(file.type || '').startsWith('image/')) return;
       if (this.slides.length >= 8) return;
       const url = URL.createObjectURL(file);
-      this.slides.push({ id: Date.now() + Math.random(), file, url, owned: true });
+      this.slides.push({
+        id: Date.now() + Math.random(),
+        file,
+        url,
+        owned: true,
+        overlay: null,
+      });
       added = true;
     });
     if (!added) return;
@@ -590,9 +596,11 @@ class VideoRecorder {
   showSlide(index, animate) {
     if (!this.slides.length) return;
     const next = ((index % this.slides.length) + this.slides.length) % this.slides.length;
+    this.saveOverlayToSlide(this.slideIndex);
     const slide = this.slides[next];
     this.slideIndex = next;
     this.pendingFile = slide.file;
+    this.loadOverlayFromSlide(slide);
     if (!animate || this.slides.length < 2) {
       if (this.reviewImage) this.reviewImage.src = slide.url;
       if (this.reviewImageB) this.reviewImageB.hidden = true;
@@ -600,6 +608,43 @@ class VideoRecorder {
       this.transitionTo(slide.url);
     }
     this.renderSlideRow();
+  }
+
+  captureOverlay() {
+    if (this._studioOpen && this.studioInput) {
+      this.overlayText = String(this.studioInput.value || '').trim();
+    }
+    return {
+      text: String(this.overlayText || ''),
+      pos: this.overlayTextPos || 'middle',
+      style: this.overlayStyle || 'classic',
+      color: this.overlayColor || '#ffffff',
+      bg: !!this.overlayBg,
+      align: this.overlayAlign || 'center',
+      scale: Number(this.overlayScale) || 1,
+    };
+  }
+
+  saveOverlayToSlide(index) {
+    const slide = this.slides?.[index];
+    if (!slide) return;
+    slide.overlay = this.captureOverlay();
+  }
+
+  loadOverlayFromSlide(slide) {
+    const overlay = slide?.overlay || {};
+    this.overlayText = String(overlay.text || '');
+    this.overlayTextPos = overlay.pos || 'middle';
+    this.overlayStyle = overlay.style || 'classic';
+    this.overlayColor = overlay.color || '#ffffff';
+    this.overlayBg = !!overlay.bg;
+    this.overlayAlign = overlay.align || 'center';
+    this.overlayScale = Number(overlay.scale) || 1;
+    if (this.studioInput) this.studioInput.value = this.overlayText;
+    if (this.textInput) this.textInput.value = this.overlayText;
+    if (this.textSize) this.textSize.value = String(Math.round((Number(this.overlayScale) || 1) * 100));
+    this.syncTextControls();
+    this.renderTextLayer();
   }
 
   pickTransition() {
@@ -722,6 +767,8 @@ class VideoRecorder {
     this._confirming = true;
     try {
       if (this._studioOpen) this.closeTextStudio();
+      this.stopSlideShow();
+      this.saveOverlayToSlide(this.slideIndex);
       let file = this.pendingFile;
       const isVideo = String(file.type || '').startsWith('video/');
       const text = String(this.overlayText || '').trim();
@@ -1475,6 +1522,7 @@ class VideoRecorder {
 
   openTextStudio() {
     if (!this.textStudio || !this.stageReview?.classList.contains('is-image')) return;
+    this.stopSlideShow();
     this._studioOpen = true;
     this.textStudio.hidden = false;
     this.textStudio.removeAttribute('hidden');
@@ -1505,7 +1553,10 @@ class VideoRecorder {
     this.stageReview?.classList.remove('is-texting');
     this.reviewTextBtn?.classList.remove('is-active');
     if (this.textStudioBottom) this.textStudioBottom.style.transform = '';
+    this.saveOverlayToSlide(this.slideIndex);
     this.renderTextLayer();
+    const reviewOpen = this.modal?.classList.contains('is-visible') && this.stageReview && !this.stageReview.hidden;
+    if (reviewOpen && this.slides.length > 1) this.startSlideShow();
   }
 
   placeStudioAboveKeyboard() {
