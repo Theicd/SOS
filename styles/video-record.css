@@ -936,20 +936,20 @@ body.video-record-open .videos-feed iframe {
 }
 
 .vr-review-text .vr-tool__glyph {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
-  font-size: 26px;
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  min-height: 52px;
+  font-size: 32px;
 }
 
 .vr-review-text .vr-tool-btn__aa {
-  font-size: 26px;
+  font-size: 32px;
   font-weight: 800;
 }
 
 .vr-review-text .vr-tool__label {
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .video-record-stage--review.is-texting .vr-review-text,
