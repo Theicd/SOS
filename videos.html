@@ -261,7 +261,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css?v=20261108cam13">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20261108cam14">
     <!-- חלק מצב אורח (videos.html) — עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css?v=20260830paste2">
     <!-- חלק PWA (videos.html) — עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -2207,7 +2207,7 @@
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20261019chess1" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) — ממשק הקלטה עם טיימר | HYPER CORE TECH -->
-    <script src="./video-record.js?v=20261107cam10" defer></script>
+    <script src="./video-record.js?v=20261108cam14" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) — מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260911camopt1" defer></script>
     <script defer>
@@ -2935,6 +2935,7 @@
       <div class="video-record-stage video-record-stage--review" id="videoRecordStageReview" hidden>
         <video id="videoRecordReviewVideo" playsinline controls></video>
         <img id="videoRecordReviewImage" alt="תצוגה מקדימה" hidden>
+        <img id="videoRecordReviewImageB" alt="" hidden>
         <div class="vr-text-layer" id="videoRecordReviewTextLayer" data-pos="middle" data-style="classic" data-align="center" data-bg="0" hidden></div>
         <button type="button" class="vr-close" id="videoRecordReviewBackBtn" aria-label="חזרה" style="right:10px;left:auto;">
           <i class="fa-solid fa-chevron-right"></i>
@@ -2989,6 +2990,22 @@
             <span>הבא</span>
             <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
           </button>
+        </div>
+        <div class="vr-slide-dock" id="videoRecordSlideDock">
+          <div class="vr-slide-row" id="videoRecordSlideRow"></div>
+          <button type="button" class="vr-slide-add" id="videoRecordSlideAdd" aria-label="הוספת תמונה">
+            <i class="fa-solid fa-plus" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="vr-slide-clock" id="videoRecordSlideClock" aria-label="זמן בין תמונות" aria-expanded="false">
+            <i class="fa-solid fa-clock" aria-hidden="true"></i>
+          </button>
+          <div class="vr-slide-time" id="videoRecordSlideTime" hidden>
+            <button type="button" data-sec="-1" aria-label="פחות שנייה">−</button>
+            <strong id="videoRecordSlideSeconds">5</strong>
+            <span>שנ׳</span>
+            <button type="button" data-sec="1" aria-label="עוד שנייה">+</button>
+          </div>
+          <input type="file" id="videoRecordSlideInput" accept="image/*" multiple hidden>
         </div>
       </div>
     </div>

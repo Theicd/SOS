@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261108cam13'; // Photo text control is larger and labeled הוספת טקסט
+  const CACHE_NAME = 'sos-cache-v20261108cam14'; // Photo review can add images and play them with a random transition
   const PRECACHE_URLS = [
     './',
     './videos.html',

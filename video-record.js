@@ -16,6 +16,10 @@ class VideoRecorder {
     this.flashOn = false;
     this.pendingFile = null;
     this.pendingObjectUrl = null;
+    this.slides = [];
+    this.slideIndex = 0;
+    this.slideSeconds = 5;
+    this._slideTimer = 0;
     this.selectedBgUrl = '';
     this.bgUrls = [];
     this.overlayText = '';
@@ -65,6 +69,14 @@ class VideoRecorder {
     this.preview = document.getElementById('videoRecordPreview');
     this.reviewVideo = document.getElementById('videoRecordReviewVideo');
     this.reviewImage = document.getElementById('videoRecordReviewImage');
+    this.reviewImageB = document.getElementById('videoRecordReviewImageB');
+    this.slideDock = document.getElementById('videoRecordSlideDock');
+    this.slideRow = document.getElementById('videoRecordSlideRow');
+    this.slideAdd = document.getElementById('videoRecordSlideAdd');
+    this.slideClock = document.getElementById('videoRecordSlideClock');
+    this.slideTime = document.getElementById('videoRecordSlideTime');
+    this.slideSecondsEl = document.getElementById('videoRecordSlideSeconds');
+    this.slideInput = document.getElementById('videoRecordSlideInput');
     this.recordButton = document.getElementById('recordButton');
     this.cameraSwitch = document.getElementById('cameraSwitchButton');
     this.flashButton = document.getElementById('cameraFlashButton');
@@ -237,7 +249,24 @@ class VideoRecorder {
     });
     this.reviewVideo?.addEventListener('loadeddata', () => this.hideShellFilePickLoading());
     this.reviewVideo?.addEventListener('canplay', () => this.hideShellFilePickLoading());
-    this.reviewImage?.addEventListener('load', () => this.hideShellFilePickLoading());
+    this.slideAdd?.addEventListener('click', () => this.slideInput?.click());
+    this.slideInput?.addEventListener('change', (event) => {
+      const files = [...(event.target?.files || [])];
+      this.addSlideFiles(files);
+      try { event.target.value = ''; } catch (_) {}
+    });
+    this.slideRow?.addEventListener('click', (event) => {
+      const thumb = event.target?.closest?.('[data-slide]');
+      if (!thumb) return;
+      this.showSlide(Number(thumb.getAttribute('data-slide')) || 0, false);
+      this.startSlideShow();
+    });
+    this.slideClock?.addEventListener('click', () => this.toggleSlideTime());
+    this.slideTime?.addEventListener('click', (event) => {
+      const btn = event.target?.closest?.('[data-sec]');
+      if (!btn) return;
+      this.changeSlideSeconds(Number(btn.getAttribute('data-sec')) || 0);
+    });
 
     this.bgStrip?.addEventListener('click', (event) => {
       if (event.target?.closest?.('.vr-bg-dismiss')) return;
@@ -477,9 +506,16 @@ class VideoRecorder {
       this.reviewVideo.hidden = true;
     }
     if (this.reviewImage) {
-      this.reviewImage.removeAttribute('src');
       this.reviewImage.hidden = true;
+      this.reviewImage.removeAttribute('src');
     }
+    if (this.reviewImageB) {
+      this.reviewImageB.hidden = true;
+      this.reviewImageB.removeAttribute('src');
+    }
+    this.stopSlideShow();
+    this.revokeOwnedSlides();
+    this.slides = [];
   }
 
   hideShellFilePickLoading() {
@@ -513,6 +549,139 @@ class VideoRecorder {
     });
   }
 
+  resetSlides(file, url) {
+    this.stopSlideShow();
+    this.revokeOwnedSlides();
+    this.slides = [{ id: Date.now(), file, url, owned: false }];
+    this.slideIndex = 0;
+    this.renderSlideRow();
+    this.syncSlideSecondsLabel();
+  }
+
+  revokeOwnedSlides() {
+    (this.slides || []).forEach((slide) => {
+      if (slide?.owned && slide.url) {
+        try { URL.revokeObjectURL(slide.url); } catch (_) {}
+      }
+    });
+  }
+
+  addSlideFiles(files) {
+    let added = false;
+    files.forEach((file) => {
+      if (!file || !String(file.type || '').startsWith('image/')) return;
+      if (this.slides.length >= 8) return;
+      const url = URL.createObjectURL(file);
+      this.slides.push({ id: Date.now() + Math.random(), file, url, owned: true });
+      added = true;
+    });
+    if (!added) return;
+    this.renderSlideRow();
+    this.startSlideShow();
+  }
+
+  renderSlideRow() {
+    if (!this.slideRow) return;
+    this.slideRow.innerHTML = this.slides.map((slide, index) => (
+      `<button type="button" class="vr-slide-thumb${index === this.slideIndex ? ' is-on' : ''}" data-slide="${index}" style="background-image:url('${slide.url}')" aria-label="תמונה ${index + 1}"></button>`
+    )).join('');
+  }
+
+  showSlide(index, animate) {
+    if (!this.slides.length) return;
+    const next = ((index % this.slides.length) + this.slides.length) % this.slides.length;
+    const slide = this.slides[next];
+    this.slideIndex = next;
+    this.pendingFile = slide.file;
+    if (!animate || this.slides.length < 2) {
+      if (this.reviewImage) this.reviewImage.src = slide.url;
+      if (this.reviewImageB) this.reviewImageB.hidden = true;
+    } else {
+      this.transitionTo(slide.url);
+    }
+    this.renderSlideRow();
+  }
+
+  pickTransition() {
+    const effects = ['fade', 'slide', 'zoom'];
+    return effects[Math.floor(Math.random() * effects.length)];
+  }
+
+  transitionTo(url) {
+    const incoming = this.reviewImageB;
+    if (!incoming || !this.reviewImage) {
+      if (this.reviewImage) this.reviewImage.src = url;
+      return;
+    }
+    const token = (this._slideToken || 0) + 1;
+    this._slideToken = token;
+    let started = false;
+    const start = () => {
+      if (started || token !== this._slideToken) return;
+      started = true;
+      const effect = this.pickTransition();
+      incoming.classList.remove('is-fade', 'is-slide', 'is-zoom');
+      incoming.src = url;
+      incoming.hidden = false;
+      incoming.removeAttribute('hidden');
+      void incoming.offsetWidth;
+      incoming.classList.add(`is-${effect}`);
+      let finished = false;
+      const finish = () => {
+        if (finished || token !== this._slideToken) return;
+        finished = true;
+        this.reviewImage.src = url;
+        incoming.classList.remove('is-fade', 'is-slide', 'is-zoom');
+        incoming.hidden = true;
+        incoming.setAttribute('hidden', '');
+      };
+      incoming.addEventListener('animationend', finish, { once: true });
+      setTimeout(finish, 900);
+    };
+    const preload = new Image();
+    preload.onload = start;
+    preload.onerror = () => { if (this.reviewImage) this.reviewImage.src = url; };
+    preload.src = url;
+    if (preload.complete && preload.naturalWidth) start();
+  }
+
+  startSlideShow() {
+    this.stopSlideShow();
+    if (this.slides.length < 2 || !this.stageReview?.classList.contains('is-image')) return;
+    const wait = Math.max(1, Number(this.slideSeconds) || 5) * 1000;
+    this._slideTimer = setInterval(() => {
+      this.showSlide(this.slideIndex + 1, true);
+    }, wait);
+  }
+
+  stopSlideShow() {
+    if (this._slideTimer) {
+      clearInterval(this._slideTimer);
+      this._slideTimer = 0;
+    }
+    this._slideToken = (this._slideToken || 0) + 1;
+  }
+
+  toggleSlideTime() {
+    if (!this.slideTime) return;
+    const open = this.slideTime.hasAttribute('hidden');
+    this.slideTime.hidden = !open;
+    if (open) this.slideTime.removeAttribute('hidden');
+    else this.slideTime.setAttribute('hidden', '');
+    this.slideClock?.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  changeSlideSeconds(delta) {
+    const next = Math.max(1, Math.min(15, (Number(this.slideSeconds) || 5) + delta));
+    this.slideSeconds = next;
+    this.syncSlideSecondsLabel();
+    if (this.slides.length > 1) this.startSlideShow();
+  }
+
+  syncSlideSecondsLabel() {
+    if (this.slideSecondsEl) this.slideSecondsEl.textContent = String(this.slideSeconds || 5);
+  }
+
   showReview(file) {
     if (!file) return;
     if (this.isRecording) this.stopRecording();
@@ -534,6 +703,7 @@ class VideoRecorder {
       this.reviewImage.hidden = false;
       if (this.reviewVideo) this.reviewVideo.hidden = true;
       this.reviewImage.src = this.pendingObjectUrl;
+      this.resetSlides(file, this.pendingObjectUrl);
     }
     this.renderTextLayer();
     this.showReviewStage();
