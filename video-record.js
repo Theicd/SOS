@@ -27,6 +27,8 @@ class VideoRecorder {
     this.overlayScale = 1;
     this._studioOpen = false;
     this._confirming = false;
+    this._swipeHintShown = false;
+    this._swipeHintTimer = 0;
     this.bgStripScrolled = false;
     this.cameraAvailable = true;
     this._bgLoadTimer = 0;
@@ -94,6 +96,7 @@ class VideoRecorder {
     this.liveBtn = document.getElementById('videoRecordLiveBtn');
     this.bgBtn = document.getElementById('videoRecordBgBtn');
     this.continueBtn = document.getElementById('videoRecordContinueBtn');
+    this.swipeHint = document.getElementById('videoRecordSwipeHint');
     this.textBtn = document.getElementById('videoRecordTextBtn');
     this.textEditor = document.getElementById('videoRecordTextEditor');
     this.textInput = document.getElementById('videoRecordTextInput');
@@ -406,6 +409,8 @@ class VideoRecorder {
     this.restoreGalleryThumb();
     this.startCamera();
     this.scheduleBackgroundStrip();
+    this._swipeHintShown = false;
+    this.hideSwipeHint(false);
   }
 
   closeModal(options = {}) {
@@ -1071,6 +1076,29 @@ class VideoRecorder {
     });
     if (picked) this.bgDismiss?.classList.add('is-visible');
     else this.bgDismiss?.classList.remove('is-visible');
+    if (picked) this.showSwipeHint();
+    else this.hideSwipeHint(false);
+  }
+
+  showSwipeHint() {
+    if (this._swipeHintShown || !this.swipeHint) return;
+    if (!window.matchMedia('(max-width: 768px)').matches) return;
+    this._swipeHintShown = true;
+    this.swipeHint.hidden = false;
+    this.swipeHint.removeAttribute('hidden');
+    this.swipeHint.classList.add('is-on');
+    clearTimeout(this._swipeHintTimer);
+    this._swipeHintTimer = setTimeout(() => this.hideSwipeHint(false), 3800);
+  }
+
+  hideSwipeHint(markSeen) {
+    clearTimeout(this._swipeHintTimer);
+    this._swipeHintTimer = 0;
+    if (markSeen) this._swipeHintShown = true;
+    if (!this.swipeHint) return;
+    this.swipeHint.classList.remove('is-on');
+    this.swipeHint.hidden = true;
+    this.swipeHint.setAttribute('hidden', '');
   }
 
   bindPreviewSwipe() {
@@ -1092,6 +1120,7 @@ class VideoRecorder {
       const dx = event.clientX - startX;
       const dy = event.clientY - startY;
       if (Math.abs(dx) < 42 || Math.abs(dx) < Math.abs(dy)) return;
+      this.hideSwipeHint();
       this.stepBackground(dx < 0 ? 1 : -1);
     });
     stage.addEventListener('pointercancel', () => { tracking = false; });
