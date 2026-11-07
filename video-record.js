@@ -424,6 +424,7 @@ class VideoRecorder {
     this.clearPendingPreview();
     this.clearOverlayText();
     this.clearBackgroundSelection();
+    this.hideSwipeHint(false);
     this.hideTextEditor();
     this.exitNoCameraMode();
     this.resetState();
@@ -1077,7 +1078,6 @@ class VideoRecorder {
     if (picked) this.bgDismiss?.classList.add('is-visible');
     else this.bgDismiss?.classList.remove('is-visible');
     if (picked) this.showSwipeHint();
-    else this.hideSwipeHint(false);
   }
 
   showSwipeHint() {
@@ -1088,7 +1088,7 @@ class VideoRecorder {
     this.swipeHint.removeAttribute('hidden');
     this.swipeHint.classList.add('is-on');
     clearTimeout(this._swipeHintTimer);
-    this._swipeHintTimer = setTimeout(() => this.hideSwipeHint(false), 3800);
+    this._swipeHintTimer = setTimeout(() => this.hideSwipeHint(false), 4500);
   }
 
   hideSwipeHint(markSeen) {
@@ -1151,6 +1151,7 @@ class VideoRecorder {
     }
     this.clearBackgroundSelection(true);
     this.updateBgDismissVisibility();
+    this.hideSwipeHint(false);
   }
 
   restoreToolsExpanded() {
