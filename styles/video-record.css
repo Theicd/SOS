@@ -1333,6 +1333,8 @@ body.video-record-open .videos-feed iframe {
   padding: 0.08em 0.22em;
   border-radius: 0.2em;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 
 .vr-text-layer[data-style="retro"] .vr-text-ink {

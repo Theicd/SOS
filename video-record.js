@@ -1814,6 +1814,45 @@ class VideoRecorder {
     }
   }
 
+  coverFrame(imgW, imgH) {
+    const viewW = Math.max(1, window.innerWidth || 390);
+    const viewH = Math.max(1, window.innerHeight || 844);
+    const viewRatio = viewW / viewH;
+    const imgRatio = imgW / Math.max(1, imgH);
+    if (imgRatio > viewRatio) {
+      const w = imgH * viewRatio;
+      return { x: (imgW - w) / 2, y: 0, w, h: imgH };
+    }
+    const h = imgW / viewRatio;
+    return { x: 0, y: (imgH - h) / 2, w: imgW, h };
+  }
+
+  layoutOverlayLines(ctx, text, fontSize, family, weight, fontStyle, maxWidth) {
+    ctx.font = `${fontStyle} ${weight} ${fontSize}px ${family}`;
+    const lines = [];
+    let tooWide = false;
+    String(text || '').split(/\n+/).forEach((para) => {
+      const words = para.split(/\s+/).filter(Boolean);
+      let line = '';
+      words.forEach((word) => {
+        if (ctx.measureText(word).width > maxWidth) tooWide = true;
+        const test = line ? `${line} ${word}` : word;
+        if (ctx.measureText(test).width > maxWidth && line) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = test;
+        }
+      });
+      if (line) lines.push(line);
+    });
+    if (!lines.length && text) lines.push(text);
+    lines.forEach((line) => {
+      if (ctx.measureText(line).width > maxWidth) tooWide = true;
+    });
+    return { lines, tooWide, lineHeight: fontSize * 1.25 };
+  }
+
   drawOverlayText(ctx, width, height) {
     const raw = String(this.overlayText || '').trim();
     if (!raw || !ctx) return;
@@ -1823,7 +1862,8 @@ class VideoRecorder {
     const scale = Number(this.overlayScale) || 1;
     const color = this.overlayColor || '#ffffff';
     const text = style === 'retro' ? raw.toUpperCase() : raw;
-    let fontSize = Math.max(22, Math.round(width * 0.07 * scale));
+    const frame = this.coverFrame(width, height);
+    const maxWidth = frame.w * 0.86;
     const family = style === 'retro'
       ? '"Courier New", monospace'
       : style === 'comic'
@@ -1837,34 +1877,26 @@ class VideoRecorder {
     ctx.direction = 'rtl';
     ctx.textAlign = align === 'right' ? 'right' : align === 'left' ? 'left' : 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `${fontStyle} ${weight} ${fontSize}px ${family}`;
-    const maxWidth = width * 0.86;
-    const lines = [];
-    text.split(/\n+/).forEach((para) => {
-      const words = para.split(/\s+/).filter(Boolean);
-      let line = '';
-      words.forEach((word) => {
-        const test = line ? `${line} ${word}` : word;
-        if (ctx.measureText(test).width > maxWidth && line) {
-          lines.push(line);
-          line = word;
-        } else {
-          line = test;
-        }
-      });
-      if (line) lines.push(line);
-    });
-    while (lines.length > 4 && fontSize > 22) {
+    let fontSize = Math.max(18, Math.round(frame.w * 0.07 * scale));
+    let layout = this.layoutOverlayLines(ctx, text, fontSize, family, weight, fontStyle, maxWidth);
+    while ((layout.tooWide || layout.lines.length * layout.lineHeight > frame.h * 0.62) && fontSize > 16) {
       fontSize -= 2;
-      ctx.font = `${fontStyle} ${weight} ${fontSize}px ${family}`;
+      layout = this.layoutOverlayLines(ctx, text, fontSize, family, weight, fontStyle, maxWidth);
     }
-    const lineHeight = fontSize * 1.25;
-    const blockH = lines.length * lineHeight;
+    const { lines, lineHeight } = layout;
+    const blockH = Math.max(lineHeight, lines.length * lineHeight);
     let y;
-    if (pos === 'top') y = height * 0.18;
-    else if (pos === 'bottom') y = height * 0.78 - blockH / 2;
-    else y = height * 0.5 - blockH / 2 + lineHeight / 2;
-    const x = align === 'right' ? width * 0.9 : align === 'left' ? width * 0.1 : width / 2;
+    if (pos === 'top') y = frame.y + frame.h * 0.16;
+    else if (pos === 'bottom') y = frame.y + frame.h * 0.84 - blockH + lineHeight;
+    else y = frame.y + (frame.h - blockH) / 2 + lineHeight / 2;
+    const minY = frame.y + lineHeight / 2 + 8;
+    const maxY = frame.y + frame.h - blockH + lineHeight / 2 - 8;
+    y = Math.max(minY, Math.min(maxY, y));
+    const x = align === 'right'
+      ? frame.x + frame.w * 0.9
+      : align === 'left'
+        ? frame.x + frame.w * 0.1
+        : frame.x + frame.w / 2;
     if (this.overlayBg && lines.length) {
       const padX = fontSize * 0.34;
       const padY = fontSize * 0.16;
