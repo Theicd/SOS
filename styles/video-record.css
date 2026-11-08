@@ -1136,7 +1136,7 @@ body.video-record-open .videos-feed iframe {
   max-width: 100%;
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 16px 0 2px;
+  padding: 4px 0 2px;
 }
 
 .vr-slide-row::-webkit-scrollbar { display: none; }
@@ -1151,13 +1151,16 @@ body.video-record-open .videos-feed iframe {
 .vr-slide-thumb-wrap {
   position: relative;
   width: 54px;
-  height: 54px;
+  height: 84px;
   flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
 }
 
 .vr-slide-thumb {
-  width: 100%;
-  height: 100%;
+  width: 54px;
+  height: 54px;
   border-radius: 12px;
   border: 2px solid rgba(255, 255, 255, 0.45);
   background: #222 center / cover no-repeat;
@@ -1168,7 +1171,7 @@ body.video-record-open .videos-feed iframe {
 .vr-slide-remove {
   display: none;
   position: absolute;
-  top: -11px;
+  top: 0;
   left: 50%;
   right: auto;
   transform: translateX(-50%);
