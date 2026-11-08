@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261108cam28'; // Description keeps the photo draft and covers the screen
+  const CACHE_NAME = 'sos-cache-v20261108cam29'; // Review toolbar frame, and a way to remove a photo
   const PRECACHE_URLS = [
     './',
     './videos.html',

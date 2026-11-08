@@ -300,6 +300,13 @@ class VideoRecorder {
       try { event.target.value = ''; } catch (_) {}
     });
     this.slideRow?.addEventListener('click', (event) => {
+      const remove = event.target?.closest?.('[data-remove]');
+      if (remove) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.removeSlide(Number(remove.getAttribute('data-remove')));
+        return;
+      }
       const thumb = event.target?.closest?.('[data-slide]');
       if (!thumb) return;
       this.showSlide(Number(thumb.getAttribute('data-slide')) || 0, false);
@@ -700,8 +707,34 @@ class VideoRecorder {
   renderSlideRow() {
     if (!this.slideRow) return;
     this.slideRow.innerHTML = this.slides.map((slide, index) => (
-      `<button type="button" class="vr-slide-thumb${index === this.slideIndex ? ' is-on' : ''}" data-slide="${index}" style="background-image:url('${slide.url}')" aria-label="תמונה ${index + 1}"></button>`
+      `<div class="vr-slide-thumb-wrap${index === this.slideIndex ? ' is-on' : ''}">` +
+        `<button type="button" class="vr-slide-thumb${index === this.slideIndex ? ' is-on' : ''}" data-slide="${index}" style="background-image:url('${slide.url}')" aria-label="תמונה ${index + 1}"></button>` +
+        `<button type="button" class="vr-slide-remove" data-remove="${index}" aria-label="הסרת תמונה"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>` +
+      `</div>`
     )).join('');
+  }
+
+  removeSlide(index) {
+    if (index < 0 || index >= this.slides.length) return;
+    this.stopSlideShow();
+    if (index !== this.slideIndex) this.saveOverlayToSlide(this.slideIndex);
+    const removed = this.slides[index];
+    if (removed?.owned && removed.url) {
+      try { URL.revokeObjectURL(removed.url); } catch (_) {}
+    }
+    this.slides.splice(index, 1);
+    if (!this.slides.length) {
+      this.backToCamera();
+      return;
+    }
+    let next = this.slideIndex;
+    if (index < this.slideIndex) next -= 1;
+    if (next >= this.slides.length) next = this.slides.length - 1;
+    this.slideIndex = next;
+    this.loadOverlayFromSlide(this.slides[next]);
+    this.showSlide(next, false);
+    if (this.slides.length > 1) this.startSlideShow();
+    if (this._composeDraft?.kind === 'images') this.stashComposeDraft();
   }
 
   showSlide(index, animate) {
