@@ -78,6 +78,9 @@ class VideoRecorder {
     this.slideSecondsEl = document.getElementById('videoRecordSlideSeconds');
     this.slideInput = document.getElementById('videoRecordSlideInput');
     this.addSheet = document.getElementById('videoRecordAddSheet');
+    this.discardSheet = document.getElementById('videoRecordDiscard');
+    this.discardStay = document.getElementById('videoRecordDiscardStay');
+    this.discardLeave = document.getElementById('videoRecordDiscardLeave');
     this.recordButton = document.getElementById('recordButton');
     this.cameraSwitch = document.getElementById('cameraSwitchButton');
     this.flashButton = document.getElementById('cameraFlashButton');
@@ -158,7 +161,7 @@ class VideoRecorder {
         this.closeTextStudio();
         return;
       }
-      this.backToCamera();
+      this.openDiscardSheet();
     });
     this.reviewTextBtn?.addEventListener('click', () => this.openTextStudio());
     this.textStudioDone?.addEventListener('click', () => this.closeTextStudio());
@@ -257,6 +260,19 @@ class VideoRecorder {
     this.reviewVideo?.addEventListener('loadeddata', () => this.hideShellFilePickLoading());
     this.reviewVideo?.addEventListener('canplay', () => this.hideShellFilePickLoading());
     this.slideAdd?.addEventListener('click', () => this.openAddSheet());
+    this.discardStay?.addEventListener('click', () => this.closeDiscardSheet());
+    this.discardLeave?.addEventListener('click', () => {
+      this.closeDiscardSheet();
+      this.backToCamera();
+    });
+    this.discardSheet?.addEventListener('click', (event) => {
+      if (event.target === this.discardSheet) this.closeDiscardSheet();
+    });
+    this.discardSheet?.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      this.closeDiscardSheet();
+    });
     this.addSheet?.addEventListener('click', (event) => {
       const choice = event.target?.closest?.('[data-add]')?.getAttribute('data-add');
       if (!choice || choice === 'cancel') {
@@ -468,6 +484,7 @@ class VideoRecorder {
     this.clearBackgroundSelection();
     this.hideSwipeHint(false);
     this.closeAddSheet();
+    this.closeDiscardSheet();
     this.hideTextEditor();
     this.exitNoCameraMode();
     this.resetState();
@@ -600,6 +617,23 @@ class VideoRecorder {
     if (!this.addSheet) return;
     this.addSheet.hidden = true;
     this.addSheet.setAttribute('hidden', '');
+  }
+
+  openDiscardSheet() {
+    if (!this.discardSheet) {
+      this.backToCamera();
+      return;
+    }
+    this.closeAddSheet();
+    this.discardSheet.hidden = false;
+    this.discardSheet.removeAttribute('hidden');
+    this.discardStay?.focus();
+  }
+
+  closeDiscardSheet() {
+    if (!this.discardSheet) return;
+    this.discardSheet.hidden = true;
+    this.discardSheet.setAttribute('hidden', '');
   }
 
   beginAppendCapture(mode) {
@@ -853,6 +887,7 @@ class VideoRecorder {
   }
 
   backToCamera() {
+    this.closeDiscardSheet();
     this.closeTextStudio();
     this.clearPendingPreview();
     this.showCameraStage();

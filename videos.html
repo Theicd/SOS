@@ -261,7 +261,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css?v=20261108cam23">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20261108cam24">
     <!-- חלק מצב אורח (videos.html) — עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css?v=20260830paste2">
     <!-- חלק PWA (videos.html) — עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -2207,7 +2207,7 @@
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20261019chess1" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) — ממשק הקלטה עם טיימר | HYPER CORE TECH -->
-    <script src="./video-record.js?v=20261108cam23" defer></script>
+    <script src="./video-record.js?v=20261108cam24" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) — מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260911camopt1" defer></script>
     <script defer>
@@ -2937,8 +2937,8 @@
         <img id="videoRecordReviewImage" alt="תצוגה מקדימה" hidden>
         <img id="videoRecordReviewImageB" alt="" hidden>
         <div class="vr-text-layer" id="videoRecordReviewTextLayer" data-pos="middle" data-style="classic" data-align="center" data-bg="0" hidden></div>
-        <button type="button" class="vr-close" id="videoRecordReviewBackBtn" aria-label="חזרה" style="right:10px;left:auto;">
-          <i class="fa-solid fa-chevron-right"></i>
+        <button type="button" class="vr-close" id="videoRecordReviewBackBtn" aria-label="סגירה" style="right:10px;left:auto;">
+          <i class="fa-solid fa-xmark"></i>
         </button>
         <button type="button" class="vr-review-text" id="videoRecordReviewTextBtn" aria-label="הוספת טקסט">
           <span class="vr-tool__glyph"><span class="vr-tool-btn__aa" aria-hidden="true">Aa</span></span>
@@ -3006,6 +3006,14 @@
             <button type="button" data-sec="1" aria-label="עוד שנייה">+</button>
           </div>
           <input type="file" id="videoRecordSlideInput" accept="image/*" multiple hidden>
+        </div>
+        <div class="vr-discard" id="videoRecordDiscard" hidden>
+          <div class="vr-discard__card" role="dialog" aria-modal="true" aria-labelledby="videoRecordDiscardTitle">
+            <h3 class="vr-discard__title" id="videoRecordDiscardTitle">לבטל את העריכה?</h3>
+            <p class="vr-discard__text">כל מה שערכת עד עכשיו יימחק, ותחזור למצלמה.</p>
+            <button type="button" class="vr-discard__stay" id="videoRecordDiscardStay">המשך עריכה</button>
+            <button type="button" class="vr-discard__leave" id="videoRecordDiscardLeave">בטל עריכה</button>
+          </div>
         </div>
         <div class="vr-add-sheet" id="videoRecordAddSheet" hidden>
           <div class="vr-add-sheet__card" role="dialog" aria-label="הוספת תמונה">
