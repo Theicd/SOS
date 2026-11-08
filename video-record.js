@@ -898,7 +898,7 @@ class VideoRecorder {
 
   backToCamera() {
     this.closeDiscardSheet();
-    this.closeTextStudio();
+    this.clearOverlayText();
     this.clearPendingPreview();
     this.showCameraStage();
     this.startCamera();

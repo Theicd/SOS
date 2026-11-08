@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261108cam25'; // Text colors sit under the toolbar, and the plate has its own color
+  const CACHE_NAME = 'sos-cache-v20261108cam26'; // Discarding an edit clears the text left on the camera
   const PRECACHE_URLS = [
     './',
     './videos.html',
