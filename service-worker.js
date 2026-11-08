@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261108cam18'; // Plus on a photo opens camera, ready-made images, or the gallery
+  const CACHE_NAME = 'sos-cache-v20261108cam19'; // Picsum opens straight into the image browser
   const PRECACHE_URLS = [
     './',
     './videos.html',

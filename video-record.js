@@ -610,9 +610,19 @@ class VideoRecorder {
     this.showCameraStage();
     this.startCamera();
     this.setCaptureMode('photo');
-    if (mode === 'random') {
-      if (!this.bgStrip?.querySelector('.vr-bg-thumb')) this.loadBackgroundStrip();
+    if (mode === 'random') this.openReadyImagePicker();
+  }
+
+  async openReadyImagePicker() {
+    if (!this.bgStrip?.querySelector('.vr-bg-thumb[data-bg]:not([data-bg=""])')) {
+      await this.loadBackgroundStrip();
     }
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve));
+    });
+    const first = [...(this.bgStrip?.querySelectorAll('.vr-bg-thumb') || [])]
+      .find((el) => el.getAttribute('data-bg'));
+    if (first) this.focusBackgroundThumb(first);
   }
 
   returnToReviewFromAdd() {
