@@ -1153,20 +1153,23 @@ body.video-record-open .videos-feed iframe {
   left: 12px;
   right: 12px;
   display: flex;
-  flex-direction: row-reverse;
+  flex-direction: row;
   align-items: center;
   gap: 12px;
+  padding: 6px 10px;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.38);
 }
 
 .vr-text-studio__done {
+  margin-right: auto;
   border: none;
   background: transparent;
   color: #fff;
   font-size: 16px;
   font-weight: 800;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
   cursor: pointer;
-  padding: 6px 2px;
+  padding: 6px 4px;
 }
 
 .vr-text-studio__tool {
@@ -1189,12 +1192,20 @@ body.video-record-open .videos-feed iframe {
 }
 
 .vr-color-dot {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  background: #fff;
+  background: conic-gradient(
+    #ff2d55 0 45deg,
+    #ffcc00 45deg 90deg,
+    #34c759 90deg 150deg,
+    #5ac8fa 150deg 210deg,
+    #bf5af2 210deg 270deg,
+    #ffffff 270deg 320deg,
+    #111111 320deg 360deg
+  );
   border: 2px solid #fff;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 
 .vr-text-bg-mark {

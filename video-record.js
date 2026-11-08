@@ -23,7 +23,7 @@ class VideoRecorder {
     this.selectedBgUrl = '';
     this.bgUrls = [];
     this.overlayText = '';
-    this.overlayTextPos = 'middle';
+    this.overlayTextPos = 'top';
     this.overlayStyle = 'classic';
     this.overlayColor = '#ffffff';
     this.overlayBg = false;
@@ -684,7 +684,7 @@ class VideoRecorder {
     }
     return {
       text: String(this.overlayText || ''),
-      pos: this.overlayTextPos || 'middle',
+      pos: this.overlayTextPos || 'top',
       style: this.overlayStyle || 'classic',
       color: this.overlayColor || '#ffffff',
       bg: !!this.overlayBg,
@@ -702,7 +702,7 @@ class VideoRecorder {
   loadOverlayFromSlide(slide) {
     const overlay = slide?.overlay || {};
     this.overlayText = String(overlay.text || '');
-    this.overlayTextPos = overlay.pos || 'middle';
+    this.overlayTextPos = overlay.pos || 'top';
     this.overlayStyle = overlay.style || 'classic';
     this.overlayColor = overlay.color || '#ffffff';
     this.overlayBg = !!overlay.bg;
@@ -872,7 +872,7 @@ class VideoRecorder {
         for (const slide of albumSlides) {
           const overlay = slide.overlay || {};
           this.overlayText = String(overlay.text || '');
-          this.overlayTextPos = overlay.pos || 'middle';
+          this.overlayTextPos = overlay.pos || 'top';
           this.overlayStyle = overlay.style || 'classic';
           this.overlayColor = overlay.color || '#ffffff';
           this.overlayBg = !!overlay.bg;
@@ -1571,7 +1571,7 @@ class VideoRecorder {
       this.textInput.value = this.overlayText || '';
       try { this.textInput.focus(); } catch (_) {}
     }
-    this.setTextPosition(this.overlayTextPos || 'middle');
+    this.setTextPosition(this.overlayTextPos || 'top');
     this.renderTextLayer();
   }
 
@@ -1614,7 +1614,7 @@ class VideoRecorder {
     ink.textContent = this.overlayStyle === 'retro' ? text.toUpperCase() : text;
     if (this.overlayBg) ink.style.background = this.plateColor(this.overlayColor);
     layer.appendChild(ink);
-    layer.setAttribute('data-pos', this.overlayTextPos || 'middle');
+    layer.setAttribute('data-pos', this.overlayTextPos || 'top');
     layer.setAttribute('data-style', this.overlayStyle || 'classic');
     layer.setAttribute('data-align', this.overlayAlign || 'center');
     layer.setAttribute('data-bg', this.overlayBg ? '1' : '0');
@@ -1631,7 +1631,7 @@ class VideoRecorder {
 
   clearOverlayText() {
     this.overlayText = '';
-    this.overlayTextPos = 'middle';
+    this.overlayTextPos = 'top';
     this.overlayStyle = 'classic';
     this.overlayColor = '#ffffff';
     this.overlayBg = false;
@@ -1702,7 +1702,7 @@ class VideoRecorder {
     this.textColors?.querySelectorAll('[data-color]').forEach((btn) => {
       btn.classList.toggle('is-on', (btn.getAttribute('data-color') || '').toLowerCase() === color.toLowerCase());
     });
-    if (this.textColorDot) this.textColorDot.style.background = color;
+    if (this.textColorDot) this.textColorDot.style.background = '';
     this.textBgBtn?.classList.toggle('is-on', !!this.overlayBg);
     this.textBgBtn?.setAttribute('aria-pressed', this.overlayBg ? 'true' : 'false');
     const icon = this.textAlignBtn?.querySelector('i');
@@ -1714,7 +1714,7 @@ class VideoRecorder {
           : 'fa-solid fa-align-center';
     }
     this.modal?.querySelectorAll('[data-text-pos]').forEach((btn) => {
-      btn.classList.toggle('is-active', btn.getAttribute('data-text-pos') === (this.overlayTextPos || 'middle'));
+      btn.classList.toggle('is-active', btn.getAttribute('data-text-pos') === (this.overlayTextPos || 'top'));
     });
   }
 
@@ -1856,7 +1856,7 @@ class VideoRecorder {
   drawOverlayText(ctx, width, height) {
     const raw = String(this.overlayText || '').trim();
     if (!raw || !ctx) return;
-    const pos = this.overlayTextPos || 'middle';
+    const pos = this.overlayTextPos || 'top';
     const align = this.overlayAlign || 'center';
     const style = this.overlayStyle || 'classic';
     const scale = Number(this.overlayScale) || 1;

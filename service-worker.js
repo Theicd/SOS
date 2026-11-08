@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261108cam20'; // On-image text is burned inside the phone's visible frame and scaled to fit
+  const CACHE_NAME = 'sos-cache-v20261108cam21'; // Text editor opens at the top, with a color wheel and a left done button
   const PRECACHE_URLS = [
     './',
     './videos.html',
