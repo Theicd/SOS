@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261108cam21'; // Text editor opens at the top, with a color wheel and a left done button
+  const CACHE_NAME = 'sos-cache-v20261108cam22'; // Desktop image cards follow the photo aspect ratio
   const PRECACHE_URLS = [
     './',
     './videos.html',

@@ -47,6 +47,24 @@ function applyDesktopVideoAspect(mediaEl, widthOrVideoEl, heightMaybe) {
   } catch (_) {}
 }
 
+// חלק דסקטופ (videos.js) – כרטיס תמונה לפי היחס האמיתי; במובייל --video-ar לא בשימוש | HYPER CORE TECH
+function bindDesktopImageCard(mediaDiv, img) {
+  if (!mediaDiv || !img) return;
+  const apply = () => {
+    applyDesktopVideoAspect(mediaDiv, img.naturalWidth, img.naturalHeight);
+    try {
+      if (document.body.classList.contains('videos-comments-open')) {
+        syncDesktopCommentsVideoLayout();
+      }
+    } catch (_) {}
+  };
+  if (img.complete && img.naturalWidth > 1 && img.naturalHeight > 1) {
+    apply();
+    return;
+  }
+  img.addEventListener('load', apply, { once: true });
+}
+
 // חלק מצב גלובלי (videos.js) – מצב STOP/PLAY גלובלי לשליטה בהפעלה אוטומטית | HYPER CORE TECH
 // הממשק מתחיל במצב PLAY – גלילה מפעילה אוטומטית | HYPER CORE TECH
 let globalAutoplayEnabled = true;
@@ -5246,6 +5264,7 @@ function renderVideoCard(video) {
     mediaDiv.dataset.mediaType = 'image';
     if (Array.isArray(video.imageUrls) && video.imageUrls.length > 1) {
       mountFeedAlbum(mediaDiv, video.imageUrls, video.albumSeconds || 5);
+      bindDesktopImageCard(mediaDiv, mediaDiv.querySelector('.videos-feed__album-img'));
     } else {
       const imgEl = document.createElement('img');
       imgEl.src = video.imageUrl;
@@ -5253,6 +5272,7 @@ function renderVideoCard(video) {
       imgEl.className = 'videos-feed__media-image';
       imgEl.loading = 'lazy';
       mediaDiv.appendChild(imgEl);
+      bindDesktopImageCard(mediaDiv, imgEl);
     }
 
     queueMicrotask(markReady);
@@ -6155,7 +6175,9 @@ function syncDesktopCommentsVideoLayout() {
       || 0;
     if (!Number.isFinite(ar) || ar <= 0) {
       const v = media.querySelector('video');
+      const img = media.querySelector('img.videos-feed__media-image, img.videos-feed__album-img.is-on, img.videos-feed__album-img');
       if (v && v.videoWidth > 1 && v.videoHeight > 1) ar = v.videoWidth / v.videoHeight;
+      else if (img && img.naturalWidth > 1 && img.naturalHeight > 1) ar = img.naturalWidth / img.naturalHeight;
       else ar = 16 / 9;
     }
 

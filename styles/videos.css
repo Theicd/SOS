@@ -6855,3 +6855,18 @@ body.videos-share-sheet-open {
 .videos-feed__album-dots span.is-on {
   background: #fff;
 }
+
+/* חלק דסקטופ (videos.css) – התמונה ממלאת כרטיס ביחס שלה; המובייל נשאר cover במסך מלא | HYPER CORE TECH */
+@media (min-width: 769px) {
+  .videos-feed__media[data-media-type="image"] img.videos-feed__media-image,
+  .videos-feed__media[data-media-type="image"] img.videos-feed__album-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    object-fit: contain;
+    object-position: center center;
+  }
+}
