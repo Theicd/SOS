@@ -413,20 +413,18 @@ body.video-record-open .videos-feed iframe {
   border-color: transparent;
 }
 
-.vr-bg-thumb--none {
-  background: rgba(0, 0, 0, 0.35);
-  border-style: dashed;
-  color: #fff;
-  font-size: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.vr-bg-thumb.vr-bg-thumb--none,
+.vr-bg-thumb.vr-bg-thumb--none.is-selected {
+  opacity: 0;
+  pointer-events: none;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
 }
 
 .vr-bg-thumb--none::before {
-  content: '✕';
-  opacity: 0.85;
-  font-size: 14px;
+  content: none;
 }
 
 .record-button {

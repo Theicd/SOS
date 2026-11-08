@@ -1256,7 +1256,7 @@ class VideoRecorder {
       this.bgStrip.innerHTML = '';
       return;
     }
-    const noneBtn = `<button type="button" class="vr-bg-thumb vr-bg-thumb--none is-selected" data-bg="" aria-label="בלי רקע"></button>`;
+    const noneBtn = `<button type="button" class="vr-bg-thumb vr-bg-thumb--none" data-bg="" tabindex="-1" aria-hidden="true"></button>`;
     const thumbs = urls.map((url) => {
       const thumb = url.replace('/720/720', '/120/120').replace('/1080/1080', '/120/120');
       return `<button type="button" class="vr-bg-thumb" data-bg="${url}" style="background-image:url('${thumb}')" aria-label="רקע מובנה"></button>`;

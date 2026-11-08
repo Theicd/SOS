@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261108cam22'; // Desktop image cards follow the photo aspect ratio
+  const CACHE_NAME = 'sos-cache-v20261108cam23'; // Share close is an X, and the shutter no longer shows a clear mark
   const PRECACHE_URLS = [
     './',
     './videos.html',
