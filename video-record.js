@@ -463,6 +463,7 @@ class VideoRecorder {
     this.modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('video-record-open');
     this.freezeFeedForCamera();
+    if (this.hasComposeDraft() && this.restoreComposeDraft()) return;
     this.resetState();
     this.cameraAvailable = true;
     this.clearOverlayText();
@@ -898,6 +899,7 @@ class VideoRecorder {
 
   backToCamera() {
     this.closeDiscardSheet();
+    this.clearComposeDraft();
     this.clearOverlayText();
     this.clearPendingPreview();
     this.showCameraStage();
@@ -911,6 +913,7 @@ class VideoRecorder {
       if (this._studioOpen) this.closeTextStudio();
       this.stopSlideShow();
       this.saveOverlayToSlide(this.slideIndex);
+      this.stashComposeDraft();
       const albumSlides = (this.slides || []).filter((slide) => slide?.file && !String(slide.file.type || '').startsWith('video/'));
       if (albumSlides.length > 1 && typeof window.handleImageAlbum === 'function') {
         const files = [];
@@ -938,6 +941,7 @@ class VideoRecorder {
         }
         this.clearPendingPreview();
         await window.handleImageAlbum(files, { seconds });
+        this.applyComposeCaption();
         this.closeModal({ skipResume: true });
         return;
       }
@@ -958,6 +962,100 @@ class VideoRecorder {
       this.closeModal({ skipResume: true });
     } finally {
       this._confirming = false;
+    }
+  }
+
+  /** שומר את עורך התמונות כדי שאפשר יהיה לחזור אליו מדף התיאור | HYPER CORE TECH */
+  stashComposeDraft() {
+    const caption = this.readComposeCaption();
+    const imageSlides = (this.slides || []).filter((slide) => slide?.file && !String(slide.file.type || '').startsWith('video/'));
+    if (imageSlides.length) {
+      this._composeDraft = {
+        kind: 'images',
+        slides: imageSlides.map((slide) => ({
+          file: slide.file,
+          overlay: slide.overlay ? { ...slide.overlay } : null,
+        })),
+        slideIndex: Math.max(0, Math.min(this.slideIndex || 0, imageSlides.length - 1)),
+        slideSeconds: this.slideSeconds || 5,
+        caption,
+      };
+      return;
+    }
+    if (this.pendingFile) {
+      this._composeDraft = { kind: 'video', file: this.pendingFile, caption };
+    }
+  }
+
+  readComposeCaption() {
+    const modal = document.getElementById('composeModal');
+    const open = modal && (modal.classList.contains('is-visible') || modal.getAttribute('aria-hidden') === 'false');
+    const ta = document.getElementById('postText');
+    if (open && ta) return ta.value || '';
+    return this._composeDraft?.caption || '';
+  }
+
+  rememberComposeCaption() {
+    if (!this._composeDraft) return;
+    const ta = document.getElementById('postText');
+    if (ta) this._composeDraft.caption = ta.value || '';
+  }
+
+  hasComposeDraft() {
+    const draft = this._composeDraft;
+    return !!(draft && ((draft.kind === 'video' && draft.file) || draft.slides?.length));
+  }
+
+  clearComposeDraft() {
+    this._composeDraft = null;
+  }
+
+  restoreComposeDraft() {
+    const draft = this._composeDraft;
+    if (!this.modal || !draft) return false;
+    this.modal.classList.add('is-visible');
+    this.modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('video-record-open');
+    this.freezeFeedForCamera();
+    this.resetState();
+    this.stopCamera();
+    this.closeDiscardSheet();
+    this.closeAddSheet();
+    this.closeTextStudio();
+    this.hideSwipeHint(false);
+    if (draft.kind === 'video' && draft.file) {
+      this.showReview(draft.file);
+      return true;
+    }
+    if (!draft.slides?.length) return false;
+    this.clearPendingPreview();
+    this.slides = draft.slides.map((slide) => ({
+      id: Date.now() + Math.random(),
+      file: slide.file,
+      url: URL.createObjectURL(slide.file),
+      owned: true,
+      overlay: slide.overlay ? { ...slide.overlay } : null,
+    }));
+    this.slideSeconds = draft.slideSeconds || 5;
+    this.syncSlideSecondsLabel();
+    this.slideIndex = Math.max(0, Math.min(draft.slideIndex || 0, this.slides.length - 1));
+    this.stageReview?.classList.add('is-image');
+    if (this.reviewVideo) this.reviewVideo.hidden = true;
+    if (this.reviewImage) this.reviewImage.hidden = false;
+    this.loadOverlayFromSlide(this.slides[this.slideIndex]);
+    this.showSlide(this.slideIndex, false);
+    this.showReviewStage();
+    if (this.slides.length > 1) this.startSlideShow();
+    return true;
+  }
+
+  applyComposeCaption() {
+    const cap = String(this._composeDraft?.caption || '').trim();
+    if (!cap) return;
+    const ta = document.getElementById('postText');
+    if (ta && !String(ta.value || '').trim()) {
+      ta.value = cap;
+      try { ta.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
     }
   }
 
@@ -2316,6 +2414,7 @@ class VideoRecorder {
     }
 
     setTimeout(() => {
+      const cap = String(this._composeDraft?.caption || '').trim();
       const overlay = String(this._composeOverlayText || '').trim();
       this._composeOverlayText = '';
       if (typeof window.handleMediaInput !== 'function') {
@@ -2329,8 +2428,9 @@ class VideoRecorder {
         })
         .then(() => {
           const ta = document.getElementById('postText');
-          if (overlay && ta && !String(ta.value || '').trim()) {
-            ta.value = overlay;
+          const next = cap || overlay;
+          if (next && ta && !String(ta.value || '').trim()) {
+            ta.value = next;
             try { ta.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
           }
         });

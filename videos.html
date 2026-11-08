@@ -573,6 +573,99 @@
         pointer-events: auto !important;
       }
 
+      .compose-editor.is-media-cover,
+      .compose-editor.is-compose-step-active.is-media-cover {
+        position: relative;
+        height: 100% !important;
+        min-height: 100%;
+        padding: 0 !important;
+        background: #000;
+        overflow: hidden !important;
+      }
+
+      .compose-editor.is-media-cover .compose-editor__header {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 4;
+        margin: 0;
+        padding: calc(12px + env(safe-area-inset-top, 0px)) 12px 36px;
+        background: linear-gradient(180deg, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0));
+      }
+
+      .compose-editor.is-media-cover .compose-icon-btn {
+        background: rgba(0, 0, 0, 0.45);
+      }
+
+      .compose-editor.is-media-cover .compose-editor__body {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 4;
+        margin: 0;
+        padding: 36px 14px calc(78px + env(safe-area-inset-bottom, 0px));
+        overflow: visible;
+        background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.42) 24%, rgba(0, 0, 0, 0.78) 100%);
+      }
+
+      .compose-editor.is-media-cover .compose-post-hero,
+      .compose-editor.is-media-cover .compose-post-hero__copy {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .compose-editor.is-media-cover .compose-media-preview {
+        position: absolute !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        max-width: none !important;
+        max-height: none !important;
+        margin: 0 !important;
+        border: none !important;
+        border-radius: 0 !important;
+        aspect-ratio: auto !important;
+        z-index: 0;
+      }
+
+      .compose-editor.is-media-cover .compose-media-preview img,
+      .compose-editor.is-media-cover .compose-media-preview video {
+        position: absolute !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        max-width: none !important;
+        max-height: none !important;
+        object-fit: cover !important;
+      }
+
+      .compose-editor.is-media-cover .compose-media-preview__badge {
+        display: none;
+      }
+
+      .compose-editor.is-media-cover .compose-dialog textarea {
+        min-height: 72px;
+        max-height: 110px;
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: rgba(0, 0, 0, 0.28);
+      }
+
+      .compose-editor.is-media-cover .compose-dialog__actions {
+        position: absolute;
+        left: 14px;
+        right: 14px;
+        bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+        z-index: 5;
+        margin: 0;
+        padding: 0;
+        border: none;
+        background: transparent;
+      }
+
       .compose-editor__body {
         flex: 1 1 auto;
         min-height: 0;
@@ -2207,7 +2300,7 @@
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20261019chess1" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) — ממשק הקלטה עם טיימר | HYPER CORE TECH -->
-    <script src="./video-record.js?v=20261108cam26" defer></script>
+    <script src="./video-record.js?v=20261108cam28" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) — מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260911camopt1" defer></script>
     <script defer>
@@ -2226,7 +2319,7 @@
       })();
     </script>
     <!-- חלק קומפוזר (videos.html) — מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20261108cam16" defer></script>
+    <script src="./compose.js?v=20261108cam28" defer></script>
     <!-- חלק רקעים (videos.html) — מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
@@ -2690,6 +2783,11 @@
 
         <!-- שלב 2: עריכה ופרסום | HYPER CORE TECH -->
         <div class="compose-editor" id="composeEditor" hidden>
+          <div id="composeMediaPreview" class="compose-media-preview">
+            <img id="composeMediaPreviewImage" alt="תצוגה מקדימה">
+            <video id="composeMediaPreviewVideo" muted playsinline preload="metadata"></video>
+            <span class="compose-media-preview__badge">תצוגה מקדימה</span>
+          </div>
           <div class="compose-editor__header">
             <button type="button" class="compose-icon-btn" id="composeBackToChooser" aria-label="חזרה">
               <i class="fa-solid fa-chevron-right"></i>
@@ -2708,13 +2806,8 @@
           </div>
 
           <div class="compose-editor__body">
-            <!-- מבנה טיקטוק: תמונה ממוזערת + כיתוב | HYPER CORE TECH -->
+            <!-- מבנה טיקטוק: כיתוב מעל המדיה במסך מלא | HYPER CORE TECH -->
             <div class="compose-post-hero" id="composePostHero">
-              <div id="composeMediaPreview" class="compose-media-preview">
-                <img id="composeMediaPreviewImage" alt="תצוגה מקדימה">
-                <video id="composeMediaPreviewVideo" muted playsinline preload="metadata"></video>
-                <span class="compose-media-preview__badge">תצוגה מקדימה</span>
-              </div>
               <div class="compose-post-hero__copy">
                 <textarea id="postText" placeholder="הוסיפו תיאור..."></textarea>
                 <div class="compose-topic-row" id="composeTopicRow">
