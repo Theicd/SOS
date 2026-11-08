@@ -82,6 +82,10 @@ class VideoRecorder {
     this.discardSheet = document.getElementById('videoRecordDiscard');
     this.discardStay = document.getElementById('videoRecordDiscardStay');
     this.discardLeave = document.getElementById('videoRecordDiscardLeave');
+    this.removeConfirm = document.getElementById('videoRecordRemoveConfirm');
+    this.removeStay = document.getElementById('videoRecordRemoveStay');
+    this.removeLeave = document.getElementById('videoRecordRemoveLeave');
+    this._removeIndex = -1;
     this.recordButton = document.getElementById('recordButton');
     this.cameraSwitch = document.getElementById('cameraSwitchButton');
     this.flashButton = document.getElementById('cameraFlashButton');
@@ -281,6 +285,20 @@ class VideoRecorder {
       event.preventDefault();
       this.closeDiscardSheet();
     });
+    this.removeStay?.addEventListener('click', () => this.closeRemoveConfirm());
+    this.removeLeave?.addEventListener('click', () => {
+      const index = this._removeIndex;
+      this.closeRemoveConfirm();
+      this.removeSlide(index);
+    });
+    this.removeConfirm?.addEventListener('click', (event) => {
+      if (event.target === this.removeConfirm) this.closeRemoveConfirm();
+    });
+    this.removeConfirm?.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      this.closeRemoveConfirm();
+    });
     this.addSheet?.addEventListener('click', (event) => {
       const choice = event.target?.closest?.('[data-add]')?.getAttribute('data-add');
       if (!choice || choice === 'cancel') {
@@ -304,7 +322,7 @@ class VideoRecorder {
       if (remove) {
         event.preventDefault();
         event.stopPropagation();
-        this.removeSlide(Number(remove.getAttribute('data-remove')));
+        this.openRemoveConfirm(Number(remove.getAttribute('data-remove')));
         return;
       }
       const thumb = event.target?.closest?.('[data-slide]');
@@ -501,6 +519,7 @@ class VideoRecorder {
     this.hideSwipeHint(false);
     this.closeAddSheet();
     this.closeDiscardSheet();
+    this.closeRemoveConfirm();
     this.hideTextEditor();
     this.exitNoCameraMode();
     this.resetState();
@@ -650,6 +669,24 @@ class VideoRecorder {
     if (!this.discardSheet) return;
     this.discardSheet.hidden = true;
     this.discardSheet.setAttribute('hidden', '');
+  }
+
+  openRemoveConfirm(index) {
+    if (index < 0 || index >= this.slides.length || !this.removeConfirm) {
+      this.removeSlide(index);
+      return;
+    }
+    this._removeIndex = index;
+    this.removeConfirm.hidden = false;
+    this.removeConfirm.removeAttribute('hidden');
+    this.removeStay?.focus();
+  }
+
+  closeRemoveConfirm() {
+    this._removeIndex = -1;
+    if (!this.removeConfirm) return;
+    this.removeConfirm.hidden = true;
+    this.removeConfirm.setAttribute('hidden', '');
   }
 
   beginAppendCapture(mode) {
@@ -932,6 +969,7 @@ class VideoRecorder {
 
   backToCamera() {
     this.closeDiscardSheet();
+    this.closeRemoveConfirm();
     this.clearComposeDraft();
     this.clearOverlayText();
     this.clearPendingPreview();
@@ -1053,6 +1091,7 @@ class VideoRecorder {
     this.resetState();
     this.stopCamera();
     this.closeDiscardSheet();
+    this.closeRemoveConfirm();
     this.closeAddSheet();
     this.closeTextStudio();
     this.hideSwipeHint(false);
