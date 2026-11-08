@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261108cam26'; // Discarding an edit clears the text left on the camera
+  const CACHE_NAME = 'sos-cache-v20261108cam27'; // Photo thumbnails sit above the add and timer buttons
   const PRECACHE_URLS = [
     './',
     './videos.html',
