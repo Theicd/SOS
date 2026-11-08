@@ -261,7 +261,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css?v=20261108cam24">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20261108cam25">
     <!-- חלק מצב אורח (videos.html) — עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css?v=20260830paste2">
     <!-- חלק PWA (videos.html) — עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -2207,7 +2207,7 @@
     <script src="./live-tv/live-tv-catalog.js?v=20260729p" defer></script>
     <script src="./game-embed.js?v=20261019chess1" defer></script>
     <!-- חלק הקלטת וידאו (videos.html) — ממשק הקלטה עם טיימר | HYPER CORE TECH -->
-    <script src="./video-record.js?v=20261108cam24" defer></script>
+    <script src="./video-record.js?v=20261108cam25" defer></script>
     <!-- חלק דחיסת וידאו (videos.html) — מנוע הדחיסה | HYPER CORE TECH -->
     <script src="./video-compressor.js?v=20260911camopt1" defer></script>
     <script defer>
@@ -2953,18 +2953,27 @@
             <button type="button" class="vr-text-studio__tool" id="videoRecordTextColor" aria-label="צבע טקסט" aria-expanded="false">
               <span class="vr-color-dot" id="videoRecordTextColorDot"></span>
             </button>
-            <button type="button" class="vr-text-studio__tool" id="videoRecordTextBg" aria-label="רקע לטקסט" aria-pressed="false">
+            <button type="button" class="vr-text-studio__tool" id="videoRecordTextBg" aria-label="רקע לטקסט" aria-pressed="false" aria-expanded="false">
               <span class="vr-text-bg-mark" aria-hidden="true">A</span>
             </button>
-          </div>
-          <div class="vr-color-pop" id="videoRecordTextColors" hidden>
-            <button type="button" class="vr-swatch is-on" data-color="#ffffff" style="background:#fff" aria-label="לבן"></button>
-            <button type="button" class="vr-swatch" data-color="#000000" style="background:#000" aria-label="שחור"></button>
-            <button type="button" class="vr-swatch" data-color="#ff2d55" style="background:#ff2d55" aria-label="אדום"></button>
-            <button type="button" class="vr-swatch" data-color="#ffcc00" style="background:#ffcc00" aria-label="צהוב"></button>
-            <button type="button" class="vr-swatch" data-color="#34c759" style="background:#34c759" aria-label="ירוק"></button>
-            <button type="button" class="vr-swatch" data-color="#5ac8fa" style="background:#5ac8fa" aria-label="תכלת"></button>
-            <button type="button" class="vr-swatch" data-color="#bf5af2" style="background:#bf5af2" aria-label="סגול"></button>
+            <div class="vr-color-pop" id="videoRecordTextColors" hidden>
+              <button type="button" class="vr-swatch is-on" data-color="#ffffff" style="background:#fff" aria-label="לבן"></button>
+              <button type="button" class="vr-swatch" data-color="#000000" style="background:#000" aria-label="שחור"></button>
+              <button type="button" class="vr-swatch" data-color="#ff2d55" style="background:#ff2d55" aria-label="אדום"></button>
+              <button type="button" class="vr-swatch" data-color="#ffcc00" style="background:#ffcc00" aria-label="צהוב"></button>
+              <button type="button" class="vr-swatch" data-color="#34c759" style="background:#34c759" aria-label="ירוק"></button>
+              <button type="button" class="vr-swatch" data-color="#5ac8fa" style="background:#5ac8fa" aria-label="תכלת"></button>
+              <button type="button" class="vr-swatch" data-color="#bf5af2" style="background:#bf5af2" aria-label="סגול"></button>
+            </div>
+            <div class="vr-color-pop" id="videoRecordBgColors" hidden>
+              <button type="button" class="vr-swatch" data-bg-color="#ffffff" style="background:#fff" aria-label="רקע לבן"></button>
+              <button type="button" class="vr-swatch is-on" data-bg-color="#000000" style="background:#000" aria-label="רקע שחור"></button>
+              <button type="button" class="vr-swatch" data-bg-color="#ff2d55" style="background:#ff2d55" aria-label="רקע אדום"></button>
+              <button type="button" class="vr-swatch" data-bg-color="#ffcc00" style="background:#ffcc00" aria-label="רקע צהוב"></button>
+              <button type="button" class="vr-swatch" data-bg-color="#34c759" style="background:#34c759" aria-label="רקע ירוק"></button>
+              <button type="button" class="vr-swatch" data-bg-color="#5ac8fa" style="background:#5ac8fa" aria-label="רקע תכלת"></button>
+              <button type="button" class="vr-swatch" data-bg-color="#bf5af2" style="background:#bf5af2" aria-label="רקע סגול"></button>
+            </div>
           </div>
           <label class="vr-size" aria-label="גודל הטקסט">
             <input type="range" id="videoRecordTextSize" min="55" max="180" value="100">

@@ -27,6 +27,7 @@ class VideoRecorder {
     this.overlayStyle = 'classic';
     this.overlayColor = '#ffffff';
     this.overlayBg = false;
+    this.overlayBgColor = '#000000';
     this.overlayAlign = 'center';
     this.overlayScale = 1;
     this._studioOpen = false;
@@ -96,7 +97,9 @@ class VideoRecorder {
     this.textColorBtn = document.getElementById('videoRecordTextColor');
     this.textColorDot = document.getElementById('videoRecordTextColorDot');
     this.textColors = document.getElementById('videoRecordTextColors');
+    this.bgColors = document.getElementById('videoRecordBgColors');
     this.textBgBtn = document.getElementById('videoRecordTextBg');
+    this.textBgMark = this.textBgBtn?.querySelector('.vr-text-bg-mark') || null;
     this.textSize = document.getElementById('videoRecordTextSize');
     this.studioInput = document.getElementById('videoRecordStudioInput');
     this.floatingTimer = document.getElementById('floatingTimer');
@@ -180,6 +183,11 @@ class VideoRecorder {
     this.textColors?.querySelectorAll('[data-color]').forEach((btn) => {
       btn.addEventListener('click', () => {
         this.setOverlayColor(btn.getAttribute('data-color') || '#ffffff');
+      });
+    });
+    this.bgColors?.querySelectorAll('[data-bg-color]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.setOverlayBgColor(btn.getAttribute('data-bg-color') || '#000000');
       });
     });
     this.textStudio?.querySelectorAll('[data-font]').forEach((btn) => {
@@ -722,6 +730,7 @@ class VideoRecorder {
       style: this.overlayStyle || 'classic',
       color: this.overlayColor || '#ffffff',
       bg: !!this.overlayBg,
+      bgColor: this.overlayBgColor || '#000000',
       align: this.overlayAlign || 'center',
       scale: Number(this.overlayScale) || 1,
     };
@@ -740,6 +749,7 @@ class VideoRecorder {
     this.overlayStyle = overlay.style || 'classic';
     this.overlayColor = overlay.color || '#ffffff';
     this.overlayBg = !!overlay.bg;
+    this.overlayBgColor = overlay.bgColor || '#000000';
     this.overlayAlign = overlay.align || 'center';
     this.overlayScale = Number(overlay.scale) || 1;
     if (this.studioInput) this.studioInput.value = this.overlayText;
@@ -911,6 +921,7 @@ class VideoRecorder {
           this.overlayStyle = overlay.style || 'classic';
           this.overlayColor = overlay.color || '#ffffff';
           this.overlayBg = !!overlay.bg;
+          this.overlayBgColor = overlay.bgColor || '#000000';
           this.overlayAlign = overlay.align || 'center';
           this.overlayScale = Number(overlay.scale) || 1;
           const burned = String(this.overlayText).trim()
@@ -1647,7 +1658,7 @@ class VideoRecorder {
     const ink = document.createElement('span');
     ink.className = 'vr-text-ink';
     ink.textContent = this.overlayStyle === 'retro' ? text.toUpperCase() : text;
-    if (this.overlayBg) ink.style.background = this.plateColor(this.overlayColor);
+    if (this.overlayBg) ink.style.background = this.overlayBgColor || '#000000';
     layer.appendChild(ink);
     layer.setAttribute('data-pos', this.overlayTextPos || 'top');
     layer.setAttribute('data-style', this.overlayStyle || 'classic');
@@ -1670,6 +1681,7 @@ class VideoRecorder {
     this.overlayStyle = 'classic';
     this.overlayColor = '#ffffff';
     this.overlayBg = false;
+    this.overlayBgColor = '#000000';
     this.overlayAlign = 'center';
     this.overlayScale = 1;
     if (this.textInput) this.textInput.value = '';
@@ -1706,11 +1718,7 @@ class VideoRecorder {
       this.textStudio.hidden = true;
       this.textStudio.setAttribute('hidden', '');
     }
-    if (this.textColors) {
-      this.textColors.hidden = true;
-      this.textColors.setAttribute('hidden', '');
-    }
-    this.textColorBtn?.setAttribute('aria-expanded', 'false');
+    this.closeColorPops();
     this.stageReview?.classList.remove('is-texting');
     this.reviewTextBtn?.classList.remove('is-active');
     if (this.textStudioBottom) this.textStudioBottom.style.transform = '';
@@ -1737,9 +1745,17 @@ class VideoRecorder {
     this.textColors?.querySelectorAll('[data-color]').forEach((btn) => {
       btn.classList.toggle('is-on', (btn.getAttribute('data-color') || '').toLowerCase() === color.toLowerCase());
     });
+    const bgColor = this.overlayBgColor || '#000000';
+    this.bgColors?.querySelectorAll('[data-bg-color]').forEach((btn) => {
+      btn.classList.toggle('is-on', (btn.getAttribute('data-bg-color') || '').toLowerCase() === bgColor.toLowerCase());
+    });
     if (this.textColorDot) this.textColorDot.style.background = '';
     this.textBgBtn?.classList.toggle('is-on', !!this.overlayBg);
     this.textBgBtn?.setAttribute('aria-pressed', this.overlayBg ? 'true' : 'false');
+    if (this.textBgMark) {
+      this.textBgMark.style.background = this.overlayBg ? bgColor : '';
+      this.textBgMark.style.color = this.overlayBg ? this.inkOn(bgColor) : '';
+    }
     const icon = this.textAlignBtn?.querySelector('i');
     if (icon) {
       icon.className = align === 'right'
@@ -1762,26 +1778,51 @@ class VideoRecorder {
 
   setOverlayColor(color) {
     this.overlayColor = color || '#ffffff';
-    if (this.textColors) {
-      this.textColors.hidden = true;
-      this.textColors.setAttribute('hidden', '');
-    }
-    this.textColorBtn?.setAttribute('aria-expanded', 'false');
+    this.setPopOpen(this.textColors, this.textColorBtn, false);
     this.syncTextControls();
     this.renderTextLayer();
+  }
+
+  setOverlayBgColor(color) {
+    this.overlayBgColor = color || '#000000';
+    this.overlayBg = true;
+    this.setPopOpen(this.bgColors, this.textBgBtn, false);
+    this.syncTextControls();
+    this.renderTextLayer();
+  }
+
+  setPopOpen(el, btn, open) {
+    if (!el) return;
+    el.hidden = !open;
+    if (open) el.removeAttribute('hidden');
+    else el.setAttribute('hidden', '');
+    if (btn?.hasAttribute('aria-expanded')) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  closeColorPops() {
+    this.setPopOpen(this.textColors, this.textColorBtn, false);
+    this.setPopOpen(this.bgColors, this.textBgBtn, false);
   }
 
   toggleColorPop() {
     if (!this.textColors) return;
     const open = this.textColors.hasAttribute('hidden');
-    this.textColors.hidden = !open;
-    if (open) this.textColors.removeAttribute('hidden');
-    else this.textColors.setAttribute('hidden', '');
-    this.textColorBtn?.setAttribute('aria-expanded', open ? 'true' : 'false');
+    this.setPopOpen(this.bgColors, this.textBgBtn, false);
+    this.setPopOpen(this.textColors, this.textColorBtn, open);
   }
 
   toggleTextBackground() {
-    this.overlayBg = !this.overlayBg;
+    const popOpen = this.bgColors && !this.bgColors.hasAttribute('hidden');
+    if (!this.overlayBg) {
+      this.overlayBg = true;
+      this.setPopOpen(this.textColors, this.textColorBtn, false);
+      this.setPopOpen(this.bgColors, this.textBgBtn, true);
+    } else if (popOpen) {
+      this.setPopOpen(this.bgColors, this.textBgBtn, false);
+    } else {
+      this.overlayBg = false;
+      this.setPopOpen(this.bgColors, this.textBgBtn, false);
+    }
     this.syncTextControls();
     this.renderTextLayer();
   }
@@ -1792,6 +1833,16 @@ class VideoRecorder {
     this.overlayAlign = order[(i + 1) % order.length];
     this.syncTextControls();
     this.renderTextLayer();
+  }
+
+  inkOn(hex) {
+    const c = String(hex || '').replace('#', '');
+    if (c.length < 6) return '#fff';
+    const r = parseInt(c.slice(0, 2), 16);
+    const g = parseInt(c.slice(2, 4), 16);
+    const b = parseInt(c.slice(4, 6), 16);
+    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return lum > 0.62 ? '#111' : '#fff';
   }
 
   plateColor(hex) {
@@ -1940,7 +1991,7 @@ class VideoRecorder {
       const boxH = blockH + padY * 2;
       const bx = align === 'right' ? x - boxW : align === 'left' ? x : x - boxW / 2;
       const by = y - lineHeight / 2 - padY;
-      ctx.fillStyle = this.plateColor(color);
+      ctx.fillStyle = this.overlayBgColor || '#000000';
       this.fillRoundRect(ctx, bx, by, boxW, boxH, fontSize * 0.22);
     }
     ctx.fillStyle = color;
