@@ -648,7 +648,8 @@
         position: absolute;
         left: 12px;
         right: 12px;
-        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        top: calc(88px + env(safe-area-inset-top, 0px));
+        bottom: auto;
         z-index: 4;
         margin: 0;
         padding: 14px 14px 12px;
@@ -1297,6 +1298,14 @@
           border-radius: 0 !important;
           border: none !important;
           box-shadow: none !important;
+        }
+
+        .compose-editor.is-media-cover .compose-editor__body {
+          top: 96px;
+          left: 50%;
+          right: auto;
+          width: min(680px, calc(100% - 64px));
+          transform: translateX(-50%);
         }
 
         .compose-editor.is-compose-step-active {
