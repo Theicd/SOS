@@ -1005,14 +1005,14 @@ class VideoRecorder {
         }
         const seconds = this.slideSeconds || 5;
         this._composeOverlayText = '';
+        this.clearPendingPreview();
+        await window.handleImageAlbum(files, { seconds, fromCamera: true });
+        this.applyComposeCaption();
         if (typeof window.openCompose === 'function') {
           window.openCompose({ step: 'editor', composeMode: 'camera' });
         } else if (window.NostrApp?.openCompose) {
           window.NostrApp.openCompose({ step: 'editor', composeMode: 'camera' });
         }
-        this.clearPendingPreview();
-        await window.handleImageAlbum(files, { seconds });
-        this.applyComposeCaption();
         this.closeModal({ skipResume: true });
         return;
       }
@@ -1029,7 +1029,7 @@ class VideoRecorder {
     this.lastShareFile = file;
       this.pendingFile = file;
       this.clearPendingPreview();
-      this.transferToCompose(file);
+      await this.transferToCompose(file);
       this.closeModal({ skipResume: true });
     } finally {
       this._confirming = false;
@@ -2468,7 +2468,7 @@ class VideoRecorder {
     }
   }
 
-  transferToCompose(file) {
+  async transferToCompose(file) {
     const openEditor = () => {
       if (typeof window.openCompose === 'function') {
         window.openCompose({ step: 'editor', composeMode: 'camera' });
@@ -2476,7 +2476,26 @@ class VideoRecorder {
         window.NostrApp.openCompose({ step: 'editor', composeMode: 'camera' });
       }
     };
-
+    const cap = String(this._composeDraft?.caption || '').trim();
+    const overlay = String(this._composeOverlayText || '').trim();
+    this._composeOverlayText = '';
+    if (typeof window.handleMediaInput !== 'function') {
+      console.error('[VideoRecorder] handleMediaInput function not found!');
+      alert('שגיאה בהעברת המדיה לקומפוזר. נסו לבחור קובץ ידנית.');
+      return;
+    }
+    try {
+      await window.handleMediaInput({ target: { files: [file], value: '' } });
+    } catch (err) {
+      console.error('[VideoRecorder] handleMediaInput failed', err);
+      return;
+    }
+    const ta = document.getElementById('postText');
+    const next = cap || overlay;
+    if (next && ta && !String(ta.value || '').trim()) {
+      ta.value = next;
+      try { ta.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
+    }
     const composeModal = document.getElementById('composeModal');
     if (!composeModal || composeModal.getAttribute('aria-hidden') === 'true') {
       openEditor();
@@ -2484,29 +2503,6 @@ class VideoRecorder {
       if (window.NostrApp.composeState) window.NostrApp.composeState.composeMode = 'camera';
       window.NostrApp.showComposeStep('editor');
     }
-
-    setTimeout(() => {
-      const cap = String(this._composeDraft?.caption || '').trim();
-      const overlay = String(this._composeOverlayText || '').trim();
-      this._composeOverlayText = '';
-      if (typeof window.handleMediaInput !== 'function') {
-        console.error('[VideoRecorder] handleMediaInput function not found!');
-        alert('שגיאה בהעברת המדיה לקומפוזר. נסו לבחור קובץ ידנית.');
-        return;
-      }
-      Promise.resolve(window.handleMediaInput({ target: { files: [file], value: '' } }))
-        .catch((err) => {
-          console.error('[VideoRecorder] handleMediaInput failed', err);
-        })
-        .then(() => {
-          const ta = document.getElementById('postText');
-          const next = cap || overlay;
-          if (next && ta && !String(ta.value || '').trim()) {
-            ta.value = next;
-            try { ta.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
-          }
-        });
-    }, 450);
   }
 }
 

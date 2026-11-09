@@ -466,7 +466,8 @@
       state.media = { type: 'image', dataUrl };
       showMediaPreview(state.media);
       showComposeStep('editor');
-      setStatus('המדיה נוספה. לחיצה על התצוגה תסיר אותה.');
+      if (state.composeMode === 'camera') resetStatus();
+      else setStatus('המדיה נוספה. לחיצה על התצוגה תסיר אותה.');
     } catch (err) {
       console.error('Media load failed', err);
       setStatus('שגיאה בטעינת המדיה. נסה קובץ אחר.', 'error');
@@ -675,6 +676,7 @@
   }
 
   function removeMedia() {
+    if (state.composeMode === 'camera') return;
     if (!state.media) return;
     const mode = state.composeMode;
     clearMediaPreview();
@@ -1845,7 +1847,8 @@
     };
     showMediaPreview(state.media);
     showComposeStep('editor');
-    setStatus(dataUrls.length > 1 ? `${dataUrls.length} תמונות מוכנות לפרסום` : 'המדיה נוספה. לחיצה על התצוגה תסיר אותה.');
+    if (options.fromCamera) resetStatus();
+    else setStatus(dataUrls.length > 1 ? `${dataUrls.length} תמונות מוכנות לפרסום` : 'המדיה נוספה. לחיצה על התצוגה תסיר אותה.');
   }
 
   window.handleImageAlbum = handleImageAlbum;
