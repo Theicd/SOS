@@ -86,8 +86,11 @@
 
   function updateComposeLegalState() {
     if (!elements.publishButton) return;
-    const ackChecked = !elements.termsAck || elements.termsAck.checked;
-    elements.publishButton.disabled = !ackChecked;
+    const text = String(elements.textarea?.value || '').trim();
+    const ack = !!(elements.termsAck && elements.termsAck.checked);
+    const ready = ack && text.length > 0;
+    elements.publishButton.disabled = !ready;
+    elements.publishButton.classList.toggle('is-ready', ready);
   }
 
   function updateTextToolsVisibility() {
@@ -1395,6 +1398,7 @@
         const pillOpen = elements.hashtagsPill?.classList.contains('is-active');
         if (textHasHashtagCue(cur) || pillOpen) showHashtagSuggest(cur);
         else hideHashtagSuggest();
+        updateComposeLegalState();
       });
     }
 
@@ -1466,13 +1470,32 @@
 
     if (elements.publishButton) {
       elements.publishButton.addEventListener('click', () => {
-        if (typeof window.publishFromCompose === 'function') {
-          window.publishFromCompose();
-        } else if (typeof window.openTermsModal === 'function') {
-          window.openTermsModal();
+        if (elements.publishButton.disabled || !elements.publishButton.classList.contains('is-ready')) return;
+        const sheet = document.getElementById('composeShareConfirm');
+        if (!sheet) {
+          if (typeof window.publishFromCompose === 'function') window.publishFromCompose();
+          return;
         }
+        sheet.hidden = false;
+        sheet.removeAttribute('hidden');
       });
     }
+    const shareStay = document.getElementById('composeShareStay');
+    const shareGo = document.getElementById('composeShareGo');
+    const shareSheet = document.getElementById('composeShareConfirm');
+    const closeShare = () => {
+      if (!shareSheet) return;
+      shareSheet.hidden = true;
+      shareSheet.setAttribute('hidden', '');
+    };
+    shareStay?.addEventListener('click', closeShare);
+    shareSheet?.addEventListener('click', (event) => {
+      if (event.target === shareSheet) closeShare();
+    });
+    shareGo?.addEventListener('click', () => {
+      closeShare();
+      if (typeof window.publishFromCompose === 'function') window.publishFromCompose();
+    });
 
     // חיבור מודול הרקעים המרכזי (אם נטען), מונע מאזינים כפולים
     if (window.NostrApp?.bg && !window.NostrApp._bgBound) {

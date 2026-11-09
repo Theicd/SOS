@@ -261,7 +261,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="./styles/video-record.css?v=20261109cam32">
+    <link rel="stylesheet" href="./styles/video-record.css?v=20261109cam43">
     <!-- חלק מצב אורח (videos.html) — עיצוב חלון התחברות/הרשמה | HYPER CORE TECH -->
     <link rel="stylesheet" href="./guest-auth.css?v=20260830paste2">
     <!-- חלק PWA (videos.html) — עיצוב באנרי התקנה ומודאלי התראות | HYPER CORE TECH -->
@@ -618,7 +618,7 @@
         margin: 0;
         color: #fff;
         text-align: center;
-        line-height: 34px;
+        line-height: 40px;
         text-shadow: 0 1px 6px rgba(0, 0, 0, 0.75);
         pointer-events: none;
       }
@@ -631,9 +631,10 @@
       }
 
       .compose-editor.is-media-cover .compose-icon-btn {
-        width: 34px;
-        height: 34px;
+        width: 40px;
+        height: 40px;
         background: rgba(255, 255, 255, 0.16);
+        font-size: 16px;
       }
 
       .compose-editor.is-media-cover #composeEditorClose {
@@ -735,15 +736,26 @@
         flex: 0 0 auto !important;
         width: auto !important;
         min-width: 0 !important;
-        min-height: 34px;
-        height: 34px;
-        padding: 0 14px !important;
+        min-height: 40px;
+        height: 40px;
+        padding: 0 16px !important;
         border-radius: 999px;
-        background: #fff;
+        background: rgba(255, 255, 255, 0.55);
         color: #111;
-        font-size: 14px;
-        font-weight: 700;
+        font-size: 15px;
+        font-weight: 800;
         box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
+      }
+
+      .compose-editor.is-media-cover .compose-dialog__actions .button-primary.is-ready {
+        background: #fe2c55;
+        color: #fff;
+        opacity: 1;
+      }
+
+      .compose-editor.is-media-cover .compose-dialog__actions .button-primary:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
       }
 
       .compose-editor__body {
@@ -2449,7 +2461,7 @@
       })();
     </script>
     <!-- חלק קומפוזר (videos.html) — מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20261109cam41" defer></script>
+    <script src="./compose.js?v=20261109cam43" defer></script>
     <!-- חלק רקעים (videos.html) — מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
@@ -2993,6 +3005,14 @@
             <button class="button-primary" type="button" id="composePublishButton" disabled>
               לפרסם
             </button>
+          </div>
+          <div class="vr-discard compose-share-confirm" id="composeShareConfirm" hidden>
+            <div class="vr-discard__card" role="dialog" aria-modal="true" aria-labelledby="composeShareTitle">
+              <h3 class="vr-discard__title" id="composeShareTitle">לשתף את הפוסט?</h3>
+              <p class="vr-discard__text">התיאור והתמונות יפורסמו בפיד.</p>
+              <button type="button" class="vr-discard__stay" id="composeShareStay">ביטול</button>
+              <button type="button" class="vr-discard__leave" id="composeShareGo">שתף</button>
+            </div>
           </div>
         </div>
       </div>
