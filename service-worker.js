@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261109cam35'; // Caption page waits for the photo and no longer opens the old share chooser
+  const CACHE_NAME = 'sos-cache-v20261109cam36'; // Caption card sits below the title, and the keyboard no longer moves the photo
   const PRECACHE_URLS = [
     './',
     './videos.html',

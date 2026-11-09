@@ -1184,32 +1184,8 @@
 
   // התאמת המודאל למקלדת במובייל
   function setupMobileKeyboardHandling() {
-    if (!isMobile() || !elements.modal || elements.modal.dataset.kbBound === '1') return;
-    elements.modal.dataset.kbBound = '1';
-    const modal = elements.modal;
-    const pinToVisibleScreen = () => {
-      const vv = window.visualViewport;
-      modal.style.transform = 'none';
-      if (!vv || !modal.classList.contains('is-visible')) return;
-      const keyboardOpen = window.innerHeight - vv.height > 120;
-      modal.classList.toggle('keyboard-open', keyboardOpen);
-      if (!keyboardOpen) {
-        modal.style.top = '';
-        modal.style.height = '';
-        modal.style.bottom = '';
-        return;
-      }
-      modal.style.top = `${Math.max(0, Math.round(vv.offsetTop))}px`;
-      modal.style.height = `${Math.round(vv.height)}px`;
-      modal.style.bottom = 'auto';
-    };
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', pinToVisibleScreen);
-      window.visualViewport.addEventListener('scroll', pinToVisibleScreen);
-    }
-    elements.textarea?.addEventListener('blur', () => {
-      setTimeout(pinToVisibleScreen, 80);
-    });
+    if (!elements.modal) return;
+    elements.modal.style.transform = 'none';
   }
 
   function getComposePayload() {

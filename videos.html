@@ -591,14 +591,28 @@
         z-index: 4;
         margin: 0;
         direction: ltr;
-        padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 18px 118px;
+        padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 16px;
         background: linear-gradient(180deg, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.46) 62%, rgba(0, 0, 0, 0) 100%);
       }
 
+      .compose-editor__heading-caption { display: none; }
+
       .compose-editor.is-media-cover .compose-editor__heading {
+        position: absolute;
+        left: 50%;
+        top: calc(8px + env(safe-area-inset-top, 0px));
+        transform: translateX(-50%);
+        width: max-content;
+        margin: 0;
         color: #fff;
+        text-align: center;
+        line-height: 34px;
         text-shadow: 0 1px 6px rgba(0, 0, 0, 0.75);
+        pointer-events: none;
       }
+
+      .compose-editor.is-media-cover .compose-editor__heading-default { display: none; }
+      .compose-editor.is-media-cover .compose-editor__heading-caption { display: inline; }
 
       .compose-editor.is-media-cover .compose-editor__back {
         display: none;
@@ -1192,10 +1206,20 @@
           background: #000 !important;
         }
 
+        .compose-editor.is-media-cover .compose-media-preview {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          bottom: auto !important;
+          width: 100% !important;
+          height: 100lvh !important;
+        }
+
         .compose-editor.is-media-cover .compose-editor__body {
-          top: calc(58px + env(safe-area-inset-top, 0px));
+          top: calc(108px + env(safe-area-inset-top, 0px));
           bottom: auto;
-          max-height: min(52vh, 340px);
+          max-height: min(46vh, 300px);
           overflow-y: auto;
         }
       }
@@ -2380,7 +2404,7 @@
       })();
     </script>
     <!-- חלק קומפוזר (videos.html) — מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20261109cam35" defer></script>
+    <script src="./compose.js?v=20261109cam36" defer></script>
     <!-- חלק רקעים (videos.html) — מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
@@ -2853,7 +2877,7 @@
             <button type="button" class="compose-icon-btn compose-editor__back" id="composeBackToChooser" aria-label="חזרה">
               <i class="fa-solid fa-chevron-right"></i>
             </button>
-            <span class="compose-editor__heading">פוסט חדש</span>
+            <span class="compose-editor__heading"><span class="compose-editor__heading-default">פוסט חדש</span><span class="compose-editor__heading-caption">תיאור</span></span>
             <button type="button" class="compose-icon-btn" id="composeEditorClose" aria-label="סגור">
               <i class="fa-solid fa-xmark"></i>
             </button>
