@@ -111,6 +111,10 @@
     }
     elements.hashtagSuggest.removeAttribute('hidden');
     elements.hashtagsPill?.classList.add('is-active');
+    const editor = elements.editor || document.getElementById('composeEditor');
+    if (editor?.classList.contains('is-media-cover')) {
+      try { elements.hashtagSuggest.scrollIntoView({ block: 'nearest' }); } catch (_) {}
+    }
   }
 
   function insertHashtag(tag) {

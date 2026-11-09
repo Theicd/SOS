@@ -1227,7 +1227,22 @@
         .compose-editor.is-media-cover .compose-editor__body {
           top: calc(108px + env(safe-area-inset-top, 0px));
           bottom: auto;
-          max-height: min(46vh, 300px);
+          max-height: calc(100dvh - 128px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+          overflow-x: hidden;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .compose-editor.is-media-cover .compose-hashtag-suggest {
+          margin: 2px 0 0;
+          padding: 10px 0 0;
+          border: none;
+          border-radius: 0;
+          background: transparent;
+        }
+
+        .compose-editor.is-media-cover .compose-hashtag-suggest__list {
+          max-height: 112px;
           overflow-y: auto;
         }
       }
@@ -2412,7 +2427,7 @@
       })();
     </script>
     <!-- חלק קומפוזר (videos.html) — מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20261109cam36" defer></script>
+    <script src="./compose.js?v=20261109cam38" defer></script>
     <!-- חלק רקעים (videos.html) — מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
