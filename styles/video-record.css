@@ -474,8 +474,15 @@ body.video-record-open .videos-feed iframe {
   margin: 20px auto;
 }
 
-.record-button.is-photo.is-solid .record-button-inner {
+.record-button.is-photo {
   background: #fff;
+  border: 5px solid #fe2c55;
+  box-shadow: none;
+}
+
+.record-button.is-photo .record-button-inner,
+.record-button.is-photo.is-solid .record-button-inner {
+  opacity: 0;
 }
 
 .vr-bg-frame {

@@ -367,8 +367,10 @@ class VideoRecorder {
     this.modes?.querySelectorAll('[data-vr-mode]').forEach((btn) => {
       btn.classList.toggle('is-active', btn.getAttribute('data-vr-mode') === next);
     });
-    this.recordButton?.classList.toggle('is-photo', next === 'photo');
-    this.setShutterSolid(true);
+    this.setShutterSolid(next !== 'photo');
+    if (this.recordButton) {
+      this.recordButton.setAttribute('aria-label', next === 'photo' ? 'צלם תמונה' : `הקלט ${this.maxDuration} שניות`);
+    }
   }
 
   pauseFeedVideos() {
@@ -496,7 +498,8 @@ class VideoRecorder {
     this.hideTextEditor();
     this.exitNoCameraMode();
     this.showCameraStage();
-    this.setCaptureMode(this.captureMode || '10');
+    this.captureMode = '10';
+    this.setCaptureMode('10');
     this.restoreToolsExpanded();
     this.restoreGalleryThumb();
     this.startCamera();
@@ -1384,11 +1387,13 @@ class VideoRecorder {
     this.playCountdownBeep(false);
   }
 
-  startCountdown(onDone) {
+  startCountdown(onDone, options = {}) {
     this.cancelCountdown();
     this.modal?.classList.add('is-countdown');
-    this.ensureMicForRecording()
-      .catch((err) => console.warn('[VideoRecorder] mic for recording failed', err));
+    if (options.mic !== false) {
+      this.ensureMicForRecording()
+        .catch((err) => console.warn('[VideoRecorder] mic for recording failed', err));
+    }
     let n = 3;
     this.showCountdownNumber(n);
     this.countdownTimer = setInterval(() => {
@@ -1422,7 +1427,7 @@ class VideoRecorder {
       return;
     }
     if (this.captureMode === 'photo') {
-      this.capturePhoto();
+      this.startCountdown(() => this.capturePhoto(), { mic: false });
       return;
     }
     if (this.isRecording) this.stopRecording();
@@ -1524,7 +1529,9 @@ class VideoRecorder {
   }
 
   setShutterSolid(solid) {
-    this.recordButton?.classList.toggle('is-solid', !!solid);
+    const photo = this.captureMode === 'photo';
+    this.recordButton?.classList.toggle('is-photo', photo);
+    this.recordButton?.classList.toggle('is-solid', !photo && !!solid);
   }
 
   setGalleryThumbFromUrl(url, persist = true) {

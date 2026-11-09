@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261109cam43'; // Matching top buttons, and a red share button that asks before posting
+  const CACHE_NAME = 'sos-cache-v20261109cam44'; // Camera opens on 10 seconds; photo mode is a white shutter with a countdown
   const PRECACHE_URLS = [
     './',
     './videos.html',
