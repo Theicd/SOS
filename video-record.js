@@ -247,17 +247,8 @@ class VideoRecorder {
     this.modes?.querySelectorAll('[data-vr-mode]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const mode = btn.getAttribute('data-vr-mode');
-        if (mode === '10' || mode === '20' || mode === '30') {
-          this.setCaptureMode(mode);
-          return;
-        }
-        if (mode === 'photo') {
-          this.setCaptureMode('photo');
-          if (this.cameraAvailable && this.stream) this.capturePhoto();
-          else {
-            try { this.galleryInput?.click(); } catch (_) {}
-          }
-        }
+        if (!mode || this.isRecording || this.countdownTimer) return;
+        this.setCaptureMode(mode);
       });
     });
 
@@ -1738,8 +1729,7 @@ class VideoRecorder {
     this.sideTools?.classList.toggle('is-collapsed', !this.toolsExpanded);
     this.toolsToggle?.setAttribute('aria-expanded', this.toolsExpanded ? 'true' : 'false');
     this.toolsToggle?.setAttribute('aria-label', this.toolsExpanded ? 'הסתר הסברים' : 'הצג הסברים');
-    const icon = this.toolsToggle?.querySelector('i');
-    if (icon) icon.className = this.toolsExpanded ? 'fa-solid fa-chevron-left' : 'fa-solid fa-chevron-right';
+    this.toolsToggle?.classList.toggle('is-open', this.toolsExpanded);
     if (expanded) this.toolsToggle?.classList.remove('is-hint');
     if (persist) {
       try { localStorage.setItem('sos_vr_tools_open', this.toolsExpanded ? '1' : '0'); } catch (_) {}

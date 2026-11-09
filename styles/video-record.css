@@ -192,22 +192,85 @@ body.video-record-open .videos-feed iframe {
 }
 
 .vr-tools-toggle {
+  position: relative;
   width: 44px;
   height: 44px;
   min-width: 44px;
   min-height: 44px;
   margin: 0;
-  border: 2px solid rgba(255, 255, 255, 0.45);
+  border: 2px solid rgba(255, 255, 255, 0.88);
   border-radius: 50%;
-  background: transparent;
+  background: rgba(0, 0, 0, 0.46);
   color: #fff;
-  font-size: 16px;
+  font-size: 18px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
   box-sizing: border-box;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.vr-tools-toggle__mark {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  display: block;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.85));
+}
+
+.vr-tools-toggle__arrow,
+.vr-tools-toggle__info {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vr-tools-toggle__arrow {
+  font-size: 16px;
+}
+
+.vr-tools-toggle__info {
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: 0;
+  transform: translateY(-1px);
+}
+
+.vr-tools-toggle:not(.is-open) .vr-tools-toggle__arrow {
+  animation: vrMarkArrow 3.2s ease-in-out infinite;
+}
+
+.vr-tools-toggle:not(.is-open) .vr-tools-toggle__info {
+  animation: vrMarkInfo 3.2s ease-in-out infinite;
+}
+
+.vr-tools-toggle.is-open .vr-tools-toggle__info {
+  opacity: 0;
+}
+
+.vr-tools-toggle.is-open .vr-tools-toggle__arrow {
+  opacity: 1;
+  transform: scaleX(-1);
+  animation: none;
+}
+
+@keyframes vrMarkArrow {
+  0%, 36% { opacity: 1; transform: scale(1); }
+  48%, 86% { opacity: 0; transform: scale(0.82); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes vrMarkInfo {
+  0%, 36% { opacity: 0; transform: translateY(-1px) scale(0.82); }
+  48%, 86% { opacity: 1; transform: translateY(-1px) scale(1); }
+  100% { opacity: 0; transform: translateY(-1px) scale(0.82); }
 }
 
 .vr-tools-toggle.is-hint {
@@ -216,12 +279,29 @@ body.video-record-open .videos-feed iframe {
 
 @keyframes vrToggleRing {
   0%, 100% {
-    border-color: rgba(255, 255, 255, 0.28);
-    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+    border-color: rgba(255, 255, 255, 0.62);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), 0 0 0 0 rgba(255, 255, 255, 0);
   }
   50% {
     border-color: #fff;
-    box-shadow: 0 0 0 7px rgba(255, 255, 255, 0.14);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4), 0 0 0 7px rgba(255, 255, 255, 0.16);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vr-tools-toggle:not(.is-open) .vr-tools-toggle__arrow,
+  .vr-tools-toggle:not(.is-open) .vr-tools-toggle__info,
+  .vr-tools-toggle.is-hint {
+    animation: none;
+  }
+
+  .vr-tools-toggle:not(.is-open) .vr-tools-toggle__arrow {
+    opacity: 0;
+  }
+
+  .vr-tools-toggle:not(.is-open) .vr-tools-toggle__info {
+    opacity: 1;
+    transform: translateY(-1px);
   }
 }
 

@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261109cam44'; // Camera opens on 10 seconds; photo mode is a white shutter with a countdown
+  const CACHE_NAME = 'sos-cache-v20261110cam45'; // Photo mode is a selection only; tool hint swaps the arrow with i
   const PRECACHE_URLS = [
     './',
     './videos.html',
