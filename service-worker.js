@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261109cam32'; // Thinner review bar, and the remove mark pops in above the photo
+  const CACHE_NAME = 'sos-cache-v20261109cam33'; // Caption page is readable, with publish on the left and close on the right
   const PRECACHE_URLS = [
     './',
     './videos.html',

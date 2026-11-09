@@ -1409,33 +1409,30 @@
     }
 
     if (elements.backButton) {
-      elements.backButton.addEventListener('click', () => {
+      const returnToPhotoEdit = () => {
         resetStatus();
-        // זרימת שיתוף חדשה: חזרה לתצוגה הגדולה, לא ל־chooser הישן | HYPER CORE TECH
         const fromShareFlow = state.composeMode === 'camera';
         const shareFile = state.media?.originalFile
           || window.videoRecorder?.lastShareFile
           || null;
-
         if (fromShareFlow && window.videoRecorder?.hasComposeDraft?.()) {
           window.videoRecorder.rememberComposeCaption();
           closeCompose({ skipResume: true });
           window.videoRecorder.restoreComposeDraft();
-          return;
+          return true;
         }
-
         if (fromShareFlow && typeof window.openVideoRecordReview === 'function') {
           if (state.media) clearMediaPreview();
           if (elements.mediaInput) elements.mediaInput.value = '';
           closeCompose({ keepDraft: true, skipResume: true });
-          if (shareFile) {
-            window.openVideoRecordReview(shareFile);
-          } else if (typeof window.openVideoRecordModal === 'function') {
-            window.openVideoRecordModal();
-          }
-          return;
+          if (shareFile) window.openVideoRecordReview(shareFile);
+          else if (typeof window.openVideoRecordModal === 'function') window.openVideoRecordModal();
+          return true;
         }
-
+        return false;
+      };
+      elements.backButton.addEventListener('click', () => {
+        if (returnToPhotoEdit()) return;
         if (state.media) {
           clearMediaPreview();
         }
@@ -1458,6 +1455,18 @@
         }
         updateComposeLegalState();
         showComposeStep('chooser');
+      });
+    }
+
+    const editorClose = document.getElementById('composeEditorClose');
+    if (editorClose && !editorClose.dataset.bound) {
+      editorClose.dataset.bound = '1';
+      editorClose.addEventListener('click', () => {
+        if (state.composeMode === 'camera' && elements.backButton) {
+          elements.backButton.click();
+          return;
+        }
+        closeCompose();
       });
     }
 
