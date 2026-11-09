@@ -1227,23 +1227,24 @@
         .compose-editor.is-media-cover .compose-editor__body {
           top: calc(108px + env(safe-area-inset-top, 0px));
           bottom: auto;
-          max-height: calc(100dvh - 128px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-          overflow-x: hidden;
-          overflow-y: auto;
-          -webkit-overflow-scrolling: touch;
+          max-height: none;
+          overflow: visible;
         }
 
         .compose-editor.is-media-cover .compose-hashtag-suggest {
-          margin: 2px 0 0;
-          padding: 10px 0 0;
+          margin: 8px 0 0;
+          padding: 0;
           border: none;
           border-radius: 0;
           background: transparent;
         }
 
         .compose-editor.is-media-cover .compose-hashtag-suggest__list {
-          max-height: 112px;
-          overflow-y: auto;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          max-height: none;
+          overflow: visible;
         }
       }
 
@@ -2427,7 +2428,7 @@
       })();
     </script>
     <!-- חלק קומפוזר (videos.html) — מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20261109cam38" defer></script>
+    <script src="./compose.js?v=20261109cam39" defer></script>
     <!-- חלק רקעים (videos.html) — מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>
@@ -2945,7 +2946,6 @@
             <button type="button" id="composeBgClear" hidden aria-hidden="true"></button>
 
             <div class="compose-hashtag-suggest" id="composeHashtagSuggest" hidden>
-              <div class="compose-hashtag-suggest__title">הצעות פופולריות</div>
               <div class="compose-hashtag-suggest__list" id="composeHashtagSuggestList" role="listbox"></div>
             </div>
 

@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261109cam38'; // Hashtag suggestions stay inside the caption card
+  const CACHE_NAME = 'sos-cache-v20261109cam39'; // Six hashtag suggestions, matched to the words being typed, with no scrolling
   const PRECACHE_URLS = [
     './',
     './videos.html',

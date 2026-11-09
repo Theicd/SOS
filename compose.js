@@ -39,9 +39,20 @@
     hashtagSuggestList: document.getElementById('composeHashtagSuggestList'),
   };
 
-  const POPULAR_HASHTAGS = [
-    'sos', 'חדשות', 'ספורט', 'מוזיקה', 'אוכל', 'טיולים', 'הומור', 'משפחה',
-    'טכנולוגיה', 'חינוך', 'ישראל', 'תלאביב', 'טבע', 'כושר', 'אופנה', 'רגעים',
+  const POPULAR_HASHTAGS = ['sos', 'חדשות', 'ספורט', 'מוזיקה', 'אוכל', 'טיולים'];
+
+  const HASHTAG_WORDS = [
+    { tag: 'חדשות', words: ['חדש', 'עדכון', 'מבזק'] },
+    { tag: 'ספורט', words: ['משחק', 'כדורגל', 'כדורסל', 'קבוצה', 'ספורט'] },
+    { tag: 'מוזיקה', words: ['שיר', 'מוזיקה', 'הופעה', 'זמר'] },
+    { tag: 'אוכל', words: ['אוכל', 'מתכון', 'מסעדה', 'בישול'] },
+    { tag: 'טיולים', words: ['טיול', 'נוף', 'חופשה', 'ים'] },
+    { tag: 'הומור', words: ['צחוק', 'בדיחה', 'הומור', 'מצחיק'] },
+    { tag: 'משפחה', words: ['משפחה', 'ילדים', 'הורים'] },
+    { tag: 'טכנולוגיה', words: ['טכנולוגיה', 'אפליקציה', 'טלפון'] },
+    { tag: 'טבע', words: ['טבע', 'יער', 'פרח'] },
+    { tag: 'כושר', words: ['כושר', 'אימון', 'ריצה'] },
+    { tag: 'אופנה', words: ['אופנה', 'בגד', 'סטייל'] },
   ];
 
   const state = {
@@ -96,12 +107,37 @@
   function hideHashtagSuggest() {
     if (elements.hashtagSuggest) elements.hashtagSuggest.setAttribute('hidden', '');
     elements.hashtagsPill?.classList.remove('is-active');
+    elements.editor?.classList.remove('is-tags-open');
   }
 
-  function showHashtagSuggest(filterText) {
+  function suggestTags(text) {
+    const raw = String(text || '');
+    const hash = raw.match(/(^|\s)#([^\s#]*)$/);
+    const q = hash ? String(hash[2] || '').toLowerCase() : '';
+    const pool = [...POPULAR_HASHTAGS];
+    HASHTAG_WORDS.forEach((item) => {
+      if (!pool.includes(item.tag)) pool.push(item.tag);
+    });
+    if (q) return pool.filter((tag) => tag.toLowerCase().includes(q)).slice(0, 6);
+    const hits = [];
+    HASHTAG_WORDS.forEach((item) => {
+      if (item.words.some((word) => raw.includes(word)) && !hits.includes(item.tag)) hits.push(item.tag);
+    });
+    const merged = hits.slice();
+    POPULAR_HASHTAGS.forEach((tag) => {
+      if (!merged.includes(tag)) merged.push(tag);
+    });
+    return merged.slice(0, 6);
+  }
+
+  function textHasHashtagCue(text) {
+    if (/(^|\s)#([^\s#]*)$/.test(text)) return true;
+    return HASHTAG_WORDS.some((item) => item.words.some((word) => String(text || '').includes(word)));
+  }
+
+  function showHashtagSuggest(text) {
     if (!elements.hashtagSuggest || !elements.hashtagSuggestList) return;
-    const q = String(filterText || '').replace(/^#/, '').trim().toLowerCase();
-    const list = POPULAR_HASHTAGS.filter((tag) => !q || tag.toLowerCase().includes(q)).slice(0, 12);
+    const list = suggestTags(text);
     elements.hashtagSuggestList.innerHTML = list
       .map((tag) => `<button type="button" class="compose-hashtag-chip" data-tag="${tag}" role="option">#${tag}</button>`)
       .join('');
@@ -111,10 +147,7 @@
     }
     elements.hashtagSuggest.removeAttribute('hidden');
     elements.hashtagsPill?.classList.add('is-active');
-    const editor = elements.editor || document.getElementById('composeEditor');
-    if (editor?.classList.contains('is-media-cover')) {
-      try { elements.hashtagSuggest.scrollIntoView({ block: 'nearest' }); } catch (_) {}
-    }
+    elements.editor?.classList.add('is-tags-open');
   }
 
   function insertHashtag(tag) {
@@ -1339,7 +1372,7 @@
           elements.textarea.value = cur + (cur && !/\s$/.test(cur) ? ' ' : '') + '#';
         }
         elements.textarea.focus();
-        showHashtagSuggest('');
+        showHashtagSuggest(elements.textarea.value || '');
       });
     }
     if (elements.hashtagSuggestList && !elements.hashtagSuggestList.dataset.bound) {
@@ -1354,8 +1387,8 @@
       elements.textarea.dataset.hashtagBound = '1';
       elements.textarea.addEventListener('input', () => {
         const cur = elements.textarea.value || '';
-        const match = cur.match(/(^|\s)#([^\s#]*)$/);
-        if (match) showHashtagSuggest(match[2] || '');
+        const pillOpen = elements.hashtagsPill?.classList.contains('is-active');
+        if (textHasHashtagCue(cur) || pillOpen) showHashtagSuggest(cur);
         else hideHashtagSuggest();
       });
     }
