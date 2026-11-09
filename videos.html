@@ -1177,10 +1177,26 @@
           max-height: 110px;
         }
         
-        /* התאמה כשהמקלדת פתוחה — בלי לדחוף את הדיאלוג מחוץ למסך | HYPER CORE TECH */
+        /* התאמה כשהמקלדת פתוחה — המסך נשאר מלא ואטום, בלי לחשוף את הפיד | HYPER CORE TECH */
+        .compose-modal.keyboard-open,
+        .compose-modal.keyboard-open.is-visible {
+          background: #000 !important;
+          transform: none !important;
+          overflow: hidden !important;
+        }
+
         .compose-modal.keyboard-open .compose-dialog {
-          max-height: 100dvh;
-          height: 100%;
+          max-height: 100% !important;
+          height: 100% !important;
+          min-height: 0 !important;
+          background: #000 !important;
+        }
+
+        .compose-editor.is-media-cover .compose-editor__body {
+          top: calc(58px + env(safe-area-inset-top, 0px));
+          bottom: auto;
+          max-height: min(52vh, 340px);
+          overflow-y: auto;
         }
       }
 
@@ -2364,7 +2380,7 @@
       })();
     </script>
     <!-- חלק קומפוזר (videos.html) — מודול הקומפוזר | HYPER CORE TECH -->
-    <script src="./compose.js?v=20261109cam33" defer></script>
+    <script src="./compose.js?v=20261109cam34" defer></script>
     <!-- חלק רקעים (videos.html) — מודול בורר רקעים כמו ב-index.html | HYPER CORE TECH -->
     <script src="./compose-backgrounds.js" defer></script>
     <script>

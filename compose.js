@@ -1182,62 +1182,32 @@
 
   // התאמת המודאל למקלדת במובייל
   function setupMobileKeyboardHandling() {
-    if (!isMobile()) return;
-    
+    if (!isMobile() || !elements.modal || elements.modal.dataset.kbBound === '1') return;
+    elements.modal.dataset.kbBound = '1';
     const modal = elements.modal;
-    const textarea = elements.textarea;
-    
-    if (!modal || !textarea) return;
-    
-    // הגדרת התנהגות מובייל למודאל
-    modal.style.position = 'fixed';
-    modal.style.top = '0';
-    modal.style.left = '0';
-    modal.style.right = '0';
-    modal.style.bottom = '0';
-    modal.style.margin = '0';
-    modal.style.maxHeight = '100vh';
-    modal.style.overflowY = 'auto';
-    
-    // האזנה לאירועי focus/blur של ה-textarea
-    let originalModalBottom = '0';
-    
-    textarea.addEventListener('focus', () => {
-      // כשהמקלדת נפתחת, מרימים את המודאל
-      setTimeout(() => {
-        const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-        const modalHeight = modal.offsetHeight;
-        
-        if (modalHeight > viewportHeight * 0.8) {
-          modal.style.transform = 'translateY(-10vh)';
-          modal.style.transition = 'transform 0.3s ease';
-        }
-      }, 300);
-    });
-    
-    textarea.addEventListener('blur', () => {
-      // מחזירים את המודאל למקומו כשהמקלדת נסגרת
-      setTimeout(() => {
-        modal.style.transform = 'translateY(0)';
-      }, 100);
-    });
-    
-    // האזנה לשינויים ב-viewport (למקרה של סיבוב מסך)
+    const pinToVisibleScreen = () => {
+      const vv = window.visualViewport;
+      modal.style.transform = 'none';
+      if (!vv || !modal.classList.contains('is-visible')) return;
+      const keyboardOpen = window.innerHeight - vv.height > 120;
+      modal.classList.toggle('keyboard-open', keyboardOpen);
+      if (!keyboardOpen) {
+        modal.style.top = '';
+        modal.style.height = '';
+        modal.style.bottom = '';
+        return;
+      }
+      modal.style.top = `${Math.max(0, Math.round(vv.offsetTop))}px`;
+      modal.style.height = `${Math.round(vv.height)}px`;
+      modal.style.bottom = 'auto';
+    };
     if (window.visualViewport) {
-      const handleViewportChange = () => {
-        const viewportHeight = window.visualViewport.height;
-        const modalHeight = modal.offsetHeight;
-        
-        if (viewportHeight < modalHeight * 0.7) {
-          modal.style.transform = `translateY(${window.visualViewport.offsetTop - 20}px) scale(0.95)`;
-        } else {
-          modal.style.transform = 'translateY(0) scale(1)';
-        }
-      };
-      
-      window.visualViewport.addEventListener('resize', handleViewportChange);
-      window.visualViewport.addEventListener('scroll', handleViewportChange);
+      window.visualViewport.addEventListener('resize', pinToVisibleScreen);
+      window.visualViewport.addEventListener('scroll', pinToVisibleScreen);
     }
+    elements.textarea?.addEventListener('blur', () => {
+      setTimeout(pinToVisibleScreen, 80);
+    });
   }
 
   function getComposePayload() {
