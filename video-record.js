@@ -981,6 +981,7 @@ class VideoRecorder {
     if (this._confirming || !this.pendingFile) return;
     this._confirming = true;
     try {
+      try { document.getElementById('composeKeyboardHold')?.focus(); } catch (_) {}
       if (this._studioOpen) this.closeTextStudio();
       this.stopSlideShow();
       this.saveOverlayToSlide(this.slideIndex);

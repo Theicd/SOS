@@ -1097,9 +1097,14 @@
     elements.modal.style.display = 'flex';
     elements.modal.classList.add('is-visible');
     elements.modal.setAttribute('aria-hidden', 'false');
-    
-    if (requestedStep === 'editor' && elements.textarea && !isMobile()) {
-      elements.textarea.focus();
+
+    if (requestedStep === 'editor' && elements.textarea) {
+      const focusCaption = () => {
+        try { elements.textarea.focus({ preventScroll: true }); }
+        catch (_) { try { elements.textarea.focus(); } catch (__) {} }
+      };
+      focusCaption();
+      requestAnimationFrame(focusCaption);
     }
     
     setupMobileKeyboardHandling();
