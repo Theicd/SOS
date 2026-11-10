@@ -995,7 +995,7 @@ body.video-record-open .videos-feed iframe {
   justify-content: space-between;
   direction: ltr;
   min-height: 0;
-  padding: calc(6px + var(--safe-top, 0px)) 0 6px 12px;
+  padding: calc(6px + var(--safe-top, 0px)) 0 6px 0;
   border-radius: 0;
   background: none;
   pointer-events: none;
@@ -1032,12 +1032,22 @@ body.video-record-open .videos-feed iframe {
 }
 
 .vr-review-top .vr-next-btn {
-  height: 40px;
-  min-height: 40px;
-  padding: 0 16px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 16px 0 calc(14px + env(safe-area-inset-left, 0px));
+  border-radius: 0 22px 22px 0;
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
   font-size: 15px;
   font-weight: 800;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: inset -3px 0 0 #f2a93b, 0 2px 12px rgba(0, 0, 0, 0.22);
+}
+
+.vr-review-top .vr-next-btn:hover,
+.vr-review-top .vr-next-btn:focus-visible {
+  background: rgba(0, 0, 0, 0.55);
 }
 
 .vr-next-btn {
