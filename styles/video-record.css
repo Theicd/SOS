@@ -995,25 +995,40 @@ body.video-record-open .videos-feed iframe {
   justify-content: space-between;
   direction: ltr;
   min-height: 0;
-  padding: calc(6px + var(--safe-top, 0px)) 12px 6px;
-  border-radius: 0 0 14px 14px;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.34), rgba(0, 0, 0, 0.16));
+  padding: calc(6px + var(--safe-top, 0px)) 0 6px 12px;
+  border-radius: 0;
+  background: none;
+  pointer-events: none;
+}
+
+.vr-review-top .vr-review-actions,
+.vr-review-top .vr-close {
+  pointer-events: auto;
 }
 
 .vr-review-top .vr-close {
-  position: static !important;
-  top: auto !important;
-  right: auto !important;
-  left: auto !important;
+  position: absolute !important;
   inset: auto !important;
+  top: calc(6px + var(--safe-top, 0px)) !important;
+  right: 0 !important;
+  left: auto !important;
   inset-inline-start: auto !important;
-  inset-inline-end: auto !important;
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-  min-height: 40px;
-  background: rgba(255, 255, 255, 0.16);
-  font-size: 16px;
+  inset-inline-end: 0 !important;
+  width: 58px;
+  height: 44px;
+  min-width: 58px;
+  min-height: 44px;
+  border-radius: 22px 0 0 22px;
+  background: rgba(0, 0, 0, 0.4);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: inset 3px 0 0 #f2a93b, 0 2px 12px rgba(0, 0, 0, 0.22);
+  font-size: 18px;
+}
+
+.vr-review-top .vr-close:hover,
+.vr-review-top .vr-close:focus-visible {
+  background: rgba(0, 0, 0, 0.55);
 }
 
 .vr-review-top .vr-next-btn {
@@ -1054,7 +1069,7 @@ body.video-record-open .videos-feed iframe {
 .vr-review-text {
   display: none;
   position: absolute;
-  top: calc(58px + var(--safe-top, 0px));
+  top: calc(68px + var(--safe-top, 0px));
   left: 0;
   z-index: 7;
   align-items: center;
@@ -1068,7 +1083,7 @@ body.video-record-open .videos-feed iframe {
   backdrop-filter: blur(12px);
   color: #fff;
   cursor: pointer;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.22);
+  box-shadow: inset -3px 0 0 #f2a93b, 0 2px 12px rgba(0, 0, 0, 0.22);
 }
 
 .vr-review-text .vr-tool__glyph {
