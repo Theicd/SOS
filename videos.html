@@ -603,8 +603,9 @@
         z-index: 4;
         margin: 0;
         direction: ltr;
-        padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 16px;
-        background: linear-gradient(180deg, rgba(0, 0, 0, 0.72) 0%, rgba(0, 0, 0, 0.46) 62%, rgba(0, 0, 0, 0) 100%);
+        padding: 0;
+        background: none;
+        pointer-events: none;
       }
 
       .compose-editor__heading-caption { display: none; }
@@ -612,13 +613,13 @@
       .compose-editor.is-media-cover .compose-editor__heading {
         position: absolute;
         left: 50%;
-        top: calc(8px + env(safe-area-inset-top, 0px));
+        top: calc(6px + env(safe-area-inset-top, 0px));
         transform: translateX(-50%);
         width: max-content;
         margin: 0;
         color: #fff;
         text-align: center;
-        line-height: 40px;
+        line-height: 44px;
         text-shadow: 0 1px 6px rgba(0, 0, 0, 0.75);
         pointer-events: none;
       }
@@ -639,10 +640,25 @@
 
       .compose-editor.is-media-cover #composeEditorClose {
         position: absolute;
-        top: calc(8px + env(safe-area-inset-top, 0px));
-        right: 12px;
+        top: calc(6px + env(safe-area-inset-top, 0px));
+        right: 0;
         left: auto;
+        width: 58px;
+        height: 44px;
+        min-width: 58px;
         margin: 0;
+        border-radius: 22px 0 0 22px;
+        background: rgba(0, 0, 0, 0.4);
+        font-size: 18px;
+        pointer-events: auto;
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+        box-shadow: inset 3px 0 0 #f2a93b, 0 2px 12px rgba(0, 0, 0, 0.22);
+      }
+
+      .compose-editor.is-media-cover #composeEditorClose:hover,
+      .compose-editor.is-media-cover #composeEditorClose:focus-visible {
+        background: rgba(0, 0, 0, 0.55);
       }
 
       .compose-editor.is-media-cover .compose-editor__body {
@@ -716,8 +732,8 @@
 
       .compose-editor.is-media-cover .compose-dialog__actions {
         position: absolute !important;
-        top: calc(8px + env(safe-area-inset-top, 0px));
-        left: 12px;
+        top: calc(6px + env(safe-area-inset-top, 0px));
+        left: 0;
         right: auto;
         bottom: auto;
         width: auto;
@@ -726,6 +742,7 @@
         padding: 0;
         border: none;
         background: transparent;
+        pointer-events: none;
       }
 
       .compose-editor.is-media-cover .compose-save-file {
@@ -736,25 +753,29 @@
         flex: 0 0 auto !important;
         width: auto !important;
         min-width: 0 !important;
-        min-height: 40px;
-        height: 40px;
-        padding: 0 16px !important;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.55);
-        color: #111;
+        min-height: 44px;
+        height: 44px;
+        padding: 0 16px 0 calc(14px + env(safe-area-inset-left, 0px)) !important;
+        border-radius: 0 22px 22px 0;
+        background: rgba(0, 0, 0, 0.4);
+        color: #fff;
         font-size: 15px;
         font-weight: 800;
-        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
+        pointer-events: auto;
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+        box-shadow: inset -3px 0 0 #f2a93b, 0 2px 12px rgba(0, 0, 0, 0.22);
       }
 
       .compose-editor.is-media-cover .compose-dialog__actions .button-primary.is-ready {
         background: #fe2c55;
         color: #fff;
         opacity: 1;
+        box-shadow: inset -3px 0 0 rgba(255, 255, 255, 0.5), 0 2px 12px rgba(0, 0, 0, 0.22);
       }
 
       .compose-editor.is-media-cover .compose-dialog__actions .button-primary:disabled {
-        opacity: 0.55;
+        opacity: 1;
         cursor: not-allowed;
       }
 
