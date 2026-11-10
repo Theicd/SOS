@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261110cam45'; // Photo mode is a selection only; tool hint swaps the arrow with i
+  const CACHE_NAME = 'sos-cache-v20261110cam46'; // Add-text control is a tab on the left edge of the review page
   const PRECACHE_URLS = [
     './',
     './videos.html',

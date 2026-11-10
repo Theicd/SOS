@@ -1054,33 +1054,41 @@ body.video-record-open .videos-feed iframe {
 .vr-review-text {
   display: none;
   position: absolute;
-  top: calc(56px + var(--safe-top, 0px));
-  left: 12px;
+  top: calc(58px + var(--safe-top, 0px));
+  left: 0;
   z-index: 7;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  height: 44px;
+  padding: 0 16px 0 calc(12px + env(safe-area-inset-left, 0px));
   border: none;
-  background: transparent;
+  border-radius: 0 22px 22px 0;
+  background: rgba(0, 0, 0, 0.4);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   color: #fff;
-  padding: 0;
   cursor: pointer;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.22);
 }
 
 .vr-review-text .vr-tool__glyph {
-  width: 52px;
-  height: 52px;
-  min-width: 52px;
-  min-height: 52px;
-  font-size: 32px;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  font-size: 20px;
+  filter: none;
 }
 
 .vr-review-text .vr-tool-btn__aa {
-  font-size: 32px;
+  font-size: 18px;
   font-weight: 800;
 }
 
 .vr-review-text .vr-tool__label {
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 700;
+  text-shadow: none;
 }
 
 .video-record-stage--review.is-texting .vr-review-text,
