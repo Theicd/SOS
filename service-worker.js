@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261110cam48'; // Next and close are matching edge tabs on the review page
+  const CACHE_NAME = 'sos-cache-v20261110cam49'; // Add-text tab sits lower, with a blue edge and the same info toggle
   const PRECACHE_URLS = [
     './',
     './videos.html',

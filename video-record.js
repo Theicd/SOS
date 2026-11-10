@@ -94,6 +94,8 @@ class VideoRecorder {
     this.countdownEl = document.getElementById('videoRecordCountdown');
     this.reviewTextLayer = document.getElementById('videoRecordReviewTextLayer');
     this.reviewTextBtn = document.getElementById('videoRecordReviewTextBtn');
+    this.reviewTextDock = document.getElementById('videoRecordReviewTextDock');
+    this.reviewTextHint = document.getElementById('videoRecordReviewTextHint');
     this.textStudio = document.getElementById('videoRecordTextStudio');
     this.textStudioBottom = document.getElementById('videoRecordTextStudioBottom');
     this.textStudioDone = document.getElementById('videoRecordTextStudioDone');
@@ -171,6 +173,11 @@ class VideoRecorder {
       this.openDiscardSheet();
     });
     this.reviewTextBtn?.addEventListener('click', () => this.openTextStudio());
+    this.reviewTextHint?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.toggleReviewTextHint();
+    });
     this.textStudioDone?.addEventListener('click', () => this.closeTextStudio());
     this.textAlignBtn?.addEventListener('click', () => this.cycleTextAlign());
     this.textColorBtn?.addEventListener('click', () => this.toggleColorPop());
@@ -556,8 +563,10 @@ class VideoRecorder {
   }
 
   showReviewStage() {
+    const wasHidden = !this.stageReview || this.stageReview.hidden;
     if (this.stageCamera) this.stageCamera.hidden = true;
     if (this.stageReview) this.stageReview.hidden = false;
+    if (wasHidden) this.restoreReviewTextHint();
   }
 
   clearPendingPreview() {
@@ -1739,6 +1748,26 @@ class VideoRecorder {
   toggleToolsExpanded() {
     this.toolsToggle?.classList.remove('is-hint');
     this.applyToolsExpanded(!this.toolsExpanded, false);
+  }
+
+  restoreReviewTextHint() {
+    this.applyReviewTextHint(false);
+    this.reviewTextHint?.classList.add('is-hint');
+  }
+
+  applyReviewTextHint(expanded) {
+    const open = !!expanded;
+    this.reviewTextDock?.classList.toggle('is-collapsed', !open);
+    this.reviewTextHint?.classList.toggle('is-open', open);
+    this.reviewTextHint?.setAttribute('aria-expanded', open ? 'true' : 'false');
+    this.reviewTextHint?.setAttribute('aria-label', open ? 'הסתר הסבר' : 'הצג הסבר');
+    if (open) this.reviewTextHint?.classList.remove('is-hint');
+  }
+
+  toggleReviewTextHint() {
+    this.reviewTextHint?.classList.remove('is-hint');
+    const collapsed = this.reviewTextDock?.classList.contains('is-collapsed');
+    this.applyReviewTextHint(!!collapsed);
   }
 
   async toggleBackgrounds() {

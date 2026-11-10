@@ -1072,16 +1072,30 @@ body.video-record-open .videos-feed iframe {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
-.video-record-stage--review.is-image .vr-review-text {
-  display: inline-flex;
+.video-record-stage--review.is-image .vr-review-text-dock {
+  display: flex;
+}
+
+.vr-review-text-dock {
+  display: none;
+  position: absolute;
+  top: calc(78px + var(--safe-top, 0px));
+  left: 0;
+  z-index: 7;
+  align-items: center;
+  gap: 8px;
+}
+
+.vr-review-text-dock.is-collapsed .vr-review-text .vr-tool__label {
+  display: none;
 }
 
 .vr-review-text {
-  display: none;
-  position: absolute;
-  top: calc(68px + var(--safe-top, 0px));
-  left: 0;
-  z-index: 7;
+  display: inline-flex;
+  position: static;
+  top: auto;
+  left: auto;
+  z-index: auto;
   align-items: center;
   gap: 8px;
   height: 44px;
@@ -1093,7 +1107,7 @@ body.video-record-open .videos-feed iframe {
   backdrop-filter: blur(12px);
   color: #fff;
   cursor: pointer;
-  box-shadow: inset -3px 0 0 #f2a93b, 0 2px 12px rgba(0, 0, 0, 0.22);
+  box-shadow: inset -3px 0 0 #66ccff, 0 2px 12px rgba(0, 0, 0, 0.22);
 }
 
 .vr-review-text .vr-tool__glyph {
@@ -1116,6 +1130,7 @@ body.video-record-open .videos-feed iframe {
   text-shadow: none;
 }
 
+.video-record-stage--review.is-texting .vr-review-text-dock,
 .video-record-stage--review.is-texting .vr-review-text,
 .video-record-stage--review.is-texting .vr-review-top,
 .video-record-stage--review.is-texting .vr-review-actions,
