@@ -2,7 +2,7 @@
 (function initServiceWorker(self) {
   
   // חלק הגדרות Cache (service-worker.js) – שמות ורשימת קבצים לשמירה | HYPER CORE TECH
-  const CACHE_NAME = 'sos-cache-v20261110cam51'; // Photo remove control is a tab on the thumbnail frame
+  const CACHE_NAME = 'sos-cache-v20261110cam52'; // Camera tools and close use the same edge tabs as the review page
   const PRECACHE_URLS = [
     './',
     './videos.html',
